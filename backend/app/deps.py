@@ -20,11 +20,15 @@ async def get_current_user_client(authorization: str = Header(...)) -> Client:
         raise HTTPException(status_code=401, detail="Missing bearer token")
     access_token = authorization.removeprefix("Bearer ").strip()
 
-    client = create_client(settings.supabase_url, settings.supabase_anon_key)
-
     try:
+        client = create_client(settings.supabase_url, settings.supabase_anon_key)
         user_response = client.auth.get_user(access_token)
-    except Exception as exc:  # supabase-py raises on invalid/expired tokens
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Covers both a malformed/expired user token and a misconfigured or
+        # unreachable Supabase project — neither is this caller's fault to
+        # debug, so surface it as "not authenticated" rather than a raw 500.
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
     if user_response is None or user_response.user is None:
