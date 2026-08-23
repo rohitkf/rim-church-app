@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { attendanceBarClass, attendancePercent } from '../lib/attendance'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import type { RoleType } from '../auth/types'
 import {
@@ -214,6 +215,31 @@ export function DashboardPage() {
                   <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
                     Actual: {totalActual} &nbsp; Expected: {totalExpected}
                   </div>
+                  {attendance.length > 0 && (
+                    <ul className="mt-5 flex flex-col gap-4">
+                      {attendance.map((a) => {
+                        const deptName =
+                          departmentsQuery.data?.find((d) => d.id === a.department_id)?.name ?? 'Unknown department'
+                        const pct = attendancePercent(a.actual_count, a.expected_count)
+                        return (
+                          <li key={a.id}>
+                            <div className="flex items-center justify-between text-body-sm">
+                              <span className="font-medium text-on-surface">{deptName}</span>
+                              <span className="font-mono text-label-sm text-on-surface-variant">
+                                {pct !== null ? `${pct}%` : '—'} · {a.actual_count ?? 0}/{a.expected_count}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-container">
+                              <div
+                                className={`h-full rounded-full ${attendanceBarClass(pct)}`}
+                                style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
+                              />
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
                 </div>
                 <div>
                   <div className="text-body-sm text-on-surface-variant">Overall Checklist Progress</div>

@@ -44,6 +44,8 @@
   --color-on-error: #ffffff;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
+  --color-warning: #f59e0b;
+  --color-success: #16a34a;
 
   /* 3-stage checklist verification chain */
   --color-status-pending: #94a3b8;
