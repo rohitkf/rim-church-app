@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 import {
   BarChartIcon,
   BellIcon,
+  BoxIcon,
   CalendarIcon,
   ChecklistIcon,
   GridIcon,
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, enabled: true },
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, enabled: true },
   { to: '/departments', label: 'Teams', icon: UsersIcon, enabled: true },
+  { to: '/inventory', label: 'Inventory', icon: BoxIcon, enabled: true },
   { to: '/analytics', label: 'Analytics', icon: BarChartIcon, enabled: false },
 ]
 

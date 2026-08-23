@@ -56,6 +56,15 @@ export function UsersIcon(props: IconProps) {
   )
 }
 
+export function BoxIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" />
+      <path d="M3 8l9 5 9-5M12 13v8" />
+    </svg>
+  )
+}
+
 export function BarChartIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

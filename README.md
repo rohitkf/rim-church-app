@@ -5,10 +5,10 @@ coordination, attendance, checklists, inventory, and internal communication
 — with a hybrid interface: structured UI plus an AI assistant (voice/text)
 that can perform the same actions.
 
-Full requirements: see the PRD. This repo currently implements **Phases 1–6**
+Full requirements: see the PRD. This repo currently implements **Phases 1–7**
 of the milestones below (Auth, Profiles, Departments/Team Planner,
-Attendance + Checklists, Dashboard, Service Planner), plus the full
-Section 8 data model/RLS so later phases build on stable foundations.
+Attendance + Checklists, Dashboard, Service Planner, Inventory), plus the
+full Section 8 data model/RLS so later phases build on stable foundations.
 Visual design follows `DESIGN.md` (the "Sanctuary Ops" system).
 
 `/checklists` still has a minimal Admin-only "create a service" form —
@@ -133,7 +133,7 @@ and a docker job that builds both images and validates `docker-compose.yml`.
 | 4 | Attendance + checklist workflow | ✅ |
 | 5 | Dashboard | ✅ (no live Realtime push yet — lands with Phase 8) |
 | 6 | Service planner | ✅ |
-| 7 | Inventory | Schema/RLS ready, UI pending |
+| 7 | Inventory | ✅ |
 | 8 | Message board + notifications | Schema/RLS ready, UI pending |
 | 9 | AI assistant | Backend skeleton only |
 

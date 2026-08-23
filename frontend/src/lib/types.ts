@@ -83,6 +83,18 @@ export interface ProfileOption {
   last_name: string
 }
 
+export interface InventoryItem {
+  id: string
+  department_id: string
+  name: string
+  quantity: number
+  status: string | null
+  location: string | null
+  last_checked: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AttendanceRow {
   id: string
   department_id: string
