@@ -2,12 +2,12 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
   BarChartIcon,
-  BellIcon,
   BoxIcon,
   CalendarIcon,
   ChecklistIcon,
   GridIcon,
   HelpCircleIcon,
+  MessageIcon,
   SearchIcon,
   SettingsIcon,
   SparklesIcon,
@@ -15,6 +15,7 @@ import {
   UserCircleIcon,
   UsersIcon,
 } from './icons'
+import { NotificationsBell } from './NotificationsBell'
 import type { ComponentType, SVGProps } from 'react'
 
 interface NavItem {
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, enabled: true },
   { to: '/departments', label: 'Teams', icon: UsersIcon, enabled: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, enabled: true },
+  { to: '/messages', label: 'Messages', icon: MessageIcon, enabled: true },
   { to: '/analytics', label: 'Analytics', icon: BarChartIcon, enabled: false },
 ]
 
@@ -151,7 +153,7 @@ export function AppShell() {
           </label>
           <div className="flex items-center gap-4 text-on-surface-variant">
             <TimerIcon />
-            <BellIcon />
+            <NotificationsBell />
             <button
               onClick={() => signOut()}
               title="Sign out"

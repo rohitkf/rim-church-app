@@ -83,6 +83,23 @@ export interface ProfileOption {
   last_name: string
 }
 
+export interface MessageRow {
+  id: string
+  author_id: string
+  body: string
+  created_at: string
+  author: { id: string; first_name: string; last_name: string } | null
+}
+
+export interface NotificationRow {
+  id: string
+  user_id: string
+  type: string
+  reference_id: string | null
+  read_boolean: boolean
+  created_at: string
+}
+
 export interface InventoryItem {
   id: string
   department_id: string

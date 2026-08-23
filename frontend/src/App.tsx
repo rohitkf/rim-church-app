@@ -18,6 +18,7 @@ import { ServicePlannerIndexPage } from './pages/ServicePlannerIndexPage'
 import { ServicePlannerPage } from './pages/ServicePlannerPage'
 import { InventoryIndexPage } from './pages/InventoryIndexPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { MessageBoardPage } from './pages/MessageBoardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ function App() {
                   <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
                   <Route path="/inventory" element={<InventoryIndexPage />} />
                   <Route path="/inventory/:id" element={<InventoryPage />} />
+                  <Route path="/messages" element={<MessageBoardPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />

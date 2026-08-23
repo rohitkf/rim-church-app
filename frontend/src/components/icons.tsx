@@ -56,6 +56,14 @@ export function UsersIcon(props: IconProps) {
   )
 }
 
+export function MessageIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
 export function BoxIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

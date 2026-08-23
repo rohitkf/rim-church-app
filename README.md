@@ -5,11 +5,12 @@ coordination, attendance, checklists, inventory, and internal communication
 — with a hybrid interface: structured UI plus an AI assistant (voice/text)
 that can perform the same actions.
 
-Full requirements: see the PRD. This repo currently implements **Phases 1–7**
+Full requirements: see the PRD. This repo currently implements **Phases 1–8**
 of the milestones below (Auth, Profiles, Departments/Team Planner,
-Attendance + Checklists, Dashboard, Service Planner, Inventory), plus the
-full Section 8 data model/RLS so later phases build on stable foundations.
-Visual design follows `DESIGN.md` (the "Sanctuary Ops" system).
+Attendance + Checklists, Dashboard, Service Planner, Inventory, Message
+Board + Notifications), plus the full Section 8 data model/RLS so later
+phases build on stable foundations. Visual design follows `DESIGN.md` (the
+"Sanctuary Ops" system).
 
 `/checklists` still has a minimal Admin-only "create a service" form —
 that predates the Service Planner and just registers a date/type quickly
@@ -68,6 +69,9 @@ docker-compose.yml   Runs both containers together for local/self-hosted deploym
 4. The `handbooks` and `avatars` Storage buckets are created by
    `0008_storage_handbooks.sql` along with their RLS policies — no manual
    bucket setup needed.
+5. `0009_realtime.sql` adds `messages` and `notifications` to the
+   `supabase_realtime` publication so the notification bell and message
+   board update live — no manual Realtime toggle needed either.
 
 `supabase/_local_test/` holds stub `auth`/`storage` schemas used only to
 dry-run these migrations against a bare Postgres instance in CI — they are
@@ -134,7 +138,7 @@ and a docker job that builds both images and validates `docker-compose.yml`.
 | 5 | Dashboard | ✅ (no live Realtime push yet — lands with Phase 8) |
 | 6 | Service planner | ✅ |
 | 7 | Inventory | ✅ |
-| 8 | Message board + notifications | Schema/RLS ready, UI pending |
+| 8 | Message board + notifications | ✅ |
 | 9 | AI assistant | Backend skeleton only |
 
 ## Not yet done for a real production deployment
@@ -143,9 +147,10 @@ and a docker job that builds both images and validates `docker-compose.yml`.
   nothing pushes them to a registry or deploys them anywhere (no Fly.io/
   Render/ECS/k8s manifests, no reverse proxy or TLS termination config).
   That's intentionally left open until you pick where this actually runs.
-- **Realtime subscriptions** (Section 15/16 — live checklist views,
-  notification bell) — schema/RLS is ready, the frontend doesn't subscribe
-  yet (lands with Phase 8).
+- **Realtime on checklist/attendance views** — the notification bell and
+  message board are live (Phase 8), but the Dashboard and Department Prep
+  pages still require a manual refresh to see another user's update; wiring
+  those to Realtime too is straightforward but not done.
 - **Rate limiting / abuse protection** on the FastAPI service — deferred
   until the AI assistant (Phase 9) actually calls an LLM API worth
   protecting.
