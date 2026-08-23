@@ -1,16 +1,25 @@
 import { type FormEvent, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
-import type { Department, DepartmentMemberRow, MemberType, SensitiveByUser } from '../lib/types'
+import {
+  departmentSchema,
+  departmentMemberRowSchema,
+  sensitiveByUserSchema,
+  type Department,
+  type DepartmentMemberRow,
+  type MemberType,
+  type SensitiveByUser,
+} from '../lib/types'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data
+  return data ? departmentSchema.parse(data) : null
 }
 
 async function fetchMembers(id: string): Promise<DepartmentMemberRow[]> {
@@ -19,8 +28,10 @@ async function fetchMembers(id: string): Promise<DepartmentMemberRow[]> {
     .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
     .eq('department_id', id)
   if (error) throw error
-  return data as unknown as DepartmentMemberRow[]
+  return z.array(departmentMemberRowSchema).parse(data)
 }
+
+const sensitiveRowSchema = sensitiveByUserSchema.extend({ user_id: z.string() })
 
 async function fetchSensitive(userIds: string[]): Promise<Record<string, SensitiveByUser>> {
   if (userIds.length === 0) return {}
@@ -29,7 +40,8 @@ async function fetchSensitive(userIds: string[]): Promise<Record<string, Sensiti
     .select('user_id, visa_type, has_dbs, visa_expiry')
     .in('user_id', userIds)
   if (error) throw error
-  return Object.fromEntries(data.map((row) => [row.user_id, row]))
+  const rows = z.array(sensitiveRowSchema).parse(data)
+  return Object.fromEntries(rows.map((row) => [row.user_id, row]))
 }
 
 function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined }) {

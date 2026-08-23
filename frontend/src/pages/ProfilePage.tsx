@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-
-interface SensitiveProfile {
-  visa_type: string | null
-  has_dbs: boolean
-  visa_expiry: string | null
-}
+import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 
 const inputClasses =
   'rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
@@ -18,7 +13,7 @@ export function ProfilePage() {
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')
-  const [sensitive, setSensitive] = useState<SensitiveProfile | null>(null)
+  const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -37,7 +32,15 @@ export function ProfilePage() {
       .select('visa_type, has_dbs, visa_expiry')
       .eq('user_id', profile.id)
       .single()
-      .then(({ data }) => setSensitive(data))
+      .then(({ data }) => {
+        if (!data) return setSensitive(null)
+        const result = sensitiveByUserSchema.safeParse(data)
+        if (!result.success) {
+          console.error('profile_sensitive response did not match expected shape:', result.error)
+          return setSensitive(null)
+        }
+        setSensitive(result.data)
+      })
   }, [profile])
 
   if (!profile) {

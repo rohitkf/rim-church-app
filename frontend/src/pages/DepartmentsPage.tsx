@@ -4,13 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import type { Department } from '../lib/types'
-
-async function fetchDepartments(): Promise<Department[]> {
-  const { data, error } = await supabase.from('departments').select('*').order('name')
-  if (error) throw error
-  return data
-}
+import { fetchDepartments } from '../lib/queries'
 
 export function DepartmentsPage() {
   const { isAdmin } = useAuth()

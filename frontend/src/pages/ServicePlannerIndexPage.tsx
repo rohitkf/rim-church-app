@@ -1,15 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
-import type { Service } from '../lib/types'
-
-async function fetchServices(): Promise<Service[]> {
-  const { data, error } = await supabase.from('services').select('*').order('date', { ascending: false })
-  if (error) throw error
-  return data
-}
+import { fetchServices } from '../lib/queries'
 
 export function ServicePlannerIndexPage() {
   const navigate = useNavigate()

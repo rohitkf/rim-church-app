@@ -1,15 +1,23 @@
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
-import type { ProfileOption, Service, ServiceSessionRow } from '../lib/types'
+import {
+  serviceSchema,
+  serviceSessionRowSchema,
+  profileOptionSchema,
+  type ProfileOption,
+  type Service,
+  type ServiceSessionRow,
+} from '../lib/types'
 
 async function fetchService(id: string): Promise<Service | null> {
   const { data, error } = await supabase.from('services').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data
+  return data ? serviceSchema.parse(data) : null
 }
 
 async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
@@ -19,13 +27,13 @@ async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
     .eq('service_id', serviceId)
     .order('order_index')
   if (error) throw error
-  return data as unknown as ServiceSessionRow[]
+  return z.array(serviceSessionRowSchema).parse(data)
 }
 
 async function fetchProfileOptions(): Promise<ProfileOption[]> {
   const { data, error } = await supabase.from('profiles').select('id, first_name, last_name').order('first_name')
   if (error) throw error
-  return data
+  return z.array(profileOptionSchema).parse(data)
 }
 
 export function ServicePlannerPage() {

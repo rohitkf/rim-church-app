@@ -1,15 +1,16 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import type { Department, InventoryItem } from '../lib/types'
+import { departmentSchema, inventoryItemSchema, type Department, type InventoryItem } from '../lib/types'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data
+  return data ? departmentSchema.parse(data) : null
 }
 
 async function fetchItems(departmentId: string): Promise<InventoryItem[]> {
@@ -19,7 +20,7 @@ async function fetchItems(departmentId: string): Promise<InventoryItem[]> {
     .eq('department_id', departmentId)
     .order('name')
   if (error) throw error
-  return data
+  return z.array(inventoryItemSchema).parse(data)
 }
 
 export function InventoryPage() {

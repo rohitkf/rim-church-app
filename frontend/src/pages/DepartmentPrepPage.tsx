@@ -1,23 +1,35 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { useHandbookUrl } from '../lib/useHandbookUrl'
 import { StatusBadge, SegmentedProgressBar } from '../components/ChecklistStatus'
-import type { AttendanceRow, ChecklistItemRow, Department, DepartmentMemberRow, Service } from '../lib/types'
+import {
+  departmentSchema,
+  serviceSchema,
+  departmentMemberRowSchema,
+  checklistItemRowSchema,
+  attendanceRowSchema,
+  type AttendanceRow,
+  type ChecklistItemRow,
+  type Department,
+  type DepartmentMemberRow,
+  type Service,
+} from '../lib/types'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data
+  return data ? departmentSchema.parse(data) : null
 }
 
 async function fetchService(id: string): Promise<Service | null> {
   const { data, error } = await supabase.from('services').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data
+  return data ? serviceSchema.parse(data) : null
 }
 
 async function fetchCoreMembers(departmentId: string): Promise<DepartmentMemberRow[]> {
@@ -27,7 +39,7 @@ async function fetchCoreMembers(departmentId: string): Promise<DepartmentMemberR
     .eq('department_id', departmentId)
     .eq('member_type', 'core')
   if (error) throw error
-  return data as unknown as DepartmentMemberRow[]
+  return z.array(departmentMemberRowSchema).parse(data)
 }
 
 async function fetchChecklistId(departmentId: string, serviceId: string): Promise<string | null> {
@@ -48,7 +60,7 @@ async function fetchChecklistItems(checklistId: string): Promise<ChecklistItemRo
     .eq('checklist_id', checklistId)
     .order('created_at')
   if (error) throw error
-  return data as unknown as ChecklistItemRow[]
+  return z.array(checklistItemRowSchema).parse(data)
 }
 
 async function fetchAttendance(departmentId: string, serviceId: string): Promise<AttendanceRow | null> {
@@ -59,7 +71,7 @@ async function fetchAttendance(departmentId: string, serviceId: string): Promise
     .eq('service_id', serviceId)
     .maybeSingle()
   if (error) throw error
-  return data
+  return data ? attendanceRowSchema.parse(data) : null
 }
 
 export function DepartmentPrepPage() {

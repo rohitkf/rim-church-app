@@ -100,6 +100,34 @@ Run tests: `pip install -r requirements-dev.txt && python -m pytest`. Tests
 mock the Anthropic client and Supabase responses — no real API key or
 network access needed to run them.
 
+## Testing & data validation
+
+- **Backend**: 31 pytest tests — the agent loop (mocked Anthropic client:
+  simple replies, tool execution, the destructive-action pause/resume),
+  tool executors (RLS-denial handling, unknown-tool handling, a fake
+  Supabase client), auth gating on every assistant endpoint (missing/bad
+  tokens *and* the success path via `dependency_overrides`), Whisper
+  transcription (mocked model, lazy-load-once behavior), and `Settings`
+  parsing. No real Anthropic/Supabase/Hugging Face network calls anywhere
+  in the suite.
+- **Frontend**: 34 Vitest + React Testing Library tests — the time/
+  relative-time helpers, the `SegmentedProgressBar`/`StatusBadge`
+  components, `ErrorBoundary`, `NotFoundPage`, `AuthContext`'s per-
+  department/per-service role-check logic (mocked Supabase client), and
+  the Zod schemas themselves (accept-valid / reject-malformed cases).
+- **Runtime data validation**: every Supabase response the frontend
+  handles is parsed through a Zod schema (`src/lib/types.ts`,
+  `src/auth/types.ts`) instead of a plain TypeScript `interface` cast. A
+  TypeScript type only checks shapes at compile time — it does nothing
+  once data actually arrives over the network, so a schema drift (a
+  renamed column, a join that started returning null, a bad manual
+  `as unknown as X` cast) would previously have produced silent
+  `undefined` fields in the UI instead of a caught, debuggable error.
+- Still missing: true end-to-end tests (Playwright/Cypress) driving the
+  real UI against a real Supabase instance, and — as noted above — the
+  Whisper transcription path has never run against real audio in the
+  environment this was built in.
+
 #### AI Assistant (Phase 9)
 
 Click "AI Assistant" in the sidebar to open the chat panel. It's a manual
@@ -164,11 +192,12 @@ to verify it against a real recording before relying on it.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push/PR: frontend lint + typecheck
-+ build, backend pytest, a migrations job that applies every file in
-`supabase/migrations/` against a throwaway Postgres 16 service container —
-so a broken migration or RLS policy fails CI before it reaches Supabase —
-and a docker job that builds both images and validates `docker-compose.yml`.
+`.github/workflows/ci.yml` runs on every push/PR: frontend lint +
+typecheck + Vitest + build, backend pytest, a migrations job that applies
+every file in `supabase/migrations/` against a throwaway Postgres 16
+service container — so a broken migration or RLS policy fails CI before
+it reaches Supabase — and a docker job that builds both images and
+validates `docker-compose.yml`.
 
 ## Milestones
 
@@ -204,11 +233,10 @@ and a docker job that builds both images and validates `docker-compose.yml`.
 - **Assistant tool coverage is representative, not complete** — see the AI
   Assistant section above. Department/service-planner CRUD via chat isn't
   wired up, for instance.
-- **End-to-end tests** — only backend unit tests exist (agent loop,
-  tools, auth gating — all mocked, no real Anthropic/Supabase calls); no
-  Playwright/Cypress suite against a real Supabase instance yet, and the
-  Whisper transcription path has never run against real audio in this
-  environment (see the Docker note above about why).
+- **End-to-end tests** — unit/component test coverage exists on both
+  sides now (see the Testing & data validation section above), but no
+  Playwright/Cypress suite drives the real UI against a real Supabase
+  instance yet.
 - **Runtime frontend config** — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
   are baked in at Docker build time. Fine for a single deployment target;
   if you need one image promoted across multiple environments, that needs

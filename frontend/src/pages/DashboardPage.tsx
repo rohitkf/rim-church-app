@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { fetchDepartments, fetchServices } from '../lib/queries'
 import type { RoleType } from '../auth/types'
-import type { AttendanceRow, ChecklistItemRow, ChecklistItemStatus, Department, Service } from '../lib/types'
+import {
+  attendanceRowSchema,
+  checklistItemRowSchema,
+  type AttendanceRow,
+  type ChecklistItemRow,
+  type ChecklistItemStatus,
+} from '../lib/types'
+
+const checklistRefSchema = z.object({ id: z.string(), department_id: z.string() })
+const actorSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
 
 const roleChipColor: Record<RoleType, string> = {
   admin: 'bg-primary text-on-primary',
@@ -29,22 +40,10 @@ const actionLabel: Record<Exclude<ChecklistItemStatus, 'pending'>, string> = {
   coordinator_verified: 'coordinator-verified',
 }
 
-async function fetchDepartments(): Promise<Department[]> {
-  const { data, error } = await supabase.from('departments').select('*').order('name')
-  if (error) throw error
-  return data
-}
-
-async function fetchServices(): Promise<Service[]> {
-  const { data, error } = await supabase.from('services').select('*').order('date', { ascending: false })
-  if (error) throw error
-  return data
-}
-
 async function fetchChecklists(serviceId: string): Promise<{ id: string; department_id: string }[]> {
   const { data, error } = await supabase.from('checklists').select('id, department_id').eq('service_id', serviceId)
   if (error) throw error
-  return data
+  return z.array(checklistRefSchema).parse(data)
 }
 
 async function fetchItems(checklistIds: string[]): Promise<ChecklistItemRow[]> {
@@ -54,20 +53,21 @@ async function fetchItems(checklistIds: string[]): Promise<ChecklistItemRow[]> {
     .select('*, assignee:profiles!checklist_items_assigned_to_fkey(id, first_name, last_name)')
     .in('checklist_id', checklistIds)
   if (error) throw error
-  return data as unknown as ChecklistItemRow[]
+  return z.array(checklistItemRowSchema).parse(data)
 }
 
 async function fetchAttendance(serviceId: string): Promise<AttendanceRow[]> {
   const { data, error } = await supabase.from('attendance').select('*').eq('service_id', serviceId)
   if (error) throw error
-  return data
+  return z.array(attendanceRowSchema).parse(data)
 }
 
 async function fetchActorNames(userIds: string[]): Promise<Record<string, string>> {
   if (userIds.length === 0) return {}
   const { data, error } = await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
   if (error) throw error
-  return Object.fromEntries(data.map((p) => [p.id, `${p.first_name} ${p.last_name}`]))
+  const actors = z.array(actorSchema).parse(data)
+  return Object.fromEntries(actors.map((p) => [p.id, `${p.first_name} ${p.last_name}`]))
 }
 
 function actorIdFor(item: ChecklistItemRow): string | null {

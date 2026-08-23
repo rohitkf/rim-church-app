@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
-import type { Profile, RoleType, UserRole } from './types'
+import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
+import { z } from 'zod'
 
 interface AuthContextValue {
   session: Session | null
@@ -29,8 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('user_roles').select('id, role_type, department_id, service_id').eq('user_id', userId),
     ])
-    setProfile(profileData ?? null)
-    setRoles(roleData ?? [])
+
+    const profileResult = profileData ? profileSchema.safeParse(profileData) : null
+    if (profileResult && !profileResult.success) {
+      console.error('Profile response did not match expected shape:', profileResult.error)
+    }
+    setProfile(profileResult?.success ? profileResult.data : null)
+
+    const rolesResult = z.array(userRoleSchema).safeParse(roleData ?? [])
+    if (!rolesResult.success) {
+      console.error('Roles response did not match expected shape:', rolesResult.error)
+    }
+    setRoles(rolesResult.success ? rolesResult.data : [])
   }
 
   useEffect(() => {

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { BellIcon } from './icons'
-import type { NotificationRow } from '../lib/types'
+import { notificationRowSchema, type NotificationRow } from '../lib/types'
 
 const notificationTypeLabel: Record<string, string> = {
   message: 'New message board post',
@@ -18,7 +19,7 @@ async function fetchNotifications(userId: string): Promise<NotificationRow[]> {
     .order('created_at', { ascending: false })
     .limit(20)
   if (error) throw error
-  return data
+  return z.array(notificationRowSchema).parse(data)
 }
 
 export function NotificationsBell() {

@@ -1,10 +1,11 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { formatRelativeTime } from '../lib/relativeTime'
-import type { MessageRow } from '../lib/types'
+import { messageRowSchema, type MessageRow } from '../lib/types'
 
 async function fetchMessages(): Promise<MessageRow[]> {
   const { data, error } = await supabase
@@ -12,7 +13,7 @@ async function fetchMessages(): Promise<MessageRow[]> {
     .select('*, author:profiles!messages_author_id_fkey(id, first_name, last_name)')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data as unknown as MessageRow[]
+  return z.array(messageRowSchema).parse(data)
 }
 
 export function MessageBoardPage() {

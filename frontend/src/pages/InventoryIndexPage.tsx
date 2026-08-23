@@ -1,14 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
-import type { Department } from '../lib/types'
-
-async function fetchDepartments(): Promise<Department[]> {
-  const { data, error } = await supabase.from('departments').select('*').order('name')
-  if (error) throw error
-  return data
-}
+import { fetchDepartments } from '../lib/queries'
 
 export function InventoryIndexPage() {
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
