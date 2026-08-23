@@ -190,6 +190,46 @@ and transcription against real audio, has never actually run here. It's
 ordinary code following faster-whisper's documented API, but budget time
 to verify it against a real recording before relying on it.
 
+### Deploying: frontend on Vercel, backend on Render
+
+Vercel is a good fit for the frontend (static Vite build) but a poor one
+for the backend — it doesn't run the `backend/Dockerfile` as-is, and
+`faster-whisper`'s dependencies (ctranslate2, onnxruntime) risk exceeding
+serverless function size limits, with cold starts reloading the Whisper
+model on nearly every request. So: frontend on Vercel, backend on a
+Docker-native host (Render used here; Fly.io/Railway work the same way).
+
+**1. Supabase** — set up first (see the Supabase section above), and add
+your eventual frontend domain to **Authentication → URL Configuration →
+Site URL / Redirect URLs** in the Supabase dashboard, or email
+confirmation links will point at `localhost`.
+
+**2. Backend (Render)**
+- New → Web Service → connect this GitHub repo.
+- Root Directory: `backend`. Render auto-detects `Dockerfile`.
+- Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY` (your Anthropic key),
+  `CORS_ORIGINS_RAW` (your Vercel frontend URL — update after step 3).
+- Health check path: `/health`.
+- Deploy. Render gives you a URL like `https://church-backend.onrender.com`.
+- Free tier spins down on inactivity — the first request after idling
+  will be slow (cold start, plus a Whisper model download on the very
+  first transcription request ever).
+
+**3. Frontend (Vercel)**
+- New Project → import this repo.
+- Root Directory: `frontend`. Framework preset: Vite (auto-detected).
+- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+  `VITE_API_BASE_URL` (the Render URL from step 2). These are baked in at
+  build time — changing one means redeploying, not just restarting.
+- Deploy. `frontend/vercel.json` handles the SPA rewrite (React Router
+  routes like `/departments/123` resolve to `index.html` on a hard
+  refresh instead of 404ing) — already in the repo, no setup needed.
+
+**4. Close the loop** — go back to Render and set `CORS_ORIGINS_RAW` to
+your real Vercel URL (including any preview-deployment domains you want
+to allow), then redeploy the backend.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +
