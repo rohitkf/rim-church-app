@@ -130,6 +130,12 @@ network access needed to run them.
 
 #### AI Assistant (Phase 9)
 
+**Currently gated off in the UI** — see `VITE_AI_ASSISTANT_ENABLED` below.
+The backend is fully built and tested, just not deployed yet; the sidebar
+button shows a "Coming Soon" badge instead of a working chat panel until
+you deploy the backend and flip the flag. Everything below describes what
+it does once enabled.
+
 Click "AI Assistant" in the sidebar to open the chat panel. It's a manual
 Claude tool-calling loop (`app/agent.py`), not the SDK's beta tool runner,
 specifically so it can *pause* before a destructive action instead of just
@@ -162,6 +168,20 @@ executing it:
   `AssistantResponse.history`) rather than the backend persisting
   sessions. Refreshing the page starts a new conversation.
 
+### Enabling the AI Assistant
+
+The assistant is built and tested but ships **disabled** — `frontend/
+.env.example` sets `VITE_AI_ASSISTANT_ENABLED=false` by default, which
+shows the sidebar button as a greyed-out "Coming Soon" state (see
+`AppShell.tsx`) instead of opening a panel that would fail every request
+because there's no backend to call. Everything else in the app (Phases
+1–8) works fully without the backend deployed at all.
+
+To turn it on: deploy the backend (see Docker/Render sections below), set
+`VITE_API_BASE_URL` to that backend's URL, set
+`VITE_AI_ASSISTANT_ENABLED=true`, and redeploy the frontend — both are
+build-time Vite vars. No other code changes needed either direction.
+
 ### Docker
 
 Runs both services as containers — no local Node/Python toolchain needed.
@@ -190,43 +210,57 @@ and transcription against real audio, has never actually run here. It's
 ordinary code following faster-whisper's documented API, but budget time
 to verify it against a real recording before relying on it.
 
-### Deploying: frontend on Vercel, backend on Render
+### Deploying now: frontend-only on Vercel + Supabase
 
-Vercel is a good fit for the frontend (static Vite build) but a poor one
-for the backend — it doesn't run the `backend/Dockerfile` as-is, and
-`faster-whisper`'s dependencies (ctranslate2, onnxruntime) risk exceeding
-serverless function size limits, with cold starts reloading the Whisper
-model on nearly every request. So: frontend on Vercel, backend on a
-Docker-native host (Render used here; Fly.io/Railway work the same way).
+This is the current recommended path — Phases 1–8 (everything except the
+AI assistant) work fully on just these two, at $0/month on free tiers.
 
 **1. Supabase** — set up first (see the Supabase section above), and add
-your eventual frontend domain to **Authentication → URL Configuration →
-Site URL / Redirect URLs** in the Supabase dashboard, or email
+your Vercel domain to **Authentication → URL Configuration → Site URL /
+Redirect URLs** in the Supabase dashboard once you have it, or email
 confirmation links will point at `localhost`.
 
-**2. Backend (Render)**
+**2. Frontend (Vercel)**
+- New Project → import this repo.
+- Root Directory: `frontend`. Framework preset: Vite (auto-detected).
+- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+  Leave `VITE_AI_ASSISTANT_ENABLED` unset (defaults to disabled).
+- Deploy. `frontend/vercel.json` handles the SPA rewrite (client-side
+  routes like `/departments/123` resolve to `index.html` on a hard
+  refresh instead of 404ing) — already in the repo, no setup needed.
+
+That's the whole deployment. The AI Assistant button shows as "Coming
+Soon" in the sidebar until you do the steps below.
+
+### Later: deploying the backend to enable the AI Assistant
+
+Vercel is a poor fit for this specific backend — it doesn't run the
+`backend/Dockerfile` as-is, and `faster-whisper`'s dependencies
+(ctranslate2, onnxruntime) risk exceeding serverless function size
+limits, with cold starts reloading the Whisper model on nearly every
+request. Use a Docker-native host instead (Render used here; Fly.io/
+Railway work the same way).
+
+**1. Backend (Render)**
 - New → Web Service → connect this GitHub repo.
 - Root Directory: `backend`. Render auto-detects `Dockerfile`.
 - Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`, `LLM_API_KEY` (your Anthropic key),
-  `CORS_ORIGINS_RAW` (your Vercel frontend URL — update after step 3).
+  `CORS_ORIGINS_RAW` (your Vercel frontend URL).
 - Health check path: `/health`.
 - Deploy. Render gives you a URL like `https://church-backend.onrender.com`.
 - Free tier spins down on inactivity — the first request after idling
   will be slow (cold start, plus a Whisper model download on the very
   first transcription request ever).
 
-**3. Frontend (Vercel)**
-- New Project → import this repo.
-- Root Directory: `frontend`. Framework preset: Vite (auto-detected).
-- Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-  `VITE_API_BASE_URL` (the Render URL from step 2). These are baked in at
-  build time — changing one means redeploying, not just restarting.
-- Deploy. `frontend/vercel.json` handles the SPA rewrite (React Router
-  routes like `/departments/123` resolve to `index.html` on a hard
-  refresh instead of 404ing) — already in the repo, no setup needed.
+**2. Frontend (Vercel) — update your existing project, don't recreate**
+- In the existing Vercel project's environment variables, add
+  `VITE_API_BASE_URL` (the Render URL from step 1) and set
+  `VITE_AI_ASSISTANT_ENABLED=true`.
+- Redeploy — these are build-time Vite vars, so a redeploy (not just a
+  restart) is required for the change to take effect.
 
-**4. Close the loop** — go back to Render and set `CORS_ORIGINS_RAW` to
+**3. Close the loop** — go back to Render and set `CORS_ORIGINS_RAW` to
 your real Vercel URL (including any preview-deployment domains you want
 to allow), then redeploy the backend.
 
@@ -251,7 +285,7 @@ validates `docker-compose.yml`.
 | 6 | Service planner | ✅ |
 | 7 | Inventory | ✅ |
 | 8 | Message board + notifications | ✅ |
-| 9 | AI assistant | ✅ (representative tool set — see AI Assistant section above) |
+| 9 | AI assistant | ✅ built, **disabled in the UI** until the backend is deployed — see AI Assistant section above |
 
 ## Not yet done for a real production deployment
 

@@ -53,6 +53,13 @@ function primaryRoleLabel(isAdmin: boolean, roles: { role_type: string }[]) {
   return 'Team Member'
 }
 
+// The AI assistant needs the FastAPI backend deployed (Anthropic key +
+// Whisper live somewhere) — until that's stood up, this flag keeps the
+// button visible but inert instead of shipping a button that always
+// errors. Flip VITE_AI_ASSISTANT_ENABLED=true once the backend is live;
+// no other code changes needed.
+const AI_ASSISTANT_ENABLED = import.meta.env.VITE_AI_ASSISTANT_ENABLED === 'true'
+
 export function AppShell() {
   const { profile, roles, isAdmin, signOut } = useAuth()
   const [assistantOpen, setAssistantOpen] = useState(false)
@@ -113,13 +120,24 @@ export function AppShell() {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3 pt-6">
-          <button
-            onClick={() => setAssistantOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
-          >
-            <SparklesIcon />
-            AI Assistant
-          </button>
+          {AI_ASSISTANT_ENABLED ? (
+            <button
+              onClick={() => setAssistantOpen((o) => !o)}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+            >
+              <SparklesIcon />
+              AI Assistant
+            </button>
+          ) : (
+            <div
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary opacity-60"
+              title="The AI assistant is built but not deployed yet"
+            >
+              <SparklesIcon />
+              AI Assistant
+              <SoonBadge />
+            </div>
+          )}
           <NavLink
             to="/profile"
             className={({ isActive }) =>
@@ -169,7 +187,9 @@ export function AppShell() {
         </main>
       </div>
 
-      <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+      {AI_ASSISTANT_ENABLED && (
+        <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+      )}
     </div>
   )
 }
