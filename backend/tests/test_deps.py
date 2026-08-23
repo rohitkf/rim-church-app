@@ -26,3 +26,21 @@ def test_chat_with_invalid_token_is_rejected():
         headers={"Authorization": "Bearer not-a-real-token"},
     )
     assert response.status_code == 401
+
+
+def test_confirm_with_invalid_token_is_rejected():
+    response = client.post(
+        "/assistant/confirm",
+        json={"approved": True, "pending_actions": [], "history": []},
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+    assert response.status_code == 401
+
+
+def test_transcribe_with_invalid_token_is_rejected():
+    response = client.post(
+        "/assistant/transcribe",
+        files={"audio": ("clip.webm", b"fake-audio-bytes", "audio/webm")},
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+    assert response.status_code == 401

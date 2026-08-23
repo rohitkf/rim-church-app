@@ -5,12 +5,11 @@ coordination, attendance, checklists, inventory, and internal communication
 — with a hybrid interface: structured UI plus an AI assistant (voice/text)
 that can perform the same actions.
 
-Full requirements: see the PRD. This repo currently implements **Phases 1–8**
-of the milestones below (Auth, Profiles, Departments/Team Planner,
-Attendance + Checklists, Dashboard, Service Planner, Inventory, Message
-Board + Notifications), plus the full Section 8 data model/RLS so later
-phases build on stable foundations. Visual design follows `DESIGN.md` (the
-"Sanctuary Ops" system).
+Full requirements: see the PRD. This repo currently implements **all 9
+milestones** below (Auth, Profiles, Departments/Team Planner, Attendance +
+Checklists, Dashboard, Service Planner, Inventory, Message Board +
+Notifications, AI Assistant), on top of the full Section 8 data
+model/RLS. Visual design follows `DESIGN.md` (the "Sanctuary Ops" system).
 
 `/checklists` still has a minimal Admin-only "create a service" form —
 that predates the Service Planner and just registers a date/type quickly
@@ -24,8 +23,8 @@ assignments actually get built.
 |---|---|
 | Frontend | React + Vite + TypeScript, Tailwind CSS, React Router, TanStack Query |
 | Data + Auth + Storage + Realtime | Supabase (Postgres) |
-| AI assistant backend | FastAPI (LLM orchestration + tool execution only — Phase 9) |
-| Permission enforcement | Supabase Row Level Security, mirrored by FastAPI when the assistant acts on a user's behalf |
+| AI assistant backend | FastAPI — Claude (`claude-opus-5`) tool-calling agent + self-hosted Whisper STT |
+| Permission enforcement | Supabase Row Level Security — the assistant executes every tool call through the *calling user's own* Supabase client, so RLS is the only permission check that exists; there's no separate authorization logic to keep in sync |
 
 Manual UI actions talk directly to Supabase; FastAPI is only in the loop for
 the AI assistant, per the architecture note in the PRD.
@@ -87,17 +86,53 @@ npm install
 npm run dev
 ```
 
-### Backend (AI assistant service — not yet wired up, Phase 9)
+### Backend (AI assistant service)
 
 ```
 cd backend
-cp .env.example .env   # fill in Supabase + LLM provider keys
+cp .env.example .env   # fill in Supabase URL/anon key + your Anthropic API key as LLM_API_KEY
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Run tests: `pip install -r requirements-dev.txt && python -m pytest`
+Run tests: `pip install -r requirements-dev.txt && python -m pytest`. Tests
+mock the Anthropic client and Supabase responses — no real API key or
+network access needed to run them.
+
+#### AI Assistant (Phase 9)
+
+Click "AI Assistant" in the sidebar to open the chat panel. It's a manual
+Claude tool-calling loop (`app/agent.py`), not the SDK's beta tool runner,
+specifically so it can *pause* before a destructive action instead of just
+executing it:
+
+- **Tools** (`app/tools/`): a representative set covering Sections 9–15 —
+  checklist status/verification (all three stages), attendance logging,
+  team/service lookups, inventory, and message board posting — not
+  literally every manual action in the PRD (FR16.2 in full is much larger).
+  Adding another tool is mechanical: a schema entry, an executor, and (if
+  destructive) a `DESTRUCTIVE_TOOLS` listing.
+- **Permission enforcement (FR16.3)**: every tool executes through the
+  calling user's own Supabase client. There is no separate "can this user
+  do X" check in the tool code — an unauthorized action simply fails as an
+  RLS error, which comes back to Claude as a normal tool error.
+- **Confirmation (FR16.4)**: `delete_checklist_item` and
+  `delete_inventory_item` are destructive tools — the loop pauses on them
+  and returns a `pending_actions` list to the frontend instead of
+  executing, which renders Confirm/Cancel buttons; confirming calls
+  `POST /assistant/confirm` to actually run it.
+- **Voice input (Open Question 4 decision)**: self-hosted
+  [faster-whisper](https://github.com/SYSTRAN/faster-whisper) rather than
+  the browser's Web Speech API, for cross-browser consistency. The model
+  downloads from Hugging Face on first transcription request (not at
+  server startup) and is cached afterward — the first voice request after
+  a fresh deploy will be slow. `WHISPER_MODEL_SIZE` (default `base`)
+  trades accuracy for speed/RAM.
+- The chat API is stateless per-request — the frontend holds conversation
+  history and echoes it back each turn (`ChatRequest.history` /
+  `AssistantResponse.history`) rather than the backend persisting
+  sessions. Refreshing the page starts a new conversation.
 
 ### Docker
 
@@ -119,6 +154,14 @@ bakes them into the JS bundle) — changing them means rebuilding the image,
 not just restarting the container. Everything else is a normal runtime env
 var. Both Dockerfiles run as a non-root user and declare a `HEALTHCHECK`.
 
+The backend image installs `faster-whisper` for voice transcription, but
+the Whisper model itself downloads from Hugging Face on first use, not at
+build time (see the AI Assistant section below) — the sandbox this repo
+was built in couldn't reach Hugging Face either, so that download path,
+and transcription against real audio, has never actually run here. It's
+ordinary code following faster-whisper's documented API, but budget time
+to verify it against a real recording before relying on it.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint + typecheck
@@ -139,7 +182,7 @@ and a docker job that builds both images and validates `docker-compose.yml`.
 | 6 | Service planner | ✅ |
 | 7 | Inventory | ✅ |
 | 8 | Message board + notifications | ✅ |
-| 9 | AI assistant | Backend skeleton only |
+| 9 | AI assistant | ✅ (representative tool set — see AI Assistant section above) |
 
 ## Not yet done for a real production deployment
 
@@ -151,11 +194,21 @@ and a docker job that builds both images and validates `docker-compose.yml`.
   message board are live (Phase 8), but the Dashboard and Department Prep
   pages still require a manual refresh to see another user's update; wiring
   those to Realtime too is straightforward but not done.
-- **Rate limiting / abuse protection** on the FastAPI service — deferred
-  until the AI assistant (Phase 9) actually calls an LLM API worth
-  protecting.
-- **End-to-end tests** — only a handful of backend unit tests exist; no
-  Playwright/Cypress suite against a real Supabase instance yet.
+- **Rate limiting / abuse protection** on the AI assistant endpoints — it
+  now calls a real, billed LLM API, and there's currently nothing stopping
+  a user from hammering `/assistant/chat`. Worth adding before a real
+  deployment (e.g. per-user request throttling).
+- **Assistant chat isn't persisted or streamed** — history lives in the
+  browser tab (lost on refresh) and responses arrive as one JSON blob, not
+  streamed tokens. Fine for a v1 chat panel, not ideal for longer replies.
+- **Assistant tool coverage is representative, not complete** — see the AI
+  Assistant section above. Department/service-planner CRUD via chat isn't
+  wired up, for instance.
+- **End-to-end tests** — only backend unit tests exist (agent loop,
+  tools, auth gating — all mocked, no real Anthropic/Supabase calls); no
+  Playwright/Cypress suite against a real Supabase instance yet, and the
+  Whisper transcription path has never run against real audio in this
+  environment (see the Docker note above about why).
 - **Runtime frontend config** — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
   are baked in at Docker build time. Fine for a single deployment target;
   if you need one image promoted across multiple environments, that needs

@@ -8,6 +8,15 @@ class Settings(BaseSettings):
     supabase_anon_key: str
     supabase_service_role_key: str | None = None
     llm_api_key: str | None = None
+    # claude-opus-5 is the current default per Anthropic's own guidance —
+    # override only if you deliberately want a cheaper/faster model.
+    anthropic_model: str = "claude-opus-5"
+
+    # faster-whisper model size for self-hosted STT (Open Question 4
+    # decision). Larger = more accurate, slower, more RAM. The model is
+    # downloaded from Hugging Face on first use, not at startup — see
+    # transcribe.py.
+    whisper_model_size: str = "base"
 
     # Comma-separated list of origins allowed to call this API, e.g.
     # "http://localhost:5173,https://ops.example.org". Defaults to the Vite

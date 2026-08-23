@@ -8,6 +8,8 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       CORS_ORIGINS_RAW: ${CORS_ORIGINS_RAW:-http://localhost:8080}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
     ports:
       - '8000:8000'
     restart: unless-stopped

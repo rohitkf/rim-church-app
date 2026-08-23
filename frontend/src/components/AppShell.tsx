@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -16,6 +17,7 @@ import {
   UsersIcon,
 } from './icons'
 import { NotificationsBell } from './NotificationsBell'
+import { AiAssistantPanel } from './AiAssistantPanel'
 import type { ComponentType, SVGProps } from 'react'
 
 interface NavItem {
@@ -53,6 +55,7 @@ function primaryRoleLabel(isAdmin: boolean, roles: { role_type: string }[]) {
 
 export function AppShell() {
   const { profile, roles, isAdmin, signOut } = useAuth()
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
@@ -111,13 +114,11 @@ export function AppShell() {
 
         <div className="mt-auto flex flex-col gap-3 pt-6">
           <button
-            disabled
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary opacity-60"
-            title="AI assistant lands in Phase 9"
+            onClick={() => setAssistantOpen((o) => !o)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
           >
             <SparklesIcon />
             AI Assistant
-            <SoonBadge />
           </button>
           <NavLink
             to="/profile"
@@ -167,6 +168,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
     </div>
   )
 }

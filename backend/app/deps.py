@@ -9,13 +9,21 @@ permissions here as it does for direct/manual UI actions. The service-role
 key is intentionally not used for tool execution.
 """
 
+from dataclasses import dataclass
+
 from fastapi import Header, HTTPException
 from supabase import create_client, Client
 
 from .config import settings
 
 
-async def get_current_user_client(authorization: str = Header(...)) -> Client:
+@dataclass
+class AuthedUser:
+    client: Client
+    user_id: str
+
+
+async def get_current_user(authorization: str = Header(...)) -> AuthedUser:
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     access_token = authorization.removeprefix("Bearer ").strip()
@@ -38,4 +46,4 @@ async def get_current_user_client(authorization: str = Header(...)) -> Client:
     # not as the anon role.
     client.postgrest.auth(access_token)
 
-    return client
+    return AuthedUser(client=client, user_id=user_response.user.id)

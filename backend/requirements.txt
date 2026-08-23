@@ -4,3 +4,9 @@ supabase==2.10.0
 pydantic==2.10.3
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
+python-multipart==0.0.20
+anthropic==1.0.0
+faster-whisper==1.1.1
+# faster-whisper imports requests directly but doesn't declare it as a
+# dependency in this release — pin it explicitly or the import breaks.
+requests==2.32.3

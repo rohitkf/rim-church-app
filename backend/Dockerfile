@@ -6,12 +6,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
+# libgomp1: OpenMP runtime ctranslate2 (faster-whisper's inference engine)
+# needs but doesn't bundle.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
+# faster-whisper downloads model weights from Hugging Face on first use and
+# caches them under the user's home directory — give appuser one to cache
+# into rather than failing on a read-only/missing HOME.
+ENV HOME=/home/appuser
 USER appuser
 
 EXPOSE 8000
