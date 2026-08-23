@@ -26,7 +26,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon, enabled: true },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, enabled: false },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, enabled: false },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, enabled: true },
   { to: '/departments', label: 'Teams', icon: UsersIcon, enabled: true },
   { to: '/analytics', label: 'Analytics', icon: BarChartIcon, enabled: false },
 ]

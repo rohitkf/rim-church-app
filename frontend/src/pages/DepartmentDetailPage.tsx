@@ -4,9 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import type { Department, DepartmentMemberRow, MemberType, SensitiveByUser } from '../lib/types'
-
-const HANDBOOK_BUCKET = 'handbooks'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -31,13 +30,6 @@ async function fetchSensitive(userIds: string[]): Promise<Record<string, Sensiti
     .in('user_id', userIds)
   if (error) throw error
   return Object.fromEntries(data.map((row) => [row.user_id, row]))
-}
-
-async function fetchHandbookUrl(path: string | null): Promise<string | null> {
-  if (!path) return null
-  const { data, error } = await supabase.storage.from(HANDBOOK_BUCKET).createSignedUrl(path, 300)
-  if (error) return null
-  return data.signedUrl
 }
 
 function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined }) {
@@ -92,11 +84,7 @@ export function DepartmentDetailPage() {
     enabled: memberIds.length > 0,
   })
 
-  const handbookQuery = useQuery({
-    queryKey: ['department-handbook-url', deptQuery.data?.handbook_url],
-    queryFn: () => fetchHandbookUrl(deptQuery.data?.handbook_url ?? null),
-    enabled: !!deptQuery.data?.handbook_url,
-  })
+  const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
 
   const addMember = useMutation({
     mutationFn: async ({ email, type }: { email: string; type: MemberType }) => {

@@ -12,6 +12,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
+import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
+import { DepartmentPrepPage } from './pages/DepartmentPrepPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -42,6 +44,8 @@ function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/departments" element={<DepartmentsPage />} />
                   <Route path="/departments/:id" element={<DepartmentDetailPage />} />
+                  <Route path="/checklists" element={<ChecklistsIndexPage />} />
+                  <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
