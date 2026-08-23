@@ -63,6 +63,26 @@ export interface ChecklistItemRow {
   assignee: { id: string; first_name: string; last_name: string } | null
 }
 
+export interface ServiceSessionRow {
+  id: string
+  service_id: string
+  order_index: number
+  start_time: string
+  duration_minutes: number
+  session_name: string
+  assigned_user_id: string | null
+  department_id: string | null
+  role_label: string | null
+  updated_at: string
+  assignee: { id: string; first_name: string; last_name: string } | null
+}
+
+export interface ProfileOption {
+  id: string
+  first_name: string
+  last_name: string
+}
+
 export interface AttendanceRow {
   id: string
   department_id: string

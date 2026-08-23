@@ -5,18 +5,17 @@ coordination, attendance, checklists, inventory, and internal communication
 — with a hybrid interface: structured UI plus an AI assistant (voice/text)
 that can perform the same actions.
 
-Full requirements: see the PRD. This repo currently implements **Phase 1
-(Auth + roles)**, **Phase 2 (User profiles)**, **Phase 3 (Departments /
-team planner)**, **Phase 4 (Attendance + checklist workflow)**, and
-**Phase 5 (Dashboard)** of the milestones below, plus the full Section 8
-data model/RLS so later phases build on stable foundations. Visual design
-follows `DESIGN.md` (the "Sanctuary Ops" system).
+Full requirements: see the PRD. This repo currently implements **Phases 1–6**
+of the milestones below (Auth, Profiles, Departments/Team Planner,
+Attendance + Checklists, Dashboard, Service Planner), plus the full
+Section 8 data model/RLS so later phases build on stable foundations.
+Visual design follows `DESIGN.md` (the "Sanctuary Ops" system).
 
-Phase 4 needed a service (date + type) to attach a checklist/attendance
-record to, so `/checklists` includes a minimal Admin-only "create a
-service" form. That's a placeholder, not Phase 6: it only registers
-date/type, not a running order — the full Service Planner (session
-cascade, timing) is still to build.
+`/checklists` still has a minimal Admin-only "create a service" form —
+that predates the Service Planner and just registers a date/type quickly
+when you don't need to build a full running order yet. The Service
+Planner itself (`/service-planner`) is where sessions, timing, and
+assignments actually get built.
 
 ## Stack
 
@@ -33,9 +32,10 @@ the AI assistant, per the architecture note in the PRD.
 ## Structure
 
 ```
-frontend/    React app (Vite)
-backend/     FastAPI service — AI assistant layer only
+frontend/    React app (Vite) — Dockerfile builds a static nginx image
+backend/     FastAPI service — AI assistant layer only — Dockerfile builds a uvicorn image
 supabase/    SQL migrations (schema + RLS policies)
+docker-compose.yml   Runs both containers together for local/self-hosted deployment
 ```
 
 ## Key decisions locked in from the PRD's Open Questions
@@ -95,12 +95,33 @@ uvicorn app.main:app --reload
 
 Run tests: `pip install -r requirements-dev.txt && python -m pytest`
 
+### Docker
+
+Runs both services as containers — no local Node/Python toolchain needed.
+Supabase itself is still a separate hosted project (this repo doesn't
+self-host Supabase's Postgres/Auth/Storage/Realtime stack — see the
+architecture note in Section 7 of the PRD for why).
+
+```
+cp .env.example .env   # fill in your Supabase project URL, anon key, service role key
+docker compose up --build
+```
+
+- Frontend: http://localhost:8080 (nginx serving the static Vite build)
+- Backend: http://localhost:8000 (`/health` for a liveness check)
+
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are **build-time** args (Vite
+bakes them into the JS bundle) — changing them means rebuilding the image,
+not just restarting the container. Everything else is a normal runtime env
+var. Both Dockerfiles run as a non-root user and declare a `HEALTHCHECK`.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint + typecheck
-+ build, backend pytest, and a migrations job that applies every file in
++ build, backend pytest, a migrations job that applies every file in
 `supabase/migrations/` against a throwaway Postgres 16 service container —
-so a broken migration or RLS policy fails CI before it reaches Supabase.
+so a broken migration or RLS policy fails CI before it reaches Supabase —
+and a docker job that builds both images and validates `docker-compose.yml`.
 
 ## Milestones
 
@@ -111,16 +132,17 @@ so a broken migration or RLS policy fails CI before it reaches Supabase.
 | 3 | Departments + team planner | ✅ |
 | 4 | Attendance + checklist workflow | ✅ |
 | 5 | Dashboard | ✅ (no live Realtime push yet — lands with Phase 8) |
-| 6 | Service planner | Schema/RLS ready, UI pending |
+| 6 | Service planner | ✅ |
 | 7 | Inventory | Schema/RLS ready, UI pending |
 | 8 | Message board + notifications | Schema/RLS ready, UI pending |
 | 9 | AI assistant | Backend skeleton only |
 
 ## Not yet done for a real production deployment
 
-- **Hosting/deploy config** (Vercel/Netlify for the frontend, a container
-  target for the FastAPI service, environment/secrets management) — not
-  built, since where this actually runs hasn't been decided yet.
+- **A concrete hosting target** — Docker images exist and build in CI, but
+  nothing pushes them to a registry or deploys them anywhere (no Fly.io/
+  Render/ECS/k8s manifests, no reverse proxy or TLS termination config).
+  That's intentionally left open until you pick where this actually runs.
 - **Realtime subscriptions** (Section 15/16 — live checklist views,
   notification bell) — schema/RLS is ready, the frontend doesn't subscribe
   yet (lands with Phase 8).
@@ -129,3 +151,8 @@ so a broken migration or RLS policy fails CI before it reaches Supabase.
   protecting.
 - **End-to-end tests** — only a handful of backend unit tests exist; no
   Playwright/Cypress suite against a real Supabase instance yet.
+- **Runtime frontend config** — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+  are baked in at Docker build time. Fine for a single deployment target;
+  if you need one image promoted across multiple environments, that needs
+  switching to a runtime-injected config (e.g. an entrypoint script writing
+  a `config.js` the app reads at load time) instead.

@@ -14,6 +14,8 @@ import { DepartmentsPage } from './pages/DepartmentsPage'
 import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
 import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
 import { DepartmentPrepPage } from './pages/DepartmentPrepPage'
+import { ServicePlannerIndexPage } from './pages/ServicePlannerIndexPage'
+import { ServicePlannerPage } from './pages/ServicePlannerPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -46,6 +48,8 @@ function App() {
                   <Route path="/departments/:id" element={<DepartmentDetailPage />} />
                   <Route path="/checklists" element={<ChecklistsIndexPage />} />
                   <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
+                  <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
+                  <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
