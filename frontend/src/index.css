@@ -1,13 +1,104 @@
 @import "tailwindcss";
 
-:root {
-  color-scheme: light dark;
+/*
+ * "Sanctuary Ops" design system — see DESIGN.md handoff.
+ * Corporate Modern / minimalist: Deep Navy on-surface text, a near-black
+ * primary for CTAs, tonal surface layers instead of heavy shadows, and a
+ * 3-stage status palette (member -> head -> coordinator) that maps 1:1 onto
+ * the checklist_item_status enum in the Supabase schema.
+ */
+@theme {
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Surfaces */
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-lowest: #ffffff;
+  --color-surface-low: #eff4ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-high: #dce9ff;
+  --color-surface-highest: #d3e4fe;
+  --color-surface-muted: #f8fafc;
+  --color-background: #f8f9ff;
+
+  /* Text / outline */
+  --color-on-surface: #0b1c30;
+  --color-on-background: #0b1c30;
+  --color-on-surface-variant: #45464d;
+  --color-outline: #76777d;
+  --color-outline-variant: #c6c6cd;
+  --color-border-subtle: #e2e8f0;
+
+  /* Brand */
+  --color-primary: #0b0d12;
+  --color-on-primary: #ffffff;
+  --color-secondary: #006a61;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #86f2e4;
+  --color-on-secondary-container: #006f66;
+
+  /* Feedback */
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* 3-stage checklist verification chain */
+  --color-status-pending: #94a3b8;
+  --color-status-member: #0ea5e9;
+  --color-status-head: #6366f1;
+  --color-status-coordinator: #10b981;
+
+  /* Type scale */
+  --text-headline-xl: 40px;
+  --text-headline-xl--line-height: 48px;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-xl--font-weight: 700;
+
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+
+  --text-label-md: 14px;
+  --text-label-md--line-height: 20px;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.05em;
+  --text-label-sm--font-weight: 500;
 }
 
-html, body, #root {
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
   height: 100%;
 }
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-on-background);
 }

@@ -8,6 +8,10 @@ interface SensitiveProfile {
   visa_expiry: string | null
 }
 
+const inputClasses =
+  'rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
+const labelClasses = 'flex flex-col gap-1 text-body-sm text-on-surface-variant'
+
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
   const [firstName, setFirstName] = useState('')
@@ -37,7 +41,7 @@ export function ProfilePage() {
   }, [profile])
 
   if (!profile) {
-    return <p className="text-sm text-neutral-500">Loading profile…</p>
+    return <p className="text-body-sm text-on-surface-variant">Loading profile…</p>
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -78,77 +82,54 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="mb-6 text-2xl font-semibold">My profile</h1>
-      <form onSubmit={handleSave} className="flex flex-col gap-4">
+      <h1 className="mb-6 text-headline-lg">My profile</h1>
+      <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-lowest p-6">
         <div className="flex gap-3">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+          <label className={`flex-1 ${labelClasses}`}>
             First name
-            <input
-              required
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-            />
+            <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClasses} />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+          <label className={`flex-1 ${labelClasses}`}>
             Last name
-            <input
-              required
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-            />
+            <input required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
           </label>
         </div>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={labelClasses}>
           Email
-          <input
-            disabled
-            value={profile.email}
-            className="rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
-          />
+          <input disabled value={profile.email} className={`${inputClasses} bg-surface-muted text-on-surface-variant`} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={labelClasses}>
           Phone
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-          />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClasses} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={labelClasses}>
           Date of birth
-          <input
-            type="date"
-            value={dob}
-            onChange={(e) => setDob(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-          />
+          <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputClasses} />
         </label>
 
         {sensitive && (
-          <fieldset className="flex flex-col gap-4 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
-            <legend className="px-1 text-xs uppercase tracking-wide text-neutral-500">
-              Compliance details (only visible to you and Admin)
+          <fieldset className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-muted p-4">
+            <legend className="px-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              Compliance details — only visible to you and Admin
             </legend>
-            <label className="flex flex-col gap-1 text-sm">
+            <label className={labelClasses}>
               Visa type
               <input
                 value={sensitive.visa_type ?? ''}
                 onChange={(e) => setSensitive({ ...sensitive, visa_type: e.target.value || null })}
-                className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                className={`${inputClasses} bg-surface-lowest`}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
+            <label className={labelClasses}>
               Visa expiry
               <input
                 type="date"
                 value={sensitive.visa_expiry ?? ''}
                 onChange={(e) => setSensitive({ ...sensitive, visa_expiry: e.target.value || null })}
-                className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+                className={`${inputClasses} bg-surface-lowest`}
               />
             </label>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-body-sm text-on-surface">
               <input
                 type="checkbox"
                 checked={sensitive.has_dbs}
@@ -159,11 +140,11 @@ export function ProfilePage() {
           </fieldset>
         )}
 
-        {message && <p className="text-sm text-neutral-500">{message}</p>}
+        {message && <p className="text-body-sm text-on-surface-variant">{message}</p>}
         <button
           type="submit"
           disabled={saving}
-          className="self-start rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="self-start rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>

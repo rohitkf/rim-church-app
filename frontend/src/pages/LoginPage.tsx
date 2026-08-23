@@ -26,44 +26,52 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <h1 className="mb-6 text-2xl font-semibold">Sign in</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Password
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
-          />
-        </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-      <p className="mt-4 text-sm text-neutral-500">
-        Don't have an account?{' '}
-        <Link to="/signup" className="text-indigo-600 dark:text-indigo-400">
-          Sign up
-        </Link>
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
+            <span className="font-mono text-label-md">SO</span>
+          </div>
+          <div className="text-headline-md">Sanctuary Ops</div>
+        </div>
+        <h1 className="mb-6 text-headline-lg">Sign in</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+            Email
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+            Password
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            />
+          </label>
+          {error && <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p className="mt-6 text-body-sm text-on-surface-variant">
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-medium text-secondary">
+            Sign up
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }
