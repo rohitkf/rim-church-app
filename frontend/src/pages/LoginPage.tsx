@@ -30,9 +30,9 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">SO</span>
+            <span className="font-mono text-label-md">RIM</span>
           </div>
-          <div className="text-headline-md">Sanctuary Ops</div>
+          <div className="text-headline-md">Rehoboth International Ministries</div>
         </div>
         <h1 className="mb-6 text-headline-lg">Sign in</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

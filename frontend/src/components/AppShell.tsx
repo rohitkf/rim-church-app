@@ -73,10 +73,10 @@ export function AppShell() {
       <aside className="flex w-[280px] shrink-0 flex-col border-r border-border-subtle bg-surface-lowest px-4 py-6">
         <div className="mb-8 flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">SO</span>
+            <span className="font-mono text-label-md">RIM</span>
           </div>
           <div>
-            <div className="text-headline-md leading-tight">Sanctuary Ops</div>
+            <div className="text-headline-md leading-tight">Rehoboth International Ministries</div>
             <div className="text-body-sm text-on-surface-variant">
               {primaryRoleLabel(isAdmin, roles)}
             </div>
