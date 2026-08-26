@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -39,6 +39,7 @@ async function fetchProfileOptions(): Promise<ProfileOption[]> {
 
 export function ServicePlannerPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
+  const navigate = useNavigate()
   const { isAdmin, hasRole } = useAuth()
   const queryClient = useQueryClient()
 
@@ -140,6 +141,21 @@ export function ServicePlannerPage() {
     },
     onError: (err: unknown) =>
       setServiceError(err instanceof Error ? err.message : 'Could not update the service.'),
+  })
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const deleteService = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('services').delete().eq('id', serviceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      navigate('/service-planner')
+    },
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not delete the service.'),
   })
 
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
@@ -250,9 +266,42 @@ export function ServicePlannerPage() {
               >
                 {addSession.isPending ? 'Adding…' : '+ Add Session'}
               </button>
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
+              >
+                Delete
+              </button>
             </div>
           )}
         </div>
+
+        {confirmingDelete && (
+          <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
+            <p className="text-body-sm font-medium text-on-error-container">
+              Delete "{serviceQuery.data?.service_type}" on {serviceQuery.data?.date}?
+            </p>
+            <p className="mt-1 text-body-sm text-on-error-container">
+              Its running order, checklists, and attendance records go with it. This can't be
+              undone.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => deleteService.mutate()}
+                disabled={deleteService.isPending}
+                className="rounded-sm bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+              >
+                {deleteService.isPending ? 'Deleting…' : 'Yes, delete service'}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="text-body-sm font-medium text-on-error-container hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {serviceError && (
           <p className="mt-3 max-w-md rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
