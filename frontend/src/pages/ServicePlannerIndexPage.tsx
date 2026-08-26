@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -27,6 +27,18 @@ export function ServicePlannerIndexPage() {
   const [newType, setNewType] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
+  // Tracks the last value WE wrote into the name field, so switching
+  // templates keeps auto-filling until the admin types their own name.
+  const lastAutoFilledName = useRef('')
+
+  function handleTemplateChange(id: string) {
+    setTemplateId(id)
+    const template = templatesQuery.data?.find((t) => t.id === id)
+    if (!newType.trim() || newType === lastAutoFilledName.current) {
+      setNewType(template?.name ?? '')
+      lastAutoFilledName.current = template?.name ?? ''
+    }
+  }
 
   const createService = useMutation({
     mutationFn: async () => {
@@ -231,7 +243,7 @@ export function ServicePlannerIndexPage() {
                 Template
                 <select
                   value={templateId}
-                  onChange={(e) => setTemplateId(e.target.value)}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
                   className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
                 >
                   <option value="">Blank</option>

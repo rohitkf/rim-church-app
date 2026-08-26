@@ -114,6 +114,34 @@ export function ServicePlannerPage() {
 
   const sessions = sessionsQuery.data ?? []
 
+  const [serviceError, setServiceError] = useState<string | null>(null)
+
+  const updateService = useMutation({
+    mutationFn: async (patch: { service_type?: string; date?: string }) => {
+      const { error } = await supabase.from('services').update(patch).eq('id', serviceId)
+      if (error) throw error
+      // Moving the service to another day: re-anchor the first session to
+      // the same clock time on the new date — the cascade trigger walks
+      // the rest of the timeline onto that day.
+      if (patch.date && sessions.length > 0) {
+        const first = sessions[0]
+        const { error: shiftError } = await supabase
+          .from('service_sessions')
+          .update({ start_time: combineDateAndTime(patch.date, timeInputValue(first.start_time)) })
+          .eq('id', first.id)
+        if (shiftError) throw shiftError
+      }
+    },
+    onSuccess: () => {
+      setServiceError(null)
+      queryClient.invalidateQueries({ queryKey: ['service', serviceId] })
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not update the service.'),
+  })
+
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [templateMessage, setTemplateMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -168,10 +196,39 @@ export function ServicePlannerPage() {
         <Link to="/service-planner" className="text-body-sm text-secondary">
           ← Back to Service Planner
         </Link>
-        <div className="mt-2 flex items-start justify-between">
-          <div>
-            <h1 className="text-headline-xl">{serviceQuery.data?.service_type} Service Plan</h1>
-            <p className="mt-1 text-body-md text-on-surface-variant">{serviceQuery.data?.date}</p>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            {canManage ? (
+              <>
+                <input
+                  key={serviceQuery.data?.service_type}
+                  defaultValue={serviceQuery.data?.service_type}
+                  aria-label="Service name"
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (!value || value === serviceQuery.data?.service_type) return
+                    updateService.mutate({ service_type: value })
+                  }}
+                  className="w-full max-w-md rounded-sm border border-transparent bg-transparent text-headline-xl text-on-surface hover:border-border-subtle focus:border-secondary focus:outline-none"
+                />
+                <input
+                  key={`date-${serviceQuery.data?.date}`}
+                  type="date"
+                  defaultValue={serviceQuery.data?.date}
+                  aria-label="Service date"
+                  onBlur={(e) => {
+                    if (!e.target.value || e.target.value === serviceQuery.data?.date) return
+                    updateService.mutate({ date: e.target.value })
+                  }}
+                  className="mt-1 rounded-sm border border-transparent bg-transparent text-body-md text-on-surface-variant hover:border-border-subtle focus:border-secondary focus:outline-none"
+                />
+              </>
+            ) : (
+              <>
+                <h1 className="text-headline-xl">{serviceQuery.data?.service_type} Service Plan</h1>
+                <p className="mt-1 text-body-md text-on-surface-variant">{serviceQuery.data?.date}</p>
+              </>
+            )}
           </div>
           {canManage && (
             <div className="flex shrink-0 items-center gap-2">
@@ -196,6 +253,12 @@ export function ServicePlannerPage() {
             </div>
           )}
         </div>
+
+        {serviceError && (
+          <p className="mt-3 max-w-md rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {serviceError}
+          </p>
+        )}
 
         {templateFormOpen && (
           <form
