@@ -16,6 +16,7 @@ import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
 import { DepartmentPrepPage } from './pages/DepartmentPrepPage'
 import { ServicePlannerIndexPage } from './pages/ServicePlannerIndexPage'
 import { ServicePlannerPage } from './pages/ServicePlannerPage'
+import { ServiceTemplatesPage } from './pages/ServiceTemplatesPage'
 import { InventoryIndexPage } from './pages/InventoryIndexPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { MessageBoardPage } from './pages/MessageBoardPage'
@@ -52,6 +53,7 @@ function App() {
                   <Route path="/checklists" element={<ChecklistsIndexPage />} />
                   <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
                   <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
+                  <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
                   <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
                   <Route path="/inventory" element={<InventoryIndexPage />} />
                   <Route path="/inventory/:id" element={<InventoryPage />} />

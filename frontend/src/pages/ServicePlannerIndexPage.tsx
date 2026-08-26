@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -198,10 +198,15 @@ export function ServicePlannerIndexPage() {
 
         {isAdmin && (
           <section className="mt-6 max-w-xl rounded-lg border border-border-subtle bg-surface-lowest p-6">
-            <h2 className="text-headline-md">New Service</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-headline-md">New Service</h2>
+              <Link to="/service-planner/templates" className="shrink-0 text-body-sm font-medium text-secondary">
+                Manage templates ›
+              </Link>
+            </div>
             <p className="mt-1 text-body-sm text-on-surface-variant">
               Pick a template to start with the usual running order pre-filled — or Blank to build
-              from scratch. Save a template from any service's planner.
+              from scratch.
             </p>
             <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
