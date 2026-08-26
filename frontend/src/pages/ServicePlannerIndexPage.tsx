@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
+import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { useAuth } from '../auth/AuthContext'
-import { fetchServices } from '../lib/queries'
+import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
+import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import type { Service } from '../lib/types'
 
@@ -12,7 +15,69 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export function ServicePlannerIndexPage() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const queryClient = useQueryClient()
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
+  const templatesQuery = useQuery({
+    queryKey: ['service-templates'],
+    queryFn: fetchServiceTemplates,
+    enabled: isAdmin,
+  })
+
+  const [newDate, setNewDate] = useState('')
+  const [newType, setNewType] = useState('')
+  const [templateId, setTemplateId] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const createService = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .insert({ date: newDate, service_type: newType.trim() })
+        .select()
+        .single()
+      if (error) throw error
+      const created = z.object({ id: z.string() }).parse(data)
+
+      // Materialize the template's timeline onto the new service: the
+      // first session starts at the template's usual start time, each
+      // later one at the previous start + duration.
+      if (templateId) {
+        const template = templatesQuery.data?.find((t) => t.id === templateId)
+        const templateSessions = await fetchTemplateSessions(templateId)
+        if (template && templateSessions.length > 0) {
+          let start = combineDateAndTime(newDate, template.start_time.slice(0, 5))
+          const rows = templateSessions.map((ts) => {
+            const row = {
+              service_id: created.id,
+              order_index: ts.order_index,
+              start_time: start,
+              duration_minutes: ts.duration_minutes,
+              session_name: ts.session_name,
+            }
+            start = addMinutesIso(start, ts.duration_minutes)
+            return row
+          })
+          const { error: sessionsError } = await supabase.from('service_sessions').insert(rows)
+          if (sessionsError) throw sessionsError
+        }
+      }
+      return created.id
+    },
+    onSuccess: (id) => {
+      setNewDate('')
+      setNewType('')
+      setCreateError(null)
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      navigate(`/service-planner/${id}`)
+    },
+    onError: (err: unknown) => setCreateError(err instanceof Error ? err.message : 'Could not create service.'),
+  })
+
+  function handleCreate(e: FormEvent) {
+    e.preventDefault()
+    if (!newDate || !newType.trim()) return
+    createService.mutate()
+  }
 
   const now = new Date()
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
@@ -53,16 +118,7 @@ export function ServicePlannerIndexPage() {
         {isAdmin ? '' : ' Upcoming services appear here once they are scheduled.'}
       </p>
 
-      <QueryState
-        isLoading={servicesQuery.isLoading}
-        error={servicesQuery.error}
-        isEmpty={visibleServices.length === 0}
-        emptyMessage={
-          isAdmin
-            ? 'No services yet — create one from the Checklists page.'
-            : 'No upcoming services scheduled yet — check back soon.'
-        }
-      >
+      <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
         <section className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="text-headline-md">{monthTitle(cursor.year, cursor.month)}</div>
@@ -139,6 +195,63 @@ export function ServicePlannerIndexPage() {
             })}
           </div>
         </section>
+
+        {isAdmin && (
+          <section className="mt-6 max-w-xl rounded-lg border border-border-subtle bg-surface-lowest p-6">
+            <h2 className="text-headline-md">New Service</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              Pick a template to start with the usual running order pre-filled — or Blank to build
+              from scratch. Save a template from any service's planner.
+            </p>
+            <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+                Date
+                <input
+                  type="date"
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
+                Service type
+                <input
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  placeholder="English, Malayalam…"
+                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+                Template
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                >
+                  <option value="">Blank</option>
+                  {templatesQuery.data?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                disabled={createService.isPending || !newDate || !newType.trim()}
+                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+              >
+                {createService.isPending ? 'Creating…' : 'Create'}
+              </button>
+            </form>
+            {createError && (
+              <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {createError}
+              </p>
+            )}
+          </section>
+        )}
 
         {upcoming.length > 0 && (
           <section className="mt-6">

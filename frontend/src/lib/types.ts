@@ -127,6 +127,23 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+export const serviceTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  start_time: z.string(), // 'HH:MM:SS'
+  created_at: z.string(),
+})
+export type ServiceTemplate = z.infer<typeof serviceTemplateSchema>
+
+export const templateSessionSchema = z.object({
+  id: z.string(),
+  template_id: z.string(),
+  order_index: z.number(),
+  session_name: z.string(),
+  duration_minutes: z.number(),
+})
+export type TemplateSession = z.infer<typeof templateSessionSchema>
+
 export const notificationRowSchema = z.object({
   id: z.string(),
   user_id: z.string(),

@@ -1,3 +1,4 @@
+import { type FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -113,6 +114,49 @@ export function ServicePlannerPage() {
 
   const sessions = sessionsQuery.data ?? []
 
+  const [templateFormOpen, setTemplateFormOpen] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [templateMessage, setTemplateMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const saveTemplate = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from('service_templates')
+        .insert({ name: templateName.trim(), start_time: timeInputValue(sessions[0].start_time) })
+        .select()
+        .single()
+      if (error) throw error
+      const template = z.object({ id: z.string() }).parse(data)
+      const { error: sessionsError } = await supabase.from('service_template_sessions').insert(
+        sessions.map((s) => ({
+          template_id: template.id,
+          order_index: s.order_index,
+          session_name: s.session_name,
+          duration_minutes: s.duration_minutes,
+        })),
+      )
+      if (sessionsError) throw sessionsError
+    },
+    onSuccess: () => {
+      setTemplateFormOpen(false)
+      setTemplateMessage({ ok: true, text: `Saved "${templateName.trim()}" — pick it when creating a service.` })
+      setTemplateName('')
+      queryClient.invalidateQueries({ queryKey: ['service-templates'] })
+    },
+    onError: (err: unknown) =>
+      setTemplateMessage({
+        ok: false,
+        text: err instanceof Error ? err.message : 'Could not save template.',
+      }),
+  })
+
+  function handleSaveTemplate(e: FormEvent) {
+    e.preventDefault()
+    if (!templateName.trim() || sessions.length === 0) return
+    setTemplateMessage(null)
+    saveTemplate.mutate()
+  }
+
   return (
     <QueryState
       isLoading={serviceQuery.isLoading}
@@ -130,15 +174,61 @@ export function ServicePlannerPage() {
             <p className="mt-1 text-body-md text-on-surface-variant">{serviceQuery.data?.date}</p>
           </div>
           {canManage && (
-            <button
-              onClick={() => addSession.mutate()}
-              disabled={addSession.isPending}
-              className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-            >
-              {addSession.isPending ? 'Adding…' : '+ Add Session'}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {isAdmin && sessions.length > 0 && (
+                <button
+                  onClick={() => {
+                    setTemplateMessage(null)
+                    setTemplateFormOpen((v) => !v)
+                  }}
+                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                >
+                  Save as template
+                </button>
+              )}
+              <button
+                onClick={() => addSession.mutate()}
+                disabled={addSession.isPending}
+                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+              >
+                {addSession.isPending ? 'Adding…' : '+ Add Session'}
+              </button>
+            </div>
           )}
         </div>
+
+        {templateFormOpen && (
+          <form
+            onSubmit={handleSaveTemplate}
+            className="mt-4 flex max-w-md flex-wrap items-end gap-3 rounded-lg border border-border-subtle bg-surface-lowest p-4"
+          >
+            <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
+              Template name
+              <input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="English Sunday service"
+                className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={saveTemplate.isPending || !templateName.trim()}
+              className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            >
+              {saveTemplate.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </form>
+        )}
+        {templateMessage && (
+          <p
+            className={`mt-3 max-w-md rounded-sm px-3 py-2 text-body-sm ${
+              templateMessage.ok ? 'bg-secondary/10 text-secondary' : 'bg-error-container text-on-error-container'
+            }`}
+          >
+            {templateMessage.text}
+          </p>
+        )}
 
         <QueryState isLoading={sessionsQuery.isLoading} error={sessionsQuery.error} isEmpty={sessions.length === 0} emptyMessage="No sessions yet.">
           <div className="mt-6 overflow-x-auto rounded-lg border border-border-subtle bg-surface-lowest">
