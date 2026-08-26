@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -6,6 +6,42 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
+import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
+
+function BoardClearCountdown() {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const remaining = nextBoardClearTime(new Date(now)).getTime() - now
+
+  return (
+    <div className="mt-4 flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-lowest px-4 py-3">
+      <svg
+        className="h-4 w-4 shrink-0 text-on-surface-variant"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="13" r="8" />
+        <path d="M12 9v4l2 2" />
+        <path d="M9 2h6" />
+      </svg>
+      <span className="text-body-sm text-on-surface-variant">
+        Board clears in{' '}
+        <span className="font-mono font-medium text-on-surface">{formatCountdown(remaining)}</span>
+        <span className="hidden sm:inline"> — every Tuesday, after Sunday service</span>
+      </span>
+    </div>
+  )
+}
 
 async function fetchMessages(): Promise<MessageRow[]> {
   const { data, error } = await supabase
@@ -52,6 +88,8 @@ export function MessageBoardPage() {
         Visible to everyone signed in. Only Admins, Department Heads, and Service Flow
         Coordinators can post.
       </p>
+
+      <BoardClearCountdown />
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-4">
