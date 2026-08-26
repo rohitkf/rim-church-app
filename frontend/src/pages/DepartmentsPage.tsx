@@ -5,6 +5,39 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { fetchDepartments } from '../lib/queries'
+import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import type { Department } from '../lib/types'
+
+/** Admin-only swatch that saves the department's badge color when the
+ * picker closes (onBlur), not on every drag tick of the native input. */
+function DeptColorControl({ dept }: { dept: Department }) {
+  const queryClient = useQueryClient()
+  const [color, setColor] = useState(dept.color ?? DEFAULT_DEPT_COLOR)
+
+  const saveColor = useMutation({
+    mutationFn: async (value: string) => {
+      const { error } = await supabase.from('departments').update({ color: value }).eq('id', dept.id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+  })
+
+  return (
+    <label className="mt-3 flex items-center gap-2 text-body-sm text-on-surface-variant">
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        onBlur={() => {
+          if (color !== (dept.color ?? DEFAULT_DEPT_COLOR)) saveColor.mutate(color)
+        }}
+        className="h-6 w-9 cursor-pointer rounded-sm border border-border-subtle bg-transparent p-0"
+        aria-label={`Badge color for ${dept.name}`}
+      />
+      {saveColor.isPending ? 'Saving…' : saveColor.isError ? 'Could not save color' : 'Badge color'}
+    </label>
+  )
+}
 
 export function DepartmentsPage() {
   const { isAdmin } = useAuth()
@@ -77,16 +110,20 @@ export function DepartmentsPage() {
         <QueryState isLoading={isLoading} error={error} isEmpty={data?.length === 0} emptyMessage="No departments yet.">
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data?.map((dept) => (
-              <li key={dept.id}>
-                <Link
-                  to={`/departments/${dept.id}`}
-                  className="block rounded-lg border border-border-subtle bg-surface-lowest p-5 hover:border-secondary"
-                >
-                  <div className="text-headline-md">{dept.name}</div>
+              <li key={dept.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-5">
+                <Link to={`/departments/${dept.id}`} className="block hover:text-secondary">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                    />
+                    <span className="text-headline-md">{dept.name}</span>
+                  </div>
                   <div className="mt-1 text-body-sm text-on-surface-variant">
                     {dept.handbook_url ? 'Handbook on file' : 'No handbook uploaded'}
                   </div>
                 </Link>
+                {isAdmin && <DeptColorControl dept={dept} />}
               </li>
             ))}
           </ul>

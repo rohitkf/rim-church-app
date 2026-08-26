@@ -21,6 +21,7 @@ export const departmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   handbook_url: z.string().nullable(),
+  color: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -121,6 +122,8 @@ export const messageRowSchema = z.object({
   body: z.string(),
   created_at: z.string(),
   author: personSummarySchema.nullable(),
+  department_id: z.string().nullable(),
+  department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
