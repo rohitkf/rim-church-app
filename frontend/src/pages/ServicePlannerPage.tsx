@@ -144,6 +144,20 @@ export function ServicePlannerPage() {
   })
 
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
+
+  const clearPlan = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('service_sessions').delete().eq('service_id', serviceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setConfirmingClear(false)
+      invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not clear the plan.'),
+  })
 
   const deleteService = useMutation({
     mutationFn: async () => {
@@ -266,8 +280,22 @@ export function ServicePlannerPage() {
               >
                 {addSession.isPending ? 'Adding…' : '+ Add Session'}
               </button>
+              {sessions.length > 0 && (
+                <button
+                  onClick={() => {
+                    setConfirmingDelete(false)
+                    setConfirmingClear(true)
+                  }}
+                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
+                >
+                  Clear plan
+                </button>
+              )}
               <button
-                onClick={() => setConfirmingDelete(true)}
+                onClick={() => {
+                  setConfirmingClear(false)
+                  setConfirmingDelete(true)
+                }}
                 className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
               >
                 Delete
@@ -275,6 +303,33 @@ export function ServicePlannerPage() {
             </div>
           )}
         </div>
+
+        {confirmingClear && (
+          <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
+            <p className="text-body-sm font-medium text-on-error-container">
+              Clear the whole running order for "{serviceQuery.data?.service_type}"?
+            </p>
+            <p className="mt-1 text-body-sm text-on-error-container">
+              All {sessions.length} session{sessions.length === 1 ? '' : 's'} will be removed. The
+              service itself, its checklists, and attendance stay. This can't be undone.
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => clearPlan.mutate()}
+                disabled={clearPlan.isPending}
+                className="rounded-sm bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+              >
+                {clearPlan.isPending ? 'Clearing…' : 'Yes, clear plan'}
+              </button>
+              <button
+                onClick={() => setConfirmingClear(false)}
+                className="text-body-sm font-medium text-on-error-container hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {confirmingDelete && (
           <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
