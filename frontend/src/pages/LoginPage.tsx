@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { PasswordInput } from '../components/PasswordInput'
 
 export function LoginPage() {
   const { session } = useAuth()
@@ -48,13 +49,7 @@ export function LoginPage() {
           </label>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
             Password
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
+            <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
           </label>
           {error && <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
           <button
