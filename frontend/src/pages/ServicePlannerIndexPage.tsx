@@ -4,19 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { QueryState } from '../components/QueryState'
 import { useAuth } from '../auth/AuthContext'
 import { fetchServices } from '../lib/queries'
-import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
+import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import type { Service } from '../lib/types'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-function agendaDate(iso: string): { weekday: string; day: string; month: string } {
-  const d = new Date(iso + 'T12:00:00')
-  return {
-    weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
-    day: d.toLocaleDateString(undefined, { day: 'numeric' }),
-    month: d.toLocaleDateString(undefined, { month: 'short' }),
-  }
-}
 
 export function ServicePlannerIndexPage() {
   const navigate = useNavigate()

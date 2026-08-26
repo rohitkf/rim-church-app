@@ -1,17 +1,18 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { fetchDepartments, fetchServices } from '../lib/queries'
+import { agendaDate, todayIso } from '../lib/monthGrid'
+import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 
 export function ChecklistsIndexPage() {
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [departmentId, setDepartmentId] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [newDate, setNewDate] = useState('')
   const [newType, setNewType] = useState('')
@@ -19,6 +20,17 @@ export function ChecklistsIndexPage() {
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
+
+  const today = todayIso()
+  // Same rule as the Service Planner: members work upcoming services;
+  // past ones remain visible history for Admins only.
+  const visibleServices = useMemo(
+    () =>
+      (servicesQuery.data ?? [])
+        .filter((s) => isAdmin || s.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [servicesQuery.data, isAdmin, today],
+  )
 
   const createService = useMutation({
     mutationFn: async () => {
@@ -40,69 +52,95 @@ export function ChecklistsIndexPage() {
     createService.mutate()
   }
 
-  function handleGo(e: FormEvent) {
-    e.preventDefault()
-    if (!departmentId || !serviceId) return
-    navigate(`/checklists/${departmentId}/${serviceId}`)
-  }
-
   return (
     <div>
       <h1 className="text-headline-xl">Checklists</h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
-        Pick a department and a service to view or work its pre-service checklist.
+        Tap a service, then a department, to open its pre-service checklist.
       </p>
 
-      <form onSubmit={handleGo} className="mt-6 flex max-w-xl flex-wrap items-end gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-          Department
-          <select
-            value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
-            className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-          >
-            <option value="">Select…</option>
-            {departmentsQuery.data?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-          Service
-          <select
-            value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
-            className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-          >
-            <option value="">Select…</option>
-            {servicesQuery.data?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.service_type} — {s.date}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          disabled={!departmentId || !serviceId}
-          className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-        >
-          View Checklist
-        </button>
-      </form>
+      <QueryState
+        isLoading={departmentsQuery.isLoading || servicesQuery.isLoading}
+        error={departmentsQuery.error || servicesQuery.error}
+        isEmpty={visibleServices.length === 0}
+        emptyMessage={
+          isAdmin ? 'No services yet — create one below.' : 'No upcoming services scheduled yet — check back soon.'
+        }
+      >
+        <section className="mt-6">
+          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">1 · Service</div>
+          <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleServices.map((s) => {
+              const d = agendaDate(s.date)
+              const selected = s.id === serviceId
+              const past = s.date < today
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => setServiceId(selected ? '' : s.id)}
+                    className={`flex w-full items-center gap-4 rounded-lg border p-4 text-left ${
+                      selected
+                        ? 'border-2 border-secondary bg-secondary/5'
+                        : 'border-border-subtle bg-surface-lowest hover:border-secondary'
+                    } ${past && !selected ? 'opacity-60' : ''}`}
+                  >
+                    <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-md bg-secondary/10 text-secondary">
+                      <span className="font-mono text-label-sm uppercase leading-none">{d.month}</span>
+                      <span className="text-headline-md leading-tight">{d.day}</span>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-on-surface">{s.service_type}</span>
+                      <span className="block text-body-sm text-on-surface-variant">
+                        {d.weekday} · {s.date}
+                        {past ? ' · past' : ''}
+                      </span>
+                    </span>
+                    {selected && <span className="shrink-0 font-mono text-secondary">✓</span>}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
 
-      <QueryState isLoading={departmentsQuery.isLoading || servicesQuery.isLoading} error={departmentsQuery.error || servicesQuery.error}>
-        <></>
+        {serviceId && (
+          <section className="mt-8">
+            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              2 · Department
+            </div>
+            {departmentsQuery.data?.length === 0 ? (
+              <p className="mt-3 text-body-sm text-on-surface-variant">No departments yet.</p>
+            ) : (
+              <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {departmentsQuery.data?.map((dept) => (
+                  <li key={dept.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/checklists/${dept.id}/${serviceId}`)}
+                      className="flex w-full items-center gap-3 rounded-lg border border-border-subtle bg-surface-lowest p-4 text-left hover:border-secondary"
+                    >
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                      />
+                      <span className="min-w-0 flex-1 truncate font-medium text-on-surface">{dept.name}</span>
+                      <span className="shrink-0 text-on-surface-variant">›</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </QueryState>
 
       {isAdmin && (
         <div className="mt-10 max-w-xl rounded-lg border border-border-subtle bg-surface-lowest p-6">
           <h2 className="text-headline-md">New Service</h2>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            Full running-order planning lands in Phase 6 — this just registers the date/type so a
-            checklist and attendance record can attach to it.
+            Registers the date/type so a checklist and attendance record can attach to it, and it
+            appears on the Service Planner calendar.
           </p>
           <form onSubmit={handleCreateService} className="mt-4 flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">

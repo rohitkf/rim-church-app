@@ -36,3 +36,13 @@ export function monthGrid(year: number, month: number): MonthCell[][] {
 export function monthTitle(year: number, month: number): string {
   return new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 }
+
+/** Pieces for the "AUG 30, Sun" date badge on agenda-style cards. */
+export function agendaDate(iso: string): { weekday: string; day: string; month: string } {
+  const d = new Date(iso + 'T12:00:00')
+  return {
+    weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
+    day: d.toLocaleDateString(undefined, { day: 'numeric' }),
+    month: d.toLocaleDateString(undefined, { month: 'short' }),
+  }
+}
