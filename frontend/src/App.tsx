@@ -26,10 +26,26 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: false,
+      // Kept on: it's what recovers a query whose in-flight fetch was
+      // killed by a navigation (see the pageshow handler below).
+      refetchOnWindowFocus: true,
     },
   },
 })
+
+// Mobile browsers restore pages from the back/forward cache with their JS
+// state frozen mid-flight: a fetch that was pending when the user
+// navigated away is dead on arrival, leaving queries stuck in "Loading…"
+// forever. On a bfcache restore (event.persisted), reset any still-
+// "fetching" queries so they re-run instead of waiting on a corpse.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      queryClient.cancelQueries()
+      queryClient.invalidateQueries()
+    }
+  })
+}
 
 function App() {
   if (!isSupabaseConfigured) {
