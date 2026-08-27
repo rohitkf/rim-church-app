@@ -141,16 +141,28 @@ export function ChecklistsIndexPage() {
     }
   }
 
-  // Everything you're responsible for, then everything you oversee.
+  // Everything you're responsible for, then everything you oversee, then —
+  // for whoever Service Flow puts on the service — everything else, since
+  // the final signature is theirs to give on every team's list.
   const mineFirst = useMemo(() => {
     const scored = assignments.map((a) => ({
       assignment: a,
-      rank: a.user_id === myId ? 0 : isAdmin || isDepartmentHead(a.department_id) ? 1 : 2,
+      rank:
+        a.user_id === myId
+          ? 0
+          : isAdmin || isDepartmentHead(a.department_id)
+            ? 1
+            : isServiceFlowSigner(a.service_id)
+              ? 2
+              : 3,
     }))
     return scored
-      .filter((s) => s.rank < 2)
+      .filter((s) => s.rank < 3)
       .sort((a, b) => a.rank - b.rank || a.assignment.role_label.localeCompare(b.assignment.role_label))
-  }, [assignments, myId, isAdmin, isDepartmentHead])
+    // isServiceFlowSigner reads the same assignments and departments this
+    // memo already depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept])
 
   const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
   const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
@@ -223,12 +235,19 @@ export function ChecklistsIndexPage() {
                                     · {assignment.department?.name}
                                   </span>
                                 </div>
-                                <span className="text-body-sm text-on-surface-variant">
-                                  {rank === 0
-                                    ? 'You'
-                                    : assignment.profile
-                                      ? `${assignment.profile.first_name} ${assignment.profile.last_name}`
-                                      : 'Unassigned'}
+                                <span className="flex items-center gap-2">
+                                  {rank === 2 && (
+                                    <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-status-coordinator">
+                                      For your sign-off
+                                    </span>
+                                  )}
+                                  <span className="text-body-sm text-on-surface-variant">
+                                    {rank === 0
+                                      ? 'You'
+                                      : assignment.profile
+                                        ? `${assignment.profile.first_name} ${assignment.profile.last_name}`
+                                        : 'Unassigned'}
+                                  </span>
                                 </span>
                               </div>
 
