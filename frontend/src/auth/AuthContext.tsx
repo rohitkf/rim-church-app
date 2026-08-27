@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
+import { errorMessage } from '../lib/errorMessage'
 import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
 import { z } from 'zod'
 
@@ -9,6 +10,8 @@ interface AuthContextValue {
   profile: Profile | null
   roles: UserRole[]
   loading: boolean
+  /** Why the session couldn't be read, when it couldn't. */
+  authError: string | null
   isAdmin: boolean
   /** The single account that owns the app: it alone may take Admin away. */
   isSuperAdmin: boolean
@@ -32,6 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // away, and it can only move by being offered and accepted.
   const [ownerId, setOwnerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Set when the session couldn't be established at all, so the shell can
+  // say so rather than sitting on a spinner.
+  const [authError, setAuthError] = useState<string | null>(null)
 
   async function loadProfileAndRoles(userId: string) {
     const [{ data: profileData }, { data: roleData }, { data: ownerData }] = await Promise.all([
@@ -60,14 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        loadProfileAndRoles(session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    // Whatever happens, the loading screen has to end. A rejected session
+    // lookup — the project asleep, DNS gone, a phone that lost signal
+    // between the tap and the request — used to leave the app on "Loading…"
+    // for ever, with nothing said and nothing to press.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session)
+        if (session?.user) return loadProfileAndRoles(session.user.id)
+      })
+      .catch((err: unknown) => {
+        console.error('Could not read the session:', err)
+        setAuthError(errorMessage(err, 'Could not reach the server.'))
+      })
+      .finally(() => setLoading(false))
 
     const {
       data: { subscription },
@@ -122,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         loading,
+        authError,
         isAdmin,
         isSuperAdmin,
         ownerId,

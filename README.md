@@ -298,6 +298,12 @@ you're back, which the banner also says. Offline *editing* is deliberately
 not supported — queued writes against a permissions model this granular
 would need conflict resolution nobody has specified.
 
+The worker deliberately does **not** call `clients.claim()`: claiming a
+page that is still loading fires `controllerchange` in the middle of that
+load, which the page cannot tell apart from a real update. It takes over
+on the next navigation instead, so offline support begins from the second
+visit.
+
 **Shipping an update.** Deploys are picked up automatically: the worker
 notices the new build, and the app offers a "Reload" rather than swapping
 the page out from under someone mid-edit. If you ever need to invalidate

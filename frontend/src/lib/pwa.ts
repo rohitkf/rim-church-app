@@ -67,14 +67,23 @@ export function isIos(): boolean {
 }
 
 let waitingWorker: ServiceWorker | null = null
+// Whether *we* asked for the swap. A controller can change without anyone
+// asking — a worker claiming an uncontrolled page does it — and reloading
+// on that is how a first visit after a deploy ends up as a blank screen.
+// Only a reload the person actually pressed is allowed to happen.
+let updateAccepted = false
 
 /** Take the update that is already downloaded, then reload onto it. */
 export function applyUpdate() {
+  updateAccepted = true
   if (!waitingWorker) {
     window.location.reload()
     return
   }
   waitingWorker.postMessage('SKIP_WAITING')
+  // If the new worker doesn't take over — an old browser, a worker that
+  // died — the reload still has to happen, or the button did nothing.
+  window.setTimeout(() => window.location.reload(), 3000)
 }
 
 function watchWorker(registration: ServiceWorkerRegistration) {
@@ -123,9 +132,9 @@ export function initPwa(): () => void {
 
   let reloading = false
   const onControllerChange = () => {
-    // Fires when the new worker takes over after applyUpdate(). Guarded,
-    // because Chrome can fire it more than once.
-    if (reloading) return
+    // Only ever after applyUpdate(): see updateAccepted above. Guarded
+    // as well, because Chrome can fire this more than once.
+    if (!updateAccepted || reloading) return
     reloading = true
     window.location.reload()
   }
@@ -168,5 +177,6 @@ export async function promptInstall(): Promise<boolean> {
 export function resetPwaStateForTests() {
   state = { updateReady: false, installPrompt: null, installed: false, offline: false }
   waitingWorker = null
+  updateAccepted = false
   listeners.clear()
 }

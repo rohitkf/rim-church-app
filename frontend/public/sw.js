@@ -40,7 +40,14 @@ self.addEventListener('activate', (event) => {
       // Navigation preload lets the browser start the network request while
       // the worker boots, so going online-first costs nothing.
       if (self.registration.navigationPreload) await self.registration.navigationPreload.enable()
-      await self.clients.claim()
+
+      // Deliberately no clients.claim(). Claiming a page that is still
+      // loading fires controllerchange in the middle of that load, and the
+      // page has no way to tell that apart from a real update — which cost
+      // the first visit after a deploy a forced reload that aborted the
+      // document mid-flight and left a blank screen. The worker takes over
+      // on the next navigation instead, which is one visit later and
+      // entirely safe.
     })(),
   )
 })

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, useAuth } from './AuthContext'
 
@@ -22,6 +22,12 @@ const mockProfile = {
   avatar_url: null,
 }
 
+// Lets one test make the session lookup fail the way a sleeping project or
+// a dropped connection would.
+const control = vi.hoisted(() => ({
+  getSession: () => Promise.resolve({ data: { session: null as unknown } }),
+}))
+
 vi.mock('../lib/supabaseClient', () => {
   function chain(result: unknown) {
     const builder: Record<string, unknown> = {}
@@ -37,7 +43,7 @@ vi.mock('../lib/supabaseClient', () => {
   return {
     supabase: {
       auth: {
-        getSession: () => Promise.resolve({ data: { session: mockSession } }),
+        getSession: () => control.getSession(),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         signOut: () => Promise.resolve(),
       },
@@ -66,6 +72,10 @@ function Probe() {
   )
 }
 
+beforeEach(() => {
+  control.getSession = () => Promise.resolve({ data: { session: mockSession } })
+})
+
 describe('AuthContext role checks', () => {
   it('derives per-department permission checks from the loaded roles', async () => {
     render(
@@ -86,5 +96,35 @@ describe('AuthContext role checks', () => {
     expect(screen.getByTestId('is-admin')).toHaveTextContent('false')
     // hasRole with no scope opts matches on role_type alone, regardless of department
     expect(screen.getByTestId('any-dept-head')).toHaveTextContent('true')
+  })
+})
+
+describe('when the session cannot be read at all', () => {
+  it('stops loading and reports why, instead of spinning for ever', async () => {
+    // A sleeping Supabase project, dead DNS, a phone that lost signal
+    // between the tap and the request. Whatever the cause, the app has to
+    // come out of its loading state and say something.
+    control.getSession = () => Promise.reject({ message: 'Failed to fetch' })
+
+    function ErrorProbe() {
+      const { loading, authError, session } = useAuth()
+      return (
+        <div>
+          <div data-testid="loading">{String(loading)}</div>
+          <div data-testid="error">{authError ?? ''}</div>
+          <div data-testid="session">{String(!!session)}</div>
+        </div>
+      )
+    }
+
+    render(
+      <AuthProvider>
+        <ErrorProbe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
+    expect(screen.getByTestId('error')).toHaveTextContent('Failed to fetch')
+    expect(screen.getByTestId('session')).toHaveTextContent('false')
   })
 })
