@@ -12,8 +12,13 @@ import {
   fetchDepartments,
   fetchMembersForDepartments,
   fetchOwnDepartmentIds,
+  fetchRoleChecklistItems,
+  fetchRotaAssignments,
+  fetchRotaProgress,
   fetchServices,
 } from '../lib/queries'
+import { serviceReadiness } from '../lib/readiness'
+import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { attendanceBarClass } from '../lib/attendance'
@@ -145,10 +150,6 @@ export function DashboardPage() {
     enabled: dayServiceIds.length > 0,
   })
   const checklistIds = useMemo(() => checklistsQuery.data?.map((c) => c.id) ?? [], [checklistsQuery.data])
-  const checklistById = useMemo(
-    () => new Map(checklistsQuery.data?.map((c) => [c.id, c]) ?? []),
-    [checklistsQuery.data],
-  )
 
   const itemsQuery = useQuery({
     queryKey: ['dashboard-items', checklistIds],
@@ -156,6 +157,28 @@ export function DashboardPage() {
     enabled: checklistIds.length > 0,
   })
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
+
+  // Checklist readiness comes from the rota: whoever it puts on the service
+  // owes the checklist of the role they were given, and every item passes
+  // through member -> head -> coordinator. Same source as the Checklists page.
+  const rotaQuery = useQuery({
+    queryKey: ['dashboard-rota', dayServiceIds],
+    queryFn: () => fetchRotaAssignments(dayServiceIds),
+    enabled: dayServiceIds.length > 0,
+  })
+  const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
+  const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
+  const roleItemsQuery = useQuery({
+    queryKey: ['role-checklist-items', rotaDeptIds],
+    queryFn: () => fetchRoleChecklistItems(rotaDeptIds),
+    enabled: rotaDeptIds.length > 0,
+  })
+  const assignmentIds = useMemo(() => rota.map((a) => a.id), [rota])
+  const progressQuery = useQuery({
+    queryKey: ['rota-progress', assignmentIds],
+    queryFn: () => fetchRotaProgress(assignmentIds),
+    enabled: assignmentIds.length > 0,
+  })
 
 
   // Availability: who has said they can serve. RLS narrows both the
@@ -301,17 +324,11 @@ export function DashboardPage() {
         ) : (
           <div className="mt-6 flex flex-col gap-6">
             {dayServices.map((service) => {
-              const serviceChecklistIds = new Set(
-                (checklistsQuery.data ?? []).filter((c) => c.service_id === service.id).map((c) => c.id),
-              )
-              const serviceItems = items.filter((i) => serviceChecklistIds.has(i.checklist_id))
-
-              const counts = {
-                total: serviceItems.length,
-                memberComplete: serviceItems.filter((i) => i.status === 'member_complete').length,
-                headVerified: serviceItems.filter((i) => i.status === 'head_verified').length,
-                coordinatorVerified: serviceItems.filter((i) => i.status === 'coordinator_verified').length,
-              }
+              const { overall: readiness, byDepartment: readinessByDept } = serviceReadiness({
+                assignments: rota.filter((a) => a.service_id === service.id),
+                roleItems: roleItemsQuery.data ?? [],
+                progress: progressQuery.data ?? [],
+              })
 
               // Availability for this service, per team, plus the whole-
               // roster total across every team the viewer can see.
@@ -344,14 +361,6 @@ export function DashboardPage() {
                 overallAvailability.total > 0
                   ? Math.round((overallAvailability.available / overallAvailability.total) * 100)
                   : 0
-
-              const deptIds = [
-                ...new Set([
-                  ...(checklistsQuery.data ?? [])
-                    .filter((c) => c.service_id === service.id)
-                    .map((c) => c.department_id),
-                ]),
-              ]
 
               return (
                 <section
@@ -465,54 +474,53 @@ export function DashboardPage() {
                     <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                       Checklist readiness
                     </div>
-                    <div className="mt-3">
-                      <SegmentedProgressBar
-                        total={counts.total}
-                        memberComplete={counts.memberComplete}
-                        headVerified={counts.headVerified}
-                        coordinatorVerified={counts.coordinatorVerified}
-                      />
-                    </div>
 
-                    {deptIds.length === 0 ? (
-                      <p className="mt-4 text-body-sm text-on-surface-variant">No checklists yet.</p>
+                    {readiness.total === 0 ? (
+                      <p className="mt-4 text-body-sm text-on-surface-variant">
+                        Nothing to check yet — readiness appears once the Team Rota puts people on
+                        roles that have a checklist.
+                      </p>
                     ) : (
-                      <ul className="mt-4 divide-y divide-border-subtle">
-                        {deptIds.map((deptId) => {
-                          const deptItems = serviceItems.filter(
-                            (i) => checklistById.get(i.checklist_id)?.department_id === deptId,
-                          )
-                          const done = deptItems.filter((i) => i.status !== 'pending').length
-                          return (
-                            <li key={deptId} className="py-3 first:pt-0 last:pb-0">
-                              <div className="flex items-center justify-between gap-2 text-body-sm">
-                                <Link
-                                  to={`/checklists/${deptId}/${service.id}`}
-                                  className="truncate text-on-surface hover:text-secondary"
-                                >
-                                  {departmentName(deptId)}
-                                </Link>
-                                <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                  {done}/{deptItems.length} tasks
-                                </span>
-                              </div>
-                              <div className="mt-1.5">
-                                <SegmentedProgressBar
-                                  showLegend={false}
-                                  total={deptItems.length}
-                                  memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
-                                  headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
-                                  coordinatorVerified={
-                                    deptItems.filter((i) => i.status === 'coordinator_verified').length
-                                  }
+                      <div className="mt-4">
+                        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+                          <span className="text-headline-lg">{readiness.pct}%</span>
+                          <span className="font-mono text-label-sm text-on-surface-variant">
+                            {readiness.coordinatorVerified}/{readiness.total} signed off
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <SegmentedProgressBar
+                            showLegend={false}
+                            total={readiness.total}
+                            memberComplete={readiness.memberComplete}
+                            headVerified={readiness.headVerified}
+                            coordinatorVerified={readiness.coordinatorVerified}
+                          />
+                        </div>
+                        <div className="mt-3">
+                          <ReadinessLegend readiness={readiness} />
+                        </div>
+
+                        <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-5">
+                          {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
+                            <li key={deptId}>
+                              <Link
+                                to="/checklists"
+                                className="block rounded-sm hover:opacity-90"
+                                title={`${departmentName(deptId)} checklist`}
+                              >
+                                <ReadinessDonut
+                                  readiness={deptReadiness}
+                                  label={departmentName(deptId)}
+                                  size={96}
                                 />
-                              </div>
+                              </Link>
                             </li>
-                          )
-                        })}
-                      </ul>
+                          ))}
+                        </ul>
+                      </div>
                     )}
-                    </div>
+                  </div>
                 </section>
               )
             })}

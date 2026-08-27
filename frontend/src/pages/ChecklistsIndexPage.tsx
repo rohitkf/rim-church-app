@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -8,6 +7,7 @@ import { StatusBadge } from '../components/ChecklistStatus'
 import {
   fetchDepartments,
   fetchRoleChecklistItems,
+  fetchRotaAssignments,
   fetchRotaProgress,
   fetchServices,
 } from '../lib/queries'
@@ -15,21 +15,8 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
-import { rotaAssignmentSchema, type ChecklistItemStatus, type RotaAssignment } from '../lib/types'
+import type { ChecklistItemStatus, RotaAssignment } from '../lib/types'
 import { errorMessage } from '../lib/errorMessage'
-
-async function fetchAssignments(serviceIds: string[]): Promise<RotaAssignment[]> {
-  if (serviceIds.length === 0) return []
-  const { data, error } = await supabase
-    .from('rota_assignments')
-    .select(
-      'id, service_id, department_id, user_id, role_label, role_id, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
-    )
-    .in('service_id', serviceIds)
-    .order('role_label')
-  if (error) throw error
-  return z.array(rotaAssignmentSchema).parse(data)
-}
 
 /** What this viewer can do to an item at its current stage. */
 type Action = { next: ChecklistItemStatus; label: string; className: string } | null
@@ -58,7 +45,7 @@ export function ChecklistsIndexPage() {
 
   const assignmentsQuery = useQuery({
     queryKey: ['checklist-assignments', dayServiceIds],
-    queryFn: () => fetchAssignments(dayServiceIds),
+    queryFn: () => fetchRotaAssignments(dayServiceIds),
     enabled: dayServiceIds.length > 0,
   })
   const assignments = useMemo(() => assignmentsQuery.data ?? [], [assignmentsQuery.data])

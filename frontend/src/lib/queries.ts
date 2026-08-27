@@ -6,6 +6,7 @@ import {
   departmentRoleSchema,
   departmentSchema,
   roleChecklistItemSchema,
+  rotaAssignmentSchema,
   rotaProgressSchema,
   serviceSchema,
   serviceTemplateSchema,
@@ -15,6 +16,7 @@ import {
   type DepartmentMemberRow,
   type DepartmentRole,
   type RoleChecklistItem,
+  type RotaAssignment,
   type RotaProgress,
   type Service,
   type ServiceTemplate,
@@ -71,6 +73,20 @@ export async function fetchRoleChecklistItems(departmentIds: string[]): Promise<
     .order('sort_order')
   if (error) throw error
   return z.array(roleChecklistItemSchema).parse(data)
+}
+
+/** Who the rota puts on each service, with the role they were given. */
+export async function fetchRotaAssignments(serviceIds: string[]): Promise<RotaAssignment[]> {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('rota_assignments')
+    .select(
+      'id, service_id, department_id, user_id, role_label, role_id, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+    )
+    .in('service_id', serviceIds)
+    .order('role_label')
+  if (error) throw error
+  return z.array(rotaAssignmentSchema).parse(data)
 }
 
 /** Progress on those items for a set of rota assignments. */
