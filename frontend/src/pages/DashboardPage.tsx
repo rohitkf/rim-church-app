@@ -19,6 +19,7 @@ import { attendanceBarClass } from '../lib/attendance'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
+import { nearestServiceDate } from '../lib/nearestService'
 import { todayIso } from '../lib/monthGrid'
 import type { RoleType } from '../auth/types'
 import {
@@ -100,12 +101,36 @@ export function DashboardPage() {
   // otherwise the one coming up). Admins alone can step back through
   // previous weeks to review past stats.
   const today = todayIso()
-  const thisSunday = focusSundayIso(new Date())
-  const [adminDate, setAdminDate] = useState(thisSunday)
-  const viewedDate = isAdmin ? adminDate : thisSunday
+  const [adminDate, setAdminDate] = useState<string | null>(null)
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+
+  // Every distinct day that has services, so the dashboard can land on
+  // the one that matters and step between them.
+  const serviceDates = useMemo(
+    () => [...new Set((servicesQuery.data ?? []).map((s) => s.date))].sort(),
+    [servicesQuery.data],
+  )
+  // Today when something is on today, otherwise the next day with
+  // services — services aren't always on a Sunday, and pinning this to
+  // the coming Sunday hid a midweek service entirely. Falls back to the
+  // coming Sunday when nothing is scheduled at all.
+  const defaultDate = useMemo(
+    () => nearestServiceDate(serviceDates, today) ?? focusSundayIso(new Date()),
+    [serviceDates, today],
+  )
+  const viewedDate = (isAdmin ? adminDate : null) ?? defaultDate
+
+  // Step to the neighbouring service day rather than a fixed week, so
+  // Previous/Next always lands on something worth looking at.
+  function stepDay(delta: 1 | -1) {
+    const ahead = delta === 1
+    const candidates = ahead
+      ? serviceDates.filter((d) => d > viewedDate)
+      : serviceDates.filter((d) => d < viewedDate).reverse()
+    setAdminDate(candidates[0] ?? shiftSundayIso(viewedDate, delta))
+  }
 
   const dayServices = useMemo(
     () => (servicesQuery.data ?? []).filter((s) => s.date === viewedDate),
@@ -212,32 +237,32 @@ export function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setAdminDate(shiftSundayIso(adminDate, -1))}
+                onClick={() => stepDay(-1)}
                 className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 ‹ Previous
               </button>
               <input
                 type="date"
-                value={adminDate}
+                value={viewedDate}
                 onChange={(e) => e.target.value && setAdminDate(e.target.value)}
                 aria-label="Service day"
                 className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface"
               />
               <button
                 type="button"
-                onClick={() => setAdminDate(shiftSundayIso(adminDate, 1))}
+                onClick={() => stepDay(1)}
                 className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 Next ›
               </button>
-              {adminDate !== thisSunday && (
+              {viewedDate !== defaultDate && (
                 <button
                   type="button"
-                  onClick={() => setAdminDate(thisSunday)}
+                  onClick={() => setAdminDate(null)}
                   className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
                 >
-                  This Sunday
+                  Next service
                 </button>
               )}
             </div>
