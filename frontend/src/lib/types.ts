@@ -127,6 +127,20 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+export const availabilityStatusSchema = z.enum(['available', 'unavailable', 'tentative'])
+export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>
+
+export const availabilityRowSchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  service_id: z.string(),
+  department_id: z.string(),
+  status: availabilityStatusSchema,
+  note: z.string().nullable(),
+  updated_at: z.string(),
+})
+export type AvailabilityRow = z.infer<typeof availabilityRowSchema>
+
 export const serviceTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),

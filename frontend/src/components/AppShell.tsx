@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   SparklesIcon,
   TimerIcon,
+  UserCheckIcon,
   UserCircleIcon,
   UsersIcon,
 } from './icons'
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon, enabled: true },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, enabled: true },
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, enabled: true },
+  { to: '/availability', label: 'Availability Tracker', icon: UserCheckIcon, enabled: true },
   { to: '/departments', label: 'Teams', icon: UsersIcon, enabled: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, enabled: true },
   { to: '/messages', label: 'Messages', icon: MessageIcon, enabled: true },
