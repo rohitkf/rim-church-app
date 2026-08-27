@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { AdminResetCard } from '../components/AdminResetCard'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 
 const inputClasses =
@@ -152,6 +153,8 @@ export function ProfilePage() {
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </form>
+
+      <AdminResetCard />
     </div>
   )
 }
