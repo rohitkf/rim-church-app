@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { StatusBadge } from '../components/ChecklistStatus'
+import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
 import {
   fetchDepartments,
   fetchRoleChecklistItems,
@@ -15,11 +16,8 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
-import type { ChecklistItemStatus, RotaAssignment } from '../lib/types'
+import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
 import { errorMessage } from '../lib/errorMessage'
-
-/** What this viewer can do to an item at its current stage. */
-type Action = { next: ChecklistItemStatus; label: string; className: string } | null
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
@@ -87,9 +85,21 @@ export function ChecklistsIndexPage() {
       next: ChecklistItemStatus
     }) => {
       const stamp = new Date().toISOString()
-      const patch: Record<string, unknown> = { status: next }
-      if (next === 'member_complete') Object.assign(patch, { completed_by: myId, completed_at: stamp })
-      if (next === 'head_verified') Object.assign(patch, { verified_by_head: myId, verified_by_head_at: stamp })
+      // Each stage carries who signed it and when; taking a stage back
+      // clears its signature rather than leaving a stale name on the row.
+      const patch: Record<string, unknown> = {
+        status: next,
+        completed_by: null,
+        completed_at: null,
+        verified_by_head: null,
+        verified_by_head_at: null,
+        verified_by_coordinator: null,
+        verified_by_coordinator_at: null,
+      }
+      if (next !== 'pending') Object.assign(patch, { completed_by: myId, completed_at: stamp })
+      if (next === 'head_verified' || next === 'coordinator_verified') {
+        Object.assign(patch, { verified_by_head: myId, verified_by_head_at: stamp })
+      }
       if (next === 'coordinator_verified') {
         Object.assign(patch, { verified_by_coordinator: myId, verified_by_coordinator_at: stamp })
       }
@@ -99,27 +109,36 @@ export function ChecklistsIndexPage() {
         .upsert({ assignment_id: assignmentId, item_id: itemId, ...patch }, { onConflict: 'assignment_id,item_id' })
       if (error) throw error
     },
-    onSuccess: () => {
+    // Tick the box straight away and reconcile afterwards: a checkbox that
+    // waits for a round trip before moving feels broken.
+    onMutate: async ({ assignmentId, itemId, next }) => {
+      await queryClient.cancelQueries({ queryKey: ['rota-progress'] })
+      const snapshot = queryClient.getQueriesData<RotaProgress[]>({ queryKey: ['rota-progress'] })
+      queryClient.setQueriesData<RotaProgress[]>({ queryKey: ['rota-progress'] }, (rows) => {
+        const current = rows ?? []
+        const existing = current.find((p) => p.assignment_id === assignmentId && p.item_id === itemId)
+        if (existing) {
+          return current.map((p) => (p === existing ? { ...p, status: next } : p))
+        }
+        return [...current, { id: `optimistic:${assignmentId}:${itemId}`, assignment_id: assignmentId, item_id: itemId, status: next }]
+      })
       setError(null)
-      queryClient.invalidateQueries({ queryKey: ['rota-progress'] })
+      return { snapshot }
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not update that item.')),
+    onError: (err: unknown, _vars, context) => {
+      for (const [key, rows] of context?.snapshot ?? []) queryClient.setQueryData(key, rows)
+      setError(errorMessage(err, 'Could not update that item.'))
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['rota-progress'] }),
   })
 
-  function actionFor(assignment: RotaAssignment, status: ChecklistItemStatus): Action {
-    const mine = assignment.user_id === myId
-    const leads = isAdmin || isDepartmentHead(assignment.department_id)
-
-    if (status === 'pending' && (mine || isAdmin)) {
-      return { next: 'member_complete', label: 'Mark complete', className: 'bg-status-member' }
+  /** Which of the three signatures this viewer may give on this assignment. */
+  function mayFor(assignment: RotaAssignment) {
+    return {
+      member: isAdmin || assignment.user_id === myId,
+      head: isAdmin || isDepartmentHead(assignment.department_id),
+      sign: isServiceFlowSigner(assignment.service_id),
     }
-    if (status === 'member_complete' && leads) {
-      return { next: 'head_verified', label: 'Verify', className: 'bg-status-head' }
-    }
-    if (status === 'head_verified' && isServiceFlowSigner(assignment.service_id)) {
-      return { next: 'coordinator_verified', label: 'Sign off', className: 'bg-status-coordinator' }
-    }
-    return null
   }
 
   // Everything you're responsible for, then everything you oversee.
@@ -181,6 +200,7 @@ export function ChecklistsIndexPage() {
                         {forService.map(({ assignment, rank }) => {
                           const items = (itemsQuery.data ?? []).filter((i) => i.role_id === assignment.role_id)
                           const progress = progressQuery.data ?? []
+                          const may = mayFor(assignment)
                           const statusOf = (itemId: string): ChecklistItemStatus =>
                             progress.find((p) => p.assignment_id === assignment.id && p.item_id === itemId)
                               ?.status ?? 'pending'
@@ -220,31 +240,27 @@ export function ChecklistsIndexPage() {
                                 <ul className="mt-3 divide-y divide-border-subtle">
                                   {items.map((item) => {
                                     const status = statusOf(item.id)
-                                    const action = actionFor(assignment, status)
                                     return (
                                       <li
                                         key={item.id}
-                                        className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
+                                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5 first:pt-0 last:pb-0"
                                       >
-                                        <span className="min-w-0 flex-1 text-body-sm text-on-surface">
+                                        <span className="min-w-0 flex-1 text-body-md text-on-surface">
                                           {item.label}
                                         </span>
                                         <StatusBadge status={status} />
-                                        {action && (
-                                          <button
-                                            onClick={() =>
-                                              setStage.mutate({
-                                                assignmentId: assignment.id,
-                                                itemId: item.id,
-                                                next: action.next,
-                                              })
-                                            }
-                                            disabled={setStage.isPending}
-                                            className={`shrink-0 rounded-sm px-3 py-1.5 text-label-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${action.className}`}
-                                          >
-                                            {action.label}
-                                          </button>
-                                        )}
+                                        <ChecklistStageBoxes
+                                          status={status}
+                                          may={may}
+                                          busy={setStage.isPending}
+                                          onChange={(next) =>
+                                            setStage.mutate({
+                                              assignmentId: assignment.id,
+                                              itemId: item.id,
+                                              next,
+                                            })
+                                          }
+                                        />
                                       </li>
                                     )
                                   })}
