@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
   fetchDepartments,
+  fetchAvailabilityFor,
   fetchMembersForDepartments,
   fetchOwnDepartmentIds,
   fetchServices,
@@ -104,6 +105,14 @@ export function TeamRotaPage() {
     enabled: upcomingIds.length > 0,
   })
   const requestsQuery = useQuery({ queryKey: ['rota-requests'], queryFn: fetchReleaseRequests })
+  // The rota can only draw on people who said they can serve, so the
+  // Person list is built from availability rather than the whole roster.
+  const availabilityQuery = useQuery({
+    queryKey: ['availability', 'rota', upcomingIds],
+    queryFn: () => fetchAvailabilityFor(upcomingIds),
+    enabled: upcomingIds.length > 0,
+  })
+
   const membersQuery = useQuery({
     queryKey: ['rota-members', myDepartmentIds],
     queryFn: () => fetchMembersForDepartments(myDepartmentIds),
@@ -331,8 +340,23 @@ export function TeamRotaPage() {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)
                       const manage = canManage(dept.id)
+                      // Only people who marked themselves available for this
+                      // service, on this team, can be put on the rota for it.
+                      const availableHere = new Set(
+                        (availabilityQuery.data ?? [])
+                          .filter(
+                            (a) =>
+                              a.service_id === service.id &&
+                              a.department_id === dept.id &&
+                              a.status === 'available',
+                          )
+                          .map((a) => a.user_id),
+                      )
                       const roster = (membersQuery.data ?? []).filter(
-                        (m) => m.department_id === dept.id && m.member_type === 'core',
+                        (m) =>
+                          m.department_id === dept.id &&
+                          m.member_type === 'core' &&
+                          availableHere.has(m.user_id),
                       )
                       const deptRoles = (rolesQuery.data ?? []).filter((r) => r.department_id === dept.id)
                       const formOpen = !!openForm[key]
@@ -374,46 +398,51 @@ export function TeamRotaPage() {
                           </div>
 
                           {deptAssignments.length > 0 && (
-                            <ul className="mt-3 flex flex-col divide-y divide-border-subtle rounded-sm border border-border-subtle">
-                              {deptAssignments.map((a) => {
-                                const pending = pendingFor(a.id)
-                                return (
-                                  <li
-                                    key={a.id}
-                                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2.5"
-                                  >
-                                    <span className="flex min-w-0 flex-col">
-                                      <span className="truncate text-body-md text-on-surface">
-                                        {a.role_label}
-                                      </span>
-                                      <span className="truncate text-body-sm text-on-surface-variant">
-                                        {a.profile
-                                          ? `${a.profile.first_name} ${a.profile.last_name}`
-                                          : 'Unknown'}
+                            <div className="mt-3 overflow-hidden rounded-sm border border-border-subtle">
+                              <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 border-b border-border-subtle bg-surface-low px-3 py-1.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                                <span>Role</span>
+                                <span>Volunteer</span>
+                                <span className="w-16" />
+                              </div>
+                              <ul className="divide-y divide-border-subtle">
+                                {deptAssignments.map((a) => {
+                                  const pending = pendingFor(a.id)
+                                  return (
+                                    <li
+                                      key={a.id}
+                                      className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 px-3 py-2.5"
+                                    >
+                                      <span className="truncate font-medium text-on-surface">{a.role_label}</span>
+                                      <span className="flex min-w-0 items-center gap-2">
+                                        <span className="truncate text-on-surface-variant">
+                                          {a.profile
+                                            ? `${a.profile.first_name} ${a.profile.last_name}`
+                                            : 'Unknown'}
+                                        </span>
                                         {a.user_id === myId && (
-                                          <span className="ml-2 font-mono text-label-sm text-secondary">You</span>
+                                          <span className="shrink-0 font-mono text-label-sm text-secondary">You</span>
+                                        )}
+                                        {pending && (
+                                          <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 font-mono text-label-sm text-warning">
+                                            Release requested
+                                          </span>
                                         )}
                                       </span>
-                                    </span>
-                                    <span className="flex shrink-0 items-center gap-3">
-                                      {pending && (
-                                        <span className="rounded-full bg-warning/15 px-2 py-0.5 font-mono text-label-sm text-warning">
-                                          Release requested
-                                        </span>
-                                      )}
-                                      {manage && (
-                                        <button
-                                          onClick={() => removeAssignment.mutate(a.id)}
-                                          className="text-body-sm text-on-surface-variant hover:text-error"
-                                        >
-                                          Remove
-                                        </button>
-                                      )}
-                                    </span>
-                                  </li>
-                                )
-                              })}
-                            </ul>
+                                      <span className="w-16 text-right">
+                                        {manage && (
+                                          <button
+                                            onClick={() => removeAssignment.mutate(a.id)}
+                                            className="text-body-sm text-on-surface-variant hover:text-error"
+                                          >
+                                            Remove
+                                          </button>
+                                        )}
+                                      </span>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </div>
                           )}
 
                           {formOpen && deptRoles.length === 0 && (
@@ -426,7 +455,18 @@ export function TeamRotaPage() {
                             </p>
                           )}
 
-                          {formOpen && deptRoles.length > 0 && (
+                          {formOpen && deptRoles.length > 0 && roster.length === 0 && (
+                            <p className="mt-3 rounded-sm bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
+                              Nobody on this team has marked themselves available for this service
+                              yet, so there is nobody to assign. They answer in the{' '}
+                              <Link to="/availability" className="text-secondary">
+                                Availability Tracker
+                              </Link>
+                              .
+                            </p>
+                          )}
+
+                          {formOpen && deptRoles.length > 0 && roster.length > 0 && (
                             <form
                               onSubmit={(e: FormEvent) => {
                                 e.preventDefault()
@@ -458,7 +498,7 @@ export function TeamRotaPage() {
                                 </select>
                               </label>
                               <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
-                                Person
+                                Person · available only
                                 <select
                                   value={chosenPerson}
                                   onChange={(e) => setDraftPerson((s) => ({ ...s, [key]: e.target.value }))}
