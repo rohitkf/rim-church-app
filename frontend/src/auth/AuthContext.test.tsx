@@ -10,7 +10,6 @@ const mockSession = {
 const mockRoles = [
   { id: 'r1', role_type: 'department_head', department_id: 'dept-media', service_id: null },
   { id: 'r2', role_type: 'assisting_head', department_id: 'dept-worship', service_id: null },
-  { id: 'r3', role_type: 'service_flow_coordinator', department_id: null, service_id: 'svc-1' },
 ]
 
 const mockProfile = {
@@ -47,7 +46,7 @@ vi.mock('../lib/supabaseClient', () => {
 })
 
 function Probe() {
-  const { loading, profile, isAdmin, hasRole, isDepartmentHead, isServiceCoordinator } = useAuth()
+  const { loading, profile, isAdmin, hasRole, isDepartmentHead } = useAuth()
   if (loading) return <div>loading</div>
   return (
     <div>
@@ -56,15 +55,13 @@ function Probe() {
       <div data-testid="head-of-media">{String(isDepartmentHead('dept-media'))}</div>
       <div data-testid="head-of-worship">{String(isDepartmentHead('dept-worship'))}</div>
       <div data-testid="head-of-audio">{String(isDepartmentHead('dept-audio'))}</div>
-      <div data-testid="coordinator-of-svc1">{String(isServiceCoordinator('svc-1'))}</div>
-      <div data-testid="coordinator-of-svc2">{String(isServiceCoordinator('svc-2'))}</div>
       <div data-testid="any-dept-head">{String(hasRole('department_head'))}</div>
     </div>
   )
 }
 
 describe('AuthContext role checks', () => {
-  it('derives per-department and per-service permission checks from the loaded roles', async () => {
+  it('derives per-department permission checks from the loaded roles', async () => {
     render(
       <AuthProvider>
         <Probe />
@@ -79,9 +76,6 @@ describe('AuthContext role checks', () => {
     expect(screen.getByTestId('head-of-worship')).toHaveTextContent('true')
     // no role at all on dept-audio
     expect(screen.getByTestId('head-of-audio')).toHaveTextContent('false')
-    // coordinator only for the specific service they're scoped to
-    expect(screen.getByTestId('coordinator-of-svc1')).toHaveTextContent('true')
-    expect(screen.getByTestId('coordinator-of-svc2')).toHaveTextContent('false')
     // not an admin
     expect(screen.getByTestId('is-admin')).toHaveTextContent('false')
     // hasRole with no scope opts matches on role_type alone, regardless of department

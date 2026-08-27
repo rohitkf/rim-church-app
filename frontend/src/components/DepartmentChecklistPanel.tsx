@@ -9,6 +9,7 @@ import { useHandbookUrl } from '../lib/useHandbookUrl'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { errorMessage } from '../lib/errorMessage'
+import { useServiceFlowSigner } from '../lib/useServiceFlowSigner'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -85,7 +86,7 @@ export function DepartmentChecklistPanel({
   const roleAllowsManageChecklist = isAdmin || hasRole('department_head', { departmentId })
   const roleAllowsHeadVerify =
     isAdmin || hasRole('department_head', { departmentId }) || hasRole('assisting_head', { departmentId })
-  const roleAllowsCoordinatorVerify = isAdmin || hasRole('service_flow_coordinator', { serviceId })
+  const roleAllowsCoordinatorVerify = useServiceFlowSigner(serviceId)
 
   // Outside Admin, a checklist is only workable on the service's own day —
   // beforehand or after the fact it's read-only, so a past week's record

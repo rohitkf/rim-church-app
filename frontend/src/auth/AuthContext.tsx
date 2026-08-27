@@ -15,7 +15,6 @@ interface AuthContextValue {
   /** Departments this user heads or assists — an Assisting Head has the
    * same authority as the Head for their own team. */
   ledDepartmentIds: string[]
-  isServiceCoordinator: (serviceId: string) => boolean
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -94,10 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  function isServiceCoordinator(serviceId: string) {
-    return hasRole('service_flow_coordinator', { serviceId })
-  }
-
   async function refreshProfile() {
     if (session?.user) await loadProfileAndRoles(session.user.id)
   }
@@ -117,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasRole,
         isDepartmentHead,
         ledDepartmentIds,
-        isServiceCoordinator,
         refreshProfile,
         signOut,
       }}

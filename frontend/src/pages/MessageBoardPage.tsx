@@ -72,7 +72,9 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 export function MessageBoardPage() {
   const { session, isAdmin, hasRole, roles } = useAuth()
   const queryClient = useQueryClient()
-  const canPost = isAdmin || hasRole('department_head') || hasRole('service_flow_coordinator')
+  // Heads post; that includes the head of the Service Flow team, who is a
+  // department head like any other now that Service Flow is a team.
+  const canPost = isAdmin || hasRole('department_head')
 
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
