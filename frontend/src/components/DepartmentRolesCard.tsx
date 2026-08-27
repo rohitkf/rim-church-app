@@ -2,13 +2,114 @@ import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from './QueryState'
-import { fetchDepartmentRoles } from '../lib/queries'
+import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
 
 /**
  * The roles this team fills at a service. These are the options the Team
  * Rota offers when assigning someone, so this list is the single place
  * they're defined.
  */
+/** The standing checklist for one role: what the person holding it must
+ * do at every service. Whoever holds the role in the Team Rota works this
+ * list on the Checklists page. */
+function RoleChecklistEditor({
+  roleId,
+  departmentId,
+  canManage,
+}: {
+  roleId: string
+  departmentId: string
+  canManage: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [label, setLabel] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const itemsQuery = useQuery({
+    queryKey: ['role-checklist-items', [departmentId]],
+    queryFn: () => fetchRoleChecklistItems([departmentId]),
+  })
+  const items = (itemsQuery.data ?? []).filter((i) => i.role_id === roleId)
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['role-checklist-items'] })
+
+  const addItem = useMutation({
+    mutationFn: async (text: string) => {
+      const { error } = await supabase.from('department_role_checklist_items').insert({
+        role_id: roleId,
+        department_id: departmentId,
+        label: text,
+        sort_order: items.length,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setLabel('')
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not add that item.'),
+  })
+
+  const deleteItem = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('department_role_checklist_items').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not delete that item.'),
+  })
+
+  return (
+    <div className="mt-2 border-l border-border-subtle pl-3">
+      {items.length === 0 ? (
+        <p className="text-label-sm text-on-surface-variant">No checklist items for this role yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-2 text-body-sm">
+              <span className="text-on-surface">{item.label}</span>
+              {canManage && (
+                <button
+                  onClick={() => deleteItem.mutate(item.id)}
+                  className="shrink-0 text-label-sm text-error hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canManage && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (label.trim()) addItem.mutate(label.trim())
+          }}
+          className="mt-2 flex flex-wrap items-center gap-2"
+        >
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Check batteries, test focus…"
+            className="min-w-0 flex-1 rounded-sm border border-border-subtle px-2 py-1 text-body-sm text-on-surface"
+          />
+          <button
+            type="submit"
+            disabled={addItem.isPending}
+            className="rounded-sm border border-border-subtle px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
+          >
+            Add item
+          </button>
+        </form>
+      )}
+      {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
+    </div>
+  )
+}
+
 export function DepartmentRolesCard({ departmentId, canManage }: { departmentId: string; canManage: boolean }) {
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
@@ -85,7 +186,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
           {rolesQuery.data?.map((role) => (
             <li
               key={role.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border-subtle px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-sm border border-border-subtle px-3 py-2"
             >
               {editingId === role.id ? (
                 <form
@@ -142,6 +243,12 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                     </span>
                   )}
                 </>
+              )}
+              {editingId !== role.id && (
+                <details className="mt-1 w-full">
+                  <summary className="cursor-pointer text-label-sm text-secondary">Checklist</summary>
+                  <RoleChecklistEditor roleId={role.id} departmentId={departmentId} canManage={canManage} />
+                </details>
               )}
             </li>
           ))}

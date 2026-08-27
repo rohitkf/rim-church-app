@@ -39,6 +39,47 @@ function DeptColorControl({ dept }: { dept: Department }) {
   )
 }
 
+/** Marks the team whose rota member gives the final checklist sign-off.
+ * Exactly one team can hold it, so setting it clears the previous one. */
+function ServiceFlowToggle({ dept }: { dept: Department }) {
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<string | null>(null)
+
+  const setFlag = useMutation({
+    mutationFn: async (value: boolean) => {
+      if (value) {
+        const { error: clearError } = await supabase
+          .from('departments')
+          .update({ is_service_flow: false })
+          .eq('is_service_flow', true)
+        if (clearError) throw clearError
+      }
+      const { error } = await supabase.from('departments').update({ is_service_flow: value }).eq('id', dept.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+    },
+    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not update that.'),
+  })
+
+  return (
+    <div className="mt-2">
+      <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+        <input
+          type="checkbox"
+          checked={dept.is_service_flow}
+          onChange={(e) => setFlag.mutate(e.target.checked)}
+          disabled={setFlag.isPending}
+        />
+        Service Flow team
+      </label>
+      {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
+    </div>
+  )
+}
+
 export function DepartmentsPage() {
   const { isAdmin, ledDepartmentIds, session } = useAuth()
   const queryClient = useQueryClient()
@@ -138,6 +179,7 @@ export function DepartmentsPage() {
                   </div>
                 </Link>
                 {isAdmin && <DeptColorControl dept={dept} />}
+                {isAdmin && <ServiceFlowToggle dept={dept} />}
               </li>
             ))}
           </ul>

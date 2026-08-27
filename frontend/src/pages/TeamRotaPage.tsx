@@ -29,7 +29,7 @@ async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -124,15 +124,21 @@ export function TeamRotaPage() {
       departmentId,
       userId,
       roleLabel,
+      roleId,
     }: {
       serviceId: string
       departmentId: string
       userId: string
       roleLabel: string
+      roleId: string | null
     }) => {
-      const { error } = await supabase
-        .from('rota_assignments')
-        .insert({ service_id: serviceId, department_id: departmentId, user_id: userId, role_label: roleLabel })
+      const { error } = await supabase.from('rota_assignments').insert({
+        service_id: serviceId,
+        department_id: departmentId,
+        user_id: userId,
+        role_label: roleLabel,
+        role_id: roleId,
+      })
       if (error) throw error
     },
     onSuccess: (_d, vars) => {
@@ -388,6 +394,7 @@ export function TeamRotaPage() {
                                   departmentId: dept.id,
                                   userId: chosenPerson,
                                   roleLabel: role,
+                                  roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
                                 })
                               }}
                               className="mt-3 flex flex-wrap items-end gap-2"

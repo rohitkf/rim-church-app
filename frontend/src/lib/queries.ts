@@ -5,6 +5,8 @@ import {
   departmentMemberRowSchema,
   departmentRoleSchema,
   departmentSchema,
+  roleChecklistItemSchema,
+  rotaProgressSchema,
   serviceSchema,
   serviceTemplateSchema,
   templateSessionSchema,
@@ -12,6 +14,8 @@ import {
   type Department,
   type DepartmentMemberRow,
   type DepartmentRole,
+  type RoleChecklistItem,
+  type RotaProgress,
   type Service,
   type ServiceTemplate,
   type TemplateSession,
@@ -55,6 +59,29 @@ export async function fetchDepartmentRoles(departmentIds: string[]): Promise<Dep
     .order('name')
   if (error) throw error
   return z.array(departmentRoleSchema).parse(data)
+}
+
+/** The standing checklist items for a set of departments' roles. */
+export async function fetchRoleChecklistItems(departmentIds: string[]): Promise<RoleChecklistItem[]> {
+  if (departmentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('department_role_checklist_items')
+    .select('id, role_id, department_id, label, sort_order')
+    .in('department_id', departmentIds)
+    .order('sort_order')
+  if (error) throw error
+  return z.array(roleChecklistItemSchema).parse(data)
+}
+
+/** Progress on those items for a set of rota assignments. */
+export async function fetchRotaProgress(assignmentIds: string[]): Promise<RotaProgress[]> {
+  if (assignmentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('rota_checklist_progress')
+    .select('id, assignment_id, item_id, status')
+    .in('assignment_id', assignmentIds)
+  if (error) throw error
+  return z.array(rotaProgressSchema).parse(data)
 }
 
 /** Availability answers for several services at once. */

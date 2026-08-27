@@ -22,6 +22,7 @@ export const departmentSchema = z.object({
   name: z.string(),
   handbook_url: z.string().nullable(),
   color: z.string().nullable(),
+  is_service_flow: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -127,6 +128,23 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+export const roleChecklistItemSchema = z.object({
+  id: z.string(),
+  role_id: z.string(),
+  department_id: z.string(),
+  label: z.string(),
+  sort_order: z.number(),
+})
+export type RoleChecklistItem = z.infer<typeof roleChecklistItemSchema>
+
+export const rotaProgressSchema = z.object({
+  id: z.string(),
+  assignment_id: z.string(),
+  item_id: z.string(),
+  status: checklistItemStatusSchema,
+})
+export type RotaProgress = z.infer<typeof rotaProgressSchema>
+
 export const departmentRoleSchema = z.object({
   id: z.string(),
   department_id: z.string(),
@@ -140,6 +158,7 @@ export const rotaAssignmentSchema = z.object({
   department_id: z.string(),
   user_id: z.string(),
   role_label: z.string(),
+  role_id: z.string().nullable(),
   profile: personSummarySchema.nullable(),
   department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
 })
