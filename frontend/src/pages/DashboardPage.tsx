@@ -14,7 +14,7 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { availabilitySummary } from '../lib/availabilitySummary'
-import { AvailabilityBar, availabilityCaption } from '../components/AvailabilityBar'
+import { AvailabilityBar } from '../components/AvailabilityBar'
 import { attendanceBarClass, attendancePercent } from '../lib/attendance'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
@@ -331,9 +331,9 @@ export function DashboardPage() {
               return (
                 <section
                   key={service.id}
-                  className="rounded-lg border border-border-subtle bg-surface-lowest p-6"
+                  className="overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border-subtle px-6 py-4">
                     <h2 className="text-headline-md">{service.service_type}</h2>
                     <Link
                       to={`/service-planner/${service.id}`}
@@ -341,32 +341,43 @@ export function DashboardPage() {
                     >
                       Running order ›
                     </Link>
-                  </div>
+                  </header>
 
-                  <div className="mt-4 grid grid-cols-1 gap-8 sm:grid-cols-2">
-                    <div>
-                      <div className="text-body-sm text-on-surface-variant">Volunteer Attendance</div>
-                      <div className="mt-1 text-headline-lg">
-                        {overallPct !== null ? `${overallPct}%` : '—'}
+                  {/* Three separate readings of the same service. The gap-px
+                      over a tinted parent draws a hairline between panels so
+                      they read as distinct blocks rather than one long column. */}
+                  <div className="grid grid-cols-1 gap-px bg-border-subtle lg:grid-cols-3">
+                    <div className="bg-surface-lowest p-6">
+                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        Attendance
                       </div>
-                      <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                        Actual: {totalActual} &nbsp; Expected: {totalExpected}
+                      <div className="mt-3 flex items-baseline gap-2">
+                        <span className="text-headline-lg">{overallPct !== null ? `${overallPct}%` : '—'}</span>
+                        <span className="font-mono text-label-sm text-on-surface-variant">
+                          {totalExpected > 0 ? `${totalActual} of ${totalExpected}` : `${totalActual} logged`}
+                        </span>
                       </div>
-                      {serviceAttendance.length > 0 && (
-                        <ul className="mt-5 flex flex-col gap-4">
+
+                      {serviceAttendance.length === 0 ? (
+                        <p className="mt-4 text-body-sm text-on-surface-variant">Nothing logged yet.</p>
+                      ) : (
+                        <ul className="mt-4 divide-y divide-border-subtle">
                           {serviceAttendance.map((a) => {
                             const pct = attendancePercent(a.actual_count, a.expected_count)
                             return (
-                              <li key={a.id}>
-                                <div className="flex items-center justify-between text-body-sm">
-                                  <span className="font-medium text-on-surface">
+                              <li key={a.id} className="py-3 first:pt-0 last:pb-0">
+                                <div className="flex items-center justify-between gap-2 text-body-sm">
+                                  <span className="truncate text-on-surface">
                                     {departmentName(a.department_id)}
                                   </span>
-                                  <span className="font-mono text-label-sm text-on-surface-variant">
-                                    {pct !== null ? `${pct}%` : '—'} · {a.actual_count ?? 0}/{a.expected_count}
+                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                    {pct !== null ? `${pct}%` : '—'} ·{' '}
+                                    {a.expected_count > 0
+                                      ? `${a.actual_count ?? 0}/${a.expected_count}`
+                                      : `${a.actual_count ?? 0} logged`}
                                   </span>
                                 </div>
-                                <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-container">
+                                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-container">
                                   <div
                                     className={`h-full rounded-full ${attendanceBarClass(pct)}`}
                                     style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
@@ -379,8 +390,10 @@ export function DashboardPage() {
                       )}
                     </div>
 
-                    <div>
-                      <div className="text-body-sm text-on-surface-variant">Overall Checklist Progress</div>
+                    <div className="bg-surface-lowest p-6">
+                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        Checklist readiness
+                      </div>
                       <div className="mt-3">
                         <SegmentedProgressBar
                           total={counts.total}
@@ -390,33 +403,31 @@ export function DashboardPage() {
                         />
                       </div>
 
-                      <div className="mt-6 text-body-sm text-on-surface-variant">Department Status</div>
                       {deptIds.length === 0 ? (
-                        <p className="mt-2 text-body-sm text-on-surface-variant">
-                          No checklist or attendance data yet.
-                        </p>
+                        <p className="mt-4 text-body-sm text-on-surface-variant">No checklists yet.</p>
                       ) : (
-                        <ul className="mt-3 flex flex-col gap-4">
+                        <ul className="mt-4 divide-y divide-border-subtle">
                           {deptIds.map((deptId) => {
                             const deptItems = serviceItems.filter(
                               (i) => checklistById.get(i.checklist_id)?.department_id === deptId,
                             )
                             const done = deptItems.filter((i) => i.status !== 'pending').length
                             return (
-                              <li key={deptId}>
-                                <div className="flex items-center justify-between text-body-sm">
+                              <li key={deptId} className="py-3 first:pt-0 last:pb-0">
+                                <div className="flex items-center justify-between gap-2 text-body-sm">
                                   <Link
                                     to={`/checklists/${deptId}/${service.id}`}
-                                    className="font-medium text-on-surface hover:text-secondary"
+                                    className="truncate text-on-surface hover:text-secondary"
                                   >
                                     {departmentName(deptId)}
                                   </Link>
-                                  <span className="font-mono text-label-sm text-on-surface-variant">
-                                    {done}/{deptItems.length} Tasks
+                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                    {done}/{deptItems.length} tasks
                                   </span>
                                 </div>
-                                <div className="mt-2">
+                                <div className="mt-1.5">
                                   <SegmentedProgressBar
+                                    showLegend={false}
                                     total={deptItems.length}
                                     memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
                                     headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
@@ -431,43 +442,50 @@ export function DashboardPage() {
                         </ul>
                       )}
                     </div>
-                  </div>
 
-                  {availabilityTeams.length > 0 && (
-                    <div className="mt-6 border-t border-border-subtle pt-5">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-body-sm text-on-surface-variant">Volunteer Availability</span>
-                        <span className="font-mono text-label-sm text-on-surface-variant">
-                          {availabilityCaption(overallAvailability)}
-                        </span>
+                    <div className="bg-surface-lowest p-6">
+                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        Availability
                       </div>
-                      <div className="mt-2">
-                        <AvailabilityBar summary={overallAvailability} label="All teams" />
-                      </div>
+                      {availabilityTeams.length === 0 ? (
+                        <p className="mt-3 text-body-sm text-on-surface-variant">No teams to report on.</p>
+                      ) : (
+                        <>
+                          <div className="mt-3 flex items-baseline gap-2">
+                            <span className="text-headline-lg">{overallAvailability.pct}%</span>
+                            <span className="font-mono text-label-sm text-on-surface-variant">
+                              {overallAvailability.available} of {overallAvailability.total} available
+                            </span>
+                          </div>
+                          <div className="mt-2">
+                            <AvailabilityBar summary={overallAvailability} label="All teams" />
+                          </div>
 
-                      <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        {availabilityTeams.map(({ dept, summary }) => (
-                          <li key={dept.id}>
-                            <div className="flex items-center justify-between gap-2 text-body-sm">
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span
-                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                  style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                                />
-                                <span className="truncate text-on-surface">{dept.name}</span>
-                              </span>
-                              <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                {summary.pct}% · {summary.available}/{summary.total}
-                              </span>
-                            </div>
-                            <div className="mt-1.5">
-                              <AvailabilityBar summary={summary} label={dept.name} />
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                          <ul className="mt-4 divide-y divide-border-subtle">
+                            {availabilityTeams.map(({ dept, summary }) => (
+                              <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
+                                <div className="flex items-center justify-between gap-2 text-body-sm">
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                                    />
+                                    <span className="truncate text-on-surface">{dept.name}</span>
+                                  </span>
+                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                    {summary.pct}% · {summary.available}/{summary.total}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5">
+                                  <AvailabilityBar summary={summary} label={dept.name} />
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </section>
               )
             })}

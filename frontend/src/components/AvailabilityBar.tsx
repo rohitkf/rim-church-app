@@ -18,10 +18,3 @@ export function AvailabilityBar({ summary, label }: { summary: AvailabilitySumma
     </div>
   )
 }
-
-export function availabilityCaption(summary: AvailabilitySummary): string {
-  const parts = [`${summary.pct}% available · ${summary.available}/${summary.total}`]
-  if (summary.tentative > 0) parts.push(`${summary.tentative} tentative`)
-  if (summary.noAnswer > 0) parts.push(`${summary.noAnswer} no answer`)
-  return parts.join(' · ')
-}

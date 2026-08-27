@@ -35,6 +35,9 @@ interface SegmentedProgressBarProps {
   memberComplete: number
   headVerified: number
   coordinatorVerified: number
+  /** Off for the small per-department bars, where repeating the three
+   * stage percentages under every row is what makes a list unreadable. */
+  showLegend?: boolean
 }
 
 /** Status-driven progress bar (DESIGN.md §2): each stage's share of the
@@ -44,6 +47,7 @@ export function SegmentedProgressBar({
   memberComplete,
   headVerified,
   coordinatorVerified,
+  showLegend = true,
 }: SegmentedProgressBarProps) {
   const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0)
   const pending = total - memberComplete - headVerified - coordinatorVerified
@@ -55,6 +59,7 @@ export function SegmentedProgressBar({
         <div className={barColor.head_verified} style={{ width: `${pct(headVerified)}%` }} />
         <div className={barColor.coordinator_verified} style={{ width: `${pct(coordinatorVerified)}%` }} />
       </div>
+      {showLegend && (
       <div className="mt-3 flex flex-wrap gap-4 font-mono text-label-sm text-on-surface-variant">
         <span>
           <span className="text-status-coordinator">{Math.round(pct(coordinatorVerified))}%</span> Verified
@@ -66,6 +71,7 @@ export function SegmentedProgressBar({
           <span className="text-status-pending">{Math.round(pct(pending))}%</span> Pending
         </span>
       </div>
+      )}
     </div>
   )
 }
