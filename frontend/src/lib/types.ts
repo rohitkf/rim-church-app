@@ -127,6 +127,44 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+export const rotaAssignmentSchema = z.object({
+  id: z.string(),
+  service_id: z.string(),
+  department_id: z.string(),
+  user_id: z.string(),
+  role_label: z.string(),
+  profile: personSummarySchema.nullable(),
+  department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
+})
+export type RotaAssignment = z.infer<typeof rotaAssignmentSchema>
+
+export const rotaRequestStatusSchema = z.enum(['pending', 'approved', 'denied'])
+export type RotaRequestStatus = z.infer<typeof rotaRequestStatusSchema>
+
+export const rotaReleaseRequestSchema = z.object({
+  id: z.string(),
+  assignment_id: z.string(),
+  requested_by: z.string(),
+  requesting_department_id: z.string(),
+  requested_role_label: z.string(),
+  status: rotaRequestStatusSchema,
+  created_at: z.string(),
+  requester: personSummarySchema.nullable(),
+  requesting_department: z.object({ id: z.string(), name: z.string() }).nullable(),
+  assignment: z
+    .object({
+      id: z.string(),
+      role_label: z.string(),
+      department_id: z.string(),
+      user_id: z.string(),
+      service_id: z.string(),
+      profile: personSummarySchema.nullable(),
+      department: z.object({ id: z.string(), name: z.string() }).nullable(),
+    })
+    .nullable(),
+})
+export type RotaReleaseRequest = z.infer<typeof rotaReleaseRequestSchema>
+
 export const availabilityStatusSchema = z.enum(['available', 'unavailable', 'tentative'])
 export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>
 

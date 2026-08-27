@@ -9,6 +9,9 @@ import { notificationRowSchema, type NotificationRow } from '../lib/types'
 
 const notificationTypeLabel: Record<string, string> = {
   message: 'New message board post',
+  rota_release_request: 'A team has asked to borrow one of your volunteers',
+  rota_release_approved: 'Your rota release request was approved',
+  rota_release_denied: 'Your rota release request was denied',
 }
 
 async function fetchNotifications(userId: string): Promise<NotificationRow[]> {

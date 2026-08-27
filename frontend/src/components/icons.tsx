@@ -56,6 +56,17 @@ export function UsersIcon(props: IconProps) {
   )
 }
 
+export function ClipboardUserIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="8" y="2" width="8" height="4" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M15 18a3 3 0 0 0-6 0" />
+    </svg>
+  )
+}
+
 export function UserCheckIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
