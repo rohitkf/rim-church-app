@@ -8,6 +8,7 @@ import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
 import {
   fetchDepartments,
   fetchRoleChecklistItems,
+  fetchOwnDepartmentIds,
   fetchRotaAssignments,
   fetchRotaProgress,
   fetchServices,
@@ -65,6 +66,18 @@ export function ChecklistsIndexPage() {
   })
 
   const serviceFlowDept = (departmentsQuery.data ?? []).find((d) => d.is_service_flow)
+
+  // Anyone on the sign-off team sees the whole service's checklists, not
+  // only the person rostered on it — the team needs to know how the service
+  // is coming along. Giving the signature is still the signer's alone.
+  const ownDeptsQuery = useQuery({
+    queryKey: ['own-departments', myId],
+    queryFn: () => fetchOwnDepartmentIds(myId!),
+    enabled: !!myId,
+  })
+  const onSignOffTeam =
+    !!serviceFlowDept &&
+    ((ownDeptsQuery.data ?? []).includes(serviceFlowDept.id) || isDepartmentHead(serviceFlowDept.id))
   // Final sign-off belongs to whoever the rota puts in Service Flow for
   // this service — or that team's head, who deputises for them.
   const isServiceFlowSigner = (serviceId: string) =>
@@ -152,7 +165,7 @@ export function ChecklistsIndexPage() {
           ? 0
           : isAdmin || isDepartmentHead(a.department_id)
             ? 1
-            : isServiceFlowSigner(a.service_id)
+            : onSignOffTeam || isServiceFlowSigner(a.service_id)
               ? 2
               : 3,
     }))
@@ -162,7 +175,7 @@ export function ChecklistsIndexPage() {
     // isServiceFlowSigner reads the same assignments and departments this
     // memo already depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept])
+  }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
 
   const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
   const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
@@ -238,7 +251,7 @@ export function ChecklistsIndexPage() {
                                 <span className="flex items-center gap-2">
                                   {rank === 2 && (
                                     <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-status-coordinator">
-                                      For your sign-off
+                                      {may.sign ? 'For your sign-off' : 'Sign-off team view'}
                                     </span>
                                   )}
                                   <span className="text-body-sm text-on-surface-variant">
