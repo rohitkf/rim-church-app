@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -10,6 +10,7 @@ import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
+import { ActionButton, Field, inputClasses } from '../components/Surface'
 import type { Service } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
 
@@ -30,6 +31,15 @@ export function ServicePlannerIndexPage() {
   const [newDate, setNewDate] = useState('')
   const [newType, setNewType] = useState('')
   const [templateId, setTemplateId] = useState('')
+
+  // The sidebar's "New service" links to ?new=1; keeping the modal in the
+  // URL means the button needs no shared state, and the form is linkable.
+  const [params, setParams] = useSearchParams()
+  const creating = params.get('new') === '1'
+  const closeCreate = () => {
+    params.delete('new')
+    setParams(params, { replace: true })
+  }
   const [createError, setCreateError] = useState<string | null>(null)
   // Tracks the last value WE wrote into the name field, so switching
   // templates keeps auto-filling until the admin types their own name.
@@ -217,66 +227,91 @@ export function ServicePlannerIndexPage() {
           </div>
         </section>
 
-        {isAdmin && (
-          <section className="mt-6 max-w-xl rounded-lg border border-border-subtle bg-surface-lowest p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-headline-md">New Service</h2>
-              <Link to="/service-planner/templates" className="shrink-0 text-body-sm font-medium text-secondary">
-                Manage templates ›
-              </Link>
-            </div>
-            <p className="mt-1 text-body-sm text-on-surface-variant">
-              Pick a template to start with the usual running order pre-filled — or Blank to build
-              from scratch.
-            </p>
-            <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-end gap-3">
-              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                Date
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-                />
-              </label>
-              <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-                Service type
-                <input
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  placeholder="English, Malayalam…"
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                Template
-                <select
-                  value={templateId}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+        {isAdmin && creating && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-service-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+          >
+            <form
+              onSubmit={handleCreate}
+              className="w-full max-w-lg rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 id="new-service-title" className="text-headline-md">
+                  New service
+                </h2>
+                <Link
+                  to="/service-planner/templates"
+                  className="shrink-0 text-body-sm font-medium text-secondary"
                 >
-                  <option value="">Blank</option>
-                  {templatesQuery.data?.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                disabled={createService.isPending || !newDate || !newType.trim()}
-                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-              >
-                {createService.isPending ? 'Creating…' : 'Create'}
-              </button>
-            </form>
-            {createError && (
-              <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-                {createError}
+                  Manage templates ›
+                </Link>
+              </div>
+              <p className="mt-1 text-body-sm text-on-surface-variant">
+                Start from a template to get the usual running order pre-filled, or Blank to build
+                it yourself.
               </p>
-            )}
-          </section>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Date">
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    autoFocus
+                    className={inputClasses}
+                  />
+                </Field>
+                <Field label="Service type">
+                  <input
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                    placeholder="English, Malayalam…"
+                    className={inputClasses}
+                  />
+                </Field>
+                <Field label="Template" className="sm:col-span-2">
+                  <select
+                    value={templateId}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    className={inputClasses}
+                  >
+                    <option value="">Blank</option>
+                    {templatesQuery.data?.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              {createError && (
+                <p className="mt-4 rounded-xl bg-error-container px-3.5 py-2.5 text-body-sm text-on-error-container">
+                  {createError}
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeCreate}
+                  className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  type="submit"
+                  disabled={createService.isPending || !newDate || !newType.trim()}
+                  glyph="+"
+                >
+                  {createService.isPending ? 'Creating' : 'Create service'}
+                </ActionButton>
+              </div>
+            </form>
+          </div>
         )}
 
         {upcoming.length > 0 && (

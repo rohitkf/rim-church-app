@@ -10,6 +10,9 @@ interface AuthContextValue {
   roles: UserRole[]
   loading: boolean
   isAdmin: boolean
+  /** The single account that owns the app: it alone may take Admin away. */
+  isSuperAdmin: boolean
+  ownerId: string | null
   hasRole: (role: RoleType, opts?: { departmentId?: string; serviceId?: string }) => boolean
   isDepartmentHead: (departmentId: string) => boolean
   /** Departments this user heads or assists — an Assisting Head has the
@@ -25,13 +28,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [roles, setRoles] = useState<UserRole[]>([])
+  // Who owns the app. One account holds it; it decides who may take Admin
+  // away, and it can only move by being offered and accepted.
+  const [ownerId, setOwnerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function loadProfileAndRoles(userId: string) {
-    const [{ data: profileData }, { data: roleData }] = await Promise.all([
+    const [{ data: profileData }, { data: roleData }, { data: ownerData }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('user_roles').select('id, role_type, department_id, service_id').eq('user_id', userId),
+      supabase.from('app_owner').select('user_id').maybeSingle(),
     ])
+
+    setOwnerId(
+      ownerData && typeof (ownerData as { user_id?: unknown }).user_id === 'string'
+        ? (ownerData as { user_id: string }).user_id
+        : null,
+    )
 
     const profileResult = profileData ? profileSchema.safeParse(profileData) : null
     if (profileResult && !profileResult.success) {
@@ -81,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isAdmin = hasRole('admin')
+  const isSuperAdmin = !!ownerId && ownerId === session?.user.id
 
   const ledDepartmentIds = roles
     .filter((r) => r.role_type === 'department_head' || r.role_type === 'assisting_head')
@@ -109,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles,
         loading,
         isAdmin,
+        isSuperAdmin,
+        ownerId,
         hasRole,
         isDepartmentHead,
         ledDepartmentIds,

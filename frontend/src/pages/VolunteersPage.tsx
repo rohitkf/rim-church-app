@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
@@ -56,11 +57,12 @@ const designationClass: Record<string, string> = {
 }
 
 export function VolunteersPage() {
-  const { isAdmin, session } = useAuth()
+  const { isAdmin, isSuperAdmin, ownerId, session } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
+  const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
 
   const volunteersQuery = useQuery({ queryKey: ['volunteers'], queryFn: fetchVolunteers, enabled: isAdmin })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
@@ -192,6 +194,7 @@ export function VolunteersPage() {
   function renderCard(v: Volunteer, highlight = false) {
     const myGrants = grants.filter((g) => g.user_id === v.id)
     const adminGrant = myGrants.find((g) => g.role_type === 'admin')
+    const isOwner = v.id === ownerId
     const myMemberships = memberships.filter((m) => m.user_id === v.id)
     const core = myMemberships.filter((m) => m.member_type === 'core')
     const guest = myMemberships.filter((m) => m.member_type === 'guest')
@@ -223,24 +226,39 @@ export function VolunteersPage() {
             <div className="text-body-sm text-on-surface-variant">{v.email}</div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner && (
+              <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
+                Owner
+              </span>
+            )}
             {adminGrant ? (
               <>
                 <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
                   Admin
                 </span>
-                <button
-                  onClick={() => revokeRole.mutate(adminGrant.id)}
-                  disabled={v.id === session?.user.id}
-                  title={
-                    v.id === session?.user.id
-                      ? "You can't remove your own Admin access"
-                      : undefined
-                  }
-                  className="text-body-sm text-error hover:underline disabled:opacity-40 disabled:no-underline"
-                >
-                  Remove admin
-                </button>
+                {/* Taking Admin away is the owner's, or your own to give up.
+                    One Admin removing another is how a disagreement becomes
+                    a lockout, so the button simply isn't there. */}
+                {!isOwner && (isSuperAdmin || v.id === session?.user.id) && (
+                  <button
+                    onClick={() => revokeRole.mutate(adminGrant.id)}
+                    className="text-body-sm text-error hover:underline"
+                  >
+                    {v.id === session?.user.id ? 'Step down as admin' : 'Remove admin'}
+                  </button>
+                )}
+                {isSuperAdmin && !isOwner && (
+                  <button
+                    onClick={() => {
+                      setError(null)
+                      setTransferTo(v)
+                    }}
+                    className="rounded-full px-3 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+                  >
+                    Transfer ownership
+                  </button>
+                )}
               </>
             ) : (
               <button
@@ -250,7 +268,7 @@ export function VolunteersPage() {
                 Make admin
               </button>
             )}
-            {v.id !== session?.user.id && (
+            {v.id !== session?.user.id && !isOwner && (!adminGrant || isSuperAdmin) && (
               <button
                 onClick={() => {
                   setError(null)
@@ -376,6 +394,10 @@ export function VolunteersPage() {
         <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
+      <div className="mt-6">
+        <OwnershipTransfer />
+      </div>
+
       <QueryState
         isLoading={isLoading}
         error={loadError}
@@ -420,6 +442,14 @@ export function VolunteersPage() {
 
       </QueryState>
 
+      {transferTo && (
+        <TransferOwnershipDialog
+          person={transferTo}
+          onClose={() => setTransferTo(null)}
+          onError={setError}
+        />
+      )}
+
       {confirmingRemoval && (
         <div
           role="dialog"
@@ -461,6 +491,68 @@ export function VolunteersPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Offering ownership: a decision worth stating plainly before it is made. */
+function TransferOwnershipDialog({
+  person,
+  onClose,
+  onError,
+}: {
+  person: Volunteer
+  onClose: () => void
+  onError: (message: string) => void
+}) {
+  const errorText = useErrorText()
+  const queryClient = useQueryClient()
+
+  const offer = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('request_ownership_transfer', { target: person.id })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      onClose()
+      queryClient.invalidateQueries({ queryKey: ['ownership-transfer'] })
+    },
+    onError: (err: unknown) => onError(errorText(err, 'Could not send that offer.')),
+  })
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="transfer-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+    >
+      <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+        <h2 id="transfer-title" className="text-headline-md">
+          Offer ownership to {person.first_name}?
+        </h2>
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          They will be asked to accept. If they do, they become the one account that can grant and
+          remove Admin, and you stay an Admin — you would need them to offer it back.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => offer.mutate()}
+            disabled={offer.isPending}
+            className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+          >
+            {offer.isPending ? 'Sending…' : 'Send the offer'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

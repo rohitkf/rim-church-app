@@ -29,6 +29,7 @@ vi.mock('../lib/supabaseClient', () => {
     builder.select = self
     builder.eq = self
     builder.single = () => Promise.resolve({ data: result, error: null })
+    builder.maybeSingle = () => Promise.resolve({ data: result, error: null })
     builder.then = (resolve: (v: unknown) => void) => resolve({ data: result, error: null })
     return builder
   }
@@ -40,7 +41,12 @@ vi.mock('../lib/supabaseClient', () => {
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         signOut: () => Promise.resolve(),
       },
-      from: (table: string) => (table === 'profiles' ? chain(mockProfile) : chain(mockRoles)),
+      from: (table: string) => {
+        if (table === 'profiles') return chain(mockProfile)
+        // The app asks who owns it at sign-in; nobody does, in these tests.
+        if (table === 'app_owner') return chain(null)
+        return chain(mockRoles)
+      },
     },
   }
 })

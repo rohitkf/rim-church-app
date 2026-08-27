@@ -92,7 +92,7 @@ export function AppShell() {
 
         {isAdmin && (
           <NavLink
-            to="/service-planner"
+            to="/service-planner?new=1"
             className="group/cta mb-6 flex items-center justify-between gap-2 rounded-full bg-primary py-2.5 pl-5 pr-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] ring-1 ring-inset ring-white/15 transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98]"
           >
             New service
