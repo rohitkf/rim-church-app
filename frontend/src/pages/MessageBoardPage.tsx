@@ -9,6 +9,7 @@ import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
+import { idOrNull } from '../lib/selectValue'
 import { useErrorText } from '../lib/useErrorText'
 
 function BoardClearCountdown() {
@@ -120,7 +121,13 @@ export function MessageBoardPage() {
     mutationFn: async () => {
       const { error } = await supabase
         .from('messages')
-        .insert({ author_id: session!.user.id, body: body.trim(), department_id: effectivePostAs })
+        .insert({
+          author_id: session!.user.id,
+          body: body.trim(),
+          // "" is the select's way of saying no team — as an Admin posting
+          // for the church rather than for a department.
+          department_id: idOrNull(effectivePostAs),
+        })
       if (error) throw error
     },
     onSuccess: () => {
