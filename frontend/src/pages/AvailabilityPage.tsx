@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -9,6 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { availabilitySummary } from '../lib/availabilitySummary'
+import { errorMessage } from '../lib/errorMessage'
 import {
   availabilityRowSchema,
   departmentMemberRowSchema,
@@ -124,6 +125,7 @@ export function AvailabilityPage() {
   // they see every team, and a row of buttons on each one is noise on a
   // page they use for oversight.
   const canAnswer = !isAdmin
+  const [overrideError, setOverrideError] = useState<string | null>(null)
 
   const setAvailability = useMutation({
     mutationFn: async ({
@@ -142,6 +144,43 @@ export function AvailabilityPage() {
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
+  })
+
+  // Admins don't answer for themselves here, but they do sometimes have to
+  // record an answer someone gave them another way — a phone call on the
+  // day — or correct one. RLS and the availability guard already allow an
+  // Admin, and only an Admin, to write another person's row.
+  const setForMember = useMutation({
+    mutationFn: async ({
+      answerId,
+      userId,
+      serviceId,
+      departmentId,
+      status,
+    }: {
+      answerId: string | null
+      userId: string
+      serviceId: string
+      departmentId: string
+      status: AvailabilityStatus | null
+    }) => {
+      if (status === null) {
+        if (!answerId) return
+        const { error } = await supabase.from('availability').delete().eq('id', answerId)
+        if (error) throw error
+        return
+      }
+      const { error } = await supabase.from('availability').upsert(
+        { user_id: userId, service_id: serviceId, department_id: departmentId, status },
+        { onConflict: 'user_id,service_id,department_id' },
+      )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setOverrideError(null)
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
+    },
+    onError: (err: unknown) => setOverrideError(errorMessage(err, 'Could not change that answer.')),
   })
 
   // The head confirms, on the day, whether each person who said yes
@@ -171,6 +210,12 @@ export function AvailabilityPage() {
           ? 'Who can serve at the services coming up, team by team.'
           : 'Let your team know whether you can serve at the services coming up.'}
       </p>
+
+      {overrideError && (
+        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          {overrideError}
+        </p>
+      )}
 
       <QueryState isLoading={isLoading} error={error}>
         {upcoming.length === 0 ? (
@@ -292,13 +337,42 @@ export function AvailabilityPage() {
                                       <span className="truncate text-on-surface">
                                         {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
                                       </span>
-                                      <span
-                                        className={`shrink-0 font-mono text-label-sm ${
-                                          answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
-                                        }`}
-                                      >
-                                        {answer ? statusLabel[answer.status] : 'No answer'}
-                                      </span>
+                                      {isAdmin ? (
+                                        <select
+                                          value={answer?.status ?? ''}
+                                          onChange={(e) =>
+                                            setForMember.mutate({
+                                              answerId: answer?.id ?? null,
+                                              userId: m.user_id,
+                                              serviceId: service.id,
+                                              departmentId: dept.id,
+                                              status: (e.target.value || null) as AvailabilityStatus | null,
+                                            })
+                                          }
+                                          disabled={setForMember.isPending}
+                                          aria-label={`Availability for ${
+                                            m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
+                                          }`}
+                                          className={`shrink-0 rounded-sm border border-border-subtle bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
+                                            answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
+                                          }`}
+                                        >
+                                          <option value="">No answer</option>
+                                          {STATUS_OPTIONS.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                              {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span
+                                          className={`shrink-0 font-mono text-label-sm ${
+                                            answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
+                                          }`}
+                                        >
+                                          {answer ? statusLabel[answer.status] : 'No answer'}
+                                        </span>
+                                      )}
                                     </div>
 
                                     {answer?.status === 'available' && (
