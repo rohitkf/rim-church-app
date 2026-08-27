@@ -78,11 +78,12 @@ export function ChecklistsIndexPage() {
   const onSignOffTeam =
     !!serviceFlowDept &&
     ((ownDeptsQuery.data ?? []).includes(serviceFlowDept.id) || isDepartmentHead(serviceFlowDept.id))
-  // Final sign-off belongs to whoever the rota puts in Service Flow for
-  // this service — or that team's head, who deputises for them.
+  // The final signature belongs to the team that signs checklists off —
+  // any of its members, not only whoever the rota happened to put on this
+  // service, so a finished list is never left waiting on one person.
   const isServiceFlowSigner = (serviceId: string) =>
     isAdmin ||
-    (!!serviceFlowDept && isDepartmentHead(serviceFlowDept.id)) ||
+    onSignOffTeam ||
     assignments.some(
       (a) => a.service_id === serviceId && a.department_id === serviceFlowDept?.id && a.user_id === myId,
     )
