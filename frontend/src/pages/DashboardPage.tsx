@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -7,8 +7,10 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
-import { attendanceBarClass, attendancePercent } from '../lib/attendance'
 import { fetchDepartments, fetchServices } from '../lib/queries'
+import { attendanceBarClass, attendancePercent } from '../lib/attendance'
+import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
+import { todayIso } from '../lib/monthGrid'
 import type { RoleType } from '../auth/types'
 import {
   attendanceRowSchema,
@@ -18,7 +20,7 @@ import {
   type ChecklistItemStatus,
 } from '../lib/types'
 
-const checklistRefSchema = z.object({ id: z.string(), department_id: z.string() })
+const checklistRefSchema = z.object({ id: z.string(), department_id: z.string(), service_id: z.string() })
 const actorSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
 
 const roleChipColor: Record<RoleType, string> = {
@@ -41,8 +43,12 @@ const actionLabel: Record<Exclude<ChecklistItemStatus, 'pending'>, string> = {
   coordinator_verified: 'coordinator-verified',
 }
 
-async function fetchChecklists(serviceId: string): Promise<{ id: string; department_id: string }[]> {
-  const { data, error } = await supabase.from('checklists').select('id, department_id').eq('service_id', serviceId)
+async function fetchChecklists(serviceIds: string[]) {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('checklists')
+    .select('id, department_id, service_id')
+    .in('service_id', serviceIds)
   if (error) throw error
   return z.array(checklistRefSchema).parse(data)
 }
@@ -57,8 +63,9 @@ async function fetchItems(checklistIds: string[]): Promise<ChecklistItemRow[]> {
   return z.array(checklistItemRowSchema).parse(data)
 }
 
-async function fetchAttendance(serviceId: string): Promise<AttendanceRow[]> {
-  const { data, error } = await supabase.from('attendance').select('*').eq('service_id', serviceId)
+async function fetchAttendance(serviceIds: string[]): Promise<AttendanceRow[]> {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase.from('attendance').select('*').in('service_id', serviceIds)
   if (error) throw error
   return z.array(attendanceRowSchema).parse(data)
 }
@@ -87,24 +94,32 @@ function actorTimestampFor(item: ChecklistItemRow): string | null {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin } = useAuth()
-  const [selectedServiceId, setSelectedServiceId] = useState('')
+
+  // Everyone opens on the Sunday in question (today if it is Sunday,
+  // otherwise the one coming up). Admins alone can step back through
+  // previous weeks to review past stats.
+  const today = todayIso()
+  const thisSunday = focusSundayIso(new Date())
+  const [adminDate, setAdminDate] = useState(thisSunday)
+  const viewedDate = isAdmin ? adminDate : thisSunday
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
 
-  const defaultServiceId = servicesQuery.data?.[0]?.id
-  useEffect(() => {
-    if (!selectedServiceId && defaultServiceId) setSelectedServiceId(defaultServiceId)
-  }, [selectedServiceId, defaultServiceId])
+  const dayServices = useMemo(
+    () => (servicesQuery.data ?? []).filter((s) => s.date === viewedDate),
+    [servicesQuery.data, viewedDate],
+  )
+  const dayServiceIds = useMemo(() => dayServices.map((s) => s.id), [dayServices])
 
   const checklistsQuery = useQuery({
-    queryKey: ['dashboard-checklists', selectedServiceId],
-    queryFn: () => fetchChecklists(selectedServiceId),
-    enabled: !!selectedServiceId,
+    queryKey: ['dashboard-checklists', dayServiceIds],
+    queryFn: () => fetchChecklists(dayServiceIds),
+    enabled: dayServiceIds.length > 0,
   })
   const checklistIds = useMemo(() => checklistsQuery.data?.map((c) => c.id) ?? [], [checklistsQuery.data])
-  const checklistDeptById = useMemo(
-    () => new Map(checklistsQuery.data?.map((c) => [c.id, c.department_id]) ?? []),
+  const checklistById = useMemo(
+    () => new Map(checklistsQuery.data?.map((c) => [c.id, c]) ?? []),
     [checklistsQuery.data],
   )
 
@@ -116,11 +131,11 @@ export function DashboardPage() {
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
 
   const attendanceQuery = useQuery({
-    queryKey: ['dashboard-attendance', selectedServiceId],
-    queryFn: () => fetchAttendance(selectedServiceId),
-    enabled: !!selectedServiceId,
+    queryKey: ['dashboard-attendance', dayServiceIds],
+    queryFn: () => fetchAttendance(dayServiceIds),
+    enabled: dayServiceIds.length > 0,
   })
-  const attendance = attendanceQuery.data ?? []
+  const attendance = useMemo(() => attendanceQuery.data ?? [], [attendanceQuery.data])
 
   const activityItems = useMemo(
     () =>
@@ -139,19 +154,8 @@ export function DashboardPage() {
     enabled: actorIds.length > 0,
   })
 
-  const globalCounts = {
-    total: items.length,
-    memberComplete: items.filter((i) => i.status === 'member_complete').length,
-    headVerified: items.filter((i) => i.status === 'head_verified').length,
-    coordinatorVerified: items.filter((i) => i.status === 'coordinator_verified').length,
-  }
-  const totalExpected = attendance.reduce((sum, a) => sum + a.expected_count, 0)
-  const totalActual = attendance.reduce((sum, a) => sum + (a.actual_count ?? 0), 0)
-  const attendancePct = totalExpected > 0 ? Math.round((totalActual / totalExpected) * 100) : null
-
-  const departmentsWithData = (departmentsQuery.data ?? []).filter((d) =>
-    checklistsQuery.data?.some((c) => c.department_id === d.id) || attendance.some((a) => a.department_id === d.id),
-  )
+  const departmentName = (id: string) =>
+    departmentsQuery.data?.find((d) => d.id === id)?.name ?? 'Unknown department'
 
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading
   const error = servicesQuery.error || departmentsQuery.error
@@ -174,122 +178,211 @@ export function DashboardPage() {
       )}
 
       <QueryState isLoading={isLoading} error={error}>
-        <div className="mt-6 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Service
-            <select
-              value={selectedServiceId}
-              onChange={(e) => setSelectedServiceId(e.target.value)}
-              className="min-w-[16rem] rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-            >
-              {servicesQuery.data?.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.service_type} — {s.date}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-headline-md">{formatServiceDay(viewedDate)}</div>
+            <div className="text-body-sm text-on-surface-variant">
+              {viewedDate === today
+                ? 'Today’s services'
+                : viewedDate > today
+                  ? 'Upcoming services'
+                  : 'Past service day'}
+            </div>
+          </div>
+
+          {isAdmin && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAdminDate(shiftSundayIso(adminDate, -1))}
+                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+              >
+                ‹ Previous
+              </button>
+              <input
+                type="date"
+                value={adminDate}
+                onChange={(e) => e.target.value && setAdminDate(e.target.value)}
+                aria-label="Service day"
+                className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface"
+              />
+              <button
+                type="button"
+                onClick={() => setAdminDate(shiftSundayIso(adminDate, 1))}
+                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+              >
+                Next ›
+              </button>
+              {adminDate !== thisSunday && (
+                <button
+                  type="button"
+                  onClick={() => setAdminDate(thisSunday)}
+                  className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                >
+                  This Sunday
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {!servicesQuery.data?.length ? (
+        {dayServices.length === 0 ? (
           <p className="mt-8 text-body-sm text-on-surface-variant">
-            No services yet.{' '}
+            No services scheduled for this day.{' '}
             {isAdmin && (
               <>
-                Create one from the{' '}
-                <Link to="/checklists" className="text-secondary">
-                  Checklists
-                </Link>{' '}
-                page.
+                Add one from the{' '}
+                <Link to="/service-planner" className="text-secondary">
+                  Service Planner
+                </Link>
+                .
               </>
             )}
           </p>
         ) : (
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6 lg:col-span-2">
-              <div className="text-headline-md">Global Readiness</div>
-              <div className="mt-4 grid grid-cols-1 gap-8 sm:grid-cols-2">
-                <div>
-                  <div className="text-body-sm text-on-surface-variant">Volunteer Attendance</div>
-                  <div className="mt-1 text-headline-lg">{attendancePct !== null ? `${attendancePct}%` : '—'}</div>
-                  <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                    Actual: {totalActual} &nbsp; Expected: {totalExpected}
-                  </div>
-                  {attendance.length > 0 && (
-                    <ul className="mt-5 flex flex-col gap-4">
-                      {attendance.map((a) => {
-                        const deptName =
-                          departmentsQuery.data?.find((d) => d.id === a.department_id)?.name ?? 'Unknown department'
-                        const pct = attendancePercent(a.actual_count, a.expected_count)
-                        return (
-                          <li key={a.id}>
-                            <div className="flex items-center justify-between text-body-sm">
-                              <span className="font-medium text-on-surface">{deptName}</span>
-                              <span className="font-mono text-label-sm text-on-surface-variant">
-                                {pct !== null ? `${pct}%` : '—'} · {a.actual_count ?? 0}/{a.expected_count}
-                              </span>
-                            </div>
-                            <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-container">
-                              <div
-                                className={`h-full rounded-full ${attendanceBarClass(pct)}`}
-                                style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
-                              />
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <div className="text-body-sm text-on-surface-variant">Overall Checklist Progress</div>
-                  <div className="mt-3">
-                    <SegmentedProgressBar
-                      total={globalCounts.total}
-                      memberComplete={globalCounts.memberComplete}
-                      headVerified={globalCounts.headVerified}
-                      coordinatorVerified={globalCounts.coordinatorVerified}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
+          <div className="mt-6 flex flex-col gap-6">
+            {dayServices.map((service) => {
+              const serviceChecklistIds = new Set(
+                (checklistsQuery.data ?? []).filter((c) => c.service_id === service.id).map((c) => c.id),
+              )
+              const serviceItems = items.filter((i) => serviceChecklistIds.has(i.checklist_id))
+              const serviceAttendance = attendance.filter((a) => a.service_id === service.id)
 
-            <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
-              <div className="text-headline-md">Department Status</div>
-              <QueryState isLoading={checklistsQuery.isLoading} error={checklistsQuery.error} isEmpty={departmentsWithData.length === 0} emptyMessage="No checklist or attendance data for this service yet.">
-                <ul className="mt-4 flex flex-col gap-5">
-                  {departmentsWithData.map((dept) => {
-                    const deptItems = items.filter((i) => checklistDeptById.get(i.checklist_id) === dept.id)
-                    const done = deptItems.filter((i) => i.status !== 'pending').length
-                    return (
-                      <li key={dept.id}>
-                        <div className="flex items-center justify-between text-body-sm">
-                          <Link to={`/checklists/${dept.id}/${selectedServiceId}`} className="font-medium text-on-surface hover:text-secondary">
-                            {dept.name}
-                          </Link>
-                          <span className="font-mono text-label-sm text-on-surface-variant">
-                            {done}/{deptItems.length} Tasks
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <SegmentedProgressBar
-                            total={deptItems.length}
-                            memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
-                            headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
-                            coordinatorVerified={deptItems.filter((i) => i.status === 'coordinator_verified').length}
-                          />
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </QueryState>
-            </section>
+              const counts = {
+                total: serviceItems.length,
+                memberComplete: serviceItems.filter((i) => i.status === 'member_complete').length,
+                headVerified: serviceItems.filter((i) => i.status === 'head_verified').length,
+                coordinatorVerified: serviceItems.filter((i) => i.status === 'coordinator_verified').length,
+              }
+              const totalExpected = serviceAttendance.reduce((sum, a) => sum + a.expected_count, 0)
+              const totalActual = serviceAttendance.reduce((sum, a) => sum + (a.actual_count ?? 0), 0)
+              const overallPct = attendancePercent(totalActual, totalExpected)
+
+              const deptIds = [
+                ...new Set([
+                  ...(checklistsQuery.data ?? [])
+                    .filter((c) => c.service_id === service.id)
+                    .map((c) => c.department_id),
+                  ...serviceAttendance.map((a) => a.department_id),
+                ]),
+              ]
+
+              return (
+                <section
+                  key={service.id}
+                  className="rounded-lg border border-border-subtle bg-surface-lowest p-6"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 className="text-headline-md">{service.service_type}</h2>
+                    <Link
+                      to={`/service-planner/${service.id}`}
+                      className="text-body-sm font-medium text-secondary"
+                    >
+                      Running order ›
+                    </Link>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-8 sm:grid-cols-2">
+                    <div>
+                      <div className="text-body-sm text-on-surface-variant">Volunteer Attendance</div>
+                      <div className="mt-1 text-headline-lg">
+                        {overallPct !== null ? `${overallPct}%` : '—'}
+                      </div>
+                      <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
+                        Actual: {totalActual} &nbsp; Expected: {totalExpected}
+                      </div>
+                      {serviceAttendance.length > 0 && (
+                        <ul className="mt-5 flex flex-col gap-4">
+                          {serviceAttendance.map((a) => {
+                            const pct = attendancePercent(a.actual_count, a.expected_count)
+                            return (
+                              <li key={a.id}>
+                                <div className="flex items-center justify-between text-body-sm">
+                                  <span className="font-medium text-on-surface">
+                                    {departmentName(a.department_id)}
+                                  </span>
+                                  <span className="font-mono text-label-sm text-on-surface-variant">
+                                    {pct !== null ? `${pct}%` : '—'} · {a.actual_count ?? 0}/{a.expected_count}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-container">
+                                  <div
+                                    className={`h-full rounded-full ${attendanceBarClass(pct)}`}
+                                    style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
+                                  />
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="text-body-sm text-on-surface-variant">Overall Checklist Progress</div>
+                      <div className="mt-3">
+                        <SegmentedProgressBar
+                          total={counts.total}
+                          memberComplete={counts.memberComplete}
+                          headVerified={counts.headVerified}
+                          coordinatorVerified={counts.coordinatorVerified}
+                        />
+                      </div>
+
+                      <div className="mt-6 text-body-sm text-on-surface-variant">Department Status</div>
+                      {deptIds.length === 0 ? (
+                        <p className="mt-2 text-body-sm text-on-surface-variant">
+                          No checklist or attendance data yet.
+                        </p>
+                      ) : (
+                        <ul className="mt-3 flex flex-col gap-4">
+                          {deptIds.map((deptId) => {
+                            const deptItems = serviceItems.filter(
+                              (i) => checklistById.get(i.checklist_id)?.department_id === deptId,
+                            )
+                            const done = deptItems.filter((i) => i.status !== 'pending').length
+                            return (
+                              <li key={deptId}>
+                                <div className="flex items-center justify-between text-body-sm">
+                                  <Link
+                                    to={`/checklists/${deptId}/${service.id}`}
+                                    className="font-medium text-on-surface hover:text-secondary"
+                                  >
+                                    {departmentName(deptId)}
+                                  </Link>
+                                  <span className="font-mono text-label-sm text-on-surface-variant">
+                                    {done}/{deptItems.length} Tasks
+                                  </span>
+                                </div>
+                                <div className="mt-2">
+                                  <SegmentedProgressBar
+                                    total={deptItems.length}
+                                    memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
+                                    headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
+                                    coordinatorVerified={
+                                      deptItems.filter((i) => i.status === 'coordinator_verified').length
+                                    }
+                                  />
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )
+            })}
 
             <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
               <div className="text-headline-md">Live Activity</div>
-              <QueryState isLoading={itemsQuery.isLoading} error={itemsQuery.error} isEmpty={activityItems.length === 0} emptyMessage="No verification activity yet for this service.">
+              <QueryState
+                isLoading={itemsQuery.isLoading}
+                error={itemsQuery.error}
+                isEmpty={activityItems.length === 0}
+                emptyMessage="No verification activity yet for this day."
+              >
                 <ul className="mt-4 flex flex-col gap-3">
                   {activityItems.map(({ item, actorId, at }) => (
                     <li key={`${item.id}-${item.status}`} className="text-body-sm">
@@ -298,7 +391,9 @@ export function DashboardPage() {
                         {actionLabel[item.status as Exclude<ChecklistItemStatus, 'pending'>]}
                       </span>{' '}
                       <span className="font-medium text-on-surface">{item.role_label}</span>
-                      <div className="font-mono text-label-sm text-on-surface-variant">{formatRelativeTime(at)}</div>
+                      <div className="font-mono text-label-sm text-on-surface-variant">
+                        {formatRelativeTime(at)}
+                      </div>
                     </li>
                   ))}
                 </ul>

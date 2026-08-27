@@ -7,6 +7,8 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { useHandbookUrl } from '../lib/useHandbookUrl'
 import { StatusBadge, SegmentedProgressBar } from '../components/ChecklistStatus'
+import { todayIso } from '../lib/monthGrid'
+import { formatServiceDay } from '../lib/sunday'
 import {
   departmentSchema,
   serviceSchema,
@@ -80,11 +82,11 @@ export function DepartmentPrepPage() {
   const myId = session?.user.id
   const queryClient = useQueryClient()
 
-  const canManageChecklist = isAdmin || hasRole('department_head', { departmentId })
-  const canHeadVerify =
+  const roleAllowsManageChecklist = isAdmin || hasRole('department_head', { departmentId })
+  const roleAllowsHeadVerify =
     isAdmin || hasRole('department_head', { departmentId }) || hasRole('assisting_head', { departmentId })
-  const canCoordinatorVerify = isAdmin || hasRole('service_flow_coordinator', { serviceId })
-  const canLogAttendance = isAdmin || hasRole('department_head', { departmentId })
+  const roleAllowsCoordinatorVerify = isAdmin || hasRole('service_flow_coordinator', { serviceId })
+  const roleAllowsLogAttendance = isAdmin || hasRole('department_head', { departmentId })
 
   const [newLabel, setNewLabel] = useState('')
   const [newAssignee, setNewAssignee] = useState('')
@@ -103,6 +105,18 @@ export function DepartmentPrepPage() {
     queryFn: () => fetchService(serviceId!),
     enabled: !!serviceId,
   })
+  // Outside Admin, this checklist is only workable on the service's own
+  // day — beforehand or after the fact it's read-only, so a past week's
+  // record can't be quietly rewritten.
+  const serviceDate = serviceQuery.data?.date
+  const isServiceDay = !!serviceDate && serviceDate === todayIso()
+  const editingLocked = !isAdmin && !!serviceDate && !isServiceDay
+
+  const canManageChecklist = roleAllowsManageChecklist && !editingLocked
+  const canHeadVerify = roleAllowsHeadVerify && !editingLocked
+  const canCoordinatorVerify = roleAllowsCoordinatorVerify && !editingLocked
+  const canLogAttendance = roleAllowsLogAttendance && !editingLocked
+
   const membersQuery = useQuery({
     queryKey: ['department-core-members', departmentId],
     queryFn: () => fetchCoreMembers(departmentId!),
@@ -274,6 +288,12 @@ export function DepartmentPrepPage() {
             </a>
           )}
         </div>
+
+        {editingLocked && (
+          <p className="mt-4 rounded-sm border border-border-subtle bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">
+            View only — this checklist can be worked on {formatServiceDay(serviceDate!)}.
+          </p>
+        )}
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
