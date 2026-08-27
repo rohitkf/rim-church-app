@@ -11,6 +11,7 @@ import {
   fetchAvailabilityFor,
   fetchDepartments,
   fetchMembersForDepartments,
+  fetchOwnDepartmentIds,
   fetchServices,
 } from '../lib/queries'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -95,7 +96,7 @@ function actorTimestampFor(item: ChecklistItemRow): string | null {
 }
 
 export function DashboardPage() {
-  const { profile, roles, isAdmin } = useAuth()
+  const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
 
   // Everyone opens on the Sunday in question (today if it is Sunday,
   // otherwise the one coming up). Admins alone can step back through
@@ -160,7 +161,22 @@ export function DashboardPage() {
   // Availability: who has said they can serve. RLS narrows both the
   // answers and the rosters to teams the viewer may see, so a team member
   // sees their own teams here and an Admin sees all of them.
-  const allDeptIds = useMemo(() => (departmentsQuery.data ?? []).map((d) => d.id), [departmentsQuery.data])
+  const ownDeptsQuery = useQuery({
+    queryKey: ['own-departments', session?.user.id],
+    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
+    enabled: !!session && !isAdmin,
+  })
+
+  // A head sees their own team's stats; a member sees the teams they're
+  // on. Admins see everything.
+  const visibleDepartments = useMemo(() => {
+    const all = departmentsQuery.data ?? []
+    if (isAdmin) return all
+    const mine = new Set([...(ownDeptsQuery.data ?? []), ...ledDepartmentIds])
+    return all.filter((d) => mine.has(d.id))
+  }, [departmentsQuery.data, ownDeptsQuery.data, ledDepartmentIds, isAdmin])
+
+  const allDeptIds = useMemo(() => visibleDepartments.map((d) => d.id), [visibleDepartments])
   const availabilityQuery = useQuery({
     queryKey: ['availability', 'dashboard', dayServiceIds],
     queryFn: () => fetchAvailabilityFor(dayServiceIds),
@@ -302,7 +318,7 @@ export function DashboardPage() {
               const serviceAvailability = (availabilityQuery.data ?? []).filter(
                 (a) => a.service_id === service.id,
               )
-              const availabilityTeams = (departmentsQuery.data ?? [])
+              const availabilityTeams = visibleDepartments
                 .filter((d) => (coreByDept.get(d.id) ?? []).length > 0)
                 .map((d) => {
                   const deptAnswers = serviceAvailability.filter((a) => a.department_id === d.id)

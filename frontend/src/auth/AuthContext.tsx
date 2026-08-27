@@ -12,6 +12,9 @@ interface AuthContextValue {
   isAdmin: boolean
   hasRole: (role: RoleType, opts?: { departmentId?: string; serviceId?: string }) => boolean
   isDepartmentHead: (departmentId: string) => boolean
+  /** Departments this user heads or assists — an Assisting Head has the
+   * same authority as the Head for their own team. */
+  ledDepartmentIds: string[]
   isServiceCoordinator: (serviceId: string) => boolean
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
@@ -80,6 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = hasRole('admin')
 
+  const ledDepartmentIds = roles
+    .filter((r) => r.role_type === 'department_head' || r.role_type === 'assisting_head')
+    .map((r) => r.department_id)
+    .filter((id): id is string => !!id)
+
   function isDepartmentHead(departmentId: string) {
     return (
       hasRole('department_head', { departmentId }) || hasRole('assisting_head', { departmentId })
@@ -108,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         hasRole,
         isDepartmentHead,
+        ledDepartmentIds,
         isServiceCoordinator,
         refreshProfile,
         signOut,

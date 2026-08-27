@@ -25,9 +25,11 @@ async function fetchItems(departmentId: string): Promise<InventoryItem[]> {
 
 export function InventoryPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, hasRole } = useAuth()
+  const { isAdmin, isDepartmentHead } = useAuth()
   const queryClient = useQueryClient()
-  const canManage = isAdmin || hasRole('department_head', { departmentId: id })
+  // Heads and their assisting heads manage their own team's kit;
+  // everyone else on the team can look but not touch.
+  const canManage = isAdmin || (!!id && isDepartmentHead(id))
 
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('0')

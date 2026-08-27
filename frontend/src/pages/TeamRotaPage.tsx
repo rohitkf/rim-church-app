@@ -49,7 +49,7 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 }
 
 export function TeamRotaPage() {
-  const { session, isAdmin, hasRole } = useAuth()
+  const { session, isAdmin, hasRole, isDepartmentHead } = useAuth()
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -66,14 +66,18 @@ export function TeamRotaPage() {
     enabled: !!myId,
   })
 
-  const upcoming = useMemo(
-    () =>
-      (servicesQuery.data ?? [])
-        .filter((s) => s.date >= today)
-        .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
-        .slice(0, UPCOMING_LIMIT),
-    [servicesQuery.data, today],
-  )
+  const upcoming = useMemo(() => {
+    const ahead = (servicesQuery.data ?? [])
+      .filter((s) => s.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
+    // Outside Admin the rota is about the service in front of you: show
+    // only the nearest day (both services if two run that day).
+    if (!isAdmin) {
+      const nearest = ahead[0]?.date
+      return nearest ? ahead.filter((s) => s.date === nearest) : []
+    }
+    return ahead.slice(0, UPCOMING_LIMIT)
+  }, [servicesQuery.data, today, isAdmin])
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
   const myDepartments = useMemo(() => {
@@ -111,7 +115,8 @@ export function TeamRotaPage() {
     queryClient.invalidateQueries({ queryKey: ['rota-requests'] })
   }
 
-  const canManage = (departmentId: string) => isAdmin || hasRole('department_head', { departmentId })
+  // Assisting Heads deputise for the Head, so they manage the rota too.
+  const canManage = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
 
   const addAssignment = useMutation({
     mutationFn: async ({

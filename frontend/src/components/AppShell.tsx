@@ -8,6 +8,7 @@ import {
   ChecklistIcon,
   ClipboardUserIcon,
   GridIcon,
+  IdCardIcon,
   HelpCircleIcon,
   MessageIcon,
   SearchIcon,
@@ -27,6 +28,8 @@ interface NavItem {
   label: string
   icon: ComponentType<SVGProps<SVGSVGElement>>
   enabled: boolean
+  /** Hidden entirely from anyone who isn't an Admin. */
+  adminOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -36,6 +39,7 @@ const navItems: NavItem[] = [
   { to: '/availability', label: 'Availability Tracker', icon: UserCheckIcon, enabled: true },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, enabled: true },
   { to: '/departments', label: 'Teams', icon: UsersIcon, enabled: true },
+  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, enabled: true, adminOnly: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, enabled: true },
   { to: '/messages', label: 'Messages', icon: MessageIcon, enabled: true },
   { to: '/analytics', label: 'Analytics', icon: BarChartIcon, enabled: false },
@@ -53,7 +57,6 @@ function primaryRoleLabel(isAdmin: boolean, roles: { role_type: string }[]) {
   if (isAdmin) return 'Admin'
   if (roles.some((r) => r.role_type === 'department_head')) return 'Department Head'
   if (roles.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
-  if (roles.some((r) => r.role_type === 'service_flow_coordinator')) return 'Service Coordinator'
   return 'Team Member'
 }
 
@@ -89,6 +92,7 @@ export function AppShell() {
 
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
+            if (item.adminOnly && !isAdmin) return null
             const Icon = item.icon
             if (!item.enabled) {
               return (

@@ -1,10 +1,10 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { fetchDepartments } from '../lib/queries'
+import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import type { Department } from '../lib/types'
 
@@ -40,15 +40,29 @@ function DeptColorControl({ dept }: { dept: Department }) {
 }
 
 export function DepartmentsPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, ledDepartmentIds, session } = useAuth()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
-  const { data, isLoading, error } = useQuery({
+  const { data: allDepartments, isLoading, error } = useQuery({
     queryKey: ['departments'],
     queryFn: fetchDepartments,
   })
+  const ownDeptsQuery = useQuery({
+    queryKey: ['own-departments', session?.user.id],
+    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
+    enabled: !!session && !isAdmin,
+  })
+
+  // Everyone can read the department list (the rota needs other teams'
+  // names), so this page narrows it to the teams you actually belong to
+  // or lead. Admins keep the whole list.
+  const data = useMemo(() => {
+    if (isAdmin) return allDepartments
+    const mine = new Set([...(ownDeptsQuery.data ?? []), ...ledDepartmentIds])
+    return (allDepartments ?? []).filter((d) => mine.has(d.id))
+  }, [allDepartments, ownDeptsQuery.data, ledDepartmentIds, isAdmin])
 
   const createDepartment = useMutation({
     mutationFn: async (name: string) => {

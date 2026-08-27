@@ -13,6 +13,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
+import { VolunteersPage } from './pages/VolunteersPage'
 import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
 import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
 import { AvailabilityPage } from './pages/AvailabilityPage'
@@ -66,6 +67,7 @@ const router = createBrowserRouter(
           <Route path="/" element={<DashboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/departments" element={<DepartmentsPage />} />
+          <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/departments/:id" element={<DepartmentDetailPage />} />
           <Route path="/checklists" element={<ChecklistsIndexPage />} />
           <Route path="/availability" element={<AvailabilityPage />} />

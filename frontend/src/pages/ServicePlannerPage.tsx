@@ -40,10 +40,12 @@ async function fetchProfileOptions(): Promise<ProfileOption[]> {
 export function ServicePlannerPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
   const navigate = useNavigate()
-  const { isAdmin, hasRole } = useAuth()
+  const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
 
-  const canManage = isAdmin || hasRole('service_flow_coordinator', { serviceId })
+  // Planning a service is an Admin action: Service Flow is a department
+  // like any other, not a role scoped to one service.
+  const canManage = isAdmin
 
   const serviceQuery = useQuery({
     queryKey: ['service', serviceId],

@@ -56,6 +56,17 @@ export function UsersIcon(props: IconProps) {
   )
 }
 
+export function IdCardIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M6 16a3 3 0 0 1 6 0" />
+      <path d="M15 10h4M15 14h4" />
+    </svg>
+  )
+}
+
 export function ClipboardUserIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
