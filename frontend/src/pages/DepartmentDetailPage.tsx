@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
+import { HandbookUploadModal } from '../components/HandbookUploadModal'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
@@ -101,6 +102,11 @@ export function DepartmentDetailPage() {
   })
 
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [confirmRemoveHandbook, setConfirmRemoveHandbook] = useState(false)
+  const handbookLabel = deptQuery.data?.handbook_url?.endsWith('.docx')
+    ? 'Open handbook (Word)'
+    : 'Open handbook (PDF)'
 
   // Type-ahead over registered profiles: people rarely remember the exact
   // address they signed up with, so match on name too and let them pick.
@@ -154,33 +160,32 @@ export function DepartmentDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['department-members', id] }),
   })
 
-  const uploadHandbook = useMutation({
-    mutationFn: async (file: File) => {
-      const path = `${id}/handbook.pdf`
-      const { error: uploadErr } = await supabase.storage
-        .from(HANDBOOK_BUCKET)
-        .upload(path, file, { upsert: true, contentType: 'application/pdf' })
-      if (uploadErr) throw uploadErr
-
-      const { error: updateErr } = await supabase.from('departments').update({ handbook_url: path }).eq('id', id)
+  // Uploading lives in its own modal; here we only take one away.
+  const removeHandbook = useMutation({
+    mutationFn: async () => {
+      const path = deptQuery.data?.handbook_url
+      if (!path) return
+      const { error: removeErr } = await supabase.storage.from(HANDBOOK_BUCKET).remove([path])
+      if (removeErr) throw removeErr
+      const { error: updateErr } = await supabase
+        .from('departments')
+        .update({ handbook_url: null })
+        .eq('id', id)
       if (updateErr) throw updateErr
     },
     onSuccess: () => {
+      setConfirmRemoveHandbook(false)
       setUploadError(null)
       queryClient.invalidateQueries({ queryKey: ['department', id] })
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
     },
-    onError: (err: unknown) => setUploadError(errorMessage(err, 'Upload failed.')),
+    onError: (err: unknown) => setUploadError(errorMessage(err, 'Could not remove the handbook.')),
   })
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!addEmail.trim()) return
     addMember.mutate({ email: addEmail.trim(), type: addType })
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) uploadHandbook.mutate(file)
   }
 
   return (
@@ -201,14 +206,31 @@ export function DepartmentDetailPage() {
                 rel="noreferrer"
                 className="rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
-                Download Handbook PDF
+                {handbookLabel}
               </a>
             )}
             {canManage && (
-              <label className="cursor-pointer rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary">
-                {uploadHandbook.isPending ? 'Uploading…' : deptQuery.data?.handbook_url ? 'Replace Handbook' : 'Upload Handbook'}
-                <input type="file" accept="application/pdf" onChange={handleFileChange} className="hidden" />
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUploadOpen(true)}
+                  className="rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+                >
+                  {deptQuery.data?.handbook_url ? 'Replace handbook' : 'Upload handbook'}
+                </button>
+                {deptQuery.data?.handbook_url && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadError(null)
+                      setConfirmRemoveHandbook(true)
+                    }}
+                    className="rounded-sm px-3 py-2 text-body-sm font-medium text-on-surface-variant hover:text-error"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -389,6 +411,55 @@ export function DepartmentDetailPage() {
             </QueryState>
           </section>
         </div>
+
+        {uploadOpen && deptQuery.data && (
+          <HandbookUploadModal
+            departmentId={id!}
+            departmentName={deptQuery.data.name}
+            currentPath={deptQuery.data.handbook_url}
+            onClose={() => setUploadOpen(false)}
+          />
+        )}
+
+        {confirmRemoveHandbook && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-handbook-title"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          >
+            <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+              <h2 id="remove-handbook-title" className="text-headline-md">
+                Remove this handbook?
+              </h2>
+              <p className="mt-2 text-body-sm text-on-surface-variant">
+                The team loses access to it straight away. You can upload a new one at any time.
+              </p>
+              {uploadError && (
+                <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                  {uploadError}
+                </p>
+              )}
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemoveHandbook(false)}
+                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeHandbook.mutate()}
+                  disabled={removeHandbook.isPending}
+                  className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                >
+                  {removeHandbook.isPending ? 'Removing…' : 'Yes, remove'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </QueryState>
   )

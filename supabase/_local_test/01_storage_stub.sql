@@ -5,8 +5,15 @@ create schema if not exists storage;
 create table if not exists storage.buckets (
   id text primary key,
   name text not null,
-  public boolean not null default false
+  public boolean not null default false,
+  -- Supabase's own columns for per-bucket upload limits, mirrored here so
+  -- migrations that set them can be dry-run against bare Postgres.
+  allowed_mime_types text[],
+  file_size_limit bigint
 );
+
+alter table storage.buckets add column if not exists allowed_mime_types text[];
+alter table storage.buckets add column if not exists file_size_limit bigint;
 
 create table if not exists storage.objects (
   id uuid primary key default gen_random_uuid(),
