@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 interface QueryStateProps {
   isLoading: boolean
@@ -21,6 +21,7 @@ export function QueryState({
   emptyMessage = 'Nothing here yet.',
   children,
 }: QueryStateProps) {
+  const errorText = useErrorText()
   if (isLoading) {
     return <p className="text-body-sm text-on-surface-variant">Loading…</p>
   }
@@ -28,7 +29,7 @@ export function QueryState({
   if (error) {
     return (
       <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-        {errorMessage(error, 'Something went wrong loading this.')}
+        {errorText(error, 'Something went wrong loading this.')}
       </p>
     )
   }

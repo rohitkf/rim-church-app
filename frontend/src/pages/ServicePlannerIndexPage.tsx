@@ -11,13 +11,14 @@ import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { Service } from '../lib/types'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function ServicePlannerIndexPage() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const templatesQuery = useQuery({
@@ -90,7 +91,7 @@ export function ServicePlannerIndexPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] })
       navigate(`/service-planner/${id}`)
     },
-    onError: (err: unknown) => setCreateError(errorMessage(err, 'Could not create service.')),
+    onError: (err: unknown) => setCreateError(errorText(err, 'Could not create service.')),
   })
 
   function handleCreate(e: FormEvent) {

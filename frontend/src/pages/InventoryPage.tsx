@@ -8,7 +8,7 @@ import { QueryState } from '../components/QueryState'
 import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, inputClasses } from '../components/Surface'
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
@@ -45,6 +45,7 @@ async function fetchItems(departmentId: string): Promise<InventoryItem[]> {
 export function InventoryPage() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin, isDepartmentHead } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
 
@@ -98,7 +99,7 @@ export function InventoryPage() {
       if (error) throw error
     },
     onSuccess: refresh,
-    onError: (err: unknown) => setError(errorMessage(err, 'That did not go through.')),
+    onError: (err: unknown) => setError(errorText(err, 'That did not go through.')),
   })
 
   const FILTERS: { value: Filter; label: string; count?: number }[] = [
@@ -366,6 +367,7 @@ function AddItemForm({
   onDone: () => void
   onError: (message: string) => void
 }) {
+  const errorText = useErrorText()
   const [kind, setKind] = useState<'asset' | 'consumable'>('asset')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
@@ -400,7 +402,7 @@ function AddItemForm({
       if (error) throw error
     },
     onSuccess: onDone,
-    onError: (err: unknown) => onError(errorMessage(err, 'Could not add that item.')),
+    onError: (err: unknown) => onError(errorText(err, 'Could not add that item.')),
   })
 
   return (

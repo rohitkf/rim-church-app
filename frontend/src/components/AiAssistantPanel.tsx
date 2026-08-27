@@ -1,6 +1,6 @@
 import { type FormEvent, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import {
   confirmPendingActions,
   sendChatMessage,
@@ -20,6 +20,7 @@ interface AiAssistantPanelProps {
 }
 
 export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
+  const errorText = useErrorText()
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [pendingActions, setPendingActions] = useState<PendingAction[] | null>(null)
@@ -37,7 +38,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
       setPendingActions(res.pending_actions)
       if (res.reply) setTurns((t) => [...t, { role: 'assistant', text: res.reply }])
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Something went wrong.')),
+    onError: (err: unknown) => setError(errorText(err, 'Something went wrong.')),
   })
 
   const confirmMutation = useMutation({
@@ -48,13 +49,13 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
       setPendingActions(res.pending_actions)
       if (res.reply) setTurns((t) => [...t, { role: 'assistant', text: res.reply }])
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Something went wrong.')),
+    onError: (err: unknown) => setError(errorText(err, 'Something went wrong.')),
   })
 
   const transcribeMutation = useMutation({
     mutationFn: (blob: Blob) => transcribeAudio(blob),
     onSuccess: (text) => setInput((prev) => (prev ? `${prev} ${text}` : text)),
-    onError: (err: unknown) => setError(errorMessage(err, 'Transcription failed.')),
+    onError: (err: unknown) => setError(errorText(err, 'Transcription failed.')),
   })
 
   function handleSubmit(e: FormEvent) {

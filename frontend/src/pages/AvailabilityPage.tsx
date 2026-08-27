@@ -9,7 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { availabilitySummary } from '../lib/availabilitySummary'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import {
   availabilityRowSchema,
   departmentMemberRowSchema,
@@ -59,6 +59,7 @@ async function fetchMembers(departmentIds: string[]): Promise<DepartmentMemberRo
 
 export function AvailabilityPage() {
   const { session, isAdmin, hasRole } = useAuth()
+  const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -180,7 +181,7 @@ export function AvailabilityPage() {
       setOverrideError(null)
       queryClient.invalidateQueries({ queryKey: ['availability'] })
     },
-    onError: (err: unknown) => setOverrideError(errorMessage(err, 'Could not change that answer.')),
+    onError: (err: unknown) => setOverrideError(errorText(err, 'Could not change that answer.')),
   })
 
   // The head confirms, on the day, whether each person who said yes

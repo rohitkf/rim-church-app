@@ -9,7 +9,7 @@ import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { ServiceTemplate } from '../lib/types'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 interface SessionDraft {
   session_name: string
@@ -27,6 +27,7 @@ function formatTotal(minutes: number): string {
 
 export function ServiceTemplatesPage() {
   const { isAdmin } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -91,7 +92,7 @@ export function ServiceTemplatesPage() {
       resetForm()
       queryClient.invalidateQueries({ queryKey: ['service-templates'] })
     },
-    onError: (err: unknown) => setFormError(errorMessage(err, 'Could not save template.')),
+    onError: (err: unknown) => setFormError(errorText(err, 'Could not save template.')),
   })
 
   const deleteTemplate = useMutation({

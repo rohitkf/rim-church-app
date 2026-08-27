@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
   serviceSessionRowSchema,
@@ -42,6 +42,7 @@ export function ServicePlannerPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
 
   // Planning a service is an Admin action: Service Flow is a department
@@ -69,7 +70,7 @@ export function ServicePlannerPage() {
     },
     onSuccess: invalidate,
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not save that change.')),
+      setServiceError(errorText(err, 'Could not save that change.')),
   })
 
   const addSession = useMutation({
@@ -101,7 +102,7 @@ export function ServicePlannerPage() {
       return invalidate()
     },
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not add the session.')),
+      setServiceError(errorText(err, 'Could not add the session.')),
   })
 
   const deleteSession = useMutation({
@@ -131,7 +132,7 @@ export function ServicePlannerPage() {
       return invalidate()
     },
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not delete the session.')),
+      setServiceError(errorText(err, 'Could not delete the session.')),
   })
 
   const sessions = sessionsQuery.data ?? []
@@ -161,7 +162,7 @@ export function ServicePlannerPage() {
       invalidate()
     },
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not update the service.')),
+      setServiceError(errorText(err, 'Could not update the service.')),
   })
 
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -177,7 +178,7 @@ export function ServicePlannerPage() {
       invalidate()
     },
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not clear the plan.')),
+      setServiceError(errorText(err, 'Could not clear the plan.')),
   })
 
   const deleteService = useMutation({
@@ -190,7 +191,7 @@ export function ServicePlannerPage() {
       navigate('/service-planner')
     },
     onError: (err: unknown) =>
-      setServiceError(errorMessage(err, 'Could not delete the service.')),
+      setServiceError(errorText(err, 'Could not delete the service.')),
   })
 
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
@@ -225,7 +226,7 @@ export function ServicePlannerPage() {
     onError: (err: unknown) =>
       setTemplateMessage({
         ok: false,
-        text: errorMessage(err, 'Could not save template.'),
+        text: errorText(err, 'Could not save template.'),
       }),
   })
 

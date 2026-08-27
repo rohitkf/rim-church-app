@@ -8,7 +8,7 @@ import { StatusBadge, SegmentedProgressBar } from './ChecklistStatus'
 import { useHandbookUrl } from '../lib/useHandbookUrl'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import { useServiceFlowSigner } from '../lib/useServiceFlowSigner'
 import {
   departmentSchema,
@@ -80,6 +80,7 @@ export function DepartmentChecklistPanel({
   showDepartmentName = false,
 }: DepartmentChecklistPanelProps) {
   const { session, isAdmin, hasRole } = useAuth()
+  const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
 
@@ -132,7 +133,7 @@ export function DepartmentChecklistPanel({
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['checklist-id', departmentId, serviceId] }),
-    onError: (err: unknown) => setItemError(errorMessage(err, 'Could not create the checklist.')),
+    onError: (err: unknown) => setItemError(errorText(err, 'Could not create the checklist.')),
   })
 
   const addItem = useMutation({
@@ -150,7 +151,7 @@ export function DepartmentChecklistPanel({
       setItemError(null)
       invalidateItems()
     },
-    onError: (err: unknown) => setItemError(errorMessage(err, 'Could not add item.')),
+    onError: (err: unknown) => setItemError(errorText(err, 'Could not add item.')),
   })
 
   const deleteItem = useMutation({
@@ -159,7 +160,7 @@ export function DepartmentChecklistPanel({
       if (error) throw error
     },
     onSuccess: invalidateItems,
-    onError: (err: unknown) => setItemError(errorMessage(err, 'Could not delete item.')),
+    onError: (err: unknown) => setItemError(errorText(err, 'Could not delete item.')),
   })
 
   const setStatus = useMutation({
@@ -168,7 +169,7 @@ export function DepartmentChecklistPanel({
       if (error) throw error
     },
     onSuccess: invalidateItems,
-    onError: (err: unknown) => setItemError(errorMessage(err, 'Could not update the task.')),
+    onError: (err: unknown) => setItemError(errorText(err, 'Could not update the task.')),
   })
 
 

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
 import { ActionButton, Field, Panel, inputClasses } from './Surface'
 import { UsersIcon } from './icons'
@@ -17,6 +17,7 @@ interface ManageTeamsCardProps {
  * removal — lives on that team's own card.
  */
 export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +36,7 @@ export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
       setNewName('')
       refresh()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not create that team.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not create that team.')),
   })
 
   // Exactly one team holds the sign-off, so setting it clears the previous
@@ -52,7 +53,7 @@ export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
       if (error) throw error
     },
     onSuccess: refresh,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not set the sign-off team.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not set the sign-off team.')),
   })
 
   const signOffTeam = departments.find((d) => d.is_service_flow)

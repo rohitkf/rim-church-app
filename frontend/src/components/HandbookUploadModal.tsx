@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import gsap from 'gsap'
 import { supabase } from '../lib/supabaseClient'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import { HANDBOOK_BUCKET } from '../lib/useHandbookUrl'
 import {
   checkHandbookFile,
@@ -38,6 +38,7 @@ export function HandbookUploadModal({
   currentPath,
   onClose,
 }: HandbookUploadModalProps) {
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [stage, setStage] = useState<Stage>('idle')
@@ -100,7 +101,7 @@ export function HandbookUploadModal({
       finish(true)
     },
     onError: (err: unknown) => {
-      setMessage(errorMessage(err, 'Upload failed.'))
+      setMessage(errorText(err, 'Upload failed.'))
       finish(false)
     },
   })

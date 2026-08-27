@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from './QueryState'
 import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -22,6 +22,7 @@ function RoleChecklistEditor({
   departmentId: string
   canManage: boolean
 }) {
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [label, setLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +50,7 @@ function RoleChecklistEditor({
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not add that item.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not add that item.')),
   })
 
   const deleteItem = useMutation({
@@ -58,7 +59,7 @@ function RoleChecklistEditor({
       if (error) throw error
     },
     onSuccess: invalidate,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that item.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not delete that item.')),
   })
 
   return (
@@ -112,6 +113,7 @@ function RoleChecklistEditor({
 }
 
 export function DepartmentRolesCard({ departmentId, canManage }: { departmentId: string; canManage: boolean }) {
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -135,7 +137,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not add that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not add that role.')),
   })
 
   const renameRole = useMutation({
@@ -148,7 +150,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not rename that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not rename that role.')),
   })
 
   const deleteRole = useMutation({
@@ -160,7 +162,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not delete that role.')),
   })
 
   function handleAdd(e: FormEvent) {

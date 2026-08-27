@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 type Mode = 'activity' | 'everything'
 
@@ -15,6 +15,7 @@ const CONFIRM_PHRASE = 'RESET'
  */
 export function AdminResetCard() {
   const { isAdmin } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<Mode | null>(null)
   const [typed, setTyped] = useState('')
@@ -41,7 +42,7 @@ export function AdminResetCard() {
       // rather than trying to work out which ones moved.
       queryClient.clear()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not reset the data.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not reset the data.')),
   })
 
   if (!isAdmin) return null

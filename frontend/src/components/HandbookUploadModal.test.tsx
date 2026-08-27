@@ -7,6 +7,9 @@ import { HANDBOOK_MAX_BYTES } from '../lib/handbookFile'
 
 const upload = vi.fn(() => Promise.resolve({ error: null }))
 
+// The modal asks who is looking, to decide how blunt an error should be.
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false }) }))
+
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     storage: {

@@ -9,7 +9,7 @@ import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 function BoardClearCountdown() {
   const [now, setNow] = useState(() => Date.now())
@@ -71,6 +71,7 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 
 export function MessageBoardPage() {
   const { session, isAdmin, hasRole, roles } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Heads post; that includes the head of the Service Flow team, who is a
   // department head like any other now that Service Flow is a team.
@@ -127,7 +128,7 @@ export function MessageBoardPage() {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['messages'] })
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not post message.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not post message.')),
   })
 
   const deleteMessage = useMutation({
@@ -141,7 +142,7 @@ export function MessageBoardPage() {
       queryClient.invalidateQueries({ queryKey: ['messages'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that message.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not delete that message.')),
   })
 
   const clearBoard = useMutation({
@@ -155,7 +156,7 @@ export function MessageBoardPage() {
       queryClient.invalidateQueries({ queryKey: ['messages'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not clear the board.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not clear the board.')),
   })
 
   const removing = deleteMessage.isPending || clearBoard.isPending

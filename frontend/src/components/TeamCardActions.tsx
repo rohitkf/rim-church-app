@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import type { Department } from '../lib/types'
 
@@ -11,6 +11,7 @@ import type { Department } from '../lib/types'
  * list of every team, which is what made this page say everything twice.
  */
 export function TeamCardActions({ dept }: { dept: Department }) {
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [renaming, setRenaming] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -29,7 +30,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
       if (error) throw error
     },
     onSuccess: done,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not rename that team.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not rename that team.')),
   })
 
   const recolour = useMutation({
@@ -38,7 +39,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
       if (error) throw error
     },
     onSuccess: done,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not save that colour.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not save that colour.')),
   })
 
   const remove = useMutation({
@@ -47,7 +48,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
       if (error) throw error
     },
     onSuccess: done,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that team.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not delete that team.')),
   })
 
   return (

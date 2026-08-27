@@ -16,7 +16,7 @@ import {
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import {
   rotaAssignmentSchema,
   rotaReleaseRequestSchema,
@@ -52,6 +52,7 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 
 export function TeamRotaPage() {
   const { session, isAdmin, hasRole, isDepartmentHead } = useAuth()
+  const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -164,7 +165,7 @@ export function TeamRotaPage() {
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not assign that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not assign that role.')),
   })
 
   const removeAssignment = useMutation({
@@ -173,7 +174,7 @@ export function TeamRotaPage() {
       if (error) throw error
     },
     onSuccess: refresh,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not remove that assignment.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not remove that assignment.')),
   })
 
   const requestRelease = useMutation({
@@ -199,7 +200,7 @@ export function TeamRotaPage() {
       refresh()
     },
     onError: (err: unknown) =>
-      setError(errorMessage(err, 'Could not send the request.')),
+      setError(errorText(err, 'Could not send the request.')),
   })
 
   const decideRequest = useMutation({
@@ -225,7 +226,7 @@ export function TeamRotaPage() {
       }
     },
     onSuccess: refresh,
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not answer the request.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not answer the request.')),
   })
 
   const assignments = rotaQuery.data ?? []

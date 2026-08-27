@@ -8,7 +8,7 @@ import { QueryState } from '../components/QueryState'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 const volunteerSchema = z.object({
   id: z.string(),
@@ -57,6 +57,7 @@ const designationClass: Record<string, string> = {
 
 export function VolunteersPage() {
   const { isAdmin, session } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
@@ -96,7 +97,7 @@ export function VolunteersPage() {
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not grant that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not grant that role.')),
   })
 
   const revokeRole = useMutation({
@@ -108,7 +109,7 @@ export function VolunteersPage() {
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(errorMessage(err, 'Could not remove that role.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not remove that role.')),
   })
 
   const removeVolunteer = useMutation({
@@ -127,7 +128,7 @@ export function VolunteersPage() {
       queryClient.invalidateQueries({ queryKey: ['volunteer-memberships'] })
     },
     onError: (err: unknown) =>
-      setError(errorMessage(err, 'Could not remove that person.')),
+      setError(errorText(err, 'Could not remove that person.')),
   })
 
   if (!isAdmin) return <Navigate to="/" replace />

@@ -18,10 +18,11 @@ import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -141,7 +142,7 @@ export function ChecklistsIndexPage() {
     },
     onError: (err: unknown, _vars, context) => {
       for (const [key, rows] of context?.snapshot ?? []) queryClient.setQueryData(key, rows)
-      setError(errorMessage(err, 'Could not update that item.'))
+      setError(errorText(err, 'Could not update that item.'))
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['rota-progress'] }),
   })

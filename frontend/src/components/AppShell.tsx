@@ -11,7 +11,6 @@ import {
   IdCardIcon,
   HelpCircleIcon,
   MessageIcon,
-  SearchIcon,
   SparklesIcon,
   UserCheckIcon,
   UsersIcon,
@@ -19,6 +18,7 @@ import {
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
+import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import type { ComponentType, SVGProps } from 'react'
 
@@ -171,14 +171,7 @@ export function AppShell() {
 
       <div className="flex flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-surface-lowest/75 px-8 py-4 backdrop-blur-xl dark:border-white/8">
-          <label className="flex w-full max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] focus-within:ring-2 focus-within:ring-secondary dark:bg-surface-container dark:ring-white/10">
-            <SearchIcon width={16} height={16} />
-            <input
-              disabled
-              placeholder="Search…"
-              className="w-full bg-transparent outline-none placeholder:text-on-surface-variant"
-            />
-          </label>
+          <GlobalSearch />
           <div className="flex items-center gap-2 text-on-surface-variant">
             <ThemeToggle />
             <NotificationsBell />

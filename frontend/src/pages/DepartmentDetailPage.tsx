@@ -10,7 +10,7 @@ import { HandbookUploadModal } from '../components/HandbookUploadModal'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
-import { errorMessage } from '../lib/errorMessage'
+import { useErrorText } from '../lib/useErrorText'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -74,6 +74,7 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin, hasRole } = useAuth()
+  const errorText = useErrorText()
   const queryClient = useQueryClient()
   const canManage = isAdmin || hasRole('department_head', { departmentId: id })
 
@@ -149,7 +150,7 @@ export function DepartmentDetailPage() {
       setAddError(null)
       queryClient.invalidateQueries({ queryKey: ['department-members', id] })
     },
-    onError: (err: unknown) => setAddError(errorMessage(err, 'Could not add member.')),
+    onError: (err: unknown) => setAddError(errorText(err, 'Could not add member.')),
   })
 
   const removeMember = useMutation({
@@ -179,7 +180,7 @@ export function DepartmentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['department', id] })
       queryClient.invalidateQueries({ queryKey: ['departments'] })
     },
-    onError: (err: unknown) => setUploadError(errorMessage(err, 'Could not remove the handbook.')),
+    onError: (err: unknown) => setUploadError(errorText(err, 'Could not remove the handbook.')),
   })
 
   function handleAdd(e: FormEvent) {
