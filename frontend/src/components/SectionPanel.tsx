@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
-import { Panel } from './Surface'
+import { Panel, Pill, type PillTone } from './Surface'
 
 interface SectionPanelProps {
   title: string
@@ -30,7 +30,12 @@ export function SectionPanel({ title, icon, aside, children, className = '' }: S
   )
 }
 
-/** A status pill: "On track", "Online", "Waiting". */
+/**
+ * A status pill: "On track", "Online", "Waiting".
+ *
+ * Delegates to Pill so there is exactly one status pill in the app; this
+ * name survives because pages read better saying what they mean.
+ */
 export function StatusChip({
   tone = 'neutral',
   children,
@@ -38,18 +43,15 @@ export function StatusChip({
   tone?: 'good' | 'warn' | 'bad' | 'neutral'
   children: ReactNode
 }) {
-  const tones = {
-    good: 'bg-success/12 text-success ring-success/20',
-    warn: 'bg-warning/12 text-warning ring-warning/20',
-    bad: 'bg-error/12 text-error ring-error/20',
-    neutral: 'bg-surface-container text-on-surface-variant ring-black/5 dark:ring-white/10',
+  const tones: Record<string, PillTone> = {
+    good: 'green',
+    warn: 'orange',
+    bad: 'red',
+    neutral: 'neutral',
   }
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] ring-1 ring-inset ${tones[tone]}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+    <Pill tone={tones[tone]} dot>
       {children}
-    </span>
+    </Pill>
   )
 }

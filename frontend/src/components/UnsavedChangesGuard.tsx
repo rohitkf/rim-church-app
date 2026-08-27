@@ -53,7 +53,7 @@ export function UnsavedChangesDialog({
       aria-labelledby="unsaved-changes-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
     >
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
         <h2 id="unsaved-changes-title" className="text-headline-md">
           Leave this page?
         </h2>
@@ -62,14 +62,14 @@ export function UnsavedChangesDialog({
           <button
             type="button"
             onClick={() => blocker.reset?.()}
-            className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+            className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => blocker.proceed?.()}
-            className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90"
+            className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90"
           >
             Discard changes
           </button>

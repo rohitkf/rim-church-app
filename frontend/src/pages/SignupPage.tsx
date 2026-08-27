@@ -59,7 +59,7 @@ export function SignupPage() {
   if (done) {
     return (
       <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8 text-center">
+        <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8 text-center">
           <h1 className="mb-2 text-headline-lg">Check your email</h1>
           <p className="text-body-sm text-on-surface-variant">
             We sent a confirmation link to {email}. Sign in once you've confirmed your account.
@@ -74,7 +74,7 @@ export function SignupPage() {
 
   return (
     <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
+      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
             <span className="font-mono text-label-md">RIM</span>
@@ -90,7 +90,7 @@ export function SignupPage() {
                 required
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />
             </label>
             <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -99,7 +99,7 @@ export function SignupPage() {
                 required
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />
             </label>
           </div>
@@ -110,7 +110,7 @@ export function SignupPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
             />
           </label>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -150,11 +150,11 @@ export function SignupPage() {
             </p>
           )}
 
-          {error && <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
+          {error && <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
           <button
             type="submit"
             disabled={submitting || !canSubmit}
-            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? 'Creating account…' : 'Sign up'}
           </button>

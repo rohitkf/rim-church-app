@@ -62,7 +62,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest py-1 shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline py-1 shadow-lg"
         >
           <div className="border-b border-border-subtle px-3 py-2">
             <div className="truncate text-body-sm font-medium text-on-surface">
@@ -77,7 +77,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
               Appearance
             </div>
-            <div className="mt-2 flex rounded-sm border border-border-subtle p-0.5">
+            <div className="mt-2 flex rounded-full hairline p-0.5">
               {THEME_CHOICES.map((choice) => (
                 <button
                   key={choice.value}

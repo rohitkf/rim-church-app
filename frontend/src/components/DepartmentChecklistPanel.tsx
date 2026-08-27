@@ -203,7 +203,7 @@ export function DepartmentChecklistPanel({
               href={handbookQuery.data}
               target="_blank"
               rel="noreferrer"
-              className="rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+              className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
             >
               Download Handbook PDF
             </a>
@@ -212,13 +212,13 @@ export function DepartmentChecklistPanel({
       )}
 
       {editingLocked && (
-        <p className="mt-4 rounded-sm border border-border-subtle bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">
+        <p className="mt-4 rounded-full hairline bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">
           View only — this checklist can be worked on {formatServiceDay(serviceDate!)}.
         </p>
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-        <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+        <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
           <h4 className="text-headline-md">Pre-Service Tasks</h4>
 
           {checklistIdQuery.data === null && !checklistIdQuery.isLoading && (
@@ -228,7 +228,7 @@ export function DepartmentChecklistPanel({
                 <button
                   onClick={() => createChecklist.mutate()}
                   disabled={createChecklist.isPending}
-                  className="mt-3 rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                  className="mt-3 rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                 >
                   {createChecklist.isPending ? 'Creating…' : 'Create Checklist'}
                 </button>
@@ -251,7 +251,7 @@ export function DepartmentChecklistPanel({
                   const canThisCoordinatorVerify = item.status === 'head_verified' && canCoordinatorVerify
 
                   return (
-                    <li key={item.id} className="rounded-lg border border-border-subtle p-4">
+                    <li key={item.id} className="rounded-[var(--radius-card)] hairline p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-medium text-on-surface">{item.role_label}</div>
@@ -340,7 +340,7 @@ export function DepartmentChecklistPanel({
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="Test all microphone batteries"
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                 />
               </label>
               <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -348,7 +348,7 @@ export function DepartmentChecklistPanel({
                 <select
                   value={newAssignee}
                   onChange={(e) => setNewAssignee(e.target.value)}
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                 >
                   <option value="">Select…</option>
                   {membersQuery.data?.map((m) => (
@@ -361,21 +361,21 @@ export function DepartmentChecklistPanel({
               <button
                 type="submit"
                 disabled={addItem.isPending}
-                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {addItem.isPending ? 'Adding…' : 'Add'}
               </button>
             </form>
           )}
           {itemError && (
-            <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
               {itemError}
             </p>
           )}
         </section>
 
         <div className="flex flex-col gap-6">
-          <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+          <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <h4 className="text-headline-md">Department Readiness</h4>
             <div className="mt-4">
               <SegmentedProgressBar

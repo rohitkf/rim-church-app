@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
+import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 
 export function LoginPage() {
   const { session } = useAuth()
@@ -37,51 +38,55 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">RIM</span>
-          </div>
-          <div className="text-headline-md">Rehoboth International Ministries</div>
-        </div>
-        <h1 className="mb-6 text-headline-lg">Sign in</h1>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Email
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            <span className="flex items-baseline justify-between gap-2">
-              Password
-              <Link to="/forgot-password" className="text-label-sm font-medium text-secondary">
-                Forgot password?
-              </Link>
-            </span>
-            <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
-          </label>
-          {error && <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-        <p className="mt-6 text-body-sm text-on-surface-variant">
-          Don't have an account?{' '}
-          <Link to="/signup" className="font-medium text-secondary">
+    <AuthCard
+      title="Sign in"
+      footer={
+        <>
+          No account yet?{' '}
+          <Link to="/signup" className="font-medium text-primary">
             Sign up
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <label className="flex flex-col gap-2">
+          <AuthLabel>Email</AuthLabel>
+          <input
+            type="email"
+            required
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInputClasses}
+          />
+        </label>
+
+        <label className="flex flex-col gap-2">
+          <span className="flex items-baseline justify-between gap-2">
+            <AuthLabel>Password</AuthLabel>
+            <Link to="/forgot-password" className="text-label-sm font-medium text-primary">
+              Forgot?
+            </Link>
+          </span>
+          <PasswordInput
+            value={password}
+            onChange={setPassword}
+            required
+            autoComplete="current-password"
+          />
+        </label>
+
+        {error && (
+          <p className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
+            {error}
+          </p>
+        )}
+
+        <button type="submit" disabled={submitting} className={`mt-1.5 ${authSubmitClasses}`}>
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+    </AuthCard>
   )
 }

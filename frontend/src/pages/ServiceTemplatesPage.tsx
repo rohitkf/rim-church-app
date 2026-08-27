@@ -145,7 +145,7 @@ export function ServiceTemplatesPage() {
         to tweak.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-6">
+      <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         <h2 className="text-headline-md">{editingId ? 'Edit template' : 'Create template'}</h2>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -154,7 +154,7 @@ export function ServiceTemplatesPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="English Sunday service"
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
             />
           </label>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -163,7 +163,7 @@ export function ServiceTemplatesPage() {
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
             />
           </label>
         </div>
@@ -179,7 +179,7 @@ export function ServiceTemplatesPage() {
                   setDrafts(drafts.map((x, j) => (j === i ? { ...x, session_name: e.target.value } : x)))
                 }
                 placeholder="Worship, Sermon, Announcements…"
-                className="min-w-0 flex-1 rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className="min-w-0 flex-1 rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />
               <input
                 type="number"
@@ -191,7 +191,7 @@ export function ServiceTemplatesPage() {
                   )
                 }
                 aria-label="Duration in minutes"
-                className="w-20 rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                className="w-20 rounded-full hairline px-3 py-2 text-body-md text-on-surface"
               />
               <span className="text-body-sm text-on-surface-variant">min</span>
               <button
@@ -219,7 +219,7 @@ export function ServiceTemplatesPage() {
         </div>
 
         {formError && (
-          <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
             {formError}
           </p>
         )}
@@ -227,7 +227,7 @@ export function ServiceTemplatesPage() {
           <button
             type="submit"
             disabled={saveTemplate.isPending}
-            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {saveTemplate.isPending ? 'Saving…' : editingId ? 'Save changes' : 'Create template'}
           </button>
@@ -251,7 +251,7 @@ export function ServiceTemplatesPage() {
             {templatesQuery.data?.map((t) => (
               <li
                 key={t.id}
-                className="flex items-center gap-4 rounded-lg border border-border-subtle bg-surface-lowest p-4"
+                className="flex items-center gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-on-surface">{t.name}</span>

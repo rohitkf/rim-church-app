@@ -5,6 +5,15 @@ interface ReadinessDonutProps {
   /** Outer diameter in px. */
   size?: number
   label?: string
+  /**
+   * `hero` is the one big ring a screen is allowed: rounded caps, the
+   * figure set in the display face rather than mono, and a word under it
+   * saying what the number is. Everywhere else stays `plain`, so the hero
+   * keeps being the thing the eye lands on first.
+   */
+  variant?: 'plain' | 'hero'
+  /** The word under the figure, on the hero ring. */
+  caption?: string
 }
 
 const STAGE_COLORS: { key: 'coordinatorVerified' | 'headVerified' | 'memberComplete'; color: string }[] = [
@@ -24,7 +33,14 @@ const STAGE_COLORS: { key: 'coordinatorVerified' | 'headVerified' | 'memberCompl
  * where two colours meet, and the counts are written out beneath the chart
  * so the reading never depends on telling the colours apart.
  */
-export function ReadinessDonut({ readiness, size = 128, label }: ReadinessDonutProps) {
+export function ReadinessDonut({
+  readiness,
+  size = 128,
+  label,
+  variant = 'plain',
+  caption = 'Ready',
+}: ReadinessDonutProps) {
+  const hero = variant === 'hero'
   const stroke = Math.max(8, Math.round(size * 0.11))
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
@@ -69,7 +85,7 @@ export function ReadinessDonut({ readiness, size = 128, label }: ReadinessDonutP
               fill="none"
               stroke={seg.color}
               strokeWidth={stroke}
-              strokeLinecap="butt"
+              strokeLinecap={hero ? 'round' : 'butt'}
               strokeDasharray={`${seg.length} ${circumference - seg.length}`}
               strokeDashoffset={-seg.start}
             />
@@ -77,16 +93,32 @@ export function ReadinessDonut({ readiness, size = 128, label }: ReadinessDonutP
         </g>
         <text
           x="50%"
-          y="50%"
+          y={hero ? '46%' : '50%'}
           textAnchor="middle"
           dominantBaseline="central"
-          className="fill-on-surface font-mono"
-          style={{ fontSize: size * 0.26, fontWeight: 500 }}
+          className={hero ? 'fill-on-surface' : 'fill-on-surface font-mono'}
+          style={{
+            fontSize: size * (hero ? 0.28 : 0.26),
+            fontWeight: 600,
+            letterSpacing: hero ? '-0.03em' : undefined,
+          }}
         >
           {readiness.pct === null ? '—' : `${readiness.pct}%`}
         </text>
+        {hero && (
+          <text
+            x="50%"
+            y="65%"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="fill-on-surface-faint font-mono"
+            style={{ fontSize: Math.max(10, size * 0.068), letterSpacing: '0.16em' }}
+          >
+            {caption.toUpperCase()}
+          </text>
+        )}
       </svg>
-      {label && (
+      {label && !hero && (
         <figcaption className="max-w-32 text-center text-body-sm text-on-surface">{label}</figcaption>
       )}
     </figure>

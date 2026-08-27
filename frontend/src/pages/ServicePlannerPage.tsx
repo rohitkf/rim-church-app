@@ -290,7 +290,7 @@ export function ServicePlannerPage() {
                     setTemplateMessage(null)
                     setTemplateFormOpen((v) => !v)
                   }}
-                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
                 >
                   Save as template
                 </button>
@@ -298,7 +298,7 @@ export function ServicePlannerPage() {
               <button
                 onClick={() => addSession.mutate()}
                 disabled={addSession.isPending}
-                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {addSession.isPending ? 'Adding…' : '+ Add Session'}
               </button>
@@ -308,7 +308,7 @@ export function ServicePlannerPage() {
                     setConfirmingDelete(false)
                     setConfirmingClear(true)
                   }}
-                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
+                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
                 >
                   Clear plan
                 </button>
@@ -318,7 +318,7 @@ export function ServicePlannerPage() {
                   setConfirmingClear(false)
                   setConfirmingDelete(true)
                 }}
-                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
               >
                 Delete
               </button>
@@ -339,7 +339,7 @@ export function ServicePlannerPage() {
               <button
                 onClick={() => clearPlan.mutate()}
                 disabled={clearPlan.isPending}
-                className="rounded-sm bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {clearPlan.isPending ? 'Clearing…' : 'Yes, clear plan'}
               </button>
@@ -366,7 +366,7 @@ export function ServicePlannerPage() {
               <button
                 onClick={() => deleteService.mutate()}
                 disabled={deleteService.isPending}
-                className="rounded-sm bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-error px-4 py-2 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {deleteService.isPending ? 'Deleting…' : 'Yes, delete service'}
               </button>
@@ -381,7 +381,7 @@ export function ServicePlannerPage() {
         )}
 
         {serviceError && (
-          <p className="mt-3 max-w-md rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          <p className="mt-3 max-w-md rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
             {serviceError}
           </p>
         )}
@@ -389,7 +389,7 @@ export function ServicePlannerPage() {
         {templateFormOpen && (
           <form
             onSubmit={handleSaveTemplate}
-            className="mt-4 flex max-w-md flex-wrap items-end gap-3 rounded-lg border border-border-subtle bg-surface-lowest p-4"
+            className="mt-4 flex max-w-md flex-wrap items-end gap-3 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4"
           >
             <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
               Template name
@@ -397,13 +397,13 @@ export function ServicePlannerPage() {
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="English Sunday service"
-                className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />
             </label>
             <button
               type="submit"
               disabled={saveTemplate.isPending || !templateName.trim()}
-              className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+              className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
             >
               {saveTemplate.isPending ? 'Saving…' : 'Save'}
             </button>
@@ -420,7 +420,7 @@ export function ServicePlannerPage() {
         )}
 
         <QueryState isLoading={sessionsQuery.isLoading} error={sessionsQuery.error} isEmpty={sessions.length === 0} emptyMessage="No sessions yet.">
-          <div className="mt-6 overflow-x-auto rounded-lg border border-border-subtle bg-surface-lowest">
+          <div className="mt-6 overflow-x-auto rounded-[var(--radius-card)] bg-surface-lowest hairline">
             <table className="w-full text-left text-body-sm">
               <thead>
                 <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
@@ -448,7 +448,7 @@ export function ServicePlannerPage() {
                                 patch: { start_time: combineDateAndTime(serviceQuery.data!.date, e.target.value) },
                               })
                             }}
-                            className="rounded-sm border border-border-subtle px-2 py-1"
+                            className="rounded-full hairline px-2 py-1"
                           />
                         ) : (
                           <span className={isFirst ? '' : 'text-on-surface-variant'}>{formatTime(session.start_time)}</span>
@@ -465,7 +465,7 @@ export function ServicePlannerPage() {
                               if (Number.isNaN(value) || value === session.duration_minutes) return
                               updateField.mutate({ id: session.id, patch: { duration_minutes: value } })
                             }}
-                            className="w-20 rounded-sm border border-border-subtle px-2 py-1"
+                            className="w-20 rounded-full hairline px-2 py-1"
                           />
                         ) : (
                           session.duration_minutes
@@ -479,7 +479,7 @@ export function ServicePlannerPage() {
                               if (!e.target.value.trim() || e.target.value === session.session_name) return
                               updateField.mutate({ id: session.id, patch: { session_name: e.target.value.trim() } })
                             }}
-                            className="w-full rounded-sm border border-border-subtle px-2 py-1"
+                            className="w-full rounded-full hairline px-2 py-1"
                           />
                         ) : (
                           session.session_name
@@ -492,7 +492,7 @@ export function ServicePlannerPage() {
                             onChange={(e) =>
                               updateField.mutate({ id: session.id, patch: { assigned_user_id: e.target.value || null } })
                             }
-                            className="rounded-sm border border-border-subtle px-2 py-1"
+                            className="rounded-full hairline px-2 py-1"
                           >
                             <option value="">Unassigned</option>
                             {profilesQuery.data?.map((p) => (

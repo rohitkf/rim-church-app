@@ -96,7 +96,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
   const busy = chatMutation.isPending || confirmMutation.isPending
 
   return (
-    <div className="fixed bottom-6 right-6 z-20 flex h-[520px] w-96 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest shadow-lg">
+    <div className="fixed bottom-6 right-6 z-20 flex h-[520px] w-96 flex-col overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline shadow-lg">
       <div className="flex items-center justify-between bg-primary px-4 py-3 text-on-primary">
         <span className="text-body-sm font-medium">✦ Ops Assistant</span>
         <button onClick={onClose} aria-label="Close assistant" className="text-on-primary hover:opacity-70">
@@ -125,7 +125,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
         ))}
 
         {pendingActions && pendingActions.length > 0 && (
-          <div className="rounded-lg border border-border-subtle bg-surface-muted p-3">
+          <div className="rounded-[var(--radius-card)] hairline bg-surface-muted p-3">
             <p className="text-body-sm text-on-surface">
               {turns[turns.length - 1]?.role === 'assistant' ? turns[turns.length - 1].text : 'Confirm this action?'}
             </p>
@@ -133,14 +133,14 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
               <button
                 onClick={() => confirmMutation.mutate(true)}
                 disabled={busy}
-                className="rounded-sm bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 Confirm
               </button>
               <button
                 onClick={() => confirmMutation.mutate(false)}
                 disabled={busy}
-                className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface hover:bg-surface-container"
+                className="rounded-full hairline px-3 py-1.5 text-body-sm text-on-surface hover:bg-surface-container"
               >
                 Cancel
               </button>
@@ -150,7 +150,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
 
         {busy && <p className="text-body-sm text-on-surface-variant">Thinking…</p>}
         {error && (
-          <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+          <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
         )}
       </div>
 
@@ -160,7 +160,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask AI to do something…"
           disabled={!!pendingActions}
-          className="flex-1 rounded-sm border border-border-subtle px-3 py-2 text-body-sm text-on-surface focus:border-2 focus:border-secondary focus:outline-none disabled:opacity-50"
+          className="flex-1 rounded-full hairline px-3 py-2 text-body-sm text-on-surface focus:border-2 focus:border-secondary focus:outline-none disabled:opacity-50"
         />
         <button
           type="button"
@@ -176,7 +176,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
         <button
           type="submit"
           disabled={busy || !!pendingActions || !input.trim()}
-          className="rounded-sm bg-primary px-3 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          className="rounded-full bg-primary px-3 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
         >
           Send
         </button>

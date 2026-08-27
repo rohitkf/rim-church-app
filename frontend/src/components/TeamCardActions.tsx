@@ -134,7 +134,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
               Nobody loses their account. There's no undo.
             </p>
             {error && (
-              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                 {error}
               </p>
             )}

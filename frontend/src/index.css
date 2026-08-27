@@ -1,161 +1,238 @@
 @import "tailwindcss";
 
 /*
- * "Sanctuary Ops" design system — see DESIGN.md handoff.
- * Corporate Modern / minimalist: Deep Navy on-surface text, a near-black
- * primary for CTAs, tonal surface layers instead of heavy shadows, and a
- * 3-stage status palette (member -> head -> coordinator) that maps 1:1 onto
- * the checklist_item_status enum in the Supabase schema.
+ * RIM design system — see DESIGN.md.
+ *
+ * The system is dark-first: a true-black canvas, content in tiles a step
+ * above it, and one blue accent spent only on what is live or actionable.
+ * Depth comes from a hairline of light along each tile's inside edge
+ * rather than from shadow, which is what keeps a near-black screen from
+ * reading as a flat void.
+ *
+ * Light is the same system with the ground inverted — every component
+ * paints from these tokens, so the whole app turns over by redefining
+ * them and nothing has to know which theme it is in.
  */
 @theme {
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surfaces */
-  --color-surface: #f8f9ff;
-  --color-surface-dim: #cbdbf5;
-  --color-surface-bright: #f8f9ff;
-  --color-surface-lowest: #ffffff;
-  --color-surface-low: #eff4ff;
-  --color-surface-container: #e5eeff;
-  --color-surface-high: #dce9ff;
-  --color-surface-highest: #d3e4fe;
-  --color-surface-muted: #f8fafc;
-  --color-background: #f8f9ff;
+  /* ---------------------------------------------------------------
+   * Ground and tiles
+   *
+   * Four steps, and only four: the canvas, the tile that sits on it,
+   * the panel nested inside a tile, and the inset a row sits in. Any
+   * more and the eye stops being able to tell depth from decoration.
+   * --------------------------------------------------------------- */
+  --color-background: #000000;
+  --color-surface: #0b0b0d;
+  --color-surface-dim: #000000;
+  --color-surface-lowest: #141418;
+  --color-surface-low: #1b1b20;
+  --color-surface-container: #24242a;
+  --color-surface-high: #2c2c32;
+  --color-surface-highest: #35353c;
+  --color-surface-bright: #1b1b20;
+  --color-surface-muted: #141418;
+  /* The translucent layers the design actually uses inside a tile. */
+  --color-raised: rgb(255 255 255 / 0.045);
+  --color-raised-strong: rgb(255 255 255 / 0.08);
+  --color-inset: rgb(0 0 0 / 0.3);
 
-  /* Text / outline */
-  --color-on-surface: #0b1c30;
-  --color-on-background: #0b1c30;
-  --color-on-surface-variant: #45464d;
-  --color-outline: #76777d;
-  --color-outline-variant: #c6c6cd;
-  --color-border-subtle: #e2e8f0;
+  /* Text */
+  --color-on-background: #f5f5f7;
+  --color-on-surface: #f5f5f7;
+  --color-on-surface-variant: #98989d;
+  --color-on-surface-faint: #8e8e93;
+  --color-outline: #6b6b73;
+  --color-outline-variant: rgb(255 255 255 / 0.14);
+  --color-border-subtle: rgb(255 255 255 / 0.08);
 
-  /* Brand */
-  --color-primary: #0b0d12;
+  /* ---------------------------------------------------------------
+   * Accent
+   *
+   * Blue is the only colour that means "act on this" or "this is live",
+   * which is why it appears once or twice per screen and never as
+   * decoration. The rest carry fixed meanings and nothing else.
+   * --------------------------------------------------------------- */
+  --color-primary: #0a84ff;
   --color-on-primary: #ffffff;
-  --color-secondary: #006a61;
+  --color-secondary: #0a84ff;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #86f2e4;
-  --color-on-secondary-container: #006f66;
+  --color-secondary-container: rgb(10 132 255 / 0.16);
+  --color-on-secondary-container: #5ab0ff;
+
+  --color-accent-blue: #0a84ff;
+  --color-accent-blue-soft: #5ab0ff;
+  --color-accent-green: #30d158;
+  --color-accent-green-ink: #04270f;
+  --color-accent-orange: #ff9f0a;
+  --color-accent-orange-soft: #ffb340;
+  --color-accent-red: #ff453a;
+  --color-accent-red-soft: #ff6961;
+  --color-accent-indigo: #5e5ce6;
+  --color-accent-indigo-soft: #a5a3ff;
+  --color-accent-teal: #10b981;
+  --color-accent-teal-soft: #34d399;
 
   /* Feedback */
-  --color-error: #ba1a1a;
-  --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
-  --color-warning: #f59e0b;
-  --color-success: #16a34a;
+  --color-success: #30d158;
+  --color-warning: #ff9f0a;
+  --color-error: #ff453a;
+  --color-on-error: #2b0708;
+  --color-error-container: rgb(255 69 58 / 0.14);
+  --color-on-error-container: #ff6961;
 
-  /* 3-stage checklist verification chain */
-  --color-status-pending: #94a3b8;
-  --color-status-member: #0ea5e9;
-  --color-status-head: #6366f1;
-  --color-status-coordinator: #10b981;
+  /* The verification chain, in the order it happens. */
+  --color-status-pending: rgb(255 255 255 / 0.2);
+  --color-status-member: #5e5ce6;
+  --color-status-head: #0a84ff;
+  --color-status-coordinator: #30d158;
 
-  /* Motion — one easing curve for the whole app, with real mass to it.
-     Nothing here uses linear or ease-in-out. */
+  /* ---------------------------------------------------------------
+   * Form
+   * --------------------------------------------------------------- */
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Enclosure: cards are a tray holding a plate, so they need two radii
-     that stay concentric and a shadow that reads as air, not as ink. */
-  --radius-shell: 20px;
-  --radius-core: 14px;
-  --shadow-ambient: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
-  --shadow-lifted: 0 2px 4px rgb(15 23 42 / 0.05), 0 18px 40px -18px rgb(15 23 42 / 0.22);
+  /* Radii step down as things nest: page tile, card, nested panel, row,
+     chip. A pill is always 999px. */
+  --radius-tile: 32px;
+  --radius-card: 28px;
+  --radius-panel: 24px;
+  --radius-row: 20px;
+  --radius-chip: 16px;
+  /* Kept so older call sites stay honest about which step they mean. */
+  --radius-shell: 28px;
+  --radius-core: 24px;
 
-  /* Type scale */
+  --shadow-ambient: 0 24px 60px -30px rgb(0 0 0 / 0.9);
+  --shadow-lifted: 0 30px 80px -40px rgb(0 0 0 / 0.95);
+
+  /* ---------------------------------------------------------------
+   * Type
+   *
+   * One family for prose, mono for anything countable — labels, times,
+   * counts, tags. The mono is what makes a dense screen scannable.
+   * --------------------------------------------------------------- */
+  --text-display: 76px;
+  --text-display--line-height: 76px;
+  --text-display--letter-spacing: -0.04em;
+  --text-display--font-weight: 500;
+
   --text-headline-xl: 40px;
-  --text-headline-xl--line-height: 48px;
-  --text-headline-xl--letter-spacing: -0.02em;
-  --text-headline-xl--font-weight: 700;
+  --text-headline-xl--line-height: 46px;
+  --text-headline-xl--letter-spacing: -0.03em;
+  --text-headline-xl--font-weight: 600;
 
-  --text-headline-lg: 32px;
-  --text-headline-lg--line-height: 40px;
-  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg: 28px;
+  --text-headline-lg--line-height: 34px;
+  --text-headline-lg--letter-spacing: -0.02em;
   --text-headline-lg--font-weight: 600;
 
-  --text-headline-md: 24px;
-  --text-headline-md--line-height: 32px;
+  --text-headline-md: 22px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--letter-spacing: -0.01em;
   --text-headline-md--font-weight: 600;
 
-  --text-body-lg: 18px;
-  --text-body-lg--line-height: 28px;
+  --text-headline-sm: 19px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--letter-spacing: -0.01em;
+  --text-headline-sm--font-weight: 600;
+
+  --text-numeral: 44px;
+  --text-numeral--line-height: 48px;
+  --text-numeral--letter-spacing: -0.03em;
+  --text-numeral--font-weight: 600;
+
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 26px;
 
   --text-body-md: 16px;
   --text-body-md--line-height: 24px;
 
-  --text-body-sm: 14px;
-  --text-body-sm--line-height: 20px;
+  --text-body-sm: 15px;
+  --text-body-sm--line-height: 22px;
 
   --text-label-md: 14px;
   --text-label-md--line-height: 20px;
-  --text-label-md--letter-spacing: 0.02em;
   --text-label-md--font-weight: 500;
 
   --text-label-sm: 12px;
   --text-label-sm--line-height: 16px;
-  --text-label-sm--letter-spacing: 0.05em;
   --text-label-sm--font-weight: 500;
+
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 14px;
+  --text-eyebrow--letter-spacing: 0.18em;
+  --text-eyebrow--font-weight: 500;
 }
 
 /*
- * Dark theme — "Production Portal".
- *
- * Every component already paints from these tokens, so the whole app turns
- * over by redefining them: a near-black canvas with cards a step lighter,
- * violet as the accent that marks what is live or actionable, and green
- * reserved for "this is done / this is up". The status trio keeps its
- * meaning and is re-stepped for a dark surface rather than reused flat.
+ * Light — the same structure with the ground turned over. The accents
+ * step to their light-background variants so they keep their contrast
+ * against white instead of glowing.
  */
-:root[data-theme='dark'] {
-  color-scheme: dark;
+:root[data-theme='light'] {
+  color-scheme: light;
 
-  /* On a dark ground, depth comes from light rather than shadow, so the
-     ambient shadows go near-black and the hairlines carry the edge. */
-  --shadow-ambient: 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 30px -14px rgb(0 0 0 / 0.7);
-  --shadow-lifted: 0 2px 6px rgb(0 0 0 / 0.55), 0 22px 48px -20px rgb(0 0 0 / 0.85);
+  --color-background: #f2f2f7;
+  --color-surface: #f2f2f7;
+  --color-surface-dim: #e5e5ea;
+  --color-surface-lowest: #ffffff;
+  --color-surface-low: #f7f7fa;
+  --color-surface-container: #ebebf0;
+  --color-surface-high: #e1e1e8;
+  --color-surface-highest: #d8d8e0;
+  --color-surface-bright: #ffffff;
+  --color-surface-muted: #ffffff;
+  --color-raised: rgb(0 0 0 / 0.035);
+  --color-raised-strong: rgb(0 0 0 / 0.07);
+  --color-inset: rgb(0 0 0 / 0.04);
 
-  --color-surface: #0f0f13;
-  --color-surface-dim: #08080a;
-  --color-surface-bright: #1a1a21;
-  --color-surface-lowest: #14141a;
-  --color-surface-low: #1a1a21;
-  --color-surface-container: #22222b;
-  --color-surface-high: #2a2a35;
-  --color-surface-highest: #33333f;
-  --color-surface-muted: #14141a;
-  --color-background: #0a0a0d;
+  --color-on-background: #1c1c1e;
+  --color-on-surface: #1c1c1e;
+  --color-on-surface-variant: #6e6e73;
+  --color-on-surface-faint: #8a8a8f;
+  --color-outline: #8a8a8f;
+  --color-outline-variant: rgb(0 0 0 / 0.14);
+  --color-border-subtle: rgb(0 0 0 / 0.09);
 
-  --color-on-surface: #f2f2f7;
-  --color-on-background: #f2f2f7;
-  --color-on-surface-variant: #a0a0ad;
-  --color-outline: #6b6b78;
-  --color-outline-variant: #3a3a45;
-  --color-border-subtle: #26262f;
+  --color-primary: #007aff;
+  --color-secondary: #007aff;
+  --color-secondary-container: rgb(0 122 255 / 0.12);
+  --color-on-secondary-container: #0064d2;
 
-  --color-primary: #8b5cf6;
-  --color-on-primary: #ffffff;
-  --color-secondary: #34d399;
-  --color-on-secondary: #05271b;
-  --color-secondary-container: #134e3a;
-  --color-on-secondary-container: #a7f3d0;
+  --color-accent-blue: #007aff;
+  --color-accent-blue-soft: #0064d2;
+  --color-accent-green: #34c759;
+  --color-accent-green-ink: #04270f;
+  --color-accent-orange: #ff9500;
+  --color-accent-orange-soft: #b86e00;
+  --color-accent-red: #ff3b30;
+  --color-accent-red-soft: #c9271e;
+  --color-accent-indigo: #5856d6;
+  --color-accent-indigo-soft: #4340b5;
+  --color-accent-teal: #059669;
+  --color-accent-teal-soft: #047857;
 
-  --color-error: #f87171;
-  --color-on-error: #2b0708;
-  --color-error-container: #3b1418;
-  --color-on-error-container: #fecaca;
-  --color-warning: #fbbf24;
-  --color-success: #34d399;
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-error: #ff3b30;
+  --color-on-error: #ffffff;
+  --color-error-container: rgb(255 59 48 / 0.12);
+  --color-on-error-container: #c9271e;
 
-  --color-status-pending: #6b7280;
-  --color-status-member: #38bdf8;
-  --color-status-head: #a78bfa;
-  --color-status-coordinator: #34d399;
+  --color-status-pending: rgb(0 0 0 / 0.16);
+  --color-status-member: #5856d6;
+  --color-status-head: #007aff;
+  --color-status-coordinator: #34c759;
+
+  --shadow-ambient: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -16px rgb(15 23 42 / 0.16);
+  --shadow-lifted: 0 2px 6px rgb(15 23 42 / 0.06), 0 24px 56px -24px rgb(15 23 42 / 0.26);
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html,
@@ -202,12 +279,20 @@ body {
 }
 
 /*
- * Two fixed, non-interactive layers give the flat canvas some atmosphere:
- * a very quiet colour wash so the background isn't one dead value, and a
- * film grain fine enough to read as paper rather than as texture. Both are
- * position: fixed and pointer-events: none, so they never repaint with
- * scrolling content.
+ * The ambient wash.
+ *
+ * A true-black page with tiles on it reads as a void unless something
+ * bends the light behind them. One large, very quiet radial does that:
+ * fixed and pointer-events:none so it never repaints with scrolling
+ * content, and tinted per section by --wash-hue so the Checklists screen
+ * feels green-lit and Inventory amber-lit without anything being
+ * literally coloured in.
  */
+:root {
+  --wash-hue: var(--color-accent-blue);
+  --wash-strength: 0.16;
+}
+
 body::before {
   content: '';
   position: fixed;
@@ -215,18 +300,74 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(60rem 40rem at 12% -10%, color-mix(in oklab, var(--color-primary) 7%, transparent), transparent 60%),
-    radial-gradient(50rem 36rem at 92% 8%, color-mix(in oklab, var(--color-secondary) 6%, transparent), transparent 62%);
+    radial-gradient(
+      70rem 40rem at 8% -20%,
+      color-mix(in oklab, var(--wash-hue) calc(var(--wash-strength) * 100%), transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 34rem at 96% 4%,
+      color-mix(in oklab, var(--color-accent-green) 7%, transparent),
+      transparent 62%
+    );
 }
 
+/* Film grain, fine enough to read as material rather than as texture. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.022;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme='light'] body::after {
+  opacity: 0.035;
+}
+
+/*
+ * The hairline every tile wears on its inside edge. On dark it is light;
+ * on light it is ink. Written once here so no component has to remember
+ * which theme it is in.
+ */
+@utility hairline {
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+@utility hairline-strong {
+  box-shadow: inset 0 0 0 1px var(--color-outline-variant);
+}
+
+/* Counts, times and tags line up only if their digits do. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes rim-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The live dot: present on anything that is happening right now. */
+@utility pulse-live {
+  animation: rim-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 #root {

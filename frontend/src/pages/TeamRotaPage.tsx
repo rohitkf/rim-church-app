@@ -252,7 +252,7 @@ export function TeamRotaPage() {
       </p>
 
       {error && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
       {incoming.length > 0 && (
@@ -260,7 +260,7 @@ export function TeamRotaPage() {
           <h2 className="text-headline-md">Release requests for your team</h2>
           <ul className="mt-3 flex flex-col gap-3">
             {incoming.map((r) => (
-              <li key={r.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
+              <li key={r.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
                 <p className="text-body-sm text-on-surface">
                   <span className="font-medium">
                     {r.requesting_department?.name ?? 'Another team'}
@@ -279,14 +279,14 @@ export function TeamRotaPage() {
                   <button
                     onClick={() => decideRequest.mutate({ request: r, approve: true })}
                     disabled={decideRequest.isPending}
-                    className="rounded-sm bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                    className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                   >
                     Approve &amp; release
                   </button>
                   <button
                     onClick={() => decideRequest.mutate({ request: r, approve: false })}
                     disabled={decideRequest.isPending}
-                    className="rounded-sm border border-border-subtle px-4 py-2 text-body-sm font-medium text-on-surface hover:border-error"
+                    className="rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface hover:border-error"
                   >
                     Deny
                   </button>
@@ -322,7 +322,7 @@ export function TeamRotaPage() {
               return (
                 <section
                   key={service.id}
-                  className="overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest"
+                  className="overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline"
                 >
                   <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border-subtle px-6 py-4">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -391,7 +391,7 @@ export function TeamRotaPage() {
                                 type="button"
                                 onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
                                 aria-expanded={formOpen}
-                                className="shrink-0 rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                                className="shrink-0 rounded-full hairline px-3 py-1.5 text-body-sm text-on-surface hover:border-secondary"
                               >
                                 {formOpen ? 'Cancel' : 'Assign role'}
                               </button>
@@ -399,7 +399,7 @@ export function TeamRotaPage() {
                           </div>
 
                           {deptAssignments.length > 0 && (
-                            <div className="mt-3 overflow-hidden rounded-sm border border-border-subtle">
+                            <div className="mt-3 overflow-hidden rounded-full hairline">
                               <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 border-b border-border-subtle bg-surface-low px-3 py-1.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                                 <span>Role</span>
                                 <span>Volunteer</span>
@@ -447,7 +447,7 @@ export function TeamRotaPage() {
                           )}
 
                           {formOpen && deptRoles.length === 0 && (
-                            <p className="mt-3 rounded-sm bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
+                            <p className="mt-3 rounded-[var(--radius-chip)] bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
                               No roles defined for this team yet — add them under{' '}
                               <Link to={`/departments/${dept.id}`} className="text-secondary">
                                 Teams → {dept.name} → Roles
@@ -457,7 +457,7 @@ export function TeamRotaPage() {
                           )}
 
                           {formOpen && deptRoles.length > 0 && roster.length === 0 && (
-                            <p className="mt-3 rounded-sm bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
+                            <p className="mt-3 rounded-[var(--radius-chip)] bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
                               Nobody on this team has marked themselves available for this service
                               yet, so there is nobody to assign. They answer in the{' '}
                               <Link to="/availability" className="text-secondary">
@@ -481,14 +481,14 @@ export function TeamRotaPage() {
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
                                 })
                               }}
-                              className="mt-3 flex flex-wrap items-end gap-2 rounded-sm bg-surface-low p-3"
+                              className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-chip)] bg-surface-low p-3"
                             >
                               <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
                                 Role
                                 <select
                                   value={draftRole[key] ?? ''}
                                   onChange={(e) => setDraftRole((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-sm border border-border-subtle bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
+                                  className="rounded-full hairline bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
                                 >
                                   <option value="">Select…</option>
                                   {deptRoles.map((r) => (
@@ -503,7 +503,7 @@ export function TeamRotaPage() {
                                 <select
                                   value={chosenPerson}
                                   onChange={(e) => setDraftPerson((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-sm border border-border-subtle bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
+                                  className="rounded-full hairline bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
                                 >
                                   <option value="">Select…</option>
                                   {roster.map((m) => (
@@ -518,7 +518,7 @@ export function TeamRotaPage() {
                               <button
                                 type="submit"
                                 disabled={addAssignment.isPending || !!clash}
-                                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                               >
                                 Assign
                               </button>
@@ -552,7 +552,7 @@ export function TeamRotaPage() {
                                     })
                                   }
                                   disabled={requestRelease.isPending}
-                                  className="mt-2 rounded-sm bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                                  className="mt-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                                 >
                                   {requestRelease.isPending ? 'Sending…' : 'Inform department head'}
                                 </button>

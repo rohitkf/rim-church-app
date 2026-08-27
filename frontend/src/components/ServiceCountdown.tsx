@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { countdownIsClockworthy, countdownParts } from '../lib/countdown'
 
 /**
@@ -7,7 +7,21 @@ import { countdownIsClockworthy, countdownParts } from '../lib/countdown'
  * Only shown inside the last day — beyond that a clock is noise, and the
  * date already says what the reader needs.
  */
-export function ServiceCountdown({ startsAt }: { startsAt: string | null }) {
+export function ServiceCountdown({
+  startsAt,
+  variant = 'inline',
+  fallback,
+}: {
+  startsAt: string | null
+  /** `hero` is the dashboard's headline clock; `inline` is a line of text. */
+  variant?: 'inline' | 'hero'
+  /**
+   * What to show when a clock would be noise — more than a day out, or no
+   * start time recorded. Without it the hero tile is left with a hole in
+   * the middle for six days of the week.
+   */
+  fallback?: ReactNode
+}) {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -15,11 +29,28 @@ export function ServiceCountdown({ startsAt }: { startsAt: string | null }) {
     return () => clearInterval(id)
   }, [])
 
-  if (!startsAt) return null
+  if (!startsAt) return fallback ?? null
   const remaining = new Date(startsAt).getTime() - now
-  if (!countdownIsClockworthy(remaining)) return null
+  if (!countdownIsClockworthy(remaining)) return fallback ?? null
 
   const { hrs, mins, secs } = countdownParts(remaining)
+
+  if (variant === 'hero') {
+    return (
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-1" aria-label={`Starts in ${hrs}:${mins}:${secs}`}>
+        <span className="font-mono text-display tabular">
+          {hrs}
+          <span className="text-on-surface-faint/50">:</span>
+          {mins}
+          <span className="text-on-surface-faint/50">:</span>
+          <span className="text-primary">{secs}</span>
+        </span>
+        <span className="pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
+          until doors
+        </span>
+      </div>
+    )
+  }
 
   return (
     <span className="flex items-baseline gap-1.5" aria-label={`Starts in ${hrs}:${mins}:${secs}`}>

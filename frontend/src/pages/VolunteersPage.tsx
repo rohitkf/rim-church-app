@@ -277,7 +277,7 @@ export function VolunteersPage() {
             ) : (
               <button
                 onClick={() => grantRole.mutate({ userId: v.id, roleType: 'admin', departmentId: null })}
-                className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 Make admin
               </button>
@@ -288,7 +288,7 @@ export function VolunteersPage() {
                   setError(null)
                   setConfirmingRemoval(v)
                 }}
-                className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
+                className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
               >
                 Remove
               </button>
@@ -405,7 +405,7 @@ export function VolunteersPage() {
       </p>
 
       {error && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
       <div className="mt-6">
@@ -485,7 +485,7 @@ export function VolunteersPage() {
           aria-labelledby="remove-volunteer-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
         >
-          <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
             <h2 id="remove-volunteer-title" className="text-headline-md">
               Remove {confirmingRemoval.first_name} {confirmingRemoval.last_name}?
             </h2>
@@ -495,7 +495,7 @@ export function VolunteersPage() {
               can't be undone, and they'd have to sign up again from scratch.
             </p>
             {error && (
-              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                 {error}
               </p>
             )}
@@ -503,7 +503,7 @@ export function VolunteersPage() {
               <button
                 type="button"
                 onClick={() => setConfirmingRemoval(null)}
-                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 Cancel
               </button>
@@ -511,7 +511,7 @@ export function VolunteersPage() {
                 type="button"
                 onClick={() => removeVolunteer.mutate(confirmingRemoval.id)}
                 disabled={removeVolunteer.isPending}
-                className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {removeVolunteer.isPending ? 'Removing…' : 'Yes, remove permanently'}
               </button>

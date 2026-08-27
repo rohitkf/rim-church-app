@@ -202,7 +202,7 @@ export function HandbookUploadModal({
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-lg rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg"
+        className="w-full max-w-lg rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg"
       >
         <h2 id="handbook-upload-title" className="text-headline-md">
           {currentPath ? 'Replace' : 'Upload'} the {departmentName} handbook
@@ -290,7 +290,7 @@ export function HandbookUploadModal({
               </p>
             )}
             {message && (
-              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-center text-body-sm text-on-error-container">
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-center text-body-sm text-on-error-container">
                 {message}
               </p>
             )}
@@ -306,7 +306,7 @@ export function HandbookUploadModal({
                 setMessage(null)
                 setFile(null)
               }}
-              className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+              className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
             >
               Try another file
             </button>

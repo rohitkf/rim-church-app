@@ -63,16 +63,16 @@ export function AdminResetCard() {
       </p>
 
       {done && (
-        <p className="mt-4 rounded-sm bg-secondary/10 px-3 py-2 text-body-sm text-secondary">{done}</p>
+        <p className="mt-4 rounded-full bg-secondary/10 px-3 py-2 text-body-sm text-secondary">{done}</p>
       )}
       {error && !mode && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}
         </p>
       )}
 
       <div className="mt-5 flex flex-col gap-4">
-        <div className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
+        <div className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
           <div className="font-medium text-on-surface">Clear activity</div>
           <p className="mt-1 text-body-sm text-on-surface-variant">
             Services and their running orders, rota, checklist progress, availability, attendance
@@ -85,13 +85,13 @@ export function AdminResetCard() {
               setDone(null)
               setMode('activity')
             }}
-            className="mt-3 rounded-sm border border-border-subtle px-4 py-2 text-body-sm font-medium text-error hover:border-error"
+            className="mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
           >
             Clear activity
           </button>
         </div>
 
-        <div className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
+        <div className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
           <div className="font-medium text-on-surface">Clear everything</div>
           <p className="mt-1 text-body-sm text-on-surface-variant">
             All of the above, plus every team with its roles, role checklists and members, plus
@@ -103,7 +103,7 @@ export function AdminResetCard() {
               setDone(null)
               setMode('everything')
             }}
-            className="mt-3 rounded-sm border border-border-subtle px-4 py-2 text-body-sm font-medium text-error hover:border-error"
+            className="mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
           >
             Clear everything
           </button>
@@ -117,7 +117,7 @@ export function AdminResetCard() {
           aria-labelledby="reset-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
         >
-          <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
             <h3 id="reset-title" className="text-headline-md">
               {mode === 'everything' ? 'Clear everything?' : 'Clear activity?'}
             </h3>
@@ -134,13 +134,13 @@ export function AdminResetCard() {
                   value={typed}
                   onChange={(e) => setTyped(e.target.value)}
                   autoFocus
-                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-error focus:outline-none"
+                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-error focus:outline-none"
                 />
               </label>
             )}
 
             {error && (
-              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                 {error}
               </p>
             )}
@@ -153,7 +153,7 @@ export function AdminResetCard() {
                   setTyped('')
                   setError(null)
                 }}
-                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 Cancel
               </button>
@@ -161,7 +161,7 @@ export function AdminResetCard() {
                 type="button"
                 onClick={() => reset.mutate(mode)}
                 disabled={reset.isPending || !canConfirm}
-                className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {reset.isPending
                   ? 'Resetting…'

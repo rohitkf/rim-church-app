@@ -28,7 +28,7 @@ export function QueryState({
 
   if (error) {
     return (
-      <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+      <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
         {errorText(error, 'Something went wrong loading this.')}
       </p>
     )

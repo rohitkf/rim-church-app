@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
   fetchAvailabilityFor,
@@ -18,16 +17,23 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { serviceReadiness } from '../lib/readiness'
-import { SectionPanel, StatusChip } from '../components/SectionPanel'
-import { ActivityIcon } from '../components/icons'
+import { StatusChip } from '../components/SectionPanel'
+import {
+  ActionButton,
+  Eyebrow,
+  PageHeader,
+  Panel,
+  Pill,
+  StackedBar,
+  Statistic,
+  Tile,
+} from '../components/Surface'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceCountdown } from '../components/ServiceCountdown'
-import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
+import { ReadinessDonut } from '../components/ReadinessDonut'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
-import { attendanceBarClass } from '../lib/attendance'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { todayIso } from '../lib/monthGrid'
@@ -41,11 +47,69 @@ import {
 const checklistRefSchema = z.object({ id: z.string(), department_id: z.string(), service_id: z.string() })
 const actorSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
 
-const roleChipColor: Record<RoleType, string> = {
-  admin: 'bg-primary text-on-primary',
-  department_head: 'bg-status-head/15 text-status-head',
-  assisting_head: 'bg-status-head/10 text-status-head',
-  service_flow_coordinator: 'bg-status-coordinator/15 text-status-coordinator',
+const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green'> = {
+  admin: 'solid',
+  department_head: 'blue',
+  assisting_head: 'blue',
+  service_flow_coordinator: 'green',
+}
+
+/** How far off a service is, in the words a person would use. */
+function untilLabel(date: string, from = new Date()): string {
+  const start = new Date(`${date}T00:00:00`)
+  const midnight = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  const days = Math.round((start.getTime() - midnight.getTime()) / 86_400_000)
+  if (days < 0) return days === -1 ? 'Yesterday' : `${Math.abs(days)} days ago`
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days < 7) return `In ${days} days`
+  const weeks = Math.round(days / 7)
+  return weeks === 1 ? 'In a week' : `In ${weeks} weeks`
+}
+
+/** The time of day, said the way a person would say it. */
+function greeting(now = new Date()): string {
+  const hour = now.getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+/**
+ * A team's availability as a small ring — the same shape as the readiness
+ * ring so the two read as one family, at the size a row can carry.
+ */
+function TeamRing({ pct, color }: { pct: number; color: string }) {
+  const size = 44
+  const stroke = 6
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const filled = (Math.min(Math.max(pct, 0), 100) / 100) * circumference
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
+      <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          className="stroke-raised-strong"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${circumference - filled}`}
+        />
+      </g>
+    </svg>
+  )
 }
 
 const roleLabel: Record<RoleType, string> = {
@@ -271,70 +335,52 @@ export function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Welcome{profile ? `, ${profile.first_name}` : ''}</h1>
-
-      {roles.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {roles.map((r) => (
-            <li
-              key={r.id}
-              className={`rounded-full px-3 py-1 font-mono text-label-sm uppercase tracking-wide ${roleChipColor[r.role_type]}`}
-            >
-              {roleLabel[r.role_type]}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <QueryState isLoading={isLoading} error={error}>
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-headline-md">{formatServiceDay(viewedDate)}</div>
-            <div className="text-body-sm text-on-surface-variant">
-              {viewedDate === today
-                ? 'Today’s services'
-                : viewedDate > today
-                  ? 'Upcoming services'
-                  : 'Past service day'}
-            </div>
-          </div>
-
-          {isAdmin && (
+      <PageHeader
+        live
+        eyebrow={`${formatServiceDay(viewedDate)} · ${
+          dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
+        }`}
+        title={`${greeting()}${profile ? `, ${profile.first_name}` : ''}.`}
+        description={
+          roles.length > 0 ? (
+            <span className="flex flex-wrap items-center gap-2">
+              {roles.map((r) => (
+                <Pill key={r.id} tone={roleChipTone[r.role_type]}>
+                  {roleLabel[r.role_type]}
+                </Pill>
+              ))}
+            </span>
+          ) : (
+            'Everything for the day, in one place.'
+          )
+        }
+        action={
+          isAdmin && (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => stepDay(-1)}
-                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
-              >
-                ‹ Previous
-              </button>
+              <ActionButton tone="quiet" size="sm" onClick={() => stepDay(-1)}>
+                &lsaquo; Previous
+              </ActionButton>
               <input
                 type="date"
                 value={viewedDate}
                 onChange={(e) => e.target.value && setAdminDate(e.target.value)}
                 aria-label="Service day"
-                className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface"
+                className="rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong [color-scheme:dark]"
               />
-              <button
-                type="button"
-                onClick={() => stepDay(1)}
-                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
-              >
-                Next ›
-              </button>
+              <ActionButton tone="quiet" size="sm" onClick={() => stepDay(1)}>
+                Next &rsaquo;
+              </ActionButton>
               {viewedDate !== defaultDate && (
-                <button
-                  type="button"
-                  onClick={() => setAdminDate(null)}
-                  className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
-                >
+                <ActionButton tone="ghost" size="sm" onClick={() => setAdminDate(null)}>
                   Next service
-                </button>
+                </ActionButton>
               )}
             </div>
-          )}
-        </div>
+          )
+        }
+      />
 
+      <QueryState isLoading={isLoading} error={error}>
         {dayServices.length === 0 ? (
           <p className="mt-8 text-body-sm text-on-surface-variant">
             No services scheduled for this day.{' '}
@@ -349,8 +395,8 @@ export function DashboardPage() {
             )}
           </p>
         ) : (
-          <div className="mt-6 flex flex-col gap-6">
-            {dayServices.map((service) => {
+          <div className="flex flex-col gap-5">
+            {dayServices.map((service, serviceIndex) => {
               const { overall: readiness, byDepartment: readinessByDept } = serviceReadiness({
                 assignments: rota.filter((a) => a.service_id === service.id),
                 roleItems: roleItemsQuery.data ?? [],
@@ -389,14 +435,26 @@ export function DashboardPage() {
                   ? Math.round((overallAvailability.available / overallAvailability.total) * 100)
                   : 0
 
+              const teamsNeedingAnswers = availabilityTeams.filter((t) => t.summary.noAnswer > 0)
+
               return (
-                <section
-                  key={service.id}
-                  className="overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest"
-                >
-                  <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border-subtle px-6 py-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-headline-md">{service.service_type}</h2>
+                /*
+                 * The design's rhythm: 7/5, then 5/7. Alternating the wide
+                 * tile keeps a long day from reading as two stacked columns,
+                 * and every tile is the same object — only its span changes.
+                 */
+                <div key={service.id} className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                  {/* The one thing that is true right now. */}
+                  <Tile tone="accent" className="flex flex-col justify-between lg:col-span-7">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <Eyebrow>{serviceIndex === 0 ? 'Next service' : 'Also on'}</Eyebrow>
+                        <h2 className="mt-2.5 text-headline-lg">{service.service_type}</h2>
+                        <p className="mt-1.5 text-body-md text-on-surface-variant">
+                          {availabilityTeams.length}{' '}
+                          {availabilityTeams.length === 1 ? 'team' : 'teams'} on duty
+                        </p>
+                      </div>
                       {readiness.total > 0 && (
                         <StatusChip
                           tone={
@@ -411,176 +469,240 @@ export function DashboardPage() {
                         </StatusChip>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                      <ServiceCountdown startsAt={startsAt.get(service.id) ?? null} />
-                      <Link
-                        to={`/service-planner/${service.id}`}
-                        className="text-body-sm font-medium text-secondary"
-                      >
-                        Running order ›
-                      </Link>
-                    </div>
-                  </header>
 
-                  {/* Estimate and outcome sit side by side so they can be
-                      read against each other; the checklist is a separate
-                      concern and gets its own full-width row below. The
-                      gap-px over a tinted parent draws the hairlines. */}
-                  <div className="grid grid-cols-1 gap-px bg-border-subtle sm:grid-cols-2">
-                    <div className="bg-surface-lowest p-6">
-                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Availability · estimate
-                      </div>
-                      {availabilityTeams.length === 0 ? (
-                        <p className="mt-3 text-body-sm text-on-surface-variant">No teams to report on.</p>
-                      ) : (
-                        <>
-                          <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-headline-lg">{overallAvailability.pct}%</span>
-                            <span className="font-mono text-label-sm text-on-surface-variant">
-                              {overallAvailability.available} of {overallAvailability.total} available
+                    <div className="mt-8">
+                      {/* A clock only earns its size inside the last day.
+                          Before that the useful answer is which day. */}
+                      <ServiceCountdown
+                        startsAt={startsAt.get(service.id) ?? null}
+                        variant="hero"
+                        fallback={
+                          <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                            <span className="text-headline-xl">{untilLabel(service.date)}</span>
+                            <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                              {formatServiceDay(service.date)}
                             </span>
                           </div>
-                          <div className="mt-2">
-                            <AvailabilityBar summary={overallAvailability} label="All teams" />
-                          </div>
-
-                          <ul className="mt-4 divide-y divide-border-subtle">
-                            {availabilityTeams.map(({ dept, summary }) => (
-                              <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
-                                <div className="flex items-center justify-between gap-2 text-body-sm">
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <span
-                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                                    />
-                                    <span className="truncate text-on-surface">{dept.name}</span>
-                                  </span>
-                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                    {summary.pct}% · {summary.available}/{summary.total}
-                                  </span>
-                                </div>
-                                <div className="mt-1.5">
-                                  <AvailabilityBar summary={summary} label={dept.name} />
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                    </div>
-                    <div className="bg-surface-lowest p-6">
-                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Attendance · actual
+                        }
+                      />
+                      <div className="mt-5 flex flex-wrap gap-2.5">
+                        <Link
+                          to={`/service-planner/${service.id}`}
+                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                        >
+                          Open running order
+                          <span aria-hidden="true">&rarr;</span>
+                        </Link>
+                        {overallAvailability.noAnswer > 0 && (
+                          <Link
+                            to="/availability"
+                            className="inline-flex items-center rounded-full bg-raised-strong px-5 py-3 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                          >
+                            {overallAvailability.noAnswer} still to answer
+                          </Link>
+                        )}
                       </div>
-                      <div className="mt-3 flex items-baseline gap-2">
-                        <span className="text-headline-lg">
-                          {serviceTurnout.pct !== null ? `${serviceTurnout.pct}%` : '—'}
-                        </span>
-                        <span className="font-mono text-label-sm text-on-surface-variant">
-                          {serviceTurnout.expected > 0
-                            ? `${serviceTurnout.present} of ${serviceTurnout.expected} on the teams`
-                            : 'no core members on any team yet'}
-                        </span>
-                      </div>
-                      {/* Measured against the same rosters as the estimate
-                          beside it, so the pair reads as one sentence. The
-                          narrower question — did the people who said yes
-                          actually come — is worth keeping, but as detail. */}
-                      {serviceTurnout.keptPct !== null && (
-                        <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                          {serviceTurnout.keptPct}% of the {serviceTurnout.committed} who said yes turned up
-                        </p>
-                      )}
-                      {serviceTurnout.unconfirmed > 0 && (
-                        <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                          {serviceTurnout.unconfirmed} still to check in
-                        </p>
-                      )}
-
-                      {availabilityTeams.length === 0 ? (
-                        <p className="mt-4 text-body-sm text-on-surface-variant">No teams to report on.</p>
-                      ) : (
-                        <ul className="mt-4 divide-y divide-border-subtle">
-                          {availabilityTeams.map(({ dept, turnout }) => (
-                            <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
-                              <div className="flex items-center justify-between gap-2 text-body-sm">
-                                <span className="truncate text-on-surface">{dept.name}</span>
-                                <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                  {turnout.pct !== null ? `${turnout.pct}%` : '—'} · {turnout.present}/
-                                  {turnout.expected}
-                                </span>
-                              </div>
-                              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-container">
-                                <div
-                                  className={`h-full rounded-full ${attendanceBarClass(turnout.pct)}`}
-                                  style={{ width: `${Math.min(turnout.pct ?? 0, 100)}%` }}
-                                />
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </div>
-                  </div>
+                  </Tile>
 
-                  <div className="border-t border-border-subtle bg-surface-lowest p-6">
-                    <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                      Checklist readiness
+                  {/* Readiness, as the one big ring the screen is allowed. */}
+                  <Tile className="lg:col-span-5">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <Eyebrow>Service readiness</Eyebrow>
+                      <span className="font-mono text-label-sm text-on-surface-faint">
+                        {readiness.coordinatorVerified}/{readiness.total} signed off
+                      </span>
                     </div>
-
                     {readiness.total === 0 ? (
-                      <p className="mt-4 text-body-sm text-on-surface-variant">
+                      <p className="mt-5 text-body-sm text-on-surface-variant">
                         Nothing to check yet — readiness appears once the Team Rota puts people on
                         roles that have a checklist.
                       </p>
                     ) : (
-                      <div className="mt-4">
-                        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
-                          <span className="text-headline-lg">{readiness.pct}%</span>
-                          <span className="font-mono text-label-sm text-on-surface-variant">
-                            {readiness.coordinatorVerified}/{readiness.total} signed off
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <SegmentedProgressBar
-                            showLegend={false}
-                            total={readiness.total}
-                            memberComplete={readiness.memberComplete}
-                            headVerified={readiness.headVerified}
-                            coordinatorVerified={readiness.coordinatorVerified}
-                          />
-                        </div>
-                        <div className="mt-3">
-                          <ReadinessLegend readiness={readiness} />
-                        </div>
-
-                        <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-5">
-                          {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
-                            <li key={deptId}>
-                              <Link
-                                to="/checklists"
-                                className="block rounded-sm hover:opacity-90"
-                                title={`${departmentName(deptId)} checklist`}
-                              >
-                                <ReadinessDonut
-                                  readiness={deptReadiness}
-                                  label={departmentName(deptId)}
-                                  size={96}
-                                />
-                              </Link>
+                      <div className="mt-4 flex flex-wrap items-center gap-6">
+                        <ReadinessDonut readiness={readiness} variant="hero" size={156} />
+                        <ul className="flex min-w-[9rem] flex-1 flex-col gap-3.5 text-body-sm">
+                          {[
+                            { label: 'Signed off', n: readiness.coordinatorVerified, c: 'bg-status-coordinator' },
+                            { label: 'Head verified', n: readiness.headVerified, c: 'bg-status-head' },
+                            { label: 'Checked', n: readiness.memberComplete, c: 'bg-status-member' },
+                            {
+                              label: 'Not started',
+                              n:
+                                readiness.total -
+                                readiness.coordinatorVerified -
+                                readiness.headVerified -
+                                readiness.memberComplete,
+                              c: 'bg-status-pending',
+                            },
+                          ].map((row) => (
+                            <li key={row.label} className="flex items-center gap-2.5">
+                              <span
+                                aria-hidden="true"
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.c}`}
+                              />
+                              {row.label}
+                              <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
+                                {row.n}
+                              </span>
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
-                  </div>
-                </section>
+                  </Tile>
+
+                  {/* Estimate and outcome, side by side, same denominator. */}
+                  <Tile className="lg:col-span-5">
+                    <Eyebrow>People</Eyebrow>
+                    {availabilityTeams.length === 0 ? (
+                      <p className="mt-5 text-body-sm text-on-surface-variant">
+                        No teams to report on.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="mt-5 flex flex-wrap gap-6 sm:flex-nowrap">
+                          <div className="min-w-[9rem] flex-1">
+                            <div className="text-body-sm text-on-surface-variant">
+                              Said they can serve
+                            </div>
+                            <Statistic
+                              className="mt-1"
+                              value={`${overallAvailability.pct}%`}
+                              unit={`${overallAvailability.available}/${overallAvailability.total}`}
+                            />
+                            <div className="mt-3">
+                              <AvailabilityBar summary={overallAvailability} label="All teams" />
+                            </div>
+                          </div>
+                          <div aria-hidden="true" className="hidden w-px bg-border-subtle sm:block" />
+                          <div className="min-w-[9rem] flex-1">
+                            <div className="text-body-sm text-on-surface-variant">Turned up</div>
+                            <Statistic
+                              className="mt-1"
+                              value={serviceTurnout.pct !== null ? `${serviceTurnout.pct}%` : '—'}
+                              unit={
+                                serviceTurnout.expected > 0
+                                  ? `${serviceTurnout.present}/${serviceTurnout.expected}`
+                                  : undefined
+                              }
+                            />
+                            <div className="mt-3">
+                              <StackedBar
+                                segments={[
+                                  {
+                                    key: 'present',
+                                    value: serviceTurnout.present,
+                                    className: 'bg-primary',
+                                  },
+                                  {
+                                    key: 'rest',
+                                    value: Math.max(
+                                      serviceTurnout.expected - serviceTurnout.present,
+                                      0,
+                                    ),
+                                    className: 'bg-transparent',
+                                  },
+                                ]}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-5 text-label-md text-on-surface-faint">
+                          {serviceTurnout.keptPct !== null
+                            ? `${serviceTurnout.keptPct}% of the ${serviceTurnout.committed} who said yes turned up`
+                            : 'Nobody has been checked in yet'}
+                          {serviceTurnout.unconfirmed > 0 &&
+                            ` · ${serviceTurnout.unconfirmed} still to check in`}
+                        </p>
+                      </>
+                    )}
+                  </Tile>
+
+                  {/* Every team at a glance, worst first — the tile you scan
+                      when you only have ten seconds before the doors. */}
+                  <Tile className="lg:col-span-7">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <Eyebrow>Teams on duty</Eyebrow>
+                      <Link to="/departments" className="text-label-md text-primary">
+                        All teams
+                      </Link>
+                    </div>
+                    {availabilityTeams.length === 0 ? (
+                      <p className="mt-5 text-body-sm text-on-surface-variant">
+                        No teams to report on.
+                      </p>
+                    ) : (
+                      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {availabilityTeams.map(({ dept, summary, turnout }) => (
+                          <Link
+                            key={dept.id}
+                            to="/availability"
+                            className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
+                          >
+                            <TeamRing
+                              pct={summary.pct}
+                              color={
+                                summary.noAnswer > 0
+                                  ? 'var(--color-accent-red)'
+                                  : summary.pct >= 75
+                                    ? 'var(--color-accent-green)'
+                                    : 'var(--color-accent-orange)'
+                              }
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate text-body-sm font-medium text-on-surface">
+                                {dept.name}
+                              </span>
+                              <span className="block font-mono text-label-sm text-on-surface-faint">
+                                {summary.noAnswer > 0
+                                  ? `${summary.noAnswer} unanswered`
+                                  : `${summary.pct}% · ${turnout.present}/${summary.total} in`}
+                              </span>
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    {teamsNeedingAnswers.length > 0 && (
+                      <p className="mt-4 text-label-md text-on-surface-faint">
+                        {teamsNeedingAnswers.length}{' '}
+                        {teamsNeedingAnswers.length === 1 ? 'team is' : 'teams are'} still waiting on
+                        answers.
+                      </p>
+                    )}
+                  </Tile>
+
+                  {/* Per-team checklist rings, for the head who needs to know
+                      which one to chase rather than the total. */}
+                  {readinessByDept.size > 0 && (
+                    <Tile className="lg:col-span-12">
+                      <Eyebrow>Checklist readiness by team</Eyebrow>
+                      <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
+                        {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
+                          <li key={deptId}>
+                            <Link
+                              to="/checklists"
+                              className="block rounded-[var(--radius-chip)] transition-opacity hover:opacity-80"
+                              title={`${departmentName(deptId)} checklist`}
+                            >
+                              <ReadinessDonut
+                                readiness={deptReadiness}
+                                label={departmentName(deptId)}
+                                size={96}
+                              />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </Tile>
+                  )}
+                </div>
               )
             })}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <SectionPanel title="Live activity" icon={ActivityIcon}>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+              <Panel title="Live activity" live className="lg:col-span-7">
                 <QueryState
                   isLoading={itemsQuery.isLoading}
                   error={itemsQuery.error}
@@ -602,9 +724,11 @@ export function DashboardPage() {
                     ))}
                   </ul>
                 </QueryState>
-              </SectionPanel>
+              </Panel>
 
-              <CelebrationsPanel />
+              <div className="lg:col-span-5">
+                <CelebrationsPanel />
+              </div>
             </div>
           </div>
         )}

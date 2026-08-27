@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authInputClasses } from './AuthCard'
 
 interface PasswordInputProps {
   value: string
@@ -6,10 +7,19 @@ interface PasswordInputProps {
   autoComplete?: string
   required?: boolean
   minLength?: number
+  /** Auth screens use the taller, rounder field; the app uses its own. */
+  className?: string
 }
 
 /** Password field with an in-field show/hide toggle. */
-export function PasswordInput({ value, onChange, autoComplete, required, minLength }: PasswordInputProps) {
+export function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+  required,
+  minLength,
+  className,
+}: PasswordInputProps) {
   const [visible, setVisible] = useState(false)
 
   return (
@@ -21,7 +31,7 @@ export function PasswordInput({ value, onChange, autoComplete, required, minLeng
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-sm border border-border-subtle px-3 py-2 pr-10 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+        className={className ?? `${authInputClasses} pr-11`}
       />
       <button
         type="button"

@@ -205,7 +205,7 @@ export function DepartmentDetailPage() {
                 href={handbookQuery.data}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 {handbookLabel}
               </a>
@@ -215,7 +215,7 @@ export function DepartmentDetailPage() {
                 <button
                   type="button"
                   onClick={() => setUploadOpen(true)}
-                  className="rounded-sm border border-border-subtle bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+                  className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
                 >
                   {deptQuery.data?.handbook_url ? 'Replace handbook' : 'Upload handbook'}
                 </button>
@@ -236,11 +236,11 @@ export function DepartmentDetailPage() {
           </div>
         </div>
         {uploadError && (
-          <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{uploadError}</p>
+          <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{uploadError}</p>
         )}
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+          <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-headline-md">Core Members</h2>
               <span className="rounded-full bg-surface-container px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
@@ -305,7 +305,7 @@ export function DepartmentDetailPage() {
                         setPicked(null)
                       }}
                       placeholder="Start typing a name or email…"
-                      className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                      className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
                     />
                   </label>
 
@@ -316,7 +316,7 @@ export function DepartmentDetailPage() {
                   )}
 
                   {!picked && searchTerm.length >= 2 && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-sm border border-border-subtle bg-surface-lowest shadow-lg">
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-full hairline bg-surface-lowest shadow-lg">
                       {suggestionsQuery.isLoading ? (
                         <p className="px-3 py-2 text-body-sm text-on-surface-variant">Searching…</p>
                       ) : suggestions.length === 0 ? (
@@ -353,7 +353,7 @@ export function DepartmentDetailPage() {
                   <select
                     value={addType}
                     onChange={(e) => setAddType(e.target.value as MemberType)}
-                    className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                    className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                   >
                     <option value="core">Core</option>
                     <option value="guest">Guest</option>
@@ -362,20 +362,20 @@ export function DepartmentDetailPage() {
                 <button
                   type="submit"
                   disabled={addMember.isPending}
-                  className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                  className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                 >
                   {addMember.isPending ? 'Adding…' : 'Add'}
                 </button>
               </form>
             )}
             {addError && (
-              <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{addError}</p>
+              <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{addError}</p>
             )}
           </section>
 
           {id && <DepartmentRolesCard departmentId={id} canManage={canManage} />}
 
-          <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+          <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <h2 className="text-headline-md">Guest List</h2>
             <p className="mt-1 text-body-sm text-on-surface-variant">
               Users from other departments with visibility into this department's content.
@@ -387,7 +387,7 @@ export function DepartmentDetailPage() {
                   .map((m) => (
                     <li
                       key={m.id}
-                      className="flex items-center justify-between rounded-lg border border-border-subtle p-3"
+                      className="flex items-center justify-between rounded-[var(--radius-card)] hairline p-3"
                     >
                       <div>
                         <div className="text-body-sm font-medium text-on-surface">
@@ -429,7 +429,7 @@ export function DepartmentDetailPage() {
             aria-labelledby="remove-handbook-title"
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
           >
-            <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+            <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
               <h2 id="remove-handbook-title" className="text-headline-md">
                 Remove this handbook?
               </h2>
@@ -437,7 +437,7 @@ export function DepartmentDetailPage() {
                 The team loses access to it straight away. You can upload a new one at any time.
               </p>
               {uploadError && (
-                <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                   {uploadError}
                 </p>
               )}
@@ -445,7 +445,7 @@ export function DepartmentDetailPage() {
                 <button
                   type="button"
                   onClick={() => setConfirmRemoveHandbook(false)}
-                  className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
                 >
                   Cancel
                 </button>
@@ -453,7 +453,7 @@ export function DepartmentDetailPage() {
                   type="button"
                   onClick={() => removeHandbook.mutate()}
                   disabled={removeHandbook.isPending}
-                  className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                  className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
                 >
                   {removeHandbook.isPending ? 'Removing…' : 'Yes, remove'}
                 </button>

@@ -25,7 +25,7 @@ function BoardClearCountdown() {
   const remaining = nextBoardClearTime(new Date(now)).getTime() - now
 
   return (
-    <div className="mt-4 flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-lowest px-4 py-3">
+    <div className="mt-4 flex items-center gap-2 rounded-[var(--radius-card)] bg-surface-lowest hairline px-4 py-3">
       <svg
         className="h-4 w-4 shrink-0 text-on-surface-variant"
         viewBox="0 0 24 24"
@@ -201,7 +201,7 @@ export function MessageBoardPage() {
               setError(null)
               setConfirm({ kind: 'all' })
             }}
-            className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
+            className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
           >
             Clear board now
           </button>
@@ -209,13 +209,13 @@ export function MessageBoardPage() {
       )}
 
       {canPost && (
-        <form onSubmit={handleSubmit} className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-4">
+        <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Post an announcement…"
             rows={3}
-            className="w-full rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            className="w-full rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             {error && <p className="text-body-sm text-error">{error}</p>}
@@ -229,7 +229,7 @@ export function MessageBoardPage() {
                       setPostAsTouched(true)
                       setPostAsDeptId(e.target.value || null)
                     }}
-                    className="rounded-sm border border-border-subtle px-2 py-1.5 text-body-sm text-on-surface"
+                    className="rounded-full hairline px-2 py-1.5 text-body-sm text-on-surface"
                   >
                     {isAdmin && <option value="">Admin</option>}
                     {postAsOptions.map((o) => (
@@ -243,7 +243,7 @@ export function MessageBoardPage() {
               <button
                 type="submit"
                 disabled={postMessage.isPending}
-                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {postMessage.isPending ? 'Posting…' : 'Post'}
               </button>
@@ -272,7 +272,7 @@ export function MessageBoardPage() {
       )}
 
       {error && !canPost && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}
         </p>
       )}
@@ -286,7 +286,7 @@ export function MessageBoardPage() {
         >
           <ul className="flex flex-col gap-4">
             {messagesQuery.data?.map((m) => (
-              <li key={m.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
+              <li key={m.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="flex flex-wrap items-baseline gap-2">
                     <span className="font-medium text-on-surface">
@@ -335,7 +335,7 @@ export function MessageBoardPage() {
           aria-labelledby="delete-message-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
         >
-          <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
             <h2 id="delete-message-title" className="text-headline-md">
               {confirm.kind === 'all' ? 'Clear the whole board?' : 'Delete this message?'}
             </h2>
@@ -346,7 +346,7 @@ export function MessageBoardPage() {
             </p>
 
             {error && (
-              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                 {error}
               </p>
             )}
@@ -358,7 +358,7 @@ export function MessageBoardPage() {
                   setConfirm(null)
                   setError(null)
                 }}
-                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 Cancel
               </button>
@@ -368,7 +368,7 @@ export function MessageBoardPage() {
                   confirm.kind === 'all' ? clearBoard.mutate() : deleteMessage.mutate(confirm.id)
                 }
                 disabled={removing}
-                className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {removing ? 'Deleting…' : confirm.kind === 'all' ? 'Yes, clear the board' : 'Yes, delete'}
               </button>

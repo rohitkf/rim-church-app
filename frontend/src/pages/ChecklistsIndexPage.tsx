@@ -187,7 +187,7 @@ export function ChecklistsIndexPage() {
       <h1 className="text-headline-xl">Checklists</h1>
 
       {error && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
       <QueryState isLoading={isLoading} error={loadError}>
@@ -235,7 +235,7 @@ export function ChecklistsIndexPage() {
                           return (
                             <li
                               key={assignment.id}
-                              className="rounded-lg border border-border-subtle bg-surface-lowest p-5"
+                              className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-5"
                             >
                               <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <div className="flex items-center gap-2">

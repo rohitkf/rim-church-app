@@ -213,7 +213,7 @@ export function AvailabilityPage() {
       </p>
 
       {overrideError && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {overrideError}
         </p>
       )}
@@ -230,7 +230,7 @@ export function AvailabilityPage() {
         ) : (
           <div className="mt-6 flex flex-col gap-6">
             {upcoming.map((service) => (
-              <section key={service.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+              <section key={service.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-headline-md">{service.service_type}</h2>
                   <span className="text-body-sm text-on-surface-variant">
@@ -354,7 +354,7 @@ export function AvailabilityPage() {
                                           aria-label={`Availability for ${
                                             m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
                                           }`}
-                                          className={`shrink-0 rounded-sm border border-border-subtle bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
+                                          className={`shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
                                             answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
                                           }`}
                                         >

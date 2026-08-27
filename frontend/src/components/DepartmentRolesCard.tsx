@@ -96,12 +96,12 @@ function RoleChecklistEditor({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Check batteries, test focus…"
-            className="min-w-0 flex-1 rounded-sm border border-border-subtle px-2 py-1 text-body-sm text-on-surface"
+            className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
           />
           <button
             type="submit"
             disabled={addItem.isPending}
-            className="rounded-sm border border-border-subtle px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
+            className="rounded-full hairline px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
           >
             Add item
           </button>
@@ -172,7 +172,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
   }
 
   return (
-    <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
+    <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <h2 className="text-headline-md">Roles</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
         The jobs this team fills at a service. These are the options offered when building the Team
@@ -189,7 +189,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
           {rolesQuery.data?.map((role) => (
             <li
               key={role.id}
-              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-sm border border-border-subtle px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-full hairline px-3 py-2"
             >
               {editingId === role.id ? (
                 <form
@@ -205,12 +205,12 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
                     autoFocus
-                    className="min-w-0 flex-1 rounded-sm border border-border-subtle px-2 py-1 text-body-sm text-on-surface"
+                    className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
                   />
                   <button
                     type="submit"
                     disabled={renameRole.isPending}
-                    className="rounded-sm bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary disabled:opacity-50"
+                    className="rounded-full bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary disabled:opacity-50"
                   >
                     Save
                   </button>
@@ -266,13 +266,13 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Cameraman, Sound Desk, Usher…"
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
             />
           </label>
           <button
             type="submit"
             disabled={addRole.isPending}
-            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {addRole.isPending ? 'Adding…' : 'Add'}
           </button>
@@ -280,7 +280,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       )}
 
       {error && (
-        <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+        <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
     </section>
   )

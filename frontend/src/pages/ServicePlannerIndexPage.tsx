@@ -150,7 +150,7 @@ export function ServicePlannerIndexPage() {
       </p>
 
       <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
-        <section className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-4 sm:p-6">
+        <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="text-headline-md">{monthTitle(cursor.year, cursor.month)}</div>
             <div className="flex items-center gap-1">
@@ -158,14 +158,14 @@ export function ServicePlannerIndexPage() {
                 type="button"
                 onClick={() => shiftMonth(-1)}
                 aria-label="Previous month"
-                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 ‹
               </button>
               <button
                 type="button"
                 onClick={() => setCursor({ year: now.getFullYear(), month: now.getMonth() })}
-                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 Today
               </button>
@@ -173,7 +173,7 @@ export function ServicePlannerIndexPage() {
                 type="button"
                 onClick={() => shiftMonth(1)}
                 aria-label="Next month"
-                className="rounded-sm border border-border-subtle px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 ›
               </button>
@@ -325,7 +325,7 @@ export function ServicePlannerIndexPage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/service-planner/${s.id}`)}
-                      className="flex w-full items-center gap-4 rounded-lg border border-border-subtle bg-surface-lowest p-4 text-left hover:border-secondary"
+                      className="flex w-full items-center gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 text-left hover:border-secondary"
                     >
                       <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-md bg-secondary/10 text-secondary">
                         <span className="font-mono text-label-sm uppercase leading-none">{d.month}</span>

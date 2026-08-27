@@ -6,7 +6,7 @@ import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
 
 const inputClasses =
-  'rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
+  'rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
 const labelClasses = 'flex flex-col gap-1 text-body-sm text-on-surface-variant'
 
 export function ProfilePage() {
@@ -99,7 +99,7 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="mb-6 text-headline-lg">My profile</h1>
-      <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-lowest p-6">
+      <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         <div className="flex gap-3">
           <label className={`flex-1 ${labelClasses}`}>
             First name
@@ -137,7 +137,7 @@ export function ProfilePage() {
         </label>
 
         {sensitive && (
-          <fieldset className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-muted p-4">
+          <fieldset className="flex flex-col gap-4 rounded-[var(--radius-card)] hairline bg-surface-muted p-4">
             <legend className="px-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
               Compliance details — only visible to you and Admin
             </legend>
@@ -173,7 +173,7 @@ export function ProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="self-start rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          className="self-start rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>

@@ -78,7 +78,7 @@ export function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
+      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
             <span className="font-mono text-label-md">RIM</span>
@@ -94,7 +94,7 @@ export function ResetPasswordPage() {
             <p className="text-body-sm text-on-surface-variant">You're signed in with your new password.</p>
             <button
               onClick={() => navigate('/')}
-              className="mt-6 w-full rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+              className="mt-6 w-full rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
             >
               Go to Dashboard
             </button>
@@ -108,7 +108,7 @@ export function ResetPasswordPage() {
             </p>
             <Link
               to="/forgot-password"
-              className="mt-6 inline-block rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+              className="mt-6 inline-block rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
             >
               Request a new link
             </Link>
@@ -155,14 +155,14 @@ export function ResetPasswordPage() {
               )}
 
               {error && (
-                <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
                   {error}
                 </p>
               )}
               <button
                 type="submit"
                 disabled={submitting || !canSubmit}
-                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {submitting ? 'Updating…' : 'Update password'}
               </button>

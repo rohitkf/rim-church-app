@@ -120,7 +120,7 @@ function JoinTeamRow({
   return (
     <li className="flex items-center gap-3 rounded-xl bg-surface-low px-3.5 py-3 ring-1 ring-black/5 dark:ring-white/8">
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-label-sm uppercase ring-1 ring-inset ring-black/5 dark:ring-white/10"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-label-sm uppercase hairline"
         style={{
           backgroundColor: `color-mix(in oklab, ${colour} 16%, transparent)`,
           color: colour,

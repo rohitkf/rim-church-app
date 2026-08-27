@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './AppShell'
 
-// The shell's navigation is what this covers; everything hanging off the
-// top bar has its own tests and its own data requirements.
+// The dock is what this covers; everything hanging off the top strip has
+// its own tests and its own data requirements.
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     profile: { first_name: 'Ada', last_name: 'Grace', email: 'ada@example.com' },
@@ -17,6 +17,7 @@ vi.mock('../auth/AuthContext', () => ({
 vi.mock('./GlobalSearch', () => ({ GlobalSearch: () => <div>search</div> }))
 vi.mock('./NotificationsBell', () => ({ NotificationsBell: () => <div>bell</div> }))
 vi.mock('./AccountMenu', () => ({ AccountMenu: () => <div>account</div> }))
+vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => <div>theme</div> }))
 vi.mock('./AiAssistantPanel', () => ({ AiAssistantPanel: () => null }))
 vi.mock('./PwaBanners', () => ({ PwaBanners: () => null, InstallAppButton: () => null }))
 
@@ -34,53 +35,58 @@ function renderShell(initial = '/') {
   return userEvent.setup()
 }
 
-const drawer = () => document.getElementById('app-navigation')!
+const dock = () => screen.getByRole('navigation', { name: 'Main' })
 
-describe('AppShell navigation drawer', () => {
-  it('keeps the drawer off-screen until it is asked for', () => {
+describe('AppShell dock', () => {
+  it('offers every destination on one bar', () => {
     renderShell()
-    expect(drawer().className).toContain('-translate-x-full')
+    for (const label of ['Dashboard', 'Service Planner', 'Checklists', 'Teams', 'Messages']) {
+      expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
+    }
   })
 
-  it('opens on the menu button', async () => {
-    const user = renderShell()
-    await user.click(screen.getByRole('button', { name: /open navigation/i }))
-    expect(drawer().className).toContain('translate-x-0')
+  it('names only the destination you are on, so the rest can be icons', () => {
+    renderShell()
+    // The accessible name comes from the title either way; the visible
+    // text is what the dock spends space on.
+    expect(dock()).toHaveTextContent('Dashboard')
+    expect(dock()).not.toHaveTextContent('Service Planner')
   })
 
-  it('closes itself once you have arrived somewhere', async () => {
+  it('moves the label when you navigate', async () => {
     const user = renderShell()
-    await user.click(screen.getByRole('button', { name: /open navigation/i }))
     await user.click(screen.getByRole('link', { name: 'Messages' }))
 
     expect(await screen.findByText('messages page')).toBeInTheDocument()
-    expect(drawer().className).toContain('-translate-x-full')
+    expect(dock()).toHaveTextContent('Messages')
+    expect(dock()).not.toHaveTextContent('Dashboard')
   })
 
-  it('closes on Escape', async () => {
-    const user = renderShell()
-    await user.click(screen.getByRole('button', { name: /open navigation/i }))
-    await user.keyboard('{Escape}')
-    expect(drawer().className).toContain('-translate-x-full')
-  })
-
-  it('closes when the page behind it is tapped', async () => {
-    const user = renderShell()
-    await user.click(screen.getByRole('button', { name: /open navigation/i }))
-    await user.click(screen.getByRole('button', { name: /close navigation/i }))
-    expect(drawer().className).toContain('-translate-x-full')
-  })
-
-  it('stops the page behind scrolling while the drawer is open', async () => {
-    const user = renderShell()
-    await user.click(screen.getByRole('button', { name: /open navigation/i }))
-    expect(document.body.style.overflow).toBe('hidden')
-    await user.keyboard('{Escape}')
-    expect(document.body.style.overflow).not.toBe('hidden')
-  })
-
-  it('hides the Volunteers page from someone who is not an Admin', () => {
+  it('hides Volunteers from someone who is not an Admin', () => {
     renderShell()
     expect(screen.queryByRole('link', { name: 'Volunteers' })).not.toBeInTheDocument()
+  })
+
+  it('tints the page by section, so you know where you are before reading', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/inventory']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/inventory" element={<div>inventory</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+    const shell = container.firstElementChild as HTMLElement
+    expect(shell.style.getPropertyValue('--wash-hue')).toContain('accent-orange')
+  })
+
+  it('asks before signing out, rather than just doing it', async () => {
+    const user = renderShell()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // The account menu owns that button; the shell owns the confirmation.
+    expect(screen.getByText('account')).toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Dashboard' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
