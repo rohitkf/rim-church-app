@@ -78,6 +78,8 @@ export function MessageBoardPage() {
   const [error, setError] = useState<string | null>(null)
   const [postAsDeptId, setPostAsDeptId] = useState<string | null>(null)
   const [postAsTouched, setPostAsTouched] = useState(false)
+  // Which deletion the user is being asked to confirm, if any.
+  const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(null)
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: canPost })
@@ -110,6 +112,36 @@ export function MessageBoardPage() {
     onError: (err: unknown) => setError(errorMessage(err, 'Could not post message.')),
   })
 
+  const deleteMessage = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('delete_message', { message_id: id })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setConfirm(null)
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['messages'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that message.')),
+  })
+
+  const clearBoard = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('clear_message_board')
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setConfirm(null)
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['messages'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not clear the board.')),
+  })
+
+  const removing = deleteMessage.isPending || clearBoard.isPending
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!body.trim()) return
@@ -125,6 +157,21 @@ export function MessageBoardPage() {
       </p>
 
       <BoardClearCountdown />
+
+      {isAdmin && (messagesQuery.data?.length ?? 0) > 0 && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setConfirm({ kind: 'all' })
+            }}
+            className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
+          >
+            Clear board now
+          </button>
+        </div>
+      )}
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-4">
@@ -170,6 +217,12 @@ export function MessageBoardPage() {
         </form>
       )}
 
+      {error && !canPost && (
+        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          {error}
+        </p>
+      )}
+
       <div className="mt-6">
         <QueryState
           isLoading={messagesQuery.isLoading}
@@ -187,8 +240,23 @@ export function MessageBoardPage() {
                     </span>
                     {m.department && <DeptBadge name={m.department.name} color={m.department.color} />}
                   </span>
-                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                    {formatRelativeTime(m.created_at)}
+                  <span className="flex shrink-0 items-baseline gap-3">
+                    <span className="font-mono text-label-sm text-on-surface-variant">
+                      {formatRelativeTime(m.created_at)}
+                    </span>
+                    {(isAdmin || m.author?.id === session?.user.id) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null)
+                          setConfirm({ kind: 'one', id: m.id })
+                        }}
+                        aria-label="Delete message"
+                        className="text-label-sm font-medium text-on-surface-variant hover:text-error"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </span>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-body-md text-on-surface">{m.body}</p>
@@ -197,6 +265,55 @@ export function MessageBoardPage() {
           </ul>
         </QueryState>
       </div>
+
+      {confirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-message-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+            <h2 id="delete-message-title" className="text-headline-md">
+              {confirm.kind === 'all' ? 'Clear the whole board?' : 'Delete this message?'}
+            </h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              {confirm.kind === 'all'
+                ? 'Every post disappears for everyone, along with the notifications pointing at them. There is no undo — the board would have cleared itself on Tuesday anyway.'
+                : 'The post disappears for everyone, along with the notification it sent. There is no undo.'}
+            </p>
+
+            {error && (
+              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirm(null)
+                  setError(null)
+                }}
+                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  confirm.kind === 'all' ? clearBoard.mutate() : deleteMessage.mutate(confirm.id)
+                }
+                disabled={removing}
+                className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+              >
+                {removing ? 'Deleting…' : confirm.kind === 'all' ? 'Yes, clear the board' : 'Yes, delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

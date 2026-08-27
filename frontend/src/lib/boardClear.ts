@@ -11,12 +11,14 @@ export function nextBoardClearTime(from: Date): Date {
 
 export function formatCountdown(ms: number): string {
   if (ms <= 0) return 'any moment now'
-  const totalMinutes = Math.floor(ms / 60_000)
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`
-  if (hours > 0) return `${hours}h ${minutes}m`
-  const seconds = Math.floor((ms % 60_000) / 1000)
+  const totalSeconds = Math.floor(ms / 1000)
+  const days = Math.floor(totalSeconds / 86_400)
+  const hours = Math.floor((totalSeconds % 86_400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  // Seconds are always shown — the countdown ticks every second, so a
+  // display that stops at minutes looks frozen for a minute at a time.
+  if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
   return `${minutes}m ${seconds}s`
 }

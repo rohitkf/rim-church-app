@@ -22,13 +22,13 @@ describe('nextBoardClearTime', () => {
 })
 
 describe('formatCountdown', () => {
-  it('shows days, hours, and minutes for long spans', () => {
-    const ms = ((3 * 24 + 4) * 60 + 12) * 60_000
-    expect(formatCountdown(ms)).toBe('3d 4h 12m')
+  it('shows days, hours, minutes and seconds for long spans', () => {
+    const ms = ((3 * 24 + 4) * 60 + 12) * 60_000 + 7_000
+    expect(formatCountdown(ms)).toBe('3d 4h 12m 7s')
   })
 
   it('drops days when under 24 hours', () => {
-    expect(formatCountdown((5 * 60 + 30) * 60_000)).toBe('5h 30m')
+    expect(formatCountdown((5 * 60 + 30) * 60_000 + 1_000)).toBe('5h 30m 1s')
   })
 
   it('shows minutes and seconds in the final hour', () => {
