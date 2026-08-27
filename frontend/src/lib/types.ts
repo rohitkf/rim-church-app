@@ -182,6 +182,8 @@ export const availabilityRowSchema = z.object({
   department_id: z.string(),
   status: availabilityStatusSchema,
   note: z.string().nullable(),
+  // null until the team head confirms whether they actually turned up.
+  attended: z.boolean().nullable(),
   updated_at: z.string(),
 })
 export type AvailabilityRow = z.infer<typeof availabilityRowSchema>

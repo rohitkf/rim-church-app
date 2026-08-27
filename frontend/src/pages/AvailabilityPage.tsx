@@ -135,6 +135,17 @@ export function AvailabilityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability', upcomingIds] }),
   })
 
+  // The head confirms, on the day, whether each person who said yes
+  // actually turned up — that's what the dashboard's attendance figure
+  // counts, so it's recorded against the same answer row.
+  const setAttended = useMutation({
+    mutationFn: async ({ id, attended }: { id: string; attended: boolean | null }) => {
+      const { error } = await supabase.from('availability').update({ attended }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability', upcomingIds] }),
+  })
+
   const myAnswer = (serviceId: string, departmentId: string) =>
     (availabilityQuery.data ?? []).find(
       (a) => a.user_id === myId && a.service_id === serviceId && a.department_id === departmentId,
@@ -263,17 +274,59 @@ export function AvailabilityPage() {
                               {teamMembers.map((m) => {
                                 const answer = answers.find((a) => a.user_id === m.user_id)
                                 return (
-                                  <li key={m.id} className="flex items-center justify-between text-body-sm">
-                                    <span className="text-on-surface">
-                                      {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
-                                    </span>
-                                    <span
-                                      className={`font-mono text-label-sm ${
-                                        answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
-                                      }`}
-                                    >
-                                      {answer ? statusLabel[answer.status] : 'No answer'}
-                                    </span>
+                                  <li key={m.id} className="text-body-sm">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="truncate text-on-surface">
+                                        {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
+                                      </span>
+                                      <span
+                                        className={`shrink-0 font-mono text-label-sm ${
+                                          answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
+                                        }`}
+                                      >
+                                        {answer ? statusLabel[answer.status] : 'No answer'}
+                                      </span>
+                                    </div>
+
+                                    {answer?.status === 'available' && (
+                                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                                        <span className="font-mono text-label-sm text-on-surface-variant">
+                                          Turned up?
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setAttended.mutate({
+                                              id: answer.id,
+                                              attended: answer.attended === true ? null : true,
+                                            })
+                                          }
+                                          className={`rounded-full border px-2.5 py-1 text-label-sm ${
+                                            answer.attended === true
+                                              ? 'border-success bg-success/10 font-medium text-success'
+                                              : 'border-border-subtle text-on-surface hover:border-secondary'
+                                          }`}
+                                        >
+                                          Present
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setAttended.mutate({
+                                              id: answer.id,
+                                              attended: answer.attended === false ? null : false,
+                                            })
+                                          }
+                                          className={`rounded-full border px-2.5 py-1 text-label-sm ${
+                                            answer.attended === false
+                                              ? 'border-error bg-error/10 font-medium text-error'
+                                              : 'border-border-subtle text-on-surface hover:border-secondary'
+                                          }`}
+                                        >
+                                          No-show
+                                        </button>
+                                      </div>
+                                    )}
                                   </li>
                                 )
                               })}

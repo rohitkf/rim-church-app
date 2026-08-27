@@ -15,15 +15,14 @@ import {
 } from '../lib/queries'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
-import { attendanceBarClass, attendancePercent } from '../lib/attendance'
+import { attendanceBarClass } from '../lib/attendance'
+import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { todayIso } from '../lib/monthGrid'
 import type { RoleType } from '../auth/types'
 import {
-  attendanceRowSchema,
   checklistItemRowSchema,
-  type AttendanceRow,
   type ChecklistItemRow,
   type ChecklistItemStatus,
 } from '../lib/types'
@@ -71,12 +70,6 @@ async function fetchItems(checklistIds: string[]): Promise<ChecklistItemRow[]> {
   return z.array(checklistItemRowSchema).parse(data)
 }
 
-async function fetchAttendance(serviceIds: string[]): Promise<AttendanceRow[]> {
-  if (serviceIds.length === 0) return []
-  const { data, error } = await supabase.from('attendance').select('*').in('service_id', serviceIds)
-  if (error) throw error
-  return z.array(attendanceRowSchema).parse(data)
-}
 
 async function fetchActorNames(userIds: string[]): Promise<Record<string, string>> {
   if (userIds.length === 0) return {}
@@ -138,12 +131,6 @@ export function DashboardPage() {
   })
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
 
-  const attendanceQuery = useQuery({
-    queryKey: ['dashboard-attendance', dayServiceIds],
-    queryFn: () => fetchAttendance(dayServiceIds),
-    enabled: dayServiceIds.length > 0,
-  })
-  const attendance = useMemo(() => attendanceQuery.data ?? [], [attendanceQuery.data])
 
   // Availability: who has said they can serve. RLS narrows both the
   // answers and the rosters to teams the viewer may see, so a team member
@@ -277,7 +264,6 @@ export function DashboardPage() {
                 (checklistsQuery.data ?? []).filter((c) => c.service_id === service.id).map((c) => c.id),
               )
               const serviceItems = items.filter((i) => serviceChecklistIds.has(i.checklist_id))
-              const serviceAttendance = attendance.filter((a) => a.service_id === service.id)
 
               const counts = {
                 total: serviceItems.length,
@@ -285,9 +271,6 @@ export function DashboardPage() {
                 headVerified: serviceItems.filter((i) => i.status === 'head_verified').length,
                 coordinatorVerified: serviceItems.filter((i) => i.status === 'coordinator_verified').length,
               }
-              const totalExpected = serviceAttendance.reduce((sum, a) => sum + a.expected_count, 0)
-              const totalActual = serviceAttendance.reduce((sum, a) => sum + (a.actual_count ?? 0), 0)
-              const overallPct = attendancePercent(totalActual, totalExpected)
 
               // Availability for this service, per team, plus the whole-
               // roster total across every team the viewer can see.
@@ -296,13 +279,15 @@ export function DashboardPage() {
               )
               const availabilityTeams = (departmentsQuery.data ?? [])
                 .filter((d) => (coreByDept.get(d.id) ?? []).length > 0)
-                .map((d) => ({
-                  dept: d,
-                  summary: availabilitySummary(
-                    coreByDept.get(d.id) ?? [],
-                    serviceAvailability.filter((a) => a.department_id === d.id),
-                  ),
-                }))
+                .map((d) => {
+                  const deptAnswers = serviceAvailability.filter((a) => a.department_id === d.id)
+                  return {
+                    dept: d,
+                    summary: availabilitySummary(coreByDept.get(d.id) ?? [], deptAnswers),
+                    turnout: turnoutFrom(deptAnswers),
+                  }
+                })
+              const serviceTurnout = combineTurnout(availabilityTeams.map((t) => t.turnout))
               const overallAvailability = availabilityTeams.reduce(
                 (acc, t) => ({
                   total: acc.total + t.summary.total,
@@ -324,7 +309,6 @@ export function DashboardPage() {
                   ...(checklistsQuery.data ?? [])
                     .filter((c) => c.service_id === service.id)
                     .map((c) => c.department_id),
-                  ...serviceAttendance.map((a) => a.department_id),
                 ]),
               ]
 
@@ -352,40 +336,42 @@ export function DashboardPage() {
                         Attendance
                       </div>
                       <div className="mt-3 flex items-baseline gap-2">
-                        <span className="text-headline-lg">{overallPct !== null ? `${overallPct}%` : '—'}</span>
+                        <span className="text-headline-lg">
+                          {serviceTurnout.pct !== null ? `${serviceTurnout.pct}%` : '—'}
+                        </span>
                         <span className="font-mono text-label-sm text-on-surface-variant">
-                          {totalExpected > 0 ? `${totalActual} of ${totalExpected}` : `${totalActual} logged`}
+                          {serviceTurnout.expected > 0
+                            ? `${serviceTurnout.actual} of ${serviceTurnout.expected} expected`
+                            : 'nobody has said yes yet'}
                         </span>
                       </div>
+                      {serviceTurnout.unconfirmed > 0 && (
+                        <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
+                          {serviceTurnout.unconfirmed} still to check in
+                        </p>
+                      )}
 
-                      {serviceAttendance.length === 0 ? (
-                        <p className="mt-4 text-body-sm text-on-surface-variant">Nothing logged yet.</p>
+                      {availabilityTeams.length === 0 ? (
+                        <p className="mt-4 text-body-sm text-on-surface-variant">No teams to report on.</p>
                       ) : (
                         <ul className="mt-4 divide-y divide-border-subtle">
-                          {serviceAttendance.map((a) => {
-                            const pct = attendancePercent(a.actual_count, a.expected_count)
-                            return (
-                              <li key={a.id} className="py-3 first:pt-0 last:pb-0">
-                                <div className="flex items-center justify-between gap-2 text-body-sm">
-                                  <span className="truncate text-on-surface">
-                                    {departmentName(a.department_id)}
-                                  </span>
-                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                    {pct !== null ? `${pct}%` : '—'} ·{' '}
-                                    {a.expected_count > 0
-                                      ? `${a.actual_count ?? 0}/${a.expected_count}`
-                                      : `${a.actual_count ?? 0} logged`}
-                                  </span>
-                                </div>
-                                <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-container">
-                                  <div
-                                    className={`h-full rounded-full ${attendanceBarClass(pct)}`}
-                                    style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
-                                  />
-                                </div>
-                              </li>
-                            )
-                          })}
+                          {availabilityTeams.map(({ dept, turnout }) => (
+                            <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
+                              <div className="flex items-center justify-between gap-2 text-body-sm">
+                                <span className="truncate text-on-surface">{dept.name}</span>
+                                <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                  {turnout.pct !== null ? `${turnout.pct}%` : '—'} · {turnout.actual}/
+                                  {turnout.expected}
+                                </span>
+                              </div>
+                              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-container">
+                                <div
+                                  className={`h-full rounded-full ${attendanceBarClass(turnout.pct)}`}
+                                  style={{ width: `${Math.min(turnout.pct ?? 0, 100)}%` }}
+                                />
+                              </div>
+                            </li>
+                          ))}
                         </ul>
                       )}
                     </div>

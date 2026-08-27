@@ -12,8 +12,6 @@ import {
   departmentSchema,
   departmentMemberRowSchema,
   checklistItemRowSchema,
-  attendanceRowSchema,
-  type AttendanceRow,
   type ChecklistItemRow,
   type Department,
   type DepartmentMemberRow,
@@ -56,16 +54,6 @@ async function fetchChecklistItems(checklistId: string): Promise<ChecklistItemRo
   return z.array(checklistItemRowSchema).parse(data)
 }
 
-async function fetchAttendance(departmentId: string, serviceId: string): Promise<AttendanceRow | null> {
-  const { data, error } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('department_id', departmentId)
-    .eq('service_id', serviceId)
-    .maybeSingle()
-  if (error) throw error
-  return data ? attendanceRowSchema.parse(data) : null
-}
 
 interface DepartmentChecklistPanelProps {
   departmentId: string
@@ -74,15 +62,12 @@ interface DepartmentChecklistPanelProps {
   serviceDate?: string
   /** Shown above the panel when the surrounding page doesn't name the department. */
   showDepartmentName?: boolean
-  /** The Checklists page hides the attendance card to stay focused on
-   * tasks; the deep-linked prep page keeps it, since that's where a head
-   * logs the day's counts. */
-  showAttendance?: boolean
 }
 
 /**
  * One department's checklist for one service: the task list with its
- * three-stage verification, readiness bar, and attendance log. Rendered
+ * three-stage verification and readiness bar. Turnout is recorded in the
+ * Availability Tracker instead. Rendered
  * inline on the Checklists page and as the body of the deep-linked prep
  * page, so both stay in step.
  */
@@ -91,7 +76,6 @@ export function DepartmentChecklistPanel({
   serviceId,
   serviceDate,
   showDepartmentName = false,
-  showAttendance = true,
 }: DepartmentChecklistPanelProps) {
   const { session, isAdmin, hasRole } = useAuth()
   const myId = session?.user.id
@@ -101,7 +85,6 @@ export function DepartmentChecklistPanel({
   const roleAllowsHeadVerify =
     isAdmin || hasRole('department_head', { departmentId }) || hasRole('assisting_head', { departmentId })
   const roleAllowsCoordinatorVerify = isAdmin || hasRole('service_flow_coordinator', { serviceId })
-  const roleAllowsLogAttendance = isAdmin || hasRole('department_head', { departmentId })
 
   // Outside Admin, a checklist is only workable on the service's own day —
   // beforehand or after the fact it's read-only, so a past week's record
@@ -111,14 +94,10 @@ export function DepartmentChecklistPanel({
   const canManageChecklist = roleAllowsManageChecklist && !editingLocked
   const canHeadVerify = roleAllowsHeadVerify && !editingLocked
   const canCoordinatorVerify = roleAllowsCoordinatorVerify && !editingLocked
-  const canLogAttendance = roleAllowsLogAttendance && !editingLocked
 
   const [newLabel, setNewLabel] = useState('')
   const [newAssignee, setNewAssignee] = useState('')
   const [itemError, setItemError] = useState<string | null>(null)
-  const [expected, setExpected] = useState('')
-  const [actual, setActual] = useState('')
-  const [attendanceError, setAttendanceError] = useState<string | null>(null)
 
   const deptQuery = useQuery({
     queryKey: ['department', departmentId],
@@ -138,10 +117,7 @@ export function DepartmentChecklistPanel({
     queryFn: () => fetchChecklistItems(checklistIdQuery.data!),
     enabled: !!checklistIdQuery.data,
   })
-  const attendanceQuery = useQuery({
-    queryKey: ['attendance', departmentId, serviceId],
-    queryFn: () => fetchAttendance(departmentId, serviceId),
-  })
+
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
 
   const invalidateItems = () => {
@@ -193,27 +169,7 @@ export function DepartmentChecklistPanel({
     onError: (err: unknown) => setItemError(err instanceof Error ? err.message : 'Could not update the task.'),
   })
 
-  const logAttendance = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('attendance').upsert(
-        {
-          department_id: departmentId,
-          service_id: serviceId,
-          expected_count: Number(expected) || 0,
-          actual_count: actual === '' ? null : Number(actual),
-          logged_by: myId,
-          logged_at: new Date().toISOString(),
-        },
-        { onConflict: 'department_id,service_id' },
-      )
-      if (error) throw error
-    },
-    onSuccess: () => {
-      setAttendanceError(null)
-      queryClient.invalidateQueries({ queryKey: ['attendance', departmentId, serviceId] })
-    },
-    onError: (err: unknown) => setAttendanceError(err instanceof Error ? err.message : 'Could not log attendance.'),
-  })
+
 
   function handleAddItem(e: FormEvent) {
     e.preventDefault()
@@ -221,10 +177,7 @@ export function DepartmentChecklistPanel({
     addItem.mutate()
   }
 
-  function handleLogAttendance(e: FormEvent) {
-    e.preventDefault()
-    logAttendance.mutate()
-  }
+
 
   const items = itemsQuery.data ?? []
   const counts = {
@@ -232,11 +185,6 @@ export function DepartmentChecklistPanel({
     headVerified: items.filter((i) => i.status === 'head_verified').length,
     coordinatorVerified: items.filter((i) => i.status === 'coordinator_verified').length,
   }
-
-  const attendancePct =
-    attendanceQuery.data?.actual_count != null && attendanceQuery.data.expected_count > 0
-      ? Math.round((attendanceQuery.data.actual_count / attendanceQuery.data.expected_count) * 100)
-      : null
 
   return (
     <div>
@@ -436,66 +384,6 @@ export function DepartmentChecklistPanel({
             </div>
           </section>
 
-          {showAttendance && (
-          <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
-            <h4 className="text-headline-md">Team Attendance</h4>
-            <QueryState isLoading={attendanceQuery.isLoading} error={attendanceQuery.error}>
-              <div className="mt-4 flex items-center justify-between text-body-sm">
-                <span className="text-on-surface-variant">Expected</span>
-                <span className="font-medium text-on-surface">{attendanceQuery.data?.expected_count ?? '—'}</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-body-sm">
-                <span className="text-on-surface-variant">Actual</span>
-                <span className="font-medium text-on-surface">
-                  {attendanceQuery.data?.actual_count ?? '—'}
-                  {attendancePct !== null && <span className="ml-1 text-on-surface-variant">({attendancePct}%)</span>}
-                </span>
-              </div>
-
-              {canLogAttendance && (
-                <form
-                  onSubmit={handleLogAttendance}
-                  className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4"
-                >
-                  <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                    Expected
-                    <input
-                      type="number"
-                      min={0}
-                      value={expected}
-                      onChange={(e) => setExpected(e.target.value)}
-                      placeholder={String(attendanceQuery.data?.expected_count ?? '')}
-                      className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                    Actual volunteers present
-                    <input
-                      type="number"
-                      min={0}
-                      value={actual}
-                      onChange={(e) => setActual(e.target.value)}
-                      placeholder="Enter count…"
-                      className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={logAttendance.isPending}
-                    className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-                  >
-                    {logAttendance.isPending ? 'Logging…' : 'Log'}
-                  </button>
-                  {attendanceError && (
-                    <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-                      {attendanceError}
-                    </p>
-                  )}
-                </form>
-              )}
-            </QueryState>
-          </section>
-          )}
         </div>
       </div>
     </div>
