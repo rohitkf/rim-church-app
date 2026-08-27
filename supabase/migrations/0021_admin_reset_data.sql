@@ -20,6 +20,12 @@
 -- not been migrated far enough to have would abort the entire reset with
 -- "relation does not exist" — and leave the Admin no way to clear the rest.
 -- Skipping what isn't there keeps the reset working on any migration level.
+--
+-- Every delete carries `where ctid is not null` — always true, and true of
+-- every row in any table. Supabase loads pg_safeupdate on the API roles,
+-- which rejects an unqualified DELETE outright ("DELETE requires a WHERE
+-- clause"); a bare `where true` is constant-folded away before the guard
+-- sees it, but a ctid test survives into the plan.
 create or replace function public.admin_reset_data(include_setup boolean default false)
 returns void
 language plpgsql
@@ -60,14 +66,14 @@ begin
 
   foreach t in array activity_tables loop
     if to_regclass('public.' || quote_ident(t)) is not null then
-      execute format('delete from public.%I', t);
+      execute format('delete from public.%I where ctid is not null', t);
     end if;
   end loop;
 
   if include_setup then
     foreach t in array setup_tables loop
       if to_regclass('public.' || quote_ident(t)) is not null then
-        execute format('delete from public.%I', t);
+        execute format('delete from public.%I where ctid is not null', t);
       end if;
     end loop;
 
