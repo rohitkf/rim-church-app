@@ -58,6 +58,10 @@ export function TeamRotaPage() {
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  // Which team's assign form is open, keyed `${serviceId}:${departmentId}`.
+  // Collapsed by default: a form under every team on every service was the
+  // bulk of what made this page a wall of dropdowns.
+  const [openForm, setOpenForm] = useState<Record<string, boolean>>({})
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -145,6 +149,9 @@ export function TeamRotaPage() {
     onSuccess: (_d, vars) => {
       setDraftRole((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftPerson((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
+      // The role is filled, so the form has done its job — fold it away
+      // rather than leaving an empty pair of dropdowns behind.
+      setOpenForm((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
       setError(null)
       refresh()
     },
@@ -288,21 +295,39 @@ export function TeamRotaPage() {
             You're not on a team yet — an Admin can add you to one.
           </p>
         ) : (
-          <div className="mt-6 flex flex-col gap-6">
+          <div className="mt-6 flex flex-col gap-8">
             {upcoming.map((service) => {
               const serviceAssignments = assignments.filter((a) => a.service_id === service.id)
+              const teamsWithPeople = myDepartments.filter((d) =>
+                serviceAssignments.some((a) => a.department_id === d.id),
+              ).length
+              // Teams that have someone on them read first: they are what
+              // the rota is actually saying, and the empty ones are a
+              // reminder rather than the headline.
+              const orderedTeams = [...myDepartments].sort((a, b) => {
+                const filled = (id: string) => (serviceAssignments.some((x) => x.department_id === id) ? 0 : 1)
+                return filled(a.id) - filled(b.id) || a.name.localeCompare(b.name)
+              })
 
               return (
-                <section key={service.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-headline-md">{service.service_type}</h2>
-                    <span className="text-body-sm text-on-surface-variant">
-                      {service.date === today ? 'Today' : formatServiceDay(service.date)}
+                <section
+                  key={service.id}
+                  className="overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest"
+                >
+                  <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border-subtle px-6 py-4">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h2 className="text-headline-md">{service.service_type}</h2>
+                      <span className="font-mono text-label-sm text-on-surface-variant">
+                        {service.date === today ? 'Today' : formatServiceDay(service.date)}
+                      </span>
+                    </div>
+                    <span className="font-mono text-label-sm text-on-surface-variant">
+                      {serviceAssignments.length} assigned · {teamsWithPeople}/{myDepartments.length} teams
                     </span>
-                  </div>
+                  </header>
 
-                  <ul className="mt-5 flex flex-col gap-6">
-                    {myDepartments.map((dept) => {
+                  <ul className="flex flex-col gap-px bg-border-subtle">
+                    {orderedTeams.map((dept) => {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)
                       const manage = canManage(dept.id)
@@ -310,6 +335,7 @@ export function TeamRotaPage() {
                         (m) => m.department_id === dept.id && m.member_type === 'core',
                       )
                       const deptRoles = (rolesQuery.data ?? []).filter((r) => r.department_id === dept.id)
+                      const formOpen = !!openForm[key]
 
                       const chosenPerson = draftPerson[key] ?? ''
                       // A conflict is the same person already holding a role
@@ -320,49 +346,65 @@ export function TeamRotaPage() {
                       const clashRequest = clash ? pendingFor(clash.id) : undefined
 
                       return (
-                        <li key={dept.id}>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                            />
-                            <span className="font-medium text-on-surface">{dept.name}</span>
+                        <li key={dept.id} className="bg-surface-lowest px-6 py-4">
+                          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                              />
+                              <span className="truncate font-medium text-on-surface">{dept.name}</span>
+                              <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                {deptAssignments.length === 0
+                                  ? 'nobody yet'
+                                  : `${deptAssignments.length} assigned`}
+                              </span>
+                            </div>
+
+                            {manage && (
+                              <button
+                                type="button"
+                                onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
+                                aria-expanded={formOpen}
+                                className="shrink-0 rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                              >
+                                {formOpen ? 'Cancel' : 'Assign role'}
+                              </button>
+                            )}
                           </div>
 
-                          {deptAssignments.length === 0 ? (
-                            <p className="mt-2 text-body-sm text-on-surface-variant">No roles assigned yet.</p>
-                          ) : (
-                            <ul className="mt-2 flex flex-col gap-2">
+                          {deptAssignments.length > 0 && (
+                            <ul className="mt-3 flex flex-col divide-y divide-border-subtle rounded-sm border border-border-subtle">
                               {deptAssignments.map((a) => {
                                 const pending = pendingFor(a.id)
                                 return (
                                   <li
                                     key={a.id}
-                                    className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border-subtle px-3 py-2"
+                                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2.5"
                                   >
-                                    <span className="text-body-sm">
-                                      <span className="font-medium text-on-surface">{a.role_label}</span>
-                                      <span className="text-on-surface-variant">
-                                        {' '}
-                                        —{' '}
+                                    <span className="flex min-w-0 flex-col">
+                                      <span className="truncate text-body-md text-on-surface">
+                                        {a.role_label}
+                                      </span>
+                                      <span className="truncate text-body-sm text-on-surface-variant">
                                         {a.profile
                                           ? `${a.profile.first_name} ${a.profile.last_name}`
                                           : 'Unknown'}
+                                        {a.user_id === myId && (
+                                          <span className="ml-2 font-mono text-label-sm text-secondary">You</span>
+                                        )}
                                       </span>
-                                      {a.user_id === myId && (
-                                        <span className="ml-2 font-mono text-label-sm text-secondary">You</span>
-                                      )}
                                     </span>
-                                    <span className="flex items-center gap-3">
+                                    <span className="flex shrink-0 items-center gap-3">
                                       {pending && (
-                                        <span className="font-mono text-label-sm text-warning">
+                                        <span className="rounded-full bg-warning/15 px-2 py-0.5 font-mono text-label-sm text-warning">
                                           Release requested
                                         </span>
                                       )}
                                       {manage && (
                                         <button
                                           onClick={() => removeAssignment.mutate(a.id)}
-                                          className="text-body-sm text-error hover:underline"
+                                          className="text-body-sm text-on-surface-variant hover:text-error"
                                         >
                                           Remove
                                         </button>
@@ -374,8 +416,8 @@ export function TeamRotaPage() {
                             </ul>
                           )}
 
-                          {manage && deptRoles.length === 0 && (
-                            <p className="mt-3 text-body-sm text-on-surface-variant">
+                          {formOpen && deptRoles.length === 0 && (
+                            <p className="mt-3 rounded-sm bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
                               No roles defined for this team yet — add them under{' '}
                               <Link to={`/departments/${dept.id}`} className="text-secondary">
                                 Teams → {dept.name} → Roles
@@ -384,7 +426,7 @@ export function TeamRotaPage() {
                             </p>
                           )}
 
-                          {manage && deptRoles.length > 0 && (
+                          {formOpen && deptRoles.length > 0 && (
                             <form
                               onSubmit={(e: FormEvent) => {
                                 e.preventDefault()
@@ -398,14 +440,14 @@ export function TeamRotaPage() {
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
                                 })
                               }}
-                              className="mt-3 flex flex-wrap items-end gap-2"
+                              className="mt-3 flex flex-wrap items-end gap-2 rounded-sm bg-surface-low p-3"
                             >
-                              <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
+                              <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
                                 Role
                                 <select
                                   value={draftRole[key] ?? ''}
                                   onChange={(e) => setDraftRole((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                                  className="rounded-sm border border-border-subtle bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
                                 >
                                   <option value="">Select…</option>
                                   {deptRoles.map((r) => (
@@ -415,12 +457,12 @@ export function TeamRotaPage() {
                                   ))}
                                 </select>
                               </label>
-                              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+                              <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
                                 Person
                                 <select
                                   value={chosenPerson}
                                   onChange={(e) => setDraftPerson((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+                                  className="rounded-sm border border-border-subtle bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
                                 >
                                   <option value="">Select…</option>
                                   {roster.map((m) => (
@@ -442,7 +484,7 @@ export function TeamRotaPage() {
                             </form>
                           )}
 
-                          {manage && clash && (
+                          {formOpen && clash && (
                             <div className="mt-3 rounded-sm border border-warning/50 bg-warning/10 p-3">
                               <p className="text-body-sm text-on-surface">
                                 <span className="font-medium">
