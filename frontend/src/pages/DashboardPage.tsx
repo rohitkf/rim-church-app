@@ -369,7 +369,7 @@ export function DashboardPage() {
                   return {
                     dept: d,
                     summary: availabilitySummary(coreByDept.get(d.id) ?? [], deptAnswers),
-                    turnout: turnoutFrom(deptAnswers),
+                    turnout: turnoutFrom(coreByDept.get(d.id) ?? [], deptAnswers),
                   }
                 })
               const serviceTurnout = combineTurnout(availabilityTeams.map((t) => t.turnout))
@@ -479,10 +479,19 @@ export function DashboardPage() {
                         </span>
                         <span className="font-mono text-label-sm text-on-surface-variant">
                           {serviceTurnout.expected > 0
-                            ? `${serviceTurnout.actual} of ${serviceTurnout.expected} expected`
-                            : 'nobody has said yes yet'}
+                            ? `${serviceTurnout.present} of ${serviceTurnout.expected} on the teams`
+                            : 'no core members on any team yet'}
                         </span>
                       </div>
+                      {/* Measured against the same rosters as the estimate
+                          beside it, so the pair reads as one sentence. The
+                          narrower question — did the people who said yes
+                          actually come — is worth keeping, but as detail. */}
+                      {serviceTurnout.keptPct !== null && (
+                        <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
+                          {serviceTurnout.keptPct}% of the {serviceTurnout.committed} who said yes turned up
+                        </p>
+                      )}
                       {serviceTurnout.unconfirmed > 0 && (
                         <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
                           {serviceTurnout.unconfirmed} still to check in
@@ -498,7 +507,7 @@ export function DashboardPage() {
                               <div className="flex items-center justify-between gap-2 text-body-sm">
                                 <span className="truncate text-on-surface">{dept.name}</span>
                                 <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                  {turnout.pct !== null ? `${turnout.pct}%` : '—'} · {turnout.actual}/
+                                  {turnout.pct !== null ? `${turnout.pct}%` : '—'} · {turnout.present}/
                                   {turnout.expected}
                                 </span>
                               </div>
