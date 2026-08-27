@@ -8,7 +8,7 @@ import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
-import { fetchDepartments } from '../lib/queries'
+import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
 
 function BoardClearCountdown() {
   const [now, setNow] = useState(() => Date.now())
@@ -56,11 +56,6 @@ async function fetchMessages(): Promise<MessageRow[]> {
   return z.array(messageRowSchema).parse(data)
 }
 
-async function fetchOwnDepartmentIds(userId: string): Promise<string[]> {
-  const { data, error } = await supabase.from('department_members').select('department_id').eq('user_id', userId)
-  if (error) throw error
-  return z.array(z.object({ department_id: z.string() })).parse(data).map((r) => r.department_id)
-}
 
 function DeptBadge({ name, color }: { name: string; color: string | null }) {
   return (

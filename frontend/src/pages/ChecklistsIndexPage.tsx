@@ -1,117 +1,126 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { fetchDepartments, fetchServices } from '../lib/queries'
-import { agendaDate, todayIso } from '../lib/monthGrid'
+import { DepartmentChecklistPanel } from '../components/DepartmentChecklistPanel'
+import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
+import { todayIso } from '../lib/monthGrid'
+import { formatServiceDay } from '../lib/sunday'
+import { nearestServiceDate } from '../lib/nearestService'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 
 export function ChecklistsIndexPage() {
-  const { isAdmin } = useAuth()
-  const navigate = useNavigate()
-
-  const [serviceId, setServiceId] = useState('')
+  const { session, isAdmin } = useAuth()
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
+  const ownDeptsQuery = useQuery({
+    queryKey: ['own-departments', session?.user.id],
+    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
+    enabled: !!session,
+  })
 
   const today = todayIso()
-  // Same rule as the Service Planner: members work upcoming services;
-  // past ones remain visible history for Admins only.
-  const visibleServices = useMemo(
-    () =>
-      (servicesQuery.data ?? [])
-        .filter((s) => isAdmin || s.date >= today)
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    [servicesQuery.data, isAdmin, today],
+
+  // Only the next service day matters here — future weeks would just bury
+  // the checklist people actually need today.
+  const dayIso = useMemo(
+    () => nearestServiceDate((servicesQuery.data ?? []).map((s) => s.date), today),
+    [servicesQuery.data, today],
   )
+  const dayServices = useMemo(
+    () => (servicesQuery.data ?? []).filter((s) => s.date === dayIso),
+    [servicesQuery.data, dayIso],
+  )
+
+  // Admins can work any department's list; everyone else sees the teams
+  // they actually belong to, so most people get theirs with no choosing.
+  const myDepartments = useMemo(() => {
+    const all = departmentsQuery.data ?? []
+    if (isAdmin) return all
+    const mine = new Set(ownDeptsQuery.data ?? [])
+    return all.filter((d) => mine.has(d.id))
+  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin])
+
+  const [pickedDeptId, setPickedDeptId] = useState<string | null>(null)
+  const activeDeptId = pickedDeptId ?? myDepartments[0]?.id ?? null
+
+  const isLoading = departmentsQuery.isLoading || servicesQuery.isLoading || ownDeptsQuery.isLoading
+  const error = departmentsQuery.error || servicesQuery.error || ownDeptsQuery.error
 
   return (
     <div>
       <h1 className="text-headline-xl">Checklists</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Tap a service, then a department, to open its pre-service checklist.
-      </p>
 
-      <QueryState
-        isLoading={departmentsQuery.isLoading || servicesQuery.isLoading}
-        error={departmentsQuery.error || servicesQuery.error}
-        isEmpty={visibleServices.length === 0}
-        emptyMessage={
-          isAdmin
-            ? 'No services yet — create one from the Service Planner.'
-            : 'No upcoming services scheduled yet — check back soon.'
-        }
-      >
-        <section className="mt-6">
-          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">1 · Service</div>
-          <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleServices.map((s) => {
-              const d = agendaDate(s.date)
-              const selected = s.id === serviceId
-              const past = s.date < today
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setServiceId(selected ? '' : s.id)}
-                    className={`flex w-full items-center gap-4 rounded-lg border p-4 text-left ${
-                      selected
-                        ? 'border-2 border-secondary bg-secondary/5'
-                        : 'border-border-subtle bg-surface-lowest hover:border-secondary'
-                    } ${past && !selected ? 'opacity-60' : ''}`}
-                  >
-                    <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-md bg-secondary/10 text-secondary">
-                      <span className="font-mono text-label-sm uppercase leading-none">{d.month}</span>
-                      <span className="text-headline-md leading-tight">{d.day}</span>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-on-surface">{s.service_type}</span>
-                      <span className="block text-body-sm text-on-surface-variant">
-                        {d.weekday} · {s.date}
-                        {past ? ' · past' : ''}
-                      </span>
-                    </span>
-                    {selected && <span className="shrink-0 font-mono text-secondary">✓</span>}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+      <QueryState isLoading={isLoading} error={error}>
+        {!dayIso ? (
+          <p className="mt-4 text-body-sm text-on-surface-variant">
+            No services scheduled yet
+            {isAdmin ? ' — add one from the Service Planner.' : ' — check back soon.'}
+          </p>
+        ) : (
+          <>
+            <p className="mt-2 text-body-md text-on-surface-variant">
+              {dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} ·{' '}
+              {formatServiceDay(dayIso)}
+            </p>
 
-        {serviceId && (
-          <section className="mt-8">
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-              2 · Department
-            </div>
-            {departmentsQuery.data?.length === 0 ? (
-              <p className="mt-3 text-body-sm text-on-surface-variant">No departments yet.</p>
+            {myDepartments.length === 0 ? (
+              <p className="mt-6 text-body-sm text-on-surface-variant">
+                You're not on a team yet — an Admin can add you to one.
+              </p>
             ) : (
-              <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {departmentsQuery.data?.map((dept) => (
-                  <li key={dept.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/checklists/${dept.id}/${serviceId}`)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-border-subtle bg-surface-lowest p-4 text-left hover:border-secondary"
-                    >
-                      <span
-                        className="h-3 w-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                      />
-                      <span className="min-w-0 flex-1 truncate font-medium text-on-surface">{dept.name}</span>
-                      <span className="shrink-0 text-on-surface-variant">›</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {myDepartments.length > 1 && (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {myDepartments.map((d) => {
+                      const active = d.id === activeDeptId
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => setPickedDeptId(d.id)}
+                          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-body-sm ${
+                            active
+                              ? 'border-secondary bg-secondary/10 font-medium text-secondary'
+                              : 'border-border-subtle bg-surface-lowest text-on-surface hover:border-secondary'
+                          }`}
+                        >
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: d.color ?? DEFAULT_DEPT_COLOR }}
+                          />
+                          {d.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-col gap-10">
+                  {dayServices.map((service) => (
+                    <section key={service.id}>
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h2 className="text-headline-lg">{service.service_type}</h2>
+                        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                          {service.date}
+                        </span>
+                      </div>
+                      {activeDeptId && (
+                        <DepartmentChecklistPanel
+                          departmentId={activeDeptId}
+                          serviceId={service.id}
+                          serviceDate={service.date}
+                        />
+                      )}
+                    </section>
+                  ))}
+                </div>
+              </>
             )}
-          </section>
+          </>
         )}
       </QueryState>
-
     </div>
   )
 }
