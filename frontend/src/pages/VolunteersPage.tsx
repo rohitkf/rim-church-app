@@ -58,6 +58,7 @@ export function VolunteersPage() {
   const { isAdmin, session } = useAuth()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
+  const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
 
   const volunteersQuery = useQuery({ queryKey: ['volunteers'], queryFn: fetchVolunteers, enabled: isAdmin })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
@@ -107,6 +108,25 @@ export function VolunteersPage() {
       refresh()
     },
     onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not remove that role.'),
+  })
+
+  const removeVolunteer = useMutation({
+    mutationFn: async (userId: string) => {
+      // Deleting the auth user is what actually removes someone —
+      // everything else hangs off it by cascade. The browser has no
+      // rights over auth.users, so this goes through a guarded function.
+      const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userId })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setConfirmingRemoval(null)
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['volunteers'] })
+      queryClient.invalidateQueries({ queryKey: ['all-user-roles'] })
+      queryClient.invalidateQueries({ queryKey: ['volunteer-memberships'] })
+    },
+    onError: (err: unknown) =>
+      setError(err instanceof Error ? err.message : 'Could not remove that person.'),
   })
 
   if (!isAdmin) return <Navigate to="/" replace />
@@ -191,6 +211,17 @@ export function VolunteersPage() {
                         className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
                       >
                         Make admin
+                      </button>
+                    )}
+                    {v.id !== session?.user.id && (
+                      <button
+                        onClick={() => {
+                          setError(null)
+                          setConfirmingRemoval(v)
+                        }}
+                        className="rounded-sm border border-border-subtle px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
+                      >
+                        Remove
                       </button>
                     )}
                   </div>
@@ -297,6 +328,48 @@ export function VolunteersPage() {
           })}
         </ul>
       </QueryState>
+
+      {confirmingRemoval && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="remove-volunteer-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+            <h2 id="remove-volunteer-title" className="text-headline-md">
+              Remove {confirmingRemoval.first_name} {confirmingRemoval.last_name}?
+            </h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              This deletes their account entirely — their sign-in, profile, team memberships, roles,
+              availability answers, rota assignments and message board posts all go with it. It
+              can't be undone, and they'd have to sign up again from scratch.
+            </p>
+            {error && (
+              <p className="mt-3 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {error}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmingRemoval(null)}
+                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => removeVolunteer.mutate(confirmingRemoval.id)}
+                disabled={removeVolunteer.isPending}
+                className="rounded-sm bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
+              >
+                {removeVolunteer.isPending ? 'Removing…' : 'Yes, remove permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
