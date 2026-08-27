@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import type { Department } from '../lib/types'
+import { ActionButton, Field, Panel, inputClasses } from './Surface'
+import { UsersIcon } from './icons'
 
 interface ManageTeamsCardProps {
   departments: Department[]
@@ -62,45 +64,47 @@ export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
   }
 
   return (
-    <section className="mt-6 rounded-lg border border-border-subtle bg-surface-lowest p-5">
-      <h2 className="text-headline-md">Team setup</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        Admins only. Each team's colour, name and removal are on its own card below.
-      </p>
-
+    <Panel
+      title="Team setup"
+      icon={UsersIcon}
+      className="mt-2"
+      aside={
+        <span className="text-label-sm text-on-surface-variant">
+          Admins only · each team's colour, name and removal live on its card
+        </span>
+      }
+      bodyClassName="p-5"
+    >
       {error && (
-        <p className="mt-4 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+        <p className="mb-4 rounded-xl bg-error-container px-3.5 py-2.5 text-body-sm text-on-error-container">
           {error}
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <form onSubmit={handleCreate} className="flex items-end gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
-            New team
+          <Field label="New team" className="flex-1">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. Service Flow Coordinator"
-              className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className={inputClasses}
             />
-          </label>
-          <button
-            type="submit"
-            disabled={createTeam.isPending}
-            className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-          >
-            {createTeam.isPending ? 'Creating…' : 'Create'}
-          </button>
+          </Field>
+          <ActionButton type="submit" disabled={createTeam.isPending} glyph="+">
+            {createTeam.isPending ? 'Creating' : 'Create'}
+          </ActionButton>
         </form>
 
-        <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
-          Team that signs checklists off
+        <Field
+          label="Team that signs checklists off"
+          hint="The Service Flow Coordinator team: after a member ticks an item and their head verifies it, this team gives the last signature. Nothing can be signed off until one is chosen."
+        >
           <select
             value={signOffTeam?.id ?? ''}
             onChange={(e) => setSignOffTeam.mutate(e.target.value)}
             disabled={setSignOffTeam.isPending}
-            className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
+            className={inputClasses}
           >
             <option value="">No team chosen</option>
             {departments.map((d) => (
@@ -109,12 +113,8 @@ export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
               </option>
             ))}
           </select>
-          <span className="text-label-sm">
-            The Service Flow Coordinator team: after a member ticks an item and their head verifies
-            it, this team gives the last signature. Nothing can be signed off until one is chosen.
-          </span>
-        </label>
+        </Field>
       </div>
-    </section>
+    </Panel>
   )
 }

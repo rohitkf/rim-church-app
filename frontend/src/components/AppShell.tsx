@@ -77,9 +77,9 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-background text-on-background">
-      <aside className="flex w-[280px] shrink-0 flex-col border-r border-border-subtle bg-surface-lowest px-4 py-6">
+      <aside className="flex w-[280px] shrink-0 flex-col border-r border-black/5 bg-surface-lowest/80 px-4 py-6 backdrop-blur-xl dark:border-white/8">
         <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary shadow-[var(--shadow-ambient)] ring-1 ring-inset ring-white/15">
             <span className="font-mono text-label-md">RIM</span>
           </div>
           <div>
@@ -93,12 +93,15 @@ export function AppShell() {
         {isAdmin && (
           <NavLink
             to="/service-planner"
-            className="mb-5 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary transition-opacity hover:opacity-90"
+            className="group/cta mb-6 flex items-center justify-between gap-2 rounded-full bg-primary py-2.5 pl-5 pr-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] ring-1 ring-inset ring-white/15 transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98]"
           >
-            <span aria-hidden="true" className="text-body-md leading-none">
+            New service
+            <span
+              aria-hidden="true"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-body-md leading-none transition-transform duration-500 ease-[var(--ease-glide)] group-hover/cta:rotate-90"
+            >
               +
             </span>
-            New service
           </NavLink>
         )}
 
@@ -125,10 +128,10 @@ export function AppShell() {
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   [
-                    'flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-body-md transition-colors',
+                    'group/nav relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-body-md transition-all duration-500 ease-[var(--ease-glide)]',
                     isActive
-                      ? 'border-primary bg-surface-container font-medium text-on-surface'
-                      : 'border-transparent text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
+                      ? 'bg-surface-container font-medium text-on-surface ring-1 ring-inset ring-black/5 dark:ring-white/10'
+                      : 'text-on-surface-variant hover:bg-surface-low hover:text-on-surface',
                   ].join(' ')
                 }
               >
@@ -167,8 +170,8 @@ export function AppShell() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border-subtle bg-surface-lowest px-8 py-4">
-          <label className="flex w-full max-w-sm items-center gap-2 rounded-sm border border-border-subtle bg-surface-muted px-3 py-2 text-body-sm text-on-surface-variant">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-surface-lowest/75 px-8 py-4 backdrop-blur-xl dark:border-white/8">
+          <label className="flex w-full max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] focus-within:ring-2 focus-within:ring-secondary dark:bg-surface-container dark:ring-white/10">
             <SearchIcon width={16} height={16} />
             <input
               disabled
@@ -182,7 +185,7 @@ export function AppShell() {
             <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-8 py-8">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-8 py-10">
           <Outlet />
         </main>
       </div>

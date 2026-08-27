@@ -8,7 +8,7 @@
  * the checklist_item_status enum in the Supabase schema.
  */
 @theme {
-  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Surfaces */
@@ -52,6 +52,17 @@
   --color-status-member: #0ea5e9;
   --color-status-head: #6366f1;
   --color-status-coordinator: #10b981;
+
+  /* Motion — one easing curve for the whole app, with real mass to it.
+     Nothing here uses linear or ease-in-out. */
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Enclosure: cards are a tray holding a plate, so they need two radii
+     that stay concentric and a shadow that reads as air, not as ink. */
+  --radius-shell: 20px;
+  --radius-core: 14px;
+  --shadow-ambient: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+  --shadow-lifted: 0 2px 4px rgb(15 23 42 / 0.05), 0 18px 40px -18px rgb(15 23 42 / 0.22);
 
   /* Type scale */
   --text-headline-xl: 40px;
@@ -99,6 +110,11 @@
  */
 :root[data-theme='dark'] {
   color-scheme: dark;
+
+  /* On a dark ground, depth comes from light rather than shadow, so the
+     ambient shadows go near-black and the hairlines carry the edge. */
+  --shadow-ambient: 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+  --shadow-lifted: 0 2px 6px rgb(0 0 0 / 0.55), 0 22px 48px -20px rgb(0 0 0 / 0.85);
 
   --color-surface: #0f0f13;
   --color-surface-dim: #08080a;
@@ -153,4 +169,39 @@ body {
   font-family: var(--font-sans);
   background: var(--color-background);
   color: var(--color-on-background);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * Two fixed, non-interactive layers give the flat canvas some atmosphere:
+ * a very quiet colour wash so the background isn't one dead value, and a
+ * film grain fine enough to read as paper rather than as texture. Both are
+ * position: fixed and pointer-events: none, so they never repaint with
+ * scrolling content.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, color-mix(in oklab, var(--color-primary) 7%, transparent), transparent 60%),
+    radial-gradient(50rem 36rem at 92% 8%, color-mix(in oklab, var(--color-secondary) 6%, transparent), transparent 62%);
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }

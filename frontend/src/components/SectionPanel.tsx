@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
+import { Panel } from './Surface'
 
 interface SectionPanelProps {
   title: string
@@ -17,22 +18,15 @@ interface SectionPanelProps {
  * every section announces itself the same way, so the eye can skip to the
  * one it wants instead of reading headings that look like body text.
  */
-export function SectionPanel({ title, icon: Icon, aside, children, className = '' }: SectionPanelProps) {
+/**
+ * A titled panel. Kept as its own name because pages read better saying
+ * what they mean, but the enclosure itself is the app's one card.
+ */
+export function SectionPanel({ title, icon, aside, children, className = '' }: SectionPanelProps) {
   return (
-    <section
-      className={`overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest ${className}`}
-    >
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border-subtle bg-surface-low px-4 py-2.5">
-        <span className="flex items-center gap-2">
-          {Icon && <Icon className="shrink-0 text-secondary" width={16} height={16} />}
-          <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface">
-            {title}
-          </span>
-        </span>
-        {aside}
-      </header>
-      <div className="p-4">{children}</div>
-    </section>
+    <Panel title={title} icon={icon} aside={aside} className={className}>
+      {children}
+    </Panel>
   )
 }
 
@@ -45,14 +39,14 @@ export function StatusChip({
   children: ReactNode
 }) {
   const tones = {
-    good: 'bg-success/15 text-success',
-    warn: 'bg-warning/15 text-warning',
-    bad: 'bg-error/15 text-error',
-    neutral: 'bg-surface-container text-on-surface-variant',
+    good: 'bg-success/12 text-success ring-success/20',
+    warn: 'bg-warning/12 text-warning ring-warning/20',
+    bad: 'bg-error/12 text-error ring-error/20',
+    neutral: 'bg-surface-container text-on-surface-variant ring-black/5 dark:ring-white/10',
   }
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-label-sm uppercase tracking-wide ${tones[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] ring-1 ring-inset ${tones[tone]}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
       {children}
