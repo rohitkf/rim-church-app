@@ -18,6 +18,9 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { serviceReadiness } from '../lib/readiness'
+import { SectionPanel, StatusChip } from '../components/SectionPanel'
+import { ActivityIcon } from '../components/icons'
+import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
@@ -167,6 +170,29 @@ export function DashboardPage() {
     enabled: dayServiceIds.length > 0,
   })
   const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
+
+  // When each service actually starts, for the countdown — the running
+  // order's first session, if one has been planned.
+  const startsQuery = useQuery({
+    queryKey: ['dashboard-service-starts', dayServiceIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('service_sessions')
+        .select('service_id, start_time')
+        .in('service_id', dayServiceIds)
+        .order('start_time')
+      if (error) throw error
+      return z.array(z.object({ service_id: z.string(), start_time: z.string() })).parse(data)
+    },
+    enabled: dayServiceIds.length > 0,
+  })
+  const startsAt = useMemo(() => {
+    const first = new Map<string, string>()
+    for (const row of startsQuery.data ?? []) {
+      if (!first.has(row.service_id)) first.set(row.service_id, row.start_time)
+    }
+    return first
+  }, [startsQuery.data])
   const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
   const roleItemsQuery = useQuery({
     queryKey: ['role-checklist-items', rotaDeptIds],
@@ -367,14 +393,32 @@ export function DashboardPage() {
                   key={service.id}
                   className="overflow-hidden rounded-lg border border-border-subtle bg-surface-lowest"
                 >
-                  <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border-subtle px-6 py-4">
-                    <h2 className="text-headline-md">{service.service_type}</h2>
-                    <Link
-                      to={`/service-planner/${service.id}`}
-                      className="text-body-sm font-medium text-secondary"
-                    >
-                      Running order ›
-                    </Link>
+                  <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border-subtle px-6 py-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="text-headline-md">{service.service_type}</h2>
+                      {readiness.total > 0 && (
+                        <StatusChip
+                          tone={
+                            readiness.pct === 100 ? 'good' : (readiness.pct ?? 0) >= 50 ? 'warn' : 'bad'
+                          }
+                        >
+                          {readiness.pct === 100
+                            ? 'Ready'
+                            : (readiness.pct ?? 0) >= 50
+                              ? 'On track'
+                              : 'Behind'}
+                        </StatusChip>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <ServiceCountdown startsAt={startsAt.get(service.id) ?? null} />
+                      <Link
+                        to={`/service-planner/${service.id}`}
+                        className="text-body-sm font-medium text-secondary"
+                      >
+                        Running order ›
+                      </Link>
+                    </div>
                   </header>
 
                   {/* Estimate and outcome sit side by side so they can be
@@ -525,15 +569,14 @@ export function DashboardPage() {
               )
             })}
 
-            <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
-              <div className="text-headline-md">Live Activity</div>
+            <SectionPanel title="Live activity" icon={ActivityIcon}>
               <QueryState
                 isLoading={itemsQuery.isLoading}
                 error={itemsQuery.error}
                 isEmpty={activityItems.length === 0}
                 emptyMessage="No verification activity yet for this day."
               >
-                <ul className="mt-4 flex flex-col gap-3">
+                <ul className="flex flex-col gap-3">
                   {activityItems.map(({ item, actorId, at }) => (
                     <li key={`${item.id}-${item.status}`} className="text-body-sm">
                       <span className="font-medium text-on-surface">{actorsQuery.data?.[actorId] ?? '…'}</span>{' '}
@@ -548,7 +591,7 @@ export function DashboardPage() {
                   ))}
                 </ul>
               </QueryState>
-            </section>
+            </SectionPanel>
           </div>
         )}
       </QueryState>

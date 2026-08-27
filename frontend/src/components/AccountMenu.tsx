@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useTheme } from '../lib/useTheme'
+import type { ThemePreference } from '../lib/theme'
 import { SettingsIcon, UserCircleIcon } from './icons'
+
+const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Auto' },
+]
 
 interface AccountMenuProps {
   initials: string
@@ -15,6 +23,7 @@ interface AccountMenuProps {
  */
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
   const { profile } = useAuth()
+  const { preference, choose } = useTheme()
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
 
@@ -61,6 +70,29 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             {profile?.email && (
               <div className="truncate text-label-sm text-on-surface-variant">{profile.email}</div>
             )}
+          </div>
+
+          <div className="border-b border-border-subtle px-3 py-2.5">
+            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              Appearance
+            </div>
+            <div className="mt-2 flex rounded-sm border border-border-subtle p-0.5">
+              {THEME_CHOICES.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  onClick={() => choose(choice.value)}
+                  aria-pressed={preference === choice.value}
+                  className={`flex-1 rounded-sm px-2 py-1 text-label-sm transition-colors ${
+                    preference === choice.value
+                      ? 'bg-primary font-medium text-on-primary'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <Link to="/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>

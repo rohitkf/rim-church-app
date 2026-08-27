@@ -88,6 +88,56 @@
   --text-label-sm--font-weight: 500;
 }
 
+/*
+ * Dark theme — "Production Portal".
+ *
+ * Every component already paints from these tokens, so the whole app turns
+ * over by redefining them: a near-black canvas with cards a step lighter,
+ * violet as the accent that marks what is live or actionable, and green
+ * reserved for "this is done / this is up". The status trio keeps its
+ * meaning and is re-stepped for a dark surface rather than reused flat.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-surface: #0f0f13;
+  --color-surface-dim: #08080a;
+  --color-surface-bright: #1a1a21;
+  --color-surface-lowest: #14141a;
+  --color-surface-low: #1a1a21;
+  --color-surface-container: #22222b;
+  --color-surface-high: #2a2a35;
+  --color-surface-highest: #33333f;
+  --color-surface-muted: #14141a;
+  --color-background: #0a0a0d;
+
+  --color-on-surface: #f2f2f7;
+  --color-on-background: #f2f2f7;
+  --color-on-surface-variant: #a0a0ad;
+  --color-outline: #6b6b78;
+  --color-outline-variant: #3a3a45;
+  --color-border-subtle: #26262f;
+
+  --color-primary: #8b5cf6;
+  --color-on-primary: #ffffff;
+  --color-secondary: #34d399;
+  --color-on-secondary: #05271b;
+  --color-secondary-container: #134e3a;
+  --color-on-secondary-container: #a7f3d0;
+
+  --color-error: #f87171;
+  --color-on-error: #2b0708;
+  --color-error-container: #3b1418;
+  --color-on-error-container: #fecaca;
+  --color-warning: #fbbf24;
+  --color-success: #34d399;
+
+  --color-status-pending: #6b7280;
+  --color-status-member: #38bdf8;
+  --color-status-head: #a78bfa;
+  --color-status-coordinator: #34d399;
+}
+
 :root {
   color-scheme: light;
 }

@@ -91,6 +91,18 @@ export function AppShell() {
           </div>
         </div>
 
+        {isAdmin && (
+          <NavLink
+            to="/service-planner"
+            className="mb-5 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary transition-opacity hover:opacity-90"
+          >
+            <span aria-hidden="true" className="text-body-md leading-none">
+              +
+            </span>
+            New service
+          </NavLink>
+        )}
+
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             if (item.adminOnly && !isAdmin) return null
