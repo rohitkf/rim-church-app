@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
 
@@ -21,9 +22,18 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setSubmitting(false)
-    if (error) setError(error.message)
+    // supabase-js reports most failures as a returned error, but a request
+    // that never completes — or one this client's deadline cuts off —
+    // rejects instead. Without a catch that left the button on
+    // "Signing in…" for ever, which looks like progress and isn't.
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setError(error.message)
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (

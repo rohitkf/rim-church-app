@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
@@ -37,17 +38,22 @@ export function SignupPage() {
     if (!canSubmit) return
     setError(null)
     setSubmitting(true)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { first_name: firstName, last_name: lastName } },
-    })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
-      return
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { first_name: firstName, last_name: lastName } },
+      })
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setDone(true)
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
+    } finally {
+      setSubmitting(false)
     }
-    setDone(true)
   }
 
   if (done) {

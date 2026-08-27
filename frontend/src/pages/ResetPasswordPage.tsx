@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { errorMessage } from '../lib/errorMessage'
 import { PasswordInput } from '../components/PasswordInput'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
@@ -61,13 +62,18 @@ export function ResetPasswordPage() {
     if (!canSubmit) return
     setError(null)
     setSubmitting(true)
-    const { error } = await supabase.auth.updateUser({ password })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
-      return
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setDone(true)
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
+    } finally {
+      setSubmitting(false)
     }
-    setDone(true)
   }
 
   return (

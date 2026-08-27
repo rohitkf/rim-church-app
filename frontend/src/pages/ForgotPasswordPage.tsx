@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { errorMessage } from '../lib/errorMessage'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -12,9 +13,18 @@ export function ForgotPasswordPage() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    let error: { message: string } | null = null
+    try {
+      ;({ error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      }))
+    } catch (err: unknown) {
+      // A request that never arrived is not the same as a rejected address,
+      // so this one does get reported rather than silently claiming success.
+      setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
+      setSubmitting(false)
+      return
+    }
     setSubmitting(false)
     // Deliberately the same outcome whether or not the address is
     // registered: telling a stranger which emails have accounts here is
