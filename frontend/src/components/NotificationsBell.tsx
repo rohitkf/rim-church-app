@@ -80,12 +80,12 @@ export function NotificationsBell() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative text-on-surface-variant hover:text-on-surface"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
         aria-label="Notifications"
       >
         <BellIcon />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-error" />
+          <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-error ring-2 ring-surface-lowest" />
         )}
       </button>
 

@@ -13,14 +13,12 @@ import {
   HelpCircleIcon,
   MessageIcon,
   SearchIcon,
-  SettingsIcon,
   SparklesIcon,
-  TimerIcon,
   UserCheckIcon,
-  UserCircleIcon,
   UsersIcon,
 } from './icons'
 import { NotificationsBell } from './NotificationsBell'
+import { AccountMenu } from './AccountMenu'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import type { ComponentType, SVGProps } from 'react'
 
@@ -72,6 +70,7 @@ const AI_ASSISTANT_ENABLED = import.meta.env.VITE_AI_ASSISTANT_ENABLED === 'true
 export function AppShell() {
   const { profile, roles, isAdmin, signOut } = useAuth()
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
@@ -148,20 +147,6 @@ export function AppShell() {
               <SoonBadge />
             </div>
           )}
-          <NavLink
-            to="/profile"
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-body-md',
-                isActive
-                  ? 'bg-surface-container font-medium text-on-surface'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
-              ].join(' ')
-            }
-          >
-            <SettingsIcon className="shrink-0" />
-            Settings
-          </NavLink>
           <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-body-md text-on-surface-variant/60">
             <HelpCircleIcon className="shrink-0" />
             Support
@@ -180,22 +165,49 @@ export function AppShell() {
               className="w-full bg-transparent outline-none placeholder:text-on-surface-variant"
             />
           </label>
-          <div className="flex items-center gap-4 text-on-surface-variant">
-            <TimerIcon />
+          <div className="flex items-center gap-2 text-on-surface-variant">
             <NotificationsBell />
-            <button
-              onClick={() => signOut()}
-              title="Sign out"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container font-mono text-label-sm text-on-surface hover:bg-surface-high"
-            >
-              {initials || <UserCircleIcon width={18} height={18} />}
-            </button>
+            <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-8 py-8">
           <Outlet />
         </main>
       </div>
+
+      {confirmSignOut && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sign-out-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-6 shadow-lg">
+            <h2 id="sign-out-title" className="text-headline-md">
+              Sign out?
+            </h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              You'll need your email and password to get back in.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmSignOut(false)}
+                className="rounded-sm border border-border-subtle px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+              >
+                Stay signed in
+              </button>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="rounded-sm bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+              >
+                Yes, sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {AI_ASSISTANT_ENABLED && (
         <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
