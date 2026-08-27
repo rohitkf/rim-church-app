@@ -8,6 +8,7 @@ import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/q
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { availabilitySummary } from '../lib/availabilitySummary'
 import {
   availabilityRowSchema,
   departmentMemberRowSchema,
@@ -18,7 +19,7 @@ import {
 
 /** How many upcoming services to ask about — enough to plan ahead without
  * making people answer for months of Sundays. */
-const UPCOMING_LIMIT = 4
+const UPCOMING_LIMIT = 3
 
 const STATUS_OPTIONS: { value: AvailabilityStatus; label: string; activeClass: string }[] = [
   { value: 'available', label: 'Available', activeClass: 'border-success bg-success/10 text-success' },
@@ -94,7 +95,16 @@ export function AvailabilityPage() {
     enabled: upcomingIds.length > 0,
   })
 
-  // Heads and Admins also see who on their team has answered.
+  // Rosters for every team shown: they're the denominator of each team's
+  // availability bar, and the name-by-name list heads and Admins expand.
+  const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
+  const membersQuery = useQuery({
+    queryKey: ['availability-members', myDepartmentIds],
+    queryFn: () => fetchMembers(myDepartmentIds),
+    enabled: myDepartmentIds.length > 0,
+  })
+
+  // Only heads and Admins get the per-person breakdown.
   const ledDepartmentIds = useMemo(
     () =>
       myDepartments
@@ -105,11 +115,6 @@ export function AvailabilityPage() {
         .map((d) => d.id),
     [myDepartments, isAdmin, hasRole],
   )
-  const membersQuery = useQuery({
-    queryKey: ['availability-members', ledDepartmentIds],
-    queryFn: () => fetchMembers(ledDepartmentIds),
-    enabled: ledDepartmentIds.length > 0,
-  })
 
   const setAvailability = useMutation({
     mutationFn: async ({
@@ -169,19 +174,54 @@ export function AvailabilityPage() {
                   {myDepartments.map((dept) => {
                     const mine = myAnswer(service.id, dept.id)
                     const leads = ledDepartmentIds.includes(dept.id)
-                    const teamMembers = (membersQuery.data ?? []).filter((m) => m.department_id === dept.id)
+                    // Core members are the people expected to serve; guests
+                    // aren't part of the team's readiness.
+                    const teamMembers = (membersQuery.data ?? []).filter(
+                      (m) => m.department_id === dept.id && m.member_type === 'core',
+                    )
                     const answers = (availabilityQuery.data ?? []).filter(
                       (a) => a.service_id === service.id && a.department_id === dept.id,
+                    )
+                    const summary = availabilitySummary(
+                      teamMembers.map((m) => m.user_id),
+                      answers,
                     )
 
                     return (
                       <li key={dept.id}>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                            />
+                            <span className="font-medium text-on-surface">{dept.name}</span>
+                          </div>
+                          <span className="font-mono text-label-sm text-on-surface-variant">
+                            {summary.pct}% available · {summary.available}/{summary.total}
+                            {summary.tentative > 0 && ` · ${summary.tentative} tentative`}
+                          </span>
+                        </div>
+
+                        <div
+                          className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-surface-container"
+                          role="img"
+                          aria-label={`${dept.name}: ${summary.pct}% available, ${summary.tentative} tentative, ${summary.noAnswer} yet to answer`}
+                        >
+                          <div
+                            className="bg-success"
+                            style={{ width: `${summary.total > 0 ? (summary.available / summary.total) * 100 : 0}%` }}
                           />
-                          <span className="font-medium text-on-surface">{dept.name}</span>
+                          <div
+                            className="bg-warning"
+                            style={{ width: `${summary.total > 0 ? (summary.tentative / summary.total) * 100 : 0}%` }}
+                          />
+                          <div
+                            className="bg-error"
+                            style={{
+                              width: `${summary.total > 0 ? (summary.unavailable / summary.total) * 100 : 0}%`,
+                            }}
+                          />
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2">
