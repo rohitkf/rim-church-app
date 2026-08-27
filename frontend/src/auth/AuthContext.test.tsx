@@ -26,6 +26,10 @@ const mockProfile = {
 // a dropped connection would.
 const control = vi.hoisted(() => ({
   getSession: () => Promise.resolve({ data: { session: null as unknown } }),
+  // Captures the callback the provider hands to onAuthStateChange, so a
+  // test can fire it the way supabase-js does — from inside its auth lock.
+  authCallback: null as null | ((event: string, session: unknown) => void),
+  queriedTables: [] as string[],
 }))
 
 vi.mock('../lib/supabaseClient', () => {
@@ -44,10 +48,14 @@ vi.mock('../lib/supabaseClient', () => {
     supabase: {
       auth: {
         getSession: () => control.getSession(),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        onAuthStateChange: (cb: (event: string, session: unknown) => void) => {
+          control.authCallback = cb
+          return { data: { subscription: { unsubscribe: () => {} } } }
+        },
         signOut: () => Promise.resolve(),
       },
       from: (table: string) => {
+        control.queriedTables.push(table)
         if (table === 'profiles') return chain(mockProfile)
         // The app asks who owns it at sign-in; nobody does, in these tests.
         if (table === 'app_owner') return chain(null)
@@ -74,6 +82,8 @@ function Probe() {
 
 beforeEach(() => {
   control.getSession = () => Promise.resolve({ data: { session: mockSession } })
+  control.authCallback = null
+  control.queriedTables = []
 })
 
 describe('AuthContext role checks', () => {
@@ -126,5 +136,44 @@ describe('when the session cannot be read at all', () => {
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
     expect(screen.getByTestId('error')).toHaveTextContent('Failed to fetch')
     expect(screen.getByTestId('session')).toHaveTextContent('false')
+  })
+})
+
+describe('the auth state callback', () => {
+  it('never queries from inside it, which would deadlock the client', async () => {
+    // supabase-js runs this callback while holding the lock that every
+    // query needs to attach the access token, and its own guidance is to
+    // make no Supabase call from inside it. Where the two contend the
+    // sign-in promise never settles: nothing throws, it just never
+    // finishes, so only keeping this shape prevents it.
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(control.authCallback).not.toBeNull())
+
+    control.queriedTables = []
+    control.authCallback!('SIGNED_IN', mockSession)
+
+    // Synchronously after the callback: nothing may have been asked for.
+    expect(control.queriedTables).toEqual([])
+
+    // On a later task it catches up, so the profile still loads.
+    await waitFor(() => expect(control.queriedTables).toContain('profiles'))
+  })
+
+  it('clears the profile immediately on sign-out, which needs no query', async () => {
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('name')).toHaveTextContent('Sarah'))
+
+    control.queriedTables = []
+    control.authCallback!('SIGNED_OUT', null)
+    expect(control.queriedTables).toEqual([])
+    await waitFor(() => expect(screen.getByTestId('name')).toBeEmptyDOMElement())
   })
 })

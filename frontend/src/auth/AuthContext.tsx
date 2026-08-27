@@ -84,10 +84,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      if (session?.user) {
-        loadProfileAndRoles(session.user.id)
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      if (nextSession?.user) {
+        const userId = nextSession.user.id
+        // This callback runs while supabase-js holds the lock for the
+        // sign-in that triggered it, and every query below needs that same
+        // lock to attach the access token. Supabase's own guidance is to
+        // make no Supabase call from inside this callback for exactly that
+        // reason: where the two do contend, the queries wait on the lock
+        // and the lock waits on the callback, and the sign-in promise
+        // never settles — no error, nothing failed, it simply never
+        // finishes. Deferring to a fresh task lets the lock go first.
+        setTimeout(() => {
+          void loadProfileAndRoles(userId).catch((err: unknown) => {
+            console.error('Could not load the profile:', err)
+          })
+        }, 0)
       } else {
         setProfile(null)
         setRoles([])
