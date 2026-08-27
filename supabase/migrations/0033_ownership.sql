@@ -196,7 +196,14 @@ begin
     return;
   end if;
 
-  update public.app_owner set user_id = transfer.to_user, since = now();
+  -- pg_safeupdate, which Supabase loads on the API roles, rejects an UPDATE
+  -- with no qualification. `where user_id is not null` is true of the single
+  -- row this table holds and lands in the plan as a Filter — `where true` is
+  -- folded away before the guard sees it, and a primary-key predicate
+  -- becomes an Index Cond rather than a qual.
+  update public.app_owner
+  set user_id = transfer.to_user, since = now()
+  where user_id is not null;
 
   -- Both ends hold Admin afterwards: the new owner needs it, and the old
   -- one keeps the access their work depends on.

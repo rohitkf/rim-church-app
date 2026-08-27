@@ -19,7 +19,7 @@ begin
       '0 0 * * 2', -- Tuesdays 00:00 UTC
       $job$
         delete from public.notifications where type = 'message';
-        delete from public.messages;
+        delete from public.messages where ctid is not null;
       $job$
     );
   else
