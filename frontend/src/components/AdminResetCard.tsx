@@ -9,12 +9,16 @@ type Mode = 'activity' | 'everything'
 const CONFIRM_PHRASE = 'RESET'
 
 /**
- * Admin-only escape hatch for trying the app out: clear the data and
- * start again. Two levels, because "start fresh" usually means either
- * "clear what we did" or "clear everything including the setup".
+ * The owner's escape hatch for trying the app out: clear the data and start
+ * again. Two levels, because "start fresh" usually means either "clear what
+ * we did" or "clear everything including the setup".
+ *
+ * Not an Admin's. Admin is a job several people hold and is handed out
+ * freely; the one irreversible button in the app belongs with ownership,
+ * which is held by a single account on purpose.
  */
 export function AdminResetCard() {
-  const { isAdmin } = useAuth()
+  const { isSuperAdmin } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<Mode | null>(null)
@@ -45,7 +49,7 @@ export function AdminResetCard() {
     onError: (err: unknown) => setError(errorText(err, 'Could not reset the data.')),
   })
 
-  if (!isAdmin) return null
+  if (!isSuperAdmin) return null
 
   const needsPhrase = mode === 'everything'
   const canConfirm = !needsPhrase || typed.trim().toUpperCase() === CONFIRM_PHRASE
@@ -54,7 +58,8 @@ export function AdminResetCard() {
     <section className="mt-10 max-w-xl rounded-lg border border-error/40 bg-error-container/30 p-6">
       <h2 className="text-headline-md">Reset app data</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
-        For trying features out on a clean slate. This deletes real records and can't be undone.
+        For trying features out on a clean slate. This deletes real records and can't be undone —
+        it is the owner's alone, not every Admin's.
       </p>
 
       {done && (
