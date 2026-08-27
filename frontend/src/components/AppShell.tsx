@@ -19,6 +19,7 @@ import {
 } from './icons'
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
+import { ThemeToggle } from './ThemeToggle'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import type { ComponentType, SVGProps } from 'react'
 
@@ -178,6 +179,7 @@ export function AppShell() {
             />
           </label>
           <div className="flex items-center gap-2 text-on-surface-variant">
+            <ThemeToggle />
             <NotificationsBell />
             <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />
           </div>
