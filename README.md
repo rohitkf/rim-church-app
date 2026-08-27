@@ -264,6 +264,49 @@ Railway work the same way).
 your real Vercel URL (including any preview-deployment domains you want
 to allow), then redeploy the backend.
 
+## Installing it as an app (PWA)
+
+The frontend is an installable progressive web app, so a volunteer can put
+it on a phone's home screen and use it like a native app rather than as a
+bookmark.
+
+**What's in the box**
+
+- `frontend/public/manifest.webmanifest` — name, standalone display, theme
+  colours and shortcuts straight to Checklists, Availability, Rota and
+  Messages.
+- `frontend/public/sw.js` — a hand-written service worker. It caches the
+  app shell and the hashed build assets and *nothing else*: every Supabase
+  call goes to the network untouched, because a cache that served one
+  volunteer another's rota would be worse than having no offline support.
+- `frontend/public/offline.html` — shown only when a page has never been
+  opened on that device.
+- `scripts/generate_icons.py` — the icons are
+  generated from geometry rather than committed as opaque binaries. Re-run
+  `python3 scripts/generate_icons.py` after changing the brand colour.
+
+**Installing**
+
+- *Android / Chrome / Edge* — the browser offers it, and there's an
+  "Install app" entry in the avatar menu.
+- *iOS / Safari* — Apple has no install prompt; the same menu explains the
+  Share → "Add to Home Screen" gesture.
+
+**Offline behaviour.** Pages you've already opened keep working without a
+connection and a banner says so; anything that writes will fail until
+you're back, which the banner also says. Offline *editing* is deliberately
+not supported — queued writes against a permissions model this granular
+would need conflict resolution nobody has specified.
+
+**Shipping an update.** Deploys are picked up automatically: the worker
+notices the new build, and the app offers a "Reload" rather than swapping
+the page out from under someone mid-edit. If you ever need to invalidate
+every cache at once, bump `CACHE_VERSION` in `sw.js`.
+
+`sw.js` and the manifest must never be served with a long cache lifetime —
+a bad worker would pin itself onto every installed device. Both
+`vercel.json` and `nginx.conf` set `max-age=0, must-revalidate` for them.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +
@@ -286,6 +329,7 @@ validates `docker-compose.yml`.
 | 7 | Inventory | ✅ |
 | 8 | Message board + notifications | ✅ |
 | 9 | AI assistant | ✅ built, **disabled in the UI** until the backend is deployed — see AI Assistant section above |
+| — | Installable PWA + mobile layout | ✅ |
 
 ## Not yet done for a real production deployment
 

@@ -27,10 +27,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-lg border border-border-subtle bg-surface-lowest p-8">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-on-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
             <span className="font-mono text-label-md">RIM</span>
           </div>
           <div className="text-headline-md">Rehoboth International Ministries</div>

@@ -164,6 +164,12 @@ body,
   height: 100%;
 }
 
+html {
+  /* Stops iOS inflating text in landscape, which breaks the type scale. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -171,6 +177,28 @@ body {
   color: var(--color-on-background);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /*
+   * Installed on a phone, the app should feel like an app: no rubber-band
+   * overscroll revealing the browser's chrome behind it, no grey flash
+   * where a finger lands, and no 300ms wait on every tap while the browser
+   * decides whether a double-tap was coming.
+   */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/*
+ * Controls under 16px make iOS Safari zoom the whole page on focus, which
+ * then leaves the layout scrolled sideways. Setting the floor here is
+ * cheaper than auditing every input in the app.
+ */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 /*

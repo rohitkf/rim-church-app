@@ -225,3 +225,13 @@ export function LogOutIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function MenuIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  )
+}

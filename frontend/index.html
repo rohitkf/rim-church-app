@@ -3,7 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the app paint into the notch and home-bar
+         areas on iOS; the shell pads itself back out with env(safe-area-*). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <!-- Installed app -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="application-name" content="RIM" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="RIM" />
+    <!-- The status bar tints itself from theme-color on Android and from
+         the page behind it on iOS, so both follow the user's theme. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8f9ff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0d" />
+    <meta
+      name="description"
+      content="Service planning, rotas, checklists and team coordination for Rehoboth International Ministries."
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

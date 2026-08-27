@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTheme } from '../lib/useTheme'
 import type { ThemePreference } from '../lib/theme'
 import { SettingsIcon, UserCircleIcon } from './icons'
+import { InstallAppButton } from './PwaBanners'
 
 const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -94,6 +95,10 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               ))}
             </div>
           </div>
+
+          {/* Only renders where an install is actually on offer, so the
+              menu doesn't carry a dead entry on desktop or once installed. */}
+          <InstallAppButton />
 
           <Link to="/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />

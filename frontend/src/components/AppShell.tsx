@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -8,6 +8,7 @@ import {
   ChecklistIcon,
   ClipboardUserIcon,
   GridIcon,
+  MenuIcon,
   IdCardIcon,
   HelpCircleIcon,
   MessageIcon,
@@ -20,6 +21,7 @@ import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
+import { PwaBanners } from './PwaBanners'
 import type { ComponentType, SVGProps } from 'react'
 
 interface NavItem {
@@ -70,14 +72,49 @@ export function AppShell() {
   const { profile, roles, isAdmin, signOut } = useAuth()
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  // Below lg the sidebar is a drawer over the page rather than a column
+  // beside it — 280px of permanent navigation leaves nothing of a phone.
+  // Following a link is the end of navigating, so every link in the drawer
+  // closes it rather than leaving it over the page you just asked for.
+  const [navOpen, setNavOpen] = useState(false)
+  const closeNav = () => setNavOpen(false)
+
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    // The page behind a drawer must not scroll with it.
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [navOpen])
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
     : ''
 
   return (
-    <div className="flex min-h-screen bg-background text-on-background">
-      <aside className="flex w-[280px] shrink-0 flex-col border-r border-black/5 bg-surface-lowest/80 px-4 py-6 backdrop-blur-xl dark:border-white/8">
+    <div className="flex min-h-[100svh] bg-background text-on-background">
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
+      <aside
+        id="app-navigation"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-black/5 bg-surface-lowest pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-4 pt-[calc(1.5rem+env(safe-area-inset-top))] transition-transform duration-300 ease-[var(--ease-glide)] lg:static lg:translate-x-0 lg:bg-surface-lowest/80 lg:pb-6 lg:pt-6 lg:backdrop-blur-xl dark:border-white/8 ${
+          navOpen ? 'translate-x-0 shadow-[var(--shadow-lifted)]' : '-translate-x-full'
+        }`}
+      >
         <div className="mb-8 flex items-center gap-3 px-2">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary shadow-[var(--shadow-ambient)] ring-1 ring-inset ring-white/15">
             <span className="font-mono text-label-md">RIM</span>
@@ -93,6 +130,7 @@ export function AppShell() {
         {isAdmin && (
           <NavLink
             to="/service-planner?new=1"
+            onClick={closeNav}
             className="group/cta mb-6 flex items-center justify-between gap-2 rounded-full bg-primary py-2.5 pl-5 pr-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] ring-1 ring-inset ring-white/15 transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98]"
           >
             New service
@@ -126,6 +164,7 @@ export function AppShell() {
                 key={item.to}
                 to={item.to}
                 end={item.to === '/'}
+                onClick={closeNav}
                 className={({ isActive }) =>
                   [
                     'group/nav relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-body-md transition-all duration-500 ease-[var(--ease-glide)]',
@@ -170,18 +209,30 @@ export function AppShell() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/5 bg-surface-lowest/75 px-8 py-4 backdrop-blur-xl dark:border-white/8">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-black/5 bg-surface-lowest/75 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-xl lg:justify-between lg:px-8 lg:pb-4 lg:pt-4 dark:border-white/8">
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+            aria-controls="app-navigation"
+            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface lg:hidden"
+          >
+            <MenuIcon />
+          </button>
           <GlobalSearch />
-          <div className="flex items-center gap-2 text-on-surface-variant">
+          <div className="flex shrink-0 items-center gap-1 text-on-surface-variant sm:gap-2">
             <ThemeToggle />
             <NotificationsBell />
             <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-8 py-10">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:px-8 lg:pb-10 lg:pt-10">
           <Outlet />
         </main>
       </div>
+
+      <PwaBanners />
 
       {confirmSignOut && (
         <div
