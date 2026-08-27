@@ -127,6 +127,13 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+export const departmentRoleSchema = z.object({
+  id: z.string(),
+  department_id: z.string(),
+  name: z.string(),
+})
+export type DepartmentRole = z.infer<typeof departmentRoleSchema>
+
 export const rotaAssignmentSchema = z.object({
   id: z.string(),
   service_id: z.string(),

@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import {
   availabilityRowSchema,
   departmentMemberRowSchema,
+  departmentRoleSchema,
   departmentSchema,
   serviceSchema,
   serviceTemplateSchema,
@@ -10,6 +11,7 @@ import {
   type AvailabilityRow,
   type Department,
   type DepartmentMemberRow,
+  type DepartmentRole,
   type Service,
   type ServiceTemplate,
   type TemplateSession,
@@ -41,6 +43,18 @@ export async function fetchMembersForDepartments(departmentIds: string[]): Promi
     .in('department_id', departmentIds)
   if (error) throw error
   return z.array(departmentMemberRowSchema).parse(data)
+}
+
+/** The roles a set of departments fill, for the rota's role pickers. */
+export async function fetchDepartmentRoles(departmentIds: string[]): Promise<DepartmentRole[]> {
+  if (departmentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('department_roles')
+    .select('id, department_id, name')
+    .in('department_id', departmentIds)
+    .order('name')
+  if (error) throw error
+  return z.array(departmentRoleSchema).parse(data)
 }
 
 /** Availability answers for several services at once. */

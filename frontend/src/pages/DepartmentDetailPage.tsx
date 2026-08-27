@@ -8,6 +8,7 @@ import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
+import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -347,6 +348,8 @@ export function DepartmentDetailPage() {
               <p className="mt-2 rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{addError}</p>
             )}
           </section>
+
+          {id && <DepartmentRolesCard departmentId={id} canManage={canManage} />}
 
           <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
             <h2 className="text-headline-md">Guest List</h2>

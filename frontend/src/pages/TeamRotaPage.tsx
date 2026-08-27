@@ -4,7 +4,14 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { fetchDepartments, fetchMembersForDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
+import { Link } from 'react-router-dom'
+import {
+  fetchDepartmentRoles,
+  fetchDepartments,
+  fetchMembersForDepartments,
+  fetchOwnDepartmentIds,
+  fetchServices,
+} from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
@@ -91,6 +98,11 @@ export function TeamRotaPage() {
   const membersQuery = useQuery({
     queryKey: ['rota-members', myDepartmentIds],
     queryFn: () => fetchMembersForDepartments(myDepartmentIds),
+    enabled: myDepartmentIds.length > 0,
+  })
+  const rolesQuery = useQuery({
+    queryKey: ['department-roles', myDepartmentIds],
+    queryFn: () => fetchDepartmentRoles(myDepartmentIds),
     enabled: myDepartmentIds.length > 0,
   })
 
@@ -285,6 +297,7 @@ export function TeamRotaPage() {
                       const roster = (membersQuery.data ?? []).filter(
                         (m) => m.department_id === dept.id && m.member_type === 'core',
                       )
+                      const deptRoles = (rolesQuery.data ?? []).filter((r) => r.department_id === dept.id)
 
                       const chosenPerson = draftPerson[key] ?? ''
                       // A conflict is the same person already holding a role
@@ -349,7 +362,17 @@ export function TeamRotaPage() {
                             </ul>
                           )}
 
-                          {manage && (
+                          {manage && deptRoles.length === 0 && (
+                            <p className="mt-3 text-body-sm text-on-surface-variant">
+                              No roles defined for this team yet — add them under{' '}
+                              <Link to={`/departments/${dept.id}`} className="text-secondary">
+                                Teams → {dept.name} → Roles
+                              </Link>
+                              .
+                            </p>
+                          )}
+
+                          {manage && deptRoles.length > 0 && (
                             <form
                               onSubmit={(e: FormEvent) => {
                                 e.preventDefault()
@@ -366,12 +389,18 @@ export function TeamRotaPage() {
                             >
                               <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
                                 Role
-                                <input
+                                <select
                                   value={draftRole[key] ?? ''}
                                   onChange={(e) => setDraftRole((s) => ({ ...s, [key]: e.target.value }))}
-                                  placeholder="Cameraman, Usher…"
                                   className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface"
-                                />
+                                >
+                                  <option value="">Select…</option>
+                                  {deptRoles.map((r) => (
+                                    <option key={r.id} value={r.name}>
+                                      {r.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </label>
                               <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
                                 Person
