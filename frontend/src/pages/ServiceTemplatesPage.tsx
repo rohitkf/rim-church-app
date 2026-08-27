@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
+import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
+import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { ServiceTemplate } from '../lib/types'
 
 interface SessionDraft {
@@ -31,8 +33,14 @@ export function ServiceTemplatesPage() {
   const [startTime, setStartTime] = useState('10:00')
   const [drafts, setDrafts] = useState<SessionDraft[]>([{ ...emptyDraft }])
   const [formError, setFormError] = useState<string | null>(null)
+  // What the form looked like when it was last loaded or saved — anything
+  // that differs from this is an unsaved edit worth warning about.
+  const [baseline, setBaseline] = useState<TemplateFormState>({ name: '', startTime: '10:00', sessions: [] })
 
   const templatesQuery = useQuery({ queryKey: ['service-templates'], queryFn: fetchServiceTemplates })
+
+  const isDirty = isTemplateFormDirty({ name, startTime, sessions: drafts }, baseline)
+  const { blocker } = useUnsavedChangesGuard(isDirty)
 
   function resetForm() {
     setEditingId(null)
@@ -40,6 +48,7 @@ export function ServiceTemplatesPage() {
     setStartTime('10:00')
     setDrafts([{ ...emptyDraft }])
     setFormError(null)
+    setBaseline({ name: '', startTime: '10:00', sessions: [] })
   }
 
   const saveTemplate = useMutation({
@@ -97,14 +106,15 @@ export function ServiceTemplatesPage() {
 
   async function startEditing(template: ServiceTemplate) {
     const sessions = await fetchTemplateSessions(template.id)
+    const loaded = sessions.map((s) => ({
+      session_name: s.session_name,
+      duration_minutes: s.duration_minutes,
+    }))
     setEditingId(template.id)
     setName(template.name)
     setStartTime(template.start_time.slice(0, 5))
-    setDrafts(
-      sessions.length > 0
-        ? sessions.map((s) => ({ session_name: s.session_name, duration_minutes: s.duration_minutes }))
-        : [{ ...emptyDraft }],
-    )
+    setDrafts(loaded.length > 0 ? loaded : [{ ...emptyDraft }])
+    setBaseline({ name: template.name, startTime: template.start_time.slice(0, 5), sessions: loaded })
     setFormError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -267,6 +277,11 @@ export function ServiceTemplatesPage() {
           </ul>
         </QueryState>
       </section>
+
+      <UnsavedChangesDialog
+        blocker={blocker}
+        message="This template hasn’t been saved yet. Leaving now discards it."
+      />
     </div>
   )
 }

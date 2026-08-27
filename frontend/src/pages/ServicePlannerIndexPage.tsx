@@ -8,6 +8,8 @@ import { useAuth } from '../auth/AuthContext'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
+import { isNewServiceFormDirty } from '../lib/formDirty'
+import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { Service } from '../lib/types'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -30,6 +32,8 @@ export function ServicePlannerIndexPage() {
   // Tracks the last value WE wrote into the name field, so switching
   // templates keeps auto-filling until the admin types their own name.
   const lastAutoFilledName = useRef('')
+
+  const { blocker, allowNavigation } = useUnsavedChangesGuard(isNewServiceFormDirty(newDate, newType))
 
   function handleTemplateChange(id: string) {
     setTemplateId(id)
@@ -76,6 +80,9 @@ export function ServicePlannerIndexPage() {
       return created.id
     },
     onSuccess: (id) => {
+      // The form's contents just became a real service, so jumping into
+      // its planner isn't "leaving unsaved work" — don't warn about it.
+      allowNavigation()
       setNewDate('')
       setNewType('')
       setCreateError(null)
@@ -302,6 +309,11 @@ export function ServicePlannerIndexPage() {
           </section>
         )}
       </QueryState>
+
+      <UnsavedChangesDialog
+        blocker={blocker}
+        message="This service hasn’t been created yet. Leaving now discards what you’ve entered."
+      />
     </div>
   )
 }

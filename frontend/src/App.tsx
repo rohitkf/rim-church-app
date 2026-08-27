@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -47,39 +47,48 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// A data router (rather than <BrowserRouter>) is what makes useBlocker
+// available, which the unsaved-changes guard on the template and service
+// forms relies on to intercept an in-app navigation.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/departments" element={<DepartmentsPage />} />
+          <Route path="/departments/:id" element={<DepartmentDetailPage />} />
+          <Route path="/checklists" element={<ChecklistsIndexPage />} />
+          <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
+          <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
+          <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
+          <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
+          <Route path="/inventory" element={<InventoryIndexPage />} />
+          <Route path="/inventory/:id" element={<InventoryPage />} />
+          <Route path="/messages" element={<MessageBoardPage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Route>,
+  ),
+)
+
 function App() {
   if (!isSupabaseConfigured) {
     return <ConfigErrorPage />
   }
 
+  // AuthProvider sits outside the router: it uses no router hooks, only
+  // Supabase's session, so it doesn't need route context.
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppShell />}>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/departments" element={<DepartmentsPage />} />
-                  <Route path="/departments/:id" element={<DepartmentDetailPage />} />
-                  <Route path="/checklists" element={<ChecklistsIndexPage />} />
-                  <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
-                  <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
-                  <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
-                  <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
-                  <Route path="/inventory" element={<InventoryIndexPage />} />
-                  <Route path="/inventory/:id" element={<InventoryPage />} />
-                  <Route path="/messages" element={<MessageBoardPage />} />
-                </Route>
-              </Route>
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )
