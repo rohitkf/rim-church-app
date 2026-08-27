@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ManageTeamsCard } from '../components/ManageTeamsCard'
+import { TeamCardActions } from '../components/TeamCardActions'
 import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 
@@ -45,23 +46,33 @@ export function DepartmentsPage() {
         <QueryState isLoading={isLoading} error={error} isEmpty={data?.length === 0} emptyMessage="No teams yet.">
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data?.map((dept) => (
-              <li key={dept.id} className="rounded-lg border border-border-subtle bg-surface-lowest p-5">
-                <Link to={`/departments/${dept.id}`} className="block hover:text-secondary">
-                  <div className="flex items-center gap-2">
+              <li
+                key={dept.id}
+                className="flex flex-col rounded-lg border border-border-subtle bg-surface-lowest p-5"
+              >
+                <Link to={`/departments/${dept.id}`} className="group block">
+                  <div className="flex items-start gap-2">
                     <span
-                      className="h-3 w-3 shrink-0 rounded-full"
+                      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
                     />
-                    <span className="text-headline-md">{dept.name}</span>
+                    <span className="text-headline-md leading-tight group-hover:text-secondary">
+                      {dept.name}
+                    </span>
                   </div>
-                  <div className="mt-1 text-body-sm text-on-surface-variant">
+                  <p className="mt-1.5 text-body-sm text-on-surface-variant">
                     {dept.handbook_url ? 'Handbook on file' : 'No handbook uploaded'}
-                  </div>
+                  </p>
                 </Link>
                 {dept.is_service_flow && (
-                  <p className="mt-2 text-label-sm text-on-surface-variant">
-                    Gives the final checklist sign-off
+                  <p className="mt-3 self-start rounded-full bg-secondary/10 px-2.5 py-0.5 text-label-sm text-secondary">
+                    Signs checklists off
                   </p>
+                )}
+                {isAdmin && (
+                  <div className="mt-4 flex flex-1 flex-col justify-end">
+                    <TeamCardActions dept={dept} />
+                  </div>
                 )}
               </li>
             ))}
