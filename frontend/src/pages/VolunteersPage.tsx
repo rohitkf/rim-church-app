@@ -179,7 +179,7 @@ export function VolunteersPage() {
     })
     .filter((g) => g.people.length > 0)
 
-  const onNoTeam = volunteers.filter(
+  const unattached = volunteers.filter(
     (v) =>
       !memberships.some((m) => m.user_id === v.id) &&
       !grants.some(
@@ -188,6 +188,15 @@ export function VolunteersPage() {
           (g.role_type === 'department_head' || g.role_type === 'assisting_head'),
       ),
   )
+
+  // An Admin on no team isn't a volunteer waiting to be placed — they run
+  // the church's account. Filing them under "Not on a team yet" read as an
+  // oversight to be corrected, so they get their own heading. Ownership
+  // carries Admin whether or not a grant row says so.
+  const holdsAppWideAdmin = (v: Volunteer) =>
+    v.id === ownerId || grants.some((g) => g.user_id === v.id && g.role_type === 'admin')
+  const adminsOnNoTeam = unattached.filter(holdsAppWideAdmin)
+  const onNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v))
 
   /** One person's card. The signed-in user's own is tinted and pinned at
    *  the top, and appears again under each team they're on. */
@@ -429,6 +438,20 @@ export function VolunteersPage() {
               </ul>
             </section>
           ))}
+
+          {adminsOnNoTeam.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+                <h2 className="text-headline-md">Admins</h2>
+                <span className="font-mono text-label-sm text-on-surface-variant">
+                  {adminsOnNoTeam.length}
+                </span>
+              </div>
+              <ul className="mt-4 flex flex-col gap-4">
+                {adminsOnNoTeam.map((v) => renderCard(v, v.id === me?.id))}
+              </ul>
+            </section>
+          )}
 
           {onNoTeam.length > 0 && (
             <section>
