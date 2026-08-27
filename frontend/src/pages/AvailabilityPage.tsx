@@ -80,17 +80,21 @@ export function AvailabilityPage() {
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
-  // Teams to answer for: the ones you belong to, plus any you lead.
+  // Teams shown here: the ones you belong to or lead. Admins get every
+  // team, so the check-ins they can record match the teams the dashboard
+  // counts — otherwise a team they aren't a member of would sit forever
+  // as "still to check in" with no way to resolve it.
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
+    if (isAdmin) return all
     const mine = new Set(ownDeptsQuery.data ?? [])
     return all.filter(
       (d) => mine.has(d.id) || hasRole('department_head', { departmentId: d.id }) || hasRole('assisting_head', { departmentId: d.id }),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, hasRole])
+  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, hasRole])
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', upcomingIds],
+    queryKey: ['availability', 'tracker', upcomingIds],
     queryFn: () => fetchAvailability(upcomingIds),
     enabled: upcomingIds.length > 0,
   })
@@ -132,7 +136,7 @@ export function AvailabilityPage() {
       )
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability', upcomingIds] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
   })
 
   // The head confirms, on the day, whether each person who said yes
@@ -143,7 +147,7 @@ export function AvailabilityPage() {
       const { error } = await supabase.from('availability').update({ attended }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability', upcomingIds] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
   })
 
   const myAnswer = (serviceId: string, departmentId: string) =>

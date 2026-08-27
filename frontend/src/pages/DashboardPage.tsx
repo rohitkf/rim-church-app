@@ -137,7 +137,7 @@ export function DashboardPage() {
   // sees their own teams here and an Admin sees all of them.
   const allDeptIds = useMemo(() => (departmentsQuery.data ?? []).map((d) => d.id), [departmentsQuery.data])
   const availabilityQuery = useQuery({
-    queryKey: ['dashboard-availability', dayServiceIds],
+    queryKey: ['availability', 'dashboard', dayServiceIds],
     queryFn: () => fetchAvailabilityFor(dayServiceIds),
     enabled: dayServiceIds.length > 0,
   })
@@ -327,13 +327,56 @@ export function DashboardPage() {
                     </Link>
                   </header>
 
-                  {/* Three separate readings of the same service. The gap-px
-                      over a tinted parent draws a hairline between panels so
-                      they read as distinct blocks rather than one long column. */}
-                  <div className="grid grid-cols-1 gap-px bg-border-subtle lg:grid-cols-3">
+                  {/* Estimate and outcome sit side by side so they can be
+                      read against each other; the checklist is a separate
+                      concern and gets its own full-width row below. The
+                      gap-px over a tinted parent draws the hairlines. */}
+                  <div className="grid grid-cols-1 gap-px bg-border-subtle sm:grid-cols-2">
                     <div className="bg-surface-lowest p-6">
                       <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Attendance
+                        Availability · estimate
+                      </div>
+                      {availabilityTeams.length === 0 ? (
+                        <p className="mt-3 text-body-sm text-on-surface-variant">No teams to report on.</p>
+                      ) : (
+                        <>
+                          <div className="mt-3 flex items-baseline gap-2">
+                            <span className="text-headline-lg">{overallAvailability.pct}%</span>
+                            <span className="font-mono text-label-sm text-on-surface-variant">
+                              {overallAvailability.available} of {overallAvailability.total} available
+                            </span>
+                          </div>
+                          <div className="mt-2">
+                            <AvailabilityBar summary={overallAvailability} label="All teams" />
+                          </div>
+
+                          <ul className="mt-4 divide-y divide-border-subtle">
+                            {availabilityTeams.map(({ dept, summary }) => (
+                              <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
+                                <div className="flex items-center justify-between gap-2 text-body-sm">
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                                    />
+                                    <span className="truncate text-on-surface">{dept.name}</span>
+                                  </span>
+                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                    {summary.pct}% · {summary.available}/{summary.total}
+                                  </span>
+                                </div>
+                                <div className="mt-1.5">
+                                  <AvailabilityBar summary={summary} label={dept.name} />
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                    <div className="bg-surface-lowest p-6">
+                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        Attendance · actual
                       </div>
                       <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-headline-lg">
@@ -375,103 +418,60 @@ export function DashboardPage() {
                         </ul>
                       )}
                     </div>
-
-                    <div className="bg-surface-lowest p-6">
-                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Checklist readiness
-                      </div>
-                      <div className="mt-3">
-                        <SegmentedProgressBar
-                          total={counts.total}
-                          memberComplete={counts.memberComplete}
-                          headVerified={counts.headVerified}
-                          coordinatorVerified={counts.coordinatorVerified}
-                        />
-                      </div>
-
-                      {deptIds.length === 0 ? (
-                        <p className="mt-4 text-body-sm text-on-surface-variant">No checklists yet.</p>
-                      ) : (
-                        <ul className="mt-4 divide-y divide-border-subtle">
-                          {deptIds.map((deptId) => {
-                            const deptItems = serviceItems.filter(
-                              (i) => checklistById.get(i.checklist_id)?.department_id === deptId,
-                            )
-                            const done = deptItems.filter((i) => i.status !== 'pending').length
-                            return (
-                              <li key={deptId} className="py-3 first:pt-0 last:pb-0">
-                                <div className="flex items-center justify-between gap-2 text-body-sm">
-                                  <Link
-                                    to={`/checklists/${deptId}/${service.id}`}
-                                    className="truncate text-on-surface hover:text-secondary"
-                                  >
-                                    {departmentName(deptId)}
-                                  </Link>
-                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                    {done}/{deptItems.length} tasks
-                                  </span>
-                                </div>
-                                <div className="mt-1.5">
-                                  <SegmentedProgressBar
-                                    showLegend={false}
-                                    total={deptItems.length}
-                                    memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
-                                    headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
-                                    coordinatorVerified={
-                                      deptItems.filter((i) => i.status === 'coordinator_verified').length
-                                    }
-                                  />
-                                </div>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
-                    </div>
-
-                    <div className="bg-surface-lowest p-6">
-                      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Availability
-                      </div>
-                      {availabilityTeams.length === 0 ? (
-                        <p className="mt-3 text-body-sm text-on-surface-variant">No teams to report on.</p>
-                      ) : (
-                        <>
-                          <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-headline-lg">{overallAvailability.pct}%</span>
-                            <span className="font-mono text-label-sm text-on-surface-variant">
-                              {overallAvailability.available} of {overallAvailability.total} available
-                            </span>
-                          </div>
-                          <div className="mt-2">
-                            <AvailabilityBar summary={overallAvailability} label="All teams" />
-                          </div>
-
-                          <ul className="mt-4 divide-y divide-border-subtle">
-                            {availabilityTeams.map(({ dept, summary }) => (
-                              <li key={dept.id} className="py-3 first:pt-0 last:pb-0">
-                                <div className="flex items-center justify-between gap-2 text-body-sm">
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <span
-                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                                    />
-                                    <span className="truncate text-on-surface">{dept.name}</span>
-                                  </span>
-                                  <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
-                                    {summary.pct}% · {summary.available}/{summary.total}
-                                  </span>
-                                </div>
-                                <div className="mt-1.5">
-                                  <AvailabilityBar summary={summary} label={dept.name} />
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                    </div>
                   </div>
+
+                  <div className="border-t border-border-subtle bg-surface-lowest p-6">
+                    <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                      Checklist readiness
+                    </div>
+                    <div className="mt-3">
+                      <SegmentedProgressBar
+                        total={counts.total}
+                        memberComplete={counts.memberComplete}
+                        headVerified={counts.headVerified}
+                        coordinatorVerified={counts.coordinatorVerified}
+                      />
+                    </div>
+
+                    {deptIds.length === 0 ? (
+                      <p className="mt-4 text-body-sm text-on-surface-variant">No checklists yet.</p>
+                    ) : (
+                      <ul className="mt-4 divide-y divide-border-subtle">
+                        {deptIds.map((deptId) => {
+                          const deptItems = serviceItems.filter(
+                            (i) => checklistById.get(i.checklist_id)?.department_id === deptId,
+                          )
+                          const done = deptItems.filter((i) => i.status !== 'pending').length
+                          return (
+                            <li key={deptId} className="py-3 first:pt-0 last:pb-0">
+                              <div className="flex items-center justify-between gap-2 text-body-sm">
+                                <Link
+                                  to={`/checklists/${deptId}/${service.id}`}
+                                  className="truncate text-on-surface hover:text-secondary"
+                                >
+                                  {departmentName(deptId)}
+                                </Link>
+                                <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                  {done}/{deptItems.length} tasks
+                                </span>
+                              </div>
+                              <div className="mt-1.5">
+                                <SegmentedProgressBar
+                                  showLegend={false}
+                                  total={deptItems.length}
+                                  memberComplete={deptItems.filter((i) => i.status === 'member_complete').length}
+                                  headVerified={deptItems.filter((i) => i.status === 'head_verified').length}
+                                  coordinatorVerified={
+                                    deptItems.filter((i) => i.status === 'coordinator_verified').length
+                                  }
+                                />
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                    </div>
                 </section>
               )
             })}
