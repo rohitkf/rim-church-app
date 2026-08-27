@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
+import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -98,23 +100,44 @@ export function DepartmentDetailPage() {
 
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
 
+  // Type-ahead over registered profiles: people rarely remember the exact
+  // address they signed up with, so match on name too and let them pick.
+  const [picked, setPicked] = useState<ProfileSearchResult | null>(null)
+  const searchTerm = useDebouncedValue(addEmail.trim(), 250)
+  const suggestionsQuery = useQuery({
+    queryKey: ['profile-search', searchTerm],
+    queryFn: () => searchProfiles(searchTerm),
+    enabled: canManage && searchTerm.length >= 2 && !picked,
+  })
+  const memberIdSet = useMemo(
+    () => new Set((membersQuery.data ?? []).map((m) => m.user_id)),
+    [membersQuery.data],
+  )
+  const suggestions = (suggestionsQuery.data ?? []).filter((p) => !memberIdSet.has(p.id))
+
   const addMember = useMutation({
     mutationFn: async ({ email, type }: { email: string; type: MemberType }) => {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle()
-      if (profileError) throw profileError
-      if (!profile) throw new Error('No registered user with that email.')
+      let userId = picked?.id ?? null
+
+      if (!userId) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+        if (profileError) throw profileError
+        if (!profile) throw new Error('No registered user matches that — pick someone from the suggestions.')
+        userId = profile.id
+      }
 
       const { error } = await supabase
         .from('department_members')
-        .insert({ department_id: id, user_id: profile.id, member_type: type })
+        .insert({ department_id: id, user_id: userId, member_type: type })
       if (error) throw error
     },
     onSuccess: () => {
       setAddEmail('')
+      setPicked(null)
       setAddError(null)
       queryClient.invalidateQueries({ queryKey: ['department-members', id] })
     },
@@ -245,16 +268,61 @@ export function DepartmentDetailPage() {
 
             {canManage && (
               <form onSubmit={handleAdd} className="mt-6 flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
-                <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-                  Add by email
-                  <input
-                    type="email"
-                    value={addEmail}
-                    onChange={(e) => setAddEmail(e.target.value)}
-                    placeholder="member@example.com"
-                    className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-                  />
-                </label>
+                <div className="relative flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
+                  <label className="flex flex-col gap-1">
+                    Add by name or email
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={addEmail}
+                      onChange={(e) => {
+                        setAddEmail(e.target.value)
+                        setPicked(null)
+                      }}
+                      placeholder="Start typing a name or email…"
+                      className="rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                    />
+                  </label>
+
+                  {picked && (
+                    <p className="text-label-sm text-secondary">
+                      Adding {picked.first_name} {picked.last_name}
+                    </p>
+                  )}
+
+                  {!picked && searchTerm.length >= 2 && (
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-sm border border-border-subtle bg-surface-lowest shadow-lg">
+                      {suggestionsQuery.isLoading ? (
+                        <p className="px-3 py-2 text-body-sm text-on-surface-variant">Searching…</p>
+                      ) : suggestions.length === 0 ? (
+                        <p className="px-3 py-2 text-body-sm text-on-surface-variant">
+                          No matching registered user.
+                        </p>
+                      ) : (
+                        <ul className="max-h-56 overflow-y-auto">
+                          {suggestions.map((p) => (
+                            <li key={p.id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPicked(p)
+                                  setAddEmail(p.email)
+                                  setAddError(null)
+                                }}
+                                className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-surface-container"
+                              >
+                                <span className="text-body-sm font-medium text-on-surface">
+                                  {p.first_name} {p.last_name}
+                                </span>
+                                <span className="text-label-sm text-on-surface-variant">{p.email}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
                   Type
                   <select

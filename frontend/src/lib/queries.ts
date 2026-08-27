@@ -27,6 +27,30 @@ export async function fetchServices(): Promise<Service[]> {
   return z.array(serviceSchema).parse(data)
 }
 
+export const profileSearchResultSchema = z.object({
+  id: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
+  email: z.string(),
+})
+export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>
+
+/** Registered people whose name or email contains `term`, for type-ahead. */
+export async function searchProfiles(term: string, limit = 8): Promise<ProfileSearchResult[]> {
+  const q = term.trim()
+  if (!q) return []
+  // Commas and parens would be read as PostgREST filter syntax inside or().
+  const safe = q.replace(/[,()]/g, ' ')
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, email')
+    .or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+    .order('first_name')
+    .limit(limit)
+  if (error) throw error
+  return z.array(profileSearchResultSchema).parse(data)
+}
+
 /** Department ids the user is a member of (core or guest). */
 export async function fetchOwnDepartmentIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase.from('department_members').select('department_id').eq('user_id', userId)
