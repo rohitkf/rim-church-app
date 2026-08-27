@@ -234,6 +234,18 @@ export const notificationRowSchema = z.object({
 })
 export type NotificationRow = z.infer<typeof notificationRowSchema>
 
+export const inventoryStatusSchema = z.enum([
+  'in_service',
+  'on_loan',
+  'in_repair',
+  'missing',
+  'retired',
+])
+export type InventoryStatus = z.infer<typeof inventoryStatusSchema>
+
+export const inventoryConditionSchema = z.enum(['good', 'fair', 'poor'])
+export type InventoryCondition = z.infer<typeof inventoryConditionSchema>
+
 export const inventoryItemSchema = z.object({
   id: z.string(),
   department_id: z.string(),
@@ -244,8 +256,53 @@ export const inventoryItemSchema = z.object({
   last_checked: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  // Added by the tracking migration; optional so the page still renders
+  // against a database that hasn't had it applied.
+  asset_tag: z.string().nullable().optional(),
+  kind: z.enum(['asset', 'consumable']).optional(),
+  category: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  serial_number: z.string().nullable().optional(),
+  item_status: inventoryStatusSchema.optional(),
+  item_condition: inventoryConditionSchema.optional(),
+  held_by: z.string().nullable().optional(),
+  checked_out_at: z.string().nullable().optional(),
+  due_back: z.string().nullable().optional(),
+  reorder_level: z.number().nullable().optional(),
+  last_audited_at: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  holder: z
+    .object({ id: z.string(), first_name: z.string(), last_name: z.string() })
+    .nullable()
+    .optional(),
 })
 export type InventoryItem = z.infer<typeof inventoryItemSchema>
+
+export const inventoryEventSchema = z.object({
+  id: z.string(),
+  item_id: z.string(),
+  at: z.string(),
+  actor_id: z.string().nullable(),
+  event_type: z.enum([
+    'created',
+    'checked_out',
+    'checked_in',
+    'quantity_adjusted',
+    'status_changed',
+    'moved',
+    'audited',
+    'note',
+  ]),
+  quantity_delta: z.number().nullable(),
+  from_value: z.string().nullable(),
+  to_value: z.string().nullable(),
+  note: z.string().nullable(),
+  actor: z
+    .object({ id: z.string(), first_name: z.string(), last_name: z.string() })
+    .nullable()
+    .optional(),
+})
+export type InventoryEvent = z.infer<typeof inventoryEventSchema>
 
 export const attendanceRowSchema = z.object({
   id: z.string(),
