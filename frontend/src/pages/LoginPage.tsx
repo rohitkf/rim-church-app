@@ -48,7 +48,12 @@ export function LoginPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Password
+            <span className="flex items-baseline justify-between gap-2">
+              Password
+              <Link to="/forgot-password" className="text-label-sm font-medium text-secondary">
+                Forgot password?
+              </Link>
+            </span>
             <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
           </label>
           {error && <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
