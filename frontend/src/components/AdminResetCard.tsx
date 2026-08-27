@@ -35,7 +35,7 @@ export function AdminResetCard() {
       setDone(
         which === 'everything'
           ? 'Everything cleared. You are the only account left.'
-          : 'Activity cleared. Teams, roles and people are untouched.',
+          : 'Activity cleared. Teams, roles, members, templates and inventory are untouched.',
       )
       // Nothing on screen survives this, so drop every cached query
       // rather than trying to work out which ones moved.
@@ -69,9 +69,9 @@ export function AdminResetCard() {
         <div className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
           <div className="font-medium text-on-surface">Clear activity</div>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            Services and their running orders, checklist progress, availability, rota, messages,
-            inventory and templates. Teams, roles and people stay, so you can test again straight
-            away.
+            Services and their running orders, rota, checklist progress, availability, attendance
+            and the message board. Teams, roles, members, service templates and inventory all stay,
+            so you can test again straight away.
           </p>
           <button
             onClick={() => {
@@ -88,8 +88,8 @@ export function AdminResetCard() {
         <div className="rounded-lg border border-border-subtle bg-surface-lowest p-4">
           <div className="font-medium text-on-surface">Clear everything</div>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            All of the above, plus every team with its roles and role checklists, and every other
-            account. Only your own account survives.
+            All of the above, plus every team with its roles, role checklists and members, plus
+            service templates, inventory, and every other account. Only your own account survives.
           </p>
           <button
             onClick={() => {
@@ -117,8 +117,8 @@ export function AdminResetCard() {
             </h3>
             <p className="mt-2 text-body-sm text-on-surface-variant">
               {mode === 'everything'
-                ? "This deletes every service, team, role, checklist and account except your own. There's no undo and no backup — anything you still need should be exported first."
-                : "This deletes every service and everything recorded against it, plus messages, inventory and templates. Teams, roles and people are left alone. There's no undo."}
+                ? "This deletes every service, team, role, checklist, template, inventory item and account except your own. There's no undo and no backup — anything you still need should be exported first."
+                : "This deletes every service and everything recorded against it, plus the message board. Teams, roles, members, templates and inventory are left alone. There's no undo."}
             </p>
 
             {needsPhrase && (

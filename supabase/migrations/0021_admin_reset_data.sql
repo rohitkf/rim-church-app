@@ -3,12 +3,14 @@
 -- ============================================================================
 -- Two levels, because "start fresh" usually means one of two things:
 --
---   activity only  — services and everything hanging off them, messages,
---                    availability, rota, inventory, templates. Teams,
---                    roles and people survive, so the next test starts
---                    with the setup already in place.
---   include setup  — the above plus teams, their roles and role
---                    checklists, and every other account.
+--   activity only  — services and everything hanging off them (running
+--                    orders, rota, checklist progress, availability,
+--                    attendance) plus the message board. Everything that
+--                    took setting up survives: teams, their roles and role
+--                    checklists, membership, service templates, inventory
+--                    and people — so the next test starts ready to go.
+--   include setup  — the above plus teams, roles, membership, templates,
+--                    inventory, and every other account.
 --
 -- The caller is never deleted: an Admin who wiped their own account would
 -- be left signed in to nothing, with no way back in and possibly no Admin
@@ -47,12 +49,12 @@ declare
     'department_call_times',
     'services',
     'messages',
-    'notifications',
-    'inventory_items',
-    'service_template_sessions',
-    'service_templates'
+    'notifications'
   ];
   setup_tables constant text[] := array[
+    'inventory_items',
+    'service_template_sessions',
+    'service_templates',
     'department_role_checklist_items',
     'department_roles',
     'department_members',
