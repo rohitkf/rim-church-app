@@ -142,6 +142,20 @@ export async function fetchOwnDepartmentIds(userId: string): Promise<string[]> {
     .map((r) => r.department_id)
 }
 
+/** Own memberships with their kind, for anywhere core and guest differ. */
+export async function fetchOwnMemberships(
+  userId: string,
+): Promise<{ department_id: string; member_type: 'core' | 'guest' }[]> {
+  const { data, error } = await supabase
+    .from('department_members')
+    .select('department_id, member_type')
+    .eq('user_id', userId)
+  if (error) throw error
+  return z
+    .array(z.object({ department_id: z.string(), member_type: z.enum(['core', 'guest']) }))
+    .parse(data)
+}
+
 export async function fetchServiceTemplates(): Promise<ServiceTemplate[]> {
   const { data, error } = await supabase.from('service_templates').select('*').order('name')
   if (error) throw error

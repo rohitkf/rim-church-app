@@ -8,7 +8,7 @@ import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
-import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
+import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { errorMessage } from '../lib/errorMessage'
 
 function BoardClearCountdown() {
@@ -85,18 +85,34 @@ export function MessageBoardPage() {
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: canPost })
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', session?.user.id],
-    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
+  const membershipsQuery = useQuery({
+    queryKey: ['own-memberships', session?.user.id],
+    queryFn: () => fetchOwnMemberships(session!.user.id),
     enabled: canPost && !!session,
   })
 
-  // Departments this user can post as: admins pick any; everyone else is
-  // limited to departments they belong to or head.
+  // What this person may put on a post: the teams they belong to (guest
+  // memberships included, marked as such), plus the team they head, plus
+  // "Admin" for Admins — an Admin speaks for the church, not for a team.
   const roleDeptIds = roles.map((r) => r.department_id).filter((id): id is string => !!id)
-  const ownDeptIds = new Set([...(ownDeptsQuery.data ?? []), ...roleDeptIds])
-  const postAsOptions = (departmentsQuery.data ?? []).filter((d) => isAdmin || ownDeptIds.has(d.id))
-  const defaultPostAs = postAsOptions.find((d) => ownDeptIds.has(d.id))?.id ?? null
+  const memberships = membershipsQuery.data ?? []
+  const guestDeptIds = new Set(
+    memberships.filter((m) => m.member_type === 'guest').map((m) => m.department_id),
+  )
+  const myDeptIds = new Set([...memberships.map((m) => m.department_id), ...roleDeptIds])
+  const departments = departmentsQuery.data ?? []
+
+  const postAsOptions = departments
+    .filter((d) => myDeptIds.has(d.id))
+    .map((d) => ({ id: d.id, label: guestDeptIds.has(d.id) ? `${d.name} (guest)` : d.name }))
+
+  // Admins default to posting as Admin; everyone else to a team they're a
+  // core member of, falling back to whatever else they can post as.
+  const defaultPostAs = isAdmin
+    ? ''
+    : (departments.find((d) => myDeptIds.has(d.id) && !guestDeptIds.has(d.id))?.id ??
+      postAsOptions[0]?.id ??
+      '')
   const effectivePostAs = postAsTouched ? postAsDeptId : defaultPostAs
 
   const postMessage = useMutation({
@@ -154,8 +170,8 @@ export function MessageBoardPage() {
     <div className="mx-auto max-w-2xl">
       <h1 className="text-headline-xl">Message Board</h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
-        Visible to everyone signed in. Only Admins, Department Heads, and Service Flow
-        Coordinators can post.
+        Visible to everyone signed in. Only Admins and Department Heads can post — a post carries
+        the badge of whoever it speaks for.
       </p>
 
       <BoardClearCountdown />
@@ -187,7 +203,7 @@ export function MessageBoardPage() {
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             {error && <p className="text-body-sm text-error">{error}</p>}
             <div className="ml-auto flex items-center gap-3">
-              {postAsOptions.length > 0 && (
+              {(postAsOptions.length > 0 || isAdmin) && (
                 <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
                   Post as
                   <select
@@ -198,10 +214,10 @@ export function MessageBoardPage() {
                     }}
                     className="rounded-sm border border-border-subtle px-2 py-1.5 text-body-sm text-on-surface"
                   >
-                    <option value="">No team badge</option>
-                    {postAsOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
+                    {isAdmin && <option value="">Admin</option>}
+                    {postAsOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
                       </option>
                     ))}
                   </select>
@@ -240,7 +256,15 @@ export function MessageBoardPage() {
                     <span className="font-medium text-on-surface">
                       {m.author ? `${m.author.first_name} ${m.author.last_name}` : 'Unknown'}
                     </span>
-                    {m.department && <DeptBadge name={m.department.name} color={m.department.color} />}
+                    {m.department ? (
+                      <DeptBadge name={m.department.name} color={m.department.color} />
+                    ) : (
+                      // Only an Admin may post without a team badge, so a
+                      // post with no team is one made as an Admin.
+                      <span className="rounded-full bg-primary px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-primary">
+                        Admin
+                      </span>
+                    )}
                   </span>
                   <span className="flex shrink-0 items-baseline gap-3">
                     <span className="font-mono text-label-sm text-on-surface-variant">
