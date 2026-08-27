@@ -195,6 +195,9 @@ export function VolunteersPage() {
     const myGrants = grants.filter((g) => g.user_id === v.id)
     const adminGrant = myGrants.find((g) => g.role_type === 'admin')
     const isOwner = v.id === ownerId
+    // Ownership carries Admin whether or not a grant row says so, so the
+    // owner never shows a "Make admin" button that would do nothing.
+    const holdsAdmin = !!adminGrant || isOwner
     const myMemberships = memberships.filter((m) => m.user_id === v.id)
     const core = myMemberships.filter((m) => m.member_type === 'core')
     const guest = myMemberships.filter((m) => m.member_type === 'guest')
@@ -232,7 +235,7 @@ export function VolunteersPage() {
                 Owner
               </span>
             )}
-            {adminGrant ? (
+            {holdsAdmin ? (
               <>
                 <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
                   Admin
@@ -240,12 +243,14 @@ export function VolunteersPage() {
                 {/* Taking Admin away is the owner's, or your own to give up.
                     One Admin removing another is how a disagreement becomes
                     a lockout, so the button simply isn't there. */}
-                {!isOwner && (isSuperAdmin || v.id === session?.user.id) && (
+                {/* Only the owner takes Admin away, and never their own —
+                    stepping yourself down is a door that locks behind you. */}
+                {isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
                   <button
                     onClick={() => revokeRole.mutate(adminGrant.id)}
                     className="text-body-sm text-error hover:underline"
                   >
-                    {v.id === session?.user.id ? 'Step down as admin' : 'Remove admin'}
+                    Remove admin
                   </button>
                 )}
                 {isSuperAdmin && !isOwner && (
@@ -268,7 +273,7 @@ export function VolunteersPage() {
                 Make admin
               </button>
             )}
-            {v.id !== session?.user.id && !isOwner && (!adminGrant || isSuperAdmin) && (
+            {v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin) && (
               <button
                 onClick={() => {
                   setError(null)
