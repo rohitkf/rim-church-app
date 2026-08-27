@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { todayIso } from '../lib/monthGrid'
 import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
+import { isMissingColumnError } from '../lib/missingColumn'
 
 const WINDOW_DAYS = 90
 
@@ -14,15 +15,30 @@ const personSchema = z.object({
   first_name: z.string(),
   last_name: z.string(),
   dob: z.string().nullable(),
-  anniversary: z.string().nullable(),
+  anniversary: z.string().nullable().optional(),
 })
 
-async function fetchPeople() {
-  const { data, error } = await supabase
+/**
+ * Everyone's dates. Anniversaries arrived in a later migration, so a
+ * database that hasn't had it applied yet still gets birthdays rather than
+ * an error page — with a line saying what is missing.
+ */
+async function fetchPeople(): Promise<{
+  people: z.infer<typeof personSchema>[]
+  anniversariesAvailable: boolean
+}> {
+  const withAnniversary = await supabase
     .from('profiles')
     .select('id, first_name, last_name, dob, anniversary')
+
+  if (!withAnniversary.error) {
+    return { people: z.array(personSchema).parse(withAnniversary.data), anniversariesAvailable: true }
+  }
+  if (!isMissingColumnError(withAnniversary.error, 'anniversary')) throw withAnniversary.error
+
+  const { data, error } = await supabase.from('profiles').select('id, first_name, last_name, dob')
   if (error) throw error
-  return z.array(personSchema).parse(data)
+  return { people: z.array(personSchema).parse(data), anniversariesAvailable: false }
 }
 
 const KIND = {
@@ -98,9 +114,10 @@ export function CelebrationsPage() {
   const peopleQuery = useQuery({ queryKey: ['celebration-people'], queryFn: fetchPeople })
 
   const occasions = useMemo(
-    () => upcomingCelebrations(peopleQuery.data ?? [], today, WINDOW_DAYS),
+    () => upcomingCelebrations(peopleQuery.data?.people ?? [], today, WINDOW_DAYS),
     [peopleQuery.data, today],
   )
+  const anniversariesAvailable = peopleQuery.data?.anniversariesAvailable ?? true
 
   const thisWeek = occasions.filter((o) => o.daysAway <= 7)
   const later = occasions.filter((o) => o.daysAway > 7)
@@ -112,6 +129,13 @@ export function CelebrationsPage() {
         Birthdays and wedding anniversaries over the next three months. Add or change your own dates
         on your profile.
       </p>
+
+      {!anniversariesAvailable && (
+        <p className="mt-4 rounded-sm bg-warning/10 px-3 py-2 text-body-sm text-on-surface">
+          Showing birthdays only — wedding anniversaries need one more database migration before
+          they can be recorded.
+        </p>
+      )}
 
       <QueryState
         isLoading={peopleQuery.isLoading}

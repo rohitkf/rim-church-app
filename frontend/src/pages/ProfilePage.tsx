@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { AdminResetCard } from '../components/AdminResetCard'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
+import { isMissingColumnError } from '../lib/missingColumn'
 
 const inputClasses =
   'rounded-sm border border-border-subtle px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
@@ -55,17 +56,25 @@ export function ProfilePage() {
     setSaving(true)
     setMessage(null)
 
-    const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
-      supabase
+    // Anniversary arrived in a later migration. If the database hasn't had
+    // it applied yet, save everything else rather than losing the edit.
+    const core = {
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone || null,
+      dob: dob || null,
+    }
+    const saveProfile = async () => {
+      const withAnniversary = await supabase
         .from('profiles')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          phone: phone || null,
-          dob: dob || null,
-          anniversary: anniversary || null,
-        })
-        .eq('id', profile!.id),
+        .update({ ...core, anniversary: anniversary || null })
+        .eq('id', profile!.id)
+      if (!isMissingColumnError(withAnniversary.error, 'anniversary')) return withAnniversary
+      return supabase.from('profiles').update(core).eq('id', profile!.id)
+    }
+
+    const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
+      saveProfile(),
       sensitive
         ? supabase
             .from('profile_sensitive')
@@ -122,7 +131,8 @@ export function ProfilePage() {
             className={inputClasses}
           />
           <span className="font-mono text-label-sm text-on-surface-variant">
-            Optional. Shown to everyone on the Celebrations page, like your birthday.
+            Optional — leave it blank if it doesn't apply. Shown to everyone on the Celebrations
+            page, like your birthday.
           </span>
         </label>
 
