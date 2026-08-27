@@ -65,12 +65,17 @@ export function ServicePlannerPage() {
       if (error) throw error
     },
     onSuccess: invalidate,
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not save that change.'),
   })
 
   const addSession = useMutation({
     mutationFn: async () => {
-      const sessions = sessionsQuery.data ?? []
-      const last = sessions[sessions.length - 1]
+      // Read the tail of the list from the database rather than the cached
+      // copy: if the cache were stale, the computed order_index would
+      // already be taken and the insert would fail its unique constraint.
+      const current = await fetchSessions(serviceId!)
+      const last = current[current.length - 1]
       const nextOrderIndex = (last?.order_index ?? 0) + 1
       const startTime = last
         ? addMinutesIso(last.start_time, last.duration_minutes)
@@ -85,7 +90,15 @@ export function ServicePlannerPage() {
       })
       if (error) throw error
     },
-    onSuccess: invalidate,
+    // Returning the promise keeps the button in its "Adding…" state until
+    // the refreshed list is actually in hand, so the new row is on screen
+    // the moment the button reads normally again.
+    onSuccess: () => {
+      setServiceError(null)
+      return invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not add the session.'),
   })
 
   const deleteSession = useMutation({
@@ -110,7 +123,12 @@ export function ServicePlannerPage() {
         cursor = addMinutesIso(newStart, s.duration_minutes)
       }
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      setServiceError(null)
+      return invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(err instanceof Error ? err.message : 'Could not delete the session.'),
   })
 
   const sessions = sessionsQuery.data ?? []
