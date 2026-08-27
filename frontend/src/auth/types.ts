@@ -21,6 +21,7 @@ export const profileSchema = z.object({
   first_name: z.string(),
   last_name: z.string(),
   dob: z.string().nullable(),
+  anniversary: z.string().nullable().optional(),
   email: z.string(),
   phone: z.string().nullable(),
   avatar_url: z.string().nullable(),

@@ -67,6 +67,18 @@ export function IdCardIcon(props: IconProps) {
   )
 }
 
+export function CakeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 6V4" />
+      <path d="M4 21v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6" />
+      <path d="M4 17c1.6 0 1.6-1.5 3.2-1.5S8.8 17 10.4 17s1.6-1.5 3.2-1.5S15.2 17 16.8 17s1.6-1.5 3.2-1.5" />
+      <path d="M3 21h18" />
+      <path d="M12 4a1.5 1.5 0 1 0-1.5-1.5c0 .8 1.5 1.5 1.5 1.5Z" />
+    </svg>
+  )
+}
+
 export function ClipboardUserIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

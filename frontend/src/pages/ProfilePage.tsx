@@ -14,6 +14,7 @@ export function ProfilePage() {
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')
+  const [anniversary, setAnniversary] = useState('')
   const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -24,6 +25,7 @@ export function ProfilePage() {
     setLastName(profile.last_name)
     setPhone(profile.phone ?? '')
     setDob(profile.dob ?? '')
+    setAnniversary(profile.anniversary ?? '')
   }, [profile])
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export function ProfilePage() {
           last_name: lastName,
           phone: phone || null,
           dob: dob || null,
+          anniversary: anniversary || null,
         })
         .eq('id', profile!.id),
       sensitive
@@ -109,6 +112,18 @@ export function ProfilePage() {
         <label className={labelClasses}>
           Date of birth
           <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputClasses} />
+        </label>
+        <label className={labelClasses}>
+          Wedding anniversary
+          <input
+            type="date"
+            value={anniversary}
+            onChange={(e) => setAnniversary(e.target.value)}
+            className={inputClasses}
+          />
+          <span className="font-mono text-label-sm text-on-surface-variant">
+            Optional. Shown to everyone on the Celebrations page, like your birthday.
+          </span>
         </label>
 
         {sensitive && (
