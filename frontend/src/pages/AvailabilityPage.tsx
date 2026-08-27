@@ -120,6 +120,11 @@ export function AvailabilityPage() {
     [myDepartments, isAdmin, hasRole],
   )
 
+  // Admins are here to watch the numbers, not to answer for themselves:
+  // they see every team, and a row of buttons on each one is noise on a
+  // page they use for oversight.
+  const canAnswer = !isAdmin
+
   const setAvailability = useMutation({
     mutationFn: async ({
       serviceId,
@@ -162,7 +167,9 @@ export function AvailabilityPage() {
     <div>
       <h1 className="text-headline-xl">Availability Tracker</h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
-        Let your team know whether you can serve at the services coming up.
+        {isAdmin
+          ? 'Who can serve at the services coming up, team by team.'
+          : 'Let your team know whether you can serve at the services coming up.'}
       </p>
 
       <QueryState isLoading={isLoading} error={error}>
@@ -239,6 +246,7 @@ export function AvailabilityPage() {
                           />
                         </div>
 
+                        {canAnswer && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {STATUS_OPTIONS.map((opt) => {
                             const active = mine === opt.value
@@ -265,7 +273,8 @@ export function AvailabilityPage() {
                             )
                           })}
                         </div>
-                        {!mine && (
+                        )}
+                        {canAnswer && !mine && (
                           <p className="mt-1.5 text-label-sm text-on-surface-variant">No answer yet</p>
                         )}
 
