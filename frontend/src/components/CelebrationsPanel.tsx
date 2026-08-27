@@ -3,12 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { QueryState } from '../components/QueryState'
+import { QueryState } from './QueryState'
+import { SectionPanel } from './SectionPanel'
+import { CakeIcon } from './icons'
 import { todayIso } from '../lib/monthGrid'
-import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
 import { isMissingColumnError } from '../lib/missingColumn'
+import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
 
-const WINDOW_DAYS = 90
+/** How far ahead to look, and how much of it to show at a glance. */
+const WINDOW_DAYS = 60
+const SHOWN = 6
 
 const personSchema = z.object({
   id: z.string(),
@@ -21,7 +25,7 @@ const personSchema = z.object({
 /**
  * Everyone's dates. Anniversaries arrived in a later migration, so a
  * database that hasn't had it applied yet still gets birthdays rather than
- * an error page — with a line saying what is missing.
+ * an error — with a line saying what is missing.
  */
 async function fetchPeople(): Promise<{
   people: z.infer<typeof personSchema>[]
@@ -49,9 +53,8 @@ const KIND = {
 function formatDay(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
-    weekday: 'short',
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     timeZone: 'UTC',
   })
 }
@@ -62,25 +65,25 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
 
   return (
     <li
-      className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-4 py-3 ${
-        today ? 'border-secondary/50 bg-secondary/5' : 'border-border-subtle bg-surface-lowest'
+      className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-sm px-2 py-2 ${
+        today ? 'bg-secondary/10' : ''
       }`}
     >
-      <span className="flex min-w-0 items-center gap-3">
-        <span aria-hidden="true" className="text-headline-md leading-none">
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span aria-hidden="true" className="text-body-lg leading-none">
           {kind.emoji}
         </span>
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-body-md text-on-surface">
+          <span className="truncate text-body-sm text-on-surface">
             {occasion.name}
             {isMe && <span className="ml-2 font-mono text-label-sm text-secondary">You</span>}
           </span>
-          <span className="flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
-            <span className={`rounded-full px-2 py-0.5 font-mono text-label-sm ${kind.chip}`}>
+          <span className="flex items-center gap-2">
+            <span className={`rounded-full px-1.5 py-0.5 font-mono text-label-sm ${kind.chip}`}>
               {kind.label}
             </span>
             {occasion.years !== null && (
-              <span>
+              <span className="text-label-sm text-on-surface-variant">
                 {occasion.kind === 'birthday'
                   ? `turning ${occasion.years}`
                   : `${occasion.years} ${occasion.years === 1 ? 'year' : 'years'}`}
@@ -103,11 +106,11 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
 }
 
 /**
- * Birthdays and wedding anniversaries coming up, so nobody's is missed.
- * Everyone sees it — the dates come from people's own profiles, and are
- * already visible to anyone signed in.
+ * Birthdays and wedding anniversaries coming up, on the dashboard where
+ * everyone passes anyway — a list nobody navigates to is a list nobody
+ * reads, and missing someone's birthday is the whole failure mode.
  */
-export function CelebrationsPage() {
+export function CelebrationsPanel() {
   const { session } = useAuth()
   const today = todayIso()
 
@@ -118,61 +121,38 @@ export function CelebrationsPage() {
     [peopleQuery.data, today],
   )
   const anniversariesAvailable = peopleQuery.data?.anniversariesAvailable ?? true
-
-  const thisWeek = occasions.filter((o) => o.daysAway <= 7)
-  const later = occasions.filter((o) => o.daysAway > 7)
+  const shown = occasions.slice(0, SHOWN)
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-headline-xl">Celebrations</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Birthdays and wedding anniversaries over the next three months. Add or change your own dates
-        on your profile.
-      </p>
-
-      {!anniversariesAvailable && (
-        <p className="mt-4 rounded-sm bg-warning/10 px-3 py-2 text-body-sm text-on-surface">
-          Showing birthdays only — wedding anniversaries need one more database migration before
-          they can be recorded.
-        </p>
-      )}
-
+    <SectionPanel
+      title="Celebrations"
+      icon={CakeIcon}
+      aside={
+        occasions.length > shown.length ? (
+          <span className="font-mono text-label-sm text-on-surface-variant">
+            +{occasions.length - shown.length} more
+          </span>
+        ) : null
+      }
+    >
       <QueryState
         isLoading={peopleQuery.isLoading}
         error={peopleQuery.error}
         isEmpty={occasions.length === 0}
-        emptyMessage="Nothing coming up in the next three months. Dates come from people's profiles, so a quiet list may just mean they haven't filled theirs in."
+        emptyMessage="Nothing in the next two months. Dates come from people's profiles."
       >
-        <div className="mt-6 flex flex-col gap-8">
-          <section>
-            <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-              This week
-            </h2>
-            {thisWeek.length === 0 ? (
-              <p className="mt-3 text-body-sm text-on-surface-variant">Nothing this week.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {thisWeek.map((o) => (
-                  <OccasionRow key={o.id} occasion={o} isMe={o.personId === session?.user.id} />
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {later.length > 0 && (
-            <section>
-              <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                Coming up
-              </h2>
-              <ul className="mt-3 flex flex-col gap-2">
-                {later.map((o) => (
-                  <OccasionRow key={o.id} occasion={o} isMe={o.personId === session?.user.id} />
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+        <ul className="-mx-2 flex flex-col">
+          {shown.map((o) => (
+            <OccasionRow key={o.id} occasion={o} isMe={o.personId === session?.user.id} />
+          ))}
+        </ul>
       </QueryState>
-    </div>
+
+      {!anniversariesAvailable && (
+        <p className="mt-3 rounded-sm bg-warning/10 px-2.5 py-1.5 text-label-sm text-on-surface">
+          Birthdays only — anniversaries need one more database migration.
+        </p>
+      )}
+    </SectionPanel>
   )
 }

@@ -20,6 +20,7 @@ import {
 import { serviceReadiness } from '../lib/readiness'
 import { SectionPanel, StatusChip } from '../components/SectionPanel'
 import { ActivityIcon } from '../components/icons'
+import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -569,29 +570,33 @@ export function DashboardPage() {
               )
             })}
 
-            <SectionPanel title="Live activity" icon={ActivityIcon}>
-              <QueryState
-                isLoading={itemsQuery.isLoading}
-                error={itemsQuery.error}
-                isEmpty={activityItems.length === 0}
-                emptyMessage="No verification activity yet for this day."
-              >
-                <ul className="flex flex-col gap-3">
-                  {activityItems.map(({ item, actorId, at }) => (
-                    <li key={`${item.id}-${item.status}`} className="text-body-sm">
-                      <span className="font-medium text-on-surface">{actorsQuery.data?.[actorId] ?? '…'}</span>{' '}
-                      <span className="text-on-surface-variant">
-                        {actionLabel[item.status as Exclude<ChecklistItemStatus, 'pending'>]}
-                      </span>{' '}
-                      <span className="font-medium text-on-surface">{item.role_label}</span>
-                      <div className="font-mono text-label-sm text-on-surface-variant">
-                        {formatRelativeTime(at)}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </QueryState>
-            </SectionPanel>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <SectionPanel title="Live activity" icon={ActivityIcon}>
+                <QueryState
+                  isLoading={itemsQuery.isLoading}
+                  error={itemsQuery.error}
+                  isEmpty={activityItems.length === 0}
+                  emptyMessage="No verification activity yet for this day."
+                >
+                  <ul className="flex flex-col gap-3">
+                    {activityItems.map(({ item, actorId, at }) => (
+                      <li key={`${item.id}-${item.status}`} className="text-body-sm">
+                        <span className="font-medium text-on-surface">{actorsQuery.data?.[actorId] ?? '…'}</span>{' '}
+                        <span className="text-on-surface-variant">
+                          {actionLabel[item.status as Exclude<ChecklistItemStatus, 'pending'>]}
+                        </span>{' '}
+                        <span className="font-medium text-on-surface">{item.role_label}</span>
+                        <div className="font-mono text-label-sm text-on-surface-variant">
+                          {formatRelativeTime(at)}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </QueryState>
+              </SectionPanel>
+
+              <CelebrationsPanel />
+            </div>
           </div>
         )}
       </QueryState>
