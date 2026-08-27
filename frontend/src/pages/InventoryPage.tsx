@@ -126,13 +126,19 @@ export function InventoryPage() {
       <PageHeader
         eyebrow="Equipment register"
         title={`${deptQuery.data?.name ?? 'Team'} inventory`}
-        description="Every asset carries a tag, every movement is logged, and counts are verified by whoever last checked them."
+        description={
+          canManage
+            ? 'Every asset carries a tag, every movement is logged, and counts are verified by whoever last checked them.'
+            : "Anyone signed in can see what the church owns and where it lives. Changes are the team head's."
+        }
         action={
           canManage ? (
             <ActionButton glyph="+" onClick={() => setAdding((v) => !v)}>
               {adding ? 'Close' : 'Add item'}
             </ActionButton>
-          ) : null
+          ) : (
+            <StatusChip>View only</StatusChip>
+          )
         }
       />
 
@@ -206,7 +212,7 @@ export function InventoryPage() {
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-black/5 dark:border-white/8">
-                  {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ''].map((h) => (
+                  {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ...(canManage ? [''] : [])].map((h) => (
                     <th key={h} className="px-4 py-3">
                       <Eyebrow>{h}</Eyebrow>
                     </th>
@@ -283,6 +289,7 @@ export function InventoryPage() {
                         {item.last_audited_at ? formatRelativeTime(item.last_audited_at) : 'never'}
                       </td>
 
+                      {canManage && (
                       <td className="px-4 py-3 align-top">
                         <RowActions
                           item={item}
@@ -293,6 +300,7 @@ export function InventoryPage() {
                           onDelete={() => setDeleting(item)}
                         />
                       </td>
+                      )}
                     </tr>
                   )
                 })}
