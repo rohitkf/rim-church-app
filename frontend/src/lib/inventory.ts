@@ -39,11 +39,40 @@ export function needsAttention(item: InventoryItem, todayIso: string): boolean {
   return status === 'missing' || status === 'in_repair' || isOverdue(item, todayIso) || isLowStock(item)
 }
 
+/**
+ * What one line of the register is worth: a consumable is its unit cost
+ * times how many there are, an asset is its own.
+ *
+ * Only kit in service counts. Something retired, missing or on the repair
+ * bench is not value the church can rely on, and counting it quietly turns
+ * the total into a comfort rather than a fact.
+ */
+export function itemValue(item: InventoryItem): number {
+  const cost = typeof item.estimated_cost === 'string' ? Number(item.estimated_cost) : item.estimated_cost
+  if (!cost || Number.isNaN(cost)) return 0
+  if (statusOf(item) !== 'in_service') return 0
+  return kindOf(item) === 'consumable' ? cost * item.quantity : cost
+}
+
+export function totalValue(items: InventoryItem[]): number {
+  return items.reduce((sum, item) => sum + itemValue(item), 0)
+}
+
+/** Money, rounded to whole units — nobody budgets a PA system in pence. */
+export function formatMoney(amount: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'GBP',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
 export interface InventorySummary {
   assets: number
   consumables: number
   onLoan: number
   attention: number
+  value: number
 }
 
 export function summarise(items: InventoryItem[], todayIso: string): InventorySummary {
@@ -52,6 +81,7 @@ export function summarise(items: InventoryItem[], todayIso: string): InventorySu
     consumables: items.filter((i) => kindOf(i) === 'consumable').length,
     onLoan: items.filter((i) => statusOf(i) === 'on_loan').length,
     attention: items.filter((i) => needsAttention(i, todayIso)).length,
+    value: totalValue(items),
   }
 }
 

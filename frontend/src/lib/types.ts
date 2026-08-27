@@ -271,6 +271,7 @@ export const inventoryItemSchema = z.object({
   reorder_level: z.number().nullable().optional(),
   last_audited_at: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  estimated_cost: z.union([z.number(), z.string()]).nullable().optional(),
   holder: z
     .object({ id: z.string(), first_name: z.string(), last_name: z.string() })
     .nullable()

@@ -12,6 +12,8 @@ import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
+  formatMoney,
+  itemValue,
   isLowStock,
   isOverdue,
   kindOf,
@@ -57,6 +59,8 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<InventoryItem | null>(null)
+  const [deleting, setDeleting] = useState<InventoryItem | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const deptQuery = useQuery({
@@ -138,6 +142,22 @@ export function InventoryPage() {
         </p>
       )}
 
+      <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: 'In service', value: String(summary.assets + summary.consumables - summary.attention) },
+          { label: 'Signed out', value: String(summary.onLoan) },
+          { label: 'Needs attention', value: String(summary.attention) },
+          { label: 'Value in service', value: formatMoney(summary.value) },
+        ].map((tile) => (
+          <Card key={tile.label}>
+            <div className="px-4 py-3.5">
+              <Eyebrow>{tile.label}</Eyebrow>
+              <div className="mt-1.5 text-headline-md tabular-nums">{tile.value}</div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
       {adding && canManage && id && (
         <AddItemForm departmentId={id} onDone={() => { setAdding(false); refresh() }} onError={setError} />
       )}
@@ -186,7 +206,7 @@ export function InventoryPage() {
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-black/5 dark:border-white/8">
-                  {['Tag', 'Item', 'Status', 'Where / who', 'Last checked', ''].map((h) => (
+                  {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ''].map((h) => (
                     <th key={h} className="px-4 py-3">
                       <Eyebrow>{h}</Eyebrow>
                     </th>
@@ -249,6 +269,16 @@ export function InventoryPage() {
                         )}
                       </td>
 
+                      <td className="px-4 py-3 align-top font-mono text-label-sm tabular-nums text-on-surface-variant">
+                        {itemValue(item) > 0 ? (
+                          formatMoney(itemValue(item))
+                        ) : item.estimated_cost ? (
+                          <span title="Not counted — the item isn't in service">—</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+
                       <td className="px-4 py-3 align-top font-mono text-label-sm text-on-surface-variant">
                         {item.last_audited_at ? formatRelativeTime(item.last_audited_at) : 'never'}
                       </td>
@@ -259,6 +289,8 @@ export function InventoryPage() {
                           canManage={canManage}
                           busy={act.isPending}
                           onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
+                          onEdit={() => setEditing(item)}
+                          onDelete={() => setDeleting(item)}
                         />
                       </td>
                     </tr>
@@ -269,6 +301,31 @@ export function InventoryPage() {
           </div>
         </QueryState>
       </Card>
+
+      {editing && canManage && (
+        <EditItemDialog
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            refresh()
+          }}
+          onError={setError}
+        />
+      )}
+
+      {deleting && canManage && (
+        <DeleteItemDialog
+          item={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            setDeleting(null)
+            setOpenItem(null)
+            refresh()
+          }}
+          onError={setError}
+        />
+      )}
 
       {openItem && (
         <div className="mt-6">
@@ -283,18 +340,29 @@ export function InventoryPage() {
   )
 }
 
-/** What this viewer can do to this item, right now. */
+/**
+ * What this viewer can do to this item, right now.
+ *
+ * Only the team head and Admin can change anything; for everyone else the
+ * register is a reference, and no button appears that would refuse them.
+ */
 function RowActions({
   item,
   canManage,
   busy,
   onAct,
+  onEdit,
+  onDelete,
 }: {
   item: InventoryItem
   canManage: boolean
   busy: boolean
   onAct: (fn: string, args: Record<string, unknown>) => void
+  onEdit: () => void
+  onDelete: () => void
 }) {
+  if (!canManage) return null
+
   const status = statusOf(item)
   const kind = kindOf(item)
   const button =
@@ -303,16 +371,21 @@ function RowActions({
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
       {kind === 'asset' && status === 'in_service' && (
-        <button className={button} disabled={busy} onClick={() => onAct('inventory_check_out', {})}>
+        <button
+          className={button}
+          disabled={busy}
+          title="Record that this has left the building, and who has it"
+          onClick={() => onAct('inventory_check_out', {})}
+        >
           Sign out
         </button>
       )}
       {kind === 'asset' && status === 'on_loan' && (
         <button className={button} disabled={busy} onClick={() => onAct('inventory_check_in', {})}>
-          Return
+          Book back in
         </button>
       )}
-      {kind === 'consumable' && canManage && (
+      {kind === 'consumable' && (
         <>
           <button
             className={button}
@@ -332,10 +405,15 @@ function RowActions({
           </button>
         </>
       )}
-      <button className={button} disabled={busy} onClick={() => onAct('inventory_audit', {})}>
-        Seen it
+      <button
+        className={button}
+        disabled={busy}
+        title="Record that you have physically seen this item, and that it is as the register says. Updates Last checked."
+        onClick={() => onAct('inventory_audit', {})}
+      >
+        Stock check
       </button>
-      {canManage && status !== 'in_repair' && status !== 'retired' && (
+      {status !== 'in_repair' && status !== 'retired' && (
         <button
           className={button}
           disabled={busy}
@@ -344,7 +422,7 @@ function RowActions({
           Repair
         </button>
       )}
-      {canManage && status === 'in_repair' && (
+      {status === 'in_repair' && (
         <button
           className={button}
           disabled={busy}
@@ -353,6 +431,15 @@ function RowActions({
           Back in service
         </button>
       )}
+      <button className={button} onClick={onEdit}>
+        Edit
+      </button>
+      <button
+        className="rounded-full px-3 py-1.5 text-label-sm text-on-surface-variant transition-colors duration-300 hover:text-error"
+        onClick={onDelete}
+      >
+        Delete
+      </button>
     </div>
   )
 }
@@ -376,6 +463,7 @@ function AddItemForm({
   const [location, setLocation] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [reorder, setReorder] = useState('')
+  const [cost, setCost] = useState('')
 
   const add = useMutation({
     mutationFn: async () => {
@@ -398,6 +486,7 @@ function AddItemForm({
         location: location.trim() || null,
         quantity: kind === 'consumable' ? Number(quantity) || 0 : 1,
         reorder_level: kind === 'consumable' && reorder ? Number(reorder) : null,
+        estimated_cost: cost.trim() === '' ? null : Number(cost),
       })
       if (error) throw error
     },
@@ -463,6 +552,21 @@ function AddItemForm({
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Storage cupboard A" className={inputClasses} />
         </Field>
 
+        <Field
+          label="Estimated cost"
+          hint={kind === 'consumable' ? 'Per unit.' : 'What replacing it would cost.'}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder="0"
+            className={inputClasses}
+          />
+        </Field>
+
         <div className="flex items-end sm:col-span-2 lg:col-span-3">
           <ActionButton type="submit" disabled={add.isPending || !name.trim()} glyph="+">
             {add.isPending ? 'Adding' : 'Add item'}
@@ -470,5 +574,219 @@ function AddItemForm({
         </div>
       </form>
     </Panel>
+  )
+}
+
+/** Correcting the register: the details, the price, where it lives. */
+function EditItemDialog({
+  item,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  item: InventoryItem
+  onClose: () => void
+  onSaved: () => void
+  onError: (message: string) => void
+}) {
+  const errorText = useErrorText()
+  const [name, setName] = useState(item.name)
+  const [model, setModel] = useState(item.model ?? '')
+  const [serial, setSerial] = useState(item.serial_number ?? '')
+  const [location, setLocation] = useState(item.location ?? '')
+  const [cost, setCost] = useState(item.estimated_cost != null ? String(item.estimated_cost) : '')
+  const [quantity, setQuantity] = useState(String(item.quantity))
+  const [reorder, setReorder] = useState(item.reorder_level != null ? String(item.reorder_level) : '')
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({
+          name: name.trim(),
+          model: model.trim() || null,
+          serial_number: serial.trim() || null,
+          location: location.trim() || null,
+          estimated_cost: cost.trim() === '' ? null : Number(cost),
+          // The count itself is moved by adjust/audit so it stays in the
+          // ledger; here it is only editable for a consumable's setup.
+          quantity: kindOf(item) === 'consumable' ? Number(quantity) || 0 : item.quantity,
+          reorder_level: kindOf(item) === 'consumable' && reorder.trim() !== '' ? Number(reorder) : null,
+        })
+        .eq('id', item.id)
+      if (error) throw error
+    },
+    onSuccess: onSaved,
+    onError: (err: unknown) => onError(errorText(err, 'Could not save those changes.')),
+  })
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-item-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+    >
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault()
+          if (name.trim()) save.mutate()
+        }}
+        className="w-full max-w-xl rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
+      >
+        <Eyebrow>{item.asset_tag ?? 'Item'}</Eyebrow>
+        <h2 id="edit-item-title" className="mt-1 text-headline-md">
+          Edit {item.name}
+        </h2>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Name">
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClasses} />
+          </Field>
+          <Field label="Where it lives">
+            <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClasses} />
+          </Field>
+
+          {kindOf(item) === 'asset' ? (
+            <>
+              <Field label="Model">
+                <input value={model} onChange={(e) => setModel(e.target.value)} className={inputClasses} />
+              </Field>
+              <Field label="Serial number">
+                <input value={serial} onChange={(e) => setSerial(e.target.value)} className={inputClasses} />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="Quantity">
+                <input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+              </Field>
+              <Field label="Reorder at">
+                <input type="number" min="0" value={reorder} onChange={(e) => setReorder(e.target.value)} className={inputClasses} />
+              </Field>
+            </>
+          )}
+
+          <Field
+            label="Estimated cost"
+            hint={
+              kindOf(item) === 'consumable'
+                ? 'Per unit — the total counts cost × quantity.'
+                : 'What it would cost to replace. Only counted while the item is in service.'
+            }
+          >
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
+              className={inputClasses}
+            />
+          </Field>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+          >
+            Cancel
+          </button>
+          <ActionButton type="submit" disabled={save.isPending || !name.trim()} glyph="✓">
+            {save.isPending ? 'Saving' : 'Save changes'}
+          </ActionButton>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+/**
+ * Removing an item. Deleting takes its history with it, so retiring is
+ * offered alongside — it keeps the trail and stops counting the value.
+ */
+function DeleteItemDialog({
+  item,
+  onClose,
+  onDeleted,
+  onError,
+}: {
+  item: InventoryItem
+  onClose: () => void
+  onDeleted: () => void
+  onError: (message: string) => void
+}) {
+  const errorText = useErrorText()
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('inventory_items').delete().eq('id', item.id)
+      if (error) throw error
+    },
+    onSuccess: onDeleted,
+    onError: (err: unknown) => onError(errorText(err, 'Could not delete that item.')),
+  })
+
+  const retire = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('inventory_set_status', {
+        item_id: item.id,
+        new_status: 'retired',
+        note: 'Retired from the register',
+      })
+      if (error) throw error
+    },
+    onSuccess: onDeleted,
+    onError: (err: unknown) => onError(errorText(err, 'Could not retire that item.')),
+  })
+
+  const busy = remove.isPending || retire.isPending
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-item-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+    >
+      <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+        <h2 id="delete-item-title" className="text-headline-md">
+          Remove {item.name}?
+        </h2>
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          Deleting takes its whole history with it — every sign-out, repair and stock check. If it
+          is simply gone or beyond use, retiring keeps the record and stops it counting toward the
+          team's value.
+        </p>
+
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => retire.mutate()}
+            disabled={busy}
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
+          >
+            {retire.isPending ? 'Retiring…' : 'Retire instead'}
+          </button>
+          <button
+            type="button"
+            onClick={() => remove.mutate()}
+            disabled={busy}
+            className="rounded-full bg-error px-5 py-2.5 text-body-sm font-medium text-on-error shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+          >
+            {remove.isPending ? 'Deleting…' : 'Delete for good'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

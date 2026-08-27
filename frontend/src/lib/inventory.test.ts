@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { isLowStock, isOverdue, matchesSearch, needsAttention, summarise } from './inventory'
+import {
+  isLowStock,
+  isOverdue,
+  itemValue,
+  matchesSearch,
+  needsAttention,
+  summarise,
+  totalValue,
+} from './inventory'
 import type { InventoryItem } from './types'
 
 const base: InventoryItem = {
@@ -65,7 +73,7 @@ describe('summarise', () => {
       ],
       '2026-08-27',
     )
-    expect(summary).toEqual({ assets: 2, consumables: 1, onLoan: 1, attention: 2 })
+    expect(summary).toMatchObject({ assets: 2, consumables: 1, onLoan: 1, attention: 2 })
   })
 })
 
@@ -82,5 +90,39 @@ describe('matchesSearch', () => {
 
   it('matches everything when nothing has been typed', () => {
     expect(matchesSearch(camera, '   ')).toBe(true)
+  })
+})
+
+describe('itemValue', () => {
+  const priced = (over: Partial<InventoryItem>) => item({ estimated_cost: 100, ...over })
+
+  it('counts an asset once and a consumable per unit', () => {
+    expect(itemValue(priced({}))).toBe(100)
+    expect(itemValue(priced({ kind: 'consumable', quantity: 7 }))).toBe(700)
+  })
+
+  it('counts nothing that is not in service', () => {
+    for (const status of ['on_loan', 'in_repair', 'missing', 'retired'] as const) {
+      expect(itemValue(priced({ item_status: status }))).toBe(0)
+    }
+  })
+
+  it('treats an unpriced item as nothing rather than guessing', () => {
+    expect(itemValue(item({ estimated_cost: null }))).toBe(0)
+    expect(itemValue(item({}))).toBe(0)
+  })
+
+  it('reads a numeric column that arrives as a string', () => {
+    expect(itemValue(priced({ estimated_cost: '249.99' }))).toBe(249.99)
+  })
+
+  it('adds up only what counts', () => {
+    expect(
+      totalValue([
+        priced({ id: '1' }),
+        priced({ id: '2', item_status: 'missing' }),
+        priced({ id: '3', kind: 'consumable', quantity: 3 }),
+      ]),
+    ).toBe(400)
   })
 })

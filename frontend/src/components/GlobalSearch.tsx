@@ -9,11 +9,25 @@ import { formatServiceDay } from '../lib/sunday'
 
 interface Hit {
   id: string
-  kind: 'Team' | 'Person' | 'Equipment' | 'Service'
+  kind: 'Page' | 'Team' | 'Person' | 'Equipment' | 'Service' | 'Role' | 'Message'
   label: string
   detail: string
   to: string
 }
+
+/** The places in the app itself, so the box also works as a way to move. */
+const PAGES: { label: string; detail: string; to: string; keywords: string }[] = [
+  { label: 'Dashboard', detail: 'Readiness, availability and celebrations', to: '/', keywords: 'home overview readiness' },
+  { label: 'Service Planner', detail: 'Running orders and templates', to: '/service-planner', keywords: 'plan running order sessions templates' },
+  { label: 'Checklists', detail: 'Pre-service checks and sign-off', to: '/checklists', keywords: 'checks verify sign off' },
+  { label: 'Availability Tracker', detail: 'Who can serve, and who turned up', to: '/availability', keywords: 'available attendance rota answers' },
+  { label: 'Team Rota', detail: 'Who is doing what', to: '/rota', keywords: 'assign roles duty' },
+  { label: 'Teams', detail: 'Departments, roles and handbooks', to: '/departments', keywords: 'departments handbook roles' },
+  { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
+  { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
+  { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
+  { label: 'Settings', detail: 'Your profile and appearance', to: '/profile', keywords: 'profile account theme password' },
+]
 
 const MIN_QUERY = 2
 
@@ -27,7 +41,7 @@ const MIN_QUERY = 2
 async function search(term: string): Promise<Hit[]> {
   const like = `%${term}%`
 
-  const [teams, people, equipment, services] = await Promise.all([
+  const [teams, people, equipment, services, roles, messages] = await Promise.all([
     supabase.from('departments').select('id, name').ilike('name', like).limit(4),
     supabase
       .from('profiles')
@@ -45,9 +59,27 @@ async function search(term: string): Promise<Hit[]> {
       .ilike('service_type', like)
       .order('date', { ascending: false })
       .limit(3),
+    supabase
+      .from('department_roles')
+      .select('id, name, department_id, departments(name)')
+      .ilike('name', like)
+      .limit(4),
+    supabase
+      .from('messages')
+      .select('id, body, created_at')
+      .ilike('body', like)
+      .order('created_at', { ascending: false })
+      .limit(3),
   ])
 
   const hits: Hit[] = []
+
+  const needle = term.toLowerCase()
+  for (const page of PAGES) {
+    if (`${page.label} ${page.keywords}`.toLowerCase().includes(needle)) {
+      hits.push({ id: `page-${page.to}`, kind: 'Page', label: page.label, detail: page.detail, to: page.to })
+    }
+  }
 
   for (const row of z
     .array(z.object({ id: z.string(), name: z.string() }))
@@ -103,6 +135,39 @@ async function search(term: string): Promise<Hit[]> {
     })
   }
 
+  for (const row of z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        department_id: z.string(),
+        departments: z.object({ name: z.string() }).nullable().optional(),
+      }),
+    )
+    .catch([])
+    .parse(roles.data ?? [])) {
+    hits.push({
+      id: `role-${row.id}`,
+      kind: 'Role',
+      label: row.name,
+      detail: row.departments?.name ?? 'Team role',
+      to: `/departments/${row.department_id}`,
+    })
+  }
+
+  for (const row of z
+    .array(z.object({ id: z.string(), body: z.string(), created_at: z.string() }))
+    .catch([])
+    .parse(messages.data ?? [])) {
+    hits.push({
+      id: `message-${row.id}`,
+      kind: 'Message',
+      label: row.body.length > 60 ? `${row.body.slice(0, 60)}…` : row.body,
+      detail: 'Message board',
+      to: '/messages',
+    })
+  }
+
   return hits
 }
 
@@ -112,6 +177,7 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const wrapper = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
 
   const debounced = useDebouncedValue(term.trim(), 200)
   const enabled = debounced.length >= MIN_QUERY
@@ -125,6 +191,19 @@ export function GlobalSearch() {
   const hits = useMemo(() => results.data ?? [], [results.data])
 
   useEffect(() => setActive(0), [debounced])
+
+  // ⌘K / Ctrl-K from anywhere, the shortcut people already try.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        input.current?.focus()
+        setOpen(true)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
@@ -145,6 +224,7 @@ export function GlobalSearch() {
       <label className="flex items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] focus-within:ring-2 focus-within:ring-secondary dark:bg-surface-container dark:ring-white/10">
         <SearchIcon width={16} height={16} />
         <input
+          ref={input}
           value={term}
           onChange={(e) => {
             setTerm(e.target.value)
@@ -167,10 +247,13 @@ export function GlobalSearch() {
               go(hits[active])
             }
           }}
-          placeholder="Search teams, people, equipment…"
+          placeholder="Search anything…"
           aria-label="Search"
           className="w-full bg-transparent text-on-surface outline-none placeholder:text-on-surface-variant"
         />
+        <kbd className="hidden shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
+          ⌘K
+        </kbd>
       </label>
 
       {open && term.trim().length > 0 && (
