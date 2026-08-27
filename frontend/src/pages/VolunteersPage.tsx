@@ -8,6 +8,7 @@ import { QueryState } from '../components/QueryState'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
+import { errorMessage } from '../lib/errorMessage'
 
 const volunteerSchema = z.object({
   id: z.string(),
@@ -95,7 +96,7 @@ export function VolunteersPage() {
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not grant that role.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not grant that role.')),
   })
 
   const revokeRole = useMutation({
@@ -107,7 +108,7 @@ export function VolunteersPage() {
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not remove that role.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not remove that role.')),
   })
 
   const removeVolunteer = useMutation({
@@ -126,7 +127,7 @@ export function VolunteersPage() {
       queryClient.invalidateQueries({ queryKey: ['volunteer-memberships'] })
     },
     onError: (err: unknown) =>
-      setError(err instanceof Error ? err.message : 'Could not remove that person.'),
+      setError(errorMessage(err, 'Could not remove that person.')),
   })
 
   if (!isAdmin) return <Navigate to="/" replace />

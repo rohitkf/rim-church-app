@@ -16,6 +16,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { rotaAssignmentSchema, type ChecklistItemStatus, type RotaAssignment } from '../lib/types'
+import { errorMessage } from '../lib/errorMessage'
 
 async function fetchAssignments(serviceIds: string[]): Promise<RotaAssignment[]> {
   if (serviceIds.length === 0) return []
@@ -115,7 +116,7 @@ export function ChecklistsIndexPage() {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['rota-progress'] })
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not update that item.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not update that item.')),
   })
 
   function actionFor(assignment: RotaAssignment, status: ChecklistItemStatus): Action {

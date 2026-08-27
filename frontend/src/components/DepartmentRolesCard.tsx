@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from './QueryState'
 import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
+import { errorMessage } from '../lib/errorMessage'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -48,7 +49,7 @@ function RoleChecklistEditor({
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not add that item.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not add that item.')),
   })
 
   const deleteItem = useMutation({
@@ -57,7 +58,7 @@ function RoleChecklistEditor({
       if (error) throw error
     },
     onSuccess: invalidate,
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not delete that item.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that item.')),
   })
 
   return (
@@ -134,7 +135,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not add that role.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not add that role.')),
   })
 
   const renameRole = useMutation({
@@ -147,7 +148,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not rename that role.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not rename that role.')),
   })
 
   const deleteRole = useMutation({
@@ -159,7 +160,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not delete that role.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not delete that role.')),
   })
 
   function handleAdd(e: FormEvent) {

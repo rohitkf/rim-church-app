@@ -14,41 +14,62 @@
 -- be left signed in to nothing, with no way back in and possibly no Admin
 -- left at all. Uploaded files (handbooks, avatars) live in Storage, not
 -- the database, so they are not touched here.
-create function public.admin_reset_data(include_setup boolean default false)
+--
+-- The deletes run off a list rather than as literal statements. plpgsql
+-- resolves table names at run time, so a single table that a database has
+-- not been migrated far enough to have would abort the entire reset with
+-- "relation does not exist" — and leave the Admin no way to clear the rest.
+-- Skipping what isn't there keeps the reset working on any migration level.
+create or replace function public.admin_reset_data(include_setup boolean default false)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  -- Ordered so a child is emptied before its parent. Most of these would
+  -- cascade from services anyway; being explicit keeps the intent readable.
+  activity_tables constant text[] := array[
+    'rota_release_requests',
+    'rota_checklist_progress',
+    'rota_assignments',
+    'availability',
+    'checklist_items',
+    'checklists',
+    'attendance',
+    'service_sessions',
+    'department_call_times',
+    'services',
+    'messages',
+    'notifications',
+    'inventory_items',
+    'service_template_sessions',
+    'service_templates'
+  ];
+  setup_tables constant text[] := array[
+    'department_role_checklist_items',
+    'department_roles',
+    'department_members',
+    'departments'
+  ];
+  t text;
 begin
   if not public.is_admin(auth.uid()) then
     raise exception 'Only an Admin can reset the app data';
   end if;
 
-  -- Order matters only where a table has no cascade from what follows;
-  -- deleting services alone would take most of this with it, but being
-  -- explicit keeps the intent readable.
-  delete from public.rota_release_requests;
-  delete from public.rota_checklist_progress;
-  delete from public.rota_assignments;
-  delete from public.availability;
-  delete from public.checklist_items;
-  delete from public.checklists;
-  delete from public.attendance;
-  delete from public.service_sessions;
-  delete from public.department_call_times;
-  delete from public.services;
-  delete from public.messages;
-  delete from public.notifications;
-  delete from public.inventory_items;
-  delete from public.service_template_sessions;
-  delete from public.service_templates;
+  foreach t in array activity_tables loop
+    if to_regclass('public.' || quote_ident(t)) is not null then
+      execute format('delete from public.%I', t);
+    end if;
+  end loop;
 
   if include_setup then
-    delete from public.department_role_checklist_items;
-    delete from public.department_roles;
-    delete from public.department_members;
-    delete from public.departments;
+    foreach t in array setup_tables loop
+      if to_regclass('public.' || quote_ident(t)) is not null then
+        execute format('delete from public.%I', t);
+      end if;
+    end loop;
 
     -- Everyone but the caller. Their profile, grants and remaining rows
     -- follow by cascade from auth.users.

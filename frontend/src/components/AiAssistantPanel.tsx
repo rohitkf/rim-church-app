@@ -1,5 +1,6 @@
 import { type FormEvent, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { errorMessage } from '../lib/errorMessage'
 import {
   confirmPendingActions,
   sendChatMessage,
@@ -36,7 +37,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
       setPendingActions(res.pending_actions)
       if (res.reply) setTurns((t) => [...t, { role: 'assistant', text: res.reply }])
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Something went wrong.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Something went wrong.')),
   })
 
   const confirmMutation = useMutation({
@@ -47,13 +48,13 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
       setPendingActions(res.pending_actions)
       if (res.reply) setTurns((t) => [...t, { role: 'assistant', text: res.reply }])
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Something went wrong.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Something went wrong.')),
   })
 
   const transcribeMutation = useMutation({
     mutationFn: (blob: Blob) => transcribeAudio(blob),
     onSuccess: (text) => setInput((prev) => (prev ? `${prev} ${text}` : text)),
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Transcription failed.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Transcription failed.')),
   })
 
   function handleSubmit(e: FormEvent) {

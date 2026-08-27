@@ -9,6 +9,7 @@ import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
 import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
+import { errorMessage } from '../lib/errorMessage'
 
 function BoardClearCountdown() {
   const [now, setNow] = useState(() => Date.now())
@@ -106,7 +107,7 @@ export function MessageBoardPage() {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['messages'] })
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not post message.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not post message.')),
   })
 
   function handleSubmit(e: FormEvent) {

@@ -9,6 +9,7 @@ import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { ServiceTemplate } from '../lib/types'
+import { errorMessage } from '../lib/errorMessage'
 
 interface SessionDraft {
   session_name: string
@@ -90,7 +91,7 @@ export function ServiceTemplatesPage() {
       resetForm()
       queryClient.invalidateQueries({ queryKey: ['service-templates'] })
     },
-    onError: (err: unknown) => setFormError(err instanceof Error ? err.message : 'Could not save template.'),
+    onError: (err: unknown) => setFormError(errorMessage(err, 'Could not save template.')),
   })
 
   const deleteTemplate = useMutation({

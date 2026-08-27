@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { departmentSchema, inventoryItemSchema, type Department, type InventoryItem } from '../lib/types'
+import { errorMessage } from '../lib/errorMessage'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -66,7 +67,7 @@ export function InventoryPage() {
       setAddError(null)
       invalidate()
     },
-    onError: (err: unknown) => setAddError(err instanceof Error ? err.message : 'Could not add item.'),
+    onError: (err: unknown) => setAddError(errorMessage(err, 'Could not add item.')),
   })
 
   const updateField = useMutation({

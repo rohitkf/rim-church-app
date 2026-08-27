@@ -7,6 +7,7 @@ import { QueryState } from '../components/QueryState'
 import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import type { Department } from '../lib/types'
+import { errorMessage } from '../lib/errorMessage'
 
 /** Admin-only swatch that saves the department's badge color when the
  * picker closes (onBlur), not on every drag tick of the native input. */
@@ -61,7 +62,7 @@ function ServiceFlowToggle({ dept }: { dept: Department }) {
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['departments'] })
     },
-    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Could not update that.'),
+    onError: (err: unknown) => setError(errorMessage(err, 'Could not update that.')),
   })
 
   return (
@@ -116,7 +117,7 @@ export function DepartmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['departments'] })
     },
     onError: (err: unknown) => {
-      setFormError(err instanceof Error ? err.message : 'Could not create department.')
+      setFormError(errorMessage(err, 'Could not create department.'))
     },
   })
 

@@ -9,6 +9,7 @@ import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
+import { errorMessage } from '../lib/errorMessage'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -142,7 +143,7 @@ export function DepartmentDetailPage() {
       setAddError(null)
       queryClient.invalidateQueries({ queryKey: ['department-members', id] })
     },
-    onError: (err: unknown) => setAddError(err instanceof Error ? err.message : 'Could not add member.'),
+    onError: (err: unknown) => setAddError(errorMessage(err, 'Could not add member.')),
   })
 
   const removeMember = useMutation({
@@ -168,7 +169,7 @@ export function DepartmentDetailPage() {
       setUploadError(null)
       queryClient.invalidateQueries({ queryKey: ['department', id] })
     },
-    onError: (err: unknown) => setUploadError(err instanceof Error ? err.message : 'Upload failed.'),
+    onError: (err: unknown) => setUploadError(errorMessage(err, 'Upload failed.')),
   })
 
   function handleAdd(e: FormEvent) {

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { errorMessage } from '../lib/errorMessage'
 
 interface QueryStateProps {
   isLoading: boolean
@@ -27,7 +28,7 @@ export function QueryState({
   if (error) {
     return (
       <p className="rounded-sm bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-        {error instanceof Error ? error.message : 'Something went wrong loading this.'}
+        {errorMessage(error, 'Something went wrong loading this.')}
       </p>
     )
   }
