@@ -315,3 +315,20 @@ export const attendanceRowSchema = z.object({
   logged_at: z.string().nullable(),
 })
 export type AttendanceRow = z.infer<typeof attendanceRowSchema>
+
+export const joinRequestStatusSchema = z.enum(['pending', 'approved', 'declined', 'withdrawn'])
+export type JoinRequestStatus = z.infer<typeof joinRequestStatusSchema>
+
+export const joinRequestSchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  department_id: z.string(),
+  status: joinRequestStatusSchema,
+  note: z.string().nullable(),
+  created_at: z.string(),
+  responded_at: z.string().nullable(),
+  granted_type: memberTypeSchema.nullable(),
+  requester: personSummarySchema.extend({ avatar_url: z.string().nullable() }).nullable(),
+  department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
+})
+export type JoinRequest = z.infer<typeof joinRequestSchema>

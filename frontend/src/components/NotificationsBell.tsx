@@ -12,6 +12,9 @@ const notificationTypeLabel: Record<string, string> = {
   rota_release_request: 'A team has asked to borrow one of your volunteers',
   rota_release_approved: 'Your rota release request was approved',
   rota_release_denied: 'Your rota release request was denied',
+  team_join_requested: 'Someone has asked to join your team',
+  team_join_approved: 'You have been added to a team',
+  team_join_declined: 'Your request to join a team was declined',
 }
 
 async function fetchNotifications(userId: string): Promise<NotificationRow[]> {

@@ -19,6 +19,9 @@ const BY_CONSTRAINT: Record<string, string> = {
     'There is already an answer recorded for that person on this service.',
   user_roles_user_id_role_type_department_id_service_id_key: 'They already hold that role.',
   department_members_user_id_department_id_key: 'They are already on that team.',
+  department_members_department_id_user_id_key: 'They are already on that team.',
+  team_join_requests_one_pending:
+    'You have already asked to join that team — the head has it.',
   rota_checklist_progress_assignment_id_item_id_key:
     'That checklist item already has an entry — reload the page and try again.',
   services_date_service_type_key: 'A service of that name already exists on that date.',

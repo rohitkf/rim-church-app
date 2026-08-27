@@ -10,7 +10,9 @@ import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
 import { deptBadgeStyle } from '../lib/deptBadge'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
+import { canPostOnBoard } from '../lib/joinRequests'
 import { useErrorText } from '../lib/useErrorText'
+import { Link } from 'react-router-dom'
 
 function BoardClearCountdown() {
   const [now, setNow] = useState(() => Date.now())
@@ -74,9 +76,7 @@ export function MessageBoardPage() {
   const { session, isAdmin, hasRole, roles } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  // Heads post; that includes the head of the Service Flow team, who is a
-  // department head like any other now that Service Flow is a team.
-  const canPost = isAdmin || hasRole('department_head')
+  const isHead = hasRole('department_head')
 
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -86,11 +86,11 @@ export function MessageBoardPage() {
   const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(null)
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: canPost })
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const membershipsQuery = useQuery({
     queryKey: ['own-memberships', session?.user.id],
     queryFn: () => fetchOwnMemberships(session!.user.id),
-    enabled: canPost && !!session,
+    enabled: !!session,
   })
 
   // What this person may put on a post: the teams they belong to (guest
@@ -103,6 +103,15 @@ export function MessageBoardPage() {
   )
   const myDeptIds = new Set([...memberships.map((m) => m.department_id), ...roleDeptIds])
   const departments = departmentsQuery.data ?? []
+
+  // Being on a team is what earns a voice here — the same rule the
+  // messages_insert policy enforces, so the form is only offered to
+  // someone the database would actually accept a post from.
+  const canPost = canPostOnBoard({
+    isAdmin,
+    isHead,
+    memberDeptIds: memberships.map((m) => m.department_id),
+  })
 
   const postAsOptions = departments
     .filter((d) => myDeptIds.has(d.id))
@@ -178,8 +187,8 @@ export function MessageBoardPage() {
     <div className="mx-auto max-w-2xl">
       <h1 className="text-headline-xl">Message Board</h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
-        Visible to everyone signed in. Only Admins and Department Heads can post — a post carries
-        the badge of whoever it speaks for.
+        Visible to everyone signed in. Post as a team you belong to — a post carries the badge of
+        whoever it speaks for.
       </p>
 
       <BoardClearCountdown />
@@ -241,6 +250,25 @@ export function MessageBoardPage() {
             </div>
           </div>
         </form>
+      )}
+
+      {!canPost && !membershipsQuery.isLoading && (
+        <div className="mt-6 rounded-[var(--radius-shell)] bg-surface-low p-1.5 ring-1 ring-black/5 shadow-[var(--shadow-ambient)] dark:ring-white/10">
+          <div className="rounded-[var(--radius-core)] bg-surface-lowest px-5 py-6 text-center">
+            <p className="text-body-md text-on-surface">You&rsquo;re not on a team yet.</p>
+            <p className="mx-auto mt-1.5 max-w-md text-body-sm text-on-surface-variant">
+              A post here speaks for a team, so joining one comes first. Ask a team to take you on
+              and the head will decide — you can read the board in the meantime.
+            </p>
+            <Link
+              to="/departments"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98]"
+            >
+              Find a team to join
+              <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
+        </div>
       )}
 
       {error && !canPost && (

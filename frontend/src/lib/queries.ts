@@ -5,6 +5,7 @@ import {
   departmentMemberRowSchema,
   departmentRoleSchema,
   departmentSchema,
+  joinRequestSchema,
   roleChecklistItemSchema,
   rotaAssignmentSchema,
   rotaProgressSchema,
@@ -15,6 +16,7 @@ import {
   type Department,
   type DepartmentMemberRow,
   type DepartmentRole,
+  type JoinRequest,
   type RoleChecklistItem,
   type RotaAssignment,
   type RotaProgress,
@@ -170,4 +172,29 @@ export async function fetchTemplateSessions(templateId: string): Promise<Templat
     .order('order_index')
   if (error) throw error
   return z.array(templateSessionSchema).parse(data)
+}
+
+/**
+ * Requests to join a team.
+ *
+ * RLS decides who sees what: your own asks always, plus — for a head — the
+ * ones addressed to the team they lead, plus everything for an Admin. So
+ * the same query serves the volunteer's "waiting on the head" chip and the
+ * head's inbox; the caller narrows by user_id when it wants only its own.
+ */
+export async function fetchJoinRequests(opts?: {
+  userId?: string
+  status?: 'pending'
+}): Promise<JoinRequest[]> {
+  let query = supabase
+    .from('team_join_requests')
+    .select(
+      '*, requester:profiles!team_join_requests_user_id_fkey(id, first_name, last_name, avatar_url), department:departments(id, name, color)',
+    )
+    .order('created_at', { ascending: false })
+  if (opts?.userId) query = query.eq('user_id', opts.userId)
+  if (opts?.status) query = query.eq('status', opts.status)
+  const { data, error } = await query
+  if (error) throw error
+  return z.array(joinRequestSchema).parse(data)
 }

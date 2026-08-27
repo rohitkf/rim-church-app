@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ManageTeamsCard } from '../components/ManageTeamsCard'
+import { JoinRequestsPanel } from '../components/JoinRequestsPanel'
+import { JoinTeamPanel } from '../components/JoinTeamPanel'
 import { TeamCardActions } from '../components/TeamCardActions'
 import { Card, PageHeader } from '../components/Surface'
-import { fetchDepartments, fetchOwnDepartmentIds } from '../lib/queries'
+import { fetchDepartments, fetchJoinRequests, fetchOwnDepartmentIds } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 
 export function DepartmentsPage() {
@@ -19,17 +21,30 @@ export function DepartmentsPage() {
   const ownDeptsQuery = useQuery({
     queryKey: ['own-departments', session?.user.id],
     queryFn: () => fetchOwnDepartmentIds(session!.user.id),
-    enabled: !!session && !isAdmin,
+    enabled: !!session,
   })
+
+  // One query serves both halves of the join flow: RLS returns your own
+  // asks plus, for a head or an Admin, the ones waiting on them.
+  const joinRequestsQuery = useQuery({
+    queryKey: ['join-requests'],
+    queryFn: () => fetchJoinRequests(),
+    enabled: !!session,
+  })
+  const joinRequests = joinRequestsQuery.data ?? []
+  const myId = session?.user.id
+  const myRequests = joinRequests.filter((r) => r.user_id === myId)
+  const waitingOnMe = joinRequests.filter((r) => r.status === 'pending' && r.user_id !== myId)
+  const memberDeptIds = useMemo(() => ownDeptsQuery.data ?? [], [ownDeptsQuery.data])
 
   // Everyone can read the department list (the rota needs other teams'
   // names), so this page narrows it to the teams you actually belong to
   // or lead. Admins keep the whole list.
   const data = useMemo(() => {
     if (isAdmin) return allDepartments
-    const mine = new Set([...(ownDeptsQuery.data ?? []), ...ledDepartmentIds])
+    const mine = new Set([...memberDeptIds, ...ledDepartmentIds])
     return (allDepartments ?? []).filter((d) => mine.has(d.id))
-  }, [allDepartments, ownDeptsQuery.data, ledDepartmentIds, isAdmin])
+  }, [allDepartments, memberDeptIds, ledDepartmentIds, isAdmin])
 
   return (
     <div>
@@ -41,8 +56,17 @@ export function DepartmentsPage() {
 
       {isAdmin && <ManageTeamsCard departments={allDepartments ?? []} />}
 
+      {waitingOnMe.length > 0 && (
+        <div className={isAdmin ? 'mt-6' : ''}>
+          <JoinRequestsPanel requests={waitingOnMe} />
+        </div>
+      )}
+
       <div className="mt-8">
-        <QueryState isLoading={isLoading} error={error} isEmpty={data?.length === 0} emptyMessage="No teams yet.">
+        <QueryState isLoading={isLoading} error={error} isEmpty={data?.length === 0}
+          emptyMessage={
+            isAdmin ? 'No teams yet.' : "You're not on a team yet — ask to join one below."
+          }>
           <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {data?.map((dept) => {
               const colour = dept.color ?? DEFAULT_DEPT_COLOR
@@ -90,6 +114,18 @@ export function DepartmentsPage() {
           </ul>
         </QueryState>
       </div>
+
+      {/* Every team you are not on, and one verb for it. Admins already
+          see the whole list above, so this is for everyone else. */}
+      {!isAdmin && (
+        <div className="mt-8">
+          <JoinTeamPanel
+            departments={allDepartments ?? []}
+            memberDeptIds={[...memberDeptIds, ...ledDepartmentIds]}
+            myRequests={myRequests}
+          />
+        </div>
+      )}
     </div>
   )
 }
