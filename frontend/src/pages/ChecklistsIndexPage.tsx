@@ -111,6 +111,7 @@ export function ChecklistsIndexPage() {
                           departmentId={activeDeptId}
                           serviceId={service.id}
                           serviceDate={service.date}
+                          showAttendance={false}
                         />
                       )}
                     </section>

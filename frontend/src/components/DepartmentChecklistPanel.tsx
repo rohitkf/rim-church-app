@@ -74,6 +74,10 @@ interface DepartmentChecklistPanelProps {
   serviceDate?: string
   /** Shown above the panel when the surrounding page doesn't name the department. */
   showDepartmentName?: boolean
+  /** The Checklists page hides the attendance card to stay focused on
+   * tasks; the deep-linked prep page keeps it, since that's where a head
+   * logs the day's counts. */
+  showAttendance?: boolean
 }
 
 /**
@@ -87,6 +91,7 @@ export function DepartmentChecklistPanel({
   serviceId,
   serviceDate,
   showDepartmentName = false,
+  showAttendance = true,
 }: DepartmentChecklistPanelProps) {
   const { session, isAdmin, hasRole } = useAuth()
   const myId = session?.user.id
@@ -431,6 +436,7 @@ export function DepartmentChecklistPanel({
             </div>
           </section>
 
+          {showAttendance && (
           <section className="rounded-lg border border-border-subtle bg-surface-lowest p-6">
             <h4 className="text-headline-md">Team Attendance</h4>
             <QueryState isLoading={attendanceQuery.isLoading} error={attendanceQuery.error}>
@@ -489,6 +495,7 @@ export function DepartmentChecklistPanel({
               )}
             </QueryState>
           </section>
+          )}
         </div>
       </div>
     </div>

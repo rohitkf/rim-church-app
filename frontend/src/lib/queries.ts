@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import {
+  availabilityRowSchema,
+  departmentMemberRowSchema,
   departmentSchema,
   serviceSchema,
   serviceTemplateSchema,
   templateSessionSchema,
+  type AvailabilityRow,
   type Department,
+  type DepartmentMemberRow,
   type Service,
   type ServiceTemplate,
   type TemplateSession,
@@ -25,6 +29,26 @@ export async function fetchServices(): Promise<Service[]> {
   const { data, error } = await supabase.from('services').select('*').order('date', { ascending: false })
   if (error) throw error
   return z.array(serviceSchema).parse(data)
+}
+
+/** Roster rows for several departments at once. RLS narrows this to the
+ * departments the caller may see, so a plain member gets only their own. */
+export async function fetchMembersForDepartments(departmentIds: string[]): Promise<DepartmentMemberRow[]> {
+  if (departmentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('department_members')
+    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
+    .in('department_id', departmentIds)
+  if (error) throw error
+  return z.array(departmentMemberRowSchema).parse(data)
+}
+
+/** Availability answers for several services at once. */
+export async function fetchAvailabilityFor(serviceIds: string[]): Promise<AvailabilityRow[]> {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase.from('availability').select('*').in('service_id', serviceIds)
+  if (error) throw error
+  return z.array(availabilityRowSchema).parse(data)
 }
 
 export const profileSearchResultSchema = z.object({

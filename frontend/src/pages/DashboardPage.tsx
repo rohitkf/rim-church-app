@@ -7,8 +7,16 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
-import { fetchDepartments, fetchServices } from '../lib/queries'
+import {
+  fetchAvailabilityFor,
+  fetchDepartments,
+  fetchMembersForDepartments,
+  fetchServices,
+} from '../lib/queries'
+import { availabilitySummary } from '../lib/availabilitySummary'
+import { AvailabilityBar, availabilityCaption } from '../components/AvailabilityBar'
 import { attendanceBarClass, attendancePercent } from '../lib/attendance'
+import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { todayIso } from '../lib/monthGrid'
 import type { RoleType } from '../auth/types'
@@ -137,6 +145,29 @@ export function DashboardPage() {
   })
   const attendance = useMemo(() => attendanceQuery.data ?? [], [attendanceQuery.data])
 
+  // Availability: who has said they can serve. RLS narrows both the
+  // answers and the rosters to teams the viewer may see, so a team member
+  // sees their own teams here and an Admin sees all of them.
+  const allDeptIds = useMemo(() => (departmentsQuery.data ?? []).map((d) => d.id), [departmentsQuery.data])
+  const availabilityQuery = useQuery({
+    queryKey: ['dashboard-availability', dayServiceIds],
+    queryFn: () => fetchAvailabilityFor(dayServiceIds),
+    enabled: dayServiceIds.length > 0,
+  })
+  const rostersQuery = useQuery({
+    queryKey: ['dashboard-rosters', allDeptIds],
+    queryFn: () => fetchMembersForDepartments(allDeptIds),
+    enabled: allDeptIds.length > 0,
+  })
+  const coreByDept = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const m of rostersQuery.data ?? []) {
+      if (m.member_type !== 'core') continue
+      map.set(m.department_id, [...(map.get(m.department_id) ?? []), m.user_id])
+    }
+    return map
+  }, [rostersQuery.data])
+
   const activityItems = useMemo(
     () =>
       items
@@ -258,6 +289,36 @@ export function DashboardPage() {
               const totalActual = serviceAttendance.reduce((sum, a) => sum + (a.actual_count ?? 0), 0)
               const overallPct = attendancePercent(totalActual, totalExpected)
 
+              // Availability for this service, per team, plus the whole-
+              // roster total across every team the viewer can see.
+              const serviceAvailability = (availabilityQuery.data ?? []).filter(
+                (a) => a.service_id === service.id,
+              )
+              const availabilityTeams = (departmentsQuery.data ?? [])
+                .filter((d) => (coreByDept.get(d.id) ?? []).length > 0)
+                .map((d) => ({
+                  dept: d,
+                  summary: availabilitySummary(
+                    coreByDept.get(d.id) ?? [],
+                    serviceAvailability.filter((a) => a.department_id === d.id),
+                  ),
+                }))
+              const overallAvailability = availabilityTeams.reduce(
+                (acc, t) => ({
+                  total: acc.total + t.summary.total,
+                  available: acc.available + t.summary.available,
+                  tentative: acc.tentative + t.summary.tentative,
+                  unavailable: acc.unavailable + t.summary.unavailable,
+                  noAnswer: acc.noAnswer + t.summary.noAnswer,
+                  pct: 0,
+                }),
+                { total: 0, available: 0, tentative: 0, unavailable: 0, noAnswer: 0, pct: 0 },
+              )
+              overallAvailability.pct =
+                overallAvailability.total > 0
+                  ? Math.round((overallAvailability.available / overallAvailability.total) * 100)
+                  : 0
+
               const deptIds = [
                 ...new Set([
                   ...(checklistsQuery.data ?? [])
@@ -371,6 +432,42 @@ export function DashboardPage() {
                       )}
                     </div>
                   </div>
+
+                  {availabilityTeams.length > 0 && (
+                    <div className="mt-6 border-t border-border-subtle pt-5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="text-body-sm text-on-surface-variant">Volunteer Availability</span>
+                        <span className="font-mono text-label-sm text-on-surface-variant">
+                          {availabilityCaption(overallAvailability)}
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <AvailabilityBar summary={overallAvailability} label="All teams" />
+                      </div>
+
+                      <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {availabilityTeams.map(({ dept, summary }) => (
+                          <li key={dept.id}>
+                            <div className="flex items-center justify-between gap-2 text-body-sm">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+                                />
+                                <span className="truncate text-on-surface">{dept.name}</span>
+                              </span>
+                              <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                                {summary.pct}% · {summary.available}/{summary.total}
+                              </span>
+                            </div>
+                            <div className="mt-1.5">
+                              <AvailabilityBar summary={summary} label={dept.name} />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </section>
               )
             })}
