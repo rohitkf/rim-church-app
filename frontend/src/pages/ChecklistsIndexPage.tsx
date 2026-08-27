@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { PageHeader } from '../components/Surface'
 import { StatusBadge } from '../components/ChecklistStatus'
 import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
 import {
@@ -184,7 +185,15 @@ export function ChecklistsIndexPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Checklists</h1>
+      <PageHeader
+        eyebrow={
+          dayIso
+            ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
+            : 'No service day yet'
+        }
+        title="Checklists"
+        description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."
+      />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
@@ -198,10 +207,6 @@ export function ChecklistsIndexPage() {
           </p>
         ) : (
           <>
-            <p className="mt-2 text-body-md text-on-surface-variant">
-              {dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} ·{' '}
-              {formatServiceDay(dayIso)}
-            </p>
 
             {mineFirst.length === 0 ? (
               <p className="mt-6 text-body-sm text-on-surface-variant">

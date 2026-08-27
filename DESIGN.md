@@ -1,205 +1,229 @@
----
-name: Sanctuary Ops
-colors:
-  surface: '#f8f9ff'
-  surface-dim: '#cbdbf5'
-  surface-bright: '#f8f9ff'
-  surface-container-lowest: '#ffffff'
-  surface-container-low: '#eff4ff'
-  surface-container: '#e5eeff'
-  surface-container-high: '#dce9ff'
-  surface-container-highest: '#d3e4fe'
-  on-surface: '#0b1c30'
-  on-surface-variant: '#45464d'
-  inverse-surface: '#213145'
-  inverse-on-surface: '#eaf1ff'
-  outline: '#76777d'
-  outline-variant: '#c6c6cd'
-  surface-tint: '#565e74'
-  primary: '#000000'
-  on-primary: '#ffffff'
-  primary-container: '#131b2e'
-  on-primary-container: '#7c839b'
-  inverse-primary: '#bec6e0'
-  secondary: '#006a61'
-  on-secondary: '#ffffff'
-  secondary-container: '#86f2e4'
-  on-secondary-container: '#006f66'
-  tertiary: '#000000'
-  on-tertiary: '#ffffff'
-  tertiary-container: '#331200'
-  on-tertiary-container: '#cf6721'
-  error: '#ba1a1a'
-  on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#dae2fd'
-  primary-fixed-dim: '#bec6e0'
-  on-primary-fixed: '#131b2e'
-  on-primary-fixed-variant: '#3f465c'
-  secondary-fixed: '#89f5e7'
-  secondary-fixed-dim: '#6bd8cb'
-  on-secondary-fixed: '#00201d'
-  on-secondary-fixed-variant: '#005049'
-  tertiary-fixed: '#ffdbca'
-  tertiary-fixed-dim: '#ffb68e'
-  on-tertiary-fixed: '#331200'
-  on-tertiary-fixed-variant: '#763300'
-  background: '#f8f9ff'
-  on-background: '#0b1c30'
-  surface-variant: '#d3e4fe'
-  status-pending: '#94A3B8'
-  status-member: '#0EA5E9'
-  status-head: '#6366F1'
-  status-coordinator: '#10B981'
-  surface-muted: '#F8FAFC'
-  border-subtle: '#E2E8F0'
-typography:
-  headline-xl:
-    fontFamily: Hanken Grotesk
-    fontSize: 40px
-    fontWeight: '700'
-    lineHeight: 48px
-    letterSpacing: -0.02em
-  headline-lg:
-    fontFamily: Hanken Grotesk
-    fontSize: 32px
-    fontWeight: '600'
-    lineHeight: 40px
-    letterSpacing: -0.01em
-  headline-md:
-    fontFamily: Hanken Grotesk
-    fontSize: 24px
-    fontWeight: '600'
-    lineHeight: 32px
-  body-lg:
-    fontFamily: Hanken Grotesk
-    fontSize: 18px
-    fontWeight: '400'
-    lineHeight: 28px
-  body-md:
-    fontFamily: Hanken Grotesk
-    fontSize: 16px
-    fontWeight: '400'
-    lineHeight: 24px
-  body-sm:
-    fontFamily: Hanken Grotesk
-    fontSize: 14px
-    fontWeight: '400'
-    lineHeight: 20px
-  label-md:
-    fontFamily: JetBrains Mono
-    fontSize: 14px
-    fontWeight: '500'
-    lineHeight: 20px
-    letterSpacing: 0.02em
-  label-sm:
-    fontFamily: JetBrains Mono
-    fontSize: 12px
-    fontWeight: '500'
-    lineHeight: 16px
-    letterSpacing: 0.05em
-  headline-lg-mobile:
-    fontFamily: Hanken Grotesk
-    fontSize: 28px
-    fontWeight: '600'
-    lineHeight: 36px
-rounded:
-  sm: 0.125rem
-  DEFAULT: 0.25rem
-  md: 0.375rem
-  lg: 0.5rem
-  xl: 0.75rem
-  full: 9999px
-spacing:
-  unit: 4px
-  gutter: 24px
-  margin-mobile: 16px
-  margin-desktop: 40px
-  container-max: 1440px
+# RIM design system
+
+The rules the app is built from. Read this before adding a screen; if you
+find yourself writing a colour, a radius or a shadow by hand, the answer is
+almost certainly already here under a name.
+
+Everything lives in `frontend/src/index.css` (tokens) and
+`frontend/src/components/Surface.tsx` (primitives). Pages compose the
+primitives and choose nothing for themselves — which is what stops the
+tenth screen from being the one that quietly invents a sixth grey.
+
 ---
 
-## Brand & Style
+## 1. The idea in one paragraph
 
-The design system is built on a foundation of **trust, efficiency, and structural integrity**. As a platform for church operations, it must balance the warmth of community with the rigorous precision required for service coordination. The aesthetic follows a **Corporate Modern** approach with a **Minimalist** focus on data density and information hierarchy.
+A true-black ground. Content in **tiles** a step above it, each wearing a
+hairline of light along its inside edge. One blue accent, spent only on
+what is **live** or **actionable** — so it appears once or twice per screen
+and never as decoration. Counts, times and tags are set in mono, which is
+what makes a dense screen scannable. Depth comes from light, not shadow.
 
-The target audience consists of church administrators, department heads, and volunteers who need to move quickly between high-level oversight and granular task execution. The UI evokes a sense of "calm control"—avoiding unnecessary decorative elements in favor of high-contrast typography, functional layouts, and clear state-driven indicators.
+Dark is the reference. Light is the same structure with the ground
+inverted; every component paints from tokens, so neither has to know which
+one it is in.
 
-**Key Stylistic Principles:**
-- **Clarity over Decoration:** Every element serves a functional purpose.
-- **State-First Design:** Using color and iconography to communicate the status of checklists and attendance at a glance.
-- **Technical Sophistication:** A clean, professional look that inspires confidence in the platform's AI-assisted capabilities.
+---
 
-## Colors
+## 2. Ground and tiles
 
-The palette is anchored by **Deep Navy (#0F172A)**, providing a professional and authoritative base. The primary action and accent color is **Vibrant Teal (#0D9488)**, chosen for its association with growth and clarity. A **Soft Gold (#B45309)** is reserved for high-priority alerts or specific "Admin-only" indicators.
+Four surface steps, and no more — past four the eye stops telling depth
+from decoration.
 
-The checklist system utilizes a specific chromatic progression to represent the three-stage verification chain:
-1. **Pending:** Slate Gray (Neutrality/Inaction)
-2. **Member Complete:** Sky Blue (Action Initiated)
-3. **Head Verified:** Indigo (Verification in Progress)
-4. **Coordinator Verified:** Emerald (Finalized/Success)
+| Token | Dark | What sits here |
+|---|---|---|
+| `background` | `#000000` | the page |
+| `surface-lowest` | `#141418` | **a tile** — the default home for content |
+| `raised` | `white / 4.5%` | a row or a nested card inside a tile |
+| `raised-strong` | `white / 8%` | a quiet button, a bar's empty track |
+| `inset` | `black / 30%` | a row sunk into a tile (segmented controls) |
 
-The background utilizes a clean white surface with **Surface Muted (#F8FAFC)** for container nesting to maintain a flat, modern depth.
+The hairline is not a border. Use the `hairline` utility
+(`inset 0 0 0 1px`), never `border`: a tile's edge has to read as it
+catching light, not as a line drawn around it.
 
-## Typography
+```html
+<!-- yes -->
+<div class="rounded-[var(--radius-tile)] bg-surface-lowest hairline">
+<!-- no -->
+<div class="rounded-lg border border-gray-800 bg-neutral-900">
+```
 
-This design system uses **Hanken Grotesk** as its primary typeface. It is a sharp, contemporary sans-serif that maintains exceptional legibility in data-heavy environments while feeling approachable. 
+### The ambient wash
 
-**JetBrains Mono** is introduced for labels, status indicators, and metadata. This monospaced font provides a functional, "instrument-panel" feel that distinguishes administrative data from standard content, reinforcing the platform's focus on operational efficiency and AI tool-calling logs.
+Each section lights the page a different colour, set by `--wash-hue` in
+`AppShell`, so you know where you are before you read anything: Dashboard
+and Planner blue, Checklists and Availability green, Teams and Volunteers
+indigo, Inventory amber. It is light **behind** the tiles, never colour on
+them. Adding a route means adding one line to `WASH`.
 
-- **Headlines:** Bold weights with slight negative letter-spacing for a grounded, professional look.
-- **Body:** Standardized on 16px for optimal readability on web interfaces.
-- **Labels:** Used for timestamps, "Verified by" tags, and technical metadata.
+---
 
-## Layout & Spacing
+## 3. Colour
 
-The layout utilizes a **Fixed Grid** philosophy for desktop to ensure data visualizations and dashboards remain consistent across wide displays, centering the content at a maximum width of 1440px. 
+Blue is the only colour that means "act on this" or "this is live".
+Everything else carries a fixed meaning and nothing else.
 
-- **Grid System:** A 12-column grid with 24px gutters. 
-- **Dashboards:** Use a bento-box style layout where "cards" span 3, 4, 6, or 12 columns depending on information priority.
-- **Service Planner:** Uses a vertical timeline-based layout where the left column is fixed for "Start Time" and "Duration" (JetBrains Mono) and the right column expands for "Session Name" and "Assigned User."
-- **Mobile Adaptivity:** On mobile, the 12-column grid collapses to 1 column. Progress bars and status indicators transition from horizontal to vertical stacks to maintain legibility.
+| Token | Meaning |
+|---|---|
+| `accent-blue` `#0a84ff` | the action, the live thing, the current page |
+| `accent-green` `#30d158` | done, signed off, available, in service |
+| `accent-orange` `#ff9f0a` | waiting on someone, needs attention |
+| `accent-red` `#ff453a` | refused, missing, unanswered |
+| `accent-indigo` `#5e5ce6` | the assistant, and the first checklist stage |
 
-## Elevation & Depth
+Each has a `-soft` variant for **text on a dark ground** — `#0a84ff` on
+`#141418` is legible as a fill but not as a sentence, so text uses
+`accent-blue-soft`. Tints are made with `color-mix`, not opacity on the
+element, so nested content keeps its own contrast.
 
-This design system uses **Tonal Layers** and **Low-Contrast Outlines** rather than heavy shadows to convey depth. This ensures the UI remains clean and "functional" rather than "decorative."
+### The verification chain
 
-- **Level 0 (Background):** The base layer of the application (#FFFFFF).
-- **Level 1 (Cards/Sections):** Uses a subtle background fill (#F8FAFC) and a 1px border (#E2E8F0).
-- **Level 2 (Modals/Popovers):** Uses a sharp, high-diffusion shadow (Blur 12px, 4% Opacity) to separate critical overlays from the dashboard.
-- **Active State:** Elements being hovered or interacted with utilize a 2px solid border in the Primary color to indicate focus without changing the layout size.
+The three-stage chain has its own tokens and its order never changes:
 
-## Shapes
+`status-pending` → `status-member` (indigo) → `status-head` (blue) →
+`status-coordinator` (green)
 
-The shape language is **Soft (0.25rem)**. This provides a subtle modern touch that softens the "industrial" feel of the navy/slate palette without appearing overly consumer-oriented or "bubbly."
+These map 1:1 onto the `checklist_item_status` enum. If the enum ever
+gains a stage, add a token — don't reuse an accent.
 
-- **Standard Buttons & Inputs:** 0.25rem (4px) corner radius.
-- **Cards & Dashboard Containers:** 0.5rem (8px) corner radius.
-- **Status Chips:** 1rem (Pill-shaped) to distinguish them clearly from interactive buttons.
-- **Progress Bars:** Fully rounded (pill) ends to indicate fluid movement and completion.
+---
 
-## Components
+## 4. Form
 
-### 1. Checklist Items (3-Stage)
-Checklist items are the core of the system. Each row must display:
-- **Checkbox:** Visual state mirrors the current stage.
-- **Stage Badges:** Small, pill-shaped chips using the status colors (Pending, Member, Head, Coordinator).
-- **Metadata:** A label-sm timestamp and name of the last person who verified the item.
+### Radii step down as things nest
 
-### 2. Status-Driven Progress Bars
-Used on the dashboard to show readiness.
-- **Background:** Light gray track.
-- **Fill:** Multi-segmented color indicating how much of the "completion" is at which stage (e.g., 20% Teal for member-complete, 40% Indigo for head-verified).
+| Token | px | Used for |
+|---|---|---|
+| `--radius-tile` | 32 | a tile on the canvas |
+| `--radius-card` | 28 | a card, a modal |
+| `--radius-panel` | 24 | a panel nested in a tile |
+| `--radius-row` | 20 | a row in a list |
+| `--radius-chip` | 16 | an input, a small chip |
+| `999px` | — | **every** button, pill and badge |
 
-### 3. Data-Heavy Dashboards
-Containers should use a white background with a subtle `#E2E8F0` border. Headers within cards should use `headline-md` with a primary navy color.
+A nested thing is never rounder than its parent.
 
-### 4. AI Assistant Entry Point
-A persistent, floating action button (FAB) or a docked input bar at the bottom of the screen. It should be styled with a subtle gradient or unique border glow to signify it as a "special" AI-powered layer, distinct from standard form fields.
+### Shadow
 
-### 5. Input Fields
-Inputs use a white background, 1px slate border, and `body-sm` text. Focus states must use a 2px Teal border. Error states use a 2px border in a standard Red-500.
+Two tokens: `--shadow-ambient` and `--shadow-lifted`. On dark they are
+near-black and do almost nothing — the hairline carries the edge. Only
+things that genuinely float (the dock, a modal, the sign-in card) get
+`lifted`. Tiles that just sit there get neither.
 
-### 6. Service Planner Rows
-Rows in the planner should use alternating subtle backgrounds for readability. The "Start Time" column should be visually locked/greyed out for all sessions except the first, emphasizing the "cascade" logic.
+### Motion
+
+One easing curve for the whole app: `--ease-glide`. Nothing uses `linear`
+or `ease-in-out`. Durations are 300ms for colour, 500ms for movement.
+`prefers-reduced-motion` is honoured globally in `index.css` — you do not
+need to handle it per component.
+
+---
+
+## 5. Type
+
+`-apple-system` / SF Pro for prose, **JetBrains Mono for anything
+countable** — labels, counts, times, tags, IDs. That split is most of what
+makes the app legible at a glance.
+
+| Class | Size | Used for |
+|---|---|---|
+| `text-display` | 76 mono | the countdown, once per screen |
+| `text-headline-xl` | 40/46 | the page title |
+| `text-numeral` | 44 | a tile's headline figure |
+| `text-headline-lg` | 28/34 | a hero tile's subject |
+| `text-headline-md` | 22/28 | a section heading |
+| `text-body-lg` | 17/26 | a page's opening sentence |
+| `text-body-sm` | 15/22 | the app's ordinary text |
+| `text-label-md` | 14 | buttons, links |
+| `text-label-sm` | 12 mono | counts, timestamps |
+| `text-eyebrow` | 11 mono, `.18em`, uppercase | every tile's label |
+
+Use `tabular` on any number that changes, or the layout twitches as it
+updates.
+
+---
+
+## 6. The primitives
+
+Import from `components/Surface.tsx`. If a screen needs something that
+isn't here, add it here rather than inline — that is the whole mechanism.
+
+| Primitive | What it is |
+|---|---|
+| `Tile` | content on the canvas. `tone`: `plain` \| `accent` \| `success` \| `warning` \| `danger` |
+| `Panel` | a Tile with a titled header strip (`title`, `icon`, `live`, `aside`) |
+| `PageHeader` | every page's opening: eyebrow, title, one line, one action |
+| `Eyebrow` | the mono micro-label above a heading or a number |
+| `Row` | a line inside a tile. `variant`: `raised` \| `inset` \| `dashed` \| `bare` |
+| `Pill` | a status or a tag. Always mono, uppercase, `dot` optional |
+| `ActionButton` | every button. `tone`: `primary` \| `quiet` \| `success` \| `danger` \| `ghost` |
+| `Statistic` | a headline figure with its unit |
+| `StackedBar` | parts of a whole, in the order they happen |
+| `LiveDot` | the pulsing green dot: this is happening now |
+| `Field` / `inputClasses` | a labelled control |
+
+Two rules about buttons: **every button is a pill**, and **one primary per
+screen**. If two things look equally important, one of them isn't.
+
+---
+
+## 7. Navigation
+
+A floating dock, not a sidebar (`components/DockNav.tsx`). It costs no
+horizontal space, it sits where a thumb already is, and **only the
+destination you are on wears a label** — which is what lets the others be
+icons without the row becoming a puzzle. The row scrolls rather than
+wraps: a dock that changes height moves the content underneath it.
+
+Adding a destination is one entry in `navItems` in `AppShell.tsx`, plus its
+wash colour.
+
+---
+
+## 8. Writing
+
+The interface talks like a person who knows the job.
+
+- Say what happened, not what failed: *"Nobody has been checked in yet"*,
+  not *"No data"*.
+- Name the thing to do: *"2 still to answer"*, not *"Incomplete"*.
+- Empty states say why it is empty and what fills it.
+- Errors are role-aware — see `lib/humanError.ts`. Volunteers get plain
+  words; Admins get those **plus** the raw message, because they are the
+  ones who have to fix it.
+
+---
+
+## 9. Adding a screen
+
+1. `PageHeader` with an eyebrow, a title, one line of orientation, and at
+   most one action.
+2. Content in `Tile`s. On a wide layout use the 12-column grid and the
+   design's 7/5 rhythm — alternating the wide tile keeps a long page from
+   reading as two stacked columns.
+3. Lists are `Row`s inside a Tile, not their own cards.
+4. Statuses are `Pill`s. Numbers are `Statistic`s. Progress is a
+   `StackedBar` or a ring.
+5. Add the route's wash colour to `WASH` in `AppShell.tsx`.
+6. Check it at 393px wide. The dock overlays the page, so the last element
+   needs room beneath it — `main` already reserves it.
+
+### Checklist before you ship a screen
+
+- [ ] No hand-written hex, radius or shadow
+- [ ] No `border` where `hairline` belongs
+- [ ] Exactly one primary button
+- [ ] Every count in mono, every changing number `tabular`
+- [ ] Readable at 393px, and in light as well as dark
+- [ ] Nothing conveyed by colour alone — a pill carries a word too
+
+---
+
+## 10. Provenance
+
+This system is the implementation of the Claude Design handoff
+(`RIM Dashboard.dc.html`, screens 1a–4d). Where the prototype used inline
+styles, the values live here as tokens; where it drew a screen, the app
+composes the same shapes from primitives. The prototype is the reference
+for *look*; this file is the reference for *rules*.

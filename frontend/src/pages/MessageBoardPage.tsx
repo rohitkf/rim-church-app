@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { PageHeader } from '../components/Surface'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
@@ -185,11 +186,11 @@ export function MessageBoardPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-headline-xl">Message Board</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Visible to everyone signed in. Post as a team you belong to — a post carries the badge of
-        whoever it speaks for.
-      </p>
+      <PageHeader
+        eyebrow="Everyone signed in"
+        title="Message Board"
+        description="A post speaks for the team on its badge."
+      />
 
       <BoardClearCountdown />
 

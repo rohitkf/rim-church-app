@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
-import { Card, Eyebrow, PageHeader } from '../components/Surface'
+import { Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
 import { fetchDepartments } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { formatMoney, needsAttention, totalValue } from '../lib/inventory'
@@ -47,18 +47,31 @@ export function InventoryIndexPage() {
         description="Every team's register. Value counts only what is in service — anything retired, missing, on loan or in repair is left out."
       />
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {[
-          { label: 'Items on the books', value: String(items.length) },
-          { label: 'Value in service', value: formatMoney(churchValue) },
-          { label: 'Needs attention', value: String(flagged) },
-        ].map((tile) => (
-          <Card key={tile.label}>
-            <div className="px-5 py-4">
-              <Eyebrow>{tile.label}</Eyebrow>
-              <div className="mt-1.5 text-headline-lg tabular-nums">{tile.value}</div>
-            </div>
-          </Card>
+      {/* Three figures, and the two that carry a judgement wear it: money
+          that is actually in service reads as good news, anything flagged
+          reads as work. The count itself is just a count. */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {(
+          [
+            { label: 'Items on the books', value: String(items.length), tone: 'plain', note: undefined },
+            {
+              label: 'Value in service',
+              value: formatMoney(churchValue),
+              tone: 'success',
+              note: undefined,
+            },
+            {
+              label: 'Needs attention',
+              value: String(flagged),
+              tone: flagged > 0 ? 'warning' : 'plain',
+              note: flagged > 0 ? 'warranty, repair, missing' : undefined,
+            },
+          ] as { label: string; value: string; tone: TileTone; note?: string }[]
+        ).map((tile) => (
+          <Tile key={tile.label} tone={tile.tone}>
+            <Eyebrow>{tile.label}</Eyebrow>
+            <Statistic className="mt-2.5" value={tile.value} unit={tile.note} />
+          </Tile>
         ))}
       </div>
 

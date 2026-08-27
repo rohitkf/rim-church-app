@@ -113,7 +113,7 @@ export function PageHeader({
   action?: ReactNode
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-7">
+    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">
       <div className="max-w-2xl">
         {eyebrow && (
           <span className="flex items-center gap-2.5">
@@ -121,8 +121,12 @@ export function PageHeader({
             <Eyebrow>{eyebrow}</Eyebrow>
           </span>
         )}
-        <h1 className="mt-2 text-headline-xl">{title}</h1>
-        {description && <p className="mt-1.5 text-body-lg text-on-surface-variant">{description}</p>}
+        {/* A 40px title costs a phone half its first screen, so the page
+            title steps down with the viewport the way the design does. */}
+        <h1 className="mt-2 text-headline-lg sm:text-headline-xl">{title}</h1>
+        {description && (
+          <p className="mt-1.5 text-body-md text-on-surface-variant sm:text-body-lg">{description}</p>
+        )}
       </div>
       {action}
     </header>
