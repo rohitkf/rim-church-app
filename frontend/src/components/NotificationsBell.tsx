@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { BellIcon } from './icons'
+import { notificationHref, notificationLabel } from '../lib/notificationLink'
+import { showLocalNotification } from '../lib/push'
+import { PushPermissionRow } from './PushPermission'
 import { notificationRowSchema, type NotificationRow } from '../lib/types'
-
-const notificationTypeLabel: Record<string, string> = {
-  message: 'New message board post',
-  rota_release_request: 'A team has asked to borrow one of your volunteers',
-  rota_release_approved: 'Your rota release request was approved',
-  rota_release_denied: 'Your rota release request was denied',
-  team_join_requested: 'Someone has asked to join your team',
-  team_join_approved: 'You have been added to a team',
-  team_join_declined: 'Your request to join a team was declined',
-}
 
 async function fetchNotifications(userId: string): Promise<NotificationRow[]> {
   const { data, error } = await supabase
@@ -51,7 +45,16 @@ export function NotificationsBell() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${myId}` },
-        () => queryClient.invalidateQueries({ queryKey: ['notifications', myId] }),
+        (payload) => {
+          queryClient.invalidateQueries({ queryKey: ['notifications', myId] })
+          // Announce it to the system only when the app isn't being looked
+          // at. Buzzing a phone whose screen already shows the bell going
+          // red is how people turn notifications off.
+          if (document.visibilityState !== 'visible') {
+            const row = payload.new as { type?: string; reference_id?: string | null }
+            if (row?.type) void showLocalNotification(row.type, row.reference_id)
+          }
+        },
       )
       .subscribe()
     return () => {
@@ -66,6 +69,18 @@ export function NotificationsBell() {
     if (open) document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
+
+  /** Opening one is reading it: there is no separate "mark read" to hunt for. */
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read_boolean: true })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', myId] }),
+  })
 
   const markAllRead = useMutation({
     mutationFn: async () => {
@@ -111,19 +126,38 @@ export function NotificationsBell() {
               <li className="px-4 py-6 text-center text-body-sm text-on-surface-variant">No notifications yet.</li>
             )}
             {notifications.map((n) => (
-              <li
-                key={n.id}
-                className={`border-b border-border-subtle px-4 py-3 text-body-sm last:border-0 ${
-                  n.read_boolean ? 'text-on-surface-variant' : 'bg-surface-container text-on-surface'
-                }`}
-              >
-                <div>{notificationTypeLabel[n.type] ?? n.type}</div>
-                <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                  {formatRelativeTime(n.created_at)}
-                </div>
+              <li key={n.id} className="border-b border-border-subtle last:border-0">
+                <Link
+                  to={notificationHref(n.type, n.reference_id)}
+                  onClick={() => {
+                    setOpen(false)
+                    if (!n.read_boolean) markRead.mutate(n.id)
+                  }}
+                  className={`flex items-start gap-3 px-4 py-3 text-body-sm transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-surface-container ${
+                    n.read_boolean ? 'text-on-surface-variant' : 'bg-surface-container text-on-surface'
+                  }`}
+                >
+                  {/* Unread is carried by a dot as well as by the fill, so it
+                      survives for anyone who cannot see the tint. */}
+                  <span
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                      n.read_boolean ? 'bg-transparent' : 'bg-primary'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0">
+                    <span className="block">{notificationLabel(n.type)}</span>
+                    <span className="mt-1 block font-mono text-label-sm text-on-surface-variant">
+                      {formatRelativeTime(n.created_at)}
+                      {!n.read_boolean && <span className="sr-only"> · unread</span>}
+                    </span>
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
+
+          <PushPermissionRow />
         </div>
       )}
     </div>

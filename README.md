@@ -313,6 +313,50 @@ every cache at once, bump `CACHE_VERSION` in `sw.js`.
 a bad worker would pin itself onto every installed device. Both
 `vercel.json` and `nginx.conf` set `max-age=0, must-revalidate` for them.
 
+## Notifications
+
+Every notification in the bell is a link to the page it came from —
+`frontend/src/lib/notificationLink.ts` holds the one map from type to
+sentence to destination, so a new notification type cannot be added without
+answering "where does this take me?". Opening one marks it read.
+
+Phone notifications come in two halves, and the first works with nothing
+but permission:
+
+**While the app is running** — including a backgrounded tab or a minimised
+installed app — a notification arriving over Realtime is shown to the
+system by the service worker. Permission is asked for from a button at the
+foot of the bell panel, never on load, because browsers only honour the
+request from a gesture and iOS only honours it at all in an installed app.
+
+**While the app is closed** needs Web Push, which needs three things set
+up once:
+
+1. **Run the migration.** `supabase/migrations/0039_push_subscriptions.sql`
+   adds one row per device, readable and removable only by its owner.
+2. **Generate a VAPID key pair** — `npx web-push generate-vapid-keys`. The
+   public half becomes `VITE_VAPID_PUBLIC_KEY` in the frontend's
+   environment; the private half stays server-side.
+3. **Deploy the sender and point a webhook at it:**
+
+   ```sh
+   supabase functions deploy push-notify
+   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... \
+     VAPID_SUBJECT=mailto:you@example.org
+   ```
+
+   Then add a Database Webhook (Database → Webhooks) on
+   `public.notifications`, event **INSERT**, calling the `push-notify`
+   function with the service-role key as its `Authorization` header.
+
+Until step 2 is done the app simply doesn't offer the closed-app half — no
+broken button, no error. `supabase/functions/push-notify/index.ts` sends to
+every one of a person's devices and deletes any endpoint the push service
+reports as gone (404/410), so uninstalled apps clean themselves up.
+
+Notification payloads carry only the type and a path — never a name, a
+message body or anything else that would end up on a lock screen.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +

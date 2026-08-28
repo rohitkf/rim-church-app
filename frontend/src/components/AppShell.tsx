@@ -16,6 +16,7 @@ import {
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
+import { useNotificationRouting } from '../lib/useNotificationRouting'
 import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
@@ -68,6 +69,7 @@ export function AppShell() {
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
+  useNotificationRouting()
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()

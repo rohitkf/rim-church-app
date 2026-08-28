@@ -58,6 +58,61 @@ self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting()
 })
 
+/* ------------------------------------------------------------------ *
+ * Notifications
+ * ------------------------------------------------------------------ */
+
+// A push that arrives while the app is closed. The payload is the same
+// shape the page uses for an in-app notification, so both routes end up
+// showing the same thing and clicking either lands in the same place.
+self.addEventListener('push', (event) => {
+  let payload = {}
+  try {
+    payload = event.data ? event.data.json() : {}
+  } catch {
+    // A push with no body, or one that isn't ours. Still worth announcing:
+    // userVisibleOnly means the browser will show its own if we don't.
+    payload = {}
+  }
+
+  const title = payload.title || 'Rehoboth International Ministries'
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || 'Something needs you in the app.',
+      icon: '/icon-192.png',
+      badge: '/badge-96.png',
+      // One per kind: ten new posts should be one line and one buzz, not
+      // ten of each.
+      tag: payload.tag || 'rim',
+      data: { href: payload.href || '/' },
+    }),
+  )
+})
+
+// Clicking a notification opens the page it came from — focusing a window
+// that is already open rather than piling up new ones.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const href = (event.notification.data && event.notification.data.href) || '/'
+  const target = new URL(href, self.location.origin)
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of windows) {
+        if (new URL(client.url).origin !== target.origin) continue
+        await client.focus()
+        // navigate() is not implemented everywhere; the page listens for
+        // this message and routes itself, which also keeps the SPA's
+        // history intact instead of reloading it.
+        client.postMessage({ type: 'NOTIFICATION_CLICK', href: target.pathname + target.search })
+        return
+      }
+      await self.clients.openWindow(target.href)
+    })(),
+  )
+})
+
 function isFontRequest(url) {
   return url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
 }

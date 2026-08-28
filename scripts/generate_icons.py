@@ -175,6 +175,31 @@ def render(size, mark_scale=0.62, full_bleed=False):
     return _png(size, size, rows)
 
 
+def render_badge(size, mark_scale=0.86):
+    """The status-bar badge: Android masks it to a silhouette, so it is the
+    mark alone in white on transparency — a full-colour tile there renders
+    as an unreadable blob."""
+    ss = 4
+    letters, mark_h = monogram(mark_scale, (1 - mark_scale) / 2, 0.5)
+    letters, _ = monogram(mark_scale, (1 - mark_scale) / 2, (1 - mark_h) / 2)
+
+    rows = []
+    step = 1.0 / (size * ss)
+    for py in range(size):
+        row = bytearray()
+        for px in range(size):
+            a = 0
+            for sy in range(ss):
+                for sx_ in range(ss):
+                    x = (px * ss + sx_ + 0.5) * step
+                    y = (py * ss + sy + 0.5) * step
+                    if any(s.contains(x, y) for s in letters):
+                        a += 255
+            row += bytes((255, 255, 255, a // (ss * ss)))
+        rows.append(bytes(row))
+    return _png(size, size, rows)
+
+
 def _png(width, height, rows):
     raw = b"".join(b"\x00" + row for row in rows)
 
@@ -201,6 +226,8 @@ def main():
         ("icon-maskable-512.png", render(512, mark_scale=0.46, full_bleed=True)),
         # iOS draws its own rounded mask and wants no transparency.
         ("apple-touch-icon.png", render(180, mark_scale=0.58, full_bleed=True)),
+        # The notification badge, drawn as a silhouette.
+        ("badge-96.png", render_badge(96)),
     ]
     for name, data in targets:
         (OUT / name).write_bytes(data)
