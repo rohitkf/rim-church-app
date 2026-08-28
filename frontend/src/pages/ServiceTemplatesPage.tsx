@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { PageHeader } from '../components/Surface'
 import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
@@ -138,12 +139,11 @@ export function ServiceTemplatesPage() {
       <Link to="/service-planner" className="text-body-sm text-secondary">
         ← Back to Service Planner
       </Link>
-      <h1 className="mt-2 text-headline-xl">Service Templates</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        A template is the usual shape of a service — its start time and the sessions that always
-        happen. Pick one when creating a service and the whole running order is pre-filled, ready
-        to tweak.
-      </p>
+      <PageHeader
+        eyebrow="Reusable running orders"
+        title="Service Templates"
+        description="A template is the usual shape of a service — its start time and the sessions that always happen. Pick one when creating a service and the whole running order is pre-filled, ready to tweak."
+      />
 
       <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         <h2 className="text-headline-md">{editingId ? 'Edit template' : 'Create template'}</h2>

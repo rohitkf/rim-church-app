@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
   BoxIcon,
@@ -85,6 +85,28 @@ export function AppShell() {
         destination lives in the dock instead.
       */}
       <header className="sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5">
+        {/*
+          The app has to say what it is. The dock carries destinations and
+          the page carries a greeting, so without this nothing on a signed-in
+          screen names the church — which is how the sidebar's removal left
+          the product anonymous. The name folds away on a phone, where the
+          mark alone is enough.
+        */}
+        <Link
+          to="/"
+          className="flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(160deg,var(--color-accent-blue),color-mix(in_oklab,var(--color-accent-blue)_55%,black))] font-mono text-[11px] text-white"
+          >
+            RIM
+          </span>
+          <span className="hidden max-w-[13rem] text-label-md leading-tight text-on-surface-variant xl:block">
+            Rehoboth International Ministries
+          </span>
+        </Link>
+
         <GlobalSearch />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ThemeToggle />

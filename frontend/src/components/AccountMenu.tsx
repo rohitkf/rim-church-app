@@ -22,8 +22,22 @@ interface AccountMenuProps {
  * profile settings, and signing out. Closes on a click anywhere else or on
  * Escape, the way a menu is expected to.
  */
+/**
+ * The one role a person is described by, most senior first.
+ *
+ * Roles are undefined for the moment between mount and the profile
+ * landing, so this must not assume the list is there — an avatar menu is
+ * not worth a crash.
+ */
+function primaryRoleLabel(isAdmin: boolean, roles?: { role_type: string }[]): string {
+  if (isAdmin) return 'Admin'
+  if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
+  if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
+  return 'Team Member'
+}
+
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
-  const { profile } = useAuth()
+  const { profile, roles, isAdmin } = useAuth()
   const { preference, choose } = useTheme()
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
@@ -64,12 +78,21 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
           role="menu"
           className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline py-1 shadow-lg"
         >
-          <div className="border-b border-border-subtle px-3 py-2">
-            <div className="truncate text-body-sm font-medium text-on-surface">
-              {profile ? `${profile.first_name} ${profile.last_name}` : 'Signed in'}
+          <div className="border-b border-border-subtle px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-body-sm font-medium text-on-surface">
+                {profile ? `${profile.first_name} ${profile.last_name}` : 'Signed in'}
+              </span>
+              {/* What you are allowed to do here. The sidebar used to say it
+                  under the church's name; this is where it lives now. */}
+              <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
+                {primaryRoleLabel(isAdmin, roles)}
+              </span>
             </div>
             {profile?.email && (
-              <div className="truncate text-label-sm text-on-surface-variant">{profile.email}</div>
+              <div className="mt-0.5 truncate text-label-sm text-on-surface-faint">
+                {profile.email}
+              </div>
             )}
           </div>
 

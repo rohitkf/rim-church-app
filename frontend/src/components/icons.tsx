@@ -170,15 +170,6 @@ export function SettingsIcon(props: IconProps) {
   )
 }
 
-export function HelpCircleIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5" />
-      <path d="M12 17h.01" />
-    </svg>
-  )
-}
 
 export function SearchIcon(props: IconProps) {
   return (
@@ -226,12 +217,3 @@ export function LogOutIcon(props: IconProps) {
   )
 }
 
-export function MenuIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  )
-}

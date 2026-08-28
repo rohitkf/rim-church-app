@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { PageHeader } from '../components/Surface'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
@@ -398,11 +399,11 @@ export function VolunteersPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Volunteers</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Everyone with an account, the teams they're on, and what they're allowed to do. Roles
-        granted here control what each person can see and change across the app.
-      </p>
+      <PageHeader
+        eyebrow="Everyone with an account"
+        title="Volunteers"
+        description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
+      />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>

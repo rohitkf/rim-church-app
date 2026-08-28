@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
 
 export function ForgotPasswordPage() {
@@ -41,62 +42,47 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">RIM</span>
-          </div>
-          <div className="text-headline-md">Rehoboth International Ministries</div>
-        </div>
-
-        {sent ? (
-          <>
-            <h1 className="mb-2 text-headline-lg">Check your email</h1>
-            <p className="text-body-sm text-on-surface-variant">
-              If an account exists for {email.trim()}, we've sent a link to reset the password. The
-              link expires after an hour.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="mb-2 text-headline-lg">Reset your password</h1>
-            <p className="mb-6 text-body-sm text-on-surface-variant">
-              Enter the email you signed up with and we'll send you a reset link.
-            </p>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                Email
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-                />
-              </label>
-              {error && (
-                <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-              >
-                {submitting ? 'Sending…' : 'Send reset link'}
-              </button>
-            </form>
-          </>
-        )}
-
-        <p className="mt-6 text-body-sm text-on-surface-variant">
-          <Link to="/login" className="font-medium text-secondary">
-            Back to sign in
-          </Link>
+    <AuthCard
+      title={sent ? 'Check your email' : 'Reset your password'}
+      footer={
+        <Link to="/login" className="font-medium text-primary">
+          Back to sign in
+        </Link>
+      }
+    >
+      {sent ? (
+        <p className="text-body-sm text-on-surface-variant">
+          If an account exists for {email.trim()}, we&rsquo;ve sent a link to reset the password.
+          The link expires after an hour.
         </p>
-      </div>
-    </div>
+      ) : (
+        <>
+          <p className="text-body-sm text-on-surface-variant">
+            Enter the email you signed up with and we&rsquo;ll send you a reset link.
+          </p>
+          <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-3.5">
+            <label className="flex flex-col gap-2">
+              <AuthLabel>Email</AuthLabel>
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={authInputClasses}
+              />
+            </label>
+            {error && (
+              <p className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
+                {error}
+              </p>
+            )}
+            <button type="submit" disabled={submitting} className={`mt-1.5 ${authSubmitClasses}`}>
+              {submitting ? 'Sending…' : 'Send reset link'}
+            </button>
+          </form>
+        </>
+      )}
+    </AuthCard>
   )
 }

@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
@@ -58,63 +59,66 @@ export function SignupPage() {
 
   if (done) {
     return (
-      <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8 text-center">
-          <h1 className="mb-2 text-headline-lg">Check your email</h1>
-          <p className="text-body-sm text-on-surface-variant">
-            We sent a confirmation link to {email}. Sign in once you've confirmed your account.
-          </p>
-          <Link to="/login" className="mt-6 inline-block text-body-sm font-medium text-secondary">
+      <AuthCard
+        title="Check your email"
+        footer={
+          <Link to="/login" className="font-medium text-primary">
             Back to sign in
           </Link>
-        </div>
-      </div>
+        }
+      >
+        <p className="text-body-sm text-on-surface-variant">
+          We sent a confirmation link to {email}. Sign in once you&rsquo;ve confirmed your account.
+        </p>
+      </AuthCard>
     )
   }
 
   return (
-    <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">RIM</span>
-          </div>
-          <div className="text-headline-md">Rehoboth International Ministries</div>
-        </div>
-        <h1 className="mb-6 text-headline-lg">Create an account</h1>
+    <AuthCard
+      title="Create an account"
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-primary">
+            Sign in
+          </Link>
+        </>
+      }
+    >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex gap-3">
-            <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-              First name
+            <label className="flex min-w-0 flex-1 flex-col gap-2">
+              <AuthLabel>First name</AuthLabel>
               <input
                 required
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className={authInputClasses}
               />
             </label>
-            <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-              Last name
+            <label className="flex min-w-0 flex-1 flex-col gap-2">
+              <AuthLabel>Last name</AuthLabel>
               <input
                 required
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+                className={authInputClasses}
               />
             </label>
           </div>
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Email
+          <label className="flex flex-col gap-2">
+            <AuthLabel>Email</AuthLabel>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className={authInputClasses}
             />
           </label>
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Password
+          <label className="flex flex-col gap-2">
+            <AuthLabel>Password</AuthLabel>
             <PasswordInput value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" />
           </label>
 
@@ -140,8 +144,8 @@ export function SignupPage() {
             </div>
           )}
 
-          <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-            Re-enter password
+          <label className="flex flex-col gap-2">
+            <AuthLabel>Re-enter password</AuthLabel>
             <PasswordInput value={confirmPassword} onChange={setConfirmPassword} required autoComplete="new-password" />
           </label>
           {confirmPassword.length > 0 && (
@@ -154,18 +158,11 @@ export function SignupPage() {
           <button
             type="submit"
             disabled={submitting || !canSubmit}
-            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className={`mt-1.5 ${authSubmitClasses}`}
           >
             {submitting ? 'Creating account…' : 'Sign up'}
           </button>
         </form>
-        <p className="mt-6 text-body-sm text-on-surface-variant">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-secondary">
-            Sign in
-          </Link>
-        </p>
-      </div>
-    </div>
+    </AuthCard>
   )
 }

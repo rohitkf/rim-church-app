@@ -124,33 +124,3 @@ export function ReadinessDonut({
     </figure>
   )
 }
-
-/** Shared key for a group of donuts — identity never rests on colour alone. */
-export function ReadinessLegend({ readiness }: { readiness: Readiness }) {
-  const entries = [
-    { label: 'Signed off', value: readiness.coordinatorVerified, color: 'bg-status-coordinator' },
-    { label: 'Head verified', value: readiness.headVerified, color: 'bg-status-head' },
-    { label: 'Checked', value: readiness.memberComplete, color: 'bg-status-member' },
-    {
-      label: 'Pending',
-      value:
-        readiness.total -
-        readiness.coordinatorVerified -
-        readiness.headVerified -
-        readiness.memberComplete,
-      color: 'bg-surface-container',
-    },
-  ]
-
-  return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      {entries.map((e) => (
-        <li key={e.label} className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${e.color}`} aria-hidden="true" />
-          {e.label}
-          <span className="font-mono text-label-sm text-on-surface">{e.value}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}

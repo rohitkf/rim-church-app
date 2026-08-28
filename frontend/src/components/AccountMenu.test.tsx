@@ -7,6 +7,8 @@ import { AccountMenu } from './AccountMenu'
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     profile: { first_name: 'Sarah', last_name: 'Jenkins', email: 's@x.com' },
+    roles: [{ role_type: 'department_head' }],
+    isAdmin: false,
   }),
 }))
 
@@ -42,5 +44,20 @@ describe('AccountMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Account' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
+describe('the role badge', () => {
+  it('says what this person is allowed to do', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AccountMenu initials="SJ" onSignOut={() => {}} />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByRole('button', { name: /account/i }))
+    // The sidebar used to say this under the church's name; when the
+    // sidebar went, the app stopped telling anyone their own role.
+    expect(screen.getByText('Department Head')).toBeInTheDocument()
   })
 })

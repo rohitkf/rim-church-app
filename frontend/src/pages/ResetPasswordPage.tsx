@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { AuthCard, AuthLabel, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
 import { PasswordInput } from '../components/PasswordInput'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
@@ -77,48 +78,48 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[100svh] items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest hairline p-8">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <span className="font-mono text-label-md">RIM</span>
-          </div>
-          <div className="text-headline-md">Rehoboth International Ministries</div>
-        </div>
+    <AuthCard
+      title={
+        !ready
+          ? 'Checking your link…'
+          : done
+            ? 'Password updated'
+            : !linkValid
+              ? 'Link expired'
+              : 'Choose a new password'
+      }
+    >
 
         {!ready ? (
-          <p className="text-body-sm text-on-surface-variant">Checking your link…</p>
+          <p className="text-body-sm text-on-surface-variant">One moment.</p>
         ) : done ? (
           <>
-            <h1 className="mb-2 text-headline-lg">Password updated</h1>
             <p className="text-body-sm text-on-surface-variant">You're signed in with your new password.</p>
             <button
               onClick={() => navigate('/')}
-              className="mt-6 w-full rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+              className={`mt-6 ${authSubmitClasses}`}
             >
               Go to Dashboard
             </button>
           </>
         ) : !linkValid ? (
           <>
-            <h1 className="mb-2 text-headline-lg">Link expired</h1>
             <p className="text-body-sm text-on-surface-variant">
               This reset link is no longer valid — they expire after an hour and can only be used
               once. Request a new one and try again.
             </p>
             <Link
               to="/forgot-password"
-              className="mt-6 inline-block rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+              className={`mt-6 ${authSubmitClasses}`}
             >
               Request a new link
             </Link>
           </>
         ) : (
           <>
-            <h1 className="mb-6 text-headline-lg">Choose a new password</h1>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                New password
+              <label className="flex flex-col gap-2">
+                <AuthLabel>New password</AuthLabel>
                 <PasswordInput value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" />
               </label>
 
@@ -144,8 +145,8 @@ export function ResetPasswordPage() {
                 </div>
               )}
 
-              <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                Re-enter new password
+              <label className="flex flex-col gap-2">
+                <AuthLabel>Re-enter new password</AuthLabel>
                 <PasswordInput value={confirmPassword} onChange={setConfirmPassword} required autoComplete="new-password" />
               </label>
               {confirmPassword.length > 0 && (
@@ -169,7 +170,6 @@ export function ResetPasswordPage() {
             </form>
           </>
         )}
-      </div>
-    </div>
+    </AuthCard>
   )
 }

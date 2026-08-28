@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
   fetchAvailabilityFor,
@@ -519,36 +520,56 @@ export function DashboardPage() {
                         roles that have a checklist.
                       </p>
                     ) : (
-                      <div className="mt-4 flex flex-wrap items-center gap-6">
-                        <ReadinessDonut readiness={readiness} variant="hero" size={156} />
-                        <ul className="flex min-w-[9rem] flex-1 flex-col gap-3.5 text-body-sm">
-                          {[
-                            { label: 'Signed off', n: readiness.coordinatorVerified, c: 'bg-status-coordinator' },
-                            { label: 'Head verified', n: readiness.headVerified, c: 'bg-status-head' },
-                            { label: 'Checked', n: readiness.memberComplete, c: 'bg-status-member' },
-                            {
-                              label: 'Not started',
-                              n:
-                                readiness.total -
-                                readiness.coordinatorVerified -
-                                readiness.headVerified -
-                                readiness.memberComplete,
-                              c: 'bg-status-pending',
-                            },
-                          ].map((row) => (
-                            <li key={row.label} className="flex items-center gap-2.5">
-                              <span
-                                aria-hidden="true"
-                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.c}`}
-                              />
-                              {row.label}
-                              <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
-                                {row.n}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <>
+                        <div className="mt-4 flex flex-wrap items-center gap-6">
+                          <ReadinessDonut readiness={readiness} variant="hero" size={156} />
+                          <ul className="flex min-w-[9rem] flex-1 flex-col gap-3.5 text-body-sm">
+                            {[
+                              {
+                                label: 'Signed off',
+                                n: readiness.coordinatorVerified,
+                                c: 'bg-status-coordinator',
+                              },
+                              { label: 'Head verified', n: readiness.headVerified, c: 'bg-status-head' },
+                              { label: 'Checked', n: readiness.memberComplete, c: 'bg-status-member' },
+                              {
+                                label: 'Not started',
+                                n:
+                                  readiness.total -
+                                  readiness.coordinatorVerified -
+                                  readiness.headVerified -
+                                  readiness.memberComplete,
+                                c: 'bg-status-pending',
+                              },
+                            ].map((row) => (
+                              <li key={row.label} className="flex items-center gap-2.5">
+                                <span
+                                  aria-hidden="true"
+                                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.c}`}
+                                />
+                                {row.label}
+                                <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
+                                  {row.n}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* The ring says how ready; the bar says ready in what
+                            way. The same 62% is a very different Sunday when
+                            it is all member-checked and nothing signed off,
+                            so the straight line stays alongside the circle. */}
+                        <div className="mt-6">
+                          <SegmentedProgressBar
+                            showLegend={false}
+                            total={readiness.total}
+                            memberComplete={readiness.memberComplete}
+                            headVerified={readiness.headVerified}
+                            coordinatorVerified={readiness.coordinatorVerified}
+                          />
+                        </div>
+                      </>
                     )}
                   </Tile>
 
