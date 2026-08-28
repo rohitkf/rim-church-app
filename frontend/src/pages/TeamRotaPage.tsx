@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { ActionButton, Eyebrow, PageHeader, Tile } from '../components/Surface'
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
@@ -245,22 +246,32 @@ export function TeamRotaPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Team Rota</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Who's doing what for the services coming up. Someone can hold one role per service, so
-        taking them from another team needs that team head's approval.
-      </p>
+      <PageHeader
+        eyebrow="Who is on what"
+        title="Team Rota"
+        description="One role per person per service. Borrowing someone needs their head's approval."
+      />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
       {incoming.length > 0 && (
-        <section className="mt-6 rounded-lg border border-warning/40 bg-warning/5 p-5">
-          <h2 className="text-headline-md">Release requests for your team</h2>
-          <ul className="mt-3 flex flex-col gap-3">
+        /* Surfaced at the top rather than buried in the team it concerns:
+           someone is waiting on this answer to finish their own rota. */
+        <Tile tone="warning" as="section" className="mb-5">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)] text-accent-orange-soft"
+            >
+              !
+            </span>
+            <Eyebrow>Release requests for your team</Eyebrow>
+          </div>
+          <ul className="mt-4 flex flex-col gap-3">
             {incoming.map((r) => (
-              <li key={r.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
+              <li key={r.id} className="rounded-[var(--radius-row)] bg-raised px-4 py-4">
                 <p className="text-body-sm text-on-surface">
                   <span className="font-medium">
                     {r.requesting_department?.name ?? 'Another team'}
@@ -275,26 +286,28 @@ export function TeamRotaPage() {
                   <span className="font-medium">{r.assignment?.role_label}</span> for{' '}
                   {r.assignment?.department?.name}.
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => decideRequest.mutate({ request: r, approve: true })}
+                <div className="mt-3.5 flex flex-wrap gap-2.5">
+                  <ActionButton
+                    tone="success"
+                    size="sm"
                     disabled={decideRequest.isPending}
-                    className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                    onClick={() => decideRequest.mutate({ request: r, approve: true })}
                   >
                     Approve &amp; release
-                  </button>
-                  <button
-                    onClick={() => decideRequest.mutate({ request: r, approve: false })}
+                  </ActionButton>
+                  <ActionButton
+                    tone="quiet"
+                    size="sm"
                     disabled={decideRequest.isPending}
-                    className="rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface hover:border-error"
+                    onClick={() => decideRequest.mutate({ request: r, approve: false })}
                   >
                     Deny
-                  </button>
+                  </ActionButton>
                 </div>
               </li>
             ))}
           </ul>
-        </section>
+        </Tile>
       )}
 
       <QueryState isLoading={isLoading} error={loadError}>
@@ -320,11 +333,8 @@ export function TeamRotaPage() {
               })
 
               return (
-                <section
-                  key={service.id}
-                  className="overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline"
-                >
-                  <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border-subtle px-6 py-4">
+                <Tile key={service.id} as="section" padded={false}>
+                  <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <h2 className="text-headline-md">{service.service_type}</h2>
                       <span className="font-mono text-label-sm text-on-surface-variant">
@@ -336,7 +346,9 @@ export function TeamRotaPage() {
                     </span>
                   </header>
 
-                  <ul className="flex flex-col gap-px bg-border-subtle">
+                  {/* One card per team, so a head can find theirs without
+                      reading past five others. */}
+                  <ul className="grid grid-cols-1 gap-3 px-5 pb-5 sm:px-7 sm:pb-7 lg:grid-cols-2 xl:grid-cols-3">
                     {orderedTeams.map((dept) => {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)
@@ -371,15 +383,22 @@ export function TeamRotaPage() {
                       const clashRequest = clash ? pendingFor(clash.id) : undefined
 
                       return (
-                        <li key={dept.id} className="bg-surface-lowest px-6 py-4">
-                          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                            <div className="flex min-w-0 items-center gap-2">
+                        <li
+                          key={dept.id}
+                          className={`flex flex-col rounded-[var(--radius-panel)] px-4 py-4 sm:px-5 ${
+                            deptAssignments.length === 0
+                              ? 'border border-dashed border-outline-variant'
+                              : 'bg-raised hairline'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                            <div className="flex min-w-0 items-center gap-2.5">
                               <span
                                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                                 style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
                               />
-                              <span className="truncate font-medium text-on-surface">{dept.name}</span>
-                              <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                              <span className="truncate text-headline-sm">{dept.name}</span>
+                              <span className="shrink-0 font-mono text-label-sm uppercase text-on-surface-faint">
                                 {deptAssignments.length === 0
                                   ? 'nobody yet'
                                   : `${deptAssignments.length} assigned`}
@@ -391,7 +410,7 @@ export function TeamRotaPage() {
                                 type="button"
                                 onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
                                 aria-expanded={formOpen}
-                                className="shrink-0 rounded-full hairline px-3 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                                className="shrink-0 rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
                               >
                                 {formOpen ? 'Cancel' : 'Assign role'}
                               </button>
@@ -399,51 +418,53 @@ export function TeamRotaPage() {
                           </div>
 
                           {deptAssignments.length > 0 && (
-                            <div className="mt-3 overflow-hidden rounded-full hairline">
-                              <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 border-b border-border-subtle bg-surface-low px-3 py-1.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                                <span>Role</span>
-                                <span>Volunteer</span>
-                                <span className="w-16" />
-                              </div>
-                              <ul className="divide-y divide-border-subtle">
-                                {deptAssignments.map((a) => {
-                                  const pending = pendingFor(a.id)
-                                  return (
-                                    <li
-                                      key={a.id}
-                                      className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 px-3 py-2.5"
-                                    >
-                                      <span className="truncate font-medium text-on-surface">{a.role_label}</span>
-                                      <span className="flex min-w-0 items-center gap-2">
-                                        <span className="truncate text-on-surface-variant">
-                                          {a.profile
-                                            ? `${a.profile.first_name} ${a.profile.last_name}`
-                                            : 'Unknown'}
+                            /* A role and the person holding it belong on one
+                               line: the pairing is the whole content, and a
+                               table made you join two columns yourself. */
+                            <ul className="mt-3.5 flex flex-col gap-2">
+                              {deptAssignments.map((a) => {
+                                const pending = pendingFor(a.id)
+                                const mine = a.user_id === myId
+                                return (
+                                  <li
+                                    key={a.id}
+                                    className={`group/assignment flex items-center gap-3 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm ${
+                                      pending
+                                        ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]'
+                                        : mine
+                                          ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)]'
+                                          : 'bg-inset'
+                                    }`}
+                                  >
+                                    <span className="shrink-0 text-on-surface-variant">{a.role_label}</span>
+                                    <span className="ml-auto flex min-w-0 items-center gap-2">
+                                      {pending ? (
+                                        <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
+                                          Release requested
                                         </span>
-                                        {a.user_id === myId && (
-                                          <span className="shrink-0 font-mono text-label-sm text-secondary">You</span>
-                                        )}
-                                        {pending && (
-                                          <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 font-mono text-label-sm text-warning">
-                                            Release requested
-                                          </span>
-                                        )}
-                                      </span>
-                                      <span className="w-16 text-right">
-                                        {manage && (
-                                          <button
-                                            onClick={() => removeAssignment.mutate(a.id)}
-                                            className="text-body-sm text-on-surface-variant hover:text-error"
-                                          >
-                                            Remove
-                                          </button>
-                                        )}
-                                      </span>
-                                    </li>
-                                  )
-                                })}
-                              </ul>
-                            </div>
+                                      ) : (
+                                        <span className="truncate text-on-surface">
+                                          {mine
+                                            ? 'You'
+                                            : a.profile
+                                              ? `${a.profile.first_name} ${a.profile.last_name}`
+                                              : 'Unknown'}
+                                        </span>
+                                      )}
+                                      {manage && (
+                                        <button
+                                          onClick={() => removeAssignment.mutate(a.id)}
+                                          aria-label={`Remove ${a.role_label}`}
+                                          className="shrink-0 font-mono text-label-sm text-on-surface-faint opacity-0 transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </span>
+                                  </li>
+                                )
+                              })}
+                            </ul>
                           )}
 
                           {formOpen && deptRoles.length === 0 && (
@@ -563,7 +584,7 @@ export function TeamRotaPage() {
                       )
                     })}
                   </ul>
-                </section>
+                </Tile>
               )
             })}
           </div>

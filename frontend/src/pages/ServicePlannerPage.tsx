@@ -5,7 +5,11 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { Eyebrow, Panel, Row, Tile } from '../components/Surface'
+import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
+import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
+import { formatDuration } from '../lib/duration'
 import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
@@ -136,6 +140,14 @@ export function ServicePlannerPage() {
   })
 
   const sessions = sessionsQuery.data ?? []
+  // What the running order adds up to, and what has nobody on it — the two
+  // things a planner is actually managing, neither of which a table showed.
+  const totalMinutes = sessions.reduce((n, session) => n + session.duration_minutes, 0)
+  const unassignedSessions = sessions.filter((session) => !session.assigned_user_id)
+  const endsAt =
+    sessions.length > 0
+      ? formatTime(addMinutesIso(sessions[0].start_time, totalMinutes))
+      : null
 
   const [serviceError, setServiceError] = useState<string | null>(null)
 
@@ -261,7 +273,9 @@ export function ServicePlannerPage() {
                     if (!value || value === serviceQuery.data?.service_type) return
                     updateService.mutate({ service_type: value })
                   }}
-                  className="w-full max-w-md rounded-sm border border-transparent bg-transparent text-headline-xl text-on-surface hover:border-border-subtle focus:border-secondary focus:outline-none"
+                  /* Block, not inline: two inline inputs sat on one line and
+                     the name ran straight into the date. */
+                  className="block w-full max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
                 />
                 <input
                   key={`date-${serviceQuery.data?.date}`}
@@ -272,13 +286,17 @@ export function ServicePlannerPage() {
                     if (!e.target.value || e.target.value === serviceQuery.data?.date) return
                     updateService.mutate({ date: e.target.value })
                   }}
-                  className="mt-1 rounded-sm border border-transparent bg-transparent text-body-md text-on-surface-variant hover:border-border-subtle focus:border-secondary focus:outline-none"
+                  className="mt-1.5 block rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none [color-scheme:dark]"
                 />
               </>
             ) : (
               <>
-                <h1 className="text-headline-xl">{serviceQuery.data?.service_type} Service Plan</h1>
-                <p className="mt-1 text-body-md text-on-surface-variant">{serviceQuery.data?.date}</p>
+                <h1 className="text-headline-lg sm:text-headline-xl">
+                  {serviceQuery.data?.service_type}
+                </h1>
+                <p className="mt-1.5 font-mono text-label-md text-on-surface-variant">
+                  {serviceQuery.data?.date}
+                </p>
               </>
             )}
           </div>
@@ -290,7 +308,7 @@ export function ServicePlannerPage() {
                     setTemplateMessage(null)
                     setTemplateFormOpen((v) => !v)
                   }}
-                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                  className="rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
                 >
                   Save as template
                 </button>
@@ -419,109 +437,200 @@ export function ServicePlannerPage() {
           </p>
         )}
 
-        <QueryState isLoading={sessionsQuery.isLoading} error={sessionsQuery.error} isEmpty={sessions.length === 0} emptyMessage="No sessions yet.">
-          <div className="mt-6 overflow-x-auto rounded-[var(--radius-card)] bg-surface-lowest hairline">
-            <table className="w-full text-left text-body-sm">
-              <thead>
-                <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Session</th>
-                  <th className="px-4 py-3">Assigned</th>
-                  {canManage && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((session, idx) => {
-                  const isFirst = idx === 0
-                  return (
-                    <tr key={`${session.id}-${session.updated_at}`} className="border-b border-border-subtle last:border-0">
-                      <td className="px-4 py-3 font-mono">
-                        {isFirst && canManage ? (
-                          <input
-                            type="time"
-                            defaultValue={timeInputValue(session.start_time)}
-                            onBlur={(e) => {
-                              if (!e.target.value) return
-                              updateField.mutate({
-                                id: session.id,
-                                patch: { start_time: combineDateAndTime(serviceQuery.data!.date, e.target.value) },
-                              })
-                            }}
-                            className="rounded-full hairline px-2 py-1"
-                          />
-                        ) : (
-                          <span className={isFirst ? '' : 'text-on-surface-variant'}>{formatTime(session.start_time)}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {canManage ? (
-                          <input
-                            type="number"
-                            min={0}
-                            defaultValue={session.duration_minutes}
-                            onBlur={(e) => {
-                              const value = Number(e.target.value)
-                              if (Number.isNaN(value) || value === session.duration_minutes) return
-                              updateField.mutate({ id: session.id, patch: { duration_minutes: value } })
-                            }}
-                            className="w-20 rounded-full hairline px-2 py-1"
-                          />
-                        ) : (
-                          session.duration_minutes
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {canManage ? (
-                          <input
-                            defaultValue={session.session_name}
-                            onBlur={(e) => {
-                              if (!e.target.value.trim() || e.target.value === session.session_name) return
-                              updateField.mutate({ id: session.id, patch: { session_name: e.target.value.trim() } })
-                            }}
-                            className="w-full rounded-full hairline px-2 py-1"
-                          />
-                        ) : (
-                          session.session_name
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {canManage ? (
-                          <select
-                            defaultValue={session.assigned_user_id ?? ''}
-                            onChange={(e) =>
-                              updateField.mutate({ id: session.id, patch: { assigned_user_id: e.target.value || null } })
-                            }
-                            className="rounded-full hairline px-2 py-1"
-                          >
-                            <option value="">Unassigned</option>
-                            {profilesQuery.data?.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.first_name} {p.last_name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : session.assignee ? (
-                          `${session.assignee.first_name} ${session.assignee.last_name}`
-                        ) : (
-                          <span className="text-on-surface-variant">Unassigned</span>
-                        )}
-                      </td>
-                      {canManage && (
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => deleteSession.mutate(session.id)}
-                            className="text-body-sm text-error hover:underline"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <QueryState
+          isLoading={sessionsQuery.isLoading}
+          error={sessionsQuery.error}
+          isEmpty={sessions.length === 0}
+          emptyMessage="No sessions yet."
+        >
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
+            <Tile as="section" className="lg:col-span-8" padded={false}>
+              <div className="px-5 py-5 sm:px-7 sm:py-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <Eyebrow>Running order</Eyebrow>
+                  <span className="font-mono text-label-sm text-on-surface-faint">
+                    {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} ·{' '}
+                    {formatDuration(totalMinutes)}
+                  </span>
+                </div>
+
+                <ul className="mt-5 flex flex-col">
+                  {sessions.map((session, idx) => {
+                    const isFirst = idx === 0
+                    const unassigned = !session.assigned_user_id
+                    return (
+                      <TimelineRow
+                        key={`${session.id}-${session.updated_at}`}
+                        last={idx === sessions.length - 1}
+                        tone={unassigned ? 'warning' : isFirst ? 'now' : 'plain'}
+                        time={
+                          isFirst && canManage ? (
+                            /* The one time the planner actually sets; every
+                               other start is this one plus the durations. */
+                            <input
+                              type="time"
+                              aria-label="Service start time"
+                              defaultValue={timeInputValue(session.start_time)}
+                              onBlur={(e) => {
+                                if (!e.target.value) return
+                                updateField.mutate({
+                                  id: session.id,
+                                  patch: {
+                                    start_time: combineDateAndTime(
+                                      serviceQuery.data!.date,
+                                      e.target.value,
+                                    ),
+                                  },
+                                })
+                              }}
+                              className="w-full rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
+                            />
+                          ) : (
+                            formatTime(session.start_time)
+                          )
+                        }
+                        meta={
+                          canManage ? (
+                            <span className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                aria-label={`${session.session_name} duration in minutes`}
+                                defaultValue={session.duration_minutes}
+                                onBlur={(e) => {
+                                  const value = Number(e.target.value)
+                                  if (Number.isNaN(value) || value === session.duration_minutes) return
+                                  updateField.mutate({
+                                    id: session.id,
+                                    patch: { duration_minutes: value },
+                                  })
+                                }}
+                                className="w-10 rounded-full bg-raised px-1.5 py-0.5 text-right font-mono text-label-sm text-on-surface-variant"
+                              />
+                              {/* The unit stays outside the field: a number
+                                  input with "min" in it is a number input
+                                  people try to type "min" into. */}
+                              <span className="font-mono text-label-sm text-on-surface-faint">min</span>
+                            </span>
+                          ) : (
+                            `${session.duration_minutes} min`
+                          )
+                        }
+                      >
+                        <TimelineCard tone={unassigned ? 'warning' : 'plain'}>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                            <div className="min-w-0 flex-1">
+                              {canManage ? (
+                                <input
+                                  defaultValue={session.session_name}
+                                  aria-label="Session name"
+                                  onBlur={(e) => {
+                                    if (!e.target.value.trim() || e.target.value === session.session_name)
+                                      return
+                                    updateField.mutate({
+                                      id: session.id,
+                                      patch: { session_name: e.target.value.trim() },
+                                    })
+                                  }}
+                                  className="w-full rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
+                                />
+                              ) : (
+                                <div className="text-headline-sm">{session.session_name}</div>
+                              )}
+                              {unassigned && (
+                                <div className="mt-1 px-0.5 text-label-md text-accent-orange-soft">
+                                  Nobody assigned yet
+                                </div>
+                              )}
+                            </div>
+
+                            {canManage ? (
+                              <select
+                                defaultValue={session.assigned_user_id ?? ''}
+                                aria-label={`Who leads ${session.session_name}`}
+                                onChange={(e) =>
+                                  updateField.mutate({
+                                    id: session.id,
+                                    patch: { assigned_user_id: e.target.value || null },
+                                  })
+                                }
+                                className="shrink-0 rounded-full bg-raised-strong px-3 py-2 text-label-md text-on-surface hairline"
+                              >
+                                <option value="">Unassigned</option>
+                                {profilesQuery.data?.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.first_name} {p.last_name}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : session.assignee ? (
+                              <AssigneePill
+                                name={`${session.assignee.first_name} ${session.assignee.last_name}`}
+                                initials={initialsOf(
+                                  session.assignee.first_name,
+                                  session.assignee.last_name,
+                                )}
+                              />
+                            ) : null}
+
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => deleteSession.mutate(session.id)}
+                                aria-label={`Remove ${session.session_name}`}
+                                className="shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </TimelineCard>
+                      </TimelineRow>
+                    )
+                  })}
+                </ul>
+              </div>
+            </Tile>
+
+            {/* What the running order adds up to — the number a planner is
+                actually managing, and the only one the table never showed. */}
+            <div className="flex flex-col gap-5 lg:col-span-4">
+              <Tile tone="accent">
+                <Eyebrow>Service window</Eyebrow>
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-3">
+                  <span className="font-mono text-headline-lg tabular">
+                    {formatDuration(totalMinutes)}
+                  </span>
+                  <span className="text-label-md text-on-surface-variant">end to end</span>
+                </div>
+                <p className="mt-3 text-body-sm text-on-surface-variant">
+                  {sessions.length > 0
+                    ? `Doors at ${formatTime(sessions[0].start_time)}, closing around ${endsAt}.`
+                    : 'Add a session to start the clock.'}
+                </p>
+              </Tile>
+
+              {unassignedSessions.length > 0 && (
+                <Panel title="Needs attention" tone="warning">
+                  <ul className="flex flex-col gap-2.5">
+                    {unassignedSessions.map((session) => (
+                      <Row key={session.id} variant="inset">
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 shrink-0 rounded-full bg-accent-orange"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-body-sm">
+                          {session.session_name}
+                        </span>
+                        <span className="shrink-0 font-mono text-label-sm text-accent-orange-soft">
+                          NO LEAD
+                        </span>
+                      </Row>
+                    ))}
+                  </ul>
+                </Panel>
+              )}
+            </div>
           </div>
         </QueryState>
       </div>

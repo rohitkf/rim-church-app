@@ -162,9 +162,31 @@ isn't here, add it here rather than inline — that is the whole mechanism.
 | `StackedBar` | parts of a whole, in the order they happen |
 | `LiveDot` | the pulsing green dot: this is happening now |
 | `Field` / `inputClasses` | a labelled control |
+| `TimelineRow` / `TimelineCard` | a running order as a vertical clock (`components/Timeline.tsx`) |
+| `AssigneePill` | the person something belongs to, with their initials |
 
 Two rules about buttons: **every button is a pill**, and **one primary per
 screen**. If two things look equally important, one of them isn't.
+
+### Three recurring shapes
+
+Some patterns turn up on more than one screen, and when they do they look
+the same on each:
+
+- **A pairing** — a role and the person holding it, a label and its value —
+  goes on **one line**, label left in `on-surface-variant`, value right in
+  `on-surface`. Never two columns the reader has to join up themselves.
+- **A sequence in time** is a `TimelineRow`: times locked to the rail,
+  cards hanging off it. The gap between two dots is the shape of the thing.
+- **A choice between a few answers** is a segmented control — one object
+  with the chosen answer filled in — not a row of separate buttons. The
+  Availability Yes/Maybe/No is the reference; targets are 44px tall
+  because they are tapped standing up.
+
+And one rule about states: **the thing that needs a person is the thing
+that gets the colour.** A session with nobody on it, a team that hasn't
+answered, an item in repair — these wear the amber tone; everything
+settled stays quiet.
 
 ---
 

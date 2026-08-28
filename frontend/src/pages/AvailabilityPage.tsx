@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -22,10 +23,23 @@ import {
  * making people answer for months of Sundays. */
 const UPCOMING_LIMIT = 3
 
-const STATUS_OPTIONS: { value: AvailabilityStatus; label: string; activeClass: string }[] = [
-  { value: 'available', label: 'Available', activeClass: 'border-success bg-success/10 text-success' },
-  { value: 'tentative', label: 'Tentative', activeClass: 'border-warning bg-warning/10 text-warning' },
-  { value: 'unavailable', label: "Can't make it", activeClass: 'border-error bg-error/10 text-error' },
+/**
+ * Three answers, one tap.
+ *
+ * A volunteer answers this on a phone, standing up, in a hurry — so it is a
+ * segmented control rather than three buttons: one object, thumb-sized
+ * targets, and the answer you gave is the one that is filled in. The short
+ * labels are deliberate; "Can't make it" doesn't fit a third of a phone.
+ */
+const STATUS_OPTIONS: {
+  value: AvailabilityStatus
+  label: string
+  full: string
+  activeClass: string
+}[] = [
+  { value: 'available', label: 'Yes', full: 'Available', activeClass: 'bg-accent-green text-accent-green-ink' },
+  { value: 'tentative', label: 'Maybe', full: 'Tentative', activeClass: 'bg-accent-orange text-accent-green-ink' },
+  { value: 'unavailable', label: 'No', full: "Can't make it", activeClass: 'bg-accent-red text-white' },
 ]
 
 const statusLabel: Record<AvailabilityStatus, string> = {
@@ -205,12 +219,15 @@ export function AvailabilityPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Availability Tracker</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        {isAdmin
-          ? 'Who can serve at the services coming up, team by team.'
-          : 'Let your team know whether you can serve at the services coming up.'}
-      </p>
+      <PageHeader
+        eyebrow={isAdmin ? 'All teams' : 'Your answers'}
+        title={isAdmin ? 'Availability Tracker' : 'Can you serve?'}
+        description={
+          isAdmin
+            ? 'Who can serve at the services coming up, team by team.'
+            : 'One tap per service. Your team sees the answer straight away.'
+        }
+      />
 
       {overrideError && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
@@ -238,7 +255,9 @@ export function AvailabilityPage() {
                   </span>
                 </div>
 
-                <ul className="mt-5 flex flex-col gap-6">
+                {/* Each team is its own card, so the eye can jump to the one
+                    that is short rather than reading a column of bars. */}
+                <ul className="mt-5 flex flex-col gap-3">
                   {myDepartments.map((dept) => {
                     const mine = myAnswer(service.id, dept.id)
                     const leads = ledDepartmentIds.includes(dept.id)
@@ -256,23 +275,36 @@ export function AvailabilityPage() {
                     )
 
                     return (
-                      <li key={dept.id}>
+                      <li
+                        key={dept.id}
+                        className={`rounded-[var(--radius-row)] px-4 py-3.5 sm:px-5 ${
+                          summary.noAnswer > 0
+                            ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)]'
+                            : 'bg-raised hairline'
+                        }`}
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <span
                               className="h-2.5 w-2.5 shrink-0 rounded-full"
                               style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
                             />
-                            <span className="font-medium text-on-surface">{dept.name}</span>
+                            <span className="text-body-md font-medium text-on-surface">{dept.name}</span>
                           </div>
-                          <span className="font-mono text-label-sm text-on-surface-variant">
-                            {summary.pct}% available · {summary.available}/{summary.total}
+                          <span
+                            className={`font-mono text-label-sm ${
+                              summary.noAnswer > 0 ? 'text-accent-orange-soft' : 'text-on-surface-faint'
+                            }`}
+                          >
+                            {summary.noAnswer > 0
+                              ? `${summary.noAnswer} unanswered · ${summary.available}/${summary.total}`
+                              : `${summary.pct}% available · ${summary.available}/${summary.total}`}
                             {summary.tentative > 0 && ` · ${summary.tentative} tentative`}
                           </span>
                         </div>
 
                         <div
-                          className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-surface-container"
+                          className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-raised-strong"
                           role="img"
                           aria-label={`${dept.name}: ${summary.pct}% available, ${summary.tentative} tentative, ${summary.noAnswer} yet to answer`}
                         >
@@ -293,40 +325,49 @@ export function AvailabilityPage() {
                         </div>
 
                         {canAnswer && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {STATUS_OPTIONS.map((opt) => {
-                            const active = mine === opt.value
-                            return (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() =>
-                                  setAvailability.mutate({
-                                    serviceId: service.id,
-                                    departmentId: dept.id,
-                                    status: opt.value,
-                                  })
-                                }
-                                disabled={setAvailability.isPending}
-                                className={`rounded-full border px-3 py-1.5 text-body-sm disabled:opacity-60 ${
-                                  active
-                                    ? `font-medium ${opt.activeClass}`
-                                    : 'border-border-subtle bg-surface-lowest text-on-surface hover:border-secondary'
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        )}
-                        {canAnswer && !mine && (
-                          <p className="mt-1.5 text-label-sm text-on-surface-variant">No answer yet</p>
+                          <div
+                            role="group"
+                            aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
+                            className={`mt-3 flex gap-2 rounded-full bg-inset p-1 ${
+                              mine
+                                ? 'hairline'
+                                : /* Unanswered is the state that needs chasing,
+                                     so the control itself asks for the tap. */
+                                  'shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-accent-orange)_35%,transparent)]'
+                            }`}
+                          >
+                            {STATUS_OPTIONS.map((opt) => {
+                              const active = mine === opt.value
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  title={opt.full}
+                                  aria-pressed={active}
+                                  onClick={() =>
+                                    setAvailability.mutate({
+                                      serviceId: service.id,
+                                      departmentId: dept.id,
+                                      status: opt.value,
+                                    })
+                                  }
+                                  disabled={setAvailability.isPending}
+                                  className={`flex h-11 flex-1 items-center justify-center rounded-full text-body-sm transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-60 ${
+                                    active
+                                      ? `font-semibold ${opt.activeClass}`
+                                      : 'text-on-surface-variant hover:text-on-surface'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
                         )}
 
                         {leads && teamMembers.length > 0 && (
                           <details className="mt-3">
-                            <summary className="cursor-pointer text-body-sm text-secondary">
+                            <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
                               Team responses ({answers.length}/{teamMembers.length})
                             </summary>
                             <ul className="mt-2 flex flex-col gap-1.5 border-l border-border-subtle pl-3">
