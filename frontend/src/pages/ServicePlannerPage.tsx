@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { LeadPicker, type LeadOption } from '../components/LeadPicker'
+import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { QueryState } from '../components/QueryState'
 import { Eyebrow, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
@@ -30,7 +32,9 @@ async function fetchService(id: string): Promise<Service | null> {
 async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
   const { data, error } = await supabase
     .from('service_sessions')
-    .select('*, assignee:profiles!service_sessions_assigned_user_id_fkey(id, first_name, last_name)')
+    .select(
+      '*, assignee:profiles!service_sessions_assigned_user_id_fkey(id, first_name, last_name), guest:service_guests(id, name, note)',
+    )
     .eq('service_id', serviceId)
     .order('order_index')
   if (error) throw error
@@ -198,7 +202,34 @@ export function ServicePlannerPage() {
   // What the running order adds up to, and what has nobody on it — the two
   // things a planner is actually managing, neither of which a table showed.
   const totalMinutes = sessions.reduce((n, session) => n + session.duration_minutes, 0)
-  const unassignedSessions = sessions.filter((session) => !session.assigned_user_id)
+  const guestsQuery = useQuery({
+    queryKey: ['service-guests', serviceId],
+    queryFn: () => fetchServiceGuests(serviceId!),
+    enabled: !!serviceId,
+  })
+
+  // Everyone who could take a session: the people with accounts, then
+  // this service's guests.
+  const leadOptions: LeadOption[] = useMemo(
+    () => [
+      ...(profilesQuery.data ?? []).map((p) => ({
+        kind: 'member' as const,
+        id: p.id,
+        name: `${p.first_name} ${p.last_name}`,
+      })),
+      ...(guestsQuery.data ?? []).map((g) => ({
+        kind: 'guest' as const,
+        id: g.id,
+        name: g.name,
+        note: g.note,
+      })),
+    ],
+    [profilesQuery.data, guestsQuery.data],
+  )
+
+  const unassignedSessions = sessions.filter(
+    (session) => !session.assigned_user_id && !session.guest_id,
+  )
   const endsAt =
     sessions.length > 0
       ? formatTime(addMinutesIso(sessions[0].start_time, totalMinutes))
@@ -512,7 +543,7 @@ export function ServicePlannerPage() {
                 <ul className="mt-5 flex flex-col">
                   {sessions.map((session, idx) => {
                     const isFirst = idx === 0
-                    const unassigned = !session.assigned_user_id
+                    const unassigned = !session.assigned_user_id && !session.guest_id
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
                     const over = overruns.get(session.id)
@@ -626,24 +657,40 @@ export function ServicePlannerPage() {
                             </div>
 
                             {canManage ? (
-                              <select
-                                defaultValue={session.assigned_user_id ?? ''}
-                                aria-label={`Who leads ${session.session_name}`}
-                                onChange={(e) =>
+                              <LeadPicker
+                                label={`Who leads ${session.session_name}`}
+                                options={leadOptions}
+                                value={
+                                  session.assigned_user_id
+                                    ? { kind: 'member', id: session.assigned_user_id }
+                                    : session.guest_id
+                                      ? { kind: 'guest', id: session.guest_id }
+                                      : null
+                                }
+                                onChange={(next) =>
                                   updateField.mutate({
                                     id: session.id,
-                                    patch: { assigned_user_id: e.target.value || null },
+                                    // Both fields are written every time: a
+                                    // session has one lead, and setting one
+                                    // without clearing the other is exactly
+                                    // the pair the database refuses.
+                                    patch: {
+                                      assigned_user_id: next?.kind === 'member' ? next.id : null,
+                                      guest_id: next?.kind === 'guest' ? next.id : null,
+                                    },
                                   })
                                 }
-                                className="shrink-0 rounded-full bg-raised-strong px-3 py-2 text-label-md text-on-surface hairline"
-                              >
-                                <option value="">Unassigned</option>
-                                {profilesQuery.data?.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.first_name} {p.last_name}
-                                  </option>
-                                ))}
-                              </select>
+                              />
+                            ) : session.guest ? (
+                              <AssigneePill
+                                name={session.guest.name}
+                                initials={session.guest.name
+                                  .split(' ')
+                                  .map((part) => part.slice(0, 1))
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              />
                             ) : session.assignee ? (
                               <AssigneePill
                                 name={`${session.assignee.first_name} ${session.assignee.last_name}`}
@@ -711,6 +758,10 @@ export function ServicePlannerPage() {
                   </ul>
                 </Panel>
               )}
+
+              {/* Under Needs attention, because a missing guest is one of
+                  the things that puts a session there. */}
+              {serviceId && <ServiceGuestsPanel serviceId={serviceId} canManage={canManage} />}
             </div>
           </div>
         </QueryState>

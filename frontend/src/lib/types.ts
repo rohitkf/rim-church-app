@@ -107,10 +107,14 @@ export const serviceSessionRowSchema = z.object({
   duration_minutes: z.number(),
   session_name: z.string(),
   assigned_user_id: z.string().nullable(),
+  // A session is led by somebody with an account or by a guest on this
+  // service's list — never both; the database refuses the pair.
+  guest_id: z.string().nullable().optional(),
   department_id: z.string().nullable(),
   role_label: z.string().nullable(),
   updated_at: z.string(),
   assignee: personSummarySchema.nullable(),
+  guest: z.object({ id: z.string(), name: z.string(), note: z.string().nullable() }).nullable().optional(),
 })
 export type ServiceSessionRow = z.infer<typeof serviceSessionRowSchema>
 
