@@ -8,6 +8,8 @@ import { useAuth } from '../auth/AuthContext'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
+import { serviceBounds } from '../lib/serviceProgress'
+import { formatTime } from '../lib/time'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
@@ -131,9 +133,65 @@ export function ServicePlannerIndexPage() {
     return map
   }, [visibleServices])
 
-  const upcoming = useMemo(
-    () => visibleServices.filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6),
+  // What time each upcoming service runs, from its own running order. A
+  // service with no order planned has no times to show — inventing some
+  // would be worse than saying nothing.
+  const upcomingIds = useMemo(
+    () => visibleServices.filter((s) => s.date >= today).map((s) => s.id),
     [visibleServices, today],
+  )
+  const sessionsQuery = useQuery({
+    queryKey: ['planner-index-sessions', upcomingIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('service_sessions')
+        .select('service_id, start_time, duration_minutes')
+        .in('service_id', upcomingIds)
+      if (error) throw error
+      return z
+        .array(
+          z.object({
+            service_id: z.string(),
+            start_time: z.string(),
+            duration_minutes: z.number().nullable(),
+          }),
+        )
+        .parse(data)
+    },
+    enabled: upcomingIds.length > 0,
+  })
+
+  const windowFor = useMemo(() => {
+    const byService = new Map<string, { id: string; start_time: string; duration_minutes: number | null }[]>()
+    for (const row of sessionsQuery.data ?? []) {
+      byService.set(row.service_id, [
+        ...(byService.get(row.service_id) ?? []),
+        { id: `${row.service_id}-${row.start_time}`, ...row },
+      ])
+    }
+    const windows = new Map<string, { from: number; to: number }>()
+    for (const [serviceId, rows] of byService) {
+      const bounds = serviceBounds(rows)
+      if (bounds) windows.set(serviceId, bounds)
+    }
+    return windows
+  }, [sessionsQuery.data])
+
+  const upcoming = useMemo(
+    () =>
+      visibleServices
+        .filter((s) => s.date >= today)
+        // By day, then by when it actually starts — two services on one
+        // Sunday should read morning before evening, which alphabetical
+        // order by name does not promise.
+        .sort(
+          (a, b) =>
+            a.date.localeCompare(b.date) ||
+            (windowFor.get(a.id)?.from ?? Infinity) - (windowFor.get(b.id)?.from ?? Infinity) ||
+            a.service_type.localeCompare(b.service_type),
+        )
+        .slice(0, 6),
+    [visibleServices, today, windowFor],
   )
 
   function shiftMonth(delta: number) {
@@ -339,6 +397,7 @@ export function ServicePlannerIndexPage() {
             <ul className="mt-3 flex flex-col gap-3">
               {upcoming.map((s) => {
                 const d = agendaDate(s.date)
+                const window = windowFor.get(s.id)
                 return (
                   <li key={s.id}>
                     <button
@@ -354,6 +413,13 @@ export function ServicePlannerIndexPage() {
                         <span className="block truncate font-medium text-on-surface">{s.service_type}</span>
                         <span className="block text-body-sm text-on-surface-variant">
                           {d.weekday} · {s.date}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-label-sm text-on-surface-faint tabular">
+                          {window
+                            ? `${formatTime(new Date(window.from).toISOString())} – ${formatTime(
+                                new Date(window.to).toISOString(),
+                              )}`
+                            : 'No running order yet'}
                         </span>
                       </span>
                       <span className="shrink-0 text-on-surface-variant">›</span>

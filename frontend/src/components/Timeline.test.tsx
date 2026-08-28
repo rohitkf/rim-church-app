@@ -80,6 +80,27 @@ describe('the rail as a clock', () => {
     )
   })
 
+  it('writes an overrun under the time it broke, and only when there is one', () => {
+    const { container, rerender } = render(
+      <ul>
+        <TimelineRow time="10:00" meta="25 min" over={6}>
+          <TimelineCard>Worship Set</TimelineCard>
+        </TimelineRow>
+      </ul>,
+    )
+    expect(screen.getByText('+6 over')).toBeInTheDocument()
+
+    rerender(
+      <ul>
+        <TimelineRow time="10:00" meta="25 min" over={0}>
+          <TimelineCard>Worship Set</TimelineCard>
+        </TimelineRow>
+      </ul>,
+    )
+    expect(screen.queryByText(/over/)).not.toBeInTheDocument()
+    expect(container).toBeTruthy()
+  })
+
   it('pulses the dot of the session that is on', () => {
     const { container } = rowWith({ fill: 0.4, running: true })
     expect((container.querySelector('[data-rail="dot"]') as HTMLElement).className).toContain(

@@ -419,6 +419,32 @@ checklist trigger compares the stage an item left with the stage it reached,
 so coming back down reads "un-ticked", "took their verification off",
 "took the sign-off off" rather than "pending" (`0042`).
 
+The panel is a fixed window that scrolls, not a list that grows: on a busy
+Sunday this fills faster than anything else on the dashboard, and a panel
+that pushes the rest of the page down is worse than one you scroll.
+
+### When a service overruns
+
+The running order cascades — each session starts when the one before it was
+due to finish — which is right until Worship runs ten minutes long and every
+time after it is wrong.
+
+An Admin says so with **Session started**, on the session the service is
+actually waiting to begin. That session takes the current time and every
+session after it moves along with it. The session before it then shows how
+far it ran over, in red, under its own time.
+
+Nothing extra is stored to know that. The plan and the clock only disagree
+once someone presses the button, and the size of the disagreement *is* the
+overrun: `overrunMinutes` reads it straight out of the gap between when a
+session was due to end and when the next one really began.
+
+The button sits on the session the clock says is *running*, not the next
+one, and that is the whole trick: the next session's start is by definition
+still in the future, so setting it to now could only ever move it earlier
+and an overrun would never be recordable at all. If nobody presses anything,
+the timeline runs on the plan exactly as before.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +

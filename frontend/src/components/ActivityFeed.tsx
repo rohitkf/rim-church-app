@@ -107,7 +107,12 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
         isEmpty={rows.length === 0}
         emptyMessage="Nothing has happened on this service yet."
       >
-        <ul className="flex flex-col gap-3">
+        {/* A fixed window, not a list that grows without end: on a busy
+            Sunday this fills up faster than anything else on the page, and a
+            panel that pushes the rest of the dashboard down the screen is
+            worse than one you scroll. Tall enough for about six entries,
+            which is what "what just happened" means. */}
+        <ul className="flex max-h-80 flex-col gap-3 overflow-y-auto overscroll-contain pr-1">
           {rows.map((row) => {
             const who = row.actor
               ? `${row.actor.first_name ?? ''} ${row.actor.last_name ?? ''}`.trim()

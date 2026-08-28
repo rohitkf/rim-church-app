@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { serviceProgress } from './serviceProgress'
+import {
+  nextToStart,
+  overrunMinutes,
+  serviceBounds,
+  serviceProgress,
+  startableSession,
+} from './serviceProgress'
 
 const at = (hhmm: string) => `2026-08-30T${hhmm}:00.000Z`
 const clock = (hhmm: string) => new Date(at(hhmm)).getTime()
@@ -64,5 +70,78 @@ describe('serviceProgress', () => {
     expect(p.runningId).toBe('b')
     expect(p.started).toBe(true)
     expect(p.finished).toBe(false)
+  })
+})
+
+describe('serviceBounds', () => {
+  it('runs from the first start to the end of the last session', () => {
+    const b = serviceBounds(ORDER)!
+    expect(new Date(b.from).toISOString()).toBe(at('10:00'))
+    expect(new Date(b.to).toISOString()).toBe(at('11:10'))
+  })
+
+  it('says nothing rather than inventing times for an unplanned service', () => {
+    expect(serviceBounds([])).toBeNull()
+    expect(serviceBounds([{ id: 'x', start_time: 'nope', duration_minutes: 5 }])).toBeNull()
+  })
+})
+
+describe('nextToStart', () => {
+  it('is the first session still ahead of the clock', () => {
+    expect(nextToStart(ORDER, clock('10:30'))).toBe('c')
+  })
+
+  it('is the very first session before the service begins, so a late start can be said', () => {
+    expect(nextToStart(ORDER, clock('09:00'))).toBe('a')
+  })
+
+  it('is nothing once every session has begun', () => {
+    expect(nextToStart(ORDER, clock('11:05'))).toBeNull()
+  })
+})
+
+describe('startableSession', () => {
+  it('is the first session before the service has begun, so a late start can be said', () => {
+    expect(startableSession(ORDER, clock('09:00'))).toBe('a')
+  })
+
+  it('is the session the clock says is on — the one a late service is waiting to begin', () => {
+    // Worship overran; the plan has moved on to b, and b is what has not
+    // actually started yet.
+    expect(startableSession(ORDER, clock('10:30'))).toBe('b')
+  })
+
+  it('is nothing once the service is over', () => {
+    expect(startableSession(ORDER, clock('11:30'))).toBeNull()
+  })
+
+  it('is never a session whose start is still in the future, which could only move earlier', () => {
+    const id = startableSession(ORDER, clock('10:30'))!
+    const start = new Date(ORDER.find((s) => s.id === id)!.start_time).getTime()
+    expect(start).toBeLessThanOrEqual(clock('10:30'))
+  })
+})
+
+describe('overrunMinutes', () => {
+  it('finds nothing in a running order that has not slipped', () => {
+    expect(overrunMinutes(ORDER).size).toBe(0)
+  })
+
+  it('measures the overrun as the gap between due-to-end and actually-ended', () => {
+    // "Session started" pressed on c at 11:06 — b was due to end at 11:00.
+    const slipped = [ORDER[0], ORDER[1], { ...ORDER[2], start_time: at('11:06') }]
+    const over = overrunMinutes(slipped)
+    expect(over.get('b')).toBe(6)
+    expect(over.has('a')).toBe(false)
+    expect(over.has('c')).toBe(false)
+  })
+
+  it('does not report a session that finished early as overrunning', () => {
+    const early = [ORDER[0], ORDER[1], { ...ORDER[2], start_time: at('10:50') }]
+    expect(overrunMinutes(early).has('b')).toBe(false)
+  })
+
+  it('cannot measure the last session, because nothing has proved it ended', () => {
+    expect(overrunMinutes([ORDER[0]]).size).toBe(0)
   })
 })

@@ -10,7 +10,7 @@ import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
-import { serviceProgress } from '../lib/serviceProgress'
+import { overrunMinutes, serviceProgress, startableSession } from '../lib/serviceProgress'
 import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
@@ -76,6 +76,48 @@ export function ServicePlannerPage() {
     onSuccess: invalidate,
     onError: (err: unknown) =>
       setServiceError(errorText(err, 'Could not save that change.')),
+  })
+
+  /**
+   * "This is starting now."
+   *
+   * A session overruns and everything after it is wrong. Rather than making
+   * someone re-type six start times, the Admin says which session is
+   * actually beginning: that one takes the current time and every session
+   * after it cascades off it. Nothing extra is recorded — the previous
+   * session's overrun is simply the gap this opens between when it was due
+   * to end and when the next one really began.
+   */
+  const startSessionNow = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const current = await fetchSessions(serviceId!)
+      const index = current.findIndex((s) => s.id === sessionId)
+      if (index < 0) return
+
+      // To the minute: seconds in a running order are noise, and a start of
+      // 10:06 reads as a decision where 10:06:43 reads as a machine.
+      const startedAt = new Date()
+      startedAt.setSeconds(0, 0)
+
+      let cursor = startedAt.toISOString()
+      for (let i = index; i < current.length; i++) {
+        const session = current[i]
+        if (session.start_time !== cursor) {
+          const { error } = await supabase
+            .from('service_sessions')
+            .update({ start_time: cursor })
+            .eq('id', session.id)
+          if (error) throw error
+        }
+        cursor = addMinutesIso(cursor, session.duration_minutes)
+      }
+    },
+    onSuccess: () => {
+      setServiceError(null)
+      return invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(errorText(err, 'Could not start that session.')),
   })
 
   const addSession = useMutation({
@@ -151,6 +193,8 @@ export function ServicePlannerPage() {
     return () => window.clearInterval(tick)
   }, [])
   const progress = useMemo(() => serviceProgress(sessions, now), [sessions, now])
+  const overruns = useMemo(() => overrunMinutes(sessions), [sessions])
+  const startable = useMemo(() => startableSession(sessions, now), [sessions, now])
   // What the running order adds up to, and what has nobody on it — the two
   // things a planner is actually managing, neither of which a table showed.
   const totalMinutes = sessions.reduce((n, session) => n + session.duration_minutes, 0)
@@ -471,6 +515,10 @@ export function ServicePlannerPage() {
                     const unassigned = !session.assigned_user_id
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
+                    const over = overruns.get(session.id)
+                    // Only an Admin can say a service has slipped, and only
+                    // on the session the service is waiting to begin.
+                    const canStart = canManage && isAdmin && startable === session.id
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
@@ -531,10 +579,26 @@ export function ServicePlannerPage() {
                             `${session.duration_minutes} min`
                           )
                         }
+                        over={over}
                       >
                         {/* Nobody on it still outranks "on now": an empty
                             session is the thing that needs a person. */}
                         <TimelineCard tone={unassigned ? 'warning' : running ? 'running' : 'plain'}>
+                          {canStart && (
+                            <div className="mb-3">
+                              <button
+                                type="button"
+                                onClick={() => startSessionNow.mutate(session.id)}
+                                disabled={startSessionNow.isPending}
+                                className="rounded-full bg-accent-green px-3.5 py-1.5 text-label-md font-medium text-accent-green-ink transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+                              >
+                                {startSessionNow.isPending ? 'Starting…' : 'Session started'}
+                              </button>
+                              <span className="ml-2.5 text-label-sm text-on-surface-faint">
+                                Sets this to now and moves everything after it.
+                              </span>
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                             <div className="min-w-0 flex-1">
                               {canManage ? (

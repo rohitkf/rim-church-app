@@ -22,6 +22,7 @@ export function TimelineRow({
   last = false,
   fill,
   running = false,
+  over,
   children,
 }: {
   time: ReactNode
@@ -40,6 +41,8 @@ export function TimelineRow({
   fill?: number
   /** This is the session on right now. */
   running?: boolean
+  /** Minutes this one ran past the time it was given. */
+  over?: number
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
@@ -60,6 +63,11 @@ export function TimelineRow({
       <div className="w-14 shrink-0 pt-5 text-right sm:w-24">
         <div className="font-mono text-label-md text-on-surface-variant tabular">{time}</div>
         {meta && <div className="mt-1 font-mono text-label-sm text-on-surface-faint">{meta}</div>}
+        {/* The overrun sits under the time it broke, in the one colour the
+            app keeps for a thing that did not go to plan. */}
+        {over !== undefined && over > 0 && (
+          <div className="mt-1 font-mono text-label-sm text-error tabular">+{over} over</div>
+        )}
       </div>
 
       <div aria-hidden="true" className="relative flex w-3 shrink-0 justify-center">

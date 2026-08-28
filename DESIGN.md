@@ -186,7 +186,8 @@ the same on each:
   its `fill` (0–1) and the part that has already happened turns green, the
   session on now pulses, and the rest stays quiet. Each row fills its own
   segment, so nothing is ever measured and a phone draws what a monitor
-  draws.
+  draws. When it slips, `over` writes the overrun in `error` under the time
+  it broke — the one place a time is allowed to be red.
 - **A choice between a few answers** is a segmented control — one object
   with the chosen answer filled in — not a row of separate buttons. The
   Availability Yes/Maybe/No is the reference; targets are 44px tall
