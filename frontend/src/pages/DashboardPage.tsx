@@ -10,7 +10,7 @@ import {
   fetchAvailabilityFor,
   fetchDepartments,
   fetchMembersForDepartments,
-  fetchOwnDepartmentIds,
+  fetchOwnMemberships,
   fetchRoleChecklistItems,
   fetchRotaAssignments,
   fetchRotaProgress,
@@ -40,6 +40,8 @@ import { orderServices, serviceStanding, type ServiceStanding } from '../lib/ser
 import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
 import { formatTime } from '../lib/time'
+import { greeting } from '../lib/greeting'
+import { memberStanding, memberStandingLabel } from '../lib/memberStanding'
 import type { RoleType } from '../auth/types'
 
 
@@ -61,14 +63,6 @@ function untilLabel(date: string, from = new Date()): string {
   if (days < 7) return `In ${days} days`
   const weeks = Math.round(days / 7)
   return weeks === 1 ? 'In a week' : `In ${weeks} weeks`
-}
-
-/** The time of day, said the way a person would say it. */
-function greeting(now = new Date()): string {
-  const hour = now.getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
 }
 
 /**
@@ -311,20 +305,24 @@ export function DashboardPage() {
   // Availability: who has said they can serve. RLS narrows both the
   // answers and the rosters to teams the viewer may see, so a team member
   // sees their own teams here and an Admin sees all of them.
+  // Memberships, not just their ids: whether someone is core or a guest
+  // is what the header calls them when they hold no role.
   const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', session?.user.id],
-    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
+    queryKey: ['own-memberships', session?.user.id],
+    queryFn: () => fetchOwnMemberships(session!.user.id),
     enabled: !!session && !isAdmin,
   })
+  const ownMemberships = useMemo(() => ownDeptsQuery.data ?? [], [ownDeptsQuery.data])
+  const personStanding = memberStanding(roles.length > 0, ownMemberships)
 
   // A head sees their own team's stats; a member sees the teams they're
   // on. Admins see everything.
   const visibleDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
     if (isAdmin) return all
-    const mine = new Set([...(ownDeptsQuery.data ?? []), ...ledDepartmentIds])
+    const mine = new Set([...ownMemberships.map((m) => m.department_id), ...ledDepartmentIds])
     return all.filter((d) => mine.has(d.id))
-  }, [departmentsQuery.data, ownDeptsQuery.data, ledDepartmentIds, isAdmin])
+  }, [departmentsQuery.data, ownMemberships, ledDepartmentIds, isAdmin])
 
   const allDeptIds = useMemo(() => visibleDepartments.map((d) => d.id), [visibleDepartments])
   const availabilityQuery = useQuery({
@@ -359,7 +357,7 @@ export function DashboardPage() {
         eyebrow={`${formatServiceDay(viewedDate)} · ${
           dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
         }`}
-        title={`${greeting()}${profile ? `, ${profile.first_name}` : ''}.`}
+        title={`${greeting(new Date(clock))}${profile ? `, ${profile.first_name}` : ''}.`}
         description={
           roles.length > 0 ? (
             <span className="flex flex-wrap items-center gap-2">
@@ -368,6 +366,10 @@ export function DashboardPage() {
                   {roleLabel[r.role_type]}
                 </Pill>
               ))}
+            </span>
+          ) : personStanding ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <Pill tone="neutral">{memberStandingLabel[personStanding]}</Pill>
             </span>
           ) : (
             'Everything for the day, in one place.'
