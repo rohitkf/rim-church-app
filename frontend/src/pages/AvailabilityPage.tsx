@@ -10,6 +10,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
+import { useFinishedServices } from '../lib/useFinishedServices'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -90,13 +91,22 @@ export function AvailabilityPage() {
     enabled: !!myId,
   })
 
-  const upcoming = useMemo(
+  const listed = useMemo(
     () =>
       (servicesQuery.data ?? [])
         .filter((s) => s.date >= today)
         .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
         .slice(0, UPCOMING_LIMIT),
     [servicesQuery.data, today],
+  )
+
+  // A service that has happened can no longer be answered for, so it drops
+  // below the ones that still need an answer rather than sitting at the top
+  // of the page asking for something nobody can give.
+  const { isFinished } = useFinishedServices(listed.map((s) => s.id))
+  const upcoming = useMemo(
+    () => [...listed].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),
+    [listed, isFinished],
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
@@ -250,11 +260,23 @@ export function AvailabilityPage() {
           </p>
         ) : (
           <div className="mt-6 flex flex-col gap-6">
-            {upcoming.map((service) => (
-              <section key={service.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
+            {upcoming.map((service) => {
+              const finished = isFinished(service.id)
+              return (
+              <section
+                key={service.id}
+                className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
+                  finished ? 'opacity-70' : ''
+                }`}
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-headline-md">{service.service_type}</h2>
-                  <span className="text-body-sm text-on-surface-variant">
+                  <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
+                    {finished && (
+                      <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                        Finished · closed
+                      </span>
+                    )}
                     {service.date === today ? 'Today' : formatServiceDay(service.date)}
                   </span>
                 </div>
@@ -331,7 +353,7 @@ export function AvailabilityPage() {
                         {/* Chasing an answer belongs beside the count of
                             answers still missing, not in a settings page:
                             this is the moment a head notices. */}
-                        {summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
+                        {!finished && summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
                           <div className="mt-3">
                             <NudgeButton
                               rpc="nudge_availability"
@@ -343,7 +365,7 @@ export function AvailabilityPage() {
                           </div>
                         )}
 
-                        {canAnswer && (
+                        {canAnswer && !finished && (
                           <div
                             role="group"
                             aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
@@ -410,7 +432,7 @@ export function AvailabilityPage() {
                                               status: (e.target.value || null) as AvailabilityStatus | null,
                                             })
                                           }
-                                          disabled={setForMember.isPending}
+                                          disabled={setForMember.isPending || finished}
                                           aria-label={`Availability for ${
                                             m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
                                           }`}
@@ -486,7 +508,8 @@ export function AvailabilityPage() {
                   })}
                 </ul>
               </section>
-            ))}
+              )
+            })}
           </div>
         )}
       </QueryState>

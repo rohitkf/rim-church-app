@@ -19,6 +19,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
+import { useFinishedServices } from '../lib/useFinishedServices'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
@@ -184,6 +185,15 @@ export function ChecklistsIndexPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
 
+  const { isFinished } = useFinishedServices(dayServices.map((s) => s.id))
+  const orderedServices = useMemo(
+    () =>
+      [...dayServices].sort(
+        (a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id)),
+      ),
+    [dayServices, isFinished],
+  )
+
   const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
   const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
 
@@ -219,7 +229,11 @@ export function ChecklistsIndexPage() {
               </p>
             ) : (
               <div className="mt-6 flex flex-col gap-10">
-                {dayServices.map((service) => {
+                {orderedServices.map((service) => {
+                  // A service that has been and gone is a record now: it
+                  // sinks below the ones still to prepare for, and nothing
+                  // in it can be ticked, un-ticked or chased.
+                  const finished = isFinished(service.id)
                   const forService = mineFirst.filter((m) => m.assignment.service_id === service.id)
                   if (forService.length === 0) return null
 
@@ -242,9 +256,14 @@ export function ChecklistsIndexPage() {
                           <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                             {service.date}
                           </span>
+                          {finished && (
+                            <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                              Finished · closed
+                            </span>
+                          )}
                         </div>
 
-                        {isAdmin ? (
+                        {finished ? null : isAdmin ? (
                           <NudgeButton
                             rpc="nudge_checklist"
                             args={{ svc_id: service.id, dept_id: null }}
@@ -323,7 +342,12 @@ export function ChecklistsIndexPage() {
                                         <StatusBadge status={status} />
                                         <ChecklistStageBoxes
                                           status={status}
-                                          may={may}
+                                          // A finished service signs nothing more.
+                                          may={
+                                            finished
+                                              ? { member: false, head: false, sign: false }
+                                              : may
+                                          }
                                           busy={setStage.isPending}
                                           onChange={(next) =>
                                             setStage.mutate({
