@@ -33,7 +33,12 @@ describe('activitySentence', () => {
   })
 
   it('copes with a row missing its subject', () => {
-    expect(say('checklist', null, 'ticked')).toBe('ticked something')
+    expect(say('checklist', null, 'ticked')).toBe('ticked off something')
+  })
+
+  it('shows a row written by an older build rather than dropping it', () => {
+    // Rows written before the direction fix carry the raw stage name.
+    expect(say('checklist', 'Clean Lens', 'pending')).toBe('pending Clean Lens')
   })
 })
 

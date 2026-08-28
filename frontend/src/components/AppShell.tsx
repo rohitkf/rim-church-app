@@ -17,6 +17,7 @@ import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
 import { useNotificationRouting } from '../lib/useNotificationRouting'
+import { useScrolled } from '../lib/useScrolled'
 import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
@@ -70,6 +71,7 @@ export function AppShell() {
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
   useNotificationRouting()
+  const scrolled = useScrolled()
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
@@ -86,8 +88,21 @@ export function AppShell() {
         The top strip carries only what is true on every page: what you are
         looking for, what wants you, and who you are. Everything that is a
         destination lives in the dock instead.
+
+        At the top of a page it needs no background — it is sitting on the
+        ground. Once content is passing underneath it, the two collide
+        unless the strip stands on something, so it takes a translucent one
+        with the page blurred behind it and a hairline along its bottom
+        edge. It appears rather than being there all along, because the
+        cleaner strip is the one worth having whenever it can be had.
       */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5">
+      <header
+        className={`sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-[var(--ease-glide)] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5 ${
+          scrolled
+            ? 'bg-[color-mix(in_oklab,var(--color-background)_72%,transparent)] shadow-[inset_0_-1px_0_0_var(--color-border-subtle)] backdrop-blur-xl backdrop-saturate-150'
+            : ''
+        }`}
+      >
         {/*
           The app has to say what it is. The dock carries destinations and
           the page carries a greeting, so without this nothing on a signed-in

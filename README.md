@@ -411,7 +411,13 @@ posted. Three decisions hold it together (`0041`):
 
 Anyone signed in can read the feed; only an Admin can delete from it. The
 wording lives in `frontend/src/lib/activity.ts`, not in the database, so it
-can be changed without a migration.
+can be changed without a migration — the triggers record a bare token and
+the sentence is built in code.
+
+Undoing something is its own event, not a fall back to a stage name: a
+checklist trigger compares the stage an item left with the stage it reached,
+so coming back down reads "un-ticked", "took their verification off",
+"took the sign-off off" rather than "pending" (`0042`).
 
 ## CI
 

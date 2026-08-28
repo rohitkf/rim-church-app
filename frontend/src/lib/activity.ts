@@ -19,6 +19,22 @@ const AVAILABILITY_WORDS: Record<string, string> = {
   unavailable: "can't serve",
 }
 
+/**
+ * A checklist item moving a stage, in both directions.
+ *
+ * Undoing something is exactly the event a feed exists to show, so it gets
+ * its own words rather than the name of the stage the item fell back to —
+ * "took the sign-off off" is the news; "is now head verified" is not.
+ */
+const CHECKLIST_WORDS: Record<string, string> = {
+  ticked: 'ticked off',
+  verified: 'verified',
+  signed_off: 'signed off',
+  unticked: 'un-ticked',
+  unverified: 'took their verification off',
+  unsigned: 'took the sign-off off',
+}
+
 export function activitySentence(row: ActivityRowLike): string {
   const subject = row.subject ?? 'something'
   const detail = row.detail ?? ''
@@ -31,7 +47,7 @@ export function activitySentence(row: ActivityRowLike): string {
     case 'planner':
       return `${detail} ${subject} in the running order`
     case 'checklist':
-      return `${detail} ${subject}`
+      return `${CHECKLIST_WORDS[detail] ?? detail} ${subject}`
     case 'rota': {
       // The database wrote "Dave assigned" / "Dave taken off": the person is
       // the fact, and who did the assigning is the actor in front.

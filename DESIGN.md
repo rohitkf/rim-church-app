@@ -254,6 +254,15 @@ wraps: a dock that changes height moves the content underneath it.
 Adding a destination is one entry in `navItems` in `AppShell.tsx`, plus its
 wash colour.
 
+**The top strip earns its background.** At the top of a page it sits on the
+ground and needs nothing; once content is passing underneath it, the two
+collide unless the strip stands on something. So on scroll it takes a
+translucent ground with the page blurred behind it and a hairline along its
+bottom edge (`useScrolled`), and gives it back at the top. Nothing else in
+the app blurs its backdrop: a `backdrop-filter` makes an element the
+containing block for any `fixed` descendant, which is how a dialog ends up
+trapped inside the thing that opened it.
+
 ---
 
 ## 8. Writing

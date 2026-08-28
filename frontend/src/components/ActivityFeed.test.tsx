@@ -25,7 +25,7 @@ const ROWS = [
     id: 'a3',
     kind: 'checklist',
     subject: 'Line check',
-    detail: 'signed off',
+    detail: 'signed_off',
     created_at: new Date().toISOString(),
     // An actor whose account has since gone.
     actor: null,
