@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { LeadPicker, type LeadOption } from '../components/LeadPicker'
+import { serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { QueryState } from '../components/QueryState'
 import { Eyebrow, Panel, Row, Tile } from '../components/Surface'
@@ -208,6 +209,30 @@ export function ServicePlannerPage() {
     enabled: !!serviceId,
   })
 
+  // The clock, re-read on a timer so a service that ends while the page is
+  // open locks itself rather than waiting for a reload.
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+  const finished = serviceStanding(sessions, clock).state === 'done'
+
+  /*
+   * Editing stops when the service does.
+   *
+   * Once the last session's end has passed, the running order is no longer
+   * a plan — it is what happened. Changing it then is almost always a
+   * mistake (the wrong service opened, a stray tap on a phone in a
+   * pocket), and the cost of the mistake is a record of a Sunday that
+   * quietly stops matching the Sunday.
+   *
+   * The database refuses these writes too, so this is not the lock — it
+   * only saves someone the round trip and an error message about a button
+   * that should not have been there.
+   */
+  const canEdit = canManage && !finished
+
   // Everyone who could take a session: the people with accounts, then
   // this service's guests.
   const leadOptions: LeadOption[] = useMemo(
@@ -348,7 +373,7 @@ export function ServicePlannerPage() {
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            {canManage ? (
+            {canEdit ? (
               <>
                 <input
                   key={serviceQuery.data?.service_type}
@@ -386,9 +411,9 @@ export function ServicePlannerPage() {
               </>
             )}
           </div>
-          {canManage && (
+          {isAdmin && (
             <div className="flex shrink-0 items-center gap-2">
-              {isAdmin && sessions.length > 0 && (
+              {sessions.length > 0 && (
                 <button
                   onClick={() => {
                     setTemplateMessage(null)
@@ -399,14 +424,16 @@ export function ServicePlannerPage() {
                   Save as template
                 </button>
               )}
-              <button
-                onClick={() => addSession.mutate()}
-                disabled={addSession.isPending}
-                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-              >
-                {addSession.isPending ? 'Adding…' : '+ Add Session'}
-              </button>
-              {sessions.length > 0 && (
+              {canEdit && (
+                <button
+                  onClick={() => addSession.mutate()}
+                  disabled={addSession.isPending}
+                  className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                >
+                  {addSession.isPending ? 'Adding…' : '+ Add Session'}
+                </button>
+              )}
+              {canEdit && sessions.length > 0 && (
                 <button
                   onClick={() => {
                     setConfirmingDelete(false)
@@ -429,6 +456,25 @@ export function ServicePlannerPage() {
             </div>
           )}
         </div>
+
+        {/* A page with its controls quietly missing reads as broken. Say
+            what happened and that nothing is lost. */}
+        {finished && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-green)_8%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_24%,transparent)]">
+            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
+              Finished
+            </span>
+            <span className="text-body-sm text-on-surface-variant">
+              This service is over, so the running order is now a record of it and can&rsquo;t be
+              changed.
+            </span>
+            {isAdmin && (
+              <span className="text-label-md text-on-surface-faint">
+                Attendance and checklists can still be filled in.
+              </span>
+            )}
+          </div>
+        )}
 
         {confirmingClear && (
           <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
@@ -549,7 +595,7 @@ export function ServicePlannerPage() {
                     const over = overruns.get(session.id)
                     // Only an Admin can say a service has slipped, and only
                     // on the session the service is waiting to begin.
-                    const canStart = canManage && isAdmin && startable === session.id
+                    const canStart = canEdit && isAdmin && startable === session.id
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
@@ -558,7 +604,7 @@ export function ServicePlannerPage() {
                         running={running}
                         tone={unassigned ? 'warning' : isFirst ? 'now' : 'plain'}
                         time={
-                          isFirst && canManage ? (
+                          isFirst && canEdit ? (
                             /* The one time the planner actually sets; every
                                other start is this one plus the durations. */
                             <input
@@ -584,7 +630,7 @@ export function ServicePlannerPage() {
                           )
                         }
                         meta={
-                          canManage ? (
+                          canEdit ? (
                             <span className="flex items-center justify-end gap-1">
                               <input
                                 type="number"
@@ -632,7 +678,7 @@ export function ServicePlannerPage() {
                           )}
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                             <div className="min-w-0 flex-1">
-                              {canManage ? (
+                              {canEdit ? (
                                 <input
                                   defaultValue={session.session_name}
                                   aria-label="Session name"
@@ -656,7 +702,7 @@ export function ServicePlannerPage() {
                               )}
                             </div>
 
-                            {canManage ? (
+                            {canEdit ? (
                               <LeadPicker
                                 label={`Who leads ${session.session_name}`}
                                 options={leadOptions}
@@ -701,7 +747,7 @@ export function ServicePlannerPage() {
                               />
                             ) : null}
 
-                            {canManage && (
+                            {canEdit && (
                               <button
                                 type="button"
                                 onClick={() => deleteSession.mutate(session.id)}
@@ -761,7 +807,7 @@ export function ServicePlannerPage() {
 
               {/* Under Needs attention, because a missing guest is one of
                   the things that puts a session there. */}
-              {serviceId && <ServiceGuestsPanel serviceId={serviceId} canManage={canManage} />}
+              {serviceId && <ServiceGuestsPanel serviceId={serviceId} canManage={canEdit} />}
             </div>
           </div>
         </QueryState>
