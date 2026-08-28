@@ -1,10 +1,10 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Eyebrow, PageHeader, Tile } from '../components/Surface'
+import { ActionButton, Eyebrow, LiveDot, PageHeader, Tile } from '../components/Surface'
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
@@ -16,6 +16,7 @@ import {
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
+import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -90,6 +91,36 @@ export function TeamRotaPage() {
     return ahead.slice(0, UPCOMING_LIMIT)
   }, [servicesQuery.data, today, isAdmin])
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
+
+  // Which of these is happening right now, from its running order. Re-read
+  // on a minute's tick so a service starts and finishes on screen without a
+  // refresh — this page is open on a stage for hours.
+  const sessionsQuery = useQuery({
+    queryKey: ['rota-service-sessions', upcomingIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('service_sessions')
+        .select('service_id, start_time, duration_minutes')
+        .in('service_id', upcomingIds)
+      if (error) throw error
+      return z
+        .array(
+          z.object({
+            service_id: z.string(),
+            start_time: z.string(),
+            duration_minutes: z.number().nullable(),
+          }),
+        )
+        .parse(data)
+    },
+    enabled: upcomingIds.length > 0,
+  })
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(tick)
+  }, [])
+  const windows = useMemo(() => serviceWindows(sessionsQuery.data ?? []), [sessionsQuery.data])
 
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
@@ -323,6 +354,7 @@ export function TeamRotaPage() {
         ) : (
           <div className="mt-6 flex flex-col gap-8">
             {upcoming.map((service) => {
+              const live = isLiveNow(service.id, windows, now)
               const serviceAssignments = assignments.filter((a) => a.service_id === service.id)
               const teamsWithPeople = myDepartments.filter((d) =>
                 serviceAssignments.some((a) => a.department_id === d.id),
@@ -335,10 +367,27 @@ export function TeamRotaPage() {
                 return filled(a.id) - filled(b.id) || a.name.localeCompare(b.name)
               })
 
+              // The service on the platform is the only one anyone cares
+              // about while it is on, so it wears the accent tile and says
+              // "on now" — and the rest stay quiet rather than competing.
               return (
-                <Tile key={service.id} as="section" padded={false}>
+                <Tile
+                  key={service.id}
+                  as="section"
+                  padded={false}
+                  tone={live ? 'accent' : 'plain'}
+                  className={live ? 'ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-primary)_45%,transparent)]' : ''}
+                >
                   <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      {live && (
+                        <span className="flex items-center gap-2 self-center">
+                          <LiveDot />
+                          <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-accent-green-soft">
+                            On now
+                          </span>
+                        </span>
+                      )}
                       <h2 className="text-headline-md">{service.service_type}</h2>
                       <span className="font-mono text-label-sm text-on-surface-variant">
                         {service.date === today ? 'Today' : formatServiceDay(service.date)}

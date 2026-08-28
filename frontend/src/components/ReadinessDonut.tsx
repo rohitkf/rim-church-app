@@ -124,3 +124,32 @@ export function ReadinessDonut({
     </figure>
   )
 }
+
+/**
+ * The key for a group of rings.
+ *
+ * A ring is segmented by stage, not by one flat percentage, which is the
+ * whole point of it — two teams both at 67% can be at 67% in different
+ * ways, one with an item signed off and another only checked. Without a key
+ * that reads as arbitrary colour, so any tile showing more than one ring
+ * shows this too.
+ */
+export function ReadinessLegend({ className = '' }: { className?: string }) {
+  const entries = [
+    { label: 'Signed off', color: 'bg-status-coordinator' },
+    { label: 'Head verified', color: 'bg-status-head' },
+    { label: 'Checked', color: 'bg-status-member' },
+    { label: 'Not started', color: 'bg-status-pending' },
+  ]
+
+  return (
+    <ul className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 ${className}`}>
+      {entries.map((entry) => (
+        <li key={entry.label} className="flex items-center gap-1.5 text-label-md text-on-surface-variant">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${entry.color}`} aria-hidden="true" />
+          {entry.label}
+        </li>
+      ))}
+    </ul>
+  )
+}

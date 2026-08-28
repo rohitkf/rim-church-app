@@ -4,8 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { teamWash } from '../lib/teamGradient'
-import { useTeamStyle } from '../lib/useTeamStyle'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -33,7 +31,7 @@ import {
 } from '../components/Surface'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceCountdown } from '../components/ServiceCountdown'
-import { ReadinessDonut } from '../components/ReadinessDonut'
+import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
@@ -173,7 +171,6 @@ function actorTimestampFor(item: ChecklistItemRow): string | null {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
-  const { teamStyle } = useTeamStyle()
 
   // Everyone opens on the Sunday in question (today if it is Sunday,
   // otherwise the one coming up). Admins alone can step back through
@@ -644,7 +641,12 @@ export function DashboardPage() {
                   </Tile>
 
                   {/* Every team at a glance, worst first — the tile you scan
-                      when you only have ten seconds before the doors. */}
+                      when you only have ten seconds before the doors.
+
+                      Deliberately no team wash: this tile's colour belongs to
+                      the readiness ring — red for unanswered, green for ready
+                      — and two colour systems on one small row means neither
+                      of them gets read. */}
                   <Tile className="lg:col-span-7">
                     <div className="flex items-baseline justify-between gap-4">
                       <Eyebrow>Teams on duty</Eyebrow>
@@ -663,7 +665,6 @@ export function DashboardPage() {
                             key={dept.id}
                             to="/availability"
                             className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
-                            style={teamWash(dept.color, teamStyle)}
                           >
                             <TeamRing
                               pct={summary.pct}
@@ -702,7 +703,12 @@ export function DashboardPage() {
                       which one to chase rather than the total. */}
                   {readinessByDept.size > 0 && (
                     <Tile className="lg:col-span-12">
-                      <Eyebrow>Checklist readiness by team</Eyebrow>
+                      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                        <Eyebrow>Checklist readiness by team</Eyebrow>
+                        {/* Two teams can both be 67% ready in different ways;
+                            the ring says which, and this says how to read it. */}
+                        <ReadinessLegend />
+                      </div>
                       <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
                         {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
                           <li key={deptId}>
