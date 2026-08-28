@@ -229,6 +229,21 @@ confirmation links will point at `localhost`.
   routes like `/departments/123` resolve to `index.html` on a hard
   refresh instead of 404ing) — already in the repo, no setup needed.
 
+> **The `/sb` rewrite.** `vercel.json` also forwards `/sb/*` to the
+> Supabase URL. It is the app's second road to the same server, for
+> networks that carry some requests to the API host and silently drop
+> others — a real failure we hit, where every GET and CORS preflight
+> arrived and every POST, sign-in included, did not. The browser sits on
+> a request that was thrown away and the server never knows it was
+> asked. Going out through this origin instead means a different
+> destination address, a different TLS session, and no cross-origin
+> request at all. The app only uses it when the direct route stops
+> answering (see `src/lib/supabaseRoute.ts`).
+>
+> The destination is written out in full there, so **if you change
+> `VITE_SUPABASE_URL`, change that rewrite to match** — otherwise the
+> fallback still points at the old project.
+
 That's the whole deployment. The AI Assistant button shows as "Coming
 Soon" in the sidebar until you do the steps below.
 
