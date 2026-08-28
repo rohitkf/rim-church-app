@@ -17,6 +17,7 @@ import {
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
+import { useFinishedServices } from '../lib/useFinishedServices'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -121,6 +122,17 @@ export function TeamRotaPage() {
     return () => window.clearInterval(tick)
   }, [])
   const windows = useMemo(() => serviceWindows(sessionsQuery.data ?? []), [sessionsQuery.data])
+
+  // Finished comes from the same hook the checklists and the availability
+  // tracker use, so a service cannot be closed on one page and open here.
+  const { isFinished } = useFinishedServices(upcomingIds)
+
+  // Ordered with what has happened last: the rota is read to find out who
+  // is on next, and a service that is over answers nothing.
+  const listed = useMemo(
+    () => [...upcoming].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),
+    [upcoming, isFinished],
+  )
 
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
@@ -353,8 +365,13 @@ export function TeamRotaPage() {
           </p>
         ) : (
           <div className="mt-6 flex flex-col gap-8">
-            {upcoming.map((service) => {
-              const live = isLiveNow(service.id, windows, now)
+            {listed.map((service) => {
+              const finished = isFinished(service.id)
+              // The live window pads fifteen minutes past the last session
+              // so the badge doesn't blink out mid-handshake — but once the
+              // service is finished it is finished, and a card cannot say
+              // "on now" while refusing every button on it.
+              const live = !finished && isLiveNow(service.id, windows, now)
               const serviceAssignments = assignments.filter((a) => a.service_id === service.id)
               const teamsWithPeople = myDepartments.filter((d) =>
                 serviceAssignments.some((a) => a.department_id === d.id),
@@ -376,7 +393,11 @@ export function TeamRotaPage() {
                   as="section"
                   padded={false}
                   tone={live ? 'accent' : 'plain'}
-                  className={live ? 'ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-primary)_45%,transparent)]' : ''}
+                  className={`${
+                    live
+                      ? 'ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-primary)_45%,transparent)]'
+                      : ''
+                  } ${finished ? 'opacity-70' : ''}`}
                 >
                   <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -392,6 +413,11 @@ export function TeamRotaPage() {
                       <span className="font-mono text-label-sm text-on-surface-variant">
                         {service.date === today ? 'Today' : formatServiceDay(service.date)}
                       </span>
+                      {finished && (
+                        <span className="self-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                          Finished · closed
+                        </span>
+                      )}
                     </div>
                     <span className="font-mono text-label-sm text-on-surface-variant">
                       {serviceAssignments.length} assigned · {teamsWithPeople}/{myDepartments.length} teams
@@ -404,7 +430,8 @@ export function TeamRotaPage() {
                     {orderedTeams.map((dept) => {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)
-                      const manage = canManage(dept.id)
+                      // Who served is a matter of record once the service is over.
+                      const manage = canManage(dept.id) && !finished
                       // Only people who marked themselves available for this
                       // service, on this team, can be put on the rota for it.
                       const availableHere = new Set(
