@@ -20,6 +20,8 @@ export function TimelineRow({
   meta,
   tone = 'plain',
   last = false,
+  fill,
+  running = false,
   children,
 }: {
   time: ReactNode
@@ -28,13 +30,30 @@ export function TimelineRow({
   tone?: TimelineTone
   /** The last row stops the line rather than trailing it into nothing. */
   last?: boolean
+  /**
+   * How much of this row's rail has already happened, 0 to 1.
+   *
+   * The rail is also a clock: giving each row its own share means the fill
+   * is exact at any width without measuring a single element, and a service
+   * runs down the page as it runs in the room.
+   */
+  fill?: number
+  /** This is the session on right now. */
+  running?: boolean
   children: ReactNode
 }) {
-  const dot = {
-    plain: 'bg-on-surface-faint',
-    now: 'bg-primary',
-    warning: 'bg-accent-orange',
-  }[tone]
+  const filled = Math.min(Math.max(fill ?? 0, 0), 1)
+  const dot = running
+    ? 'bg-accent-green pulse-live'
+    : filled >= 1
+      ? 'bg-accent-green'
+      : {
+          plain: 'bg-on-surface-faint',
+          now: 'bg-primary',
+          warning: 'bg-accent-orange',
+        }[tone]
+
+  const rail = { bottom: last ? 'calc(100% - 2rem)' : '-0.375rem' }
 
   return (
     <li className="flex gap-3 sm:gap-5">
@@ -44,11 +63,17 @@ export function TimelineRow({
       </div>
 
       <div aria-hidden="true" className="relative flex w-3 shrink-0 justify-center">
-        <span className={`absolute top-6 h-2.5 w-2.5 rounded-full ${dot}`} />
-        <span
-          className="absolute -top-1.5 w-0.5 bg-outline-variant"
-          style={{ bottom: last ? 'calc(100% - 2rem)' : '-0.375rem' }}
-        />
+        <span data-rail="line" className="absolute -top-1.5 w-0.5 bg-outline-variant" style={rail} />
+        {filled > 0 && (
+          // The same geometry as the rail, clipped from the bottom — so the
+          // green is exactly the line, not a second line beside it.
+          <span
+            data-rail="elapsed"
+            className="absolute -top-1.5 w-0.5 bg-accent-green transition-[clip-path] duration-700 ease-[var(--ease-glide)]"
+            style={{ ...rail, clipPath: `inset(0 0 ${(1 - filled) * 100}% 0)` }}
+          />
+        )}
+        <span data-rail="dot" className={`absolute top-6 h-2.5 w-2.5 rounded-full ${dot}`} />
       </div>
 
       <div className="min-w-0 flex-1 pb-2.5">{children}</div>
@@ -65,7 +90,7 @@ export function TimelineCard({
   children,
   className = '',
 }: {
-  tone?: 'plain' | 'warning'
+  tone?: 'plain' | 'warning' | 'running'
   children: ReactNode
   className?: string
 }) {
@@ -73,6 +98,10 @@ export function TimelineCard({
     plain: 'bg-raised hairline',
     warning:
       'bg-[color-mix(in_oklab,var(--color-accent-orange)_7%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]',
+    // The session on right now, so a glance from the back of the room lands
+    // on it before it lands on anything else.
+    running:
+      'bg-[color-mix(in_oklab,var(--color-accent-green)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_32%,transparent)]',
   }
   return (
     <div

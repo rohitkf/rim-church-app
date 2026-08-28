@@ -25,7 +25,7 @@ describe('TimelineRow', () => {
         </TimelineRow>
       </ul>,
     )
-    const line = container.querySelector('[aria-hidden="true"] span:last-child') as HTMLElement
+    const line = container.querySelector('[data-rail="line"]') as HTMLElement
     expect(line.style.bottom).toBe('calc(100% - 2rem)')
   })
 
@@ -37,8 +37,54 @@ describe('TimelineRow', () => {
         </TimelineRow>
       </ul>,
     )
-    const line = container.querySelector('[aria-hidden="true"] span:last-child') as HTMLElement
+    const line = container.querySelector('[data-rail="line"]') as HTMLElement
     expect(line.style.bottom).toBe('-0.375rem')
+  })
+})
+
+describe('the rail as a clock', () => {
+  const rowWith = (props: { fill?: number; running?: boolean }) =>
+    render(
+      <ul>
+        <TimelineRow time="10:00" {...props}>
+          <TimelineCard>Worship Set</TimelineCard>
+        </TimelineRow>
+      </ul>,
+    )
+
+  it('draws no elapsed line for a session that has not happened', () => {
+    const { container } = rowWith({ fill: 0 })
+    expect(container.querySelector('[data-rail="elapsed"]')).toBeNull()
+  })
+
+  it('clips the elapsed line to how much of the session has gone', () => {
+    const { container } = rowWith({ fill: 0.25 })
+    const elapsed = container.querySelector('[data-rail="elapsed"]') as HTMLElement
+    expect(elapsed.style.clipPath).toBe('inset(0 0 75% 0)')
+  })
+
+  it('fills the whole segment for a session that is over', () => {
+    const { container } = rowWith({ fill: 1 })
+    const elapsed = container.querySelector('[data-rail="elapsed"]') as HTMLElement
+    expect(elapsed.style.clipPath).toBe('inset(0 0 0% 0)')
+    // A finished session's dot is green too, not just its line.
+    expect((container.querySelector('[data-rail="dot"]') as HTMLElement).className).toContain(
+      'bg-accent-green',
+    )
+  })
+
+  it('refuses a fill outside the segment rather than drawing past it', () => {
+    const { container } = rowWith({ fill: 4 })
+    expect((container.querySelector('[data-rail="elapsed"]') as HTMLElement).style.clipPath).toBe(
+      'inset(0 0 0% 0)',
+    )
+  })
+
+  it('pulses the dot of the session that is on', () => {
+    const { container } = rowWith({ fill: 0.4, running: true })
+    expect((container.querySelector('[data-rail="dot"]') as HTMLElement).className).toContain(
+      'pulse-live',
+    )
   })
 })
 

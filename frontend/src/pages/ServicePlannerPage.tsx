@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -10,6 +10,7 @@ import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
+import { serviceProgress } from '../lib/serviceProgress'
 import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
@@ -139,7 +140,17 @@ export function ServicePlannerPage() {
       setServiceError(errorText(err, 'Could not delete the session.')),
   })
 
-  const sessions = sessionsQuery.data ?? []
+  const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data])
+
+  // The rail doubles as a clock, so it needs one. Twenty seconds is finer
+  // than anyone can see on a 3-minute item and coarse enough to cost
+  // nothing on a screen left open through a service.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 20_000)
+    return () => window.clearInterval(tick)
+  }, [])
+  const progress = useMemo(() => serviceProgress(sessions, now), [sessions, now])
   // What the running order adds up to, and what has nobody on it — the two
   // things a planner is actually managing, neither of which a table showed.
   const totalMinutes = sessions.reduce((n, session) => n + session.duration_minutes, 0)
@@ -458,10 +469,14 @@ export function ServicePlannerPage() {
                   {sessions.map((session, idx) => {
                     const isFirst = idx === 0
                     const unassigned = !session.assigned_user_id
+                    const timing = progress.byId.get(session.id)
+                    const running = progress.runningId === session.id
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
                         last={idx === sessions.length - 1}
+                        fill={timing?.fill}
+                        running={running}
                         tone={unassigned ? 'warning' : isFirst ? 'now' : 'plain'}
                         time={
                           isFirst && canManage ? (
@@ -517,7 +532,9 @@ export function ServicePlannerPage() {
                           )
                         }
                       >
-                        <TimelineCard tone={unassigned ? 'warning' : 'plain'}>
+                        {/* Nobody on it still outranks "on now": an empty
+                            session is the thing that needs a person. */}
+                        <TimelineCard tone={unassigned ? 'warning' : running ? 'running' : 'plain'}>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                             <div className="min-w-0 flex-1">
                               {canManage ? (
