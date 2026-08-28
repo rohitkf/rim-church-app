@@ -1,10 +1,23 @@
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { probeAuthServer, reachabilityAdvice } from '../lib/authProbe'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
+
+/** Longer than any healthy sign-in, short enough to still be an answer. */
+const SIGN_IN_TIMEOUT_MS = 20_000
+
+function deadline(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(
+      () => reject(new Error('The server didn’t answer the sign-in request.')),
+      ms,
+    )
+  })
+}
 
 export function LoginPage() {
   const { session } = useAuth()
@@ -12,6 +25,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [advice, setAdvice] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   if (session) {
@@ -22,16 +36,27 @@ export function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setAdvice(null)
     setSubmitting(true)
     // supabase-js reports most failures as a returned error, but a request
     // that never completes — or one this client's deadline cuts off —
     // rejects instead. Without a catch that left the button on
     // "Signing in…" for ever, which looks like progress and isn't.
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const signIn = supabase.auth.signInWithPassword({ email, password })
+      // The client's own deadline is a minute, which is right for a large
+      // upload and far too long to stand at a sign-in button. Twenty
+      // seconds is longer than any healthy login and short enough to still
+      // feel like an answer.
+      const { error } = await Promise.race([signIn, deadline(SIGN_IN_TIMEOUT_MS)])
       if (error) setError(error.message)
     } catch (err: unknown) {
       setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
+      // A sign-in that fails without the server ever answering leaves a
+      // person with nothing to do differently. Asking the health endpoint
+      // — a plain GET nothing preflights or filters specially — says which
+      // half of the road is closed.
+      setAdvice(reachabilityAdvice(await probeAuthServer()))
     } finally {
       setSubmitting(false)
     }
@@ -78,9 +103,10 @@ export function LoginPage() {
         </label>
 
         {error && (
-          <p className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
-            {error}
-          </p>
+          <div className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
+            <p>{error}</p>
+            {advice && <p className="mt-2 opacity-90">{advice}</p>}
+          </div>
         )}
 
         <button type="submit" disabled={submitting} className={`mt-1.5 ${authSubmitClasses}`}>
