@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { PageHeader } from '../components/Surface'
+import { ActionButton, PageHeader, inputClasses } from '../components/Surface'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
@@ -187,30 +187,32 @@ export function MessageBoardPage() {
     postMessage.mutate()
   }
 
+  // The board is a reading column, so the header shares its width: the one
+  // action then sits over the posts it acts on rather than out at the page
+  // edge with nothing under it.
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-2xl">
       <PageHeader
         eyebrow="Everyone signed in"
         title="Message Board"
         description="A post speaks for the team on its badge."
+        action={
+          isAdmin && (messagesQuery.data?.length ?? 0) > 0 ? (
+            <ActionButton
+              tone="quiet"
+              onClick={() => {
+                setError(null)
+                setConfirm({ kind: 'all' })
+              }}
+              className="text-error"
+            >
+              Clear board now
+            </ActionButton>
+          ) : undefined
+        }
       />
 
       <BoardClearCountdown />
-
-      {isAdmin && (messagesQuery.data?.length ?? 0) > 0 && (
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={() => {
-              setError(null)
-              setConfirm({ kind: 'all' })
-            }}
-            className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
-          >
-            Clear board now
-          </button>
-        </div>
-      )}
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
@@ -219,10 +221,10 @@ export function MessageBoardPage() {
             onChange={(e) => setBody(e.target.value)}
             placeholder="Post an announcement…"
             rows={3}
-            className="w-full rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            className={`${inputClasses} resize-y`}
           />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-            {error && <p className="text-body-sm text-error">{error}</p>}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            {error && <p className="min-w-0 flex-1 text-body-sm text-error">{error}</p>}
             <div className="ml-auto flex items-center gap-3">
               {(postAsOptions.length > 0 || isAdmin) && (
                 <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
@@ -233,7 +235,7 @@ export function MessageBoardPage() {
                       setPostAsTouched(true)
                       setPostAsDeptId(e.target.value || null)
                     }}
-                    className="rounded-full hairline px-2 py-1.5 text-body-sm text-on-surface"
+                    className="rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface"
                   >
                     {isAdmin && <option value="">Admin</option>}
                     {postAsOptions.map((o) => (

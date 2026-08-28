@@ -53,7 +53,7 @@ export function InventoryIndexPage() {
       {/* Three figures, and the two that carry a judgement wear it: money
           that is actually in service reads as good news, anything flagged
           reads as work. The count itself is just a count. */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {(
           [
             { label: 'Items on the books', value: String(items.length), tone: 'plain', note: undefined },
@@ -76,6 +76,16 @@ export function InventoryIndexPage() {
             <Statistic className="mt-2.5" value={tile.value} unit={tile.note} />
           </Tile>
         ))}
+      </div>
+
+      {/* The totals above are the church's; everything below is one team at
+          a time. The two are different questions, so they get a gap and a
+          label rather than running together as one grid. */}
+      <div className="mt-12 mb-4 flex items-baseline justify-between gap-4 border-t border-border-subtle pt-8">
+        <Eyebrow>By team</Eyebrow>
+        <span className="font-mono text-label-sm text-on-surface-faint">
+          {departmentsQuery.data?.length ?? 0} teams
+        </span>
       </div>
 
       <QueryState
