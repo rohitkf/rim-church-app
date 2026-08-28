@@ -247,6 +247,19 @@ confirmation links will point at `localhost`.
 That's the whole deployment. The AI Assistant button shows as "Coming
 Soon" in the sidebar until you do the steps below.
 
+### Exporting the volunteer roll
+
+The Volunteers page has an **Export** button, Admin only. It builds an
+Excel workbook in the browser — nothing is sent anywhere — with a sheet
+per question people actually ask of this data: one row per person, one
+row per membership (the shape you sort and filter), and a count per team.
+Tick the teams you want or take the lot.
+
+Compliance details — visa type, visa expiry, DBS status — are off by
+default and come on their own sheet when switched on. That file is
+personal data with none of the app's permissions attached to it once it
+is on someone's laptop; treat it accordingly.
+
 ### Later: deploying the backend to enable the AI Assistant
 
 Vercel is a poor fit for this specific backend — it doesn't run the

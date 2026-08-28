@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { PageHeader } from '../components/Surface'
+import { ActionButton, PageHeader } from '../components/Surface'
+import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { TeamMark } from '../components/TeamMark'
@@ -17,6 +18,11 @@ const volunteerSchema = z.object({
   first_name: z.string(),
   last_name: z.string(),
   email: z.string(),
+  // Carried for the export rather than the page: the roster shows names,
+  // but what an admin takes away is the whole profile.
+  phone: z.string().nullable(),
+  dob: z.string().nullable(),
+  anniversary: z.string().nullable(),
 })
 type Volunteer = z.infer<typeof volunteerSchema>
 
@@ -26,7 +32,7 @@ type Grant = z.infer<typeof grantSchema>
 async function fetchVolunteers(): Promise<Volunteer[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, email')
+    .select('id, first_name, last_name, email, phone, dob, anniversary')
     .order('first_name')
   if (error) throw error
   return z.array(volunteerSchema).parse(data)
@@ -64,6 +70,7 @@ export function VolunteersPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
   const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const volunteersQuery = useQuery({ queryKey: ['volunteers'], queryFn: fetchVolunteers, enabled: isAdmin })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
@@ -395,7 +402,24 @@ export function VolunteersPage() {
         eyebrow="Everyone with an account"
         title="Volunteers"
         description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
+        action={
+          <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading}>
+            Export
+          </ActionButton>
+        }
       />
+
+      {exporting && (
+        <ExportVolunteersDialog
+          departments={departments}
+          people={volunteers}
+          memberships={memberships}
+          grants={grants}
+          adminIds={new Set(grants.filter((g) => g.role_type === 'admin').map((g) => g.user_id))}
+          ownerId={ownerId}
+          onClose={() => setExporting(false)}
+        />
+      )}
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
