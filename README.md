@@ -390,6 +390,29 @@ UTC for 20:00 UK summer time — change the cron line if the church is
 somewhere else. It shares the manual nudge's de-duplication, so someone
 nudged by their head at 6pm is not asked again at 8.
 
+### Live activity
+
+The dashboard's "Live activity" panel is a real feed of what has happened on
+a service: who said they can serve, who turned up, who was put on the rota,
+what changed in the running order, what was ticked or signed off, what was
+posted. Three decisions hold it together (`0041`):
+
+- **Rows are written by triggers, never by the client.** A feed the app
+  writes to is a feed the app can lie in; one the database writes from the
+  rows themselves cannot disagree with what actually happened. There is no
+  insert or update policy on `activity` at all.
+- **Everything is pinned to a service**, and the panel shows one service at
+  a time. During a Sunday the only activity that matters is that Sunday's.
+  A board post has no service of its own, so it is filed against the next
+  one coming up — which is what a post is about.
+- **It clears every Tuesday**, on the same pg_cron schedule as the message
+  board, because it is a rolling picture rather than an archive. An Admin
+  can also clear it by hand for everyone, from the panel.
+
+Anyone signed in can read the feed; only an Admin can delete from it. The
+wording lives in `frontend/src/lib/activity.ts`, not in the database, so it
+can be changed without a migration.
+
 ## CI
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +

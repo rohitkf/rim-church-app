@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
-import { formatRelativeTime } from '../lib/relativeTime'
 import {
   fetchAvailabilityFor,
   fetchDepartments,
@@ -23,7 +22,6 @@ import {
   ActionButton,
   Eyebrow,
   PageHeader,
-  Panel,
   Pill,
   StackedBar,
   Statistic,
@@ -32,6 +30,7 @@ import {
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
+import { ActivityFeed } from '../components/ActivityFeed'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
@@ -39,14 +38,7 @@ import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { todayIso } from '../lib/monthGrid'
 import type { RoleType } from '../auth/types'
-import {
-  checklistItemRowSchema,
-  type ChecklistItemRow,
-  type ChecklistItemStatus,
-} from '../lib/types'
 
-const checklistRefSchema = z.object({ id: z.string(), department_id: z.string(), service_id: z.string() })
-const actorSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
 
 const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green'> = {
   admin: 'solid',
@@ -120,54 +112,6 @@ const roleLabel: Record<RoleType, string> = {
   service_flow_coordinator: 'Service Flow Coordinator',
 }
 
-const actionLabel: Record<Exclude<ChecklistItemStatus, 'pending'>, string> = {
-  member_complete: 'completed',
-  head_verified: 'head-verified',
-  coordinator_verified: 'coordinator-verified',
-}
-
-async function fetchChecklists(serviceIds: string[]) {
-  if (serviceIds.length === 0) return []
-  const { data, error } = await supabase
-    .from('checklists')
-    .select('id, department_id, service_id')
-    .in('service_id', serviceIds)
-  if (error) throw error
-  return z.array(checklistRefSchema).parse(data)
-}
-
-async function fetchItems(checklistIds: string[]): Promise<ChecklistItemRow[]> {
-  if (checklistIds.length === 0) return []
-  const { data, error } = await supabase
-    .from('checklist_items')
-    .select('*, assignee:profiles!checklist_items_assigned_to_fkey(id, first_name, last_name)')
-    .in('checklist_id', checklistIds)
-  if (error) throw error
-  return z.array(checklistItemRowSchema).parse(data)
-}
-
-
-async function fetchActorNames(userIds: string[]): Promise<Record<string, string>> {
-  if (userIds.length === 0) return {}
-  const { data, error } = await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
-  if (error) throw error
-  const actors = z.array(actorSchema).parse(data)
-  return Object.fromEntries(actors.map((p) => [p.id, `${p.first_name} ${p.last_name}`]))
-}
-
-function actorIdFor(item: ChecklistItemRow): string | null {
-  if (item.status === 'member_complete') return item.completed_by
-  if (item.status === 'head_verified') return item.verified_by_head
-  if (item.status === 'coordinator_verified') return item.verified_by_coordinator
-  return null
-}
-
-function actorTimestampFor(item: ChecklistItemRow): string | null {
-  if (item.status === 'member_complete') return item.completed_at
-  if (item.status === 'head_verified') return item.verified_by_head_at
-  if (item.status === 'coordinator_verified') return item.verified_by_coordinator_at
-  return null
-}
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
@@ -212,20 +156,6 @@ export function DashboardPage() {
     [servicesQuery.data, viewedDate],
   )
   const dayServiceIds = useMemo(() => dayServices.map((s) => s.id), [dayServices])
-
-  const checklistsQuery = useQuery({
-    queryKey: ['dashboard-checklists', dayServiceIds],
-    queryFn: () => fetchChecklists(dayServiceIds),
-    enabled: dayServiceIds.length > 0,
-  })
-  const checklistIds = useMemo(() => checklistsQuery.data?.map((c) => c.id) ?? [], [checklistsQuery.data])
-
-  const itemsQuery = useQuery({
-    queryKey: ['dashboard-items', checklistIds],
-    queryFn: () => fetchItems(checklistIds),
-    enabled: checklistIds.length > 0,
-  })
-  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
 
   // Checklist readiness comes from the rota: whoever it puts on the service
   // owes the checklist of the role they were given, and every item passes
@@ -310,23 +240,6 @@ export function DashboardPage() {
     }
     return map
   }, [rostersQuery.data])
-
-  const activityItems = useMemo(
-    () =>
-      items
-        .filter((i) => i.status !== 'pending')
-        .map((i) => ({ item: i, actorId: actorIdFor(i), at: actorTimestampFor(i) }))
-        .filter((x): x is { item: ChecklistItemRow; actorId: string; at: string } => !!x.actorId && !!x.at)
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-        .slice(0, 6),
-    [items],
-  )
-  const actorIds = useMemo(() => [...new Set(activityItems.map((a) => a.actorId))], [activityItems])
-  const actorsQuery = useQuery({
-    queryKey: ['dashboard-actors', actorIds],
-    queryFn: () => fetchActorNames(actorIds),
-    enabled: actorIds.length > 0,
-  })
 
   const departmentName = (id: string) =>
     departmentsQuery.data?.find((d) => d.id === id)?.name ?? 'Unknown department'
@@ -699,6 +612,12 @@ export function DashboardPage() {
                     )}
                   </Tile>
 
+                  <ActivityFeed serviceId={service.id} className="lg:col-span-7" />
+
+                  <div className="lg:col-span-5">
+                    <CelebrationsPanel />
+                  </div>
+
                   {/* Per-team checklist rings, for the head who needs to know
                       which one to chase rather than the total. */}
                   {readinessByDept.size > 0 && (
@@ -732,35 +651,7 @@ export function DashboardPage() {
               )
             })}
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-              <Panel title="Live activity" live className="lg:col-span-7">
-                <QueryState
-                  isLoading={itemsQuery.isLoading}
-                  error={itemsQuery.error}
-                  isEmpty={activityItems.length === 0}
-                  emptyMessage="No verification activity yet for this day."
-                >
-                  <ul className="flex flex-col gap-3">
-                    {activityItems.map(({ item, actorId, at }) => (
-                      <li key={`${item.id}-${item.status}`} className="text-body-sm">
-                        <span className="font-medium text-on-surface">{actorsQuery.data?.[actorId] ?? '…'}</span>{' '}
-                        <span className="text-on-surface-variant">
-                          {actionLabel[item.status as Exclude<ChecklistItemStatus, 'pending'>]}
-                        </span>{' '}
-                        <span className="font-medium text-on-surface">{item.role_label}</span>
-                        <div className="font-mono text-label-sm text-on-surface-variant">
-                          {formatRelativeTime(at)}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </QueryState>
-              </Panel>
 
-              <div className="lg:col-span-5">
-                <CelebrationsPanel />
-              </div>
-            </div>
           </div>
         )}
       </QueryState>
