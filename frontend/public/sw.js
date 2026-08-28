@@ -11,7 +11,7 @@
  *
  * Bump CACHE_VERSION to retire every old cache on the next activation.
  */
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const SHELL_CACHE = `rim-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `rim-assets-${CACHE_VERSION}`
 const FONT_CACHE = `rim-fonts-${CACHE_VERSION}`
@@ -135,11 +135,37 @@ async function cacheFirst(request, cacheName) {
   return response
 }
 
+/**
+ * Keep the offline shell pointing at the build that is actually deployed.
+ *
+ * The shell was cached once, at install, and a worker only installs when
+ * sw.js itself changes — so after a few deploys the cached /index.html
+ * names hashed assets that no longer exist. Served offline, that shell
+ * asks for files nothing has and nothing can fetch, and the result is a
+ * blank screen rather than an offline one. Refreshing it after every
+ * successful navigation costs one cache write and keeps the fallback
+ * honest.
+ */
+async function refreshShell(response) {
+  try {
+    const cache = await caches.open(SHELL_CACHE)
+    await cache.put(SHELL_URL, response)
+  } catch {
+    // A full cache or a private-mode quota error. Nothing here is worth
+    // failing a navigation over.
+  }
+}
+
 async function handleNavigation(event) {
   try {
     const preloaded = await event.preloadResponse
-    if (preloaded) return preloaded
-    return await fetch(event.request)
+    const response = preloaded || (await fetch(event.request))
+    // Only a real, complete HTML answer is worth keeping: a 404 or a 500
+    // page cached as the shell would be served to every offline route.
+    if (response && response.ok && response.type === 'basic') {
+      event.waitUntil(refreshShell(response.clone()))
+    }
+    return response
   } catch {
     // Offline. The app is a single-page app, so any route is served by the
     // one cached shell and the router takes it from there.

@@ -25,6 +25,9 @@ interface AuthContextValue {
   signOut: () => Promise<void>
 }
 
+/** How long the app may sit on "Loading…" before it has to say something. */
+const BOOT_TIMEOUT_MS = 15_000
+
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -70,6 +73,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // lookup — the project asleep, DNS gone, a phone that lost signal
     // between the tap and the request — used to leave the app on "Loading…"
     // for ever, with nothing said and nothing to press.
+    // A deadline on the session lookup itself, not just on the request it
+    // makes. supabase-js serialises its auth work behind an internal queue,
+    // so a call that never settles — a storage read that hangs, a queue
+    // entry that never drains — takes `.finally` down with it and the
+    // loading screen never ends. Racing it means the screen always
+    // resolves to something a person can act on.
+    let settled = false
+    const bootDeadline = window.setTimeout(() => {
+      if (settled) return
+      settled = true
+      setAuthError('The server took too long to answer.')
+      setLoading(false)
+    }, BOOT_TIMEOUT_MS)
+
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -80,7 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Could not read the session:', err)
         setAuthError(errorMessage(err, 'Could not reach the server.'))
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        settled = true
+        window.clearTimeout(bootDeadline)
+        setLoading(false)
+      })
 
     const {
       data: { subscription },
@@ -107,7 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      window.clearTimeout(bootDeadline)
+      subscription.unsubscribe()
+    }
   }, [])
 
   function hasRole(role: RoleType, opts?: { departmentId?: string; serviceId?: string }) {

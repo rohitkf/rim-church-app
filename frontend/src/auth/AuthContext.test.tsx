@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, useAuth } from './AuthContext'
 
 const mockSession = {
@@ -136,6 +136,43 @@ describe('when the session cannot be read at all', () => {
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
     expect(screen.getByTestId('error')).toHaveTextContent('Failed to fetch')
     expect(screen.getByTestId('session')).toHaveTextContent('false')
+  })
+})
+
+describe('when the session lookup never comes back at all', () => {
+  it('ends the loading screen on a deadline rather than hanging for ever', async () => {
+    // Not a rejection — a promise that simply never settles. supabase-js
+    // serialises its auth work behind an internal queue, so one call that
+    // never finishes takes the `.finally` with it and the app sits on
+    // "Loading…" with nothing to press. The deadline is what turns that
+    // into a screen a person can act on.
+    vi.useFakeTimers()
+    control.getSession = () => new Promise(() => {})
+
+    function StuckProbe() {
+      const { loading, authError } = useAuth()
+      return (
+        <div>
+          <div data-testid="loading">{String(loading)}</div>
+          <div data-testid="error">{authError ?? ''}</div>
+        </div>
+      )
+    }
+
+    render(
+      <AuthProvider>
+        <StuckProbe />
+      </AuthProvider>,
+    )
+
+    expect(screen.getByTestId('loading')).toHaveTextContent('true')
+    await act(async () => {
+      vi.advanceTimersByTime(15_000)
+    })
+
+    expect(screen.getByTestId('loading')).toHaveTextContent('false')
+    expect(screen.getByTestId('error')).toHaveTextContent('took too long')
+    vi.useRealTimers()
   })
 })
 

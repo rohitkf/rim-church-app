@@ -27,16 +27,63 @@
       content="Service planning, rotas, checklists and team coordination for Rehoboth International Ministries."
     />
 
+    <!-- The webfonts are decoration: the font stacks in index.css start with
+         the platform's own faces, so the app is legible without them. A
+         plain <link rel="stylesheet"> here is render-blocking, and blocking
+         on a third party means that when fonts.googleapis.com is slow,
+         throttled or blocked — a locked-down office network, a phone on a
+         bad cell, a country that blocks it — the browser will not run the
+         module script either, and the whole app sits blank on "loading"
+         with nothing wrong with it. Loaded as media="print" the stylesheet
+         is fetched at low priority and blocks nothing; the onload swaps it
+         to all and the faces come in behind display=swap. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.onload=null;this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <title>Rehoboth International Ministries</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Something to look at while the bundle parses, and — more to the
+         point — something that is still on screen if it never does. A blank
+         page says nothing; this says what is happening, and after ten
+         seconds says that it hasn't. React replaces all of it on mount. -->
+    <div id="root">
+      <div id="boot" style="
+        display:flex; min-height:100svh; align-items:center; justify-content:center;
+        padding:1.5rem; text-align:center;
+        font:500 0.875rem/1.5 -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+        color:#6b7280;
+      ">
+        <div>
+          <div id="boot-msg">Loading&hellip;</div>
+          <noscript style="display:block; margin-top:0.5rem">
+            This app needs JavaScript switched on.
+          </noscript>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Only ever seen when the bundle failed to load or run: React clears
+      // #root long before this fires on any normal visit.
+      window.setTimeout(function () {
+        var el = document.getElementById('boot-msg')
+        if (!el) return
+        el.innerHTML =
+          'The app is taking longer than it should to start.<br>' +
+          '<a href="/" style="color:inherit" onclick="location.reload();return false">Try again</a>'
+      }, 10000)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
