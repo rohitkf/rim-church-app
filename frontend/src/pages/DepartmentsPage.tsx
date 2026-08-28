@@ -9,10 +9,13 @@ import { JoinTeamPanel } from '../components/JoinTeamPanel'
 import { TeamCardActions } from '../components/TeamCardActions'
 import { Card, PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchJoinRequests, fetchOwnDepartmentIds } from '../lib/queries'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamAvatar } from '../components/TeamMark'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 
 export function DepartmentsPage() {
   const { isAdmin, ledDepartmentIds, session } = useAuth()
+  const { teamStyle } = useTeamStyle()
 
   const { data: allDepartments, isLoading, error } = useQuery({
     queryKey: ['departments'],
@@ -69,23 +72,20 @@ export function DepartmentsPage() {
           }>
           <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {data?.map((dept) => {
-              const colour = dept.color ?? DEFAULT_DEPT_COLOR
               return (
                 <Card key={dept.id} as="li" interactive className="flex flex-col">
-                  <div className="flex h-full flex-col p-5">
+                  <div
+                    className="flex h-full flex-col rounded-[var(--radius-tile)] p-5"
+                    style={teamWash(dept.color, teamStyle)}
+                  >
                     {/* The team's colour as a wash behind its initial, so the
                         card carries its identity before you read the name. */}
                     <Link to={`/departments/${dept.id}`} className="group/link block">
-                      <span
-                        className="flex h-11 w-11 items-center justify-center rounded-xl font-mono text-label-md uppercase ring-1 ring-inset ring-black/5 transition-transform duration-500 ease-[var(--ease-glide)] group-hover/card:scale-105 dark:ring-white/10"
-                        style={{
-                          backgroundColor: `color-mix(in oklab, ${colour} 16%, transparent)`,
-                          color: colour,
-                        }}
-                        aria-hidden="true"
-                      >
-                        {dept.name.slice(0, 2)}
-                      </span>
+                      <TeamAvatar
+                        color={dept.color}
+                        name={dept.name}
+                        className="h-11 w-11 rounded-xl text-label-md ring-1 ring-inset ring-black/5 transition-transform duration-500 ease-[var(--ease-glide)] group-hover/card:scale-105 dark:ring-white/10"
+                      />
 
                       <h2 className="mt-4 text-headline-md leading-tight transition-colors duration-300 ease-[var(--ease-glide)] group-hover/link:text-secondary">
                         {dept.name}

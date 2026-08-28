@@ -60,4 +60,16 @@ describe('the role badge', () => {
     // sidebar went, the app stopped telling anyone their own role.
     expect(screen.getByText('Department Head')).toBeInTheDocument()
   })
+
+  it('offers the two ways of drawing a team, remembering the choice', async () => {
+    const { user } = renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+
+    const gradient = screen.getByRole('button', { name: 'Gradient' })
+    expect(screen.getByRole('button', { name: 'Dot' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(gradient)
+    expect(gradient).toHaveAttribute('aria-pressed', 'true')
+    expect(window.localStorage.getItem('rim-team-style')).toBe('gradient')
+  })
 })

@@ -16,7 +16,9 @@ import {
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamMark } from '../components/TeamMark'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
 import {
   rotaAssignmentSchema,
@@ -53,6 +55,7 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 
 export function TeamRotaPage() {
   const { session, isAdmin, hasRole, isDepartmentHead } = useAuth()
+  const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
@@ -390,13 +393,13 @@ export function TeamRotaPage() {
                               ? 'border border-dashed border-outline-variant'
                               : 'bg-raised hairline'
                           }`}
+                          style={
+                            deptAssignments.length === 0 ? undefined : teamWash(dept.color, teamStyle)
+                          }
                         >
                           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                             <div className="flex min-w-0 items-center gap-2.5">
-                              <span
-                                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                              />
+                              <TeamMark color={dept.color} />
                               <span className="truncate text-headline-sm">{dept.name}</span>
                               <span className="shrink-0 font-mono text-label-sm uppercase text-on-surface-faint">
                                 {deptAssignments.length === 0

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { QueryState } from '../components/QueryState'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -171,6 +173,7 @@ function actorTimestampFor(item: ChecklistItemRow): string | null {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
+  const { teamStyle } = useTeamStyle()
 
   // Everyone opens on the Sunday in question (today if it is Sunday,
   // otherwise the one coming up). Admins alone can step back through
@@ -660,6 +663,7 @@ export function DashboardPage() {
                             key={dept.id}
                             to="/availability"
                             className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
+                            style={teamWash(dept.color, teamStyle)}
                           >
                             <TeamRing
                               pct={summary.pct}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamAvatar } from './TeamMark'
 import { joinableTeams, joinOptions, type TeamJoinOption } from '../lib/joinRequests'
 import type { Department, JoinRequest } from '../lib/types'
 import { Panel } from './Surface'
@@ -115,20 +115,14 @@ function JoinTeamRow({
   onWithdraw: () => void
 }) {
   const { department, state } = option
-  const colour = department.color ?? DEFAULT_DEPT_COLOR
 
   return (
     <li className="flex items-center gap-3 rounded-xl bg-surface-low px-3.5 py-3 ring-1 ring-black/5 dark:ring-white/8">
-      <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-label-sm uppercase hairline"
-        style={{
-          backgroundColor: `color-mix(in oklab, ${colour} 16%, transparent)`,
-          color: colour,
-        }}
-        aria-hidden="true"
-      >
-        {department.name.slice(0, 2)}
-      </span>
+      <TeamAvatar
+        color={department.color}
+        name={department.name}
+        className="h-9 w-9 shrink-0 rounded-lg text-label-sm hairline"
+      />
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-body-md font-medium text-on-surface">{department.name}</span>

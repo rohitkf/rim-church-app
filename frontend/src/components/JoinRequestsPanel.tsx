@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { teamAvatarStyle } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import type { JoinRequest, MemberType } from '../lib/types'
 import { Panel } from './Surface'
 import { UsersIcon } from './icons'
@@ -22,6 +23,7 @@ interface JoinRequestsPanelProps {
  */
 export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
   const errorText = useErrorText()
+  const { teamStyle } = useTeamStyle()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -83,7 +85,6 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
 
       <ul className="flex flex-col gap-3">
         {requests.map((request) => {
-          const colour = request.department?.color ?? DEFAULT_DEPT_COLOR
           const name = request.requester
             ? `${request.requester.first_name} ${request.requester.last_name}`
             : 'Someone'
@@ -104,10 +105,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                 ) : (
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-mono text-label-sm uppercase hairline"
-                    style={{
-                      backgroundColor: `color-mix(in oklab, ${colour} 16%, transparent)`,
-                      color: colour,
-                    }}
+                    style={teamAvatarStyle(request.department?.color, teamStyle)}
                     aria-hidden="true"
                   >
                     {name.slice(0, 1)}

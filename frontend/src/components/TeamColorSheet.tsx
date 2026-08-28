@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
 import { Overlay } from './Surface'
 import { normaliseHex, swatchesFor, teamColorName } from '../lib/teamColors'
+import { teamAvatarStyle, teamWash } from '../lib/teamGradient'
+import { inkOn } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 
 function CheckGlyph({ ink }: { ink: string }) {
   return (
@@ -20,14 +23,6 @@ function CheckGlyph({ ink }: { ink: string }) {
       <path d="m5 13 4.5 4.5L19 7" />
     </svg>
   )
-}
-
-/** Black ink on a light swatch, white on a dark one, so the tick survives
- * yellow as well as indigo. */
-function inkOn(hex: string): string {
-  const n = parseInt(hex.slice(1), 16)
-  const luminance = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)
-  return luminance > 150 ? 'rgb(0 0 0 / 0.75)' : '#ffffff'
 }
 
 /**
@@ -56,6 +51,7 @@ export function TeamColorSheet({
   const start = normaliseHex(current) ?? DEFAULT_DEPT_COLOR
   const [chosen, setChosen] = useState(start)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const { teamStyle } = useTeamStyle()
   const swatches = swatchesFor(current)
   const initials = teamName.slice(0, 2).toUpperCase()
   const tint = (hex: string, pct: number) => `color-mix(in oklab, ${hex} ${pct}%, transparent)`
@@ -74,7 +70,7 @@ export function TeamColorSheet({
         <div className="flex items-center gap-3.5">
           <span
             className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] font-mono text-label-md uppercase transition-colors duration-300 ease-[var(--ease-glide)]"
-            style={{ backgroundColor: tint(chosen, 18), color: chosen }}
+            style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >
             {initials}
@@ -125,10 +121,15 @@ export function TeamColorSheet({
           })}
         </div>
 
-        <div className="mt-5 flex items-center gap-3.5 rounded-[var(--radius-panel)] bg-raised px-4 py-3.5 hairline">
+        {/* The preview shows the colour the way the app is currently set to
+            draw teams, so a wash is chosen against a wash. */}
+        <div
+          className="mt-5 flex items-center gap-3.5 rounded-[var(--radius-panel)] bg-raised px-4 py-3.5 hairline"
+          style={teamWash(chosen, teamStyle)}
+        >
           <span
             className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] font-mono text-label-sm uppercase transition-colors duration-300 ease-[var(--ease-glide)]"
-            style={{ backgroundColor: tint(chosen, 18), color: chosen }}
+            style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >
             {initials}

@@ -8,7 +8,8 @@ import { PageHeader } from '../components/Surface'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
 import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
-import { deptBadgeStyle } from '../lib/deptBadge'
+import { teamChipStyle } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
 import { canPostOnBoard } from '../lib/joinRequests'
@@ -63,10 +64,12 @@ async function fetchMessages(): Promise<MessageRow[]> {
 
 
 function DeptBadge({ name, color }: { name: string; color: string | null }) {
+  const { teamStyle } = useTeamStyle()
+
   return (
     <span
       className="rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide"
-      style={deptBadgeStyle(color)}
+      style={teamChipStyle(color, teamStyle)}
     >
       {name}
     </span>

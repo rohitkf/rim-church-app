@@ -163,6 +163,9 @@ isn't here, add it here rather than inline — that is the whole mechanism.
 | `LiveDot` | the pulsing green dot: this is happening now |
 | `Field` / `inputClasses` | a labelled control |
 | `Overlay` | anything covering the page: a sheet, a confirmation, a picker. `align`: `center` \| `sheet` |
+| `TeamMark` | the mark beside a team's name — a dot, or a gradient spine |
+| `TeamAvatar` | a team's initials on its own colour |
+| `TeamChip` | a team's name as a tag |
 | `TimelineRow` / `TimelineCard` | a running order as a vertical clock (`components/Timeline.tsx`) |
 | `AssigneePill` | the person something belongs to, with their initials |
 
@@ -199,6 +202,40 @@ And one rule about states: **the thing that needs a person is the thing
 that gets the colour.** A session with nobody on it, a team that hasn't
 answered, an item in repair — these wear the amber tone; everything
 settled stays quiet.
+
+### Team identity: two ways of drawing one colour
+
+A team has exactly one colour, chosen once in the picker. **How much of a
+row that colour is allowed to use is a viewer preference**, not a
+per-screen decision — `Teams: Dot / Gradient` in the account menu, stored
+per browser, read through `useTeamStyle`:
+
+- **Dot** (the default) — a 10px circle beside the name. The quietest
+  possible mark; the row stays neutral and only what needs a person is
+  coloured.
+- **Gradient** — the dot becomes a **spine** (a vertical bar, full colour
+  at the top, fading down) and the row itself takes a **wash** of the team
+  colour, strong at the leading edge and gone by the far end. A team is
+  then identifiable from the shape of the row rather than from a circle you
+  have to look for.
+
+Every recipe lives in `lib/teamGradient.ts` and derives from the one chosen
+colour, so nothing new has to be picked when a team is created. Three rules
+hold it together:
+
+1. **A wash is a `backgroundImage`, never a `background`.** It layers over
+   whatever surface the caller already has, so a washed row keeps its own
+   tile colour and fades to exactly that — in either theme, with no token
+   to keep in sync.
+2. **`teamWash` returns `undefined` in dot mode**, so a caller can spread
+   it unconditionally and keep its classes.
+3. **Attention still outranks identity.** A team that owes answers keeps
+   its amber row; an empty rota keeps its dashed outline. The wash is who,
+   not what needs doing — and where the two would compete, what needs doing
+   wins.
+
+Never read `dept.color` in a page. Use the primitives, or the app ends up
+half dots and half gradients.
 
 ---
 

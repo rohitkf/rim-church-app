@@ -17,12 +17,15 @@ import {
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamMark } from '../components/TeamMark'
+import { teamWashSoft } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
@@ -241,15 +244,11 @@ export function ChecklistsIndexPage() {
                             <li
                               key={assignment.id}
                               className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-5"
+                              style={teamWashSoft(assignment.department?.color, teamStyle)}
                             >
                               <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <div className="flex items-center gap-2">
-                                  <span
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{
-                                      backgroundColor: assignment.department?.color ?? DEFAULT_DEPT_COLOR,
-                                    }}
-                                  />
+                                  <TeamMark color={assignment.department?.color ?? null} />
                                   <span className="font-medium text-on-surface">{assignment.role_label}</span>
                                   <span className="text-body-sm text-on-surface-variant">
                                     · {assignment.department?.name}

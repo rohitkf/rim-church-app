@@ -8,7 +8,9 @@ import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamMark } from '../components/TeamMark'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { useErrorText } from '../lib/useErrorText'
 import {
@@ -73,6 +75,7 @@ async function fetchMembers(departmentIds: string[]): Promise<DepartmentMemberRo
 
 export function AvailabilityPage() {
   const { session, isAdmin, hasRole } = useAuth()
+  const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
@@ -274,6 +277,8 @@ export function AvailabilityPage() {
                       answers,
                     )
 
+                    // A team still owed answers keeps the amber row: what
+                    // needs a person outranks whose team it is.
                     return (
                       <li
                         key={dept.id}
@@ -282,13 +287,11 @@ export function AvailabilityPage() {
                             ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)]'
                             : 'bg-raised hairline'
                         }`}
+                        style={summary.noAnswer > 0 ? undefined : teamWash(dept.color, teamStyle)}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                           <div className="flex items-center gap-2.5">
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                            />
+                            <TeamMark color={dept.color} />
                             <span className="text-body-md font-medium text-on-surface">{dept.name}</span>
                           </div>
                           <span

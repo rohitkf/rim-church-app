@@ -6,7 +6,9 @@ import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
 import { fetchDepartments } from '../lib/queries'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamMark } from '../components/TeamMark'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { formatMoney, needsAttention, totalValue } from '../lib/inventory'
 import { todayIso } from '../lib/monthGrid'
 import { inventoryItemSchema, type InventoryItem } from '../lib/types'
@@ -24,6 +26,7 @@ async function fetchAllItems(): Promise<InventoryItem[]> {
 
 export function InventoryIndexPage() {
   const today = todayIso()
+  const { teamStyle } = useTeamStyle()
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const itemsQuery = useQuery({ queryKey: ['inventory-all'], queryFn: fetchAllItems })
 
@@ -88,12 +91,13 @@ export function InventoryIndexPage() {
 
             return (
               <Card key={dept.id} as="li" interactive>
-                <Link to={`/inventory/${dept.id}`} className="group/link block p-5">
+                <Link
+                  to={`/inventory/${dept.id}`}
+                  className="group/link block rounded-[var(--radius-tile)] p-5"
+                  style={teamWash(dept.color, teamStyle)}
+                >
                   <div className="flex items-start gap-2">
-                    <span
-                      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                    />
+                    <TeamMark color={dept.color} className="mt-1" />
                     <span className="text-headline-md leading-tight transition-colors duration-300 ease-[var(--ease-glide)] group-hover/link:text-secondary">
                       {dept.name}
                     </span>

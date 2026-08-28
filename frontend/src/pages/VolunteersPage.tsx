@@ -8,7 +8,7 @@ import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
-import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { TeamMark } from '../components/TeamMark'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
 import { useErrorText } from '../lib/useErrorText'
 
@@ -316,10 +316,7 @@ export function VolunteersPage() {
                   )
                   return (
                     <li key={deptId} className="flex flex-wrap items-center gap-2 text-body-sm">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: dept?.color ?? DEFAULT_DEPT_COLOR }}
-                      />
+                      <TeamMark color={dept?.color ?? null} />
                       <span className="text-on-surface">{dept?.name ?? 'Unknown team'}</span>
                       <span
                         className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${designationClass[designation]}`}
@@ -378,12 +375,7 @@ export function VolunteersPage() {
               <ul className="mt-2 flex flex-col gap-1.5">
                 {guest.map((m) => (
                   <li key={m.id} className="flex items-center gap-2 text-body-sm">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor: deptById.get(m.department_id)?.color ?? DEFAULT_DEPT_COLOR,
-                      }}
-                    />
+                    <TeamMark color={deptById.get(m.department_id)?.color ?? null} />
                     <span className="text-on-surface">
                       {deptById.get(m.department_id)?.name ?? 'Unknown team'}
                     </span>
@@ -425,10 +417,7 @@ export function VolunteersPage() {
           {teamGroups.map(({ dept, people }) => (
             <section key={dept.id}>
               <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
-                />
+                <TeamMark color={dept.color} />
                 <h2 className="text-headline-md">{dept.name}</h2>
                 <span className="font-mono text-label-sm text-on-surface-variant">
                   {people.length} {people.length === 1 ? 'person' : 'people'}
