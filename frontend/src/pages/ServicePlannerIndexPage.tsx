@@ -10,7 +10,7 @@ import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
-import { ActionButton, Field, inputClasses } from '../components/Surface'
+import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
 import type { Service } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
 
@@ -32,10 +32,14 @@ export function ServicePlannerIndexPage() {
   const [newType, setNewType] = useState('')
   const [templateId, setTemplateId] = useState('')
 
-  // The sidebar's "New service" links to ?new=1; keeping the modal in the
-  // URL means the button needs no shared state, and the form is linkable.
+  // The modal lives in the URL: the button needs no shared state, and the
+  // form stays linkable — /service-planner?new=1 opens it directly.
   const [params, setParams] = useSearchParams()
   const creating = params.get('new') === '1'
+  const openCreate = () => {
+    params.set('new', '1')
+    setParams(params)
+  }
   const closeCreate = () => {
     params.delete('new')
     setParams(params, { replace: true })
@@ -143,11 +147,26 @@ export function ServicePlannerIndexPage() {
 
   return (
     <div>
-      <h1 className="text-headline-xl">Service Planner</h1>
-      <p className="mt-2 text-body-md text-on-surface-variant">
-        Tap a service on the calendar to open its running order.
-        {isAdmin ? '' : ' Upcoming services appear here once they are scheduled.'}
-      </p>
+      <PageHeader
+        eyebrow="The month ahead"
+        title="Service Planner"
+        description={
+          isAdmin
+            ? 'Tap a service on the calendar to open its running order.'
+            : 'Tap a service on the calendar to open its running order. Upcoming services appear here once they are scheduled.'
+        }
+        action={
+          isAdmin && (
+            /* The only way to start a service. It used to live in the
+               sidebar; the sidebar is now a dock of destinations, and an
+               action is not a destination — so it belongs here, where the
+               design puts every page's one primary action. */
+            <ActionButton onClick={openCreate} glyph={<span aria-hidden="true">+</span>}>
+              New service
+            </ActionButton>
+          )
+        }
+      />
 
       <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
         <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">

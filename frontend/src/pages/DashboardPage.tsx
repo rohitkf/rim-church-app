@@ -387,7 +387,7 @@ export function DashboardPage() {
             {isAdmin && (
               <>
                 Add one from the{' '}
-                <Link to="/service-planner" className="text-secondary">
+                <Link to="/service-planner?new=1" className="text-primary">
                   Service Planner
                 </Link>
                 .
