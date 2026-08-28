@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -36,7 +36,10 @@ import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
+import { orderServices, serviceStanding, type ServiceStanding } from '../lib/serviceState'
+import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
+import { formatTime } from '../lib/time'
 import type { RoleType } from '../auth/types'
 
 
@@ -105,6 +108,40 @@ function TeamRing({ pct, color }: { pct: number; color: string }) {
   )
 }
 
+/**
+ * What the team rings mean.
+ *
+ * Four states, and the difference between two of them is the whole point:
+ * grey is "the doors haven't opened", red is "nobody is coming". They look
+ * identical as an empty ring, so only the key tells them apart.
+ */
+function TurnoutLegend({ className = '' }: { className?: string }) {
+  const entries = [
+    { label: 'All who said yes are in', color: 'var(--color-accent-green)' },
+    { label: 'Some still missing', color: 'var(--color-accent-orange)' },
+    { label: 'Nobody available', color: 'var(--color-accent-red)' },
+    { label: 'Not checked in yet', color: 'var(--color-status-pending, var(--color-on-surface-faint))' },
+  ]
+
+  return (
+    <ul className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 ${className}`}>
+      {entries.map((entry) => (
+        <li
+          key={entry.label}
+          className="flex items-center gap-1.5 text-label-md text-on-surface-variant"
+        >
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: entry.color }}
+          />
+          {entry.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const roleLabel: Record<RoleType, string> = {
   admin: 'Admin',
   department_head: 'Department Head',
@@ -167,21 +204,53 @@ export function DashboardPage() {
   })
   const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
 
-  // When each service actually starts, for the countdown — the running
-  // order's first session, if one has been planned.
+  // The first service after the viewed day, so that once everything here
+  // has finished the page still has something to count down to rather
+  // than just saying the day is over.
+  const serviceAfterDay = useMemo(
+    () =>
+      (servicesQuery.data ?? [])
+        .filter((s) => s.date > viewedDate)
+        .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null,
+    [servicesQuery.data, viewedDate],
+  )
+
+  // The running orders themselves, not just their starts: a session's
+  // length is what says when a service ends, and therefore whether it is
+  // still on, still to come, or over.
+  const timedIds = useMemo(
+    () => [...dayServiceIds, ...(serviceAfterDay ? [serviceAfterDay.id] : [])],
+    [dayServiceIds, serviceAfterDay],
+  )
   const startsQuery = useQuery({
-    queryKey: ['dashboard-service-starts', dayServiceIds],
+    queryKey: ['dashboard-service-starts', timedIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('service_sessions')
-        .select('service_id, start_time')
-        .in('service_id', dayServiceIds)
+        .select('id, service_id, start_time, duration_minutes')
+        .in('service_id', timedIds)
         .order('start_time')
       if (error) throw error
-      return z.array(z.object({ service_id: z.string(), start_time: z.string() })).parse(data)
+      return z
+        .array(
+          z.object({
+            id: z.string(),
+            service_id: z.string(),
+            start_time: z.string(),
+            duration_minutes: z.number().nullable(),
+          }),
+        )
+        .parse(data)
     },
-    enabled: dayServiceIds.length > 0,
+    enabled: timedIds.length > 0,
   })
+  const sessionsByService = useMemo(() => {
+    const map = new Map<string, { id: string; start_time: string; duration_minutes: number | null }[]>()
+    for (const row of startsQuery.data ?? []) {
+      map.set(row.service_id, [...(map.get(row.service_id) ?? []), row])
+    }
+    return map
+  }, [startsQuery.data])
   const startsAt = useMemo(() => {
     const first = new Map<string, string>()
     for (const row of startsQuery.data ?? []) {
@@ -189,6 +258,42 @@ export function DashboardPage() {
     }
     return first
   }, [startsQuery.data])
+
+  // Re-read the clock on a timer: a service crossing its own end time has
+  // to move down the page on its own, without anyone reloading.
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const standingOf = useMemo(() => {
+    const cache = new Map<string, ServiceStanding>()
+    return (serviceId: string) => {
+      const hit = cache.get(serviceId)
+      if (hit) return hit
+      const standing = serviceStanding(sessionsByService.get(serviceId) ?? [], clock)
+      cache.set(serviceId, standing)
+      return standing
+    }
+  }, [sessionsByService, clock])
+
+  // On right now first, then what is still to come, then anything with no
+  // running order, and finished services last.
+  const orderedServices = useMemo(
+    () => orderServices(dayServices, (s) => standingOf(s.id)),
+    [dayServices, standingOf],
+  )
+  // "Over" means nothing here can still happen. A service with no running
+  // order has no end time to have passed, so it only counts as over once
+  // its whole day is behind us — otherwise one unplanned service would
+  // keep a finished Sunday looking like it was still to come.
+  const dayIsOver =
+    dayServices.length > 0 &&
+    dayServices.every((s) => {
+      const state = standingOf(s.id).state
+      return state === 'done' || (state === 'unplanned' && viewedDate < today)
+    })
   const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
   const roleItemsQuery = useQuery({
     queryKey: ['role-checklist-items', rotaDeptIds],
@@ -310,7 +415,51 @@ export function DashboardPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-5">
-            {dayServices.map((service, serviceIndex) => {
+            {/* Everything today is over. Rather than leaving the page
+                describing finished services as though they were pending,
+                point at the next one and count towards it. */}
+            {dayIsOver && (
+              <Tile tone="accent" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div>
+                  <Eyebrow>{serviceAfterDay ? 'Next service' : 'Nothing scheduled next'}</Eyebrow>
+                  <h2 className="mt-2.5 text-headline-lg">
+                    {serviceAfterDay ? serviceAfterDay.service_type : 'That’s the day done'}
+                  </h2>
+                  <p className="mt-1.5 text-body-md text-on-surface-variant">
+                    {serviceAfterDay
+                      ? `Every service on ${formatServiceDay(viewedDate)} has finished.`
+                      : 'Every service has finished, and nothing else is on the calendar yet.'}
+                  </p>
+                </div>
+                {serviceAfterDay && (
+                  <ServiceCountdown
+                    startsAt={startsAt.get(serviceAfterDay.id) ?? null}
+                    variant="hero"
+                    fallback={
+                      <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                        <span className="text-headline-xl">{untilLabel(serviceAfterDay.date)}</span>
+                        <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                          {formatServiceDay(serviceAfterDay.date)}
+                        </span>
+                      </div>
+                    }
+                  />
+                )}
+              </Tile>
+            )}
+            {orderedServices.map((service, serviceIndex) => {
+              const standing = standingOf(service.id)
+              // The next service after this one, on the same day.
+              const laterToday = orderedServices
+                .map((other) => ({ service: other, ...standingOf(other.id) }))
+                .filter(
+                  (other) =>
+                    other.service.id !== service.id &&
+                    other.state !== 'done' &&
+                    other.from !== null &&
+                    (standing.from === null || other.from > standing.from),
+                )
+                .sort((a, b) => (a.from ?? 0) - (b.from ?? 0))[0]
               const { overall: readiness, byDepartment: readinessByDept } = serviceReadiness({
                 assignments: rota.filter((a) => a.service_id === service.id),
                 roleItems: roleItemsQuery.data ?? [],
@@ -359,17 +508,37 @@ export function DashboardPage() {
                  */
                 <div key={service.id} className="grid grid-cols-1 gap-5 lg:grid-cols-12">
                   {/* The one thing that is true right now. */}
-                  <Tile tone="accent" className="flex flex-col justify-between lg:col-span-7">
+                  <Tile
+                    tone={standing.state === 'done' ? 'plain' : 'accent'}
+                    className="flex flex-col justify-between lg:col-span-7"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <Eyebrow>{serviceIndex === 0 ? 'Next service' : 'Also on'}</Eyebrow>
+                        <Eyebrow>
+                          {standing.state === 'running'
+                            ? 'Current service'
+                            : standing.state === 'done'
+                              ? 'Finished'
+                              : serviceIndex === 0
+                                ? 'Next service'
+                                : 'Also on'}
+                        </Eyebrow>
                         <h2 className="mt-2.5 text-headline-lg">{service.service_type}</h2>
                         <p className="mt-1.5 text-body-md text-on-surface-variant">
                           {availabilityTeams.length}{' '}
                           {availabilityTeams.length === 1 ? 'team' : 'teams'} on duty
                         </p>
+                        {/* One service being on doesn't mean the day is
+                            done: when there is another later, say when,
+                            small, so it informs without competing. */}
+                        {standing.state === 'running' && laterToday && (
+                          <p className="mt-2 font-mono text-label-sm text-on-surface-faint">
+                            Next: {laterToday.service.service_type}
+                            {laterToday.from !== null && ` · ${formatTime(new Date(laterToday.from).toISOString())}`}
+                          </p>
+                        )}
                       </div>
-                      {readiness.total > 0 && (
+                      {readiness.total > 0 && standing.state !== 'done' && (
                         <StatusChip
                           tone={
                             readiness.pct === 100 ? 'good' : (readiness.pct ?? 0) >= 50 ? 'warn' : 'bad'
@@ -385,20 +554,42 @@ export function DashboardPage() {
                     </div>
 
                     <div className="mt-8">
-                      {/* A clock only earns its size inside the last day.
-                          Before that the useful answer is which day. */}
-                      <ServiceCountdown
-                        startsAt={startsAt.get(service.id) ?? null}
-                        variant="hero"
-                        fallback={
-                          <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-                            <span className="text-headline-xl">{untilLabel(service.date)}</span>
+                      {/* A countdown is only the right answer while there
+                          is something to count down to. Once the doors are
+                          open the number that matters is when it ends, and
+                          once it's over, that it is. */}
+                      {standing.state === 'running' ? (
+                        <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                          <span className="text-headline-xl text-primary">On now</span>
+                          {standing.to !== null && (
                             <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
-                              {formatServiceDay(service.date)}
+                              until {formatTime(new Date(standing.to).toISOString())}
                             </span>
-                          </div>
-                        }
-                      />
+                          )}
+                        </div>
+                      ) : standing.state === 'done' ? (
+                        <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                          <span className="text-headline-xl text-on-surface-variant">Finished</span>
+                          {standing.to !== null && (
+                            <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                              ended {formatTime(new Date(standing.to).toISOString())}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <ServiceCountdown
+                          startsAt={startsAt.get(service.id) ?? null}
+                          variant="hero"
+                          fallback={
+                            <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                              <span className="text-headline-xl">{untilLabel(service.date)}</span>
+                              <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                                {formatServiceDay(service.date)}
+                              </span>
+                            </div>
+                          }
+                        />
+                      )}
                       <div className="mt-5 flex flex-wrap gap-2.5">
                         <Link
                           to={`/service-planner/${service.id}`}
@@ -486,6 +677,40 @@ export function DashboardPage() {
                     )}
                   </Tile>
 
+                  {/* Per-team checklist rings, for the head who needs to know
+                      which one to chase rather than the total. Directly
+                      after the overall ring, because they are the same
+                      question at two zoom levels: one says how ready the
+                      service is, the other says which team is holding it
+                      up, and reading either without the other means
+                      scrolling to guess. */}
+                  {readinessByDept.size > 0 && (
+                    <Tile className="lg:col-span-7">
+                      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                        <Eyebrow>Checklist readiness by team</Eyebrow>
+                        {/* Two teams can both be 67% ready in different ways;
+                            the ring says which, and this says how to read it. */}
+                        <ReadinessLegend />
+                      </div>
+                      <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
+                        {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
+                          <li key={deptId}>
+                            <Link
+                              to="/checklists"
+                              className="block rounded-[var(--radius-chip)] transition-opacity hover:opacity-80"
+                              title={`${departmentName(deptId)} checklist`}
+                            >
+                              <ReadinessDonut
+                                readiness={deptReadiness}
+                                label={departmentName(deptId)}
+                                size={96}
+                              />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </Tile>
+                  )}
                   {/* Estimate and outcome, side by side, same denominator. */}
                   <Tile className="lg:col-span-5">
                     <Eyebrow>People</Eyebrow>
@@ -567,40 +792,35 @@ export function DashboardPage() {
                         All teams
                       </Link>
                     </div>
+                    {/* The ring counts who turned up against who said they
+                        would, so what the colours mean has to be said. */}
+                    <TurnoutLegend className="mt-3" />
                     {availabilityTeams.length === 0 ? (
                       <p className="mt-5 text-body-sm text-on-surface-variant">
                         No teams to report on.
                       </p>
                     ) : (
                       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {availabilityTeams.map(({ dept, summary, turnout }) => (
-                          <Link
-                            key={dept.id}
-                            to="/availability"
-                            className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
-                          >
-                            <TeamRing
-                              pct={summary.pct}
-                              color={
-                                summary.noAnswer > 0
-                                  ? 'var(--color-accent-red)'
-                                  : summary.pct >= 75
-                                    ? 'var(--color-accent-green)'
-                                    : 'var(--color-accent-orange)'
-                              }
-                            />
-                            <span className="min-w-0">
-                              <span className="block truncate text-body-sm font-medium text-on-surface">
-                                {dept.name}
+                        {availabilityTeams.map(({ dept, summary, turnout }) => {
+                          const ring = turnoutRing(summary, turnout)
+                          return (
+                            <Link
+                              key={dept.id}
+                              to="/availability"
+                              className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
+                            >
+                              <TeamRing pct={ring.pct} color={ring.color} />
+                              <span className="min-w-0">
+                                <span className="block truncate text-body-sm font-medium text-on-surface">
+                                  {dept.name}
+                                </span>
+                                <span className="block font-mono text-label-sm text-on-surface-faint">
+                                  {ring.caption}
+                                </span>
                               </span>
-                              <span className="block font-mono text-label-sm text-on-surface-faint">
-                                {summary.noAnswer > 0
-                                  ? `${summary.noAnswer} unanswered`
-                                  : `${summary.pct}% · ${turnout.present}/${summary.total} in`}
-                              </span>
-                            </span>
-                          </Link>
-                        ))}
+                            </Link>
+                          )
+                        })}
                       </div>
                     )}
                     {teamsNeedingAnswers.length > 0 && (
@@ -612,41 +832,12 @@ export function DashboardPage() {
                     )}
                   </Tile>
 
-                  <ActivityFeed serviceId={service.id} className="lg:col-span-7" />
-
                   <div className="lg:col-span-5">
                     <CelebrationsPanel />
                   </div>
 
-                  {/* Per-team checklist rings, for the head who needs to know
-                      which one to chase rather than the total. */}
-                  {readinessByDept.size > 0 && (
-                    <Tile className="lg:col-span-12">
-                      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                        <Eyebrow>Checklist readiness by team</Eyebrow>
-                        {/* Two teams can both be 67% ready in different ways;
-                            the ring says which, and this says how to read it. */}
-                        <ReadinessLegend />
-                      </div>
-                      <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
-                        {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
-                          <li key={deptId}>
-                            <Link
-                              to="/checklists"
-                              className="block rounded-[var(--radius-chip)] transition-opacity hover:opacity-80"
-                              title={`${departmentName(deptId)} checklist`}
-                            >
-                              <ReadinessDonut
-                                readiness={deptReadiness}
-                                label={departmentName(deptId)}
-                                size={96}
-                              />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </Tile>
-                  )}
+                  <ActivityFeed serviceId={service.id} className="lg:col-span-12" />
+
                 </div>
               )
             })}
