@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { ComponentType, ReactNode } from 'react'
 
 /**
@@ -364,6 +366,58 @@ export function StackedBar({
             />
           ))}
     </div>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Overlays
+ * ------------------------------------------------------------------ */
+
+/**
+ * Anything that covers the page: a sheet, a confirmation, a picker.
+ *
+ * It renders into `document.body` rather than where it is written, because
+ * `position: fixed` is measured against the nearest ancestor carrying a
+ * transform — and an interactive Tile lifts by 2px on hover, which is
+ * enough to trap a dialog inside the card that opened it.
+ *
+ * `align` decides where it rests: `center` for a confirmation, `sheet` for
+ * something dragged up from the bottom edge of a phone.
+ */
+export function Overlay({
+  children,
+  onDismiss,
+  label,
+  align = 'center',
+}: {
+  children: ReactNode
+  onDismiss: () => void
+  label: string
+  align?: 'center' | 'sheet'
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onDismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onDismiss])
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onDismiss()
+      }}
+      className={`fixed inset-0 z-50 flex justify-center bg-black/55 backdrop-blur-[2px] ${
+        align === 'sheet' ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'
+      }`}
+    >
+      {children}
+    </div>,
+    document.body,
   )
 }
 

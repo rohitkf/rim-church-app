@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
 import { DEFAULT_DEPT_COLOR } from '../lib/deptBadge'
+import { Overlay } from './Surface'
+import { TeamColorSheet } from './TeamColorSheet'
 import type { Department } from '../lib/types'
 
 /**
@@ -15,12 +17,14 @@ export function TeamCardActions({ dept }: { dept: Department }) {
   const queryClient = useQueryClient()
   const [renaming, setRenaming] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [picking, setPicking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const done = () => {
     setError(null)
     setRenaming(null)
     setConfirmDelete(false)
+    setPicking(false)
     queryClient.invalidateQueries({ queryKey: ['departments'] })
   }
 
@@ -57,17 +61,14 @@ export function TeamCardActions({ dept }: { dept: Department }) {
 
       {renaming === null ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full ring-1 ring-inset ring-black/10 dark:ring-white/15">
-            <input
-              type="color"
-              defaultValue={dept.color ?? DEFAULT_DEPT_COLOR}
-              onBlur={(e) => {
-                if (e.target.value !== (dept.color ?? DEFAULT_DEPT_COLOR)) recolour.mutate(e.target.value)
-              }}
-              aria-label={`Badge colour for ${dept.name}`}
-              className="absolute -inset-2 cursor-pointer border-0 bg-transparent p-0"
-            />
-          </span>
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            aria-label={`Colour for ${dept.name}`}
+            title="Team colour"
+            className="h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-500 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
+            style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
+          />
           <button
             type="button"
             onClick={() => setRenaming(dept.name)}
@@ -118,15 +119,30 @@ export function TeamCardActions({ dept }: { dept: Department }) {
         </form>
       )}
 
+      {picking && (
+        <TeamColorSheet
+          teamName={dept.name}
+          current={dept.color}
+          saving={recolour.isPending}
+          error={error}
+          onSave={(hex) => recolour.mutate(hex)}
+          onClose={() => {
+            setPicking(false)
+            setError(null)
+          }}
+        />
+      )}
+
       {confirmDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={`delete-team-${dept.id}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+        <Overlay
+          label={`Delete ${dept.name}?`}
+          onDismiss={() => {
+            setConfirmDelete(false)
+            setError(null)
+          }}
         >
           <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
-            <h3 id={`delete-team-${dept.id}`} className="text-headline-md">
+            <h3 className="text-headline-md">
               Delete {dept.name}?
             </h3>
             <p className="mt-2 text-body-sm text-on-surface-variant">
@@ -159,7 +175,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   )

@@ -162,6 +162,7 @@ isn't here, add it here rather than inline — that is the whole mechanism.
 | `StackedBar` | parts of a whole, in the order they happen |
 | `LiveDot` | the pulsing green dot: this is happening now |
 | `Field` / `inputClasses` | a labelled control |
+| `Overlay` | anything covering the page: a sheet, a confirmation, a picker. `align`: `center` \| `sheet` |
 | `TimelineRow` / `TimelineCard` | a running order as a vertical clock (`components/Timeline.tsx`) |
 | `AssigneePill` | the person something belongs to, with their initials |
 
@@ -182,6 +183,17 @@ the same on each:
   with the chosen answer filled in — not a row of separate buttons. The
   Availability Yes/Maybe/No is the reference; targets are 44px tall
   because they are tapped standing up.
+
+Two rules about overlays. Everything that covers the page goes through
+`Overlay`, which portals to `document.body` — a `fixed` child is measured
+against the nearest ancestor carrying a transform, and an interactive Tile
+lifts 2px on hover, which is enough to trap a dialog inside the card that
+opened it. And **the OS's own dialogs are not part of this system**: a
+native colour or date picker arrives with its own chrome, its own palette
+and its own idea of what is legible. Where one is needed, build the choice
+from `TEAM_COLORS`-style curated options instead — see
+`components/TeamColorSheet.tsx`, which offers twelve named colours, each
+one legible as a tint, as text and as a dot.
 
 And one rule about states: **the thing that needs a person is the thing
 that gets the colour.** A session with nobody on it, a team that hasn't
