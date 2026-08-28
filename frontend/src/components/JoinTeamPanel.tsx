@@ -15,6 +15,30 @@ interface JoinTeamPanelProps {
 }
 
 /**
+ * How long the button may say "Sending…" before it admits it doesn't know.
+ *
+ * The request itself answers in about thirty milliseconds, so anything
+ * approaching this is not slowness — it is a connection that has stopped
+ * answering. The Supabase client's own deadline is a minute, which is the
+ * right length for a large upload and far too long to watch a button spin
+ * on a phone: long enough that people press it again, which is how one ask
+ * becomes three.
+ */
+const REQUEST_TIMEOUT_MS = 15_000
+
+function withDeadline<T>(work: PromiseLike<T>): Promise<T> {
+  return Promise.race([
+    Promise.resolve(work),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('The server didn’t answer. Check your connection and try again.')),
+        REQUEST_TIMEOUT_MS,
+      ),
+    ),
+  ])
+}
+
+/**
  * The way in.
  *
  * Someone who has just signed up belongs to nothing, and until now that was
@@ -39,7 +63,9 @@ export function JoinTeamPanel({ departments, memberDeptIds, myRequests }: JoinTe
 
   const ask = useMutation({
     mutationFn: async (departmentId: string) => {
-      const { error } = await supabase.rpc('request_team_join', { dept_id: departmentId })
+      const { error } = await withDeadline(
+        supabase.rpc('request_team_join', { dept_id: departmentId }),
+      )
       if (error) throw error
     },
     onSuccess: refresh,
@@ -51,7 +77,9 @@ export function JoinTeamPanel({ departments, memberDeptIds, myRequests }: JoinTe
 
   const withdraw = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase.rpc('withdraw_team_join', { request_id: requestId })
+      const { error } = await withDeadline(
+        supabase.rpc('withdraw_team_join', { request_id: requestId }),
+      )
       if (error) throw error
     },
     onSuccess: refresh,

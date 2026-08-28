@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { JoinTeamPanel } from './JoinTeamPanel'
@@ -87,6 +87,40 @@ describe('JoinTeamPanel', () => {
       </QueryClientProvider>,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('stops saying "Sending…" when the server never answers', async () => {
+    // The request itself comes back in about thirty milliseconds. A button
+    // that spins for a minute is how one ask becomes three: people press
+    // it again, and the log fills with requests nobody meant to send.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      rpc.mockImplementationOnce(() => new Promise(() => {}))
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={client}>
+          <JoinTeamPanel departments={[dept('d1', 'Audio')]} memberDeptIds={[]} myRequests={[]} />
+        </QueryClientProvider>,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Request to join' }))
+      expect(screen.getByRole('button', { name: 'Sending…' })).toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000)
+      })
+
+      expect(screen.queryByRole('button', { name: 'Sending…' })).toBeNull()
+      // The button comes back, so it can be pressed again, and the reason
+      // it stopped is on screen rather than left to be guessed at.
+      expect(screen.getByRole('button', { name: 'Request to join' })).toBeInTheDocument()
+      expect(screen.getByText(/could not send that request/i)).toBeInTheDocument()
+    } finally {
+      // Restored even on failure, or every test after this one inherits
+      // a clock that does not move.
+      vi.useRealTimers()
+    }
   })
 
   it('tells the person plainly when the request could not be sent', async () => {
