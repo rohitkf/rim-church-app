@@ -511,7 +511,7 @@ export function DashboardPage() {
                 <div key={service.id} className="grid grid-cols-1 gap-5 lg:grid-cols-12">
                   {/* The one thing that is true right now. */}
                   <Tile
-                    tone={standing.state === 'done' ? 'plain' : 'accent'}
+                    tone={standing.state === 'done' ? 'success' : 'accent'}
                     className="flex flex-col justify-between lg:col-span-7"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -571,7 +571,10 @@ export function DashboardPage() {
                         </div>
                       ) : standing.state === 'done' ? (
                         <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-                          <span className="text-headline-xl text-on-surface-variant">Finished</span>
+                          {/* Green, not grey: done is an outcome, and it is
+                              the colour a signed-off checklist and a
+                              finished session already wear. */}
+                          <span className="text-headline-xl text-accent-green">Finished</span>
                           {standing.to !== null && (
                             <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
                               ended {formatTime(new Date(standing.to).toISOString())}
