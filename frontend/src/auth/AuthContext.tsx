@@ -26,7 +26,7 @@ interface AuthContextValue {
 }
 
 /** How long the app may sit on "Loading…" before it has to say something. */
-const BOOT_TIMEOUT_MS = 15_000
+const BOOT_TIMEOUT_MS = 8_000
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 

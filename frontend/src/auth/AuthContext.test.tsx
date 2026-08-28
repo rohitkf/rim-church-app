@@ -167,7 +167,7 @@ describe('when the session lookup never comes back at all', () => {
 
     expect(screen.getByTestId('loading')).toHaveTextContent('true')
     await act(async () => {
-      vi.advanceTimersByTime(15_000)
+      vi.advanceTimersByTime(8_000)
     })
 
     expect(screen.getByTestId('loading')).toHaveTextContent('false')
