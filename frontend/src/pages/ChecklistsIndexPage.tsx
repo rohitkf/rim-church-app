@@ -18,6 +18,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
+import { NudgeButton } from '../components/NudgeButton'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
@@ -222,13 +223,46 @@ export function ChecklistsIndexPage() {
                   const forService = mineFirst.filter((m) => m.assignment.service_id === service.id)
                   if (forService.length === 0) return null
 
+                  // The teams on this service that the viewer runs — an
+                  // Admin can chase the lot in one press, a head only their
+                  // own, and everyone else sees no button at all.
+                  const myTeamsHere = [
+                    ...new Set(
+                      forService
+                        .map((m) => m.assignment.department_id)
+                        .filter((id) => isDepartmentHead(id)),
+                    ),
+                  ]
+
                   return (
                     <section key={service.id}>
-                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <h2 className="text-headline-lg">{service.service_type}</h2>
-                        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                          {service.date}
-                        </span>
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <h2 className="text-headline-lg">{service.service_type}</h2>
+                          <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                            {service.date}
+                          </span>
+                        </div>
+
+                        {isAdmin ? (
+                          <NudgeButton
+                            rpc="nudge_checklist"
+                            args={{ svc_id: service.id, dept_id: null }}
+                            nobodyLabel="Everyone is done"
+                          >
+                            Remind whoever hasn&rsquo;t finished
+                          </NudgeButton>
+                        ) : (
+                          myTeamsHere.length === 1 && (
+                            <NudgeButton
+                              rpc="nudge_checklist"
+                              args={{ svc_id: service.id, dept_id: myTeamsHere[0] }}
+                              nobodyLabel="Everyone is done"
+                            >
+                              Remind whoever hasn&rsquo;t finished
+                            </NudgeButton>
+                          )
+                        )}
                       </div>
 
                       <ul className="mt-4 flex flex-col gap-4">

@@ -11,11 +11,24 @@ describe('notificationLabel', () => {
   })
 })
 
+describe('an alert someone wrote', () => {
+  it('says what they wrote, not the generic sentence for its type', () => {
+    expect(notificationLabel('team_alert', 'Sound check at 8:30')).toBe('Sound check at 8:30')
+  })
+
+  it('falls back to the type when the body is empty rather than showing blank', () => {
+    expect(notificationLabel('team_alert', '   ')).toBe('A message from your team')
+    expect(notificationLabel('team_alert', null)).toBe('A message from your team')
+  })
+})
+
 describe('notificationHref', () => {
   it('sends each notification to the page it came from', () => {
     expect(notificationHref('message')).toBe('/messages')
     expect(notificationHref('rota_release_request')).toBe('/rota')
     expect(notificationHref('team_join_requested')).toBe('/departments')
+    expect(notificationHref('availability_reminder')).toBe('/availability')
+    expect(notificationHref('checklist_reminder')).toBe('/checklists')
   })
 
   it('deep-links to the team you were added to, when it says which', () => {

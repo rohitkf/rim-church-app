@@ -9,6 +9,7 @@ import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/q
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { TeamMark } from '../components/TeamMark'
+import { NudgeButton } from '../components/NudgeButton'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -326,6 +327,21 @@ export function AvailabilityPage() {
                             }}
                           />
                         </div>
+
+                        {/* Chasing an answer belongs beside the count of
+                            answers still missing, not in a settings page:
+                            this is the moment a head notices. */}
+                        {summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
+                          <div className="mt-3">
+                            <NudgeButton
+                              rpc="nudge_availability"
+                              args={{ dept_id: dept.id, svc_id: service.id }}
+                              nobodyLabel="Only you left to answer"
+                            >
+                              Remind the {summary.noAnswer} who haven&rsquo;t answered
+                            </NudgeButton>
+                          </div>
+                        )}
 
                         {canAnswer && (
                           <div

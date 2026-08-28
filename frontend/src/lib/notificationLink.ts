@@ -15,6 +15,9 @@ export const NOTIFICATION_TYPES = [
   'team_join_requested',
   'team_join_approved',
   'team_join_declined',
+  'availability_reminder',
+  'checklist_reminder',
+  'team_alert',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -30,6 +33,9 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   team_join_requested: { label: 'Someone has asked to join your team', href: '/departments' },
   team_join_approved: { label: 'You have been added to a team', href: '/departments' },
   team_join_declined: { label: 'Your request to join a team was declined', href: '/departments' },
+  availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
+  checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
+  team_alert: { label: 'A message from your team', href: '/messages' },
 }
 
 function known(type: string): NotificationType | null {
@@ -40,7 +46,10 @@ function known(type: string): NotificationType | null {
  * The sentence shown in the bell. An unrecognised type — a newer database
  * than this build — falls back to its own name rather than to nothing.
  */
-export function notificationLabel(type: string): string {
+export function notificationLabel(type: string, body?: string | null): string {
+  // An alert someone wrote says what they wrote; everything else has one
+  // fixed sentence, because its whole meaning is its type.
+  if (body && body.trim()) return body.trim()
   const t = known(type)
   return t ? NOTIFICATIONS[t].label : type
 }

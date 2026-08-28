@@ -13,6 +13,7 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
 import { canPostOnBoard } from '../lib/joinRequests'
+import { TeamAlertPanel } from '../components/TeamAlertPanel'
 import { useErrorText } from '../lib/useErrorText'
 import { Link } from 'react-router-dom'
 
@@ -213,6 +214,9 @@ export function MessageBoardPage() {
       />
 
       <BoardClearCountdown />
+
+      {/* Admins and heads only — the panel renders nothing for anyone else. */}
+      <TeamAlertPanel />
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">

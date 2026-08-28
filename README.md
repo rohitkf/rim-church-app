@@ -354,8 +354,41 @@ broken button, no error. `supabase/functions/push-notify/index.ts` sends to
 every one of a person's devices and deletes any endpoint the push service
 reports as gone (404/410), so uninstalled apps clean themselves up.
 
-Notification payloads carry only the type and a path — never a name, a
-message body or anything else that would end up on a lock screen.
+Payloads carry only the type and a path — never a name or anything else
+that would end up readable on a lock screen. The one exception is an alert a
+head wrote themselves, which is text they deliberately sent to that person's
+phone.
+
+### Chasing people, and being chased
+
+Three things send a notification to someone other than yourself, and all
+three go through SECURITY DEFINER functions rather than an insert policy: a
+policy permissive enough to let a head write rows *for other people* is a
+policy that lets anyone write rows for anyone.
+
+- **"Remind the N who haven't answered"** on the Availability page, per team
+  per service. Core members only — a guest is helping out, not someone who
+  owes an answer every week.
+- **"Remind whoever hasn't finished"** on Checklists. It chases the member's
+  own stage only: an item waiting on a head's verification is not the
+  member's problem, and telling them otherwise teaches people to ignore the
+  app. An Admin can chase every team on a service at once; a head only their
+  own.
+- **An alert from the message board** (`TeamAlertPanel`, Admins and heads
+  only) — free text to the whole team, or to just the people one service
+  needs: anyone rostered on it plus anyone who said yes or maybe. Someone
+  who already said no is not chased about a service they answered for.
+
+Nobody is sent the same nudge twice within six hours, and the sender never
+nudges themselves — so a head who is the last one not to have answered gets
+told "only you left to answer" rather than a phantom success.
+
+**Every Friday and Saturday at 8pm** the database asks anyone who still
+hasn't answered availability for a service in the next three days. That is a
+`pg_cron` job (`rim-availability-reminder` in `0040`), scheduled at 19:00
+UTC for 20:00 UK summer time — change the cron line if the church is
+somewhere else. It shares the manual nudge's de-duplication, so someone
+nudged by their head at 6pm is not asked again at 8.
 
 ## CI
 

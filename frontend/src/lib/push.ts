@@ -95,12 +95,16 @@ export async function unsubscribeFromPush(): Promise<string | null> {
  * constructor does nothing on Android and the worker's notification is the
  * one whose click the worker can act on.
  */
-export async function showLocalNotification(type: string, referenceId?: string | null) {
+export async function showLocalNotification(
+  type: string,
+  referenceId?: string | null,
+  body?: string | null,
+) {
   if (permissionState() !== 'granted') return
   try {
     const registration = await navigator.serviceWorker.ready
     await registration.showNotification('Rehoboth International Ministries', {
-      body: notificationLabel(type),
+      body: notificationLabel(type, body),
       icon: '/icon-192.png',
       badge: '/badge-96.png',
       // One notification per kind, so ten new posts are one line rather

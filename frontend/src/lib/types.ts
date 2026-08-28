@@ -229,6 +229,8 @@ export const notificationRowSchema = z.object({
   user_id: z.string(),
   type: z.string(),
   reference_id: z.string().nullable(),
+  /** Only set on an alert someone wrote themselves. */
+  body: z.string().nullable().optional(),
   read_boolean: z.boolean(),
   created_at: z.string(),
 })

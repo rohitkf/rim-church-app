@@ -26,6 +26,9 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   team_join_requested: { label: 'Someone has asked to join your team', href: '/departments' },
   team_join_approved: { label: 'You have been added to a team', href: '/departments' },
   team_join_declined: { label: 'Your request to join a team was declined', href: '/departments' },
+  availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
+  checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
+  team_alert: { label: 'A message from your team', href: '/messages' },
 }
 
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')
@@ -59,7 +62,10 @@ Deno.serve(async (req) => {
   const known = NOTIFICATIONS[type]
   const payload = JSON.stringify({
     title: 'Rehoboth International Ministries',
-    body: known?.label ?? 'Something needs you in the app.',
+    // An alert someone wrote says what they wrote. This is the one thing
+    // that puts author-written text on a lock screen, and it is text a head
+    // deliberately sent to that person's phone.
+    body: (row?.body as string | null) || known?.label || 'Something needs you in the app.',
     href:
       type === 'team_join_approved' && row?.reference_id
         ? `/departments/${row.reference_id}`

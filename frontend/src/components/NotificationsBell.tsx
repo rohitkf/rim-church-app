@@ -51,8 +51,12 @@ export function NotificationsBell() {
           // at. Buzzing a phone whose screen already shows the bell going
           // red is how people turn notifications off.
           if (document.visibilityState !== 'visible') {
-            const row = payload.new as { type?: string; reference_id?: string | null }
-            if (row?.type) void showLocalNotification(row.type, row.reference_id)
+            const row = payload.new as {
+              type?: string
+              reference_id?: string | null
+              body?: string | null
+            }
+            if (row?.type) void showLocalNotification(row.type, row.reference_id, row.body)
           }
         },
       )
@@ -146,7 +150,7 @@ export function NotificationsBell() {
                     aria-hidden="true"
                   />
                   <span className="min-w-0">
-                    <span className="block">{notificationLabel(n.type)}</span>
+                    <span className="block">{notificationLabel(n.type, n.body)}</span>
                     <span className="mt-1 block font-mono text-label-sm text-on-surface-variant">
                       {formatRelativeTime(n.created_at)}
                       {!n.read_boolean && <span className="sr-only"> · unread</span>}
