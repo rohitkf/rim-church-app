@@ -20,6 +20,8 @@ vi.mock('./AccountMenu', () => ({ AccountMenu: () => <div>account</div> }))
 vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => <div>theme</div> }))
 vi.mock('./AiAssistantPanel', () => ({ AiAssistantPanel: () => null }))
 vi.mock('./PwaBanners', () => ({ PwaBanners: () => null, InstallAppButton: () => null }))
+// Data-driven, like the bell above it: these tests are about the dock.
+vi.mock('./AlertBanner', () => ({ AlertBanner: () => null }))
 
 function renderShell(initial = '/') {
   render(

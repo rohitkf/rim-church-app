@@ -22,6 +22,7 @@ import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import { PwaBanners } from './PwaBanners'
+import { AlertBanner } from './AlertBanner'
 import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
 
@@ -164,6 +165,10 @@ export function AppShell() {
       />
 
       <PwaBanners />
+
+      {/* An alert interrupts wherever you are — it is worth nothing if it
+          waits on the message board for someone to go and look. */}
+      <AlertBanner />
 
       {confirmSignOut && (
         <div

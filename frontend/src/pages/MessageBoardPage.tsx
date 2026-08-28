@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -14,6 +14,10 @@ import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
 import { canPostOnBoard } from '../lib/joinRequests'
 import { TeamAlertPanel } from '../components/TeamAlertPanel'
+import { TeamBoard } from '../components/TeamBoard'
+import { MentionInput } from '../components/MentionInput'
+import { MessageBody } from '../components/MessageBody'
+import { parseMentions, type MentionablePerson } from '../lib/mentions'
 import { useErrorText } from '../lib/useErrorText'
 import { Link } from 'react-router-dom'
 
@@ -78,7 +82,7 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 }
 
 export function MessageBoardPage() {
-  const { session, isAdmin, hasRole, roles } = useAuth()
+  const { session, isAdmin, hasRole, roles, ledDepartmentIds } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const isHead = hasRole('department_head')
@@ -88,6 +92,8 @@ export function MessageBoardPage() {
   const [postAsDeptId, setPostAsDeptId] = useState<string | null>(null)
   const [postAsTouched, setPostAsTouched] = useState(false)
   // Which deletion the user is being asked to confirm, if any.
+  // Which board is showing on a phone. Ignored from lg up, where both are.
+  const [pane, setPane] = useState<'board' | 'team'>('board')
   const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(null)
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
@@ -112,6 +118,36 @@ export function MessageBoardPage() {
   // Being on a team is what earns a voice here — the same rule the
   // messages_insert policy enforces, so the form is only offered to
   // someone the database would actually accept a post from.
+  // Anyone signed in can be named on the public board; the team board
+  // narrows it to that team's own roster.
+  const peopleQuery = useQuery({
+    queryKey: ['mentionable-people'],
+    queryFn: async (): Promise<MentionablePerson[]> => {
+      const { data, error: readError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .order('first_name')
+      if (readError) throw readError
+      return z
+        .array(z.object({ id: z.string(), first_name: z.string(), last_name: z.string() }))
+        .parse(data)
+    },
+  })
+  const people = peopleQuery.data ?? []
+
+  // The rooms this person is actually in: their own teams, plus any they
+  // head. An Admin sees them all, because an Admin is answerable for all
+  // of them.
+  const myTeams = useMemo(() => {
+    const all = departmentsQuery.data ?? []
+    if (isAdmin) return all
+    const mine = new Set([
+      ...(membershipsQuery.data ?? []).map((m) => m.department_id),
+      ...ledDepartmentIds,
+    ])
+    return all.filter((d) => mine.has(d.id))
+  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin])
+
   const canPost = canPostOnBoard({
     isAdmin,
     isHead,
@@ -138,6 +174,9 @@ export function MessageBoardPage() {
         .insert({
           author_id: session!.user.id,
           body: body.trim(),
+          // Resolved as it is written rather than re-read later: the
+          // roster changes, and a mention should mean who it meant.
+          mentions: parseMentions(body.trim(), people),
           // "" is the select's way of saying no team — as an Admin posting
           // for the church rather than for a department.
           department_id: idOrNull(effectivePostAs),
@@ -188,11 +227,22 @@ export function MessageBoardPage() {
     postMessage.mutate()
   }
 
-  // The board is a reading column, so the header shares its width: the one
-  // action then sits over the posts it acts on rather than out at the page
-  // edge with nothing under it.
+  /*
+   * Three things, side by side, centred on the page.
+   *
+   * It used to be one 720px column pinned to the left edge of whatever
+   * screen it was on, with the alert composer wedged between the header
+   * and the posts — so on a wide monitor the whole page lived in the far
+   * left third and the two boxes that do completely different jobs looked
+   * like one form with too many fields.
+   *
+   * Now: the board reads down the middle, and the things that belong to
+   * one team — the alert composer, and the team's own room — sit in a
+   * column beside it. On a phone there is no beside, so they become two
+   * tabs rather than a scroll with a second conversation buried in it.
+   */
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto w-full max-w-[1360px]">
       <PageHeader
         eyebrow="Everyone signed in"
         title="Message Board"
@@ -215,17 +265,34 @@ export function MessageBoardPage() {
 
       <BoardClearCountdown />
 
-      {/* Admins and heads only — the panel renders nothing for anyone else. */}
-      <TeamAlertPanel />
+      {/* On a phone the two boards are tabs; from lg up they are columns. */}
+      <div className="mt-4 flex gap-1 rounded-full bg-inset p-1 hairline lg:hidden">
+        {(['board', 'team'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setPane(tab)}
+            className={`flex-1 rounded-full px-4 py-2 text-body-sm font-medium transition-colors ${
+              pane === tab ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+            }`}
+          >
+            {tab === 'board' ? 'Message board' : 'My team'}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className={pane === 'board' ? '' : 'hidden lg:block'}>
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
-          <textarea
+          <MentionInput
             value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Post an announcement…"
+            onChange={setBody}
+            people={people}
+            placeholder="Post an announcement…  @ to mention someone"
             rows={3}
-            className={`${inputClasses} resize-y`}
+            className={`${inputClasses} w-full resize-y`}
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             {error && <p className="min-w-0 flex-1 text-body-sm text-error">{error}</p>}
@@ -331,11 +398,28 @@ export function MessageBoardPage() {
                     )}
                   </span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-body-md text-on-surface">{m.body}</p>
+                <MessageBody
+                  body={m.body}
+                  people={people}
+                  className="mt-2 text-body-md text-on-surface"
+                />
               </li>
             ))}
           </ul>
         </QueryState>
+      </div>
+      </div>
+
+      {/* Everything that belongs to one team rather than to everyone. */}
+      <aside
+        className={`flex flex-col gap-5 lg:sticky lg:top-20 lg:max-h-[calc(100svh-6rem)] ${
+          pane === 'team' ? '' : 'hidden lg:flex'
+        }`}
+      >
+        {/* Admins and heads only — renders nothing for anyone else. */}
+        <TeamAlertPanel />
+        <TeamBoard departments={myTeams} className="h-[30rem] lg:min-h-0 lg:flex-1" />
+      </aside>
       </div>
 
       {confirm && (

@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = [
   'availability_reminder',
   'checklist_reminder',
   'team_alert',
+  'mention',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -36,6 +37,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },
+  mention: { label: 'Someone mentioned you', href: '/messages' },
 }
 
 function known(type: string): NotificationType | null {
