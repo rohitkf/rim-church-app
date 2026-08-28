@@ -16,6 +16,7 @@ import {
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
+import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import { PwaBanners } from './PwaBanners'
@@ -109,6 +110,7 @@ export function AppShell() {
 
         <GlobalSearch />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <TeamStyleToggle />
           <ThemeToggle />
           <NotificationsBell />
           <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />

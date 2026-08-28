@@ -9,8 +9,8 @@ import type { TeamStylePreference } from './teamStyle'
  * Every recipe here derives from the one colour an admin picked, so the
  * colour picker doesn't change: a team chooses green, and green is what
  * washes its row, fills its avatar and lights its spine. Alpha is made
- * with `color-mix` rather than a second hex, so any colour — including a
- * team coloured before the palette existed — works.
+ * from the hex directly, so any colour — including a team coloured before
+ * the palette existed — works.
  *
  * A wash's stops are capped in pixels as well as percentages: the design
  * draws them on a 393px phone row, and a bare percentage would stretch the
@@ -22,7 +22,21 @@ import type { TeamStylePreference } from './teamStyle'
  * far end — in either theme, with no token to keep in sync.
  */
 
-const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`
+function channels(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+/**
+ * The colour at a given opacity, written out as rgb rather than built with
+ * `color-mix`. A gradient stop has to be a colour every CSS engine that
+ * touches these styles can parse, and since the hex is already normalised
+ * there is nothing to gain from asking CSS to do the arithmetic.
+ */
+function tint(color: string, pct: number): string {
+  const [r, g, b] = channels(color)
+  return `rgb(${r} ${g} ${b} / ${pct / 100})`
+}
 
 /** The team's colour, whatever shape it arrived in. */
 export function teamColorOf(color: string | null | undefined): string {

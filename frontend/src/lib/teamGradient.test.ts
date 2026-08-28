@@ -34,7 +34,7 @@ describe('teamWash', () => {
 
   it('layers over the caller’s background rather than replacing it', () => {
     const wash = teamWash('#30d158', 'gradient')!
-    expect(wash.backgroundImage).toContain('#30D158')
+    expect(wash.backgroundImage).toContain('rgb(48 209 88 / 0.3)')
     expect(wash.backgroundImage).toContain('transparent min(100%, 560px)')
     // A `background` shorthand would wipe out the row's own bg-raised.
     expect(wash.background).toBeUndefined()
@@ -52,7 +52,7 @@ describe('teamWash', () => {
 describe('teamSpine', () => {
   it('runs from the full colour down to a trace of it', () => {
     expect(teamSpine('#0a84ff').background).toBe(
-      'linear-gradient(180deg, #0A84FF, color-mix(in oklab, #0A84FF 25%, transparent))',
+      'linear-gradient(180deg, #0A84FF, rgb(10 132 255 / 0.25))',
     )
   })
 })
@@ -68,7 +68,7 @@ describe('teamAvatarStyle and teamChipStyle', () => {
   it('tint the colour behind coloured text in dot mode', () => {
     const avatar = teamAvatarStyle('#0a84ff', 'dot')
     expect(avatar.color).toBe('#0A84FF')
-    expect(avatar.backgroundColor).toContain('#0A84FF')
+    expect(avatar.backgroundColor).toBe('rgb(10 132 255 / 0.16)')
     expect(avatar.background).toBeUndefined()
   })
 

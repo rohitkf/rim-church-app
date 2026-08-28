@@ -25,24 +25,71 @@ export function TeamCardActions({ dept }: { dept: Department }) {
     setRenaming(null)
     setConfirmDelete(false)
     setPicking(false)
-    queryClient.invalidateQueries({ queryKey: ['departments'] })
+    // Mark the list stale so it is re-read the next time it mounts, but
+    // don't refetch right now: the cache has just been given the row the
+    // database itself returned, and an immediate refetch can only either
+    // agree with it or — if it is served before the write is visible —
+    // overwrite the correct value with the old one, which is exactly the
+    // "I have to refresh to see it" bug.
+    queryClient.invalidateQueries({ queryKey: ['departments'], refetchType: 'none' })
+    // Everything else does need re-reading: a rota row, a join request and
+    // the team detail page each embed their own copy of the team, and a
+    // renamed or recoloured team has to reach those too. Listing them by
+    // key would rot the first time one is added, and this only runs when an
+    // Admin edits a team.
+    queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'departments' })
+  }
+
+  /**
+   * Put the row the database just handed back into the cache.
+   *
+   * Invalidating alone means the new colour only appears when a refetch
+   * lands, which is a round trip the user is watching and, if it is served
+   * before the write is visible, one they have to refresh past. The updated
+   * row comes back with the write itself, so use it: the card repaints
+   * immediately and correctly, and the refetch becomes reconciliation
+   * rather than the thing the UI depends on.
+   */
+  const applyToCache = (updated: Partial<Department>) => {
+    queryClient.setQueriesData<Department[]>({ queryKey: ['departments'] }, (old) =>
+      old?.map((d) => (d.id === dept.id ? { ...d, ...updated } : d)),
+    )
+  }
+
+  /**
+   * A write that changed nothing is not a success.
+   *
+   * `update` without `select` reports no error when RLS quietly filters the
+   * row out, so the app would say "saved" and show the old value — exactly
+   * the shape of a bug that reads as "it didn't update". Asking for the row
+   * back turns that into something we can say out loud.
+   */
+  const saveDepartment = async (patch: Partial<Department>) => {
+    const { data, error } = await supabase
+      .from('departments')
+      .update(patch)
+      .eq('id', dept.id)
+      .select()
+    if (error) throw error
+    if (!data || data.length === 0) throw new Error('That change did not save — you may not have permission to edit this team.')
+    return data[0] as Department
   }
 
   const rename = useMutation({
-    mutationFn: async (name: string) => {
-      const { error } = await supabase.from('departments').update({ name }).eq('id', dept.id)
-      if (error) throw error
+    mutationFn: (name: string) => saveDepartment({ name }),
+    onSuccess: (updated) => {
+      applyToCache(updated)
+      done()
     },
-    onSuccess: done,
     onError: (err: unknown) => setError(errorText(err, 'Could not rename that team.')),
   })
 
   const recolour = useMutation({
-    mutationFn: async (color: string) => {
-      const { error } = await supabase.from('departments').update({ color }).eq('id', dept.id)
-      if (error) throw error
+    mutationFn: (color: string) => saveDepartment({ color }),
+    onSuccess: (updated) => {
+      applyToCache(updated)
+      done()
     },
-    onSuccess: done,
     onError: (err: unknown) => setError(errorText(err, 'Could not save that colour.')),
   })
 
@@ -51,7 +98,12 @@ export function TeamCardActions({ dept }: { dept: Department }) {
       const { error } = await supabase.from('departments').delete().eq('id', dept.id)
       if (error) throw error
     },
-    onSuccess: done,
+    onSuccess: () => {
+      queryClient.setQueriesData<Department[]>({ queryKey: ['departments'] }, (old) =>
+        old?.filter((d) => d.id !== dept.id),
+      )
+      done()
+    },
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that team.')),
   })
 

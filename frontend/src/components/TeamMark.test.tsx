@@ -23,26 +23,29 @@ afterEach(() => {
 })
 
 describe('the team mark', () => {
-  it('is a dot by default', () => {
+  it('is a gradient spine by default', () => {
     render(<Harness />)
-    const mark = screen.getByTestId('mark').firstElementChild!
-    expect(mark.className).toContain('h-2.5 w-2.5')
-    expect(mark.getAttribute('style')).toContain('background-color')
-  })
-
-  it('becomes a gradient spine, and every mark switches together', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-
-    await user.click(screen.getByRole('button', { name: 'Switch' }))
-
     const mark = screen.getByTestId('mark').firstElementChild!
     expect(mark.className).toContain('w-[6px]')
     expect(mark.getAttribute('style')).toContain('linear-gradient(180deg')
+  })
+
+  it('becomes a dot, and every mark switches together', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
     // The avatar and the chip read the same preference, so a screen can
     // never be half dots and half gradients.
     expect(screen.getByText('ST').getAttribute('style')).toContain('linear-gradient')
     expect(screen.getByText('Media').getAttribute('style')).toContain('linear-gradient')
+
+    await user.click(screen.getByRole('button', { name: 'Switch' }))
+
+    const mark = screen.getByTestId('mark').firstElementChild!
+    expect(mark.className).toContain('h-2.5 w-2.5')
+    expect(mark.getAttribute('style')).toContain('background-color')
+    expect(screen.getByText('ST').getAttribute('style')).not.toContain('linear-gradient')
+    expect(screen.getByText('Media').getAttribute('style')).not.toContain('linear-gradient')
   })
 
   it('shows the team’s two initials on the avatar', () => {

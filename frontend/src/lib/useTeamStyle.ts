@@ -12,19 +12,26 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener)
 }
 
+function setPreference(next: TeamStylePreference) {
+  current = next
+  writeTeamStyle(next)
+  for (const listener of listeners) listener()
+}
+
 /** Whether teams are drawn as dots or as gradient washes, per browser. */
 export function useTeamStyle() {
   const preference = useSyncExternalStore(
     subscribe,
     () => current,
-    () => 'dot' as TeamStylePreference,
+    () => 'gradient' as TeamStylePreference,
   )
 
-  const choose = useCallback((next: TeamStylePreference) => {
-    current = next
-    writeTeamStyle(next)
-    for (const listener of listeners) listener()
+  const choose = useCallback((next: TeamStylePreference) => setPreference(next), [])
+
+  /** Flip to the other way of drawing a team. */
+  const toggle = useCallback(() => {
+    setPreference(current === 'gradient' ? 'dot' : 'gradient')
   }, [])
 
-  return { teamStyle: preference, choose }
+  return { teamStyle: preference, choose, toggle }
 }

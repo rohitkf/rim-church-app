@@ -17,7 +17,7 @@ const STORAGE_KEY = 'rim-team-style'
  * browser set to block site data — and every unreadable case means the
  * same thing: no preference, so use the default.
  */
-export function readTeamStyle(fallback: TeamStylePreference = 'dot'): TeamStylePreference {
+export function readTeamStyle(fallback: TeamStylePreference = 'gradient'): TeamStylePreference {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored === 'dot' || stored === 'gradient') return stored

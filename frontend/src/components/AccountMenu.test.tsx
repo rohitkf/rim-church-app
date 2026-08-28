@@ -65,11 +65,11 @@ describe('the role badge', () => {
     const { user } = renderMenu()
     await user.click(screen.getByRole('button', { name: 'Account' }))
 
-    const gradient = screen.getByRole('button', { name: 'Gradient' })
-    expect(screen.getByRole('button', { name: 'Dot' })).toHaveAttribute('aria-pressed', 'true')
+    const dot = screen.getByRole('button', { name: 'Dot' })
+    expect(screen.getByRole('button', { name: 'Gradient' })).toHaveAttribute('aria-pressed', 'true')
 
-    await user.click(gradient)
-    expect(gradient).toHaveAttribute('aria-pressed', 'true')
-    expect(window.localStorage.getItem('rim-team-style')).toBe('gradient')
+    await user.click(dot)
+    expect(dot).toHaveAttribute('aria-pressed', 'true')
+    expect(window.localStorage.getItem('rim-team-style')).toBe('dot')
   })
 })
