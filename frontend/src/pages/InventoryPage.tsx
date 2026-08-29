@@ -1,5 +1,5 @@
-import { type FormEvent, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -8,6 +8,9 @@ import { QueryState } from '../components/QueryState'
 import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, inputClasses } from '../components/Surface'
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
+import { ItemQrDialog } from '../components/ItemQrDialog'
+import { QrScanner } from '../components/QrScanner'
+import { Overlay } from '../components/Surface'
 import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -59,6 +62,21 @@ export function InventoryPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [qrFor, setQrFor] = useState<InventoryItem | null>(null)
+  const [scanning, setScanning] = useState(false)
+  // The item a scan landed on, whether from the camera here or from a
+  // phone's own camera opening /inventory/scan/<id>.
+  const [scanned, setScanned] = useState<string | null>(null)
+  const [urlParams, setUrlParams] = useSearchParams()
+
+  const scanParam = urlParams.get('item')
+  useEffect(() => {
+    if (!scanParam) return
+    setScanned(scanParam)
+    const next = new URLSearchParams(urlParams)
+    next.delete('item')
+    setUrlParams(next, { replace: true })
+  }, [scanParam, urlParams, setUrlParams])
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [deleting, setDeleting] = useState<InventoryItem | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -132,13 +150,18 @@ export function InventoryPage() {
             : "Anyone signed in can see what the church owns and where it lives. Changes are the team head's."
         }
         action={
-          canManage ? (
-            <ActionButton glyph="+" onClick={() => setAdding((v) => !v)}>
-              {adding ? 'Close' : 'Add item'}
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionButton tone="quiet" onClick={() => setScanning(true)}>
+              Scan
             </ActionButton>
-          ) : (
-            <StatusChip>View only</StatusChip>
-          )
+            {canManage ? (
+              <ActionButton glyph="+" onClick={() => setAdding((v) => !v)}>
+                {adding ? 'Close' : 'Add item'}
+              </ActionButton>
+            ) : (
+              <StatusChip>View only</StatusChip>
+            )}
+          </div>
         }
       />
 
@@ -288,6 +311,7 @@ export function InventoryPage() {
                         onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
                         onEdit={() => setEditing(item)}
                         onDelete={() => setDeleting(item)}
+                        onShowQr={() => setQrFor(item)}
                       />
                     </div>
                   )}
@@ -386,6 +410,7 @@ export function InventoryPage() {
                           onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
                           onEdit={() => setEditing(item)}
                           onDelete={() => setDeleting(item)}
+                          onShowQr={() => setQrFor(item)}
                         />
                       </td>
                       )}
@@ -407,6 +432,47 @@ export function InventoryPage() {
             refresh()
           }}
           onError={setError}
+        />
+      )}
+
+      {qrFor && (
+        <ItemQrDialog
+          item={qrFor}
+          teamName={deptQuery.data?.name ?? null}
+          onClose={() => setQrFor(null)}
+        />
+      )}
+
+      {scanning && (
+        <QrScanner
+          onFound={(id) => {
+            setScanning(false)
+            setScanned(id)
+          }}
+          onClose={() => setScanning(false)}
+        />
+      )}
+
+      {scanned && (
+        <ScannedItemDialog
+          itemId={scanned}
+          items={items}
+          canManage={canManage}
+          busy={act.isPending}
+          onAct={(fn, args) => act.mutate({ fn, args: { item_id: scanned, ...args } })}
+          onEdit={(item) => {
+            setScanned(null)
+            setEditing(item)
+          }}
+          onDelete={(item) => {
+            setScanned(null)
+            setDeleting(item)
+          }}
+          onShowQr={(item) => {
+            setScanned(null)
+            setQrFor(item)
+          }}
+          onClose={() => setScanned(null)}
         />
       )}
 
@@ -449,6 +515,7 @@ function RowActions({
   onAct,
   onEdit,
   onDelete,
+  onShowQr,
 }: {
   item: InventoryItem
   canManage: boolean
@@ -456,6 +523,7 @@ function RowActions({
   onAct: (fn: string, args: Record<string, unknown>) => void
   onEdit: () => void
   onDelete: () => void
+  onShowQr: () => void
 }) {
   if (!canManage) return null
 
@@ -527,6 +595,9 @@ function RowActions({
           Back in service
         </button>
       )}
+      <button className={button} onClick={onShowQr}>
+        QR
+      </button>
       <button className={button} onClick={onEdit}>
         Edit
       </button>
@@ -884,5 +955,97 @@ function DeleteItemDialog({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * What a scan landed on, and what can be done about it.
+ *
+ * The buttons are the row's own `RowActions`, not a second set written for
+ * this sheet: a scan should offer exactly what the register offers, and
+ * two lists of actions would drift the first time one of them changed.
+ *
+ * A code can point at an item this register does not hold — someone
+ * scanning a Media label while looking at Worship's page — so that is a
+ * state worth naming rather than an empty sheet.
+ */
+function ScannedItemDialog({
+  itemId,
+  items,
+  canManage,
+  busy,
+  onAct,
+  onEdit,
+  onDelete,
+  onShowQr,
+  onClose,
+}: {
+  itemId: string
+  items: InventoryItem[]
+  canManage: boolean
+  busy: boolean
+  onAct: (fn: string, args: Record<string, unknown>) => void
+  onEdit: (item: InventoryItem) => void
+  onDelete: (item: InventoryItem) => void
+  onShowQr: (item: InventoryItem) => void
+  onClose: () => void
+}) {
+  const item = items.find((i) => i.id === itemId) ?? null
+
+  return (
+    <Overlay label="Scanned item" align="sheet" onDismiss={onClose}>
+      <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
+        {item ? (
+          <>
+            <Eyebrow>Scanned</Eyebrow>
+            <h2 className="mt-1 text-headline-md">{item.name}</h2>
+            <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
+              {item.asset_tag ?? 'No asset tag'} · {STATUS_LABEL[statusOf(item)]}
+            </p>
+            {kindOf(item) === 'consumable' && (
+              <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
+                {item.quantity} in stock
+              </p>
+            )}
+
+            <div className="mt-5">
+              {canManage ? (
+                <RowActions
+                  item={item}
+                  canManage={canManage}
+                  busy={busy}
+                  onAct={onAct}
+                  onEdit={() => onEdit(item)}
+                  onDelete={() => onDelete(item)}
+                  onShowQr={() => onShowQr(item)}
+                />
+              ) : (
+                <p className="text-body-sm text-on-surface-variant">
+                  You can see this item, but changing it is the team head&rsquo;s.
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-headline-md">Not on this register</h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              That code is one of ours, but the item is not in this team&rsquo;s inventory — it may
+              belong to another team, or have been deleted.
+            </p>
+          </>
+        )}
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="tap rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </Overlay>
   )
 }

@@ -24,6 +24,7 @@ import { ServicePlannerPage } from './pages/ServicePlannerPage'
 import { ServiceTemplatesPage } from './pages/ServiceTemplatesPage'
 import { InventoryIndexPage } from './pages/InventoryIndexPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { InventoryScanPage } from './pages/InventoryScanPage'
 import { MessageBoardPage } from './pages/MessageBoardPage'
 import { TeamChatPage } from './pages/TeamChatPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -79,6 +80,8 @@ const router = createBrowserRouter(
           <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
           <Route path="/inventory" element={<InventoryIndexPage />} />
           <Route path="/inventory/:id" element={<InventoryPage />} />
+          {/* Where a scanned label lands; it forwards to the item's own team. */}
+          <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
           <Route path="/messages" element={<MessageBoardPage />} />
           <Route path="/team-chat" element={<TeamChatPage />} />
         </Route>
