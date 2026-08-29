@@ -10,8 +10,10 @@ import { errorMessage } from './errorMessage'
  * hit it knows what to do instead.
  */
 const BY_CONSTRAINT: Record<string, string> = {
-  rota_assignments_service_id_user_id_key:
-    'They already have a role in this service — someone can only hold one role per service. Remove the existing one first, or pick someone else.',
+  rota_assignments_one_role_per_service:
+    'They already have a role in this service — apart from Coordinator, someone can only hold one role per service, in this team or any other. Remove the existing one first, or pick someone else.',
+  rota_assignments_one_coordinator_per_team:
+    'They are already this team’s Coordinator for this service.',
   departments_one_service_flow:
     'Another team already signs checklists off. Choose it again in Team setup to move the sign-off.',
   inventory_items_asset_tag_key: 'That asset tag is already in use by another item.',

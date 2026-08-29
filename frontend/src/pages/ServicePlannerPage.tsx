@@ -55,9 +55,22 @@ export function ServicePlannerPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 
+  /*
+   * Preview: the planner as everyone else gets it.
+   *
+   * An Admin never sees the page the team sees, because every control they
+   * have is one the team hasn't — so it is easy to leave a running order
+   * that reads perfectly from the editing side and is missing a name or a
+   * time from the other. Preview is simply an Admin choosing not to be one
+   * for a moment: `canManage` goes false and every affordance falls away
+   * with it, rather than the page growing a second read-only rendering
+   * that could drift from the real one.
+   */
+  const [previewing, setPreviewing] = useState(false)
+
   // Planning a service is an Admin action: Service Flow is a department
   // like any other, not a role scoped to one service.
-  const canManage = isAdmin
+  const canManage = isAdmin && !previewing
 
   const serviceQuery = useQuery({
     queryKey: ['service', serviceId],
@@ -411,11 +424,17 @@ export function ServicePlannerPage() {
               </>
             )}
           </div>
-          {isAdmin && (
+          {canManage && (
             /* Four buttons come to 517px, and `shrink-0` meant they ran
                off the side of a phone rather than wrapping. They wrap
                here and stay one row from `sm`, where they fit. */
             <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+              <button
+                onClick={() => setPreviewing(true)}
+                className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+              >
+                Preview
+              </button>
               {sessions.length > 0 && (
                 <button
                   onClick={() => {
@@ -460,6 +479,27 @@ export function ServicePlannerPage() {
           )}
         </div>
 
+        {/* Preview hides every control an Admin has, including the button
+            that started it — so the way out has to be somewhere those
+            controls are not. It sticks to the top of the page for the
+            same reason. */}
+        {isAdmin && previewing && (
+          <div className="sticky top-16 z-10 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-indigo)_30%,transparent)] backdrop-blur-xl">
+            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+              Preview
+            </span>
+            <span className="text-body-sm text-on-surface-variant">
+              This is the running order as everyone who isn&rsquo;t an Admin sees it.
+            </span>
+            <button
+              onClick={() => setPreviewing(false)}
+              className="tap ml-auto rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+            >
+              Back to editing
+            </button>
+          </div>
+        )}
+
         {/* A page with its controls quietly missing reads as broken. Say
             what happened and that nothing is lost. */}
         {finished && (
@@ -471,7 +511,7 @@ export function ServicePlannerPage() {
               This service is over, so the running order is now a record of it and can&rsquo;t be
               changed.
             </span>
-            {isAdmin && (
+            {canManage && (
               <span className="text-label-md text-on-surface-faint">
                 Attendance and checklists can still be filled in.
               </span>
@@ -598,7 +638,7 @@ export function ServicePlannerPage() {
                     const over = overruns.get(session.id)
                     // Only an Admin can say a service has slipped, and only
                     // on the session the service is waiting to begin.
-                    const canStart = canEdit && isAdmin && startable === session.id
+                    const canStart = canEdit && startable === session.id
                     /* The one time the planner actually sets; every other
                        start is this one plus the durations. It is rendered
                        in the rail on a desktop and inside the card on a

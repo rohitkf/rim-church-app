@@ -293,7 +293,7 @@ export function TeamRotaPage() {
       <PageHeader
         eyebrow="Who is on what"
         title="Team Rota"
-        description="One role per person per service. Borrowing someone needs their head's approval."
+        description="One role per person per service — except Coordinator, which sits alongside a job rather than replacing it. Borrowing someone needs their head's approval."
       />
 
       {error && (

@@ -4,7 +4,12 @@ import { humanError } from './humanError'
 const duplicateRota = {
   code: '23505',
   message:
-    'duplicate key value violates unique constraint "rota_assignments_service_id_user_id_key"',
+    'duplicate key value violates unique constraint "rota_assignments_one_role_per_service"',
+}
+const duplicateCoordinator = {
+  code: '23505',
+  message:
+    'duplicate key value violates unique constraint "rota_assignments_one_coordinator_per_team"',
 }
 const ourRule = { code: 'P0001', message: 'Only the team head can change a count' }
 const rlsRefusal = {
@@ -22,7 +27,18 @@ describe('humanError', () => {
   it('gives an Admin the raw message as well', () => {
     const text = humanError(duplicateRota, 'Could not assign that role.', true)
     expect(text).toContain('one role per service')
-    expect(text).toContain('rota_assignments_service_id_user_id_key')
+    expect(text).toContain('rota_assignments_one_role_per_service')
+  })
+
+  it('names Coordinator as the exception, since that is the rule people trip on', () => {
+    const text = humanError(duplicateRota, 'Could not assign that role.', false)
+    expect(text).toContain('apart from Coordinator')
+  })
+
+  it('tells a second Coordinator apart from a second job', () => {
+    const text = humanError(duplicateCoordinator, 'Could not assign that role.', false)
+    expect(text).toContain('Coordinator for this service')
+    expect(text).not.toContain('duplicate key')
   })
 
   it('passes our own function messages through untouched — they are already for people', () => {
