@@ -19,7 +19,7 @@ export function TeamStyleToggle() {
       onClick={toggle}
       title={`Show teams as ${goingTo}`}
       aria-label={`Show teams as ${goingTo}`}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+      className="flex h-10 w-10 items-center justify-center rounded-full sm:h-9 sm:w-9 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
     >
       {teamStyle === 'gradient' ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">

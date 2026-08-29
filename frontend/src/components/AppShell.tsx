@@ -113,7 +113,7 @@ export function AppShell() {
         */}
         <Link
           to="/"
-          className="flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
+          className="tap flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
         >
           <span
             aria-hidden="true"

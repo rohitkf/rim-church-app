@@ -272,7 +272,7 @@ export function MessageBoardPage() {
             key={tab}
             type="button"
             onClick={() => setPane(tab)}
-            className={`flex-1 rounded-full px-4 py-2 text-body-sm font-medium transition-colors ${
+            className={`tap flex-1 rounded-full px-4 py-2 text-body-sm font-medium transition-colors ${
               pane === tab ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
             }`}
           >
@@ -391,7 +391,7 @@ export function MessageBoardPage() {
                           setConfirm({ kind: 'one', id: m.id })
                         }}
                         aria-label="Delete message"
-                        className="text-label-sm font-medium text-on-surface-variant hover:text-error"
+                        className="tap text-label-sm font-medium text-on-surface-variant hover:text-error"
                       >
                         Delete
                       </button>

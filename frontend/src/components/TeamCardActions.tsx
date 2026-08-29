@@ -118,20 +118,20 @@ export function TeamCardActions({ dept }: { dept: Department }) {
             onClick={() => setPicking(true)}
             aria-label={`Colour for ${dept.name}`}
             title="Team colour"
-            className="h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-500 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
+            className="tap-square h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-500 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
             style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
           />
           <button
             type="button"
             onClick={() => setRenaming(dept.name)}
-            className="rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] dark:ring-white/10 dark:hover:ring-white/25"
+            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] dark:ring-white/10 dark:hover:ring-white/25"
           >
             Rename
           </button>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="ml-auto rounded-full px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
+            className="tap ml-auto rounded-full px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
           >
             Delete
           </button>
@@ -164,7 +164,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
               setRenaming(null)
               setError(null)
             }}
-            className="rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
           >
             Cancel
           </button>

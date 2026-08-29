@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -249,8 +249,8 @@ export function ServicePlannerIndexPage() {
         title="Service Planner"
         description={
           isAdmin
-            ? 'Tap a service on the calendar to open its running order.'
-            : 'Tap a service on the calendar to open its running order. Upcoming services appear here once they are scheduled.'
+            ? 'Tap a service to open its running order.'
+            : 'Tap a service to open its running order. Upcoming services appear here once they are scheduled.'
         }
         action={
           isAdmin && (
@@ -274,14 +274,14 @@ export function ServicePlannerIndexPage() {
                 type="button"
                 onClick={() => shiftMonth(-1)}
                 aria-label="Previous month"
-                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="tap-square rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 ‹
               </button>
               <button
                 type="button"
                 onClick={() => setCursor({ year: now.getFullYear(), month: now.getMonth() })}
-                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="tap-square rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 Today
               </button>
@@ -289,7 +289,7 @@ export function ServicePlannerIndexPage() {
                 type="button"
                 onClick={() => shiftMonth(1)}
                 aria-label="Next month"
-                className="rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
+                className="tap-square rounded-full hairline px-2.5 py-1.5 text-body-sm text-on-surface hover:border-secondary"
               >
                 ›
               </button>
@@ -320,28 +320,51 @@ export function ServicePlannerIndexPage() {
                   >
                     {cell.day}
                   </div>
-                  <div className="mt-1 flex flex-col gap-1">
-                    {dayServices.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => navigate(`/service-planner/${s.id}`)}
-                        title={`${s.service_type} — ${s.date}`}
-                        // Green once it has happened, blue while it is
-                        // still to come — the same two colours the lists
-                        // below use, so the calendar and the agenda never
-                        // disagree about what is behind you.
-                        className={`w-full truncate rounded-sm px-1.5 py-1 text-left text-label-sm font-medium ${
-                          finishedIds.has(s.id)
-                            ? 'bg-[color-mix(in_oklab,var(--color-accent-green)_20%,transparent)] text-accent-green hover:opacity-90'
-                            : s.date < today
-                              ? 'bg-surface-container text-on-surface-variant'
-                              : 'bg-secondary text-on-primary hover:opacity-90'
-                        }`}
-                      >
-                        {s.service_type}
-                      </button>
-                    ))}
+                  {/*
+                    A seventh of a phone is 50px, which turns every service
+                    name into "S…" — a chip that says nothing and cannot be
+                    read. So below `sm` the day carries dots instead: the
+                    calendar's job there is to say which days have
+                    something on, and the agenda underneath — where the
+                    names have a whole line each — says what.
+                  */}
+                  <div className="mt-1 flex flex-wrap justify-center gap-1 sm:flex-col sm:flex-nowrap sm:justify-start">
+                    {dayServices.map((s) => {
+                      // Green once it has happened, blue while it is still
+                      // to come — the same two colours the lists below
+                      // use, so the calendar and the agenda never disagree
+                      // about what is behind you.
+                      const tone = finishedIds.has(s.id)
+                        ? {
+                            chip: 'bg-[color-mix(in_oklab,var(--color-accent-green)_20%,transparent)] text-accent-green hover:opacity-90',
+                            dot: 'bg-accent-green',
+                          }
+                        : s.date < today
+                          ? {
+                              chip: 'bg-surface-container text-on-surface-variant',
+                              dot: 'bg-on-surface-faint',
+                            }
+                          : {
+                              chip: 'bg-secondary text-on-primary hover:opacity-90',
+                              dot: 'bg-secondary',
+                            }
+                      return (
+                        <Fragment key={s.id}>
+                          <span
+                            aria-hidden="true"
+                            className={`h-1.5 w-1.5 rounded-full sm:hidden ${tone.dot}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/service-planner/${s.id}`)}
+                            title={`${s.service_type} — ${s.date}`}
+                            className={`hidden w-full truncate rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
+                          >
+                            {s.service_type}
+                          </button>
+                        </Fragment>
+                      )
+                    })}
                   </div>
                 </div>
               )

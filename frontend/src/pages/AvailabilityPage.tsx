@@ -436,7 +436,7 @@ export function AvailabilityPage() {
                                           aria-label={`Availability for ${
                                             m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
                                           }`}
-                                          className={`shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
+                                          className={`tap shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
                                             answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
                                           }`}
                                         >
@@ -471,7 +471,7 @@ export function AvailabilityPage() {
                                               attended: answer.attended === true ? null : true,
                                             })
                                           }
-                                          className={`rounded-full border px-2.5 py-1 text-label-sm ${
+                                          className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
                                             answer.attended === true
                                               ? 'border-success bg-success/10 font-medium text-success'
                                               : 'border-border-subtle text-on-surface hover:border-secondary'
@@ -487,7 +487,7 @@ export function AvailabilityPage() {
                                               attended: answer.attended === false ? null : false,
                                             })
                                           }
-                                          className={`rounded-full border px-2.5 py-1 text-label-sm ${
+                                          className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
                                             answer.attended === false
                                               ? 'border-error bg-error/10 font-medium text-error'
                                               : 'border-border-subtle text-on-surface hover:border-secondary'

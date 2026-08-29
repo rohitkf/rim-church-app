@@ -102,7 +102,7 @@ export function NotificationsBell() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full sm:h-9 sm:w-9 text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
         aria-label="Notifications"
       >
         <BellIcon />

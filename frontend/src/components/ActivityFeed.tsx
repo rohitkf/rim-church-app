@@ -89,7 +89,7 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
             type="button"
             onClick={() => clear.mutate()}
             disabled={clear.isPending}
-            className="text-label-md text-on-surface-variant transition-colors hover:text-error disabled:opacity-50"
+            className="tap text-label-md text-on-surface-variant transition-colors hover:text-error disabled:opacity-50"
           >
             {clear.isPending ? 'Clearing…' : 'Clear'}
           </button>

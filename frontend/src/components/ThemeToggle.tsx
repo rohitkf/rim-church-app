@@ -17,7 +17,7 @@ export function ThemeToggle() {
       onClick={toggle}
       title={`Switch to ${goingTo} mode`}
       aria-label={`Switch to ${goingTo} mode`}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+      className="flex h-10 w-10 items-center justify-center rounded-full sm:h-9 sm:w-9 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
     >
       {resolved === 'dark' ? <SunIcon width={18} height={18} /> : <MoonIcon width={18} height={18} />}
     </button>

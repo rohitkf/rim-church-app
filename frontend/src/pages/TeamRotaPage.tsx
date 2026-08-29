@@ -489,7 +489,7 @@ export function TeamRotaPage() {
                                 type="button"
                                 onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
                                 aria-expanded={formOpen}
-                                className="shrink-0 rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                                className="tap shrink-0 rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
                               >
                                 {formOpen ? 'Cancel' : 'Assign role'}
                               </button>

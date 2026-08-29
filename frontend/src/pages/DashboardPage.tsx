@@ -378,18 +378,27 @@ export function DashboardPage() {
         action={
           isAdmin && (
             <div className="flex flex-wrap items-center gap-2">
-              <ActionButton tone="quiet" size="sm" onClick={() => stepDay(-1)}>
-                &lsaquo; Previous
+              {/* A date input is as wide as the locale's format makes it,
+                  which on a phone leaves no room for a word on either
+                  side — so the steppers keep their arrows and drop their
+                  labels, and the input takes whatever is left. */}
+              <ActionButton
+                tone="quiet"
+                size="sm"
+                onClick={() => stepDay(-1)}
+                aria-label="Previous day"
+              >
+                &lsaquo;<span className="hidden sm:inline">&nbsp;Previous</span>
               </ActionButton>
               <input
                 type="date"
                 value={viewedDate}
                 onChange={(e) => e.target.value && setAdminDate(e.target.value)}
                 aria-label="Service day"
-                className="rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong [color-scheme:dark]"
+                className="min-w-0 flex-1 rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong [color-scheme:dark] sm:flex-none"
               />
-              <ActionButton tone="quiet" size="sm" onClick={() => stepDay(1)}>
-                Next &rsaquo;
+              <ActionButton tone="quiet" size="sm" onClick={() => stepDay(1)} aria-label="Next day">
+                <span className="hidden sm:inline">Next&nbsp;</span>&rsaquo;
               </ActionButton>
               {viewedDate !== defaultDate && (
                 <ActionButton tone="ghost" size="sm" onClick={() => setAdminDate(null)}>
@@ -793,7 +802,7 @@ export function DashboardPage() {
                   <Tile className="lg:col-span-7">
                     <div className="flex items-baseline justify-between gap-4">
                       <Eyebrow>Teams on duty</Eyebrow>
-                      <Link to="/departments" className="text-label-md text-primary">
+                      <Link to="/departments" className="tap inline-flex items-center text-label-md text-primary">
                         All teams
                       </Link>
                     </div>

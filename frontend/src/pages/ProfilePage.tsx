@@ -100,12 +100,17 @@ export function ProfilePage() {
     <div className="mx-auto max-w-lg">
       <h1 className="mb-6 text-headline-lg">My profile</h1>
       <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-        <div className="flex gap-3">
-          <label className={`flex-1 ${labelClasses}`}>
+        {/* Two fields side by side need a phone to be wider than one, so
+            below `sm` they stack. `min-w-0` is what lets them shrink at
+            all: a flex child will not go below its input's intrinsic
+            width without it, which is how this row used to push the whole
+            page sideways. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+          <label className={`min-w-0 flex-1 ${labelClasses}`}>
             First name
             <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClasses} />
           </label>
-          <label className={`flex-1 ${labelClasses}`}>
+          <label className={`min-w-0 flex-1 ${labelClasses}`}>
             Last name
             <input required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
           </label>

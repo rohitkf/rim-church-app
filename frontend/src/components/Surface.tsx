@@ -177,7 +177,11 @@ export function ActionButton({
   title?: string
   'aria-label'?: string
 }) {
-  const sizing = size === 'sm' ? 'px-3.5 py-1.5 text-label-md' : 'px-5 py-3 text-body-sm font-medium'
+  // A small button is 32px tall, which a cursor hits and a thumb misses.
+  // `tap` gives it the touch floor without changing how it looks on a
+  // desktop; the medium size already clears it.
+  const sizing =
+    size === 'sm' ? 'tap px-3.5 py-1.5 text-label-md' : 'px-5 py-3 text-body-sm font-medium'
 
   return (
     <button

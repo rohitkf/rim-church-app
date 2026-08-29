@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './AppShell'
@@ -81,6 +81,33 @@ describe('AppShell dock', () => {
     )
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.getPropertyValue('--wash-hue')).toContain('accent-orange')
+  })
+
+  it('puts every destination behind More, for the phone bar that cannot hold them', async () => {
+    const user = renderShell()
+    await user.click(screen.getByRole('button', { name: 'More' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'All destinations' })
+    for (const label of ['Dashboard', 'Service Planner', 'Checklists', 'Team Rota', 'Messages']) {
+      expect(within(sheet).getByRole('link', { name: label })).toBeInTheDocument()
+    }
+  })
+
+  it('keeps wherever you are on the bar itself, so the dock still says where you are', () => {
+    // The bar shows a fixed number of destinations on a phone and hides
+    // the rest with `hidden`. Messages is well past that cut, so this is
+    // the case that would otherwise leave the phone dock unlabelled.
+    render(
+      <MemoryRouter initialEntries={['/messages']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/messages" element={<div>messages page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Messages' })).not.toHaveClass('hidden')
+    expect(screen.getByRole('link', { name: 'Checklists' })).toHaveClass('hidden')
   })
 
   it('asks before signing out, rather than just doing it', async () => {

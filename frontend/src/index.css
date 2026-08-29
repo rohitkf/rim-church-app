@@ -279,6 +279,29 @@ body {
 }
 
 /*
+ * Touch targets.
+ *
+ * A control tuned for a cursor is often half the size a thumb can hit.
+ * Rather than grow every button on every screen, `tap` raises the floor
+ * only where the pointer is coarse — so the desktop layout keeps its
+ * proportions and the phone gets something you can actually press.
+ *
+ * `tap` is for a control whose width already comes from its label;
+ * `tap-square` is for the icon-only ones, which need the floor on both
+ * axes.
+ */
+@media (pointer: coarse) {
+  .tap {
+    min-height: 44px;
+  }
+
+  .tap-square {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/*
  * The ambient wash.
  *
  * A true-black page with tiles on it reads as a void unless something

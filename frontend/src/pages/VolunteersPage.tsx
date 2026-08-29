@@ -285,7 +285,7 @@ export function VolunteersPage() {
             ) : (
               <button
                 onClick={() => grantRole.mutate({ userId: v.id, roleType: 'admin', departmentId: null })}
-                className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="tap rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 Make admin
               </button>
@@ -296,7 +296,7 @@ export function VolunteersPage() {
                   setError(null)
                   setConfirmingRemoval(v)
                 }}
-                className="rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
+                className="tap rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
               >
                 Remove
               </button>
@@ -347,7 +347,7 @@ export function VolunteersPage() {
                                 departmentId: deptId,
                               })
                             }
-                            className="text-label-sm font-medium text-secondary hover:underline"
+                            className="tap text-label-sm font-medium text-secondary hover:underline"
                           >
                             Make head
                           </button>
@@ -359,7 +359,7 @@ export function VolunteersPage() {
                                 departmentId: deptId,
                               })
                             }
-                            className="text-label-sm font-medium text-secondary hover:underline"
+                            className="tap text-label-sm font-medium text-secondary hover:underline"
                           >
                             Make assisting
                           </button>

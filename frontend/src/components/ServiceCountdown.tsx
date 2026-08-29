@@ -38,7 +38,11 @@ export function ServiceCountdown({
   if (variant === 'hero') {
     return (
       <div className="flex flex-wrap items-end gap-x-4 gap-y-1" aria-label={`Starts in ${hrs}:${mins}:${secs}`}>
-        <span className="font-mono text-display tabular">
+        {/* The display size is 76px, which is eight monospace glyphs
+            wider than a small phone. It scales with the viewport up to
+            that, so the clock stays the biggest thing on the tile without
+            pushing the page sideways. */}
+        <span className="font-mono text-[clamp(44px,15vw,76px)] font-medium leading-none tracking-[-0.04em] tabular">
           {hrs}
           <span className="text-on-surface-faint/50">:</span>
           {mins}
