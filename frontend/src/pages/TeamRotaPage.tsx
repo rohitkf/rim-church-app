@@ -56,7 +56,7 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 }
 
 export function TeamRotaPage() {
-  const { session, isAdmin, hasRole, isDepartmentHead } = useAuth()
+  const { session, isAdmin, isDepartmentHead } = useAuth()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -140,11 +140,9 @@ export function TeamRotaPage() {
     const mine = new Set(ownDeptsQuery.data ?? [])
     return all.filter(
       (d) =>
-        mine.has(d.id) ||
-        hasRole('department_head', { departmentId: d.id }) ||
-        hasRole('assisting_head', { departmentId: d.id }),
+        mine.has(d.id) || isDepartmentHead(d.id),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, hasRole])
+  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, isDepartmentHead])
   const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
 
   const rotaQuery = useQuery({

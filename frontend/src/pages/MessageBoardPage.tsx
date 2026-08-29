@@ -82,10 +82,11 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 }
 
 export function MessageBoardPage() {
-  const { session, isAdmin, hasRole, roles, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, roles, ledDepartmentIds } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const isHead = hasRole('department_head')
+  // Heads and Assisting Heads alike: ledDepartmentIds carries both.
+  const isHead = ledDepartmentIds.length > 0
 
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)

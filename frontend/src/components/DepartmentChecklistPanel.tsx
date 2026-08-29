@@ -79,14 +79,16 @@ export function DepartmentChecklistPanel({
   serviceDate,
   showDepartmentName = false,
 }: DepartmentChecklistPanelProps) {
-  const { session, isAdmin, hasRole } = useAuth()
+  const { session, isAdmin, isDepartmentHead } = useAuth()
   const errorText = useErrorText()
   const myId = session?.user.id
   const queryClient = useQueryClient()
 
-  const roleAllowsManageChecklist = isAdmin || hasRole('department_head', { departmentId })
-  const roleAllowsHeadVerify =
-    isAdmin || hasRole('department_head', { departmentId }) || hasRole('assisting_head', { departmentId })
+  // Managing the checklist and verifying a member's item are the same
+  // right — you lead this team — so they are one predicate. Two spellings
+  // of one rule is how the Assisting Head ended up able to verify an item
+  // but not to manage the list it was on.
+  const roleAllowsHeadWork = isAdmin || isDepartmentHead(departmentId)
   const roleAllowsCoordinatorVerify = useServiceFlowSigner(serviceId)
 
   // Outside Admin, a checklist is only workable on the service's own day —
@@ -94,8 +96,8 @@ export function DepartmentChecklistPanel({
   // can't be quietly rewritten.
   const editingLocked = !isAdmin && !!serviceDate && serviceDate !== todayIso()
 
-  const canManageChecklist = roleAllowsManageChecklist && !editingLocked
-  const canHeadVerify = roleAllowsHeadVerify && !editingLocked
+  const canManageChecklist = roleAllowsHeadWork && !editingLocked
+  const canHeadVerify = canManageChecklist
   const canCoordinatorVerify = roleAllowsCoordinatorVerify && !editingLocked
 
   const [newLabel, setNewLabel] = useState('')

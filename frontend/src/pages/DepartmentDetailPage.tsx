@@ -73,10 +73,10 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, hasRole } = useAuth()
+  const { isAdmin, isDepartmentHead } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const canManage = isAdmin || hasRole('department_head', { departmentId: id })
+  const canManage = isAdmin || (!!id && isDepartmentHead(id))
 
   const [addEmail, setAddEmail] = useState('')
   const [addType, setAddType] = useState<MemberType>('core')
