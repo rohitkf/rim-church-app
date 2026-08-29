@@ -37,7 +37,11 @@ const WIDTHS = {
  */
 const FALLBACK = { regular: 556, bold: 611 }
 
-export function charWidth(char: string, bold = false): number {
+/** Courier is fixed pitch: every glyph is 600, at both weights. */
+const COURIER = 600
+
+export function charWidth(char: string, bold = false, mono = false): number {
+  if (mono) return COURIER
   const code = char.charCodeAt(0)
   const table = bold ? WIDTHS.bold : WIDTHS.regular
   if (code >= 0x20 && code <= 0x7e) return table[code - 0x20]
@@ -45,9 +49,9 @@ export function charWidth(char: string, bold = false): number {
 }
 
 /** How wide a string is when set at `size` points. */
-export function textWidth(text: string, size: number, bold = false): number {
+export function textWidth(text: string, size: number, bold = false, mono = false): number {
   let total = 0
-  for (const char of text) total += charWidth(char, bold)
+  for (const char of text) total += charWidth(char, bold, mono)
   return (total * size) / 1000
 }
 
@@ -97,11 +101,17 @@ export function wrapText(text: string, size: number, maxWidth: number, bold = fa
 }
 
 /** Shorten to fit one line, ending in an ellipsis where it had to cut. */
-export function truncateToWidth(text: string, size: number, maxWidth: number, bold = false): string {
-  if (textWidth(text, size, bold) <= maxWidth) return text
+export function truncateToWidth(
+  text: string,
+  size: number,
+  maxWidth: number,
+  bold = false,
+  mono = false,
+): string {
+  if (textWidth(text, size, bold, mono) <= maxWidth) return text
   let out = ''
   for (const char of text) {
-    if (textWidth(`${out}${char}...`, size, bold) > maxWidth) break
+    if (textWidth(`${out}${char}...`, size, bold, mono) > maxWidth) break
     out += char
   }
   return `${out.trimEnd()}...`

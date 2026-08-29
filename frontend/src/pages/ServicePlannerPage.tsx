@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { LeadPicker, type LeadOption } from '../components/LeadPicker'
+import { ExportServiceDialog } from '../components/ExportServiceDialog'
+import type { SheetSession } from '../lib/serviceSheet'
 import { serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { QueryState } from '../components/QueryState'
@@ -67,6 +69,7 @@ export function ServicePlannerPage() {
    * that could drift from the real one.
    */
   const [previewing, setPreviewing] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Planning a service is an Admin action: Service Flow is a department
   // like any other, not a role scoped to one service.
@@ -273,6 +276,33 @@ export function ServicePlannerPage() {
       ? formatTime(addMinutesIso(sessions[0].start_time, totalMinutes))
       : null
 
+  // Exactly what the page is showing, handed over in the shape the sheet
+  // takes — so an export is a copy of the running order rather than a
+  // second reading of it.
+  const exportSheet = useMemo(
+    () => ({
+      serviceType: serviceQuery.data?.service_type ?? 'Service',
+      date: serviceQuery.data?.date ?? '',
+      sessions: sessions.map<SheetSession>((session) => ({
+        time: formatTime(session.start_time),
+        minutes: session.duration_minutes,
+        name: session.session_name,
+        lead: session.guest
+          ? session.guest.name
+          : session.assignee
+            ? `${session.assignee.first_name} ${session.assignee.last_name}`
+            : null,
+      })),
+      totalLabel: formatDuration(totalMinutes),
+      windowLabel:
+        sessions.length > 0 && endsAt
+          ? `Doors at ${formatTime(sessions[0].start_time)}, closing around ${endsAt}.`
+          : null,
+      printedOn: `exported ${new Date().toLocaleDateString()}`,
+    }),
+    [serviceQuery.data, sessions, totalMinutes, endsAt],
+  )
+
   const [serviceError, setServiceError] = useState<string | null>(null)
 
   const updateService = useMutation({
@@ -430,6 +460,12 @@ export function ServicePlannerPage() {
                here and stay one row from `sm`, where they fit. */
             <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               <button
+                onClick={() => setExporting(true)}
+                className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+              >
+                Export
+              </button>
+              <button
                 onClick={() => setPreviewing(true)}
                 className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
               >
@@ -519,7 +555,11 @@ export function ServicePlannerPage() {
           </div>
         )}
 
-        {confirmingClear && (
+        {exporting && (
+        <ExportServiceDialog sheet={exportSheet} onClose={() => setExporting(false)} />
+      )}
+
+      {confirmingClear && (
           <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
             <p className="text-body-sm font-medium text-on-error-container">
               Clear the whole running order for "{serviceQuery.data?.service_type}"?

@@ -25,8 +25,11 @@ describe('buildPdf', () => {
     const startxref = Number(text.slice(text.lastIndexOf('startxref')).match(/\d+/)![0])
     expect(text.slice(startxref, startxref + 4)).toBe('xref')
 
+    // Counted from the trailer rather than hardcoded, so adding a font
+    // changes the file without falsely failing the check that matters.
+    const declared = Number(text.match(/\/Size (\d+)/)![1])
     const entries = [...text.slice(startxref).matchAll(/^(\d{10}) 00000 n $/gm)]
-    expect(entries).toHaveLength(6)
+    expect(entries).toHaveLength(declared - 1)
     entries.forEach((entry, i) => {
       const offset = Number(entry[1])
       expect(text.slice(offset, offset + `${i + 1} 0 obj`.length)).toBe(`${i + 1} 0 obj`)

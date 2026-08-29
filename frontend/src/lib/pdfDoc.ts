@@ -20,6 +20,8 @@ export interface PdfText {
   bold?: boolean
   /** Hex, like the rest of the app's colours. Black when left out. */
   color?: string
+  /** Courier rather than Helvetica — for times and counts, as on screen. */
+  mono?: boolean
 }
 
 export interface PdfRect {
@@ -27,6 +29,15 @@ export interface PdfRect {
   y: number
   w: number
   h: number
+  color?: string
+  /** Corner radius. The app's surfaces are rounded; its exports should be. */
+  radius?: number
+}
+
+export interface PdfCircle {
+  cx: number
+  cy: number
+  r: number
   color?: string
 }
 
@@ -48,6 +59,31 @@ export interface PdfPage {
   texts: PdfText[]
   rects: PdfRect[]
   lines?: PdfLine[]
+  circles?: PdfCircle[]
+}
+
+/**
+ * A circular arc is not a bezier, but four beziers with their control
+ * points at this fraction of the radius are within a thousandth of one —
+ * far closer than a printer can resolve.
+ */
+const KAPPA = 0.5523
+
+/** A rounded rectangle as a path, in PDF's bottom-left coordinates. */
+function roundedRectPath(x: number, y: number, w: number, h: number, r: number): string {
+  const k = r * KAPPA
+  const R = (n: number) => round(n)
+  return (
+    `${R(x + r)} ${R(y)} m ` +
+    `${R(x + w - r)} ${R(y)} l ` +
+    `${R(x + w - r + k)} ${R(y)} ${R(x + w)} ${R(y + r - k)} ${R(x + w)} ${R(y + r)} c ` +
+    `${R(x + w)} ${R(y + h - r)} l ` +
+    `${R(x + w)} ${R(y + h - r + k)} ${R(x + w - r + k)} ${R(y + h)} ${R(x + w - r)} ${R(y + h)} c ` +
+    `${R(x + r)} ${R(y + h)} l ` +
+    `${R(x + r - k)} ${R(y + h)} ${R(x)} ${R(y + h - r + k)} ${R(x)} ${R(y + h - r)} c ` +
+    `${R(x)} ${R(y + r)} l ` +
+    `${R(x)} ${R(y + r - k)} ${R(x + r - k)} ${R(y)} ${R(x + r)} ${R(y)} c h`
+  )
 }
 
 /** Hex to the three 0-1 components PDF wants. */
@@ -114,8 +150,25 @@ function contentStream(page: PdfPage): string {
 
   for (const r of page.rects) {
     // Rectangles are given a top-left y; PDF wants the bottom edge.
+    const bottom = page.height - r.y - r.h
+    const radius = Math.min(r.radius ?? 0, r.w / 2, r.h / 2)
     parts.push(
-      `${rgb(r.color)} rg ${round(r.x)} ${round(page.height - r.y - r.h)} ${round(r.w)} ${round(r.h)} re f`,
+      radius > 0
+        ? `${rgb(r.color)} rg ${roundedRectPath(r.x, bottom, r.w, r.h, radius)} f`
+        : `${rgb(r.color)} rg ${round(r.x)} ${round(bottom)} ${round(r.w)} ${round(r.h)} re f`,
+    )
+  }
+
+  for (const c of page.circles ?? []) {
+    const cy = page.height - c.cy
+    const k = c.r * KAPPA
+    parts.push(
+      `${rgb(c.color)} rg ` +
+        `${round(c.cx + c.r)} ${round(cy)} m ` +
+        `${round(c.cx + c.r)} ${round(cy + k)} ${round(c.cx + k)} ${round(cy + c.r)} ${round(c.cx)} ${round(cy + c.r)} c ` +
+        `${round(c.cx - k)} ${round(cy + c.r)} ${round(c.cx - c.r)} ${round(cy + k)} ${round(c.cx - c.r)} ${round(cy)} c ` +
+        `${round(c.cx - c.r)} ${round(cy - k)} ${round(c.cx - k)} ${round(cy - c.r)} ${round(c.cx)} ${round(cy - c.r)} c ` +
+        `${round(c.cx + k)} ${round(cy - c.r)} ${round(c.cx + c.r)} ${round(cy - k)} ${round(c.cx + c.r)} ${round(cy)} c h f`,
     )
   }
 
@@ -129,7 +182,7 @@ function contentStream(page: PdfPage): string {
 
   for (const t of page.texts) {
     parts.push(
-      `BT ${rgb(t.color)} rg /${t.bold ? 'F2' : 'F1'} ${round(t.size)} Tf ` +
+      `BT ${rgb(t.color)} rg /${t.mono ? (t.bold ? 'F4' : 'F3') : t.bold ? 'F2' : 'F1'} ${round(t.size)} Tf ` +
         `${round(t.x)} ${round(page.height - t.y)} Td (${escapeText(t.text)}) Tj ET`,
     )
   }
@@ -151,10 +204,12 @@ export function buildPdf(page: PdfPage): Uint8Array {
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(page.width)} ${round(page.height)}] ` +
-      '/Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>',
+      '/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >> >> /Contents 4 0 R >>',
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>',
   ]
 
   let body = '%PDF-1.4\n'
