@@ -1,5 +1,5 @@
 import { A4, buildPdf, type PdfLine, type PdfRect, type PdfText } from './pdfDoc'
-import { textWidth, truncateToWidth, wrapToLines } from './helveticaMetrics'
+import { fitToWidth, textWidth, truncateToWidth, wrapToLines } from './helveticaMetrics'
 
 /**
  * The printed label for one item — made to be cut out and stuck on.
@@ -162,11 +162,15 @@ function drawLarge(ctx: Ctx, label: ItemLabel, x: number, y: number) {
 
   if (label.assetTag) {
     ty += 10
+    // The code is what the label is for, so it shrinks to fit rather than
+    // being cut short: a long code set a little smaller is still readable,
+    // half a code is not.
+    const size = fitToWidth(label.assetTag, 24, 13, colW, true)
     ctx.texts.push({
       x: x + pad,
       y: ty,
-      size: 24,
-      text: truncateToWidth(label.assetTag, 24, colW, true),
+      size,
+      text: truncateToWidth(label.assetTag, size, colW, true),
       bold: true,
       color: team,
     })
@@ -210,7 +214,11 @@ function drawLarge(ctx: Ctx, label: ItemLabel, x: number, y: number) {
 
 /** The small label: for a microphone, a cable drum, a battery box. */
 function drawSmall(ctx: Ctx, label: ItemLabel, x: number, y: number) {
-  const W = 200
+  // Wide enough that a full asset code sits beside the QR at a readable
+  // size. It was 200pt, which left a 96pt column — a code as ordinary as
+  // MED-BRT-0001 needs 108pt at 15pt type, so it came out as "MED-BRT-0..."
+  // and the label lost the one thing it exists to carry.
+  const W = 250
   const H = 104
   const pad = 10
   const team = label.teamColor || DEFAULT_TEAM
@@ -226,15 +234,16 @@ function drawSmall(ctx: Ctx, label: ItemLabel, x: number, y: number) {
   let ty = y + 5 + pad + 12
 
   if (label.assetTag) {
+    const size = fitToWidth(label.assetTag, 15, 9, colW, true)
     ctx.texts.push({
       x: x + pad,
       y: ty,
-      size: 15,
-      text: truncateToWidth(label.assetTag, 15, colW, true),
+      size,
+      text: truncateToWidth(label.assetTag, size, colW, true),
       bold: true,
       color: team,
     })
-    ty += 15
+    ty += size
   }
 
   for (const line of wrapToLines(label.title, 8.5, colW, 3, true)) {

@@ -142,3 +142,27 @@ export function wrapToLines(
   )
   return kept
 }
+
+/**
+ * The largest size at or below `maxSize` that fits `text` into `maxWidth`.
+ *
+ * For the one string on a label that must never be shortened — the asset
+ * code. Truncating a name is a cosmetic loss; truncating the code that
+ * identifies the item defeats the label. Shrinking the type instead keeps
+ * every character, and `minSize` stops it shrinking past legibility (past
+ * that the caller is expected to fall back to truncation).
+ */
+export function fitToWidth(
+  text: string,
+  maxSize: number,
+  minSize: number,
+  maxWidth: number,
+  bold = false,
+  mono = false,
+): number {
+  let size = maxSize
+  while (size > minSize && textWidth(text, size, bold, mono) > maxWidth) {
+    size -= 0.5
+  }
+  return size
+}
