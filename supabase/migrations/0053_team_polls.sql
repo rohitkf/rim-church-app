@@ -182,7 +182,20 @@ create trigger team_poll_votes_single_choice
   before insert on public.team_poll_votes
   for each row execute function public.enforce_single_choice_vote();
 
--- The board updates itself while people answer.
-alter publication supabase_realtime add table public.team_polls;
-alter publication supabase_realtime add table public.team_poll_options;
-alter publication supabase_realtime add table public.team_poll_votes;
+-- The board updates itself while people answer. A bare Postgres instance (the
+-- CI dry-run) has no `supabase_realtime` publication, so guard on it.
+do $$
+declare
+  t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['team_polls', 'team_poll_options', 'team_poll_votes'] loop
+      if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+      ) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
