@@ -85,7 +85,7 @@ export function AdminResetCard() {
               setDone(null)
               setMode('activity')
             }}
-            className="mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
+            className="tap mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
           >
             Clear activity
           </button>
@@ -103,7 +103,7 @@ export function AdminResetCard() {
               setDone(null)
               setMode('everything')
             }}
-            className="mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
+            className="tap mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
           >
             Clear everything
           </button>

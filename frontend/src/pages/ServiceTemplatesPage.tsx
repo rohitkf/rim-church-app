@@ -136,7 +136,7 @@ export function ServiceTemplatesPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/service-planner" className="text-body-sm text-secondary">
+      <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-secondary">
         ← Back to Service Planner
       </Link>
       <PageHeader
@@ -163,7 +163,7 @@ export function ServiceTemplatesPage() {
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+              className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
             />
           </label>
         </div>
@@ -191,14 +191,14 @@ export function ServiceTemplatesPage() {
                   )
                 }
                 aria-label="Duration in minutes"
-                className="w-20 rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+                className="tap w-20 rounded-full hairline px-3 py-2 text-body-md text-on-surface"
               />
               <span className="text-body-sm text-on-surface-variant">min</span>
               <button
                 type="button"
                 onClick={() => setDrafts(drafts.length > 1 ? drafts.filter((_, j) => j !== i) : [{ ...emptyDraft }])}
                 aria-label={`Remove session ${i + 1}`}
-                className="shrink-0 px-1 text-body-sm text-error hover:underline"
+                className="tap-square shrink-0 px-1 text-body-sm text-error hover:underline"
               >
                 ✕
               </button>
@@ -209,7 +209,7 @@ export function ServiceTemplatesPage() {
           <button
             type="button"
             onClick={() => setDrafts([...drafts, { ...emptyDraft }])}
-            className="text-body-sm font-medium text-secondary hover:underline"
+            className="tap inline-flex items-center text-body-sm font-medium text-secondary hover:underline"
           >
             + Add session
           </button>

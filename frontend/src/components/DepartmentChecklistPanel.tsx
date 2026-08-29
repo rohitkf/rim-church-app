@@ -203,7 +203,7 @@ export function DepartmentChecklistPanel({
               href={handbookQuery.data}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+              className="tap rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
             >
               Download Handbook PDF
             </a>
@@ -340,7 +340,7 @@ export function DepartmentChecklistPanel({
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="Test all microphone batteries"
-                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+                  className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                 />
               </label>
               <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
@@ -348,7 +348,7 @@ export function DepartmentChecklistPanel({
                 <select
                   value={newAssignee}
                   onChange={(e) => setNewAssignee(e.target.value)}
-                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+                  className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                 >
                   <option value="">Select…</option>
                   {membersQuery.data?.map((m) => (

@@ -306,7 +306,7 @@ export function MessageBoardPage() {
                       setPostAsTouched(true)
                       setPostAsDeptId(e.target.value || null)
                     }}
-                    className="rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface"
+                    className="tap rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface"
                   >
                     {isAdmin && <option value="">Admin</option>}
                     {postAsOptions.map((o) => (

@@ -136,7 +136,7 @@ export function LeadPicker({
           requestAnimationFrame(() => inputRef.current?.focus())
         }}
         onKeyDown={onKeyDown}
-        className="flex w-44 items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
+        className="tap flex w-44 items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
       >
         <span className="min-w-0 flex-1 truncate">
           {selected ? selected.name : 'Unassigned'}

@@ -118,7 +118,7 @@ export function InventoryPage() {
     <div>
       <Link
         to="/inventory"
-        className="text-body-sm text-secondary transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
+        className="tap inline-flex items-center text-body-sm text-secondary transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
       >
         ← All teams
       </Link>
@@ -182,7 +182,7 @@ export function InventoryPage() {
               key={f.value}
               type="button"
               onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3.5 py-1.5 text-body-sm transition-all duration-500 ease-[var(--ease-glide)] ${
+              className={`tap rounded-full px-3.5 py-1.5 text-body-sm transition-all duration-500 ease-[var(--ease-glide)] ${
                 filter === f.value
                   ? 'bg-primary text-on-primary shadow-[var(--shadow-ambient)]'
                   : 'text-on-surface-variant ring-1 ring-black/8 hover:text-on-surface dark:ring-white/10'

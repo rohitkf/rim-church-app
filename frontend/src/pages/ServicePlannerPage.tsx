@@ -368,7 +368,7 @@ export function ServicePlannerPage() {
       emptyMessage="Service not found."
     >
       <div>
-        <Link to="/service-planner" className="text-body-sm text-secondary">
+        <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-secondary">
           ← Back to Service Planner
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
@@ -412,7 +412,10 @@ export function ServicePlannerPage() {
             )}
           </div>
           {isAdmin && (
-            <div className="flex shrink-0 items-center gap-2">
+            /* Four buttons come to 517px, and `shrink-0` meant they ran
+               off the side of a phone rather than wrapping. They wrap
+               here and stay one row from `sm`, where they fit. */
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               {sessions.length > 0 && (
                 <button
                   onClick={() => {
@@ -596,6 +599,30 @@ export function ServicePlannerPage() {
                     // Only an Admin can say a service has slipped, and only
                     // on the session the service is waiting to begin.
                     const canStart = canEdit && isAdmin && startable === session.id
+                    /* The one time the planner actually sets; every other
+                       start is this one plus the durations. It is rendered
+                       in the rail on a desktop and inside the card on a
+                       phone — only ever one of the two at a time. */
+                    const startTimeEditor = (
+                      <input
+                        type="time"
+                        aria-label="Service start time"
+                        defaultValue={timeInputValue(session.start_time)}
+                        onBlur={(e) => {
+                          if (!e.target.value) return
+                          updateField.mutate({
+                            id: session.id,
+                            patch: {
+                              start_time: combineDateAndTime(
+                                serviceQuery.data!.date,
+                                e.target.value,
+                              ),
+                            },
+                          })
+                        }}
+                        className="w-full rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
+                      />
+                    )
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
@@ -605,26 +632,16 @@ export function ServicePlannerPage() {
                         tone={unassigned ? 'warning' : isFirst ? 'now' : 'plain'}
                         time={
                           isFirst && canEdit ? (
-                            /* The one time the planner actually sets; every
-                               other start is this one plus the durations. */
-                            <input
-                              type="time"
-                              aria-label="Service start time"
-                              defaultValue={timeInputValue(session.start_time)}
-                              onBlur={(e) => {
-                                if (!e.target.value) return
-                                updateField.mutate({
-                                  id: session.id,
-                                  patch: {
-                                    start_time: combineDateAndTime(
-                                      serviceQuery.data!.date,
-                                      e.target.value,
-                                    ),
-                                  },
-                                })
-                              }}
-                              className="w-full rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
-                            />
+                            <>
+                              {/* The rail is 56px wide on a phone and a time
+                                  input is nearly twice that, so there it
+                                  reads the time and the editor moves into
+                                  the card, which has the room. */}
+                              <span className="font-mono sm:hidden">
+                                {formatTime(session.start_time)}
+                              </span>
+                              <span className="hidden sm:block">{startTimeEditor}</span>
+                            </>
                           ) : (
                             formatTime(session.start_time)
                           )
@@ -645,7 +662,7 @@ export function ServicePlannerPage() {
                                     patch: { duration_minutes: value },
                                   })
                                 }}
-                                className="w-10 rounded-full bg-raised px-1.5 py-0.5 text-right font-mono text-label-sm text-on-surface-variant"
+                                className="w-14 rounded-full bg-raised px-1.5 py-0.5 text-right font-mono text-label-sm text-on-surface-variant"
                               />
                               {/* The unit stays outside the field: a number
                                   input with "min" in it is a number input
@@ -667,17 +684,32 @@ export function ServicePlannerPage() {
                                 type="button"
                                 onClick={() => startSessionNow.mutate(session.id)}
                                 disabled={startSessionNow.isPending}
-                                className="rounded-full bg-accent-green px-3.5 py-1.5 text-label-md font-medium text-accent-green-ink transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+                                className="tap rounded-full bg-accent-green px-3.5 py-1.5 text-label-md font-medium text-accent-green-ink transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
                               >
                                 {startSessionNow.isPending ? 'Starting…' : 'Session started'}
                               </button>
-                              <span className="ml-2.5 text-label-sm text-on-surface-faint">
+                              <span className="mt-1.5 block text-label-sm text-on-surface-faint sm:ml-2.5 sm:mt-0 sm:inline">
                                 Sets this to now and moves everything after it.
                               </span>
                             </div>
                           )}
+                          {isFirst && canEdit && (
+                            <label className="mb-3 flex items-center gap-2 sm:hidden">
+                              <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                Starts
+                              </span>
+                              {startTimeEditor}
+                            </label>
+                          )}
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                            <div className="min-w-0 flex-1">
+                            {/* `min-w-0` lets this shrink, which is what a
+                                wrapping row needs — but with nothing to
+                                shrink *to* it collapsed against the lead
+                                picker's own width until the name was one
+                                letter wide. `basis-full` gives it the whole
+                                line on a phone, so the picker wraps under
+                                it instead of squeezing it. */}
+                            <div className="min-w-0 flex-1 basis-full sm:basis-0">
                               {canEdit ? (
                                 <input
                                   defaultValue={session.session_name}
@@ -752,7 +784,7 @@ export function ServicePlannerPage() {
                                 type="button"
                                 onClick={() => deleteSession.mutate(session.id)}
                                 aria-label={`Remove ${session.session_name}`}
-                                className="shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
+                                className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
                               >
                                 Remove
                               </button>

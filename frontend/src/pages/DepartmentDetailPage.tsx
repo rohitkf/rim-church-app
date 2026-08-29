@@ -192,20 +192,24 @@ export function DepartmentDetailPage() {
   return (
     <QueryState isLoading={deptQuery.isLoading} error={deptQuery.error} isEmpty={deptQuery.data === null} emptyMessage="Department not found, or you don't have access to it.">
       <div>
-        <div className="flex items-start justify-between">
-          <div>
+        {/* The handbook controls are 199px of buttons that were pinned to
+            the right of the title with nowhere to go on a phone, so they
+            hung off the edge. They sit under the title until there is
+            room for both. */}
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-start sm:gap-6">
+          <div className="min-w-0">
             <h1 className="text-headline-xl">{deptQuery.data?.name}</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
               Manage core team members, guest access, and compliance status.
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
             {handbookQuery.data && (
               <a
                 href={handbookQuery.data}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+                className="tap rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
               >
                 {handbookLabel}
               </a>
@@ -215,7 +219,7 @@ export function DepartmentDetailPage() {
                 <button
                   type="button"
                   onClick={() => setUploadOpen(true)}
-                  className="rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
+                  className="tap rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
                 >
                   {deptQuery.data?.handbook_url ? 'Replace handbook' : 'Upload handbook'}
                 </button>
@@ -226,7 +230,7 @@ export function DepartmentDetailPage() {
                       setUploadError(null)
                       setConfirmRemoveHandbook(true)
                     }}
-                    className="rounded-sm px-3 py-2 text-body-sm font-medium text-on-surface-variant hover:text-error"
+                    className="tap rounded-sm px-3 py-2 text-body-sm font-medium text-on-surface-variant hover:text-error"
                   >
                     Remove
                   </button>
@@ -275,7 +279,7 @@ export function DepartmentDetailPage() {
                             <td className="py-3 text-right">
                               <button
                                 onClick={() => removeMember.mutate(m.id)}
-                                className="text-body-sm text-error hover:underline"
+                                className="tap inline-flex items-center text-body-sm text-error hover:underline"
                               >
                                 Remove
                               </button>
@@ -353,7 +357,7 @@ export function DepartmentDetailPage() {
                   <select
                     value={addType}
                     onChange={(e) => setAddType(e.target.value as MemberType)}
-                    className="rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+                    className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
                   >
                     <option value="core">Core</option>
                     <option value="guest">Guest</option>
@@ -398,7 +402,7 @@ export function DepartmentDetailPage() {
                       {canManage && (
                         <button
                           onClick={() => removeMember.mutate(m.id)}
-                          className="text-body-sm text-error hover:underline"
+                          className="tap inline-flex items-center text-body-sm text-error hover:underline"
                         >
                           Remove
                         </button>
