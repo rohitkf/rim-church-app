@@ -208,7 +208,95 @@ export function InventoryPage() {
               : 'Nothing matches that.'
           }
         >
-          <div className="overflow-x-auto">
+          {/*
+            Six columns need 820px. Rather than hand a phone a sideways
+            scroll with the actions column parked off the edge, each item
+            becomes a card below `lg` — the same fields, stacked and
+            labelled, with nothing out of reach.
+          */}
+          <ul className="flex flex-col gap-3 p-4 lg:hidden">
+            {shown.map((item) => {
+              const status = statusOf(item)
+              const kind = kindOf(item)
+              const low = isLowStock(item)
+              const overdue = isOverdue(item, today)
+              const whereWho =
+                status === 'on_loan' && item.holder
+                  ? `${item.holder.first_name} ${item.holder.last_name}`
+                  : (item.location ?? '—')
+
+              return (
+                <li key={item.id} className="rounded-[var(--radius-chip)] hairline p-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusChip tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</StatusChip>
+                    {overdue && <StatusChip tone="bad">Overdue</StatusChip>}
+                    {low && <StatusChip tone="warn">Low stock</StatusChip>}
+                    <span className="ml-auto font-mono text-label-sm text-on-surface-variant">
+                      {item.asset_tag ?? '—'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setOpenItem(openItem === item.id ? null : item.id)}
+                    className="tap mt-2 block text-left text-body-md text-on-surface transition-colors duration-300 hover:text-secondary"
+                  >
+                    {item.name}
+                  </button>
+                  <div className="text-label-sm text-on-surface-variant">
+                    {[item.model, item.serial_number && `SN ${item.serial_number}`]
+                      .filter(Boolean)
+                      .join(' · ') || (kind === 'consumable' ? 'Consumable' : 'Asset')}
+                  </div>
+                  {kind === 'consumable' && (
+                    <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
+                      {item.quantity} in stock
+                      {typeof item.reorder_level === 'number' && ` · reorder at ${item.reorder_level}`}
+                    </div>
+                  )}
+
+                  <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                    <div className="min-w-0">
+                      <dt><Eyebrow>Where / who</Eyebrow></dt>
+                      <dd className="break-words text-body-sm text-on-surface-variant">
+                        {whereWho}
+                        {item.due_back && status === 'on_loan' && (
+                          <span className="block font-mono text-label-sm">due {item.due_back}</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt><Eyebrow>Value</Eyebrow></dt>
+                      <dd className="font-mono text-label-sm tabular-nums text-on-surface-variant">
+                        {itemValue(item) > 0 ? formatMoney(itemValue(item)) : '—'}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt><Eyebrow>Last checked</Eyebrow></dt>
+                      <dd className="font-mono text-label-sm text-on-surface-variant">
+                        {item.last_audited_at ? formatRelativeTime(item.last_audited_at) : 'never'}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {canManage && (
+                    <div className="mt-3">
+                      <RowActions
+                        item={item}
+                        canManage={canManage}
+                        busy={act.isPending}
+                        onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
+                        onEdit={() => setEditing(item)}
+                        onDelete={() => setDeleting(item)}
+                      />
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-black/5 dark:border-white/8">
@@ -374,7 +462,7 @@ function RowActions({
   const status = statusOf(item)
   const kind = kindOf(item)
   const button =
-    'rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
+    'tap rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
 
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
@@ -443,7 +531,7 @@ function RowActions({
         Edit
       </button>
       <button
-        className="rounded-full px-3 py-1.5 text-label-sm text-on-surface-variant transition-colors duration-300 hover:text-error"
+        className="tap rounded-full px-3 py-1.5 text-label-sm text-on-surface-variant transition-colors duration-300 hover:text-error"
         onClick={onDelete}
       >
         Delete

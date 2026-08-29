@@ -102,7 +102,7 @@ function RoleChecklistEditor({
           <button
             type="submit"
             disabled={addItem.isPending}
-            className="rounded-full hairline px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
+            className="tap rounded-full hairline px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
           >
             Add item
           </button>
@@ -190,7 +190,10 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
           {rolesQuery.data?.map((role) => (
             <li
               key={role.id}
-              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-full hairline px-3 py-2"
+              /* Once this row grew a Checklist block underneath it, it
+                 stopped being one line — and `rounded-full` on a tall box
+                 draws an ellipse, not a pill. */
+              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-[var(--radius-chip)] hairline px-3 py-2"
             >
               {editingId === role.id ? (
                 <form

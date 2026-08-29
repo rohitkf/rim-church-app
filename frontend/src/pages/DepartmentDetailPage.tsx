@@ -95,6 +95,11 @@ export function DepartmentDetailPage() {
     enabled: !!id,
   })
 
+  // Split once: the roster renders twice — as cards on a phone and as a
+  // table from `sm` up — and both need the same list.
+  const coreMembers = (membersQuery.data ?? []).filter((m) => m.member_type === 'core')
+  const guestMembers = (membersQuery.data ?? []).filter((m) => m.member_type === 'guest')
+
   const memberIds = membersQuery.data?.map((m) => m.user_id) ?? []
   const sensitiveQuery = useQuery({
     queryKey: ['department-members-sensitive', id, memberIds],
@@ -248,12 +253,48 @@ export function DepartmentDetailPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-headline-md">Core Members</h2>
               <span className="rounded-full bg-surface-container px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
-                {membersQuery.data?.filter((m) => m.member_type === 'core').length ?? 0} Active
+                {coreMembers.length} Active
               </span>
             </div>
 
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
-              <div className="mt-4 overflow-x-auto">
+              {/*
+                Four columns need about 420px and a phone has 360, so the
+                table used to hand a phone a sideways scroll with the
+                compliance badge parked off the edge where nobody found it.
+                Below `sm` each member is a card instead — same fields,
+                stacked, nothing hidden. The table returns where it fits.
+              */}
+              <ul className="mt-4 flex flex-col gap-3 sm:hidden">
+                {coreMembers.map((m) => (
+                  <li key={m.id} className="rounded-[var(--radius-chip)] hairline p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-body-sm font-medium text-on-surface">
+                          {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                        </div>
+                        {/* An email has no spaces to wrap at, so it needs
+                            permission to break mid-word or it sets the
+                            card's width for it. */}
+                        <div className="mt-0.5 break-all text-body-sm text-on-surface-variant">
+                          {m.profiles?.email}
+                        </div>
+                      </div>
+                      <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
+                    </div>
+                    {canManage && (
+                      <button
+                        onClick={() => removeMember.mutate(m.id)}
+                        className="tap mt-1 inline-flex items-center text-body-sm text-error hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-4 hidden overflow-x-auto sm:block">
                 <table className="w-full text-left text-body-sm">
                   <thead>
                     <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
@@ -264,9 +305,7 @@ export function DepartmentDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {membersQuery.data
-                      ?.filter((m) => m.member_type === 'core')
-                      .map((m) => (
+                    {coreMembers.map((m) => (
                         <tr key={m.id} className="border-b border-border-subtle last:border-0">
                           <td className="py-3 pr-4 font-medium text-on-surface">
                             {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
@@ -289,7 +328,7 @@ export function DepartmentDetailPage() {
                       ))}
                   </tbody>
                 </table>
-                {membersQuery.data?.filter((m) => m.member_type === 'core').length === 0 && (
+                {coreMembers.length === 0 && (
                   <p className="py-4 text-body-sm text-on-surface-variant">No core members yet.</p>
                 )}
               </div>
@@ -320,7 +359,7 @@ export function DepartmentDetailPage() {
                   )}
 
                   {!picked && searchTerm.length >= 2 && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-full hairline bg-surface-lowest shadow-lg">
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-[var(--radius-chip)] hairline bg-surface-lowest shadow-lg">
                       {suggestionsQuery.isLoading ? (
                         <p className="px-3 py-2 text-body-sm text-on-surface-variant">Searching…</p>
                       ) : suggestions.length === 0 ? (
@@ -386,18 +425,18 @@ export function DepartmentDetailPage() {
             </p>
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               <ul className="mt-4 flex flex-col gap-3">
-                {membersQuery.data
-                  ?.filter((m) => m.member_type === 'guest')
-                  .map((m) => (
+                {guestMembers.map((m) => (
                     <li
                       key={m.id}
-                      className="flex items-center justify-between rounded-[var(--radius-card)] hairline p-3"
+                      className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] hairline p-3"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-body-sm font-medium text-on-surface">
                           {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                         </div>
-                        <div className="text-body-sm text-on-surface-variant">{m.profiles?.email}</div>
+                        <div className="break-all text-body-sm text-on-surface-variant">
+                          {m.profiles?.email}
+                        </div>
                       </div>
                       {canManage && (
                         <button
@@ -409,7 +448,7 @@ export function DepartmentDetailPage() {
                       )}
                     </li>
                   ))}
-                {membersQuery.data?.filter((m) => m.member_type === 'guest').length === 0 && (
+                {guestMembers.length === 0 && (
                   <p className="text-body-sm text-on-surface-variant">No guests yet.</p>
                 )}
               </ul>
