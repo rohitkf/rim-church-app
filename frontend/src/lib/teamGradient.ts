@@ -114,3 +114,29 @@ export function teamChipStyle(
   if (style !== 'gradient') return { backgroundColor: tint(c, 15), color: c }
   return { ...teamFill(c, 100), color: inkOn(c) }
 }
+
+/**
+ * The band behind a section heading.
+ *
+ * Deliberately uncapped, unlike the row washes above: those are drawn on a
+ * phone row and capped in pixels so they don't flood a wide card, but a
+ * heading's whole job is to separate one team's block from the next, and a
+ * band that gives up a third of the way across separates nothing. So this
+ * one runs edge to edge and stays faintly lit at the far end rather than
+ * fading to nothing.
+ *
+ * In dot mode there is no band — the preference is for flat colour — but
+ * the rule under the heading still takes the team's colour, so the titles
+ * are told apart either way.
+ */
+export function teamHeadingStyle(
+  color: string | null | undefined,
+  style: TeamStylePreference,
+): CSSProperties {
+  const c = teamColorOf(color)
+  if (style !== 'gradient') return { borderBottomColor: tint(c, 45) }
+  return {
+    backgroundImage: `linear-gradient(90deg, ${tint(c, 26)} 0%, ${tint(c, 13)} 45%, ${tint(c, 5)} 100%)`,
+    borderBottomColor: tint(c, 45),
+  }
+}

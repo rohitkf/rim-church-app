@@ -96,6 +96,7 @@ export function AdminResetCard() {
           <p className="mt-1 text-body-sm text-on-surface-variant">
             All of the above, plus every team with its roles, role checklists and members, plus
             service templates, inventory, and every other account. Only your own account survives.
+            Any team made afterwards still comes with its Coordinator role.
           </p>
           <button
             onClick={() => {

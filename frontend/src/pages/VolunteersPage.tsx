@@ -10,6 +10,8 @@ import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { TeamMark } from '../components/TeamMark'
+import { teamHeadingStyle } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
 import { useErrorText } from '../lib/useErrorText'
 
@@ -65,6 +67,7 @@ const designationClass: Record<string, string> = {
 
 export function VolunteersPage() {
   const { isAdmin, isSuperAdmin, ownerId, session } = useAuth()
+  const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
@@ -440,7 +443,14 @@ export function VolunteersPage() {
 
           {teamGroups.map(({ dept, people }) => (
             <section key={dept.id}>
-              <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+              {/* The team's colour runs the width of the heading rather
+                  than sitting in a mark beside it: with a page this long,
+                  what tells you a new team has started is a band, not a
+                  6px spine. */}
+              <div
+                className="flex items-center gap-2 rounded-t-[var(--radius-chip)] border-b px-3 py-2"
+                style={teamHeadingStyle(dept.color, teamStyle)}
+              >
                 <TeamMark color={dept.color} />
                 <h2 className="text-headline-md">{dept.name}</h2>
                 <span className="font-mono text-label-sm text-on-surface-variant">

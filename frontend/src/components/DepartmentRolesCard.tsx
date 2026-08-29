@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { QueryState } from './QueryState'
 import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
 import { useErrorText } from '../lib/useErrorText'
+import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -225,25 +226,36 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               ) : (
                 <>
                   <span className="text-body-sm font-medium text-on-surface">{role.name}</span>
-                  {canManage && (
-                    <span className="flex items-center gap-3">
-                      <button
-                        onClick={() => {
-                          setEditingId(role.id)
-                          setEditingName(role.name)
-                        }}
-                        className="text-body-sm font-medium text-secondary hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteRole.mutate(role.id)}
-                        disabled={deleteRole.isPending}
-                        className="text-body-sm text-error hover:underline disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
+                  {/* Coordinator is not an ordinary role: whoever the rota
+                      puts in it can verify this team's checklist, and every
+                      team is given one. Renaming or deleting it would take
+                      that away by accident, so it is shown as the fixture
+                      it is. */}
+                  {isCoordinatorRole(role.name) ? (
+                    <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                      Built in
                     </span>
+                  ) : (
+                    canManage && (
+                      <span className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            setEditingId(role.id)
+                            setEditingName(role.name)
+                          }}
+                          className="tap text-body-sm font-medium text-secondary hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteRole.mutate(role.id)}
+                          disabled={deleteRole.isPending}
+                          className="tap text-body-sm text-error hover:underline disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )
                   )}
                 </>
               )}

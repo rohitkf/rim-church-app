@@ -10,6 +10,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useErrorText } from '../lib/useErrorText'
 import { useServiceFlowSigner } from '../lib/useServiceFlowSigner'
+import { useTeamCoordinator } from '../lib/useTeamCoordinator'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -84,12 +85,16 @@ export function DepartmentChecklistPanel({
   const myId = session?.user.id
   const queryClient = useQueryClient()
 
-  // Managing the checklist and verifying a member's item are the same
-  // right — you lead this team — so they are one predicate. Two spellings
-  // of one rule is how the Assisting Head ended up able to verify an item
-  // but not to manage the list it was on.
-  const roleAllowsHeadWork = isAdmin || isDepartmentHead(departmentId)
   const roleAllowsCoordinatorVerify = useServiceFlowSigner(serviceId)
+  // Whoever the rota has coordinating this team at this service stands in
+  // for the Head on it — see useTeamCoordinator.
+  const isTeamCoordinator = useTeamCoordinator(serviceId, departmentId)
+
+  // Managing the checklist and verifying a member's item are the same
+  // right — you are over this team today — so they are one predicate. Two
+  // spellings of one rule is how the Assisting Head ended up able to
+  // verify an item but not to manage the list it was on.
+  const roleAllowsHeadWork = isAdmin || isDepartmentHead(departmentId) || isTeamCoordinator
 
   // Outside Admin, a checklist is only workable on the service's own day —
   // beforehand or after the fact it's read-only, so a past week's record
