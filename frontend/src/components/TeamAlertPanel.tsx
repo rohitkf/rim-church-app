@@ -88,7 +88,7 @@ export function TeamAlertPanel() {
       type="button"
       onClick={() => setScope(value)}
       aria-pressed={scope === value}
-      className={`flex-1 rounded-full px-3 py-2 text-label-md transition-colors duration-300 ease-[var(--ease-glide)] ${
+      className={`tap flex-1 rounded-full px-3 py-2 text-label-md transition-colors duration-300 ease-[var(--ease-glide)] ${
         scope === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
       }`}
     >

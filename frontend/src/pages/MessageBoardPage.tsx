@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -13,8 +13,6 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
 import { canPostOnBoard } from '../lib/joinRequests'
-import { TeamAlertPanel } from '../components/TeamAlertPanel'
-import { TeamBoard } from '../components/TeamBoard'
 import { MentionInput } from '../components/MentionInput'
 import { MessageBody } from '../components/MessageBody'
 import { parseMentions, type MentionablePerson } from '../lib/mentions'
@@ -93,8 +91,6 @@ export function MessageBoardPage() {
   const [postAsDeptId, setPostAsDeptId] = useState<string | null>(null)
   const [postAsTouched, setPostAsTouched] = useState(false)
   // Which deletion the user is being asked to confirm, if any.
-  // Which board is showing on a phone. Ignored from lg up, where both are.
-  const [pane, setPane] = useState<'board' | 'team'>('board')
   const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(null)
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
@@ -135,19 +131,6 @@ export function MessageBoardPage() {
     },
   })
   const people = peopleQuery.data ?? []
-
-  // The rooms this person is actually in: their own teams, plus any they
-  // head. An Admin sees them all, because an Admin is answerable for all
-  // of them.
-  const myTeams = useMemo(() => {
-    const all = departmentsQuery.data ?? []
-    if (isAdmin) return all
-    const mine = new Set([
-      ...(membershipsQuery.data ?? []).map((m) => m.department_id),
-      ...ledDepartmentIds,
-    ])
-    return all.filter((d) => mine.has(d.id))
-  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin])
 
   const canPost = canPostOnBoard({
     isAdmin,
@@ -266,24 +249,6 @@ export function MessageBoardPage() {
 
       <BoardClearCountdown />
 
-      {/* On a phone the two boards are tabs; from lg up they are columns. */}
-      <div className="mt-4 flex gap-1 rounded-full bg-inset p-1 hairline lg:hidden">
-        {(['board', 'team'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setPane(tab)}
-            className={`tap flex-1 rounded-full px-4 py-2 text-body-sm font-medium transition-colors ${
-              pane === tab ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-            }`}
-          >
-            {tab === 'board' ? 'Message board' : 'My team'}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <div className={pane === 'board' ? '' : 'hidden lg:block'}>
 
       {canPost && (
         <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
@@ -408,19 +373,6 @@ export function MessageBoardPage() {
             ))}
           </ul>
         </QueryState>
-      </div>
-      </div>
-
-      {/* Everything that belongs to one team rather than to everyone. */}
-      <aside
-        className={`flex flex-col gap-5 lg:sticky lg:top-20 lg:max-h-[calc(100svh-6rem)] ${
-          pane === 'team' ? '' : 'hidden lg:flex'
-        }`}
-      >
-        {/* Admins and heads only — renders nothing for anyone else. */}
-        <TeamAlertPanel />
-        <TeamBoard departments={myTeams} className="h-[30rem] lg:min-h-0 lg:flex-1" />
-      </aside>
       </div>
 
       {confirm && (

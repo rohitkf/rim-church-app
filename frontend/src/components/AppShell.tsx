@@ -8,6 +8,7 @@ import {
   ClipboardUserIcon,
   GridIcon,
   IdCardIcon,
+  ChatTeamIcon,
   MessageIcon,
   SparklesIcon,
   UserCheckIcon,
@@ -36,6 +37,7 @@ const navItems: (DockItem & { adminOnly?: boolean })[] = [
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon },
   { to: '/messages', label: 'Messages', icon: MessageIcon },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon },
 ]
 
 /**
@@ -55,6 +57,7 @@ const WASH: Record<string, string> = {
   '/volunteers': 'var(--color-accent-indigo)',
   '/inventory': 'var(--color-accent-orange)',
   '/messages': 'var(--color-accent-indigo)',
+  '/team-chat': 'var(--color-accent-indigo)',
 }
 
 function washFor(pathname: string) {

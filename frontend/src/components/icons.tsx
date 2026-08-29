@@ -227,3 +227,12 @@ export function MoreIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function ChatTeamIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M20 13a2 2 0 0 1-2 2H9l-4 3V6a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2z" />
+      <path d="M8.5 9.5h7" />
+    </svg>
+  )
+}

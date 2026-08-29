@@ -54,9 +54,17 @@ const initials = (person: { first_name: string; last_name: string } | null) =>
 export function TeamBoard({
   departments,
   className = '',
+  departmentId: controlledId,
 }: {
   departments: Department[]
   className?: string
+  /**
+   * Which team's room to show. Passing it makes the board a follower: the
+   * page owns the choice and shows the picker, so the chat, the alert
+   * composer and the polls all answer about the same team instead of each
+   * asking separately.
+   */
+  departmentId?: string | null
 }) {
   const { session } = useAuth()
   const errorText = useErrorText()
@@ -66,7 +74,8 @@ export function TeamBoard({
   const [error, setError] = useState<string | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
 
-  const departmentId = selectedId ?? departments[0]?.id ?? null
+  const controlled = controlledId !== undefined
+  const departmentId = controlled ? controlledId : (selectedId ?? departments[0]?.id ?? null)
   const department = departments.find((d) => d.id === departmentId) ?? null
 
   const messagesQuery = useQuery({
@@ -162,7 +171,7 @@ export function TeamBoard({
         </div>
       </header>
 
-      {departments.length > 1 && (
+      {!controlled && departments.length > 1 && (
         <div className="flex gap-2 overflow-x-auto px-5 py-3">
           {departments.map((d) => (
             <button
@@ -277,7 +286,7 @@ export function TeamBoard({
             type="button"
             onClick={() => post.mutate()}
             disabled={post.isPending || body.trim().length === 0}
-            className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary disabled:opacity-40"
+            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary disabled:opacity-40"
           >
             Send
           </button>

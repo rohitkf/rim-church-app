@@ -25,6 +25,7 @@ import { ServiceTemplatesPage } from './pages/ServiceTemplatesPage'
 import { InventoryIndexPage } from './pages/InventoryIndexPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { MessageBoardPage } from './pages/MessageBoardPage'
+import { TeamChatPage } from './pages/TeamChatPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -79,6 +80,7 @@ const router = createBrowserRouter(
           <Route path="/inventory" element={<InventoryIndexPage />} />
           <Route path="/inventory/:id" element={<InventoryPage />} />
           <Route path="/messages" element={<MessageBoardPage />} />
+          <Route path="/team-chat" element={<TeamChatPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
