@@ -18,8 +18,8 @@ export interface PdfText {
   size: number
   text: string
   bold?: boolean
-  /** 0 is black, 1 is white. */
-  grey?: number
+  /** Hex, like the rest of the app's colours. Black when left out. */
+  color?: string
 }
 
 export interface PdfRect {
@@ -27,7 +27,19 @@ export interface PdfRect {
   y: number
   w: number
   h: number
-  grey?: number
+  color?: string
+}
+
+/** A line, for a border or a cut mark. */
+export interface PdfLine {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  width?: number
+  color?: string
+  /** On/off lengths, for a cut line that reads as "cut here". */
+  dash?: [number, number]
 }
 
 export interface PdfPage {
@@ -35,6 +47,17 @@ export interface PdfPage {
   height: number
   texts: PdfText[]
   rects: PdfRect[]
+  lines?: PdfLine[]
+}
+
+/** Hex to the three 0-1 components PDF wants. */
+function rgb(hex: string | undefined): string {
+  const value = (hex ?? '#000000').replace('#', '')
+  const full = value.length === 3 ? [...value].map((c) => c + c).join('') : value
+  const n = parseInt(full, 16)
+  if (Number.isNaN(n)) return '0 0 0'
+  const c = (shift: number) => Math.round((((n >> shift) & 255) / 255) * 1000) / 1000
+  return `${c(16)} ${c(8)} ${c(0)}`
 }
 
 /** A4 in points, which is what PDF measures in. */
@@ -90,17 +113,23 @@ function contentStream(page: PdfPage): string {
   const parts: string[] = []
 
   for (const r of page.rects) {
-    const grey = r.grey ?? 0
     // Rectangles are given a top-left y; PDF wants the bottom edge.
     parts.push(
-      `${round(grey)} g ${round(r.x)} ${round(page.height - r.y - r.h)} ${round(r.w)} ${round(r.h)} re f`,
+      `${rgb(r.color)} rg ${round(r.x)} ${round(page.height - r.y - r.h)} ${round(r.w)} ${round(r.h)} re f`,
+    )
+  }
+
+  for (const l of page.lines ?? []) {
+    parts.push(
+      `q ${rgb(l.color)} RG ${round(l.width ?? 1)} w ` +
+        `${l.dash ? `[${round(l.dash[0])} ${round(l.dash[1])}] 0 d ` : ''}` +
+        `${round(l.x1)} ${round(page.height - l.y1)} m ${round(l.x2)} ${round(page.height - l.y2)} l S Q`,
     )
   }
 
   for (const t of page.texts) {
-    const grey = t.grey ?? 0
     parts.push(
-      `BT ${round(grey)} g /${t.bold ? 'F2' : 'F1'} ${round(t.size)} Tf ` +
+      `BT ${rgb(t.color)} rg /${t.bold ? 'F2' : 'F1'} ${round(t.size)} Tf ` +
         `${round(t.x)} ${round(page.height - t.y)} Td (${escapeText(t.text)}) Tj ET`,
     )
   }

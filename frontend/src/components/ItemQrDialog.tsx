@@ -31,13 +31,10 @@ function QrSvg({ modules, className = '' }: { modules: boolean[][]; className?: 
 }
 
 /** What goes on the printed label, in the order it reads best. */
-function labelFields(item: InventoryItem, teamName: string | null): LabelField[] {
-  const fields: LabelField[] = [{ label: 'Asset tag', value: item.asset_tag ?? '—' }]
-  if (teamName) fields.push({ label: 'Team', value: teamName })
+function labelFields(item: InventoryItem): LabelField[] {
+  const fields: LabelField[] = []
   if (item.model) fields.push({ label: 'Model', value: item.model })
   if (item.serial_number) fields.push({ label: 'Serial', value: item.serial_number })
-  fields.push({ label: 'Kind', value: kindOf(item) === 'consumable' ? 'Consumable' : 'Asset' })
-  fields.push({ label: 'Status', value: STATUS_LABEL[statusOf(item)] })
   if (kindOf(item) === 'consumable') {
     fields.push({ label: 'Quantity', value: String(item.quantity) })
   }
@@ -63,10 +60,13 @@ function labelFields(item: InventoryItem, teamName: string | null): LabelField[]
 export function ItemQrDialog({
   item,
   teamName,
+  teamColor,
   onClose,
 }: {
   item: InventoryItem
   teamName: string | null
+  /** Tints the printed label's header band. */
+  teamColor: string | null
   onClose: () => void
 }) {
   const [modules, setModules] = useState<boolean[][] | null>(null)
@@ -89,11 +89,13 @@ export function ItemQrDialog({
     try {
       const pdf = itemLabelPdf({
         title: item.name,
-        subtitle: [teamName, 'Equipment register'].filter(Boolean).join(' — '),
-        fields: labelFields(item, teamName),
+        teamName,
+        teamColor,
+        assetTag: item.asset_tag ?? null,
+        statusLabel: STATUS_LABEL[statusOf(item)],
+        fields: labelFields(item),
         modules,
-        caption: `Scan to open this item in the app${item.asset_tag ? ` · ${item.asset_tag}` : ''}`,
-        footer: `Rehoboth International Ministries · printed ${new Date().toLocaleDateString()}`,
+        footer: `Rehoboth International Ministries \u00b7 printed ${new Date().toLocaleDateString()}`,
       })
       const stem = (item.asset_tag ?? item.name).replace(/[^\w-]+/g, '-').toLowerCase()
       downloadFile(pdf, `${stem}-label.pdf`, 'application/pdf')

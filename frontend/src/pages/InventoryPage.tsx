@@ -439,6 +439,7 @@ export function InventoryPage() {
         <ItemQrDialog
           item={qrFor}
           teamName={deptQuery.data?.name ?? null}
+          teamColor={deptQuery.data?.color ?? null}
           onClose={() => setQrFor(null)}
         />
       )}
