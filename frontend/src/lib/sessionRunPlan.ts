@@ -41,22 +41,36 @@ export function toTheMinute(now: number): string {
   return at.toISOString()
 }
 
+/** Is `now` inside this session's window? */
+function isRunningAt(session: RunSession, now: number): boolean {
+  if (isSkipped(session)) return false
+  const start = new Date(session.start_time).getTime()
+  if (Number.isNaN(start)) return false
+  return now >= start && now < start + Math.max(session.duration_minutes ?? 0, 0) * 60_000
+}
+
 /**
  * The session the service is waiting on: the one running now, or failing
  * that the next one still to come. Skipped sessions are never it.
+ *
+ * With nothing running and nothing left ahead, the service is at its end, so
+ * the front is the last session rather than the first — going back to the
+ * top would make every session look jumped over.
  */
 export function frontIndex(sessions: RunSession[], now: number): number {
   let firstAhead = -1
+  let lastLive = -1
   for (let i = 0; i < sessions.length; i += 1) {
     const s = sessions[i]
     if (isSkipped(s)) continue
     const start = new Date(s.start_time).getTime()
     if (Number.isNaN(start)) continue
-    const end = start + Math.max(s.duration_minutes ?? 0, 0) * 60_000
-    if (now >= start && now < end) return i
+    lastLive = i
+    if (isRunningAt(s, now)) return i
     if (start > now && firstAhead === -1) firstAhead = i
   }
-  return firstAhead === -1 ? 0 : firstAhead
+  if (firstAhead !== -1) return firstAhead
+  return lastLive === -1 ? 0 : lastLive
 }
 
 /**
@@ -98,14 +112,21 @@ function timeWrites(
 /**
  * The sessions that starting `index` would jump over.
  *
- * Everything from the front of the service up to it that has not already
- * been skipped — those are the ones that did not happen, and the dialog has
- * to name them before anybody agrees to it.
+ * The session on right now is not one of them. It is the session that has
+ * just ended — pressing the next one is how a service that finished early
+ * says so, and the gap it leaves is that session's under-run, not grounds
+ * for marking it as never having happened. Only the sessions strictly
+ * between it and the target were actually missed.
+ *
+ * Before the service, and in a gap between sessions, nothing is running, so
+ * the next session up is itself jumpable: skipping straight past it is a
+ * real skip.
  */
 export function jumpedSessions(sessions: RunSession[], index: number, now: number): RunSession[] {
   const front = frontIndex(sessions, now)
-  if (index <= front) return []
-  return sessions.slice(front, index).filter((s) => !isSkipped(s))
+  const first = isRunningAt(sessions[front], now) ? front + 1 : front
+  if (index <= first) return []
+  return sessions.slice(first, index).filter((s) => !isSkipped(s))
 }
 
 /**
@@ -128,8 +149,9 @@ export function startAtPlan(
   if (index < 0 || index >= sessions.length) return []
   const at = toTheMinute(now)
 
+  const jumped = jumpedSessions(sessions, index, now)
   const forced = new Map<string, RunWrite['patch']>()
-  for (const skipped of jumpedSessions(sessions, index, now)) {
+  for (const skipped of jumped) {
     forced.set(skipped.id, { skipped_at: at, skip_reason: reason?.trim() || null })
   }
   if (isSkipped(sessions[index])) {
@@ -141,7 +163,19 @@ export function startAtPlan(
   const marked = sessions.map((s) =>
     forced.has(s.id) ? { ...s, skipped_at: forced.get(s.id)!.skipped_at ?? null } : s,
   )
-  return timeWrites(sessions, cascade(marked, index, at), forced)
+
+  /*
+   * The cascade starts at the first session being dropped, not at the one
+   * being started.
+   *
+   * A dropped session takes no time, so both land on the same minute either
+   * way — but starting further back stamps the dropped ones with the moment
+   * they were dropped. Left at their old planned times they read as a
+   * later slot than the session that replaced them: "Offering, 11:26,
+   * skipped" sitting above "Sermon, 11:10".
+   */
+  const from = jumped.length > 0 ? sessions.indexOf(jumped[0]) : index
+  return timeWrites(sessions, cascade(marked, from, at), forced)
 }
 
 /**
