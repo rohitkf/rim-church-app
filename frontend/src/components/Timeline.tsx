@@ -74,7 +74,7 @@ export function TimelineRow({
 
   return (
     <li className="flex gap-3 sm:gap-5">
-      <div className="flex w-14 shrink-0 flex-col pt-5 text-right sm:w-24">
+      <div className="w-14 shrink-0 pt-5 text-right sm:w-24">
         <div
           className={`font-mono text-label-md tabular ${
             skipped ? 'text-on-surface-faint line-through' : 'text-on-surface-variant'
@@ -95,10 +95,6 @@ export function TimelineRow({
             {over > 0 ? `+${over} over` : `${Math.abs(over)} early`}
           </div>
         )}
-        {/* Pushed to the foot of the row, so it sits beside the stretch of
-            rail between this session's dot and the next one's — which is
-            the gap it is counting down. */}
-        {countdown && <div className="mt-auto pb-4">{countdown}</div>}
       </div>
 
       <div aria-hidden="true" className="relative flex w-3 shrink-0 justify-center">
@@ -113,6 +109,22 @@ export function TimelineRow({
           />
         )}
         <span data-rail="dot" className={`absolute top-6 h-2.5 w-2.5 rounded-full ${dot}`} />
+
+        {/*
+          Centred on the line, halfway down the run of rail between this dot
+          and the next one — which is the gap it is counting.
+
+          The rail column is 12px wide, so the pill has to be allowed out of
+          it, and it is opaque so the line reads as passing behind rather
+          than through. `top` is the row's midpoint plus the 29px that puts
+          the dot where it is, which is the midpoint of the segment rather
+          than of the row.
+        */}
+        {countdown && (
+          <span className="absolute left-1/2 top-[calc(50%+29px)] z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap">
+            {countdown}
+          </span>
+        )}
       </div>
 
       <div className="min-w-0 flex-1 pb-2.5">{children}</div>
@@ -204,10 +216,10 @@ export function RailCountdown({ startsAt }: { startsAt: string }) {
 
   return (
     <span
-      className={`inline-block rounded-full px-1.5 py-0.5 font-mono text-label-sm tabular ${
+      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[11px] leading-[1.45] tabular ring-1 ${
         remaining <= 0
-          ? 'bg-accent-orange/15 text-accent-orange-soft'
-          : 'bg-accent-green/12 text-accent-green'
+          ? 'text-accent-orange-soft ring-accent-orange/45'
+          : 'text-accent-green ring-accent-green/40'
       }`}
       aria-label={remaining <= 0 ? 'The next session is due to start' : `Next session in ${text}`}
     >
