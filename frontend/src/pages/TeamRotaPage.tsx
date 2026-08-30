@@ -15,6 +15,7 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
+import { servicesToShow } from '../lib/rotaWindow'
 import { formatServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
@@ -72,6 +73,25 @@ export function TeamRotaPage() {
   const [openForm, setOpenForm] = useState<Record<string, boolean>>({})
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
+  /*
+   * Which upcoming services this person is actually on.
+   *
+   * Asked without a window around it, so a service further out than the
+   * page's own list cannot fall out of the answer — which is exactly how an
+   * assignment two Sundays away became invisible to the person holding it.
+   */
+  const myServicesQuery = useQuery({
+    queryKey: ['my-rota-services', myId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rota_assignments')
+        .select('service_id')
+        .eq('user_id', myId!)
+      if (error) throw error
+      return z.array(z.object({ service_id: z.string() })).parse(data).map((r) => r.service_id)
+    },
+    enabled: !!myId,
+  })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const ownDeptsQuery = useQuery({
     queryKey: ['own-departments', myId],
@@ -79,18 +99,14 @@ export function TeamRotaPage() {
     enabled: !!myId,
   })
 
-  const upcoming = useMemo(() => {
-    const ahead = (servicesQuery.data ?? [])
-      .filter((s) => s.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
-    // Outside Admin the rota is about the service in front of you: show
-    // only the nearest day (both services if two run that day).
-    if (!isAdmin) {
-      const nearest = ahead[0]?.date
-      return nearest ? ahead.filter((s) => s.date === nearest) : []
-    }
-    return ahead.slice(0, UPCOMING_LIMIT)
-  }, [servicesQuery.data, today, isAdmin])
+  const upcoming = useMemo(
+    () =>
+      servicesToShow(servicesQuery.data ?? [], today, {
+        limit: UPCOMING_LIMIT,
+        mine: new Set(myServicesQuery.data ?? []),
+      }),
+    [servicesQuery.data, today, myServicesQuery.data],
+  )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
   // Which of these is happening right now, from its running order. Re-read
