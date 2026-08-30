@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { formatCountdown } from '../lib/countdown'
 
 export type TimelineTone = 'plain' | 'now' | 'warning'
 
@@ -24,6 +25,7 @@ export function TimelineRow({
   running = false,
   over,
   skipped = false,
+  countdown,
   children,
 }: {
   time: ReactNode
@@ -49,6 +51,8 @@ export function TimelineRow({
   over?: number
   /** This session was dropped: it did not happen and took no time. */
   skipped?: boolean
+  /** Time until the next session, shown in the gap this row's rail leaves. */
+  countdown?: ReactNode
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
@@ -70,7 +74,7 @@ export function TimelineRow({
 
   return (
     <li className="flex gap-3 sm:gap-5">
-      <div className="w-14 shrink-0 pt-5 text-right sm:w-24">
+      <div className="flex w-14 shrink-0 flex-col pt-5 text-right sm:w-24">
         <div
           className={`font-mono text-label-md tabular ${
             skipped ? 'text-on-surface-faint line-through' : 'text-on-surface-variant'
@@ -91,6 +95,10 @@ export function TimelineRow({
             {over > 0 ? `+${over} over` : `${Math.abs(over)} early`}
           </div>
         )}
+        {/* Pushed to the foot of the row, so it sits beside the stretch of
+            rail between this session's dot and the next one's — which is
+            the gap it is counting down. */}
+        {countdown && <div className="mt-auto pb-4">{countdown}</div>}
       </div>
 
       <div aria-hidden="true" className="relative flex w-3 shrink-0 justify-center">
@@ -170,6 +178,40 @@ export function AssigneePill({
         {initials}
       </span>
       <span className="truncate text-label-md text-on-surface">{name}</span>
+    </span>
+  )
+}
+
+/**
+ * How long until the next session, ticking.
+ *
+ * On the rail rather than in the card, because it is a fact about the gap
+ * between two sessions rather than about either of them. It only appears
+ * against the session on right now: a countdown to every future session at
+ * once is a wall of numbers, and only one of them is the next thing to
+ * happen.
+ */
+export function RailCountdown({ startsAt }: { startsAt: string }) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const remaining = new Date(startsAt).getTime() - now
+  const text = formatCountdown(remaining)
+
+  return (
+    <span
+      className={`inline-block rounded-full px-1.5 py-0.5 font-mono text-label-sm tabular ${
+        remaining <= 0
+          ? 'bg-accent-orange/15 text-accent-orange-soft'
+          : 'bg-accent-green/12 text-accent-green'
+      }`}
+      aria-label={remaining <= 0 ? 'The next session is due to start' : `Next session in ${text}`}
+    >
+      {text}
     </span>
   )
 }

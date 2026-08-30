@@ -11,7 +11,7 @@ import { serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
-import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
+import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
@@ -896,6 +896,10 @@ export function ServicePlannerPage() {
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
                     const drift = variance.get(session.id)
+                    // The gap this row's rail leaves before the next thing
+                    // that is actually going to happen — a skipped session
+                    // is not it.
+                    const nextUp = sessions.slice(idx + 1).find((s) => !s.skipped_at)
                     // Every session gets the controls, not just the one the
                     // clock is on: a session that finishes early is started
                     // by pressing the next one, and a session nobody got to
@@ -977,6 +981,9 @@ export function ServicePlannerPage() {
                         }
                         over={drift}
                         skipped={skipped}
+                        countdown={
+                          running && nextUp ? <RailCountdown startsAt={nextUp.start_time} /> : undefined
+                        }
                       >
                         {/* Nobody on it still outranks "on now": an empty
                             session is the thing that needs a person. */}
