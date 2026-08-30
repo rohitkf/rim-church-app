@@ -571,17 +571,24 @@ export function ServicePlannerPage() {
               </>
             )}
           </div>
-          {canManage && (
-            /* Four buttons come to 517px, and `shrink-0` meant they ran
-               off the side of a phone rather than wrapping. They wrap
-               here and stay one row from `sm`, where they fit. */
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-              <button
-                onClick={() => setExporting(true)}
-                className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
-              >
-                Export
-              </button>
+          {/* Four buttons come to 517px, and `shrink-0` meant they ran
+              off the side of a phone rather than wrapping. They wrap
+              here and stay one row from `sm`, where they fit. */}
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            {/* Export is not an editing control. Anyone rostered on needs the
+                running order on a phone screen or a printed sheet, and having
+                to ask an Admin for a copy of a plan they can already read on
+                this page is a worse answer than letting them take it. It sits
+                outside the Admin block for that reason, and stays visible in
+                Preview, which is meant to show what everyone else gets. */}
+            <button
+              onClick={() => setExporting(true)}
+              className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+            >
+              Export
+            </button>
+            {canManage && (
+            <>
               <button
                 onClick={() => setPreviewing(true)}
                 className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
@@ -638,8 +645,9 @@ export function ServicePlannerPage() {
               >
                 Delete
               </button>
-            </div>
-          )}
+            </>
+            )}
+          </div>
         </div>
 
         {/* Preview hides every control an Admin has, including the button
