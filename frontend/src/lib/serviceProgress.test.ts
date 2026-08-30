@@ -197,10 +197,33 @@ describe('a session held back as not started', () => {
     const p = serviceProgress(held, clock('10:45'))
     expect(p.byId.get('b')!.state).toBe('ahead')
     expect(p.byId.get('b')!.fill).toBe(0)
-    expect(p.runningId).toBeNull()
+  })
+
+  it('leaves the session before it running, because it is', () => {
+    const p = serviceProgress(held, clock('10:45'))
+    expect(p.runningId).toBe('a')
+    expect(p.byId.get('a')!.state).toBe('running')
+    expect(p.byId.get('a')!.fill).toBe(1)
+  })
+
+  it('stops the clock for everything behind it', () => {
+    // 'c' is planned for 11:00 and it is 11:30, but nothing has started —
+    // filling its rail would draw the service as finished around a session
+    // nobody had begun.
+    const p = serviceProgress(held, clock('11:30'))
+    expect(p.byId.get('c')!.state).toBe('ahead')
+    expect(p.byId.get('c')!.fill).toBe(0)
+    expect(p.runningId).toBe('a')
   })
 
   it('is still the session the service is waiting to start', () => {
     expect(startableSession(held, clock('10:45'))).toBe('b')
+  })
+
+  it('leaves a normal plan alone', () => {
+    const p = serviceProgress(ORDER, clock('10:45'))
+    expect(p.runningId).toBe('b')
+    expect(p.byId.get('a')!.state).toBe('done')
+    expect(p.byId.get('c')!.state).toBe('ahead')
   })
 })

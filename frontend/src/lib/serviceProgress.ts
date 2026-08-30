@@ -57,6 +57,24 @@ export function serviceProgress(
   const byId = new Map<string, SessionProgress>()
   let runningId: string | null = null
 
+  /*
+   * A hold stops the clock for everything behind it.
+   *
+   * Somebody has said this session has not begun. Everything after it
+   * therefore has not begun either, however far past their planned starts
+   * the clock has gone — those times are a plan that stopped being true the
+   * moment the service fell behind. Letting the clock fill their rail drew
+   * the service as finished around a session nobody had started.
+   *
+   * The session before the hold is the one still running, so it keeps the
+   * live dot rather than being filed as done.
+   */
+  const ordered = [...timed].sort((a, b) => a.start - b.start)
+  const heldFrom = ordered.find((s) => !s.skipped_at && s.held_at)?.start ?? Infinity
+  const stillOn = [...ordered]
+    .reverse()
+    .find((s) => !s.skipped_at && !s.held_at && s.start < heldFrom)
+
   for (const session of timed) {
     if (session.skipped_at) {
       // A dropped session is neither ahead nor done — it did not happen, and
@@ -64,11 +82,15 @@ export function serviceProgress(
       byId.set(session.id, { state: 'skipped', fill: 0 })
       continue
     }
-    if (session.held_at) {
-      // Somebody has said this one has not begun. The clock disagreeing is
-      // exactly the situation being reported, so the clock does not get to
-      // call it running.
+    if (session.start >= heldFrom) {
+      // At or after the hold: nothing here has happened yet, whatever the
+      // plan's own times say.
       byId.set(session.id, { state: 'ahead', fill: 0 })
+      continue
+    }
+    if (heldFrom !== Infinity && stillOn && session.id === stillOn.id) {
+      byId.set(session.id, { state: 'running', fill: 1 })
+      runningId = session.id
       continue
     }
     const length = Math.max(session.duration_minutes ?? 0, 0) * 60_000
