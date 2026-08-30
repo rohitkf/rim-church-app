@@ -35,6 +35,9 @@ export async function fetchServiceGuests(serviceId: string): Promise<ServiceGues
  * visitor is a different person, and an address book of every guest ever
  * would be a worse thing to search than the roster beside it.
  */
+const guestInputClasses =
+  'w-full rounded-[var(--radius-chip)] bg-surface-lowest px-3.5 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary'
+
 export function ServiceGuestsPanel({
   serviceId,
   canManage,
@@ -47,6 +50,10 @@ export function ServiceGuestsPanel({
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The guest currently open for correction, and the values being typed.
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftNote, setDraftNote] = useState('')
 
   const guestsQuery = useQuery({
     queryKey: ['service-guests', serviceId],
@@ -77,6 +84,31 @@ export function ServiceGuestsPanel({
     },
     onError: (err: unknown) =>
       setError(errorText(err, 'Could not add that guest — is the name already on the list?')),
+  })
+
+  /*
+   * Correcting a guest in place.
+   *
+   * Without this the only way to fix a misspelt name was to remove the
+   * guest and add them again — and removing one nulls the guest_id on
+   * every session they were leading, so a typo cost you the running order
+   * as well. An update touches the name and nothing else.
+   */
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error: updateError } = await supabase
+        .from('service_guests')
+        .update({ name: draftName.trim(), note: draftNote.trim() || null })
+        .eq('id', editing!)
+      if (updateError) throw updateError
+    },
+    onSuccess: () => {
+      setEditing(null)
+      setError(null)
+      refresh()
+    },
+    onError: (err: unknown) =>
+      setError(errorText(err, 'Could not save that guest — is the name already on the list?')),
   })
 
   const remove = useMutation({
@@ -117,24 +149,80 @@ export function ServiceGuestsPanel({
           {guests.map((guest) => (
             <li
               key={guest.id}
-              className="flex items-start gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5"
+              className="rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5"
             >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-body-sm text-on-surface">{guest.name}</span>
-                {guest.note && (
-                  <span className="block truncate text-label-sm text-on-surface-faint">
-                    {guest.note}
-                  </span>
-                )}
-              </span>
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={() => remove.mutate(guest.id)}
-                  className="shrink-0 text-label-md font-medium text-on-surface-variant hover:text-error"
+              {editing === guest.id ? (
+                <form
+                  onSubmit={(e: FormEvent) => {
+                    e.preventDefault()
+                    if (draftName.trim()) save.mutate()
+                  }}
+                  className="flex flex-col gap-2"
                 >
-                  Remove
-                </button>
+                  <input
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    aria-label={`Name for ${guest.name}`}
+                    className={guestInputClasses}
+                  />
+                  <input
+                    value={draftNote}
+                    onChange={(e) => setDraftNote(e.target.value)}
+                    placeholder="Guest speaker, visiting worship lead…"
+                    aria-label={`What ${guest.name} is here for`}
+                    className={guestInputClasses}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ActionButton
+                      size="sm"
+                      type="submit"
+                      disabled={save.isPending || draftName.trim().length === 0}
+                    >
+                      {save.isPending ? 'Saving…' : 'Save'}
+                    </ActionButton>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="tap text-label-md font-medium text-on-surface-variant hover:text-on-surface"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body-sm text-on-surface">{guest.name}</span>
+                    {guest.note && (
+                      <span className="block truncate text-label-sm text-on-surface-faint">
+                        {guest.note}
+                      </span>
+                    )}
+                  </span>
+                  {canManage && (
+                    <span className="flex shrink-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditing(guest.id)
+                          setDraftName(guest.name)
+                          setDraftNote(guest.note ?? '')
+                          setError(null)
+                        }}
+                        className="tap text-label-md font-medium text-on-surface-variant hover:text-secondary"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove.mutate(guest.id)}
+                        className="tap text-label-md font-medium text-on-surface-variant hover:text-error"
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  )}
+                </div>
               )}
             </li>
           ))}
