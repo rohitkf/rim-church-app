@@ -21,6 +21,10 @@ export interface RunSession {
   start_time: string
   duration_minutes: number | null
   skipped_at?: string | null
+  /** Minutes granted on request; part of duration_minutes, counted apart. */
+  added_minutes?: number | null
+  /** Set when the clock reached this one and it had not begun. */
+  held_at?: string | null
 }
 
 export interface RunWrite {
@@ -29,6 +33,10 @@ export interface RunWrite {
     start_time?: string
     skipped_at?: string | null
     skip_reason?: string | null
+    duration_minutes?: number
+    added_minutes?: number
+    added_note?: string | null
+    held_at?: string | null
   }
 }
 
@@ -157,6 +165,11 @@ export function startAtPlan(
   if (isSkipped(sessions[index])) {
     forced.set(sessions[index].id, { skipped_at: null, skip_reason: null })
   }
+  // Pressing the button is the statement that it has begun, so it can no
+  // longer be the thing the service is waiting on.
+  if (sessions[index].held_at) {
+    forced.set(sessions[index].id, { ...forced.get(sessions[index].id), held_at: null })
+  }
 
   // The cascade has to see the new skips, or a session skipped in this same
   // action would still be given its full length in the times that follow.
@@ -237,4 +250,80 @@ export function snapshotFor(sessions: RunSession[], writes: RunWrite[]): RunWrit
     }
     return [{ id: write.id, patch }]
   })
+}
+
+/**
+ * More time, because somebody in the room asked for it.
+ *
+ * The extra lands on this session's length and on the running total of what
+ * was granted, so the plan keeps both numbers: what it now runs to, and how
+ * much of that was handed over rather than planned. Everything after it
+ * moves by the same amount — which is the whole reason this is a button and
+ * not an edit to the duration box.
+ */
+export function addTimePlan(
+  sessions: RunSession[],
+  index: number,
+  minutes: number,
+  note: string | null = null,
+): RunWrite[] {
+  if (index < 0 || index >= sessions.length) return []
+  if (!Number.isFinite(minutes) || minutes <= 0) return []
+  const whole = Math.round(minutes)
+  const session = sessions[index]
+
+  const forced = new Map<string, RunWrite['patch']>([
+    [
+      session.id,
+      {
+        duration_minutes: Math.max(session.duration_minutes ?? 0, 0) + whole,
+        added_minutes: Math.max(session.added_minutes ?? 0, 0) + whole,
+        added_note: note?.trim() || (session as { added_note?: string | null }).added_note || null,
+      },
+    ],
+  ])
+
+  const longer = sessions.map((s) =>
+    s.id === session.id
+      ? { ...s, duration_minutes: Math.max(s.duration_minutes ?? 0, 0) + whole }
+      : s,
+  )
+  return timeWrites(sessions, cascade(longer, index, session.start_time), forced)
+}
+
+/**
+ * "Not started yet."
+ *
+ * The clock has reached this session and nothing has happened. Saying so
+ * leaves the session before it running — its overrun goes on growing instead
+ * of stopping at its planned end — and stops anything here being treated as
+ * under way until somebody presses the button.
+ *
+ * No time moves. That is the point: the plan is wrong about this moment and
+ * the honest thing is to say so, not to invent a new set of start times that
+ * will be wrong again in a minute.
+ */
+export function holdPlan(sessions: RunSession[], index: number, now: number): RunWrite[] {
+  if (index < 0 || index >= sessions.length) return []
+  if (sessions[index].held_at) return []
+  return [{ id: sessions[index].id, patch: { held_at: toTheMinute(now) } }]
+}
+
+/** Taking back a "not started yet" — pressed by mistake, or it did start. */
+export function releasePlan(sessions: RunSession[], index: number): RunWrite[] {
+  if (index < 0 || index >= sessions.length) return []
+  if (!sessions[index].held_at) return []
+  return [{ id: sessions[index].id, patch: { held_at: null } }]
+}
+
+/**
+ * The session the service is actually still on, when the next one has been
+ * held back.
+ *
+ * Its planned end has passed, so nothing on the clock says it is running —
+ * but somebody has stated that what follows has not begun, which says it is.
+ */
+export function heldBackBy(sessions: RunSession[], index: number): RunSession | null {
+  const next = sessions.slice(index + 1).find((s) => !s.skipped_at)
+  return next?.held_at ? next : null
 }

@@ -20,6 +20,8 @@ export interface SessionTiming {
   duration_minutes: number | null
   /** Set when the session was dropped: it takes no time and never runs. */
   skipped_at?: string | null
+  /** Set when the clock reached it and it had not begun. */
+  held_at?: string | null
 }
 
 export interface SessionProgress {
@@ -60,6 +62,13 @@ export function serviceProgress(
       // A dropped session is neither ahead nor done — it did not happen, and
       // the rail should not fill for it.
       byId.set(session.id, { state: 'skipped', fill: 0 })
+      continue
+    }
+    if (session.held_at) {
+      // Somebody has said this one has not begun. The clock disagreeing is
+      // exactly the situation being reported, so the clock does not get to
+      // call it running.
+      byId.set(session.id, { state: 'ahead', fill: 0 })
       continue
     }
     const length = Math.max(session.duration_minutes ?? 0, 0) * 60_000
@@ -137,6 +146,13 @@ export function startableSession(
   sessions: SessionTiming[],
   now: number = Date.now(),
 ): string | null {
+  // A session held back as not started is, by definition, the one the
+  // service is waiting to begin — and its own start time has usually passed,
+  // so `nextToStart` would look straight past it to the one after.
+  const held = sessions
+    .filter((s) => !s.skipped_at && s.held_at)
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0]
+  if (held) return held.id
   return serviceProgress(sessions, now).runningId ?? nextToStart(sessions, now)
 }
 

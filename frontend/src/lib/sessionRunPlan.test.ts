@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addTimePlan,
   frontIndex,
+  heldBackBy,
+  holdPlan,
+  releasePlan,
   jumpedSessions,
   skipPlan,
   snapshotFor,
@@ -276,5 +280,85 @@ describe('starting a later session while one is running', () => {
     const writes = startAtPlan(gapped, 2, at('11:35'))
     expect(writes.find((w) => w.id === 's2')?.patch.skipped_at).toBe(T('11:35'))
     expect(writes.find((w) => w.id === 's1')).toBeUndefined()
+  })
+})
+
+describe('addTimePlan', () => {
+  it('lengthens the session and moves everything after it', () => {
+    const writes = addTimePlan(plan(), 1, 10, 'Pastor asked for ten more')
+    const b = writes.find((w) => w.id === 'b')
+    expect(b?.patch.duration_minutes).toBe(18)
+    expect(b?.patch.added_minutes).toBe(10)
+    expect(b?.patch.added_note).toBe('Pastor asked for ten more')
+    // Its own start does not move; the ten minutes land on what follows.
+    expect(b?.patch.start_time).toBeUndefined()
+    expect(times(writes).c).toBe(T('12:03'))
+    expect(times(writes).d).toBe(T('12:43'))
+  })
+
+  it('keeps a running total when more is asked for twice', () => {
+    const once = addTimePlan(plan(), 1, 10)
+    const after = plan().map((s) =>
+      s.id === 'b' ? { ...s, duration_minutes: 18, added_minutes: 10 } : s,
+    )
+    expect(once.find((w) => w.id === 'b')?.patch.added_minutes).toBe(10)
+    expect(addTimePlan(after, 1, 5).find((w) => w.id === 'b')?.patch.added_minutes).toBe(15)
+    expect(addTimePlan(after, 1, 5).find((w) => w.id === 'b')?.patch.duration_minutes).toBe(23)
+  })
+
+  it('refuses nothing, a negative, or a number that is not one', () => {
+    expect(addTimePlan(plan(), 1, 0)).toEqual([])
+    expect(addTimePlan(plan(), 1, -10)).toEqual([])
+    expect(addTimePlan(plan(), 1, Number.NaN)).toEqual([])
+  })
+
+  it('gives a skipped session no length back, so the rest do not drift', () => {
+    const p = plan()
+    p[2].skipped_at = T('11:50')
+    // Worship 2 is skipped, so Offering still follows Intercessory directly.
+    expect(times(addTimePlan(p, 1, 10)).d).toBe(T('12:03'))
+  })
+})
+
+describe('holdPlan', () => {
+  it('says the session has not begun, and moves no time', () => {
+    const writes = holdPlan(plan(), 2, at('11:55'))
+    expect(writes).toEqual([{ id: 'c', patch: { held_at: T('11:55') } }])
+  })
+
+  it('does not repeat itself', () => {
+    const p = plan()
+    p[2].held_at = T('11:55')
+    expect(holdPlan(p, 2, at('11:58'))).toEqual([])
+  })
+
+  it('is taken back by releasing it', () => {
+    const p = plan()
+    p[2].held_at = T('11:55')
+    expect(releasePlan(p, 2)).toEqual([{ id: 'c', patch: { held_at: null } }])
+    expect(releasePlan(plan(), 2)).toEqual([])
+  })
+
+  it('is cleared by starting the session, whatever else that does', () => {
+    const p = plan()
+    p[2].held_at = T('11:55')
+    const started = startAtPlan(p, 2, at('11:58'))
+    expect(started.find((w) => w.id === 'c')?.patch.held_at).toBeNull()
+  })
+})
+
+describe('heldBackBy', () => {
+  it('names the session that is holding the service on this one', () => {
+    const p = plan()
+    p[2].held_at = T('11:55')
+    expect(heldBackBy(p, 1)?.id).toBe('c')
+    expect(heldBackBy(p, 0)).toBeNull()
+  })
+
+  it('looks past a skipped session to the one that is actually next', () => {
+    const p = plan()
+    p[2].skipped_at = T('11:50')
+    p[3].held_at = T('11:55')
+    expect(heldBackBy(p, 1)?.id).toBe('d')
   })
 })

@@ -26,6 +26,7 @@ export function TimelineRow({
   over,
   skipped = false,
   countdown,
+  added,
   children,
 }: {
   time: ReactNode
@@ -53,6 +54,8 @@ export function TimelineRow({
   skipped?: boolean
   /** Time until the next session, shown in the gap this row's rail leaves. */
   countdown?: ReactNode
+  /** Minutes granted on request, so the plan's own length stays readable. */
+  added?: number
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
@@ -83,6 +86,12 @@ export function TimelineRow({
           {time}
         </div>
         {meta && <div className="mt-1 font-mono text-label-sm text-on-surface-faint">{meta}</div>}
+        {/* Time somebody asked for, kept visibly apart from time that was
+            planned — otherwise next month's plan gets built from a length
+            this session was only ever granted. */}
+        {added !== undefined && added > 0 && (
+          <div className="mt-1 font-mono text-label-sm text-accent-blue tabular">+{added} asked</div>
+        )}
         {/* How the session actually ran, under the time it was given. Late
             is the colour the app keeps for off-plan; early is quiet, because
             finishing early is information rather than a problem. */}
@@ -203,7 +212,18 @@ export function AssigneePill({
  * once is a wall of numbers, and only one of them is the next thing to
  * happen.
  */
-export function RailCountdown({ startsAt }: { startsAt: string }) {
+export function RailCountdown({
+  startsAt,
+  holding = false,
+}: {
+  startsAt: string
+  /**
+   * The next session has been marked not started, so this one is still
+   * running. Past its planned end the clock counts up rather than sitting
+   * at "due": the number somebody wants then is how far over it is.
+   */
+  holding?: boolean
+}) {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -212,16 +232,25 @@ export function RailCountdown({ startsAt }: { startsAt: string }) {
   }, [])
 
   const remaining = new Date(startsAt).getTime() - now
-  const text = formatCountdown(remaining)
+  const over = remaining <= 0
+  const text = over && holding ? `+${formatCountdown(-remaining)}` : formatCountdown(remaining)
+
+  const tone = !over
+    ? 'text-accent-green ring-accent-green/40'
+    : holding
+      ? 'text-error ring-error/45'
+      : 'text-accent-orange-soft ring-accent-orange/45'
+
+  const label = !over
+    ? `Next session in ${text}`
+    : holding
+      ? `Running ${formatCountdown(-remaining)} over`
+      : 'The next session is due to start'
 
   return (
     <span
-      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[11px] leading-[1.45] tabular ring-1 ${
-        remaining <= 0
-          ? 'text-accent-orange-soft ring-accent-orange/45'
-          : 'text-accent-green ring-accent-green/40'
-      }`}
-      aria-label={remaining <= 0 ? 'The next session is due to start' : `Next session in ${text}`}
+      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[11px] leading-[1.45] tabular ring-1 ${tone}`}
+      aria-label={label}
     >
       {text}
     </span>

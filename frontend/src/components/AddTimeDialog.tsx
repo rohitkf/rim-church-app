@@ -1,0 +1,109 @@
+import { type FormEvent, useState } from 'react'
+import { ActionButton, Overlay, inputClasses } from './Surface'
+import { formatDuration } from '../lib/duration'
+import type { RunSession } from '../lib/sessionRunPlan'
+
+const QUICK = [5, 10, 15]
+
+/**
+ * Granting a session more time, because somebody in the room asked.
+ *
+ * The amounts are buttons rather than a number field, because this gets
+ * pressed while a service is running and "ten more minutes" is what was
+ * actually said. The note is what makes it a grant rather than a correction:
+ * next month's plan should be able to see that the sermon ran to forty
+ * because it was given ten, not because forty was ever the plan.
+ */
+export function AddTimeDialog({
+  session,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  session: RunSession
+  busy: boolean
+  onConfirm: (minutes: number, note: string) => void
+  onClose: () => void
+}) {
+  const [minutes, setMinutes] = useState(10)
+  const [note, setNote] = useState('')
+
+  const now = Math.max(session.duration_minutes ?? 0, 0)
+  const granted = Math.max(session.added_minutes ?? 0, 0)
+
+  return (
+    <Overlay label={`Add time to ${session.session_name}`} align="sheet" onDismiss={onClose}>
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault()
+          if (minutes > 0) onConfirm(minutes, note)
+        }}
+        className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]"
+      >
+        <h2 className="text-headline-md">More time for {session.session_name}</h2>
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          It runs to <span className="font-mono text-on-surface">{formatDuration(now)}</span>
+          {granted > 0 && <> , of which {granted} minutes were already asked for</>}. Everything
+          after it moves by the same amount.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {QUICK.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setMinutes(n)}
+              className={`tap rounded-full px-4 py-2 text-body-sm font-medium transition-all duration-500 ease-[var(--ease-glide)] ${
+                minutes === n ? 'bg-primary text-on-primary' : 'hairline text-on-surface'
+              }`}
+            >
+              +{n} min
+            </button>
+          ))}
+          <label className="flex items-center gap-2">
+            <span className="sr-only">Minutes to add</span>
+            <input
+              type="number"
+              min="1"
+              max="240"
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              aria-label="Minutes to add"
+              className="w-20 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-center font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
+            />
+            <span className="text-label-md text-on-surface-variant">min</span>
+          </label>
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-label-md text-on-surface-variant">
+            Who asked? <span className="text-on-surface-faint">Optional.</span>
+          </span>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Pastor asked for ten more"
+            className={`${inputClasses} mt-1.5`}
+          />
+        </label>
+
+        <p className="mt-4 text-label-md text-on-surface-variant">
+          New length: <span className="font-mono text-on-surface">{formatDuration(now + Math.max(minutes || 0, 0))}</span>
+        </p>
+
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="tap rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface-variant hover:text-on-surface"
+          >
+            Cancel
+          </button>
+          <ActionButton type="submit" disabled={busy || !(minutes > 0)}>
+            {busy ? 'Adding…' : `Add ${minutes > 0 ? minutes : 0} min`}
+          </ActionButton>
+        </div>
+      </form>
+    </Overlay>
+  )
+}

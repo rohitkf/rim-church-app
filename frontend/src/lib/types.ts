@@ -119,6 +119,12 @@ export const serviceSessionRowSchema = z.object({
   // still renders against a database that hasn't had the migration applied.
   skipped_at: z.string().nullable().optional(),
   skip_reason: z.string().nullable().optional(),
+  // Minutes granted on request mid-service, and who asked. Part of
+  // duration_minutes; kept apart so the plan's own length stays knowable.
+  added_minutes: z.number().nullable().optional(),
+  added_note: z.string().nullable().optional(),
+  // Set when the clock reached this one and it had not begun.
+  held_at: z.string().nullable().optional(),
   updated_at: z.string(),
   assignee: personSummarySchema.nullable(),
   guest: z.object({ id: z.string(), name: z.string(), note: z.string().nullable() }).nullable().optional(),

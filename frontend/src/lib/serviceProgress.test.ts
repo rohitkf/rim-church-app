@@ -189,3 +189,18 @@ describe('when the end of the service is called', () => {
     expect(runVariance(ORDER, 'not a time').has('c')).toBe(false)
   })
 })
+
+describe('a session held back as not started', () => {
+  const held = ORDER.map((s) => (s.id === 'b' ? { ...s, held_at: at('10:20') } : s))
+
+  it('is never running, however far the clock has gone past its start', () => {
+    const p = serviceProgress(held, clock('10:45'))
+    expect(p.byId.get('b')!.state).toBe('ahead')
+    expect(p.byId.get('b')!.fill).toBe(0)
+    expect(p.runningId).toBeNull()
+  })
+
+  it('is still the session the service is waiting to start', () => {
+    expect(startableSession(held, clock('10:45'))).toBe('b')
+  })
+})

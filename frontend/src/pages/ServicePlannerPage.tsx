@@ -18,7 +18,11 @@ import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '.
 import { formatDuration } from '../lib/duration'
 import { runVariance, serviceBounds, serviceProgress, startableSession } from '../lib/serviceProgress'
 import {
+  addTimePlan,
+  heldBackBy,
+  holdPlan,
   jumpedSessions,
+  releasePlan,
   skipPlan,
   snapshotFor,
   startAtPlan,
@@ -27,6 +31,7 @@ import {
   type RunWrite,
 } from '../lib/sessionRunPlan'
 import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog'
+import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
@@ -105,6 +110,7 @@ export function ServicePlannerPage() {
   // every time after them, so neither happens on a single tap.
   const [confirming, setConfirming] = useState<{ action: RunAction; id: string } | null>(null)
   const [endingService, setEndingService] = useState(false)
+  const [addingTimeTo, setAddingTimeTo] = useState<string | null>(null)
 
   const updateField = useMutation({
     mutationFn: async ({
@@ -737,6 +743,28 @@ export function ServicePlannerPage() {
         )
       })()}
 
+      {addingTimeTo && canEdit && (() => {
+        const session = sessions.find((s) => s.id === addingTimeTo)
+        if (!session) return null
+        return (
+          <AddTimeDialog
+            session={session}
+            busy={runPlan.isPending}
+            onClose={() => setAddingTimeTo(null)}
+            onConfirm={(minutes, note) => {
+              setAddingTimeTo(null)
+              runPlan.mutate({
+                label: `adding ${minutes} min to ${session.session_name}`,
+                build: (rows) => {
+                  const i = rows.findIndex((r) => r.id === session.id)
+                  return i < 0 ? [] : addTimePlan(rows, i, minutes, note)
+                },
+              })
+            }}
+          />
+        )
+      })()}
+
       {endingService && canEdit && (
         <Overlay label="End this service" align="sheet" onDismiss={() => setEndingService(false)}>
           <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
@@ -897,6 +925,11 @@ export function ServicePlannerPage() {
                     // that is actually going to happen — a skipped session
                     // is not it.
                     const nextUp = sessions.slice(idx + 1).find((s) => !s.skipped_at)
+                    // Somebody has said the next one has not begun, so this
+                    // one is still going whatever its planned end says.
+                    const heldBack = heldBackBy(sessions, idx)
+                    const onNow = running || !!heldBack
+                    const held = !!session.held_at
                     // Every session gets the controls, not just the one the
                     // clock is on: a session that finishes early is started
                     // by pressing the next one, and a session nobody got to
@@ -978,8 +1011,11 @@ export function ServicePlannerPage() {
                         }
                         over={drift}
                         skipped={skipped}
+                        added={session.added_minutes ?? 0}
                         countdown={
-                          running && nextUp ? <RailCountdown startsAt={nextUp.start_time} /> : undefined
+                          onNow && nextUp ? (
+                            <RailCountdown startsAt={nextUp.start_time} holding={!!heldBack} />
+                          ) : undefined
                         }
                       >
                         {/* Nobody on it still outranks "on now": an empty
@@ -990,7 +1026,7 @@ export function ServicePlannerPage() {
                               ? 'skipped'
                               : unassigned
                                 ? 'warning'
-                                : running
+                                : onNow
                                   ? 'running'
                                   : 'plain'
                           }
@@ -1038,13 +1074,50 @@ export function ServicePlannerPage() {
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() =>
+                                      runPlan.mutate({
+                                        label: held
+                                          ? `un-holding ${session.session_name}`
+                                          : `holding ${session.session_name}`,
+                                        build: (rows, at) => {
+                                          const i = rows.findIndex((r) => r.id === session.id)
+                                          if (i < 0) return []
+                                          return held ? releasePlan(rows, i) : holdPlan(rows, i, at)
+                                        },
+                                      })
+                                    }
+                                    disabled={runPlan.isPending}
+                                    className={`tap rounded-full px-3.5 py-1.5 text-label-md font-medium disabled:opacity-50 ${
+                                      held
+                                        ? 'bg-error-container text-on-error-container'
+                                        : 'hairline text-on-surface-variant'
+                                    }`}
+                                  >
+                                    {held ? 'Still not started' : 'Not started'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAddingTimeTo(session.id)}
+                                    disabled={runPlan.isPending}
+                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface disabled:opacity-50"
+                                  >
+                                    + Time
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => setConfirming({ action: 'skip', id: session.id })}
                                     disabled={runPlan.isPending}
                                     className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface-variant hover:text-error disabled:opacity-50"
                                   >
                                     Skip
                                   </button>
-                                  {isNext && (
+                                  {held && (
+                                    <span className="basis-full text-label-sm text-error">
+                                      Not started yet — the one before it is still running, and its
+                                      overrun is still counting.
+                                    </span>
+                                  )}
+                                  {isNext && !held && (
                                     <span className="basis-full text-label-sm text-on-surface-faint sm:basis-auto">
                                       Sets this to now and moves everything after it.
                                     </span>
@@ -1052,6 +1125,12 @@ export function ServicePlannerPage() {
                                 </>
                               ) : null}
                             </div>
+                          )}
+                          {!skipped && (session.added_minutes ?? 0) > 0 && (
+                            <p className="mb-3 text-label-md text-accent-blue">
+                              +{session.added_minutes} min added on request
+                              {session.added_note ? ` — ${session.added_note}` : ''}
+                            </p>
                           )}
                           {skipped && session.skip_reason && (
                             <p className="mb-3 text-label-md text-on-surface-faint">
