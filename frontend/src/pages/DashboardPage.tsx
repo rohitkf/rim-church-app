@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { Chevron, useExpanded } from '../components/Collapsible'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import {
   fetchAvailabilityFor,
@@ -261,6 +262,11 @@ export function DashboardPage() {
     return () => window.clearInterval(id)
   }, [])
 
+  // A service that is over folds down to one line. Its rings and its
+  // countdown are answers to questions nobody can still act on, and on a
+  // phone they push the service that hasn't happened yet off the screen.
+  const { isExpanded, toggle: toggleService } = useExpanded()
+
   const standingOf = useMemo(() => {
     const cache = new Map<string, ServiceStanding>()
     return (serviceId: string) => {
@@ -460,6 +466,8 @@ export function DashboardPage() {
             )}
             {orderedServices.map((service, serviceIndex) => {
               const standing = standingOf(service.id)
+              const done = standing.state === 'done'
+              const open = !done || isExpanded(service.id)
               // The next service after this one, on the same day.
               const laterToday = orderedServices
                 .map((other) => ({ service: other, ...standingOf(other.id) }))
@@ -518,6 +526,35 @@ export function DashboardPage() {
                  * and every tile is the same object — only its span changes.
                  */
                 <div key={service.id} className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                  {/* Over, and folded: the row still says which service and
+                      when it ended, and opens on a touch. */}
+                  {done && (
+                    <Tile tone="success" className="lg:col-span-12">
+                      <button
+                        type="button"
+                        onClick={() => toggleService(service.id)}
+                        aria-expanded={open}
+                        aria-controls={`dashboard-service-${service.id}`}
+                        className="flex w-full flex-wrap items-baseline justify-between gap-x-6 gap-y-1 text-left"
+                      >
+                        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <span className="text-headline-md">{service.service_type}</span>
+                          <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                            Finished
+                          </span>
+                          {standing.to !== null && (
+                            <span className="font-mono text-label-sm text-on-surface-faint">
+                              ended {formatTime(new Date(standing.to).toISOString())}
+                            </span>
+                          )}
+                        </span>
+                        <Chevron open={open} />
+                      </button>
+                    </Tile>
+                  )}
+
+                  {open && (
+                  <div id={`dashboard-service-${service.id}`} className="contents">
                   {/* The one thing that is true right now. */}
                   <Tile
                     tone={standing.state === 'done' ? 'success' : 'accent'}
@@ -851,6 +888,8 @@ export function DashboardPage() {
                   </div>
 
                   <ActivityFeed serviceId={service.id} className="lg:col-span-12" />
+                  </div>
+                  )}
 
                 </div>
               )

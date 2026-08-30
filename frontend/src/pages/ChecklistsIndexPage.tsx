@@ -20,6 +20,7 @@ import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { Chevron, useExpanded } from '../components/Collapsible'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
@@ -186,6 +187,9 @@ export function ChecklistsIndexPage() {
   }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
 
   const { isFinished } = useFinishedServices(dayServices.map((s) => s.id))
+  // Nothing in a finished service can be ticked or chased, so it folds
+  // away and opens on a touch when somebody wants the record.
+  const { isExpanded, toggle: toggleService } = useExpanded()
   const orderedServices = useMemo(
     () =>
       [...dayServices].sort(
@@ -248,20 +252,43 @@ export function ChecklistsIndexPage() {
                     ),
                   ]
 
+                  const open = !finished || isExpanded(service.id)
+                  const heading = (
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h2 className="text-headline-lg">{service.service_type}</h2>
+                      <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        {service.date}
+                      </span>
+                      {finished && (
+                        <>
+                          <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                            Finished · closed
+                          </span>
+                          <span className="font-mono text-label-sm text-on-surface-faint">
+                            {forService.length} {forService.length === 1 ? 'role' : 'roles'}
+                          </span>
+                          <Chevron open={open} />
+                        </>
+                      )}
+                    </div>
+                  )
+
                   return (
                     <section key={service.id}>
                       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <h2 className="text-headline-lg">{service.service_type}</h2>
-                          <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                            {service.date}
-                          </span>
-                          {finished && (
-                            <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
-                              Finished · closed
-                            </span>
-                          )}
-                        </div>
+                        {finished ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleService(service.id)}
+                            aria-expanded={open}
+                            aria-controls={`checklist-roles-${service.id}`}
+                            className="flex text-left"
+                          >
+                            {heading}
+                          </button>
+                        ) : (
+                          heading
+                        )}
 
                         {finished ? null : isAdmin ? (
                           <NudgeButton
@@ -284,7 +311,10 @@ export function ChecklistsIndexPage() {
                         )}
                       </div>
 
-                      <ul className="mt-4 flex flex-col gap-4">
+                      <ul
+                        id={`checklist-roles-${service.id}`}
+                        hidden={!open}
+                        className="mt-4 flex flex-col gap-4">
                         {forService.map(({ assignment, rank }) => {
                           const items = (itemsQuery.data ?? []).filter((i) => i.role_id === assignment.role_id)
                           const progress = progressQuery.data ?? []
