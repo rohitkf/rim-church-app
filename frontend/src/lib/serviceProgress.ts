@@ -12,12 +12,14 @@
  * and nothing has to be re-measured on resize.
  */
 
-export type SessionState = 'done' | 'running' | 'ahead'
+export type SessionState = 'done' | 'running' | 'ahead' | 'skipped'
 
 export interface SessionTiming {
   id: string
   start_time: string
   duration_minutes: number | null
+  /** Set when the session was dropped: it takes no time and never runs. */
+  skipped_at?: string | null
 }
 
 export interface SessionProgress {
@@ -54,6 +56,12 @@ export function serviceProgress(
   let runningId: string | null = null
 
   for (const session of timed) {
+    if (session.skipped_at) {
+      // A dropped session is neither ahead nor done — it did not happen, and
+      // the rail should not fill for it.
+      byId.set(session.id, { state: 'skipped', fill: 0 })
+      continue
+    }
     const length = Math.max(session.duration_minutes ?? 0, 0) * 60_000
     const end = session.start + length
 
@@ -70,8 +78,10 @@ export function serviceProgress(
     }
   }
 
-  const first = Math.min(...timed.map((s) => s.start))
-  const last = Math.max(...timed.map((s) => s.start + Math.max(s.duration_minutes ?? 0, 0) * 60_000))
+  const ran = timed.filter((s) => !s.skipped_at)
+  if (ran.length === 0) return { runningId, byId, started: false, finished: false }
+  const first = Math.min(...ran.map((s) => s.start))
+  const last = Math.max(...ran.map((s) => s.start + Math.max(s.duration_minutes ?? 0, 0) * 60_000))
 
   return { runningId, byId, started: now >= first, finished: now >= last }
 }
@@ -84,6 +94,9 @@ export function serviceProgress(
  */
 export function serviceBounds(sessions: SessionTiming[]): { from: number; to: number } | null {
   const timed = sessions
+    // A skipped session took no time and did not happen, so it neither opens
+    // nor closes the window the service actually ran in.
+    .filter((s) => !s.skipped_at)
     .map((s) => ({ start: new Date(s.start_time).getTime(), length: Math.max(s.duration_minutes ?? 0, 0) }))
     .filter((s) => !Number.isNaN(s.start))
   if (timed.length === 0) return null
@@ -96,21 +109,13 @@ export function serviceBounds(sessions: SessionTiming[]): { from: number; to: nu
 /** The first session still ahead of the clock. */
 export function nextToStart(sessions: SessionTiming[], now: number = Date.now()): string | null {
   const ahead = sessions
+    .filter((s) => !s.skipped_at)
     .map((s) => ({ id: s.id, start: new Date(s.start_time).getTime() }))
     .filter((s) => !Number.isNaN(s.start) && s.start > now)
     .sort((a, b) => a.start - b.start)
   return ahead[0]?.id ?? null
 }
 
-/**
- * How far each session ran past the time it was given, in minutes.
- *
- * Nothing extra is stored to know this. A running order cascades — each
- * session starts when the one before it was due to finish — so the two only
- * disagree once someone says "this is starting now", and the size of the
- * disagreement *is* the overrun. A session with nothing after it has no
- * measurable overrun: nothing has happened yet to prove it ended.
- */
 /**
  * The session the "Session started" button belongs on.
  *
@@ -135,22 +140,40 @@ export function startableSession(
   return serviceProgress(sessions, now).runningId ?? nextToStart(sessions, now)
 }
 
-export function overrunMinutes(sessions: SessionTiming[]): Map<string, number> {
+/**
+ * How far each session's actual end fell from the time it was given, in
+ * minutes — positive for over, negative for under.
+ *
+ * Nothing extra is stored to know this. A running order cascades, so a
+ * session's planned end and the next one's start are the same instant until
+ * somebody says "this is starting now"; after that, the disagreement *is*
+ * the variance. Under-runs matter as much as over-runs: a service that keeps
+ * finishing five minutes early is a plan that needs correcting, and it is
+ * invisible if only the late ones are counted.
+ *
+ * A skipped session took no time, so it is not the thing the session before
+ * it ran into — the comparison jumps over it to whatever actually followed.
+ * A session with nothing after it has no measurable variance: nothing has
+ * happened yet to prove it ended.
+ */
+export function runVariance(sessions: SessionTiming[]): Map<string, number> {
   const ordered = sessions
     .map((s) => ({
       id: s.id,
+      skipped: !!s.skipped_at,
       start: new Date(s.start_time).getTime(),
       length: Math.max(s.duration_minutes ?? 0, 0) * 60_000,
     }))
     .filter((s) => !Number.isNaN(s.start))
     .sort((a, b) => a.start - b.start)
 
-  const over = new Map<string, number>()
-  for (let i = 0; i < ordered.length - 1; i += 1) {
-    const dueToEnd = ordered[i].start + ordered[i].length
-    const actuallyEnded = ordered[i + 1].start
+  const ran = ordered.filter((s) => !s.skipped)
+  const variance = new Map<string, number>()
+  for (let i = 0; i < ran.length - 1; i += 1) {
+    const dueToEnd = ran[i].start + ran[i].length
+    const actuallyEnded = ran[i + 1].start
     const minutes = Math.round((actuallyEnded - dueToEnd) / 60_000)
-    if (minutes > 0) over.set(ordered[i].id, minutes)
+    if (minutes !== 0) variance.set(ran[i].id, minutes)
   }
-  return over
+  return variance
 }

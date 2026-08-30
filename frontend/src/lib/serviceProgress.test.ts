@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   nextToStart,
-  overrunMinutes,
+  runVariance,
   serviceBounds,
   serviceProgress,
   startableSession,
@@ -122,26 +122,52 @@ describe('startableSession', () => {
   })
 })
 
-describe('overrunMinutes', () => {
-  it('finds nothing in a running order that has not slipped', () => {
-    expect(overrunMinutes(ORDER).size).toBe(0)
+describe('runVariance', () => {
+  it('is silent on a plan nothing has happened to', () => {
+    expect(runVariance(ORDER).size).toBe(0)
   })
 
-  it('measures the overrun as the gap between due-to-end and actually-ended', () => {
-    // "Session started" pressed on c at 11:06 — b was due to end at 11:00.
-    const slipped = [ORDER[0], ORDER[1], { ...ORDER[2], start_time: at('11:06') }]
-    const over = overrunMinutes(slipped)
-    expect(over.get('b')).toBe(6)
+  it('measures an overrun as the gap the next session opened up', () => {
+    const slipped = ORDER.map((s) => (s.id === 'c' ? { ...s, start_time: at('11:10') } : s))
+    const over = runVariance(slipped)
+    expect(over.get('b')).toBe(10)
     expect(over.has('a')).toBe(false)
-    expect(over.has('c')).toBe(false)
   })
 
-  it('does not report a session that finished early as overrunning', () => {
-    const early = [ORDER[0], ORDER[1], { ...ORDER[2], start_time: at('10:50') }]
-    expect(overrunMinutes(early).has('b')).toBe(false)
+  it('measures an under-run too, as a negative', () => {
+    // A service that keeps finishing early is a plan that needs correcting,
+    // and that is invisible if only the late ones are counted.
+    const early = ORDER.map((s) => (s.id === 'c' ? { ...s, start_time: at('10:55') } : s))
+    expect(runVariance(early).get('b')).toBe(-5)
   })
 
-  it('cannot measure the last session, because nothing has proved it ended', () => {
-    expect(overrunMinutes([ORDER[0]]).size).toBe(0)
+  it('measures past a skipped session to whatever actually followed', () => {
+    const skipped = ORDER.map((s) =>
+      s.id === 'b' ? { ...s, skipped_at: at('10:20') } : s,
+    )
+    // 'a' ends at 10:20 by the plan and 'c' begins at 11:00, so 'a' ran 40
+    // minutes long — the dropped session in between took no time at all.
+    expect(runVariance(skipped).get('a')).toBe(40)
+    expect(runVariance(skipped).has('b')).toBe(false)
+  })
+
+  it('says nothing about the last session — nothing proves it ended', () => {
+    expect(runVariance([ORDER[0]]).size).toBe(0)
+  })
+})
+
+describe('a skipped session', () => {
+  const skipped = ORDER.map((s) => (s.id === 'b' ? { ...s, skipped_at: at('10:20') } : s))
+
+  it('never counts as running, whatever the clock says', () => {
+    const p = serviceProgress(skipped, clock('10:30'))
+    expect(p.byId.get('b')!.state).toBe('skipped')
+    expect(p.byId.get('b')!.fill).toBe(0)
+    expect(p.runningId).toBeNull()
+  })
+
+  it('is never the session offered as startable', () => {
+    expect(startableSession(skipped, clock('10:30'))).toBe('c')
+    expect(nextToStart(skipped, clock('10:00'))).toBe('c')
   })
 })

@@ -112,6 +112,10 @@ export const serviceSessionRowSchema = z.object({
   guest_id: z.string().nullable().optional(),
   department_id: z.string().nullable(),
   role_label: z.string().nullable(),
+  // Set when the session was dropped mid-service. Optional so the planner
+  // still renders against a database that hasn't had the migration applied.
+  skipped_at: z.string().nullable().optional(),
+  skip_reason: z.string().nullable().optional(),
   updated_at: z.string(),
   assignee: personSummarySchema.nullable(),
   guest: z.object({ id: z.string(), name: z.string(), note: z.string().nullable() }).nullable().optional(),

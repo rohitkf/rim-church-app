@@ -23,6 +23,7 @@ export function TimelineRow({
   fill,
   running = false,
   over,
+  skipped = false,
   children,
 }: {
   time: ReactNode
@@ -41,32 +42,54 @@ export function TimelineRow({
   fill?: number
   /** This is the session on right now. */
   running?: boolean
-  /** Minutes this one ran past the time it was given. */
+  /**
+   * Minutes between when this one was due to end and when the next thing
+   * actually began — positive over, negative early.
+   */
   over?: number
+  /** This session was dropped: it did not happen and took no time. */
+  skipped?: boolean
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
-  const dot = running
-    ? 'bg-accent-green pulse-live'
-    : filled >= 1
-      ? 'bg-accent-green'
-      : {
-          plain: 'bg-on-surface-faint',
-          now: 'bg-primary',
-          warning: 'bg-accent-orange',
-        }[tone]
+  const dot = skipped
+    ? // Hollow: the one dot on the rail that marks a thing that did not
+      // happen, so a glance down the service reads the gaps as gaps.
+      'bg-transparent ring-1 ring-on-surface-faint'
+    : running
+      ? 'bg-accent-green pulse-live'
+      : filled >= 1
+        ? 'bg-accent-green'
+        : {
+            plain: 'bg-on-surface-faint',
+            now: 'bg-primary',
+            warning: 'bg-accent-orange',
+          }[tone]
 
   const rail = { bottom: last ? 'calc(100% - 2rem)' : '-0.375rem' }
 
   return (
     <li className="flex gap-3 sm:gap-5">
       <div className="w-14 shrink-0 pt-5 text-right sm:w-24">
-        <div className="font-mono text-label-md text-on-surface-variant tabular">{time}</div>
+        <div
+          className={`font-mono text-label-md tabular ${
+            skipped ? 'text-on-surface-faint line-through' : 'text-on-surface-variant'
+          }`}
+        >
+          {time}
+        </div>
         {meta && <div className="mt-1 font-mono text-label-sm text-on-surface-faint">{meta}</div>}
-        {/* The overrun sits under the time it broke, in the one colour the
-            app keeps for a thing that did not go to plan. */}
-        {over !== undefined && over > 0 && (
-          <div className="mt-1 font-mono text-label-sm text-error tabular">+{over} over</div>
+        {/* How the session actually ran, under the time it was given. Late
+            is the colour the app keeps for off-plan; early is quiet, because
+            finishing early is information rather than a problem. */}
+        {over !== undefined && over !== 0 && (
+          <div
+            className={`mt-1 font-mono text-label-sm tabular ${
+              over > 0 ? 'text-error' : 'text-accent-green'
+            }`}
+          >
+            {over > 0 ? `+${over} over` : `${Math.abs(over)} early`}
+          </div>
         )}
       </div>
 
@@ -98,7 +121,7 @@ export function TimelineCard({
   children,
   className = '',
 }: {
-  tone?: 'plain' | 'warning' | 'running'
+  tone?: 'plain' | 'warning' | 'running' | 'skipped'
   children: ReactNode
   className?: string
 }) {
@@ -110,6 +133,8 @@ export function TimelineCard({
     // on it before it lands on anything else.
     running:
       'bg-[color-mix(in_oklab,var(--color-accent-green)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_32%,transparent)]',
+    // Dropped: still legible, plainly not part of the service any more.
+    skipped: 'bg-transparent hairline opacity-60',
   }
   return (
     <div

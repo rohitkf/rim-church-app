@@ -15,7 +15,17 @@ import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
-import { overrunMinutes, serviceProgress, startableSession } from '../lib/serviceProgress'
+import { runVariance, serviceBounds, serviceProgress, startableSession } from '../lib/serviceProgress'
+import {
+  jumpedSessions,
+  skipPlan,
+  snapshotFor,
+  startAtPlan,
+  toTheMinute,
+  unskipPlan,
+  type RunWrite,
+} from '../lib/sessionRunPlan'
+import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog'
 import { useErrorText } from '../lib/useErrorText'
 import {
   serviceSchema,
@@ -89,56 +99,105 @@ export function ServicePlannerPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['service-sessions', serviceId] })
 
+  const [undoStack, setUndoStack] = useState<{ label: string; writes: RunWrite[] }[]>([])
+  // The session a Start or Skip is being confirmed for. Both actions rewrite
+  // every time after them, so neither happens on a single tap.
+  const [confirming, setConfirming] = useState<{ action: RunAction; id: string } | null>(null)
+
   const updateField = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<ServiceSessionRow> }) => {
+    mutationFn: async ({
+      id,
+      patch,
+      label,
+    }: {
+      id: string
+      patch: Partial<ServiceSessionRow>
+      /** What Undo should offer to put back. Omitted for changes not worth it. */
+      label?: string
+    }) => {
+      const before = sessions.find((s) => s.id === id)
       const { error } = await supabase.from('service_sessions').update(patch).eq('id', id)
       if (error) throw error
+      if (!label || !before) return null
+      // Only the keys this write touches, so undoing a rename cannot also
+      // revive a start time somebody has since corrected by hand.
+      const undoPatch = Object.fromEntries(
+        Object.keys(patch).map((key) => [key, before[key as keyof ServiceSessionRow] ?? null]),
+      ) as RunWrite['patch']
+      return { label, writes: [{ id, patch: undoPatch }] }
     },
-    onSuccess: invalidate,
+    onSuccess: (entry) => {
+      if (entry) setUndoStack((stack) => [...stack, entry].slice(-25))
+      return invalidate()
+    },
     onError: (err: unknown) =>
       setServiceError(errorText(err, 'Could not save that change.')),
   })
 
-  /**
-   * "This is starting now."
+  /*
+   * Working the running order while the service is on.
    *
-   * A session overruns and everything after it is wrong. Rather than making
-   * someone re-type six start times, the Admin says which session is
-   * actually beginning: that one takes the current time and every session
-   * after it cascades off it. Nothing extra is recorded — the previous
-   * session's overrun is simply the gap this opens between when it was due
-   * to end and when the next one really began.
+   * Both live actions — "this is starting now" and "this is not happening" —
+   * come down to the same thing: a set of writes computed from the current
+   * rows by `sessionRunPlan`, applied in one go. Keeping the arithmetic out
+   * of the mutation is what lets the confirmation dialog show the very plan
+   * that is about to run, and what makes it testable without a database.
    */
-  const startSessionNow = useMutation({
-    mutationFn: async (sessionId: string) => {
+  const applyWrites = async (writes: RunWrite[]) => {
+    for (const write of writes) {
+      const { error } = await supabase
+        .from('service_sessions')
+        .update(write.patch)
+        .eq('id', write.id)
+      if (error) throw error
+    }
+  }
+
+  const runPlan = useMutation({
+    mutationFn: async ({
+      label,
+      build,
+    }: {
+      label: string
+      build: (rows: ServiceSessionRow[], now: number) => RunWrite[]
+    }) => {
+      // Re-read first: the plan has to be computed against what is actually
+      // stored, not a list this tab loaded several minutes ago.
       const current = await fetchSessions(serviceId!)
-      const index = current.findIndex((s) => s.id === sessionId)
-      if (index < 0) return
+      const writes = build(current, Date.now())
+      if (writes.length === 0) return null
+      await applyWrites(writes)
+      return { label, writes: snapshotFor(current, writes) }
+    },
+    onSuccess: (entry) => {
+      setServiceError(null)
+      if (entry) setUndoStack((stack) => [...stack, entry].slice(-25))
+      return invalidate()
+    },
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not change the running order.')),
+  })
 
-      // To the minute: seconds in a running order are noise, and a start of
-      // 10:06 reads as a decision where 10:06:43 reads as a machine.
-      const startedAt = new Date()
-      startedAt.setSeconds(0, 0)
-
-      let cursor = startedAt.toISOString()
-      for (let i = index; i < current.length; i++) {
-        const session = current[i]
-        if (session.start_time !== cursor) {
-          const { error } = await supabase
-            .from('service_sessions')
-            .update({ start_time: cursor })
-            .eq('id', session.id)
-          if (error) throw error
-        }
-        cursor = addMinutesIso(cursor, session.duration_minutes)
-      }
+  /**
+   * Putting back what the last action changed.
+   *
+   * The stack holds the rows' previous values, taken from the same read the
+   * plan was computed against — so undoing is a restore rather than an
+   * inverse somebody had to derive, and it gets multi-row, multi-field
+   * changes right. It lives in this tab only: a reload starts a fresh
+   * history rather than offering to undo something from an hour ago.
+   */
+  const undo = useMutation({
+    mutationFn: async () => {
+      const entry = undoStack.at(-1)
+      if (!entry) return
+      await applyWrites(entry.writes)
     },
     onSuccess: () => {
       setServiceError(null)
+      setUndoStack((stack) => stack.slice(0, -1))
       return invalidate()
     },
-    onError: (err: unknown) =>
-      setServiceError(errorText(err, 'Could not start that session.')),
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not undo that.')),
   })
 
   const addSession = useMutation({
@@ -214,11 +273,16 @@ export function ServicePlannerPage() {
     return () => window.clearInterval(tick)
   }, [])
   const progress = useMemo(() => serviceProgress(sessions, now), [sessions, now])
-  const overruns = useMemo(() => overrunMinutes(sessions), [sessions])
+  const variance = useMemo(() => runVariance(sessions), [sessions])
   const startable = useMemo(() => startableSession(sessions, now), [sessions, now])
   // What the running order adds up to, and what has nobody on it — the two
   // things a planner is actually managing, neither of which a table showed.
-  const totalMinutes = sessions.reduce((n, session) => n + session.duration_minutes, 0)
+  // A skipped session takes no time, so it takes none of the total either —
+  // otherwise the running order claims a length the service will not run to.
+  const totalMinutes = sessions.reduce(
+    (n, session) => n + (session.skipped_at ? 0 : session.duration_minutes),
+    0,
+  )
   const guestsQuery = useQuery({
     queryKey: ['service-guests', serviceId],
     queryFn: () => fetchServiceGuests(serviceId!),
@@ -268,13 +332,21 @@ export function ServicePlannerPage() {
     [profilesQuery.data, guestsQuery.data],
   )
 
+  // A session that was dropped needs nobody on it, so it is not something
+  // the page should still be asking anyone to fix.
   const unassignedSessions = sessions.filter(
-    (session) => !session.assigned_user_id && !session.guest_id,
+    (session) => !session.skipped_at && !session.assigned_user_id && !session.guest_id,
   )
-  const endsAt =
-    sessions.length > 0
-      ? formatTime(addMinutesIso(sessions[0].start_time, totalMinutes))
-      : null
+  /*
+   * When the service actually ends, not when the plan's lengths add up to.
+   *
+   * Adding the total to the first start assumes nothing has slipped, which
+   * stopped being true the moment a session could be started late or
+   * dropped: it would have claimed a 07:55 finish for a service whose last
+   * session now runs to 08:02. The bounds read the real last end.
+   */
+  const bounds = useMemo(() => serviceBounds(sessions), [sessions])
+  const endsAt = bounds ? formatTime(new Date(bounds.to).toISOString()) : null
 
   // Exactly what the page is showing, handed over in the shape the sheet
   // takes — so an export is a copy of the running order rather than a
@@ -283,7 +355,10 @@ export function ServicePlannerPage() {
     () => ({
       serviceType: serviceQuery.data?.service_type ?? 'Service',
       date: serviceQuery.data?.date ?? '',
-      sessions: sessions.map<SheetSession>((session) => ({
+      // Dropped sessions are left off: the export is the running order
+      // people work from, and a line for something that is not happening is
+      // worse than no line at all.
+      sessions: sessions.filter((s) => !s.skipped_at).map<SheetSession>((session) => ({
         time: formatTime(session.start_time),
         minutes: session.duration_minutes,
         name: session.session_name,
@@ -482,6 +557,16 @@ export function ServicePlannerPage() {
                   Save as template
                 </button>
               )}
+              {canEdit && undoStack.length > 0 && (
+                <button
+                  onClick={() => undo.mutate()}
+                  disabled={undo.isPending}
+                  title="Only what has been changed since this page was opened"
+                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface disabled:opacity-50"
+                >
+                  {undo.isPending ? 'Undoing…' : `Undo ${undoStack.at(-1)!.label}`}
+                </button>
+              )}
               {canEdit && (
                 <button
                   onClick={() => addSession.mutate()}
@@ -558,6 +643,42 @@ export function ServicePlannerPage() {
         {exporting && (
         <ExportServiceDialog sheet={exportSheet} onClose={() => setExporting(false)} />
       )}
+
+      {confirming && canEdit && (() => {
+        const index = sessions.findIndex((s) => s.id === confirming.id)
+        if (index < 0) return null
+        const session = sessions[index]
+        const now = Date.now()
+        return (
+          <SessionRunDialog
+            action={confirming.action}
+            session={session}
+            jumped={confirming.action === 'start' ? jumpedSessions(sessions, index, now) : []}
+            at={new Date(toTheMinute(now)).getTime()}
+            busy={runPlan.isPending}
+            onClose={() => setConfirming(null)}
+            onConfirm={(reason) => {
+              const action = confirming.action
+              setConfirming(null)
+              runPlan.mutate({
+                label:
+                  action === 'start'
+                    ? `starting ${session.session_name}`
+                    : `skipping ${session.session_name}`,
+                // Re-found against the rows the mutation re-read, so a plan
+                // built here cannot act on a stale position in the list.
+                build: (rows, at) => {
+                  const i = rows.findIndex((r) => r.id === session.id)
+                  if (i < 0) return []
+                  return action === 'start'
+                    ? startAtPlan(rows, i, at, reason)
+                    : skipPlan(rows, i, at, reason)
+                },
+              })
+            }}
+          />
+        )
+      })()}
 
       {confirmingClear && (
           <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
@@ -672,13 +793,19 @@ export function ServicePlannerPage() {
                 <ul className="mt-5 flex flex-col">
                   {sessions.map((session, idx) => {
                     const isFirst = idx === 0
-                    const unassigned = !session.assigned_user_id && !session.guest_id
+                    const skipped = !!session.skipped_at
+                    // A dropped session needs nobody on it, so it is never
+                    // the thing the page is nagging about.
+                    const unassigned =
+                      !skipped && !session.assigned_user_id && !session.guest_id
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
-                    const over = overruns.get(session.id)
-                    // Only an Admin can say a service has slipped, and only
-                    // on the session the service is waiting to begin.
-                    const canStart = canEdit && startable === session.id
+                    const drift = variance.get(session.id)
+                    // Every session gets the controls, not just the one the
+                    // clock is on: a session that finishes early is started
+                    // by pressing the next one, and a session nobody got to
+                    // is skipped from wherever the service actually is.
+                    const isNext = startable === session.id
                     /* The one time the planner actually sets; every other
                        start is this one plus the durations. It is rendered
                        in the rail on a desktop and inside the card on a
@@ -709,7 +836,7 @@ export function ServicePlannerPage() {
                         last={idx === sessions.length - 1}
                         fill={timing?.fill}
                         running={running}
-                        tone={unassigned ? 'warning' : isFirst ? 'now' : 'plain'}
+                        tone={unassigned ? 'warning' : isFirst && !skipped ? 'now' : 'plain'}
                         time={
                           isFirst && canEdit ? (
                             <>
@@ -753,25 +880,84 @@ export function ServicePlannerPage() {
                             `${session.duration_minutes} min`
                           )
                         }
-                        over={over}
+                        over={drift}
+                        skipped={skipped}
                       >
                         {/* Nobody on it still outranks "on now": an empty
                             session is the thing that needs a person. */}
-                        <TimelineCard tone={unassigned ? 'warning' : running ? 'running' : 'plain'}>
-                          {canStart && (
-                            <div className="mb-3">
-                              <button
-                                type="button"
-                                onClick={() => startSessionNow.mutate(session.id)}
-                                disabled={startSessionNow.isPending}
-                                className="tap rounded-full bg-accent-green px-3.5 py-1.5 text-label-md font-medium text-accent-green-ink transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
-                              >
-                                {startSessionNow.isPending ? 'Starting…' : 'Session started'}
-                              </button>
-                              <span className="mt-1.5 block text-label-sm text-on-surface-faint sm:ml-2.5 sm:mt-0 sm:inline">
-                                Sets this to now and moves everything after it.
-                              </span>
+                        <TimelineCard
+                          tone={
+                            skipped
+                              ? 'skipped'
+                              : unassigned
+                                ? 'warning'
+                                : running
+                                  ? 'running'
+                                  : 'plain'
+                          }
+                        >
+                          {/* The chip is not gated on edit: everyone reading
+                              the running order needs to know this one did not
+                              happen. Only putting it back is the Admin's. */}
+                          {(skipped || canEdit) && (
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              {skipped ? (
+                                <>
+                                  <span className="rounded-full bg-raised-strong px-3 py-1.5 text-label-md text-on-surface-variant">
+                                    Skipped
+                                  </span>
+                                  {canEdit && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      runPlan.mutate({
+                                        label: `un-skipping ${session.session_name}`,
+                                        build: (rows) =>
+                                          unskipPlan(rows, rows.findIndex((r) => r.id === session.id)),
+                                      })
+                                    }
+                                    disabled={runPlan.isPending}
+                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface disabled:opacity-50"
+                                  >
+                                    Put it back
+                                  </button>
+                                  )}
+                                </>
+                              ) : canEdit ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirming({ action: 'start', id: session.id })}
+                                    disabled={runPlan.isPending}
+                                    className={`tap rounded-full px-3.5 py-1.5 text-label-md font-medium transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 ${
+                                      isNext
+                                        ? 'bg-accent-green text-accent-green-ink'
+                                        : 'hairline text-on-surface'
+                                    }`}
+                                  >
+                                    Session started
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirming({ action: 'skip', id: session.id })}
+                                    disabled={runPlan.isPending}
+                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface-variant hover:text-error disabled:opacity-50"
+                                  >
+                                    Skip
+                                  </button>
+                                  {isNext && (
+                                    <span className="basis-full text-label-sm text-on-surface-faint sm:basis-auto">
+                                      Sets this to now and moves everything after it.
+                                    </span>
+                                  )}
+                                </>
+                              ) : null}
                             </div>
+                          )}
+                          {skipped && session.skip_reason && (
+                            <p className="mb-3 text-label-md text-on-surface-faint">
+                              Skipped — {session.skip_reason}
+                            </p>
                           )}
                           {isFirst && canEdit && (
                             <label className="mb-3 flex items-center gap-2 sm:hidden">
