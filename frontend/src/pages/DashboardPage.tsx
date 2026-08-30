@@ -202,20 +202,22 @@ export function DashboardPage() {
   // The first service after the viewed day, so that once everything here
   // has finished the page still has something to count down to rather
   // than just saying the day is over.
-  const serviceAfterDay = useMemo(
-    () =>
-      (servicesQuery.data ?? [])
-        .filter((s) => s.date > viewedDate)
-        .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null,
-    [servicesQuery.data, viewedDate],
-  )
+  // Every service on that next day, because which of them is actually
+  // first is a question about start times, and those are fetched below.
+  const servicesAfterDay = useMemo(() => {
+    const later = (servicesQuery.data ?? [])
+      .filter((s) => s.date > viewedDate)
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const nextDate = later[0]?.date
+    return nextDate ? later.filter((s) => s.date === nextDate) : []
+  }, [servicesQuery.data, viewedDate])
 
   // The running orders themselves, not just their starts: a session's
   // length is what says when a service ends, and therefore whether it is
   // still on, still to come, or over.
   const timedIds = useMemo(
-    () => [...dayServiceIds, ...(serviceAfterDay ? [serviceAfterDay.id] : [])],
-    [dayServiceIds, serviceAfterDay],
+    () => [...dayServiceIds, ...servicesAfterDay.map((s) => s.id)],
+    [dayServiceIds, servicesAfterDay],
   )
   const startsQuery = useQuery({
     queryKey: ['dashboard-service-starts', timedIds],
@@ -253,6 +255,22 @@ export function DashboardPage() {
     }
     return first
   }, [startsQuery.data])
+
+  // The one to count down to: earliest on the day, by the clock rather
+  // than by name. Two services that morning are not interchangeable — the
+  // 8:30 is what the church is getting ready for, not the 10:30.
+  const serviceAfterDay = useMemo(
+    () =>
+      [...servicesAfterDay].sort((a, b) => {
+        const at = startsAt.get(a.id)
+        const bt = startsAt.get(b.id)
+        return (
+          (at ? Date.parse(at) : Infinity) - (bt ? Date.parse(bt) : Infinity) ||
+          a.service_type.localeCompare(b.service_type)
+        )
+      })[0] ?? null,
+    [servicesAfterDay, startsAt],
+  )
 
   // Re-read the clock on a timer: a service crossing its own end time has
   // to move down the page on its own, without anyone reloading.
@@ -535,8 +553,11 @@ export function DashboardPage() {
                         onClick={() => toggleService(service.id)}
                         aria-expanded={open}
                         aria-controls={`dashboard-service-${service.id}`}
-                        className="flex w-full flex-wrap items-baseline justify-between gap-x-6 gap-y-1 text-left"
+                        className="flex w-full text-left"
                       >
+                        {/* One wrapping run, chevron included: on a phone a
+                            chevron pushed to the far edge drops onto a line
+                            of its own and reads as a stray character. */}
                         <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                           <span className="text-headline-md">{service.service_type}</span>
                           <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
@@ -547,8 +568,8 @@ export function DashboardPage() {
                               ended {formatTime(new Date(standing.to).toISOString())}
                             </span>
                           )}
+                          <Chevron open={open} />
                         </span>
-                        <Chevron open={open} />
                       </button>
                     </Tile>
                   )}
