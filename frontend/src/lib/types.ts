@@ -122,7 +122,18 @@ export const serviceSessionRowSchema = z.object({
   // Minutes granted on request mid-service, and who asked. Part of
   // duration_minutes; kept apart so the plan's own length stays knowable.
   added_minutes: z.number().nullable().optional(),
-  added_note: z.string().nullable().optional(),
+  // One entry per grant, so the left of the timeline can show each "+10m
+  // asked" rather than only their total.
+  added_grants: z
+    .array(
+      z.object({
+        minutes: z.number(),
+        note: z.string().nullable().optional(),
+        at: z.string().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
   // Set when the clock reached this one and it had not begun.
   held_at: z.string().nullable().optional(),
   updated_at: z.string(),

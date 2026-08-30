@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { ActionButton, Overlay, inputClasses } from './Surface'
 import { formatDuration } from '../lib/duration'
+import { grantedMinutes, plannedMinutes, runsForMinutes } from '../lib/sessionLength'
 import type { RunSession } from '../lib/sessionRunPlan'
 
 const QUICK = [5, 10, 15]
@@ -28,8 +29,9 @@ export function AddTimeDialog({
   const [minutes, setMinutes] = useState(10)
   const [note, setNote] = useState('')
 
-  const now = Math.max(session.duration_minutes ?? 0, 0)
-  const granted = Math.max(session.added_minutes ?? 0, 0)
+  const planned = plannedMinutes(session)
+  const granted = grantedMinutes(session)
+  const now = runsForMinutes(session)
 
   return (
     <Overlay label={`Add time to ${session.session_name}`} align="sheet" onDismiss={onClose}>
@@ -42,9 +44,15 @@ export function AddTimeDialog({
       >
         <h2 className="text-headline-md">More time for {session.session_name}</h2>
         <p className="mt-2 text-body-sm text-on-surface-variant">
-          It runs to <span className="font-mono text-on-surface">{formatDuration(now)}</span>
-          {granted > 0 && <> , of which {granted} minutes were already asked for</>}. Everything
-          after it moves by the same amount.
+          Planned for <span className="font-mono text-on-surface">{formatDuration(planned)}</span>
+          {granted > 0 && (
+            <>
+              , running to{' '}
+              <span className="font-mono text-on-surface">{formatDuration(now)}</span> with the{' '}
+              {granted} minutes already asked for
+            </>
+          )}
+          . The planned length stays as it is; everything after this moves by what you add.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">

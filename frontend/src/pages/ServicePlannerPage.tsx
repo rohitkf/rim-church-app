@@ -10,6 +10,7 @@ import type { SheetSession } from '../lib/serviceSheet'
 import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { GrowingField } from '../components/GrowingField'
+import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
@@ -318,7 +319,7 @@ export function ServicePlannerPage() {
   // A skipped session takes no time, so it takes none of the total either —
   // otherwise the running order claims a length the service will not run to.
   const totalMinutes = sessions.reduce(
-    (n, session) => n + (session.skipped_at ? 0 : session.duration_minutes),
+    (n, session) => n + (session.skipped_at ? 0 : runsForMinutes(session)),
     0,
   )
   const guestsQuery = useQuery({
@@ -411,7 +412,7 @@ export function ServicePlannerPage() {
       // worse than no line at all.
       sessions: sessions.filter((s) => !s.skipped_at).map<SheetSession>((session) => ({
         time: formatTime(session.start_time),
-        minutes: session.duration_minutes,
+        minutes: runsForMinutes(session),
         name: session.session_name,
         lead: session.guest
           ? session.guest.name
@@ -1023,7 +1024,8 @@ export function ServicePlannerPage() {
                         }
                         over={drift}
                         skipped={skipped}
-                        added={session.added_minutes ?? 0}
+                        grants={grantsOf(session)}
+                        runsFor={runsForMinutes(session)}
                         countdown={
                           onNow && nextUp ? (
                             <RailCountdown startsAt={nextUp.start_time} holding={!!heldBack} />
@@ -1138,11 +1140,15 @@ export function ServicePlannerPage() {
                               ) : null}
                             </div>
                           )}
-                          {!skipped && (session.added_minutes ?? 0) > 0 && (
-                            <p className="mb-3 text-label-md text-accent-blue">
-                              +{session.added_minutes} min added on request
-                              {session.added_note ? ` — ${session.added_note}` : ''}
-                            </p>
+                          {!skipped && grantsOf(session).length > 0 && (
+                            <ul className="mb-3 flex flex-col gap-0.5">
+                              {grantsOf(session).map((grant, i) => (
+                                <li key={i} className="text-label-md text-accent-blue">
+                                  +{grant.minutes} min added on request
+                                  {grant.note ? ` — ${grant.note}` : ''}
+                                </li>
+                              ))}
+                            </ul>
                           )}
                           {skipped && session.skip_reason && (
                             <p className="mb-3 text-label-md text-on-surface-faint">

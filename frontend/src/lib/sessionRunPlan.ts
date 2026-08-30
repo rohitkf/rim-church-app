@@ -1,4 +1,5 @@
 import { addMinutesIso } from './time'
+import { grantedMinutes, runsForMinutes, type TimeGrant } from './sessionLength'
 
 /**
  * Working a running order while the service is actually on.
@@ -21,8 +22,10 @@ export interface RunSession {
   start_time: string
   duration_minutes: number | null
   skipped_at?: string | null
-  /** Minutes granted on request; part of duration_minutes, counted apart. */
+  /** Minutes granted on request. The session runs for these as well. */
   added_minutes?: number | null
+  /** One entry per grant, for the timeline to itemise. */
+  added_grants?: TimeGrant[] | null
   /** Set when the clock reached this one and it had not begun. */
   held_at?: string | null
 }
@@ -35,7 +38,7 @@ export interface RunWrite {
     skip_reason?: string | null
     duration_minutes?: number
     added_minutes?: number
-    added_note?: string | null
+    added_grants?: TimeGrant[]
     held_at?: string | null
   }
 }
@@ -94,7 +97,7 @@ function cascade(sessions: RunSession[], index: number, startIso: string): Map<s
   for (let i = index; i < sessions.length; i += 1) {
     times.set(sessions[i].id, cursor)
     if (!isSkipped(sessions[i])) {
-      cursor = addMinutesIso(cursor, Math.max(sessions[i].duration_minutes ?? 0, 0))
+      cursor = addMinutesIso(cursor, runsForMinutes(sessions[i]))
     }
   }
   return times
@@ -266,27 +269,34 @@ export function addTimePlan(
   index: number,
   minutes: number,
   note: string | null = null,
+  now: number = Date.now(),
 ): RunWrite[] {
   if (index < 0 || index >= sessions.length) return []
   if (!Number.isFinite(minutes) || minutes <= 0) return []
   const whole = Math.round(minutes)
   const session = sessions[index]
 
+  const grant: TimeGrant = {
+    minutes: whole,
+    note: note?.trim() || null,
+    at: toTheMinute(now),
+  }
+
+  // The planned length is deliberately untouched: it is the number next
+  // month's running order gets built from, and folding a grant into it
+  // erases the fact that the session was ever given anything.
   const forced = new Map<string, RunWrite['patch']>([
     [
       session.id,
       {
-        duration_minutes: Math.max(session.duration_minutes ?? 0, 0) + whole,
-        added_minutes: Math.max(session.added_minutes ?? 0, 0) + whole,
-        added_note: note?.trim() || (session as { added_note?: string | null }).added_note || null,
+        added_minutes: grantedMinutes(session) + whole,
+        added_grants: [...(session.added_grants ?? []), grant],
       },
     ],
   ])
 
   const longer = sessions.map((s) =>
-    s.id === session.id
-      ? { ...s, duration_minutes: Math.max(s.duration_minutes ?? 0, 0) + whole }
-      : s,
+    s.id === session.id ? { ...s, added_minutes: grantedMinutes(s) + whole } : s,
   )
   return timeWrites(sessions, cascade(longer, index, session.start_time), forced)
 }

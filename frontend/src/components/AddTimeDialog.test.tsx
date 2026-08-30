@@ -55,9 +55,20 @@ describe('AddTimeDialog', () => {
     expect(onConfirm).toHaveBeenCalledWith(10, 'Pastor, for the appeal')
   })
 
-  it('says how much was already granted, so it is not granted twice over', () => {
+  it('shows the planned length and what it is running to, not one number', () => {
     show({ added_minutes: 10 })
-    expect(screen.getByText(/10 minutes were already asked for/)).toBeInTheDocument()
+    // Planned 30, running to 40 — both, because losing the first is the bug
+    // this whole shape exists to avoid.
+    expect(screen.getByText(/Planned for/)).toBeInTheDocument()
+    expect(screen.getByText('30m')).toBeInTheDocument()
+    expect(screen.getByText(/10 minutes already asked for/)).toBeInTheDocument()
+  })
+
+  it('counts a grant already given into what it will run to', async () => {
+    const { user } = show({ added_minutes: 10 })
+    // 30 planned + 10 given + 15 more.
+    await user.click(screen.getByRole('button', { name: '+15 min' }))
+    expect(screen.getByText('55m')).toBeInTheDocument()
   })
 
   it('will not add nothing', async () => {

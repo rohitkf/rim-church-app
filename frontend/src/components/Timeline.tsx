@@ -26,7 +26,8 @@ export function TimelineRow({
   over,
   skipped = false,
   countdown,
-  added,
+  grants,
+  runsFor,
   children,
 }: {
   time: ReactNode
@@ -54,8 +55,13 @@ export function TimelineRow({
   skipped?: boolean
   /** Time until the next session, shown in the gap this row's rail leaves. */
   countdown?: ReactNode
-  /** Minutes granted on request, so the plan's own length stays readable. */
-  added?: number
+  /**
+   * Each grant of extra time, so the left of the rail shows what the session
+   * was planned for, what it was given, and what that comes to.
+   */
+  grants?: { minutes: number; note?: string | null }[]
+  /** What the session runs to once the grants are counted. */
+  runsFor?: number
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
@@ -86,11 +92,31 @@ export function TimelineRow({
           {time}
         </div>
         {meta && <div className="mt-1 font-mono text-label-sm text-on-surface-faint">{meta}</div>}
-        {/* Time somebody asked for, kept visibly apart from time that was
-            planned — otherwise next month's plan gets built from a length
-            this session was only ever granted. */}
-        {added !== undefined && added > 0 && (
-          <div className="mt-1 font-mono text-label-sm text-accent-blue tabular">+{added} asked</div>
+        {/*
+          Every grant on its own line, then what it all comes to.
+
+          The planned length is the line above and does not move, because it
+          is the figure next month's running order gets built from. Rolling
+          the grants into it would leave "108 min" and no way to tell that 90
+          was ever the plan.
+        */}
+        {grants && grants.length > 0 && (
+          <div className="mt-1 flex flex-col items-end gap-0.5">
+            {grants.map((grant, i) => (
+              <span
+                key={i}
+                title={grant.note ?? undefined}
+                className="font-mono text-label-sm text-accent-blue tabular"
+              >
+                +{grant.minutes}m asked
+              </span>
+            ))}
+            {runsFor !== undefined && (
+              <span className="font-mono text-label-sm text-on-surface tabular">
+                ({runsFor} min)
+              </span>
+            )}
+          </div>
         )}
         {/* How the session actually ran, under the time it was given. Late
             is the colour the app keeps for off-plan; early is quiet, because

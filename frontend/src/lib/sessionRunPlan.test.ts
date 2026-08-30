@@ -284,26 +284,37 @@ describe('starting a later session while one is running', () => {
 })
 
 describe('addTimePlan', () => {
-  it('lengthens the session and moves everything after it', () => {
-    const writes = addTimePlan(plan(), 1, 10, 'Pastor asked for ten more')
+  it('leaves the planned length alone and moves everything after it', () => {
+    const writes = addTimePlan(plan(), 1, 10, 'Pastor asked for ten more', at('11:47'))
     const b = writes.find((w) => w.id === 'b')
-    expect(b?.patch.duration_minutes).toBe(18)
+    // The plan said 8 minutes and still says 8: that is the figure next
+    // month's running order gets built from.
+    expect(b?.patch.duration_minutes).toBeUndefined()
     expect(b?.patch.added_minutes).toBe(10)
-    expect(b?.patch.added_note).toBe('Pastor asked for ten more')
+    expect(b?.patch.added_grants).toEqual([
+      { minutes: 10, note: 'Pastor asked for ten more', at: T('11:47') },
+    ])
     // Its own start does not move; the ten minutes land on what follows.
     expect(b?.patch.start_time).toBeUndefined()
     expect(times(writes).c).toBe(T('12:03'))
     expect(times(writes).d).toBe(T('12:43'))
   })
 
-  it('keeps a running total when more is asked for twice', () => {
-    const once = addTimePlan(plan(), 1, 10)
+  it('keeps every grant, not just their total', () => {
     const after = plan().map((s) =>
-      s.id === 'b' ? { ...s, duration_minutes: 18, added_minutes: 10 } : s,
+      s.id === 'b'
+        ? { ...s, added_minutes: 10, added_grants: [{ minutes: 10, note: 'first', at: T('11:47') }] }
+        : s,
     )
-    expect(once.find((w) => w.id === 'b')?.patch.added_minutes).toBe(10)
-    expect(addTimePlan(after, 1, 5).find((w) => w.id === 'b')?.patch.added_minutes).toBe(15)
-    expect(addTimePlan(after, 1, 5).find((w) => w.id === 'b')?.patch.duration_minutes).toBe(23)
+    const writes = addTimePlan(after, 1, 5, 'second', at('11:55'))
+    const b = writes.find((w) => w.id === 'b')
+    expect(b?.patch.added_minutes).toBe(15)
+    expect(b?.patch.added_grants).toEqual([
+      { minutes: 10, note: 'first', at: T('11:47') },
+      { minutes: 5, note: 'second', at: T('11:55') },
+    ])
+    // 8 planned + 15 granted, so Worship 2 starts 23 minutes after it did.
+    expect(times(writes).c).toBe(T('12:08'))
   })
 
   it('refuses nothing, a negative, or a number that is not one', () => {

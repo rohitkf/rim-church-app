@@ -12,12 +12,16 @@
  * and nothing has to be re-measured on resize.
  */
 
+import { runsForMinutes } from './sessionLength'
+
 export type SessionState = 'done' | 'running' | 'ahead' | 'skipped'
 
 export interface SessionTiming {
   id: string
   start_time: string
   duration_minutes: number | null
+  /** Minutes granted on request; the session runs for these as well. */
+  added_minutes?: number | null
   /** Set when the session was dropped: it takes no time and never runs. */
   skipped_at?: string | null
   /** Set when the clock reached it and it had not begun. */
@@ -93,7 +97,7 @@ export function serviceProgress(
       runningId = session.id
       continue
     }
-    const length = Math.max(session.duration_minutes ?? 0, 0) * 60_000
+    const length = runsForMinutes(session) * 60_000
     const end = session.start + length
 
     if (now >= end) {
@@ -112,7 +116,7 @@ export function serviceProgress(
   const ran = timed.filter((s) => !s.skipped_at)
   if (ran.length === 0) return { runningId, byId, started: false, finished: false }
   const first = Math.min(...ran.map((s) => s.start))
-  const last = Math.max(...ran.map((s) => s.start + Math.max(s.duration_minutes ?? 0, 0) * 60_000))
+  const last = Math.max(...ran.map((s) => s.start + runsForMinutes(s) * 60_000))
 
   return { runningId, byId, started: now >= first, finished: now >= last }
 }
@@ -128,7 +132,7 @@ export function serviceBounds(sessions: SessionTiming[]): { from: number; to: nu
     // A skipped session took no time and did not happen, so it neither opens
     // nor closes the window the service actually ran in.
     .filter((s) => !s.skipped_at)
-    .map((s) => ({ start: new Date(s.start_time).getTime(), length: Math.max(s.duration_minutes ?? 0, 0) }))
+    .map((s) => ({ start: new Date(s.start_time).getTime(), length: runsForMinutes(s) }))
     .filter((s) => !Number.isNaN(s.start))
   if (timed.length === 0) return null
   return {
@@ -206,7 +210,7 @@ export function runVariance(
       id: s.id,
       skipped: !!s.skipped_at,
       start: new Date(s.start_time).getTime(),
-      length: Math.max(s.duration_minutes ?? 0, 0) * 60_000,
+      length: runsForMinutes(s) * 60_000,
     }))
     .filter((s) => !Number.isNaN(s.start))
     .sort((a, b) => a.start - b.start)
