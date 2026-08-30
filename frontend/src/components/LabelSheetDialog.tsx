@@ -4,7 +4,7 @@ import { qrModules } from '../lib/qrMatrix'
 import { itemScanUrl } from '../lib/qrLink'
 import { labelSheetPages, labelSheetPdf, PER_PAGE, type ItemLabel } from '../lib/itemLabelPdf'
 import { renderPageToJpeg } from '../lib/renderPageToImage'
-import { downloadFile } from '../lib/downloadFile'
+import { downloadFile, printPdf } from '../lib/downloadFile'
 import type { InventoryItem } from '../lib/types'
 
 /** Everything the sticker shows, taken off the register. */
@@ -87,11 +87,11 @@ export function LabelSheetDialog({
     }
   }, [labels, page])
 
-  function print() {
+  function build(then: (bytes: Uint8Array, name: string) => void) {
     if (!labels) return
     setBusy(true)
     try {
-      downloadFile(labelSheetPdf(labels), `${fileStem(items)}.pdf`, 'application/pdf')
+      then(labelSheetPdf(labels), `${fileStem(items)}.pdf`)
     } finally {
       setBusy(false)
     }
@@ -153,17 +153,25 @@ export function LabelSheetDialog({
           <button
             type="button"
             onClick={onClose}
-            className="tap ml-auto rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface"
+            className="tap ml-auto rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface-variant hover:text-on-surface"
           >
             Close
           </button>
           <button
             type="button"
-            onClick={print}
+            onClick={() => build((bytes, name) => downloadFile(bytes, name, 'application/pdf'))}
+            disabled={!labels || busy}
+            className="tap rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface disabled:opacity-50"
+          >
+            Save PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => build(printPdf)}
             disabled={!labels || busy}
             className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? 'Preparing…' : 'Download PDF'}
+            {busy ? 'Preparing…' : 'Print'}
           </button>
         </div>
       </div>

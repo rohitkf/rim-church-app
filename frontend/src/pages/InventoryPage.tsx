@@ -67,6 +67,9 @@ export function InventoryPage() {
   // Ticked for a bulk label run. Ids rather than items, so the set survives
   // the list refreshing underneath it.
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  // Off until asked for: a tick box against every row is clutter on a page
+  // whose everyday job is signing kit in and out, not printing.
+  const [picking, setPicking] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [scanning, setScanning] = useState(false)
   // The item a scan landed on, whether from the camera here or from a
@@ -171,6 +174,17 @@ export function InventoryPage() {
             <ActionButton tone="quiet" onClick={() => setScanning(true)}>
               Scan
             </ActionButton>
+            {canManage && (
+              <ActionButton
+                tone="quiet"
+                onClick={() => {
+                  setPicking((v) => !v)
+                  setPicked(new Set())
+                }}
+              >
+                {picking ? 'Done' : 'Print QR codes'}
+              </ActionButton>
+            )}
             {canManage ? (
               <ActionButton glyph="+" onClick={() => setAdding((v) => !v)}>
                 {adding ? 'Close' : 'Add item'}
@@ -237,7 +251,7 @@ export function InventoryPage() {
         </div>
       </div>
 
-      {canManage && shown.length > 0 && (
+      {picking && canManage && shown.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[var(--radius-chip)] hairline px-3.5 py-2.5">
           <label className="flex items-center gap-2.5 text-body-sm text-on-surface">
             <input
@@ -246,9 +260,9 @@ export function InventoryPage() {
               onChange={() =>
                 setPicked(allShownPicked ? new Set() : new Set(shown.map((item) => item.id)))
               }
-              className="tap-square size-4 accent-[var(--color-primary)]"
+              className="size-4 shrink-0 accent-[var(--color-primary)]"
             />
-            Select all {shown.length === items.length ? '' : 'shown '}for printing
+            Select all {shown.length === items.length ? '' : 'shown '}
           </label>
 
           <span className="font-mono text-label-sm tabular-nums text-on-surface-variant">
@@ -307,13 +321,13 @@ export function InventoryPage() {
               return (
                 <li key={item.id} className="rounded-[var(--radius-chip)] hairline p-3">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {canManage && (
+                    {picking && canManage && (
                       <input
                         type="checkbox"
                         checked={picked.has(item.id)}
                         onChange={() => togglePick(item.id)}
                         aria-label={`Select ${item.name} for printing`}
-                        className="tap-square mr-0.5 size-4 accent-[var(--color-primary)]"
+                        className="mr-1 size-4 shrink-0 accent-[var(--color-primary)]"
                       />
                     )}
                     <StatusChip tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</StatusChip>
@@ -392,7 +406,7 @@ export function InventoryPage() {
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-black/5 dark:border-white/8">
-                  {canManage && (
+                  {picking && canManage && (
                     <th className="w-10 px-4 py-3">
                       <input
                         type="checkbox"
@@ -424,7 +438,7 @@ export function InventoryPage() {
                       key={item.id}
                       className="border-b border-black/5 last:border-0 transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-surface-low dark:border-white/8"
                     >
-                      {canManage && (
+                      {picking && canManage && (
                         <td className="px-4 py-3 align-top">
                           <input
                             type="checkbox"
