@@ -703,11 +703,18 @@ export function ServicePlannerPage() {
           <SessionRunDialog
             action={confirming.action}
             session={session}
-            jumped={confirming.action === 'start' ? jumpedSessions(sessions, index, now) : []}
+            jumpedAt={(when) => jumpedSessions(sessions, index, when)}
+            earliest={(() => {
+              const before = sessions
+                .slice(0, index)
+                .filter((s) => !s.skipped_at)
+                .at(-1)
+              return before ? new Date(before.start_time).getTime() : null
+            })()}
             at={new Date(toTheMinute(now)).getTime()}
             busy={runPlan.isPending}
             onClose={() => setConfirming(null)}
-            onConfirm={(reason) => {
+            onConfirm={(reason, chosen) => {
               const action = confirming.action
               setConfirming(null)
               runPlan.mutate({
@@ -717,11 +724,14 @@ export function ServicePlannerPage() {
                     : `skipping ${session.session_name}`,
                 // Re-found against the rows the mutation re-read, so a plan
                 // built here cannot act on a stale position in the list.
+                // A start uses the minute chosen in the dialog rather than
+                // the mutation's own clock: that is the whole point of being
+                // able to correct it.
                 build: (rows, at) => {
                   const i = rows.findIndex((r) => r.id === session.id)
                   if (i < 0) return []
                   return action === 'start'
-                    ? startAtPlan(rows, i, at, reason)
+                    ? startAtPlan(rows, i, chosen, reason)
                     : skipPlan(rows, i, at, reason)
                 },
               })

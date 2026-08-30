@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from './time'
+import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue, withClockTime } from './time'
 
 // formatTime/timeInputValue/combineDateAndTime all go through the local
 // Date methods, so assertions are written to be timezone-independent
@@ -50,5 +50,32 @@ describe('formatTime', () => {
     const iso = new Date(2026, 0, 1, 13, 0).toISOString()
     expect(formatTime(iso)).toEqual(expect.any(String))
     expect(formatTime(iso).length).toBeGreaterThan(0)
+  })
+})
+
+describe('withClockTime', () => {
+  const at = new Date('2026-09-06T13:22:47.000Z').getTime()
+
+  it('moves the clock time and keeps the day', () => {
+    const moved = withClockTime(at, '11:05')
+    expect(moved).not.toBeNull()
+    const d = new Date(moved!)
+    expect(d.getHours()).toBe(11)
+    expect(d.getMinutes()).toBe(5)
+    expect(d.getDate()).toBe(new Date(at).getDate())
+  })
+
+  it('drops the seconds, so a correction reads as a decision', () => {
+    expect(new Date(withClockTime(at, '11:05')!).getSeconds()).toBe(0)
+  })
+
+  it('refuses anything that is not a real time', () => {
+    for (const bad of ['', '1', '11:', ':05', '24:00', '11:60', 'now', '11:5']) {
+      expect(withClockTime(at, bad)).toBeNull()
+    }
+  })
+
+  it('accepts a single-digit hour, which some keyboards produce', () => {
+    expect(new Date(withClockTime(at, '9:30')!).getHours()).toBe(9)
   })
 })
