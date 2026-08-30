@@ -254,7 +254,7 @@ export function ServiceTemplatesPage() {
                 className="flex items-center gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-on-surface">{t.name}</span>
+                  <span className="block break-words font-medium text-on-surface">{t.name}</span>
                   <span className="block text-body-sm text-on-surface-variant">
                     First session at {t.start_time.slice(0, 5)}
                   </span>

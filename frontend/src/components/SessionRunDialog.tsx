@@ -139,7 +139,7 @@ export function SessionRunDialog({
             </p>
             <ul className="mt-2 flex flex-col gap-1">
               {jumped.map((s) => (
-                <li key={s.id} className="truncate text-body-sm text-on-surface">
+                <li key={s.id} className="break-words text-body-sm text-on-surface">
                   {s.session_name}
                 </li>
               ))}

@@ -74,7 +74,7 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
           {kind.emoji}
         </span>
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-body-sm text-on-surface">
+          <span className="break-words text-body-sm text-on-surface">
             {occasion.name}
             {isMe && <span className="ml-2 font-mono text-label-sm text-secondary">You</span>}
           </span>

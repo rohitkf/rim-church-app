@@ -162,7 +162,7 @@ export function TeamBoard({
           {department?.name.slice(0, 2).toUpperCase()}
         </span>
         <div className="min-w-0">
-          <div className="truncate text-body-md font-medium text-on-surface">
+          <div className="break-words text-body-md font-medium text-on-surface">
             {department?.name}
           </div>
           <div className="font-mono text-label-sm text-on-surface-faint">

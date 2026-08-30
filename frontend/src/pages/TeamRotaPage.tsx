@@ -474,7 +474,7 @@ export function TeamRotaPage() {
                           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                             <div className="flex min-w-0 items-center gap-2.5">
                               <TeamMark color={dept.color} />
-                              <span className="truncate text-headline-sm">{dept.name}</span>
+                              <span className="break-words text-headline-sm">{dept.name}</span>
                               <span className="shrink-0 font-mono text-label-sm uppercase text-on-surface-faint">
                                 {deptAssignments.length === 0
                                   ? 'nobody yet'
@@ -520,7 +520,7 @@ export function TeamRotaPage() {
                                           Release requested
                                         </span>
                                       ) : (
-                                        <span className="truncate text-on-surface">
+                                        <span className="break-words text-on-surface">
                                           {mine
                                             ? 'You'
                                             : a.profile

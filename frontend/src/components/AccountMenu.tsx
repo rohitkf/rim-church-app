@@ -90,7 +90,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
         >
           <div className="border-b border-border-subtle px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <span className="truncate text-body-sm font-medium text-on-surface">
+              <span className="break-words text-body-sm font-medium text-on-surface">
                 {profile ? `${profile.first_name} ${profile.last_name}` : 'Signed in'}
               </span>
               {/* What you are allowed to do here. The sidebar used to say it
@@ -100,7 +100,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               </span>
             </div>
             {profile?.email && (
-              <div className="mt-0.5 truncate text-label-sm text-on-surface-faint">
+              <div className="mt-0.5 break-all text-label-sm text-on-surface-faint">
                 {profile.email}
               </div>
             )}

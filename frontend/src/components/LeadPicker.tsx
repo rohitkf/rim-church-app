@@ -138,7 +138,7 @@ export function LeadPicker({
         onKeyDown={onKeyDown}
         className="tap flex w-44 items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
       >
-        <span className="min-w-0 flex-1 truncate">
+        <span className="min-w-0 flex-1 break-words text-left">
           {selected ? selected.name : 'Unassigned'}
         </span>
         {selected?.kind === 'guest' && (

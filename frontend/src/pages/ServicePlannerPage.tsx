@@ -9,6 +9,7 @@ import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
 import { serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
+import { GrowingField } from '../components/GrowingField'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
@@ -535,18 +536,14 @@ export function ServicePlannerPage() {
           <div className="min-w-0">
             {canEdit ? (
               <>
-                <input
+                <GrowingField
                   key={serviceQuery.data?.service_type}
-                  defaultValue={serviceQuery.data?.service_type}
-                  aria-label="Service name"
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (!value || value === serviceQuery.data?.service_type) return
-                    updateService.mutate({ service_type: value })
-                  }}
-                  /* Block, not inline: two inline inputs sat on one line and
+                  value={serviceQuery.data?.service_type ?? ''}
+                  label="Service name"
+                  onCommit={(value) => updateService.mutate({ service_type: value })}
+                  /* Block, not inline: two inline fields sat on one line and
                      the name ran straight into the date. */
-                  className="block w-full max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
+                  className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
                 />
                 <input
                   key={`date-${serviceQuery.data?.date}`}
@@ -926,7 +923,7 @@ export function ServicePlannerPage() {
                             },
                           })
                         }}
-                        className="w-full rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
+                        className="w-full min-w-0 rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
                       />
                     )
                     return (
@@ -1079,18 +1076,16 @@ export function ServicePlannerPage() {
                                 it instead of squeezing it. */}
                             <div className="min-w-0 flex-1 basis-full sm:basis-0">
                               {canEdit ? (
-                                <input
-                                  defaultValue={session.session_name}
-                                  aria-label="Session name"
-                                  onBlur={(e) => {
-                                    if (!e.target.value.trim() || e.target.value === session.session_name)
-                                      return
+                                <GrowingField
+                                  value={session.session_name}
+                                  label="Session name"
+                                  onCommit={(value) =>
                                     updateField.mutate({
                                       id: session.id,
-                                      patch: { session_name: e.target.value.trim() },
+                                      patch: { session_name: value },
                                     })
-                                  }}
-                                  className="w-full rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
+                                  }
+                                  className="rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
                                 />
                               ) : (
                                 <div className="text-headline-sm">{session.session_name}</div>
@@ -1245,7 +1240,7 @@ export function ServicePlannerPage() {
                           aria-hidden="true"
                           className="h-2 w-2 shrink-0 rounded-full bg-accent-orange"
                         />
-                        <span className="min-w-0 flex-1 truncate text-body-sm">
+                        <span className="min-w-0 flex-1 break-words text-body-sm">
                           {session.session_name}
                         </span>
                         <span className="shrink-0 font-mono text-label-sm text-accent-orange-soft">

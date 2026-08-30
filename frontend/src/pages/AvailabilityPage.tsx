@@ -417,7 +417,7 @@ export function AvailabilityPage() {
                                 return (
                                   <li key={m.id} className="text-body-sm">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="truncate text-on-surface">
+                                      <span className="break-words text-on-surface">
                                         {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
                                       </span>
                                       {isAdmin ? (

@@ -78,11 +78,11 @@ export function DockNav({
               title={item.label}
               className={({ isActive }) =>
                 [
-                  'group/dock relative h-11 shrink-0 items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)]',
+                  'group/dock relative h-11 items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)]',
                   onPhoneBar(index) ? 'flex' : 'hidden md:flex',
                   isActive
-                    ? 'bg-primary px-4 text-on-primary'
-                    : 'w-11 text-on-surface-variant hover:bg-raised-strong hover:text-on-surface',
+                    ? 'min-w-0 bg-primary px-4 text-on-primary'
+                    : 'w-11 shrink-0 text-on-surface-variant hover:bg-raised-strong hover:text-on-surface',
                 ].join(' ')
               }
             >
@@ -91,7 +91,15 @@ export function DockNav({
                   <Icon className="shrink-0" width={19} height={19} />
                   {/* Only the current destination spells its name, so the
                       dock stays one line however much the app grows. */}
-                  {isActive && <span className="whitespace-nowrap text-label-md">{item.label}</span>}
+                  {isActive && (
+                    // The one thing in the bar allowed to give, so a narrow
+                    // phone loses a few letters of a label it can still read
+                    // from the page rather than losing the More button off
+                    // the edge entirely.
+                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-label-md">
+                      {item.label}
+                    </span>
+                  )}
                   {item.badge && !isActive && (
                     <span
                       aria-hidden="true"

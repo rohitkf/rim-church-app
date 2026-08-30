@@ -825,7 +825,7 @@ export function DashboardPage() {
                             >
                               <TeamRing pct={ring.pct} color={ring.color} />
                               <span className="min-w-0">
-                                <span className="block truncate text-body-sm font-medium text-on-surface">
+                                <span className="block break-words text-body-sm font-medium text-on-surface">
                                   {dept.name}
                                 </span>
                                 <span className="block font-mono text-label-sm text-on-surface-faint">

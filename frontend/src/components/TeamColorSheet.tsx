@@ -77,7 +77,7 @@ export function TeamColorSheet({
           </span>
           <div className="min-w-0">
             <p className="text-eyebrow text-on-surface-faint">Team colour</p>
-            <h2 className="mt-1 truncate text-headline-md">{teamName}</h2>
+            <h2 className="mt-1 break-words text-headline-md">{teamName}</h2>
           </div>
           <button
             ref={closeRef}

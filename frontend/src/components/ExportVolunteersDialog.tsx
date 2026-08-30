@@ -147,7 +147,7 @@ export function ExportVolunteersDialog({
                     className="h-4 w-4"
                   />
                   <TeamMark color={department.color} />
-                  <span className="truncate text-body-sm text-on-surface">{department.name}</span>
+                  <span className="break-words text-body-sm text-on-surface">{department.name}</span>
                   <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
                     {countFor.get(department.id) ?? 0}
                   </span>

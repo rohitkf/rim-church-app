@@ -113,8 +113,8 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                 )}
 
                 <span className="min-w-0">
-                  <span className="block truncate text-body-md font-medium text-on-surface">{name}</span>
-                  <span className="block truncate text-label-sm text-on-surface-variant">
+                  <span className="block break-words text-body-md font-medium text-on-surface">{name}</span>
+                  <span className="block break-words text-label-sm text-on-surface-variant">
                     {request.department?.name ?? 'a team'} · asked {formatRelativeTime(request.created_at)}
                   </span>
                   {request.note && (

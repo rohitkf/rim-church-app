@@ -281,8 +281,8 @@ export function GlobalSearch() {
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-body-sm text-on-surface">{hit.label}</span>
-                      <span className="block truncate text-label-sm text-on-surface-variant">
+                      <span className="block break-words text-body-sm text-on-surface">{hit.label}</span>
+                      <span className="block break-words text-label-sm text-on-surface-variant">
                         {hit.detail}
                       </span>
                     </span>

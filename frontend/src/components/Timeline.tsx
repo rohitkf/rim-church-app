@@ -189,7 +189,7 @@ export function AssigneePill({
       >
         {initials}
       </span>
-      <span className="truncate text-label-md text-on-surface">{name}</span>
+      <span className="break-words text-label-md text-on-surface">{name}</span>
     </span>
   )
 }

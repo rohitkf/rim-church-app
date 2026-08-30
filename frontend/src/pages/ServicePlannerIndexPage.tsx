@@ -358,7 +358,7 @@ export function ServicePlannerIndexPage() {
                             type="button"
                             onClick={() => navigate(`/service-planner/${s.id}`)}
                             title={`${s.service_type} — ${s.date}`}
-                            className={`hidden w-full truncate rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
+                            className={`hidden w-full break-words rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
                           >
                             {s.service_type}
                           </button>
@@ -596,7 +596,7 @@ function DayGroup({
                     }`}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-on-surface">
+                    <span className="block break-words font-medium text-on-surface">
                       {service.service_type}
                     </span>
                     <span className="mt-0.5 block font-mono text-label-sm text-on-surface-faint tabular">

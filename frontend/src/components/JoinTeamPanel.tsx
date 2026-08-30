@@ -153,7 +153,7 @@ function JoinTeamRow({
       />
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-body-md font-medium text-on-surface">{department.name}</span>
+        <span className="block break-words text-body-md font-medium text-on-surface">{department.name}</span>
         {state === 'pending' && (
           <span className="text-label-sm text-on-surface-variant">Waiting on the head</span>
         )}

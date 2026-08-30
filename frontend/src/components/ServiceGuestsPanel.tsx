@@ -192,9 +192,9 @@ export function ServiceGuestsPanel({
               ) : (
                 <div className="flex items-start gap-3">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body-sm text-on-surface">{guest.name}</span>
+                    <span className="block break-words text-body-sm text-on-surface">{guest.name}</span>
                     {guest.note && (
-                      <span className="block truncate text-label-sm text-on-surface-faint">
+                      <span className="block break-words text-label-sm text-on-surface-faint">
                         {guest.note}
                       </span>
                     )}

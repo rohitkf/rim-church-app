@@ -285,7 +285,7 @@ export function HandbookUploadModal({
               {stage === 'failed' && "That didn't work"}
             </p>
             {file && (
-              <p className="mt-1 truncate font-mono text-label-sm text-on-surface-variant">
+              <p className="mt-1 break-all font-mono text-label-sm text-on-surface-variant">
                 {file.name} · {formatBytes(file.size)}
               </p>
             )}
