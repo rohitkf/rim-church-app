@@ -80,3 +80,41 @@ export function orderServices<T>(
     return (sa.from ?? Infinity) - (sb.from ?? Infinity)
   })
 }
+
+/**
+ * How long after a service ends an Admin can still correct the record.
+ *
+ * Long enough to walk off a stage, find your phone and fix what you noticed;
+ * short enough that a service is settled by the time anyone comes back to it.
+ * Matched by `service_has_finished` in the database, which is the actual
+ * lock — this only decides whether the page offers the buttons.
+ */
+export const EDIT_GRACE_MS = 60 * 60 * 1000
+
+/**
+ * The moment the running order stops accepting changes: an hour after the
+ * end that was called, or failing that an hour after the last session was
+ * due to finish.
+ *
+ * `null` when there is nothing to go on — a service with no running order
+ * and no end has not finished, so nothing is closing.
+ */
+export function editingLocksAt(
+  sessions: SessionTiming[],
+  endedAt?: string | null,
+): number | null {
+  const called = endedAt ? new Date(endedAt).getTime() : NaN
+  if (!Number.isNaN(called)) return called + EDIT_GRACE_MS
+  const bounds = serviceBounds(sessions)
+  return bounds ? bounds.to + EDIT_GRACE_MS : null
+}
+
+/** Whether the running order has settled into a record that cannot change. */
+export function editingLocked(
+  sessions: SessionTiming[],
+  now: number = Date.now(),
+  endedAt?: string | null,
+): boolean {
+  const at = editingLocksAt(sessions, endedAt)
+  return at !== null && now >= at
+}

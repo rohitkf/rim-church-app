@@ -7,7 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { LeadPicker, type LeadOption } from '../components/LeadPicker'
 import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
-import { serviceStanding } from '../lib/serviceState'
+import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { GrowingField } from '../components/GrowingField'
 import { QueryState } from '../components/QueryState'
@@ -211,11 +211,10 @@ export function ServicePlannerPage() {
   /**
    * Calling the end of the service, and taking it back.
    *
-   * Ending it closes the running order to changes — the same lock the clock
-   * applies once the last session's planned end passes — so it is the one
-   * action here that cannot be walked back with Undo afterwards. Reopening
-   * is the way back, and stays available because the services row itself is
-   * not gated on the service being finished.
+   * Ending it starts the hour, the same way the last session's planned end
+   * does. Everything stays editable inside that hour, Undo included, and
+   * reopening is the way back afterwards — the services row itself is not
+   * gated on the service being finished, which is what leaves that possible.
    */
   const endService = useMutation({
     mutationFn: async (at: string | null) => {
@@ -232,9 +231,6 @@ export function ServicePlannerPage() {
       // half a minute — offering live controls the database has by then
       // already stopped accepting.
       setClock(Date.now())
-      // Ending it locks the sessions, so a stack of undos that can no longer
-      // be applied would be a button that only ever fails.
-      setUndoStack([])
       queryClient.invalidateQueries({ queryKey: ['service', serviceId] })
       return invalidate()
     },
@@ -341,19 +337,25 @@ export function ServicePlannerPage() {
   const finished = serviceStanding(sessions, clock, endedAt).state === 'done'
 
   /*
-   * Editing stops when the service does.
+   * Editing stops an hour after the service does.
    *
-   * Once the last session's end has passed, the running order is no longer
-   * a plan — it is what happened. Changing it then is almost always a
-   * mistake (the wrong service opened, a stray tap on a phone in a
-   * pocket), and the cost of the mistake is a record of a Sunday that
-   * quietly stops matching the Sunday.
+   * Once the last session has ended the running order is no longer a plan —
+   * it is what happened. Changing it a week later is almost always a mistake
+   * (the wrong service opened, a stray tap on a phone in a pocket), and the
+   * cost is a record of a Sunday that quietly stops matching the Sunday.
    *
-   * The database refuses these writes too, so this is not the lock — it
-   * only saves someone the round trip and an error message about a button
-   * that should not have been there.
+   * But the corrections worth making are all noticed in the minutes after
+   * the last session, while people are packing down: a session nobody
+   * pressed the button on, a name spelt wrong, ten minutes granted that
+   * never got recorded. Locking on the stroke of the end means the record is
+   * wrong for good. So the lock comes an hour late.
+   *
+   * The database refuses these writes on the same rule, so this is not the
+   * lock — it only saves someone the round trip and an error message about a
+   * button that should not have been there.
    */
-  const canEdit = canManage && !finished
+  const locksAt = editingLocksAt(sessions, endedAt)
+  const canEdit = canManage && !editingLocked(sessions, clock, endedAt)
 
   // Everyone who could take a session: the people with accounts, then
   // this service's guests.
@@ -682,9 +684,18 @@ export function ServicePlannerPage() {
               Finished
             </span>
             <span className="text-body-sm text-on-surface-variant">
-              This service is over, so the running order is now a record of it and can&rsquo;t be
-              changed.
+              {canEdit
+                ? 'This service is over. The running order is a record of it now, still open to be corrected.'
+                : 'This service is over, so the running order is now a record of it and can’t be changed.'}
             </span>
+            {canEdit && locksAt !== null && (
+              // The one number somebody standing on a stage needs: how long
+              // they have to fix what they just noticed.
+              <span className="text-label-md text-accent-green">
+                Changes close at{' '}
+                <span className="font-mono">{formatTime(new Date(locksAt).toISOString())}</span>.
+              </span>
+            )}
             {canManage && (
               <span className="text-label-md text-on-surface-faint">
                 Attendance and checklists can still be filled in.
@@ -774,8 +785,9 @@ export function ServicePlannerPage() {
               <span className="font-mono text-on-surface">
                 {formatTime(new Date(toTheMinute(clock)).toISOString())}
               </span>
-              , which is what gives the closing session its over or under. The running order then
-              becomes a record and stops accepting changes — including Undo. An Admin can reopen it.
+              , which is what gives the closing session its over or under. The running order
+              becomes a record of it, still open to be corrected for an hour — after that an Admin
+              has to reopen it.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
               <button

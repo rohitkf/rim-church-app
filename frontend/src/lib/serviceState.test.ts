@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { orderServices, serviceStanding } from './serviceState'
+import {
+  EDIT_GRACE_MS,
+  editingLocked,
+  editingLocksAt,
+  orderServices,
+  serviceStanding,
+} from './serviceState'
 
 const at = (hhmm: string, minutes: number | null = 30) => ({
   id: hhmm,
@@ -72,5 +78,33 @@ describe('a service somebody called the end of', () => {
   it('still falls back to the clock when nobody called it', () => {
     expect(serviceStanding(sessions, clock('11:05'), null).state).toBe('done')
     expect(serviceStanding(sessions, clock('10:30'), null).state).toBe('running')
+  })
+})
+
+describe('the hour after a service ends', () => {
+  const iso = (hhmm: string) => `2026-08-30T${hhmm}:00.000Z`
+  const sessions = [at('10:00', 20), at('10:20', 40)] // ends 11:00
+
+  it('stays open for an hour after the last session was due to end', () => {
+    expect(editingLocked(sessions, clock('11:05'))).toBe(false)
+    expect(editingLocked(sessions, clock('11:59'))).toBe(false)
+    expect(editingLocked(sessions, clock('12:01'))).toBe(true)
+  })
+
+  it('counts the hour from the end that was called, not the plan', () => {
+    // Called at 10:40, twenty minutes before the plan said.
+    expect(editingLocked(sessions, clock('11:35'), iso('10:40'))).toBe(false)
+    expect(editingLocked(sessions, clock('11:45'), iso('10:40'))).toBe(true)
+  })
+
+  it('says when it closes, so the page can count it down', () => {
+    expect(editingLocksAt(sessions)).toBe(clock('12:00'))
+    expect(editingLocksAt(sessions, iso('10:40'))).toBe(clock('11:40'))
+    expect(EDIT_GRACE_MS).toBe(60 * 60 * 1000)
+  })
+
+  it('is not closing at all when there is nothing to go on', () => {
+    expect(editingLocksAt([])).toBeNull()
+    expect(editingLocked([], clock('23:00'))).toBe(false)
   })
 })
