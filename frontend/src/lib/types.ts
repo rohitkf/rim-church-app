@@ -267,6 +267,7 @@ export const inventoryItemSchema = z.object({
   asset_tag: z.string().nullable().optional(),
   kind: z.enum(['asset', 'consumable']).optional(),
   category: z.string().nullable().optional(),
+  brand: z.string().nullable().optional(),
   model: z.string().nullable().optional(),
   serial_number: z.string().nullable().optional(),
   item_status: inventoryStatusSchema.optional(),

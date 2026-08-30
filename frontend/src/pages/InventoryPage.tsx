@@ -9,6 +9,7 @@ import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, inputClasses } f
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
 import { ItemQrDialog } from '../components/ItemQrDialog'
+import { LabelSheetDialog } from '../components/LabelSheetDialog'
 import { QrScanner } from '../components/QrScanner'
 import { Overlay } from '../components/Surface'
 import { useErrorText } from '../lib/useErrorText'
@@ -63,6 +64,10 @@ export function InventoryPage() {
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [qrFor, setQrFor] = useState<InventoryItem | null>(null)
+  // Ticked for a bulk label run. Ids rather than items, so the set survives
+  // the list refreshing underneath it.
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const [printing, setPrinting] = useState(false)
   const [scanning, setScanning] = useState(false)
   // The item a scan landed on, whether from the camera here or from a
   // phone's own camera opening /inventory/scan/<id>.
@@ -107,6 +112,18 @@ export function InventoryPage() {
       }),
     [items, search, filter, today],
   )
+
+  // Only what is on screen can be ticked, so a filtered-out item can never
+  // ride along into a print run the user cannot see.
+  const pickedItems = useMemo(() => shown.filter((item) => picked.has(item.id)), [shown, picked])
+  const allShownPicked = shown.length > 0 && shown.every((item) => picked.has(item.id))
+
+  const togglePick = (itemId: string) =>
+    setPicked((current) => {
+      const next = new Set(current)
+      if (!next.delete(itemId)) next.add(itemId)
+      return next
+    })
 
   const refresh = () => {
     setError(null)
@@ -195,7 +212,7 @@ export function InventoryPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tag, name, model, serial or location…"
+          placeholder="Search tag, name, brand, model, serial or location…"
           aria-label="Search the register"
           className={`${inputClasses} max-w-sm`}
         />
@@ -219,6 +236,45 @@ export function InventoryPage() {
           ))}
         </div>
       </div>
+
+      {canManage && shown.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[var(--radius-chip)] hairline px-3.5 py-2.5">
+          <label className="flex items-center gap-2.5 text-body-sm text-on-surface">
+            <input
+              type="checkbox"
+              checked={allShownPicked}
+              onChange={() =>
+                setPicked(allShownPicked ? new Set() : new Set(shown.map((item) => item.id)))
+              }
+              className="tap-square size-4 accent-[var(--color-primary)]"
+            />
+            Select all {shown.length === items.length ? '' : 'shown '}for printing
+          </label>
+
+          <span className="font-mono text-label-sm tabular-nums text-on-surface-variant">
+            {pickedItems.length} selected
+          </span>
+
+          {pickedItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="tap rounded-full px-3 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface"
+            >
+              Clear
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPrinting(true)}
+            disabled={pickedItems.length === 0}
+            className="tap ml-auto rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-40"
+          >
+            Preview labels
+          </button>
+        </div>
+      )}
 
       <Card>
         <QueryState
@@ -251,6 +307,15 @@ export function InventoryPage() {
               return (
                 <li key={item.id} className="rounded-[var(--radius-chip)] hairline p-3">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    {canManage && (
+                      <input
+                        type="checkbox"
+                        checked={picked.has(item.id)}
+                        onChange={() => togglePick(item.id)}
+                        aria-label={`Select ${item.name} for printing`}
+                        className="tap-square mr-0.5 size-4 accent-[var(--color-primary)]"
+                      />
+                    )}
                     <StatusChip tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</StatusChip>
                     {overdue && <StatusChip tone="bad">Overdue</StatusChip>}
                     {low && <StatusChip tone="warn">Low stock</StatusChip>}
@@ -267,7 +332,10 @@ export function InventoryPage() {
                     {item.name}
                   </button>
                   <div className="text-label-sm text-on-surface-variant">
-                    {[item.model, item.serial_number && `SN ${item.serial_number}`]
+                    {[
+                      [item.brand, item.model].filter(Boolean).join(' '),
+                      item.serial_number && `SN ${item.serial_number}`,
+                    ]
                       .filter(Boolean)
                       .join(' · ') || (kind === 'consumable' ? 'Consumable' : 'Asset')}
                   </div>
@@ -324,6 +392,19 @@ export function InventoryPage() {
             <table className="w-full min-w-[820px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-black/5 dark:border-white/8">
+                  {canManage && (
+                    <th className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allShownPicked}
+                        onChange={() =>
+                          setPicked(allShownPicked ? new Set() : new Set(shown.map((i) => i.id)))
+                        }
+                        aria-label="Select every item shown for printing"
+                        className="size-4 accent-[var(--color-primary)]"
+                      />
+                    </th>
+                  )}
                   {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ...(canManage ? [''] : [])].map((h) => (
                     <th key={h} className="px-4 py-3">
                       <Eyebrow>{h}</Eyebrow>
@@ -343,6 +424,17 @@ export function InventoryPage() {
                       key={item.id}
                       className="border-b border-black/5 last:border-0 transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-surface-low dark:border-white/8"
                     >
+                      {canManage && (
+                        <td className="px-4 py-3 align-top">
+                          <input
+                            type="checkbox"
+                            checked={picked.has(item.id)}
+                            onChange={() => togglePick(item.id)}
+                            aria-label={`Select ${item.name} for printing`}
+                            className="size-4 accent-[var(--color-primary)]"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3 align-top">
                         <span className="font-mono text-label-sm text-on-surface">
                           {item.asset_tag ?? '—'}
@@ -358,7 +450,10 @@ export function InventoryPage() {
                           {item.name}
                         </button>
                         <div className="text-label-sm text-on-surface-variant">
-                          {[item.model, item.serial_number && `SN ${item.serial_number}`]
+                          {[
+                            [item.brand, item.model].filter(Boolean).join(' '),
+                            item.serial_number && `SN ${item.serial_number}`,
+                          ]
                             .filter(Boolean)
                             .join(' · ') || (kind === 'consumable' ? 'Consumable' : 'Asset')}
                         </div>
@@ -435,13 +530,10 @@ export function InventoryPage() {
         />
       )}
 
-      {qrFor && (
-        <ItemQrDialog
-          item={qrFor}
-          teamName={deptQuery.data?.name ?? null}
-          teamColor={deptQuery.data?.color ?? null}
-          onClose={() => setQrFor(null)}
-        />
+      {qrFor && <ItemQrDialog item={qrFor} onClose={() => setQrFor(null)} />}
+
+      {printing && pickedItems.length > 0 && (
+        <LabelSheetDialog items={pickedItems} onClose={() => setPrinting(false)} />
       )}
 
       {scanning && (
@@ -626,6 +718,7 @@ function AddItemForm({
   const [kind, setKind] = useState<'asset' | 'consumable'>('asset')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
+  const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
   const [serial, setSerial] = useState('')
   const [location, setLocation] = useState('')
@@ -649,6 +742,7 @@ function AddItemForm({
         category: category.trim() || null,
         kind,
         asset_tag: tag,
+        brand: brand.trim() || null,
         model: model.trim() || null,
         serial_number: serial.trim() || null,
         location: location.trim() || null,
@@ -696,10 +790,14 @@ function AddItemForm({
           <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Microphone" className={inputClasses} />
         </Field>
 
+        <Field label="Brand" hint="Who made it.">
+          <input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Sennheiser" className={inputClasses} />
+        </Field>
+
         {kind === 'asset' ? (
           <>
-            <Field label="Model">
-              <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Sennheiser EW 100" className={inputClasses} />
+            <Field label="Product / model" hint="The manufacturer's name for it.">
+              <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="EW 100 G4" className={inputClasses} />
             </Field>
             <Field label="Serial number" hint="The manufacturer's, if it has one.">
               <input value={serial} onChange={(e) => setSerial(e.target.value)} className={inputClasses} />
@@ -759,6 +857,7 @@ function EditItemDialog({
 }) {
   const errorText = useErrorText()
   const [name, setName] = useState(item.name)
+  const [brand, setBrand] = useState(item.brand ?? '')
   const [model, setModel] = useState(item.model ?? '')
   const [serial, setSerial] = useState(item.serial_number ?? '')
   const [location, setLocation] = useState(item.location ?? '')
@@ -772,6 +871,7 @@ function EditItemDialog({
         .from('inventory_items')
         .update({
           name: name.trim(),
+          brand: brand.trim() || null,
           model: model.trim() || null,
           serial_number: serial.trim() || null,
           location: location.trim() || null,
@@ -815,9 +915,13 @@ function EditItemDialog({
             <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClasses} />
           </Field>
 
+          <Field label="Brand">
+            <input value={brand} onChange={(e) => setBrand(e.target.value)} className={inputClasses} />
+          </Field>
+
           {kindOf(item) === 'asset' ? (
             <>
-              <Field label="Model">
+              <Field label="Product / model">
                 <input value={model} onChange={(e) => setModel(e.target.value)} className={inputClasses} />
               </Field>
               <Field label="Serial number">

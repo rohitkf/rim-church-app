@@ -83,17 +83,33 @@ export function wrapText(text: string, size: number, maxWidth: number, bold = fa
       line = word
       continue
     }
-    // Too long even alone: fill what fits, then carry on.
-    let chunk = ''
-    for (const char of word) {
-      if (textWidth(chunk + char, size, bold) > maxWidth) {
-        lines.push(chunk)
-        chunk = char
-      } else {
-        chunk += char
+    // Too long even alone. Break after a hyphen where there is one: an
+    // asset code should read as MED-BRT-0001- / SPARE-B, not
+    // MED-BRT-0001-S / PARE-B. Only a segment with nothing to break on
+    // gets cut mid-token.
+    for (const segment of word.split(/(?<=-)/)) {
+      const joined = line + segment
+      if (textWidth(joined, size, bold) <= maxWidth) {
+        line = joined
+        continue
       }
+      push()
+
+      if (textWidth(segment, size, bold) <= maxWidth) {
+        line = segment
+        continue
+      }
+      let chunk = ''
+      for (const char of segment) {
+        if (textWidth(chunk + char, size, bold) > maxWidth) {
+          lines.push(chunk)
+          chunk = char
+        } else {
+          chunk += char
+        }
+      }
+      line = chunk
     }
-    line = chunk
   }
 
   push()
@@ -165,4 +181,29 @@ export function fitToWidth(
     size -= 0.5
   }
   return size
+}
+
+/**
+ * The largest size at or below `maxSize` at which `text` wraps into no more
+ * than `maxLines` lines.
+ *
+ * A label is a fixed box with variable content: one item is called "Mixer"
+ * and the next "Behringer X32 Compact Digital Mixing Desk". Rather than
+ * shortening the long one, the type steps down until it fits the lines it
+ * has been given — and only if it still does not fit at `minSize` does the
+ * last line get cut.
+ */
+export function fitBlock(
+  text: string,
+  maxSize: number,
+  minSize: number,
+  maxWidth: number,
+  maxLines: number,
+  bold = false,
+): { size: number; lines: string[] } {
+  let size = maxSize
+  while (size > minSize && wrapText(text, size, maxWidth, bold).length > maxLines) {
+    size -= 0.5
+  }
+  return { size, lines: wrapToLines(text, size, maxWidth, maxLines, bold) }
 }

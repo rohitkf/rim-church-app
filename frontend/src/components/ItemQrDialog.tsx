@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react'
 import { Overlay } from './Surface'
 import { qrModules } from '../lib/qrMatrix'
 import { itemScanUrl } from '../lib/qrLink'
-import { itemLabelPdf, type LabelField } from '../lib/itemLabelPdf'
-import { downloadFile } from '../lib/downloadFile'
-import { formatMoney, itemValue, kindOf, statusOf, STATUS_LABEL } from '../lib/inventory'
+import { LabelSheetDialog } from './LabelSheetDialog'
 import type { InventoryItem } from '../lib/types'
 
 /** The QR drawn as one path of squares — sharp at any size, no image to load. */
@@ -30,47 +28,18 @@ function QrSvg({ modules, className = '' }: { modules: boolean[][]; className?: 
   )
 }
 
-/** What goes on the printed label, in the order it reads best. */
-function labelFields(item: InventoryItem): LabelField[] {
-  const fields: LabelField[] = []
-  if (item.model) fields.push({ label: 'Model', value: item.model })
-  if (item.serial_number) fields.push({ label: 'Serial', value: item.serial_number })
-  if (kindOf(item) === 'consumable') {
-    fields.push({ label: 'Quantity', value: String(item.quantity) })
-  }
-  if (item.location) fields.push({ label: 'Location', value: item.location })
-  const value = itemValue(item)
-  if (value > 0) fields.push({ label: 'Value', value: formatMoney(value) })
-  fields.push({
-    label: 'Last checked',
-    value: item.last_audited_at ? new Date(item.last_audited_at).toLocaleDateString() : 'never',
-  })
-  return fields
-}
-
 /**
  * One item's QR code, on screen and on paper.
  *
  * The code carries a link rather than a bare id, so the phone camera
  * everyone already has opens the item without the app being involved
- * first. The printed sheet repeats everything the register knows, because
- * a label that only works when the code scans is a label that stops
- * working the day it gets scuffed.
+ * first. The printed sticker repeats the brand, the product and the
+ * serial, because a label that only works when the code scans is a label
+ * that stops working the day it gets scuffed.
  */
-export function ItemQrDialog({
-  item,
-  teamName,
-  teamColor,
-  onClose,
-}: {
-  item: InventoryItem
-  teamName: string | null
-  /** Tints the printed label's header band. */
-  teamColor: string | null
-  onClose: () => void
-}) {
+export function ItemQrDialog({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const [modules, setModules] = useState<boolean[][] | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const url = itemScanUrl(window.location.origin, item.id)
 
   useEffect(() => {
@@ -82,27 +51,6 @@ export function ItemQrDialog({
       live = false
     }
   }, [url])
-
-  async function printLabel() {
-    if (!modules) return
-    setBusy(true)
-    try {
-      const pdf = itemLabelPdf({
-        title: item.name,
-        teamName,
-        teamColor,
-        assetTag: item.asset_tag ?? null,
-        statusLabel: STATUS_LABEL[statusOf(item)],
-        fields: labelFields(item),
-        modules,
-        footer: `Rehoboth International Ministries \u00b7 printed ${new Date().toLocaleDateString()}`,
-      })
-      const stem = (item.asset_tag ?? item.name).replace(/[^\w-]+/g, '-').toLowerCase()
-      downloadFile(pdf, `${stem}-label.pdf`, 'application/pdf')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <Overlay label={`QR code for ${item.name}`} align="sheet" onDismiss={onClose}>
@@ -132,14 +80,14 @@ export function ItemQrDialog({
           </button>
           <button
             type="button"
-            onClick={() => void printLabel()}
-            disabled={!modules || busy}
-            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            onClick={() => setPrinting(true)}
+            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
           >
-            {busy ? 'Preparing…' : 'Print QR (PDF)'}
+            Preview label
           </button>
         </div>
       </div>
+      {printing && <LabelSheetDialog items={[item]} onClose={() => setPrinting(false)} />}
     </Overlay>
   )
 }

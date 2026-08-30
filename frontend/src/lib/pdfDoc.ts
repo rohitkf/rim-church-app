@@ -196,21 +196,40 @@ function contentStream(page: PdfPage): string {
  * The cross-reference table is a list of byte offsets to each object, so
  * the objects are laid out first and measured as they go. Everything is
  * ASCII by this point, so a character is a byte.
+ *
+ * Object numbering: the catalog and the page tree take 1 and 2, then each
+ * page contributes a pair (the page, then its content stream), and the
+ * four fonts are shared at the end.
  */
-export function buildPdf(page: PdfPage): Uint8Array {
-  const stream = contentStream(page)
+export function buildPdfPages(pages: PdfPage[]): Uint8Array {
+  if (pages.length === 0) throw new Error('A PDF needs at least one page.')
 
-  const objects = [
+  const fontBase = 3 + pages.length * 2
+  const kids = pages.map((_, i) => `${3 + i * 2} 0 R`).join(' ')
+  const fonts =
+    `/F1 ${fontBase} 0 R /F2 ${fontBase + 1} 0 R ` +
+    `/F3 ${fontBase + 2} 0 R /F4 ${fontBase + 3} 0 R`
+
+  const objects: string[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(page.width)} ${round(page.height)}] ` +
-      '/Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R /F4 8 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
+  ]
+
+  pages.forEach((page, i) => {
+    const stream = contentStream(page)
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(page.width)} ${round(page.height)}] ` +
+        `/Resources << /Font << ${fonts} >> >> /Contents ${4 + i * 2} 0 R >>`,
+      `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    )
+  })
+
+  objects.push(
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>',
-  ]
+  )
 
   let body = '%PDF-1.4\n'
   const offsets: number[] = []
@@ -231,4 +250,9 @@ export function buildPdf(page: PdfPage): Uint8Array {
   const bytes = new Uint8Array(file.length)
   for (let i = 0; i < file.length; i += 1) bytes[i] = file.charCodeAt(i) & 0xff
   return bytes
+}
+
+/** The single-page case, which is most of them. */
+export function buildPdf(page: PdfPage): Uint8Array {
+  return buildPdfPages([page])
 }

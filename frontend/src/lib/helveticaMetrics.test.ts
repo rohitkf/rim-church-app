@@ -75,3 +75,18 @@ describe('truncateToWidth', () => {
     expect(textWidth(out, 10)).toBeLessThanOrEqual(60)
   })
 })
+
+describe('wrapping a code with no spaces in it', () => {
+  it('breaks after a hyphen rather than mid-segment', () => {
+    // 100pt holds "MED-BRT-0001-" at 12pt bold but not the whole code.
+    const lines = wrapText('MED-BRT-0001-SPARE-B', 12, 100, true)
+    expect(lines.join('')).toBe('MED-BRT-0001-SPARE-B')
+    for (const line of lines) expect(line.endsWith('-') || line === lines.at(-1)).toBe(true)
+  })
+
+  it('still cuts a long unbroken run when there is no hyphen', () => {
+    const lines = wrapText('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 12, 40, true)
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.join('')).toBe('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+  })
+})

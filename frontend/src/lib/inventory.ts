@@ -87,13 +87,21 @@ export function summarise(items: InventoryItem[], todayIso: string): InventorySu
 
 /**
  * Free-text search over the fields someone would actually search by: the
- * tag they read off the label, the name they call it, the model, the
- * manufacturer's serial, and where it lives.
+ * tag they read off the label, the name they call it, the brand and
+ * model, the manufacturer's serial, and where it lives.
  */
 export function matchesSearch(item: InventoryItem, term: string): boolean {
   const q = term.trim().toLowerCase()
   if (!q) return true
-  return [item.asset_tag, item.name, item.model, item.serial_number, item.location, item.category]
+  return [
+    item.asset_tag,
+    item.name,
+    item.brand,
+    item.model,
+    item.serial_number,
+    item.location,
+    item.category,
+  ]
     .filter((v): v is string => !!v)
     .some((v) => v.toLowerCase().includes(q))
 }
