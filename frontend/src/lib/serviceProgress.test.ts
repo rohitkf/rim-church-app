@@ -171,3 +171,21 @@ describe('a skipped session', () => {
     expect(nextToStart(skipped, clock('10:00'))).toBe('c')
   })
 })
+
+describe('when the end of the service is called', () => {
+  it('gives the closing session the variance it could never have', () => {
+    // Nothing follows 'c', so on the clock alone it can never be measured.
+    expect(runVariance(ORDER).has('c')).toBe(false)
+    // It was due to end at 11:10; the end was called at 11:04.
+    expect(runVariance(ORDER, at('11:04')).get('c')).toBe(-6)
+    expect(runVariance(ORDER, at('11:18')).get('c')).toBe(8)
+  })
+
+  it('says nothing when it ended exactly on time', () => {
+    expect(runVariance(ORDER, at('11:10')).has('c')).toBe(false)
+  })
+
+  it('ignores an unreadable end rather than inventing one', () => {
+    expect(runVariance(ORDER, 'not a time').has('c')).toBe(false)
+  })
+})

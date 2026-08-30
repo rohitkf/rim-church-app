@@ -7,11 +7,16 @@
  * the "next" one, and lets a finished service get out of the way of the
  * one still to come.
  *
- * Nothing is stored for this. The running order already says when every
- * session starts and how long it runs, so completion is a fact about the
- * clock rather than a flag someone has to remember to set — which means it
- * is right for everyone at once, needs no job to keep it true, and can
+ * Mostly nothing is stored for this. The running order already says when
+ * every session starts and how long it runs, so completion is a fact about
+ * the clock rather than a flag someone has to remember to set — which means
+ * it is right for everyone at once, needs no job to keep it true, and can
  * never drift from the plan it describes.
+ *
+ * The exception is a service somebody has called the end of. A service that
+ * closes fifteen minutes early is over at the moment it is called, not at the
+ * moment its plan said it would be, and no amount of arithmetic over the plan
+ * can know that. So `endedAt`, when it is set, wins.
  */
 import { serviceBounds, type SessionTiming } from './serviceProgress'
 
@@ -36,8 +41,14 @@ export interface ServiceStanding {
 export function serviceStanding(
   sessions: SessionTiming[],
   now: number = Date.now(),
+  /** When the end was called, if it was. */
+  endedAt?: string | null,
 ): ServiceStanding {
   const bounds = serviceBounds(sessions)
+  const called = endedAt ? new Date(endedAt).getTime() : NaN
+  if (!Number.isNaN(called) && now >= called) {
+    return { state: 'done', from: bounds?.from ?? called, to: called }
+  }
   if (!bounds) return { state: 'unplanned', from: null, to: null }
   if (now >= bounds.to) return { state: 'done', from: bounds.from, to: bounds.to }
   if (now >= bounds.from) return { state: 'running', from: bounds.from, to: bounds.to }

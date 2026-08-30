@@ -10,7 +10,7 @@ import type { SheetSession } from '../lib/serviceSheet'
 import { serviceStanding } from '../lib/serviceState'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { QueryState } from '../components/QueryState'
-import { Eyebrow, Panel, Row, Tile } from '../components/Surface'
+import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, TimelineCard, TimelineRow } from '../components/Timeline'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
@@ -103,6 +103,7 @@ export function ServicePlannerPage() {
   // The session a Start or Skip is being confirmed for. Both actions rewrite
   // every time after them, so neither happens on a single tap.
   const [confirming, setConfirming] = useState<{ action: RunAction; id: string } | null>(null)
+  const [endingService, setEndingService] = useState(false)
 
   const updateField = useMutation({
     mutationFn: async ({
@@ -200,6 +201,39 @@ export function ServicePlannerPage() {
     onError: (err: unknown) => setServiceError(errorText(err, 'Could not undo that.')),
   })
 
+  /**
+   * Calling the end of the service, and taking it back.
+   *
+   * Ending it closes the running order to changes — the same lock the clock
+   * applies once the last session's planned end passes — so it is the one
+   * action here that cannot be walked back with Undo afterwards. Reopening
+   * is the way back, and stays available because the services row itself is
+   * not gated on the service being finished.
+   */
+  const endService = useMutation({
+    mutationFn: async (at: string | null) => {
+      const { error } = await supabase
+        .from('services')
+        .update({ ended_at: at })
+        .eq('id', serviceId!)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setServiceError(null)
+      // The page's clock only ticks every 30 seconds, so without this the
+      // service could sit there ended but still reading as running for up to
+      // half a minute — offering live controls the database has by then
+      // already stopped accepting.
+      setClock(Date.now())
+      // Ending it locks the sessions, so a stack of undos that can no longer
+      // be applied would be a button that only ever fails.
+      setUndoStack([])
+      queryClient.invalidateQueries({ queryKey: ['service', serviceId] })
+      return invalidate()
+    },
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not change the service.')),
+  })
+
   const addSession = useMutation({
     mutationFn: async () => {
       // Read the tail of the list from the database rather than the cached
@@ -273,7 +307,8 @@ export function ServicePlannerPage() {
     return () => window.clearInterval(tick)
   }, [])
   const progress = useMemo(() => serviceProgress(sessions, now), [sessions, now])
-  const variance = useMemo(() => runVariance(sessions), [sessions])
+  const endedAt = serviceQuery.data?.ended_at ?? null
+  const variance = useMemo(() => runVariance(sessions, endedAt), [sessions, endedAt])
   const startable = useMemo(() => startableSession(sessions, now), [sessions, now])
   // What the running order adds up to, and what has nobody on it — the two
   // things a planner is actually managing, neither of which a table showed.
@@ -296,7 +331,7 @@ export function ServicePlannerPage() {
     const id = window.setInterval(() => setClock(Date.now()), 30_000)
     return () => window.clearInterval(id)
   }, [])
-  const finished = serviceStanding(sessions, clock).state === 'done'
+  const finished = serviceStanding(sessions, clock, endedAt).state === 'done'
 
   /*
    * Editing stops when the service does.
@@ -346,7 +381,14 @@ export function ServicePlannerPage() {
    * session now runs to 08:02. The bounds read the real last end.
    */
   const bounds = useMemo(() => serviceBounds(sessions), [sessions])
-  const endsAt = bounds ? formatTime(new Date(bounds.to).toISOString()) : null
+  /** How long it actually ran, once somebody has called the end. Null until then. */
+  const ranMinutes =
+    endedAt && bounds ? Math.round((new Date(endedAt).getTime() - bounds.from) / 60_000) : null
+  const endsAt = endedAt
+    ? formatTime(endedAt)
+    : bounds
+      ? formatTime(new Date(bounds.to).toISOString())
+      : null
 
   // Exactly what the page is showing, handed over in the shape the sheet
   // takes — so an export is a copy of the running order rather than a
@@ -679,6 +721,41 @@ export function ServicePlannerPage() {
           />
         )
       })()}
+
+      {endingService && canEdit && (
+        <Overlay label="End this service" align="sheet" onDismiss={() => setEndingService(false)}>
+          <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
+            <h2 className="text-headline-md">End the service?</h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              It will be recorded as finishing at{' '}
+              <span className="font-mono text-on-surface">
+                {formatTime(new Date(toTheMinute(clock)).toISOString())}
+              </span>
+              , which is what gives the closing session its over or under. The running order then
+              becomes a record and stops accepting changes — including Undo. An Admin can reopen it.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEndingService(false)}
+                className="tap rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface-variant hover:text-on-surface"
+              >
+                Cancel
+              </button>
+              <ActionButton
+                type="button"
+                disabled={endService.isPending}
+                onClick={() => {
+                  setEndingService(false)
+                  endService.mutate(toTheMinute(Date.now()))
+                }}
+              >
+                {endService.isPending ? 'Ending…' : 'Yes, end it'}
+              </ActionButton>
+            </div>
+          </div>
+        </Overlay>
+      )}
 
       {confirmingClear && (
           <div className="mt-4 max-w-md rounded-lg border border-error/40 bg-error-container p-4">
@@ -1061,6 +1138,50 @@ export function ServicePlannerPage() {
                     )
                   })}
                 </ul>
+
+                {/*
+                  The end of the service, at the end of the running order.
+                  A service used to be over only once the clock passed the
+                  last session's planned end, which is wrong every time one
+                  finishes early — and left the closing session with no way
+                  to record how it ran, because nothing came after it.
+                */}
+                {sessions.length > 0 && (canEdit || endedAt) && (
+                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-black/5 pt-5 dark:border-white/8">
+                    {endedAt ? (
+                      <>
+                        <span className="text-body-sm text-on-surface-variant">
+                          Service ended at{' '}
+                          <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
+                        </span>
+                        {isAdmin && !previewing && (
+                          <button
+                            type="button"
+                            onClick={() => endService.mutate(null)}
+                            disabled={endService.isPending}
+                            className="tap ml-auto rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface disabled:opacity-50"
+                          >
+                            {endService.isPending ? 'Reopening…' : 'Reopen service'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-body-sm text-on-surface-variant">
+                          Closes the running order and records when it really finished.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEndingService(true)}
+                          disabled={endService.isPending}
+                          className="tap ml-auto rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline disabled:opacity-50"
+                        >
+                          End service
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </Tile>
 
@@ -1071,14 +1192,22 @@ export function ServicePlannerPage() {
                 <Eyebrow>Service window</Eyebrow>
                 <div className="mt-3 flex flex-wrap items-baseline gap-x-3">
                   <span className="font-mono text-headline-lg tabular">
-                    {formatDuration(totalMinutes)}
+                    {formatDuration(ranMinutes ?? totalMinutes)}
                   </span>
-                  <span className="text-label-md text-on-surface-variant">end to end</span>
+                  {/* Once the end has been called, the headline number is how
+                      long it actually took. Leaving the plan's total there
+                      claimed "1h 20m end to end" for a service the same tile
+                      said had closed eleven minutes after it opened. */}
+                  <span className="text-label-md text-on-surface-variant">
+                    {ranMinutes === null ? 'end to end' : 'as it ran'}
+                  </span>
                 </div>
                 <p className="mt-3 text-body-sm text-on-surface-variant">
-                  {sessions.length > 0
-                    ? `Doors at ${formatTime(sessions[0].start_time)}, closing around ${endsAt}.`
-                    : 'Add a session to start the clock.'}
+                  {sessions.length === 0
+                    ? 'Add a session to start the clock.'
+                    : ranMinutes === null
+                      ? `Doors at ${formatTime(sessions[0].start_time)}, closing around ${endsAt}.`
+                      : `Doors at ${formatTime(sessions[0].start_time)}, ended at ${endsAt}. Planned for ${formatDuration(totalMinutes)}.`}
                 </p>
               </Tile>
 

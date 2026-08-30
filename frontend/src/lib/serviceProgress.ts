@@ -153,10 +153,16 @@ export function startableSession(
  *
  * A skipped session took no time, so it is not the thing the session before
  * it ran into — the comparison jumps over it to whatever actually followed.
- * A session with nothing after it has no measurable variance: nothing has
- * happened yet to prove it ended.
+ *
+ * The last session has nothing after it, so normally nothing proves it
+ * ended and it gets no variance. `endedAt` is that proof: once somebody has
+ * called the end of the service, the closing session can be measured like
+ * every other one.
  */
-export function runVariance(sessions: SessionTiming[]): Map<string, number> {
+export function runVariance(
+  sessions: SessionTiming[],
+  endedAt?: string | null,
+): Map<string, number> {
   const ordered = sessions
     .map((s) => ({
       id: s.id,
@@ -168,10 +174,14 @@ export function runVariance(sessions: SessionTiming[]): Map<string, number> {
     .sort((a, b) => a.start - b.start)
 
   const ran = ordered.filter((s) => !s.skipped)
+  const called = endedAt ? new Date(endedAt).getTime() : NaN
   const variance = new Map<string, number>()
-  for (let i = 0; i < ran.length - 1; i += 1) {
+  for (let i = 0; i < ran.length; i += 1) {
     const dueToEnd = ran[i].start + ran[i].length
-    const actuallyEnded = ran[i + 1].start
+    // What actually followed: the next session's start, or — for the last
+    // one — the moment the service was called ended.
+    const actuallyEnded = i < ran.length - 1 ? ran[i + 1].start : called
+    if (Number.isNaN(actuallyEnded)) continue
     const minutes = Math.round((actuallyEnded - dueToEnd) / 60_000)
     if (minutes !== 0) variance.set(ran[i].id, minutes)
   }

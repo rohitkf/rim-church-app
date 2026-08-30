@@ -53,3 +53,24 @@ describe('the order the day is shown in', () => {
     expect(ordered.map((s) => s.id)).toEqual(['first', 'second'])
   })
 })
+
+describe('a service somebody called the end of', () => {
+  const iso = (hhmm: string) => `2026-08-30T${hhmm}:00.000Z`
+  const sessions = [at('10:00', 20), at('10:20', 40)]
+
+  it('is over from the moment it was called, not when the plan said', () => {
+    // Ten minutes of plan still to run, but it was called at 10:50.
+    expect(serviceStanding(sessions, clock('10:55')).state).toBe('running')
+    expect(serviceStanding(sessions, clock('10:55'), iso('10:50')).state).toBe('done')
+    expect(serviceStanding(sessions, clock('10:55'), iso('10:50')).to).toBe(clock('10:50'))
+  })
+
+  it('is not over before the end that was called comes round', () => {
+    expect(serviceStanding(sessions, clock('10:30'), iso('10:50')).state).toBe('running')
+  })
+
+  it('still falls back to the clock when nobody called it', () => {
+    expect(serviceStanding(sessions, clock('11:05'), null).state).toBe('done')
+    expect(serviceStanding(sessions, clock('10:30'), null).state).toBe('running')
+  })
+})

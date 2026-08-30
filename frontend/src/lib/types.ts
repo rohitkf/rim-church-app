@@ -62,6 +62,9 @@ export const serviceSchema = z.object({
   date: z.string(),
   service_type: z.string(),
   created_at: z.string(),
+  // When somebody called the end of it. Optional so the planner still
+  // renders against a database that hasn't had the migration applied.
+  ended_at: z.string().nullable().optional(),
 })
 export type Service = z.infer<typeof serviceSchema>
 
