@@ -5,6 +5,8 @@ import { QueryState } from './QueryState'
 import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
 import { useErrorText } from '../lib/useErrorText'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
+import { useDragReorder } from '../lib/useDragReorder'
+import { DragHandle } from './DragHandle'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -63,25 +65,57 @@ function RoleChecklistEditor({
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that item.')),
   })
 
+  const reorder = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.rpc('reorder_role_checklist_items', { role: roleId, ids })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not reorder the checklist.')),
+  })
+
+  const byId = new Map(items.map((i) => [i.id, i]))
+  // The order the list is drawn in, which during a drag is ahead of what
+  // the database has been told.
+  const { ordered, handleProps, rowProps } = useDragReorder(
+    items.map((i) => i.id),
+    (ids) => reorder.mutate(ids),
+    { enabled: canManage },
+  )
+
   return (
     <div className="mt-2 border-l border-border-subtle pl-3">
       {items.length === 0 ? (
         <p className="text-label-sm text-on-surface-variant">No checklist items for this role yet.</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-2 text-body-sm">
-              <span className="text-on-surface">{item.label}</span>
-              {canManage && (
-                <button
-                  onClick={() => deleteItem.mutate(item.id)}
-                  className="shrink-0 text-label-sm text-error hover:underline"
-                >
-                  Remove
-                </button>
-              )}
-            </li>
-          ))}
+          {ordered.map((id) => {
+            const item = byId.get(id)
+            if (!item) return null
+            return (
+              <li
+                key={item.id}
+                {...rowProps(item.id)}
+                className="flex items-center justify-between gap-2 rounded-[var(--radius-chip)] bg-surface-lowest text-body-sm"
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
+                  <span className="min-w-0 break-words text-on-surface">{item.label}</span>
+                </span>
+                {canManage && (
+                  <button
+                    onClick={() => deleteItem.mutate(item.id)}
+                    className="shrink-0 text-label-sm text-error hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
 
@@ -166,6 +200,29 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that role.')),
   })
 
+  const reorderRoles = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.rpc('reorder_department_roles', {
+        dept: departmentId,
+        ids,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not reorder the roles.')),
+  })
+
+  const roles = rolesQuery.data ?? []
+  const roleById = new Map(roles.map((r) => [r.id, r]))
+  const { ordered, handleProps, rowProps } = useDragReorder(
+    roles.map((r) => r.id),
+    (ids) => reorderRoles.mutate(ids),
+    { enabled: canManage },
+  )
+
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!newName.trim()) return
@@ -183,13 +240,17 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       <QueryState
         isLoading={rolesQuery.isLoading}
         error={rolesQuery.error}
-        isEmpty={rolesQuery.data?.length === 0}
+        isEmpty={roles.length === 0}
         emptyMessage={canManage ? 'No roles yet — add the first one below.' : 'No roles defined yet.'}
       >
         <ul className="mt-4 flex flex-col gap-2">
-          {rolesQuery.data?.map((role) => (
+          {ordered.map((id) => {
+            const role = roleById.get(id)
+            if (!role) return null
+            return (
             <li
               key={role.id}
+              {...rowProps(role.id)}
               /* Once this row grew a Checklist block underneath it, it
                  stopped being one line — and `rounded-full` on a tall box
                  draws an ellipse, not a pill. */
@@ -228,7 +289,12 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                 </form>
               ) : (
                 <>
-                  <span className="text-body-sm font-medium text-on-surface">{role.name}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {canManage && <DragHandle label={role.name} {...handleProps(role.id)} />}
+                    <span className="min-w-0 break-words text-body-sm font-medium text-on-surface">
+                      {role.name}
+                    </span>
+                  </span>
                   {/* Coordinator is not an ordinary role: whoever the rota
                       puts in it can verify this team's checklist, and every
                       team is given one. Renaming or deleting it would take
@@ -269,7 +335,8 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                 </details>
               )}
             </li>
-          ))}
+            )
+          })}
         </ul>
       </QueryState>
 

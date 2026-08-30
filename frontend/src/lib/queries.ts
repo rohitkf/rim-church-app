@@ -58,8 +58,11 @@ export async function fetchDepartmentRoles(departmentIds: string[]): Promise<Dep
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_roles')
-    .select('id, department_id, name')
+    .select('id, department_id, name, sort_order')
     .in('department_id', departmentIds)
+    // Hand-set first, name only to break a tie: a team that has never
+    // reordered its roles still reads alphabetically.
+    .order('sort_order')
     .order('name')
   if (error) throw error
   return z.array(departmentRoleSchema).parse(data)

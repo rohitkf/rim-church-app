@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { formatCountdown } from '../lib/countdown'
 
 export type TimelineTone = 'plain' | 'now' | 'warning'
@@ -28,6 +28,8 @@ export function TimelineRow({
   countdown,
   grants,
   runsFor,
+  rowRef,
+  style,
   children,
 }: {
   time: ReactNode
@@ -62,6 +64,9 @@ export function TimelineRow({
   grants?: { minutes: number; note?: string | null }[]
   /** What the session runs to once the grants are counted. */
   runsFor?: number
+  /** Measured while it is dragged, so the row can follow a finger. */
+  rowRef?: (el: HTMLElement | null) => void
+  style?: CSSProperties
   children: ReactNode
 }) {
   const filled = Math.min(Math.max(fill ?? 0, 0), 1)
@@ -82,7 +87,7 @@ export function TimelineRow({
   const rail = { bottom: last ? 'calc(100% - 2rem)' : '-0.375rem' }
 
   return (
-    <li className="flex gap-3 sm:gap-5">
+    <li ref={rowRef} style={style} className="flex gap-3 sm:gap-5">
       <div className="w-14 shrink-0 pt-5 text-right sm:w-24">
         <div
           className={`font-mono text-label-md tabular ${

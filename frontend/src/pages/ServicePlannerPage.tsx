@@ -14,6 +14,8 @@ import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
+import { DragHandle } from '../components/DragHandle'
+import { useDragReorder } from '../lib/useDragReorder'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
@@ -300,6 +302,28 @@ export function ServicePlannerPage() {
       setServiceError(errorText(err, 'Could not delete the session.')),
   })
 
+  /*
+   * Dragging a session up or down the running order.
+   *
+   * The whole list goes to the database in its new order, and the cascade
+   * — every session after the first starting when the one before it ends —
+   * is redone there, in one transaction. Doing it a row at a time from here
+   * would trip the unique index the running order relies on, halfway
+   * through, leaving a service in an order nobody asked for.
+   */
+  const reorderSessions = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.rpc('reorder_service_sessions', { svc: serviceId, ids })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setServiceError(null)
+      return invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(errorText(err, 'Could not reorder the running order.')),
+  })
+
   const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data])
 
   // The rail doubles as a clock, so it needs one. Twenty seconds is finer
@@ -357,6 +381,26 @@ export function ServicePlannerPage() {
    */
   const locksAt = editingLocksAt(sessions, endedAt)
   const canEdit = canManage && !editingLocked(sessions, clock, endedAt)
+
+  const {
+    ordered: sessionOrder,
+    handleProps: dragHandleProps,
+    rowProps: dragRowProps,
+  } = useDragReorder(
+    sessions.map((session) => session.id),
+    (ids) => reorderSessions.mutate(ids),
+    { enabled: canEdit },
+  )
+  // The running order as it is drawn, which mid-drag is a step ahead of
+  // what the database has been told.
+  const sessionById = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions])
+  const drawn = useMemo(
+    () =>
+      sessionOrder
+        .map((id) => sessionById.get(id))
+        .filter((s): s is (typeof sessions)[number] => !!s),
+    [sessionOrder, sessionById],
+  )
 
   // Everyone who could take a session: the people with accounts, then
   // this service's guests.
@@ -924,7 +968,7 @@ export function ServicePlannerPage() {
                 </div>
 
                 <ul className="mt-5 flex flex-col">
-                  {sessions.map((session, idx) => {
+                  {drawn.map((session, idx) => {
                     const isFirst = idx === 0
                     const skipped = !!session.skipped_at
                     // A dropped session needs nobody on it, so it is never
@@ -937,10 +981,10 @@ export function ServicePlannerPage() {
                     // The gap this row's rail leaves before the next thing
                     // that is actually going to happen — a skipped session
                     // is not it.
-                    const nextUp = sessions.slice(idx + 1).find((s) => !s.skipped_at)
+                    const nextUp = drawn.slice(idx + 1).find((s) => !s.skipped_at)
                     // Somebody has said the next one has not begun, so this
                     // one is still going whatever its planned end says.
-                    const heldBack = heldBackBy(sessions, idx)
+                    const heldBack = heldBackBy(drawn, idx)
                     const onNow = running || !!heldBack
                     const held = !!session.held_at
                     // Every session gets the controls, not just the one the
@@ -975,7 +1019,9 @@ export function ServicePlannerPage() {
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
-                        last={idx === sessions.length - 1}
+                        last={idx === drawn.length - 1}
+                        rowRef={dragRowProps(session.id).ref}
+                        style={dragRowProps(session.id).style}
                         fill={timing?.fill}
                         running={running}
                         tone={unassigned ? 'warning' : isFirst && !skipped ? 'now' : 'plain'}
@@ -1172,6 +1218,19 @@ export function ServicePlannerPage() {
                                 line on a phone, so the picker wraps under
                                 it instead of squeezing it. */}
                             <div className="min-w-0 flex-1 basis-full sm:basis-0">
+                              <div className="flex items-start gap-1">
+                              {/* The grip sits with the name rather than
+                                  out at the card's edge: it is the row's
+                                  first thing, and on a phone an edge is
+                                  where the thumb already is for scrolling. */}
+                              {canEdit && (
+                                <DragHandle
+                                  label={session.session_name}
+                                  className="mt-1.5"
+                                  {...dragHandleProps(session.id)}
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
                               {canEdit ? (
                                 <GrowingField
                                   value={session.session_name}
@@ -1187,6 +1246,8 @@ export function ServicePlannerPage() {
                               ) : (
                                 <div className="text-headline-sm">{session.session_name}</div>
                               )}
+                              </div>
+                              </div>
                               {unassigned && (
                                 <div className="mt-1 px-0.5 text-label-md text-accent-orange-soft">
                                   Nobody assigned yet

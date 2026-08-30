@@ -177,6 +177,7 @@ export const departmentRoleSchema = z.object({
   id: z.string(),
   department_id: z.string(),
   name: z.string(),
+  sort_order: z.number(),
 })
 export type DepartmentRole = z.infer<typeof departmentRoleSchema>
 
