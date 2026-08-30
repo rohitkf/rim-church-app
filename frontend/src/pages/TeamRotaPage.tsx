@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { Chevron, useExpanded } from '../components/Collapsible'
 import { ActionButton, Eyebrow, LiveDot, PageHeader, Tile } from '../components/Surface'
 import { Link } from 'react-router-dom'
 import {
@@ -15,7 +16,7 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
-import { servicesToShow } from '../lib/rotaWindow'
+import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import { formatServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
@@ -29,8 +30,6 @@ import {
   type RotaAssignment,
   type RotaReleaseRequest,
 } from '../lib/types'
-
-const UPCOMING_LIMIT = 3
 
 async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   if (serviceIds.length === 0) return []
@@ -71,6 +70,9 @@ export function TeamRotaPage() {
   // Collapsed by default: a form under every team on every service was the
   // bulk of what made this page a wall of dropdowns.
   const [openForm, setOpenForm] = useState<Record<string, boolean>>({})
+  // Finished services fold away: they are a record, not a question, and a
+  // page that opens on last Sunday's rota buries next Sunday's.
+  const { isExpanded, toggle: toggleService } = useExpanded()
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   /*
@@ -99,13 +101,26 @@ export function TeamRotaPage() {
     enabled: !!myId,
   })
 
+  // Everything still to come, out to the look-ahead. Which of these have
+  // finished decides the window, so it has to be known before the window is
+  // drawn — hence the wider list first, narrowed a few lines down.
+  const candidates = useMemo(() => {
+    const horizon = shiftIsoDays(today, LOOKAHEAD_DAYS)
+    return servicesAhead(servicesQuery.data ?? [], today).filter((s) => s.date <= horizon)
+  }, [servicesQuery.data, today])
+  const candidateIds = useMemo(() => candidates.map((s) => s.id), [candidates])
+
+  // Finished comes from the same hook the checklists and the availability
+  // tracker use, so a service cannot be closed on one page and open here.
+  const { isFinished } = useFinishedServices(candidateIds)
+
   const upcoming = useMemo(
     () =>
-      servicesToShow(servicesQuery.data ?? [], today, {
-        limit: UPCOMING_LIMIT,
+      servicesToShow(candidates, today, {
         mine: new Set(myServicesQuery.data ?? []),
+        isFinished,
       }),
-    [servicesQuery.data, today, myServicesQuery.data],
+    [candidates, today, myServicesQuery.data, isFinished],
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
@@ -138,10 +153,6 @@ export function TeamRotaPage() {
     return () => window.clearInterval(tick)
   }, [])
   const windows = useMemo(() => serviceWindows(sessionsQuery.data ?? []), [sessionsQuery.data])
-
-  // Finished comes from the same hook the checklists and the availability
-  // tracker use, so a service cannot be closed on one page and open here.
-  const { isFinished } = useFinishedServices(upcomingIds)
 
   // Ordered with what has happened last: the rota is read to find out who
   // is on next, and a service that is over answers nothing.
@@ -401,6 +412,37 @@ export function TeamRotaPage() {
               // The service on the platform is the only one anyone cares
               // about while it is on, so it wears the accent tile and says
               // "on now" — and the rest stay quiet rather than competing.
+              // Over means folded: the header still says what happened,
+              // and touching it opens the teams underneath.
+              const open = !finished || isExpanded(service.id)
+              const heading = (
+                <div className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    {live && (
+                      <span className="flex items-center gap-2 self-center">
+                        <LiveDot />
+                        <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-accent-green-soft">
+                          On now
+                        </span>
+                      </span>
+                    )}
+                    <h2 className="text-headline-md">{service.service_type}</h2>
+                    <span className="font-mono text-label-sm text-on-surface-variant">
+                      {service.date === today ? 'Today' : formatServiceDay(service.date)}
+                    </span>
+                    {finished && (
+                      <span className="self-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                        Finished · closed
+                      </span>
+                    )}
+                  </div>
+                  <span className="flex items-baseline gap-2 font-mono text-label-sm text-on-surface-variant">
+                    {serviceAssignments.length} assigned · {teamsWithPeople}/{myDepartments.length} teams
+                    {finished && <Chevron open={open} />}
+                  </span>
+                </div>
+              )
+
               return (
                 <Tile
                   key={service.id}
@@ -413,34 +455,28 @@ export function TeamRotaPage() {
                       : ''
                   } ${finished ? 'opacity-70' : ''}`}
                 >
-                  <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      {live && (
-                        <span className="flex items-center gap-2 self-center">
-                          <LiveDot />
-                          <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-accent-green-soft">
-                            On now
-                          </span>
-                        </span>
-                      )}
-                      <h2 className="text-headline-md">{service.service_type}</h2>
-                      <span className="font-mono text-label-sm text-on-surface-variant">
-                        {service.date === today ? 'Today' : formatServiceDay(service.date)}
-                      </span>
-                      {finished && (
-                        <span className="self-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
-                          Finished · closed
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-mono text-label-sm text-on-surface-variant">
-                      {serviceAssignments.length} assigned · {teamsWithPeople}/{myDepartments.length} teams
-                    </span>
+                  <header className="px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
+                    {finished ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleService(service.id)}
+                        aria-expanded={open}
+                        aria-controls={`rota-teams-${service.id}`}
+                        className="flex w-full text-left"
+                      >
+                        {heading}
+                      </button>
+                    ) : (
+                      heading
+                    )}
                   </header>
 
                   {/* One card per team, so a head can find theirs without
                       reading past five others. */}
-                  <ul className="grid grid-cols-1 gap-3 px-5 pb-5 sm:px-7 sm:pb-7 lg:grid-cols-2 xl:grid-cols-3">
+                  <ul
+                    id={`rota-teams-${service.id}`}
+                    hidden={!open}
+                    className="grid grid-cols-1 gap-3 px-5 pb-5 sm:px-7 sm:pb-7 lg:grid-cols-2 xl:grid-cols-3">
                     {orderedTeams.map((dept) => {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)

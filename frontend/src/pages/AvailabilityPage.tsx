@@ -11,6 +11,8 @@ import { formatServiceDay } from '../lib/sunday'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
+import { Chevron, useExpanded } from '../components/Collapsible'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -22,10 +24,6 @@ import {
   type AvailabilityStatus,
   type DepartmentMemberRow,
 } from '../lib/types'
-
-/** How many upcoming services to ask about — enough to plan ahead without
- * making people answer for months of Sundays. */
-const UPCOMING_LIMIT = 3
 
 /**
  * Three answers, one tap.
@@ -91,19 +89,25 @@ export function AvailabilityPage() {
     enabled: !!myId,
   })
 
-  const listed = useMemo(
-    () =>
-      (servicesQuery.data ?? [])
-        .filter((s) => s.date >= today)
-        .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
-        .slice(0, UPCOMING_LIMIT),
-    [servicesQuery.data, today],
-  )
+  // Everything still to come, out to the look-ahead. Which of these have
+  // finished decides the window, so it is worked out on the wider list and
+  // the window is drawn from the answer.
+  const candidates = useMemo(() => {
+    const horizon = shiftIsoDays(today, LOOKAHEAD_DAYS)
+    return servicesAhead(servicesQuery.data ?? [], today).filter((s) => s.date <= horizon)
+  }, [servicesQuery.data, today])
 
   // A service that has happened can no longer be answered for, so it drops
   // below the ones that still need an answer rather than sitting at the top
   // of the page asking for something nobody can give.
-  const { isFinished } = useFinishedServices(listed.map((s) => s.id))
+  const { isFinished } = useFinishedServices(candidates.map((s) => s.id))
+  // Finished services fold away, so the answer still owed is what the page
+  // opens on.
+  const { isExpanded, toggle: toggleService } = useExpanded()
+  const listed = useMemo(
+    () => servicesToShow(candidates, today, { isFinished }),
+    [candidates, today, isFinished],
+  )
   const upcoming = useMemo(
     () => [...listed].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),
     [listed, isFinished],
@@ -262,14 +266,11 @@ export function AvailabilityPage() {
           <div className="mt-6 flex flex-col gap-6">
             {upcoming.map((service) => {
               const finished = isFinished(service.id)
-              return (
-              <section
-                key={service.id}
-                className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
-                  finished ? 'opacity-70' : ''
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+              // Nobody can answer for a service that has happened, so it
+              // folds down to its own name and opens on a touch.
+              const open = !finished || isExpanded(service.id)
+              const heading = (
+                <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-headline-md">{service.service_type}</h2>
                   <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
                     {finished && (
@@ -278,12 +279,37 @@ export function AvailabilityPage() {
                       </span>
                     )}
                     {service.date === today ? 'Today' : formatServiceDay(service.date)}
+                    {finished && <Chevron open={open} />}
                   </span>
                 </div>
+              )
+              return (
+              <section
+                key={service.id}
+                className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
+                  finished ? 'opacity-70' : ''
+                }`}
+              >
+                {finished ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleService(service.id)}
+                    aria-expanded={open}
+                    aria-controls={`availability-teams-${service.id}`}
+                    className="flex w-full text-left"
+                  >
+                    {heading}
+                  </button>
+                ) : (
+                  heading
+                )}
 
                 {/* Each team is its own card, so the eye can jump to the one
                     that is short rather than reading a column of bars. */}
-                <ul className="mt-5 flex flex-col gap-3">
+                <ul
+                  id={`availability-teams-${service.id}`}
+                  hidden={!open}
+                  className="mt-5 flex flex-col gap-3">
                   {myDepartments.map((dept) => {
                     const mine = myAnswer(service.id, dept.id)
                     const leads = ledDepartmentIds.includes(dept.id)

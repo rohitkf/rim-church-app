@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
+import { Chevron } from '../components/Collapsible'
 import { useAuth } from '../auth/AuthContext'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
@@ -48,6 +49,9 @@ export function ServicePlannerIndexPage() {
     setParams(params, { replace: true })
   }
   const [createError, setCreateError] = useState<string | null>(null)
+  // What has already run is folded away by default. It is a record, and it
+  // was pushing the services still to plan off the bottom of a phone.
+  const [showFinished, setShowFinished] = useState(false)
   // Tracks the last value WE wrote into the name field, so switching
   // templates keeps auto-filling until the admin types their own name.
   const lastAutoFilledName = useRef('')
@@ -482,13 +486,25 @@ export function ServicePlannerIndexPage() {
             looks at them. */}
         {finishedDays.length > 0 && (
           <section className="mt-8">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <div className="text-headline-md text-on-surface-variant">Finished</div>
+            <button
+              type="button"
+              onClick={() => setShowFinished((v) => !v)}
+              aria-expanded={showFinished}
+              aria-controls="finished-services"
+              className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left"
+            >
+              <div className="flex items-baseline gap-2 text-headline-md text-on-surface-variant">
+                Finished
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  {finished.length}
+                </span>
+                <Chevron open={showFinished} />
+              </div>
               <p className="font-mono text-label-sm text-on-surface-faint">
                 Clears every Tuesday
               </p>
-            </div>
-            <div className="mt-3 flex flex-col gap-5">
+            </button>
+            <div id="finished-services" hidden={!showFinished} className="mt-3 flex flex-col gap-5">
               {finishedDays.map(([date, services]) => (
                 <DayGroup
                   key={date}
