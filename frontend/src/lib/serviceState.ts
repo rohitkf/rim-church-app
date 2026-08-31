@@ -102,11 +102,12 @@ export const EDIT_GRACE_MS = 60 * 60 * 1000
 export function editingLocksAt(
   sessions: SessionTiming[],
   endedAt?: string | null,
+  graceMs: number = EDIT_GRACE_MS,
 ): number | null {
   const called = endedAt ? new Date(endedAt).getTime() : NaN
-  if (!Number.isNaN(called)) return called + EDIT_GRACE_MS
+  if (!Number.isNaN(called)) return called + graceMs
   const bounds = serviceBounds(sessions)
-  return bounds ? bounds.to + EDIT_GRACE_MS : null
+  return bounds ? bounds.to + graceMs : null
 }
 
 /** Whether the running order has settled into a record that cannot change. */
@@ -114,7 +115,8 @@ export function editingLocked(
   sessions: SessionTiming[],
   now: number = Date.now(),
   endedAt?: string | null,
+  graceMs: number = EDIT_GRACE_MS,
 ): boolean {
-  const at = editingLocksAt(sessions, endedAt)
+  const at = editingLocksAt(sessions, endedAt, graceMs)
   return at !== null && now >= at
 }

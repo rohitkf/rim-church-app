@@ -52,3 +52,28 @@ describe('isLiveNow', () => {
     expect(isLiveNow('s2', windows, clock('18:30'))).toBe(true)
   })
 })
+
+describe('a church that sets its own lead-in and run-out', () => {
+  const sessions = [
+    { service_id: 's1', start_time: '2026-09-06T09:00:00Z', duration_minutes: 60 },
+  ]
+
+  it('opens the doors when the settings say, not half an hour before', () => {
+    const tight = serviceWindows(sessions, { leadInMinutes: 5, runOutMinutes: 0 })
+    expect(isLiveNow('s1', tight, Date.parse('2026-09-06T08:50:00Z'))).toBe(false)
+    expect(isLiveNow('s1', tight, Date.parse('2026-09-06T08:57:00Z'))).toBe(true)
+  })
+
+  it('keeps a service on for as long after the end as it was told to', () => {
+    const generous = serviceWindows(sessions, { leadInMinutes: 0, runOutMinutes: 90 })
+    expect(isLiveNow('s1', generous, Date.parse('2026-09-06T11:20:00Z'))).toBe(true)
+    expect(isLiveNow('s1', generous, Date.parse('2026-09-06T11:40:00Z'))).toBe(false)
+  })
+
+  it('falls back to the shipped half hour and quarter hour', () => {
+    const standard = serviceWindows(sessions)
+    expect(isLiveNow('s1', standard, Date.parse('2026-09-06T08:35:00Z'))).toBe(true)
+    expect(isLiveNow('s1', standard, Date.parse('2026-09-06T10:14:00Z'))).toBe(true)
+    expect(isLiveNow('s1', standard, Date.parse('2026-09-06T10:16:00Z'))).toBe(false)
+  })
+})

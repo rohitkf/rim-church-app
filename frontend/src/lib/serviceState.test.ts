@@ -108,3 +108,27 @@ describe('the hour after a service ends', () => {
     expect(editingLocked([], clock('23:00'))).toBe(false)
   })
 })
+
+describe('an editing window the church chose', () => {
+  const sessions = [
+    { id: 'a', start_time: '2026-09-06T09:00:00Z', duration_minutes: 60 },
+  ]
+  const ended = '2026-09-06T10:00:00Z'
+  const at = (iso: string) => Date.parse(iso)
+
+  it('locks on the grace it is given rather than the shipped hour', () => {
+    const tenMinutes = 10 * 60 * 1000
+    expect(editingLocked(sessions, at('2026-09-06T10:05:00Z'), ended, tenMinutes)).toBe(false)
+    expect(editingLocked(sessions, at('2026-09-06T10:15:00Z'), ended, tenMinutes)).toBe(true)
+  })
+
+  it('can be opened up to a whole day', () => {
+    const aDay = 24 * 60 * 60 * 1000
+    expect(editingLocked(sessions, at('2026-09-06T20:00:00Z'), ended, aDay)).toBe(false)
+    expect(editingLocksAt(sessions, ended, aDay)).toBe(at('2026-09-07T10:00:00Z'))
+  })
+
+  it('still falls back to the hour it shipped with', () => {
+    expect(editingLocksAt(sessions, ended)).toBe(at('2026-09-06T10:00:00Z') + EDIT_GRACE_MS)
+  })
+})

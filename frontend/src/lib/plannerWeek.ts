@@ -12,16 +12,19 @@
  * like a bug rather than a boundary.
  */
 
-/** The most recent Tuesday 00:00 UTC, as epoch milliseconds. */
-export function lastWeeklyClear(now: Date = new Date()): number {
+/** Which day the week turns over on, unless Settings says otherwise. */
+export const DEFAULT_CLEAR_DOW = 2
+
+/** The most recent clear-day 00:00 UTC, as epoch milliseconds. */
+export function lastWeeklyClear(now: Date = new Date(), dow: number = DEFAULT_CLEAR_DOW): number {
   const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const day = new Date(midnight).getUTCDay() // 0 Sunday … 2 Tuesday
-  // On a Tuesday the boundary is this morning, not a week ago.
-  const daysBack = (day - 2 + 7) % 7
+  const day = new Date(midnight).getUTCDay() // 0 Sunday … 6 Saturday
+  // On the day itself the boundary is this morning, not a week ago.
+  const daysBack = (day - dow + 7) % 7
   return midnight - daysBack * 86_400_000
 }
 
 /** That same moment as a date, for filtering rows stored by day. */
-export function lastWeeklyClearDate(now: Date = new Date()): string {
-  return new Date(lastWeeklyClear(now)).toISOString().slice(0, 10)
+export function lastWeeklyClearDate(now: Date = new Date(), dow: number = DEFAULT_CLEAR_DOW): string {
+  return new Date(lastWeeklyClear(now, dow)).toISOString().slice(0, 10)
 }

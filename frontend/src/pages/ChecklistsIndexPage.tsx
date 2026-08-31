@@ -15,6 +15,8 @@ import {
   fetchServices,
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
+import { servicesToShow } from '../lib/rotaWindow'
+import { useAppSettings } from '../lib/appSettings'
 import { formatServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
@@ -33,21 +35,27 @@ export function ChecklistsIndexPage() {
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
+  const settings = useAppSettings()
   const [error, setError] = useState<string | null>(null)
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
 
-  // Only the next service day matters here — future weeks would just bury
-  // the checklist people actually need today.
+  // The same window the rota and the availability tracker work to, and set
+  // in the same place. This used to be the next service day and nothing
+  // else, which buries a checklist somebody wants to prepare early and is
+  // not the church's call to make from the source code.
   const dayIso = useMemo(
     () => nearestServiceDate((servicesQuery.data ?? []).map((s) => s.date), today),
     [servicesQuery.data, today],
   )
-  const dayServices = useMemo(
-    () => (servicesQuery.data ?? []).filter((s) => s.date === dayIso),
-    [servicesQuery.data, dayIso],
-  )
+  const dayServices = useMemo(() => {
+    const all = servicesQuery.data ?? []
+    const ahead = servicesToShow(all, today, { days: settings.rota_window_days })
+    // Nothing ahead: the page still has a day to show, and it is the most
+    // recent one — a checklist is worked on the day and signed off after.
+    return ahead.length > 0 ? ahead : all.filter((s) => s.date === dayIso)
+  }, [servicesQuery.data, today, settings.rota_window_days, dayIso])
   const dayServiceIds = useMemo(() => dayServices.map((s) => s.id), [dayServices])
 
   const assignmentsQuery = useQuery({
@@ -198,6 +206,9 @@ export function ChecklistsIndexPage() {
     [dayServices, isFinished],
   )
 
+  const daysShown = new Set(dayServices.map((s) => s.date)).size
+  const firstDayShown = dayServices.map((s) => s.date).sort()[0]
+
   const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
   const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
 
@@ -205,9 +216,14 @@ export function ChecklistsIndexPage() {
     <div>
       <PageHeader
         eyebrow={
-          dayIso
-            ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
-            : 'No service day yet'
+          /* One day reads as a day; a window reads as a window. Saying
+             "next service day" over a fortnight of them would be a lie the
+             page then spends five sections contradicting. */
+          daysShown > 1
+            ? `The next ${settings.rota_window_days} days · from ${formatServiceDay(firstDayShown!)}`
+            : dayIso
+              ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
+              : 'No service day yet'
         }
         title="Checklists"
         description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."

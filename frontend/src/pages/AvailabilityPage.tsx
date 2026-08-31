@@ -11,6 +11,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { useAppSettings } from '../lib/appSettings'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { teamWash } from '../lib/teamGradient'
@@ -80,6 +81,7 @@ export function AvailabilityPage() {
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
+  const settings = useAppSettings()
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -105,8 +107,8 @@ export function AvailabilityPage() {
   // opens on.
   const { isExpanded, toggle: toggleService } = useExpanded()
   const listed = useMemo(
-    () => servicesToShow(candidates, today, { isFinished }),
-    [candidates, today, isFinished],
+    () => servicesToShow(candidates, today, { days: settings.rota_window_days, isFinished }),
+    [candidates, today, isFinished, settings],
   )
   const upcoming = useMemo(
     () => [...listed].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),

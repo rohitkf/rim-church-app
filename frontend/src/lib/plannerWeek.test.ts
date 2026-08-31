@@ -26,3 +26,20 @@ describe('the weekly boundary', () => {
     expect(lastWeeklyClearDate(utc('2026-08-30T18:00:00Z'))).toBe('2026-08-25')
   })
 })
+
+describe('a week that turns over on a different day', () => {
+  it('walks back to the configured day rather than always Tuesday', () => {
+    // Wednesday 2 September 2026.
+    const wed = new Date('2026-09-02T12:00:00Z')
+    expect(lastWeeklyClearDate(wed, 0)).toBe('2026-08-30') // Sunday
+    expect(lastWeeklyClearDate(wed, 1)).toBe('2026-08-31') // Monday
+    // Wednesday itself: the boundary is this morning, not a week back.
+    expect(lastWeeklyClearDate(wed, 3)).toBe('2026-09-02')
+    expect(lastWeeklyClearDate(wed, 4)).toBe('2026-08-27') // Thursday, a week back
+  })
+
+  it('still defaults to Tuesday for anyone who has not set one', () => {
+    const wed = new Date('2026-09-02T12:00:00Z')
+    expect(lastWeeklyClearDate(wed)).toBe('2026-09-01')
+  })
+})

@@ -11,6 +11,7 @@ import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { serviceBounds } from '../lib/serviceProgress'
 import { lastWeeklyClear, lastWeeklyClearDate } from '../lib/plannerWeek'
+import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
 import { formatTime } from '../lib/time'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
@@ -124,6 +125,7 @@ export function ServicePlannerIndexPage() {
   const now = new Date()
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
   const today = todayIso()
+  const settings = useAppSettings()
 
   // Team members only plan ahead: past services are Admin-only history.
   const visibleServices = useMemo(
@@ -143,7 +145,7 @@ export function ServicePlannerIndexPage() {
   // would be worse than saying nothing.
   // Back to the last Tuesday, not just from today: a service that finished
   // this week still has to be drawn, with the times it actually ran.
-  const weekStartDate = lastWeeklyClearDate()
+  const weekStartDate = lastWeeklyClearDate(new Date(), settings.board_clear_dow)
 
   // Re-read the clock so a service that ends while the page is open moves
   // itself down rather than waiting for someone to reload.
@@ -217,19 +219,19 @@ export function ServicePlannerIndexPage() {
             (windowFor.get(a.id)?.from ?? Infinity) - (windowFor.get(b.id)?.from ?? Infinity) ||
             a.service_type.localeCompare(b.service_type),
         )
-        .slice(0, 6),
-    [visibleServices, today, windowFor, finishedIds],
+        .slice(0, settings.planner_upcoming_limit),
+    [visibleServices, today, windowFor, finishedIds, settings],
   )
 
   // What has already happened this week, most recent first. Anything that
   // ended before the last Tuesday is simply not here: the list empties on
   // the same clock as the message board rather than growing for ever.
   const finished = useMemo(() => {
-    const since = lastWeeklyClear()
+    const since = lastWeeklyClear(new Date(), settings.board_clear_dow)
     return visibleServices
       .filter((s) => finishedIds.has(s.id) && (windowFor.get(s.id)?.to ?? 0) >= since)
       .sort((a, b) => (windowFor.get(b.id)?.to ?? 0) - (windowFor.get(a.id)?.to ?? 0))
-  }, [visibleServices, finishedIds, windowFor])
+  }, [visibleServices, finishedIds, windowFor, settings])
 
   // Two services on one Sunday are one day with two services in it, not
   // two unrelated rows that happen to repeat a date. Saying the date once
@@ -501,7 +503,7 @@ export function ServicePlannerIndexPage() {
                 <Chevron open={showFinished} />
               </div>
               <p className="font-mono text-label-sm text-on-surface-faint">
-                Clears every Tuesday
+                Clears every {WEEKDAY_NAMES[settings.board_clear_dow]}
               </p>
             </button>
             <div id="finished-services" hidden={!showFinished} className="mt-3 flex flex-col gap-5">

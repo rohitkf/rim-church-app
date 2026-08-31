@@ -12,7 +12,7 @@
  * a Sunday, which is worse than lighting up none.
  */
 
-/** Doors open this long before the first session. */
+/** Doors open this long before the first session, unless Settings says otherwise. */
 export const LEAD_IN_MINUTES = 30
 /** And it is still "now" this long after the last one ends. */
 export const RUN_OUT_MINUTES = 15
@@ -29,7 +29,13 @@ export interface ServiceWindow {
 }
 
 /** The live window per service, keyed by service id. */
-export function serviceWindows(sessions: SessionLike[]): Map<string, ServiceWindow> {
+export function serviceWindows(
+  sessions: SessionLike[],
+  {
+    leadInMinutes = LEAD_IN_MINUTES,
+    runOutMinutes = RUN_OUT_MINUTES,
+  }: { leadInMinutes?: number; runOutMinutes?: number } = {},
+): Map<string, ServiceWindow> {
   const windows = new Map<string, ServiceWindow>()
 
   for (const session of sessions) {
@@ -44,7 +50,7 @@ export function serviceWindows(sessions: SessionLike[]): Map<string, ServiceWind
   }
 
   for (const [id, w] of windows) {
-    windows.set(id, { from: w.from - LEAD_IN_MINUTES * 60_000, to: w.to + RUN_OUT_MINUTES * 60_000 })
+    windows.set(id, { from: w.from - leadInMinutes * 60_000, to: w.to + runOutMinutes * 60_000 })
   }
   return windows
 }

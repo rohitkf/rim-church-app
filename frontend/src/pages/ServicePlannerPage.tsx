@@ -8,6 +8,7 @@ import { LeadPicker, type LeadOption } from '../components/LeadPicker'
 import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
 import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
+import { useAppSettings } from '../lib/appSettings'
 import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
 import { GrowingField } from '../components/GrowingField'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
@@ -71,6 +72,7 @@ async function fetchProfileOptions(): Promise<ProfileOption[]> {
 
 export function ServicePlannerPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
+  const settings = useAppSettings()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const errorText = useErrorText()
@@ -379,8 +381,9 @@ export function ServicePlannerPage() {
    * lock — it only saves someone the round trip and an error message about a
    * button that should not have been there.
    */
-  const locksAt = editingLocksAt(sessions, endedAt)
-  const canEdit = canManage && !editingLocked(sessions, clock, endedAt)
+  const graceMs = settings.edit_grace_minutes * 60_000
+  const locksAt = editingLocksAt(sessions, endedAt, graceMs)
+  const canEdit = canManage && !editingLocked(sessions, clock, endedAt, graceMs)
 
   const {
     ordered: sessionOrder,

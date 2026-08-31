@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { AdminResetCard } from '../components/AdminResetCard'
+import { AppSettingsCard } from '../components/AppSettingsCard'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
 
@@ -184,6 +185,7 @@ export function ProfilePage() {
         </button>
       </form>
 
+      <AppSettingsCard />
       <AdminResetCard />
     </div>
   )

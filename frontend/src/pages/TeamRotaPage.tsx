@@ -20,6 +20,7 @@ import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../
 import { formatServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { useAppSettings } from '../lib/appSettings'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -62,6 +63,7 @@ export function TeamRotaPage() {
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const today = todayIso()
+  const settings = useAppSettings()
 
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
@@ -117,10 +119,13 @@ export function TeamRotaPage() {
   const upcoming = useMemo(
     () =>
       servicesToShow(candidates, today, {
-        mine: new Set(myServicesQuery.data ?? []),
+        days: settings.rota_window_days,
+        mine: settings.always_show_my_services
+          ? new Set(myServicesQuery.data ?? [])
+          : new Set<string>(),
         isFinished,
       }),
-    [candidates, today, myServicesQuery.data, isFinished],
+    [candidates, today, myServicesQuery.data, isFinished, settings],
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
 
@@ -152,7 +157,14 @@ export function TeamRotaPage() {
     const tick = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(tick)
   }, [])
-  const windows = useMemo(() => serviceWindows(sessionsQuery.data ?? []), [sessionsQuery.data])
+  const windows = useMemo(
+    () =>
+      serviceWindows(sessionsQuery.data ?? [], {
+        leadInMinutes: settings.lead_in_minutes,
+        runOutMinutes: settings.run_out_minutes,
+      }),
+    [sessionsQuery.data, settings],
+  )
 
   // Ordered with what has happened last: the rota is read to find out who
   // is on next, and a service that is over answers nothing.
