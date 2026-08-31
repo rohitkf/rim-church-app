@@ -5,6 +5,7 @@ coordination, attendance, checklists, inventory, and internal communication
 — with a hybrid interface: structured UI plus an AI assistant (voice/text)
 that can perform the same actions.
 
+
 Full requirements: see the PRD. This repo currently implements **all 9
 milestones** below (Auth, Profiles, Departments/Team Planner, Attendance +
 Checklists, Dashboard, Service Planner, Inventory, Message Board +
