@@ -18,6 +18,8 @@ const teamMessageSchema = z.object({
   body: z.string(),
   kind: z.enum(['post', 'alert']),
   created_at: z.string(),
+  edited_at: z.string().nullable(),
+  deleted_at: z.string().nullable(),
   author: z
     .object({ id: z.string(), first_name: z.string(), last_name: z.string() })
     .nullable(),
@@ -27,7 +29,7 @@ type TeamMessage = z.infer<typeof teamMessageSchema>
 async function fetchTeamMessages(departmentId: string): Promise<TeamMessage[]> {
   const { data, error } = await supabase
     .from('team_messages')
-    .select('id, department_id, author_id, body, kind, created_at, author:profiles!team_messages_author_id_fkey(id, first_name, last_name)')
+    .select('id, department_id, author_id, body, kind, created_at, edited_at, deleted_at, author:profiles!team_messages_author_id_fkey(id, first_name, last_name)')
     .eq('department_id', departmentId)
     .order('created_at', { ascending: true })
   if (error) throw error
@@ -66,7 +68,7 @@ export function TeamBoard({
    */
   departmentId?: string | null
 }) {
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -124,6 +126,14 @@ export function TeamBoard({
     if (scroller) scroller.scrollTop = scroller.scrollHeight
   }, [messagesQuery.data])
 
+  // Which message is showing its Edit/Delete row, which is being edited, and
+  // which is one tap from going. Touch has no hover, so the actions appear on
+  // a tap rather than on a pointer nobody has.
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
   const post = useMutation({
     mutationFn: async () => {
       const text = body.trim()
@@ -142,6 +152,49 @@ export function TeamBoard({
       queryClient.invalidateQueries({ queryKey: ['team-messages', departmentId] })
     },
     onError: (err: unknown) => setError(errorText(err, 'That message did not send.')),
+  })
+
+  /*
+   * Second thoughts.
+   *
+   * A message sent to the wrong room, or with the wrong time in it, used to
+   * stand for ever — and deleting one took it away so completely that the
+   * replies underneath stopped making sense. So: an edit says it was edited,
+   * and a delete leaves a marker where the message was. Both are the
+   * author's; an Admin can take one down but never rewrite it, which the
+   * database enforces rather than this form.
+   */
+  const editMessage = useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const { error: updateError } = await supabase
+        .from('team_messages')
+        .update({ body: text, mentions: parseMentions(text, people) })
+        .eq('id', id)
+      if (updateError) throw updateError
+    },
+    onSuccess: () => {
+      setEditingId(null)
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['team-messages', departmentId] })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'That edit did not save.')),
+  })
+
+  const deleteMessage = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: updateError } = await supabase
+        .from('team_messages')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+      if (updateError) throw updateError
+    },
+    onSuccess: () => {
+      setConfirmDeleteId(null)
+      setOpenActionsId(null)
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ['team-messages', departmentId] })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'That message could not be deleted.')),
   })
 
   if (departments.length === 0) return null
@@ -230,6 +283,12 @@ export function TeamBoard({
             )
           }
 
+          const gone = !!message.deleted_at
+          const editing = editingId === message.id
+          // An Admin can take a message down; only its author can reword it.
+          const mayDelete = mine || isAdmin
+          const stamp = `${formatTime(message.created_at)}${message.edited_at ? ' · edited' : ''}`
+
           return (
             <div key={message.id} className={`flex gap-2.5 ${mine ? 'justify-end' : ''}`}>
               {!mine && (
@@ -237,24 +296,118 @@ export function TeamBoard({
                   {initials(message.author)}
                 </span>
               )}
-              <div className="max-w-[78%]">
+              <div className="max-w-[78%] min-w-0">
                 {!mine && (
                   <div className="mb-1 text-label-md text-on-surface-faint">
-                    {message.author?.first_name} · {formatTime(message.created_at)}
+                    {message.author?.first_name} · {stamp}
                   </div>
                 )}
-                <MessageBody
-                  body={message.body}
-                  people={people}
-                  className={`rounded-[18px] px-3.5 py-2.5 text-body-sm ${
-                    mine
-                      ? 'rounded-br-[6px] bg-primary text-on-primary'
-                      : 'rounded-bl-[6px] bg-raised text-on-surface'
-                  }`}
-                />
-                {mine && (
+
+                {gone ? (
+                  /* The gap stays. A conversation with a hole in it reads as
+                     a conversation with a hole in it; one where the message
+                     simply vanished reads as replies to nothing. */
+                  <div className="rounded-[18px] px-3.5 py-2.5 text-body-sm italic text-on-surface-faint hairline">
+                    This message was deleted
+                  </div>
+                ) : editing ? (
+                  <div className="flex flex-col gap-2">
+                    <MentionInput
+                      value={draft}
+                      onChange={setDraft}
+                      people={people}
+                      rows={2}
+                      onSubmit={() => draft.trim() && editMessage.mutate({ id: message.id, text: draft.trim() })}
+                      className="w-full resize-none rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
+                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="tap rounded-full px-3 py-1.5 text-label-md text-on-surface-variant hover:text-on-surface"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={editMessage.isPending || draft.trim().length === 0}
+                        onClick={() => editMessage.mutate({ id: message.id, text: draft.trim() })}
+                        className="tap rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      mayDelete ? setOpenActionsId((id) => (id === message.id ? null : message.id)) : undefined
+                    }
+                    aria-expanded={mayDelete ? openActionsId === message.id : undefined}
+                    className={`block w-full text-left ${mayDelete ? '' : 'cursor-default'}`}
+                  >
+                    <MessageBody
+                      body={message.body}
+                      people={people}
+                      className={`rounded-[18px] px-3.5 py-2.5 text-body-sm ${
+                        mine
+                          ? 'rounded-br-[6px] bg-primary text-on-primary'
+                          : 'rounded-bl-[6px] bg-raised text-on-surface'
+                      }`}
+                    />
+                  </button>
+                )}
+
+                {mine && !editing && (
                   <div className="mt-1 text-right font-mono text-label-sm text-on-surface-faint">
-                    {formatTime(message.created_at)}
+                    {gone ? 'deleted' : stamp}
+                  </div>
+                )}
+
+                {!gone && !editing && openActionsId === message.id && mayDelete && (
+                  <div className={`mt-1 flex flex-wrap gap-3 ${mine ? 'justify-end' : ''}`}>
+                    {mine && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraft(message.body)
+                          setEditingId(message.id)
+                          setOpenActionsId(null)
+                        }}
+                        className="tap text-label-md font-medium text-secondary hover:underline"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {confirmDeleteId === message.id ? (
+                      <>
+                        <span className="text-label-md text-on-surface-variant">Delete it?</span>
+                        <button
+                          type="button"
+                          disabled={deleteMessage.isPending}
+                          onClick={() => deleteMessage.mutate(message.id)}
+                          className="tap text-label-md font-medium text-error hover:underline disabled:opacity-50"
+                        >
+                          Yes, delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="tap text-label-md text-on-surface-variant hover:underline"
+                        >
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(message.id)}
+                        className="tap text-label-md text-error hover:underline"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

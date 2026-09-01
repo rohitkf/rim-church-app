@@ -35,7 +35,7 @@ import { ActivityFeed } from '../components/ActivityFeed'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
-import { focusSundayIso, formatServiceDay, shiftSundayIso } from '../lib/sunday'
+import { focusSundayIso, formatServiceDay, shiftSundayIso, shortServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { orderServices, serviceStanding, type ServiceStanding } from '../lib/serviceState'
 import { turnoutRing } from '../lib/teamTurnout'
@@ -371,6 +371,15 @@ export function DashboardPage() {
   const departmentName = (id: string) =>
     departmentsQuery.data?.find((d) => d.id === id)?.name ?? 'Unknown department'
 
+  /**
+   * "on Sun 6 Sep @ 09:30" — the two facts a diary needs.
+   *
+   * The time comes from the running order's first session, so a service
+   * nobody has planned yet says only the day rather than inventing an hour.
+   */
+  const whenLabel = (date: string, startTime: string | null) =>
+    `on ${shortServiceDay(date)}${startTime ? ` @ ${formatTime(startTime)}` : ''}`
+
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading
   const error = servicesQuery.error || departmentsQuery.error
 
@@ -456,7 +465,14 @@ export function DashboardPage() {
             {dayIsOver && (
               <Tile tone="accent" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
                 <div>
-                  <Eyebrow>{serviceAfterDay ? 'Next service' : 'Nothing scheduled next'}</Eyebrow>
+                  <Eyebrow>
+                    {serviceAfterDay
+                      ? `Next service ${whenLabel(
+                          serviceAfterDay.date,
+                          startsAt.get(serviceAfterDay.id) ?? null,
+                        )}`
+                      : 'Nothing scheduled next'}
+                  </Eyebrow>
                   <h2 className="mt-2.5 text-headline-lg">
                     {serviceAfterDay ? serviceAfterDay.service_type : 'That’s the day done'}
                   </h2>
@@ -583,14 +599,18 @@ export function DashboardPage() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
+                        {/* When it is, not just that it is next. The
+                            countdown underneath says how long; a date and a
+                            time say what to put in a diary. */}
                         <Eyebrow>
                           {standing.state === 'running'
                             ? 'Current service'
                             : standing.state === 'done'
                               ? 'Finished'
-                              : serviceIndex === 0
-                                ? 'Next service'
-                                : 'Also on'}
+                              : `${serviceIndex === 0 ? 'Next service' : 'Also on'} ${whenLabel(
+                                  service.date,
+                                  startsAt.get(service.id) ?? null,
+                                )}`}
                         </Eyebrow>
                         <h2 className="mt-2.5 text-headline-lg">{service.service_type}</h2>
                         <p className="mt-1.5 text-body-md text-on-surface-variant">

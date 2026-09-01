@@ -315,18 +315,35 @@ export function AvailabilityPage() {
                   {myDepartments.map((dept) => {
                     const mine = myAnswer(service.id, dept.id)
                     const leads = ledDepartmentIds.includes(dept.id)
-                    // Core members are the people expected to serve; guests
-                    // aren't part of the team's readiness.
-                    const teamMembers = (membersQuery.data ?? []).filter(
-                      (m) => m.department_id === dept.id && m.member_type === 'core',
+                    // Core members are the people expected to serve, and
+                    // they are the denominator: a guest is not somebody the
+                    // team is short of.
+                    const onTeam = (membersQuery.data ?? []).filter(
+                      (m) => m.department_id === dept.id,
                     )
+                    const coreMembers = onTeam.filter((m) => m.member_type === 'core')
                     const answers = (availabilityQuery.data ?? []).filter(
                       (a) => a.service_id === service.id && a.department_id === dept.id,
                     )
                     const summary = availabilitySummary(
-                      teamMembers.map((m) => m.user_id),
+                      coreMembers.map((m) => m.user_id),
                       answers,
                     )
+                    /*
+                     * A guest who answered is still listed.
+                     *
+                     * The roster here was core-only, so a guest who took the
+                     * trouble to say they could serve simply vanished — no
+                     * row, no name, nothing to tell the head the answer had
+                     * been given. They are shown after the core team and
+                     * badged, so the count above still means what it says.
+                     */
+                    const answeredGuests = onTeam.filter(
+                      (m) =>
+                        m.member_type === 'guest' &&
+                        answers.some((a) => a.user_id === m.user_id),
+                    )
+                    const teamMembers = [...coreMembers, ...answeredGuests]
 
                     // A team still owed answers keeps the amber row: what
                     // needs a person outranks whose team it is.
@@ -437,7 +454,9 @@ export function AvailabilityPage() {
                         {leads && teamMembers.length > 0 && (
                           <details className="mt-3">
                             <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
-                              Team responses ({answers.length}/{teamMembers.length})
+                              Team responses ({answers.length}/{coreMembers.length})
+                              {answeredGuests.length > 0 &&
+                                ` + ${answeredGuests.length} guest${answeredGuests.length === 1 ? '' : 's'}`}
                             </summary>
                             <ul className="mt-2 flex flex-col gap-1.5 border-l border-border-subtle pl-3">
                               {teamMembers.map((m) => {
@@ -445,8 +464,15 @@ export function AvailabilityPage() {
                                 return (
                                   <li key={m.id} className="text-body-sm">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="break-words text-on-surface">
-                                        {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
+                                      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                                        <span className="break-words text-on-surface">
+                                          {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
+                                        </span>
+                                        {m.member_type === 'guest' && (
+                                          <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                            Guest
+                                          </span>
+                                        )}
                                       </span>
                                       {isAdmin ? (
                                         <select

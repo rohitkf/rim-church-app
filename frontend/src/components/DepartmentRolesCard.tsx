@@ -6,6 +6,8 @@ import { fetchDepartmentRoles, fetchRoleChecklistItems } from '../lib/queries'
 import { useErrorText } from '../lib/useErrorText'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { useDragReorder } from '../lib/useDragReorder'
+import { PHASES, byPhase } from '../lib/checklistPhase'
+import type { ChecklistPhase } from '../lib/types'
 import { DragHandle } from './DragHandle'
 
 /**
@@ -20,10 +22,12 @@ function RoleChecklistEditor({
   roleId,
   departmentId,
   canManage,
+  phase,
 }: {
   roleId: string
   departmentId: string
   canManage: boolean
+  phase: ChecklistPhase
 }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -34,7 +38,10 @@ function RoleChecklistEditor({
     queryKey: ['role-checklist-items', [departmentId]],
     queryFn: () => fetchRoleChecklistItems([departmentId]),
   })
-  const items = (itemsQuery.data ?? []).filter((i) => i.role_id === roleId)
+  const items = byPhase(
+    (itemsQuery.data ?? []).filter((i) => i.role_id === roleId),
+    phase,
+  )
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['role-checklist-items'] })
 
@@ -44,6 +51,7 @@ function RoleChecklistEditor({
         role_id: roleId,
         department_id: departmentId,
         label: text,
+        phase,
         sort_order: items.length,
       })
       if (error) throw error
@@ -89,7 +97,7 @@ function RoleChecklistEditor({
   return (
     <div className="mt-2 border-l border-border-subtle pl-3">
       {items.length === 0 ? (
-        <p className="text-label-sm text-on-surface-variant">No checklist items for this role yet.</p>
+        <p className="text-label-sm text-on-surface-variant">Nothing here yet.</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {ordered.map((id) => {
@@ -108,7 +116,7 @@ function RoleChecklistEditor({
                 {canManage && (
                   <button
                     onClick={() => deleteItem.mutate(item.id)}
-                    className="shrink-0 text-label-sm text-error hover:underline"
+                    className="shrink-0 text-label-sm text-on-surface-faint hover:text-error hover:underline"
                   >
                     Remove
                   </button>
@@ -130,7 +138,9 @@ function RoleChecklistEditor({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Check batteries, test focus…"
+            placeholder={
+              phase === 'pre' ? 'Check batteries, test focus…' : 'Batteries on charge, cards filed…'
+            }
             className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
           />
           <button
@@ -331,7 +341,26 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               {editingId !== role.id && (
                 <details className="mt-1 w-full">
                   <summary className="cursor-pointer text-label-sm text-secondary">Checklist</summary>
-                  <RoleChecklistEditor roleId={role.id} departmentId={departmentId} canManage={canManage} />
+                  {/* Two lists, not one: the jobs before the doors open and
+                      the jobs once everyone has gone are done hours apart,
+                      and reading them as a single column means scanning past
+                      half of it at both ends. */}
+                  <div className="mt-2 flex flex-col gap-4">
+                    {PHASES.map((p) => (
+                      <div key={p.value} className="rounded-[var(--radius-chip)] bg-surface-lowest/60 p-2.5">
+                        <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                          {p.label}
+                        </div>
+                        <p className="text-label-sm text-on-surface-faint">{p.blurb}</p>
+                        <RoleChecklistEditor
+                          roleId={role.id}
+                          departmentId={departmentId}
+                          canManage={canManage}
+                          phase={p.value}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </details>
               )}
             </li>
