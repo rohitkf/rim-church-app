@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
@@ -23,6 +24,10 @@ import { QueryState } from '../components/QueryState'
 export function TeamChatPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // A notification about a poll names the team it was asked of, so the
+  // link can open that room rather than whichever one comes first.
+  const [params] = useSearchParams()
+  const requestedId = params.get('team')
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const membershipsQuery = useQuery({
@@ -44,7 +49,12 @@ export function TeamChatPage() {
     return all.filter((d) => mine.has(d.id))
   }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin])
 
-  const departmentId = selectedId ?? myTeams[0]?.id ?? null
+  const departmentId =
+    selectedId ??
+    // Only a team they are actually in: a link is not a way into a room.
+    (requestedId && myTeams.some((d) => d.id === requestedId) ? requestedId : null) ??
+    myTeams[0]?.id ??
+    null
   const department = myTeams.find((d) => d.id === departmentId) ?? null
 
   return (

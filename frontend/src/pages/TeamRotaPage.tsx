@@ -599,7 +599,11 @@ export function TeamRotaPage() {
                                 return (
                                   <li
                                     key={a.id}
-                                    className={`group/assignment flex items-center gap-3 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm ${
+                                    /* Role above, person below on a phone —
+                                       "Camera Operator 1" and a full name
+                                       were sharing one line and running into
+                                       each other. One line again from `sm`. */
+                                    className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
                                       pending
                                         ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]'
                                         : mine
@@ -607,8 +611,10 @@ export function TeamRotaPage() {
                                           : 'bg-inset'
                                     }`}
                                   >
-                                    <span className="shrink-0 text-on-surface-variant">{a.role_label}</span>
-                                    <span className="ml-auto flex min-w-0 items-center gap-2">
+                                    <span className="min-w-0 break-words text-on-surface-variant sm:shrink-0">
+                                      {a.role_label}
+                                    </span>
+                                    <span className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
                                       {pending ? (
                                         <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
                                           Release requested
@@ -626,7 +632,9 @@ export function TeamRotaPage() {
                                         <button
                                           onClick={() => removeAssignment.mutate(a.id)}
                                           aria-label={`Remove ${a.role_label}`}
-                                          className="shrink-0 font-mono text-label-sm text-on-surface-faint opacity-0 transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100"
+                                          /* Visible on a phone, where there
+                                             is no hover to reveal it with. */
+                                          className="ml-auto shrink-0 font-mono text-label-sm text-on-surface-faint transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0"
                                         >
                                           ✕
                                         </button>

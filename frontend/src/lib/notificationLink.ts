@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = [
   'availability_reminder',
   'checklist_reminder',
   'team_alert',
+  'team_poll',
   'mention',
 ] as const
 
@@ -37,6 +38,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },
+  team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
 }
 
@@ -65,5 +67,8 @@ export function notificationHref(type: string, referenceId?: string | null): str
   const t = known(type)
   if (!t) return '/'
   if (t === 'team_join_approved' && referenceId) return `/departments/${referenceId}`
+  // A poll's reference is the team it was asked of, so the link opens that
+  // room rather than whichever one the page would have picked.
+  if (t === 'team_poll' && referenceId) return `/team-chat?team=${referenceId}`
   return NOTIFICATIONS[t].href
 }

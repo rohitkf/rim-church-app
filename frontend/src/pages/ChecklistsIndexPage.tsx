@@ -346,15 +346,23 @@ export function ChecklistsIndexPage() {
                               className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-5"
                               style={teamWashSoft(assignment.department?.color, teamStyle)}
                             >
-                              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                <div className="flex items-center gap-2">
+                              {/* On a phone the role and the person get a
+                                  line each: side by side, "Camera Operator 1
+                                  · Media" and a full name were reaching for
+                                  the same 40 characters and meeting in the
+                                  middle. They sit on one line again as soon
+                                  as there is room for both. */}
+                              <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
                                   <TeamMark color={assignment.department?.color ?? null} />
-                                  <span className="font-medium text-on-surface">{assignment.role_label}</span>
-                                  <span className="text-body-sm text-on-surface-variant">
+                                  <span className="min-w-0 break-words font-medium text-on-surface">
+                                    {assignment.role_label}
+                                  </span>
+                                  <span className="shrink-0 text-body-sm text-on-surface-variant">
                                     · {assignment.department?.name}
                                   </span>
                                 </div>
-                                <span className="flex items-center gap-2">
+                                <span className="flex flex-wrap items-center gap-2">
                                   {rank === 2 && (
                                     <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-status-coordinator">
                                       {may.sign ? 'For your sign-off' : 'Sign-off team view'}
