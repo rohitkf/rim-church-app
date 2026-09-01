@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, 'claude/**']
+    # develop is where work lands and Vercel builds previews from; main is
+    # production, reached by pull request. Nothing else is long-lived.
+    branches: [main, develop]
   pull_request:
 
 jobs:
