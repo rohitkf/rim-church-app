@@ -142,3 +142,27 @@ export function matchesSearch(item: InventoryItem, term: string): boolean {
     .filter((v): v is string => !!v)
     .some((v) => v.toLowerCase().includes(q))
 }
+
+/**
+ * What the register will actually count for a line being typed in, said
+ * back as arithmetic. "10 screws at £1 each" is the whole point of the
+ * count and the cost sitting next to each other, and a form that shows the
+ * sum is one nobody has to take on trust.
+ */
+export function valueHint(quantity: string, cost: string, unit: string): string {
+  const count = Math.max(Number(quantity) || 0, 0)
+  const each = Number(cost)
+  const named = unit.trim()
+  if (!cost.trim() || Number.isNaN(each) || each <= 0) {
+    return named ? `The cost of one ${named}, not of all of them.` : 'The cost of one, not of all of them.'
+  }
+  const money = (n: number) =>
+    new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(n)
+  const what = named ? `${count} × ${named}` : `${count}`
+  return `${what} at ${money(each)} each — ${money(count * each)} on the register.`
+}

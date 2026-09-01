@@ -223,6 +223,18 @@ Two, both long-lived, and nothing else:
 CI runs on a push to either and on every pull request, so a change is
 tested on `develop` and again on the way into `main`.
 
+A pull request into `main` **merges itself once CI is green** (the
+`Auto-merge` workflow). It merges only when the pull request is open and
+not a draft, GitHub reports no conflict, every check on the head commit has
+finished with none failed, and no reviewer has asked for changes; otherwise
+it writes a notice saying which of those stopped it. To hold one back by
+hand, label it `do-not-merge` — or open it as a draft.
+
+It runs on `workflow_run` rather than as a step inside CI on purpose: a job
+that can push to production must not be one a pull request can rewrite, and
+`workflow_run` always runs the copy of the workflow already on the default
+branch.
+
 ### Deploying now: frontend-only on Vercel + Supabase
 
 This is the current recommended path — Phases 1–8 (everything except the

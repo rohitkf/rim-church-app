@@ -9,6 +9,7 @@ import {
   summarise,
   totalValue,
   unitCostLabel,
+  valueHint,
 } from './inventory'
 import type { InventoryItem } from './types'
 
@@ -154,5 +155,25 @@ describe('saying it in its own units', () => {
   it('counts in the words the register uses', () => {
     expect(countLabel(item({ quantity: 10, unit: 'screw' }))).toBe('10 × screw')
     expect(countLabel(item({ quantity: 10 }))).toBe('10')
+  })
+})
+
+describe('valueHint', () => {
+  it('does the sum the two fields are for', () => {
+    expect(valueHint('10', '1', 'screw')).toBe('10 × screw at £1 each — £10 on the register.')
+  })
+
+  it('works without a unit name, which is optional', () => {
+    expect(valueHint('2', '249.99', '')).toBe('2 at £249.99 each — £499.98 on the register.')
+  })
+
+  it('says what the cost means before a cost is typed', () => {
+    expect(valueHint('10', '', 'screw')).toBe('The cost of one screw, not of all of them.')
+    expect(valueHint('10', '', '')).toBe('The cost of one, not of all of them.')
+  })
+
+  it('treats nonsense as no cost rather than showing NaN', () => {
+    expect(valueHint('10', 'abc', '')).toBe('The cost of one, not of all of them.')
+    expect(valueHint('10', '0', '')).toBe('The cost of one, not of all of them.')
   })
 })

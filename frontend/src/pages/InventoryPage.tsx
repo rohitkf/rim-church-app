@@ -31,6 +31,7 @@ import {
   statusOf,
   summarise,
   unitCostLabel,
+  valueHint,
   STATUS_LABEL,
   STATUS_TONE,
 } from '../lib/inventory'
@@ -906,46 +907,41 @@ function AddItemForm({
             </Field>
           </>
         ) : (
-          <>
-            <Field label="Quantity">
-              <NumberDial
-                value={Number(quantity) || 0}
-                onChange={(next) => setQuantity(String(next))}
-                min={0}
-                max={100}
-                majorEvery={5}
-                label="Quantity"
-              />
-            </Field>
-            <Field label="Reorder at" hint="Flagged as low stock at or below this.">
-              <NumberDial
-                value={Number(reorder) || 0}
-                onChange={(next) => setReorder(String(next))}
-                min={0}
-                max={50}
-                majorEvery={5}
-                label="Reorder at"
-              />
-            </Field>
-          </>
+          <Field label="Reorder at" hint="Flagged as low stock at or below this.">
+            <NumberDial
+              value={Number(reorder) || 0}
+              onChange={(next) => setReorder(String(next))}
+              min={0}
+              max={50}
+              majorEvery={5}
+              label="Reorder at"
+            />
+          </Field>
         )}
+
+        {/* How many there are, on everything. A pair of tripods is two
+            tripods whether the register files them as assets or not, and
+            the value below counts them. */}
+        <Field label="Number of units" hint="How many of it the church has.">
+          <NumberDial
+            value={Number(quantity) || 0}
+            onChange={(next) => setQuantity(String(next))}
+            min={kind === 'consumable' ? 0 : 1}
+            max={kind === 'consumable' ? 500 : 100}
+            majorEvery={5}
+            label="Number of units"
+          />
+        </Field>
 
         <Field label="Where it lives">
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Storage cupboard A" className={inputClasses} />
         </Field>
 
-        <Field label="What one is called" hint="Screw, box, metre — what the cost is the cost of.">
+        <Field label="Unit name" hint="Optional — screw, box, metre. What one of them is called.">
           <UnitInput value={unit} onChange={setUnit} />
         </Field>
 
-        <Field
-          label="Cost of one"
-          hint={
-            kind === 'consumable'
-              ? `The register counts this ${unit.trim() ? `per ${unit.trim()}` : 'per unit'} — cost × quantity.`
-              : 'What replacing it would cost.'
-          }
-        >
+        <Field label="Cost of one" hint={valueHint(quantity, cost, unit)}>
           <input
             type="number"
             min="0"
@@ -1004,9 +1000,10 @@ function EditItemDialog({
           location: location.trim() || null,
           unit: unit.trim() || null,
           estimated_cost: cost.trim() === '' ? null : Number(cost),
-          // The count itself is moved by adjust/audit so it stays in the
-          // ledger; here it is only editable for a consumable's setup.
-          quantity: kindOf(item) === 'consumable' ? Number(quantity) || 0 : item.quantity,
+          // Day-to-day movement of a count belongs to adjust/audit, which
+          // write it to the ledger. This is the correction: what the church
+          // actually has, on an asset as much as on a consumable.
+          quantity: Math.max(Number(quantity) || 0, kindOf(item) === 'consumable' ? 0 : 1),
           reorder_level: kindOf(item) === 'consumable' && reorder.trim() !== '' ? Number(reorder) : null,
         })
         .eq('id', item.id)
@@ -1067,42 +1064,38 @@ function EditItemDialog({
               </Field>
             </>
           ) : (
-            <>
-              <Field label="Quantity">
-                <NumberDial
-                  value={Number(quantity) || 0}
-                  onChange={(next) => setQuantity(String(next))}
-                  min={0}
-                  max={100}
-                  majorEvery={5}
-                  label="Quantity"
-                />
-              </Field>
-              <Field label="Reorder at">
-                <NumberDial
-                  value={Number(reorder) || 0}
-                  onChange={(next) => setReorder(String(next))}
-                  min={0}
-                  max={50}
-                  majorEvery={5}
-                  label="Reorder at"
-                />
-              </Field>
-            </>
+            <Field label="Reorder at">
+              <NumberDial
+                value={Number(reorder) || 0}
+                onChange={(next) => setReorder(String(next))}
+                min={0}
+                max={50}
+                majorEvery={5}
+                label="Reorder at"
+              />
+            </Field>
           )}
 
-          <Field label="What one is called" hint="Screw, box, metre — what the cost is the cost of.">
+          {/* On every item, asset included: a pair of tripods is two
+              tripods, and the value counts them. Day-to-day movement of a
+              consumable's count still belongs to +1/−1 and stock check,
+              which write it to the ledger; this is for correcting it. */}
+          <Field label="Number of units" hint="How many of it the church has.">
+            <NumberDial
+              value={Number(quantity) || 0}
+              onChange={(next) => setQuantity(String(next))}
+              min={kindOf(item) === 'consumable' ? 0 : 1}
+              max={kindOf(item) === 'consumable' ? 500 : 100}
+              majorEvery={5}
+              label="Number of units"
+            />
+          </Field>
+
+          <Field label="Unit name" hint="Optional — screw, box, metre. What one of them is called.">
             <UnitInput value={unit} onChange={setUnit} />
           </Field>
 
-          <Field
-            label="Cost of one"
-            hint={
-              kindOf(item) === 'consumable'
-                ? `Counted ${unit.trim() ? `per ${unit.trim()}` : 'per unit'} — cost × quantity.`
-                : 'What it would cost to replace. Only counted while the item is in service.'
-            }
-          >
+          <Field label="Cost of one" hint={valueHint(quantity, cost, unit)}>
             <input
               type="number"
               min="0"
