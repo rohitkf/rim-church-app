@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
   BoxIcon,
+  CakeIcon,
   CalendarIcon,
   ChecklistIcon,
   ClipboardUserIcon,
@@ -33,6 +34,7 @@ const navItems: (DockItem & { adminOnly?: boolean })[] = [
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon },
   { to: '/availability', label: 'Availability', icon: UserCheckIcon },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon },
+  { to: '/events', label: 'Events', icon: CakeIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon },

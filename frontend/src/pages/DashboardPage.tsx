@@ -28,7 +28,6 @@ import {
   Statistic,
   Tile,
 } from '../components/Surface'
-import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { ActivityFeed } from '../components/ActivityFeed'
@@ -923,10 +922,6 @@ export function DashboardPage() {
                       </p>
                     )}
                   </Tile>
-
-                  <div className="lg:col-span-5">
-                    <CelebrationsPanel />
-                  </div>
 
                   <ActivityFeed serviceId={service.id} className="lg:col-span-12" />
                   </div>

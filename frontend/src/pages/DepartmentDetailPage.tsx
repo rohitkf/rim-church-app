@@ -10,6 +10,7 @@ import {
   type Designation,
 } from '../lib/designation'
 import { userRoleSchema } from '../auth/types'
+import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -99,6 +100,7 @@ export function DepartmentDetailPage() {
   const canManage = isAdmin || (!!id && isDepartmentHead(id))
 
   const [addEmail, setAddEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
   const [addType, setAddType] = useState<MemberType>('core')
   const [addError, setAddError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -262,7 +264,17 @@ export function DepartmentDetailPage() {
               </a>
             )}
             {canManage && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Adding somebody who has no account yet is the commonest
+                    dead end on this page: the roster only takes people who
+                    already exist. */}
+                <button
+                  type="button"
+                  onClick={() => setInviting(true)}
+                  className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90"
+                >
+                  Invite someone
+                </button>
                 <button
                   type="button"
                   onClick={() => setUploadOpen(true)}
@@ -524,6 +536,12 @@ export function DepartmentDetailPage() {
             </QueryState>
           </section>
         </div>
+
+        <InviteDialog
+          open={inviting}
+          onClose={() => setInviting(false)}
+          fixedDepartmentId={id}
+        />
 
         {uploadOpen && deptQuery.data && (
           <HandbookUploadModal
