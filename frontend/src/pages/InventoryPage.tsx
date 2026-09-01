@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ItemDocuments } from '../components/ItemDocuments'
 import { NumberDial } from '../components/NumberDial'
+import { UnitInput } from '../components/UnitInput'
 import { PurchaseRequests } from '../components/PurchaseRequests'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -19,6 +20,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
+  countLabel,
   formatMoney,
   itemValue,
   isLowStock,
@@ -28,6 +30,7 @@ import {
   needsAttention,
   statusOf,
   summarise,
+  unitCostLabel,
   STATUS_LABEL,
   STATUS_TONE,
 } from '../lib/inventory'
@@ -359,8 +362,9 @@ export function InventoryPage() {
                   </div>
                   {kind === 'consumable' && (
                     <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                      {item.quantity} in stock
+                      {countLabel(item)} in stock
                       {typeof item.reorder_level === 'number' && ` · reorder at ${item.reorder_level}`}
+                      {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
                     </div>
                   )}
 
@@ -486,8 +490,9 @@ export function InventoryPage() {
                         </div>
                         {kind === 'consumable' && (
                           <div className="mt-1.5 font-mono text-label-sm text-on-surface-variant">
-                            {item.quantity} in stock
+                            {countLabel(item)} in stock
                             {typeof item.reorder_level === 'number' && ` · reorder at ${item.reorder_level}`}
+                            {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
                           </div>
                         )}
                       </td>
@@ -806,6 +811,7 @@ function AddItemForm({
   const [location, setLocation] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [reorder, setReorder] = useState('')
+  const [unit, setUnit] = useState('')
   const [cost, setCost] = useState('')
 
   const add = useMutation({
@@ -831,6 +837,7 @@ function AddItemForm({
         location: location.trim() || null,
         quantity: kind === 'consumable' ? Number(quantity) || 0 : 1,
         reorder_level: kind === 'consumable' && reorder ? Number(reorder) : null,
+        unit: unit.trim() || null,
         estimated_cost: cost.trim() === '' ? null : Number(cost),
       })
       if (error) throw error
@@ -927,9 +934,17 @@ function AddItemForm({
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Storage cupboard A" className={inputClasses} />
         </Field>
 
+        <Field label="What one is called" hint="Screw, box, metre — what the cost is the cost of.">
+          <UnitInput value={unit} onChange={setUnit} />
+        </Field>
+
         <Field
-          label="Estimated cost"
-          hint={kind === 'consumable' ? 'Per unit.' : 'What replacing it would cost.'}
+          label="Cost of one"
+          hint={
+            kind === 'consumable'
+              ? `The register counts this ${unit.trim() ? `per ${unit.trim()}` : 'per unit'} — cost × quantity.`
+              : 'What replacing it would cost.'
+          }
         >
           <input
             type="number"
@@ -972,6 +987,7 @@ function EditItemDialog({
   const [serial, setSerial] = useState(item.serial_number ?? '')
   const [location, setLocation] = useState(item.location ?? '')
   const [cost, setCost] = useState(item.estimated_cost != null ? String(item.estimated_cost) : '')
+  const [unit, setUnit] = useState(item.unit ?? '')
   const [quantity, setQuantity] = useState(String(item.quantity))
   const [reorder, setReorder] = useState(item.reorder_level != null ? String(item.reorder_level) : '')
 
@@ -986,6 +1002,7 @@ function EditItemDialog({
           model: model.trim() || null,
           serial_number: serial.trim() || null,
           location: location.trim() || null,
+          unit: unit.trim() || null,
           estimated_cost: cost.trim() === '' ? null : Number(cost),
           // The count itself is moved by adjust/audit so it stays in the
           // ledger; here it is only editable for a consumable's setup.
@@ -1074,11 +1091,15 @@ function EditItemDialog({
             </>
           )}
 
+          <Field label="What one is called" hint="Screw, box, metre — what the cost is the cost of.">
+            <UnitInput value={unit} onChange={setUnit} />
+          </Field>
+
           <Field
-            label="Estimated cost"
+            label="Cost of one"
             hint={
               kindOf(item) === 'consumable'
-                ? 'Per unit — the total counts cost × quantity.'
+                ? `Counted ${unit.trim() ? `per ${unit.trim()}` : 'per unit'} — cost × quantity.`
                 : 'What it would cost to replace. Only counted while the item is in service.'
             }
           >
@@ -1246,7 +1267,8 @@ function ScannedItemDialog({
             </p>
             {kindOf(item) === 'consumable' && (
               <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                {item.quantity} in stock
+                {countLabel(item)} in stock
+                {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
               </p>
             )}
 

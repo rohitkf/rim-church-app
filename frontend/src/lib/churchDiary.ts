@@ -1,4 +1,5 @@
 import { upcomingCelebrations, type Person } from './celebrations'
+import { shiftIsoDays } from './rotaWindow'
 
 /**
  * One diary out of four separate things.
@@ -59,12 +60,23 @@ export function diaryTime(value: string | null | undefined): string | null {
   return `${twelve}:${m ?? '00'}${suffix}`
 }
 
+/**
+ * How far ahead the diary looks: one year, to the day.
+ *
+ * A diary is for what is coming, and a year is the longest anyone plans a
+ * church around — beyond it the list is birthdays repeating themselves and
+ * a service somebody pencilled in for a date they will change. Everything
+ * in it, of every kind, stops at the same horizon rather than each kind
+ * running to a different one.
+ */
+export const DIARY_WINDOW_DAYS = 365
+
 export function buildDiary({
   people,
   services,
   events,
   today,
-  windowDays = 400,
+  windowDays = DIARY_WINDOW_DAYS,
 }: {
   people: Person[]
   services: DiaryService[]
@@ -73,6 +85,7 @@ export function buildDiary({
   windowDays?: number
 }): DiaryEntry[] {
   const entries: DiaryEntry[] = []
+  const horizon = shiftIsoDays(today, windowDays)
 
   for (const occasion of upcomingCelebrations(people, today, windowDays)) {
     entries.push({
@@ -92,7 +105,7 @@ export function buildDiary({
   }
 
   for (const service of services) {
-    if (service.date < today) continue
+    if (service.date < today || service.date > horizon) continue
     entries.push({
       id: `service:${service.id}`,
       kind: 'service',
@@ -106,7 +119,7 @@ export function buildDiary({
   }
 
   for (const event of events) {
-    if (event.event_date < today) continue
+    if (event.event_date < today || event.event_date > horizon) continue
     const time = diaryTime(event.start_time)
     entries.push({
       id: `event:${event.id}`,

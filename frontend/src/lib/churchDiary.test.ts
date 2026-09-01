@@ -93,3 +93,48 @@ describe('diaryTime', () => {
     expect(diaryTime('')).toBeNull()
   })
 })
+
+describe('the year ahead, and no further', () => {
+  const people = [{ id: 'p1', first_name: 'Ada', last_name: 'Bell', dob: '1990-03-04' }]
+
+  it('keeps a service inside the year and drops one beyond it', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [
+        { id: 'near', date: '2027-08-30', service_type: 'Sunday service' },
+        { id: 'far', date: '2027-09-02', service_type: 'A year and a bit away' },
+      ],
+      events: [],
+      today: '2026-09-01',
+    })
+    expect(diary.map((e) => e.title)).toEqual(['Sunday service'])
+  })
+
+  it('holds an event to the same horizon', () => {
+    const event = (id: string, date: string) => ({
+      id,
+      title: id,
+      event_date: date,
+      start_time: null,
+      location: null,
+      details: null,
+      department_id: null,
+      created_by: null,
+    })
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: [event('inside', '2027-08-31'), event('outside', '2027-09-05')],
+      today: '2026-09-01',
+    })
+    expect(diary.map((e) => e.title)).toEqual(['inside'])
+  })
+
+  it('lists a birthday once, not twice, inside the year', () => {
+    // A 400-day window catches the same birthday in two different years,
+    // which reads as a duplicate to everyone who is not a calendar.
+    const diary = buildDiary({ people, services: [], events: [], today: '2026-09-01' })
+    expect(diary.filter((e) => e.kind === 'birthday')).toHaveLength(1)
+    expect(diary[0].date).toBe('2027-03-04')
+  })
+})

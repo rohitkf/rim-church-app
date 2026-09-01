@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
 import { NumberDial } from './NumberDial'
+import { UnitInput } from './UnitInput'
 import { QueryState } from './QueryState'
 
 const requestSchema = z.object({
@@ -15,6 +16,8 @@ const requestSchema = z.object({
   item_name: z.string(),
   quantity: z.number(),
   estimated_cost: z.union([z.number(), z.string()]).nullable(),
+  /** What one of it is — "screw", "box". The cost is the cost of one. */
+  unit: z.string().nullable().optional(),
   product_url: z.string().nullable(),
   reason: z.string().nullable(),
   status: z.enum(['requested', 'approved', 'declined', 'purchased']),
@@ -42,7 +45,7 @@ async function fetchRequests(departmentId: string | null): Promise<PurchaseReque
   let query = supabase
     .from('purchase_requests')
     .select(
-      'id, department_id, requested_by, item_name, quantity, estimated_cost, product_url, reason, status, decision_note, decided_at, created_at, inventory_item_id, requester:profiles!purchase_requests_requested_by_fkey(first_name, last_name), decider:profiles!purchase_requests_decided_by_fkey(first_name, last_name), department:departments(name, color)',
+      'id, department_id, requested_by, item_name, quantity, estimated_cost, unit, product_url, reason, status, decision_note, decided_at, created_at, inventory_item_id, requester:profiles!purchase_requests_requested_by_fkey(first_name, last_name), decider:profiles!purchase_requests_decided_by_fkey(first_name, last_name), department:departments(name, color)',
     )
     .order('created_at', { ascending: false })
   if (departmentId) query = query.eq('department_id', departmentId)
@@ -81,6 +84,7 @@ export function PurchaseRequests({
 
   const [itemName, setItemName] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [unit, setUnit] = useState('')
   const [cost, setCost] = useState('')
   const [url, setUrl] = useState('')
   const [reason, setReason] = useState('')
@@ -101,6 +105,7 @@ export function PurchaseRequests({
         requested_by: session!.user.id,
         item_name: itemName.trim(),
         quantity: Number(quantity) || 1,
+        unit: unit.trim() || null,
         estimated_cost: cost.trim() === '' ? null : Number(cost),
         product_url: url.trim() || null,
         reason: reason.trim() || null,
@@ -109,7 +114,7 @@ export function PurchaseRequests({
     },
     onSuccess: () => {
       setAsking(false)
-      setItemName(''); setQuantity('1'); setCost(''); setUrl(''); setReason('')
+      setItemName(''); setQuantity('1'); setUnit(''); setCost(''); setUrl(''); setReason('')
       setError(null)
       refresh()
     },
@@ -142,6 +147,7 @@ export function PurchaseRequests({
           name: row.item_name,
           quantity: row.quantity,
           kind: row.quantity > 1 ? 'consumable' : 'asset',
+          unit: row.unit ?? null,
           estimated_cost: row.estimated_cost == null ? null : Number(row.estimated_cost),
           product_url: row.product_url,
           notes: row.reason,
@@ -164,16 +170,41 @@ export function PurchaseRequests({
     onError: (err: unknown) => setError(errorText(err, 'Could not add it to the inventory.')),
   })
 
+  /**
+   * Taking it back off the list. A request is a sentence somebody wrote, and
+   * changing your mind about needing something is not an event worth keeping
+   * a record of — so this really deletes rather than marking it withdrawn.
+   * The database decides who may: whoever asked, while nobody has answered
+   * yet, and a Head or an Admin at any point.
+   */
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: deleteError } = await supabase.from('purchase_requests').delete().eq('id', id)
+      if (deleteError) throw deleteError
+    },
+    onSuccess: () => { setError(null); refresh() },
+    onError: (err: unknown) => setError(errorText(err, 'Could not remove that request.')),
+  })
+
   const rows = requestsQuery.data ?? []
-  const open = useMemo(() => rows.filter((r) => r.status === 'requested' || r.status === 'approved'), [rows])
+  // Three lists, not one: what is still being asked for, what has been said
+  // yes to and is waiting to be bought, and what is settled either way.
+  const wanted = useMemo(() => rows.filter((r) => r.status === 'requested'), [rows])
+  const waiting = useMemo(() => rows.filter((r) => r.status === 'approved'), [rows])
   const decided = useMemo(() => rows.filter((r) => r.status === 'declined' || r.status === 'purchased'), [rows])
 
-  // What is still being asked for, in money. The inventory's own total is
-  // what has been bought; this is the other half of the same question.
-  const outstanding = open.reduce(
-    (sum, r) => sum + (r.estimated_cost == null ? 0 : Number(r.estimated_cost) * r.quantity),
-    0,
-  )
+  // Whoever wrote it may take it back while it is still a question; a Head
+  // or an Admin may clear anything off either list.
+  const mayRemove = (row: PurchaseRequest) =>
+    mayDecide(row) || (row.requested_by === session?.user.id && row.status === 'requested')
+
+  const lineTotal = (r: PurchaseRequest) =>
+    r.estimated_cost == null ? 0 : Number(r.estimated_cost) * r.quantity
+  // What is still being asked for, and what has been agreed but not yet
+  // bought. The inventory's own total is what has been spent; these are the
+  // other halves of the same question.
+  const outstanding = wanted.reduce((sum, r) => sum + lineTotal(r), 0)
+  const committed = waiting.reduce((sum, r) => sum + lineTotal(r), 0)
 
   function handleAsk(e: FormEvent) {
     e.preventDefault()
@@ -182,6 +213,40 @@ export function PurchaseRequests({
   }
 
   return (
+    <div className="flex flex-col gap-5">
+      {/* Approved and waiting to be bought, above the asking. Once somebody
+          has said yes it is no longer a wish, and leaving it among the
+          questions is how an agreed purchase sits for a month unbought. */}
+      {waiting.length > 0 && (
+        <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+            <div>
+              <h2 className="text-headline-md">Purchase waitlist</h2>
+              <p className="mt-1 text-label-md text-on-surface-faint">
+                Agreed, and waiting to be bought. Buying it moves it onto the register.
+              </p>
+            </div>
+            <span className="font-mono text-label-sm text-on-surface-variant">
+              {waiting.length} waiting{committed > 0 ? ` · ${money(committed)}` : ''}
+            </span>
+          </div>
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {waiting.map((row) => (
+              <RequestRow
+                key={row.id}
+                row={row}
+                showTeam={!departmentId}
+                canDecide={mayDecide(row)}
+                onDecide={(status) => decide.mutate({ id: row.id, status })}
+                onPurchased={() => markPurchased.mutate(row)}
+                onRemove={mayRemove(row) ? () => remove.mutate(row.id) : undefined}
+                busy={decide.isPending || markPurchased.isPending || remove.isPending}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
     <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
@@ -230,7 +295,10 @@ export function PurchaseRequests({
               label="How many"
             />
           </Field>
-          <Field label="Roughly what each (optional)">
+          <Field label="What one is called (optional)" hint="Screw, box, metre — what the cost below is the cost of.">
+            <UnitInput value={unit} onChange={setUnit} />
+          </Field>
+          <Field label="Roughly what one costs (optional)">
             <input type="number" min="0" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} className={inputClasses} />
           </Field>
           <Field label="Product page (optional)" className="sm:col-span-2">
@@ -255,12 +323,12 @@ export function PurchaseRequests({
       )}
 
       <QueryState isLoading={requestsQuery.isLoading} error={requestsQuery.error}>
-        {open.length === 0 ? (
+        {wanted.length === 0 ? (
           <p className="mt-4 text-body-sm text-on-surface-variant">Nothing on the wishlist.</p>
         ) : (
           <>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-2 font-mono text-label-sm text-on-surface-variant">
-              <span>{open.length} open</span>
+              <span>{wanted.length} open</span>
               {outstanding > 0 && (
                 <>
                   <span aria-hidden="true" className="text-on-surface-faint">·</span>
@@ -269,7 +337,7 @@ export function PurchaseRequests({
               )}
             </div>
             <ul className="mt-2 flex flex-col gap-2.5">
-              {open.map((row) => (
+              {wanted.map((row) => (
                 <RequestRow
                   key={row.id}
                   row={row}
@@ -277,7 +345,8 @@ export function PurchaseRequests({
                   canDecide={mayDecide(row)}
                   onDecide={(status) => decide.mutate({ id: row.id, status })}
                   onPurchased={() => markPurchased.mutate(row)}
-                  busy={decide.isPending || markPurchased.isPending}
+                  onRemove={mayRemove(row) ? () => remove.mutate(row.id) : undefined}
+                  busy={decide.isPending || markPurchased.isPending || remove.isPending}
                 />
               ))}
             </ul>
@@ -297,7 +366,14 @@ export function PurchaseRequests({
             {showDecided && (
               <ul className="mt-2 flex flex-col gap-2.5">
                 {decided.map((row) => (
-                  <RequestRow key={row.id} row={row} showTeam={!departmentId} canDecide={false} busy={false} />
+                  <RequestRow
+                    key={row.id}
+                    row={row}
+                    showTeam={!departmentId}
+                    canDecide={false}
+                    onRemove={mayRemove(row) ? () => remove.mutate(row.id) : undefined}
+                    busy={remove.isPending}
+                  />
                 ))}
               </ul>
             )}
@@ -305,6 +381,7 @@ export function PurchaseRequests({
         )}
       </QueryState>
     </section>
+    </div>
   )
 }
 
@@ -314,6 +391,7 @@ function RequestRow({
   canDecide,
   onDecide,
   onPurchased,
+  onRemove,
   busy,
 }: {
   row: PurchaseRequest
@@ -321,17 +399,26 @@ function RequestRow({
   canDecide: boolean
   onDecide?: (status: PurchaseRequest['status']) => void
   onPurchased?: () => void
+  /** Given only to somebody allowed to take this off the list. */
+  onRemove?: () => void
   busy: boolean
 }) {
   const each = money(row.estimated_cost)
+  // Ten screws at a pound each is ten pounds. Both numbers are shown,
+  // because the one that gets typed in wrong is whichever is not.
+  const total = row.estimated_cost == null ? null : money(Number(row.estimated_cost) * row.quantity)
+  const unit = row.unit?.trim()
   return (
     <li className="rounded-[var(--radius-row)] bg-raised p-3.5 hairline">
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
           {row.item_name}
         </span>
-        {row.quantity > 1 && (
-          <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">×{row.quantity}</span>
+        {(row.quantity > 1 || unit) && (
+          <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+            ×{row.quantity}
+            {unit ? ` ${unit}` : ''}
+          </span>
         )}
         <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${STATUS_TONE[row.status]}`}>
           {row.status}
@@ -346,7 +433,10 @@ function RequestRow({
         {each && (
           <>
             <span aria-hidden="true">·</span>
-            <span>{each} each</span>
+            <span>
+              {each} {unit ? `per ${unit}` : 'each'}
+              {row.quantity > 1 && total ? ` · ${total} in all` : ''}
+            </span>
           </>
         )}
         {row.decider && (
@@ -402,6 +492,18 @@ function RequestRow({
             </button>
           )}
         </div>
+      )}
+
+      {onRemove && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onRemove()}
+          aria-label={`Remove ${row.item_name} from the list`}
+          className="mt-2 text-label-md text-on-surface-faint hover:text-error disabled:opacity-40"
+        >
+          Remove
+        </button>
       )}
     </li>
   )
