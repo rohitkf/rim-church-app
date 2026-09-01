@@ -211,6 +211,18 @@ and transcription against real audio, has never actually run here. It's
 ordinary code following faster-whisper's documented API, but budget time
 to verify it against a real recording before relying on it.
 
+### Branches
+
+Two, both long-lived, and nothing else:
+
+| Branch | Vercel | What it is |
+| --- | --- | --- |
+| `develop` | Preview | Where work lands. Every push builds a preview deployment to try the change on a real phone before it is anyone's problem. |
+| `main` | Production | What the church is using. Reached only by pull request from `develop`, never pushed to directly. |
+
+CI runs on a push to either and on every pull request, so a change is
+tested on `develop` and again on the way into `main`.
+
 ### Deploying now: frontend-only on Vercel + Supabase
 
 This is the current recommended path — Phases 1–8 (everything except the
