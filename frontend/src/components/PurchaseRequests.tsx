@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
+import { NumberDial } from './NumberDial'
 import { QueryState } from './QueryState'
 
 const requestSchema = z.object({
@@ -220,7 +221,14 @@ export function PurchaseRequests({
             />
           </Field>
           <Field label="How many">
-            <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+            <NumberDial
+              value={Number(quantity) || 1}
+              onChange={(next) => setQuantity(String(next))}
+              min={1}
+              max={50}
+              majorEvery={5}
+              label="How many"
+            />
           </Field>
           <Field label="Roughly what each (optional)">
             <input type="number" min="0" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} className={inputClasses} />

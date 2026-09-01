@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { NumberDialField } from '../components/NumberDial'
 import { PageHeader } from '../components/Surface'
 import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
@@ -181,19 +182,17 @@ export function ServiceTemplatesPage() {
                 placeholder="Worship, Sermon, Announcements…"
                 className="min-w-0 flex-1 rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />
-              <input
-                type="number"
-                min={0}
+              <NumberDialField
                 value={d.duration_minutes}
-                onChange={(e) =>
-                  setDrafts(
-                    drafts.map((x, j) => (j === i ? { ...x, duration_minutes: Number(e.target.value) || 0 } : x)),
-                  )
+                onChange={(next) =>
+                  setDrafts(drafts.map((x, j) => (j === i ? { ...x, duration_minutes: next } : x)))
                 }
-                aria-label="Duration in minutes"
-                className="tap w-20 rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+                min={0}
+                max={180}
+                majorEvery={5}
+                unit="min"
+                label={`Duration of session ${i + 1} in minutes`}
               />
-              <span className="text-body-sm text-on-surface-variant">min</span>
               <button
                 type="button"
                 onClick={() => setDrafts(drafts.length > 1 ? drafts.filter((_, j) => j !== i) : [{ ...emptyDraft }])}

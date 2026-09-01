@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ItemDocuments } from '../components/ItemDocuments'
+import { NumberDial } from '../components/NumberDial'
 import { PurchaseRequests } from '../components/PurchaseRequests'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -900,10 +901,24 @@ function AddItemForm({
         ) : (
           <>
             <Field label="Quantity">
-              <input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+              <NumberDial
+                value={Number(quantity) || 0}
+                onChange={(next) => setQuantity(String(next))}
+                min={0}
+                max={100}
+                majorEvery={5}
+                label="Quantity"
+              />
             </Field>
             <Field label="Reorder at" hint="Flagged as low stock at or below this.">
-              <input type="number" min="0" value={reorder} onChange={(e) => setReorder(e.target.value)} className={inputClasses} />
+              <NumberDial
+                value={Number(reorder) || 0}
+                onChange={(next) => setReorder(String(next))}
+                min={0}
+                max={50}
+                majorEvery={5}
+                label="Reorder at"
+              />
             </Field>
           </>
         )}
@@ -1037,10 +1052,24 @@ function EditItemDialog({
           ) : (
             <>
               <Field label="Quantity">
-                <input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+                <NumberDial
+                  value={Number(quantity) || 0}
+                  onChange={(next) => setQuantity(String(next))}
+                  min={0}
+                  max={100}
+                  majorEvery={5}
+                  label="Quantity"
+                />
               </Field>
               <Field label="Reorder at">
-                <input type="number" min="0" value={reorder} onChange={(e) => setReorder(e.target.value)} className={inputClasses} />
+                <NumberDial
+                  value={Number(reorder) || 0}
+                  onChange={(next) => setReorder(String(next))}
+                  min={0}
+                  max={50}
+                  majorEvery={5}
+                  label="Reorder at"
+                />
               </Field>
             </>
           )}

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { QueryState } from './QueryState'
+import { NumberDial } from './NumberDial'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
@@ -33,6 +34,10 @@ type NumberField = {
   affects: string
   min: number
   max: number
+  /** Where the ruler stops, when the real ceiling is absurd to drag to. */
+  dialMax?: number
+  dialStep?: number
+  majorEvery?: number
   unit: string
 }
 
@@ -48,6 +53,8 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
         affects: 'Team Rota · Availability · Checklists',
         min: 1,
         max: 120,
+        dialMax: 60,
+        majorEvery: 7,
         unit: 'days',
       },
     ],
@@ -72,6 +79,12 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
         affects: 'Running order · Checklists · Availability · Team Rota, for a service that is over',
         min: 0,
         max: 10080,
+        // A week in minutes is a real ceiling and a ridiculous drag, so the
+        // ruler covers the day that anybody actually picks from and typing
+        // covers the rest.
+        dialMax: 1440,
+        dialStep: 15,
+        majorEvery: 4,
         unit: 'minutes',
       },
     ],
@@ -157,30 +170,28 @@ export function AppSettingsCard() {
                 <p className="mt-1 text-label-md text-on-surface-faint">{group.blurb}</p>
                 <div className="mt-3 flex flex-col gap-4">
                   {group.fields.map((field) => (
-                    <label key={field.key} className="flex flex-col gap-1">
-                      <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
-                        {field.label}
-                        <input
-                          type="number"
-                          min={field.min}
-                          max={field.max}
-                          value={draft[field.key]}
-                          onChange={(e) => {
-                            const value = Number(e.target.value)
-                            if (!Number.isFinite(value)) return
-                            set(field.key, Math.round(value))
-                          }}
-                          className="w-24 rounded-full bg-raised px-3 py-1 text-right font-mono text-body-sm text-on-surface hairline"
-                        />
-                        <span className="font-mono text-label-sm text-on-surface-faint">
-                          {field.unit}
-                        </span>
-                      </span>
+                    <div key={field.key} className="flex flex-col gap-1">
+                      <span className="text-body-sm font-medium text-on-surface">{field.label}</span>
                       <span className="text-label-md text-on-surface-variant">{field.help}</span>
                       <span className="font-mono text-label-sm text-on-surface-faint">
                         {field.affects} · default {DEFAULT_SETTINGS[field.key]}
                       </span>
-                    </label>
+                      {/* A window of days is a length, and a length is easier
+                          to judge against its neighbours than to type into a
+                          box: 7 with 14 and 30 in view is a decision, 7 alone
+                          is a guess. */}
+                      <NumberDial
+                        value={draft[field.key]}
+                        onChange={(next) => set(field.key, next)}
+                        min={field.min}
+                        max={field.dialMax ?? field.max}
+                        step={field.dialStep ?? 1}
+                        majorEvery={field.majorEvery ?? 5}
+                        unit={field.unit}
+                        label={field.label}
+                        className="mt-1.5"
+                      />
+                    </div>
                   ))}
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { ActionButton, Overlay, inputClasses } from './Surface'
+import { NumberDial } from './NumberDial'
 import { formatDuration } from '../lib/duration'
 import { grantedMinutes, plannedMinutes, runsForMinutes } from '../lib/sessionLength'
 import type { RunSession } from '../lib/sessionRunPlan'
@@ -68,20 +69,20 @@ export function AddTimeDialog({
               +{n} min
             </button>
           ))}
-          <label className="flex items-center gap-2">
-            <span className="sr-only">Minutes to add</span>
-            <input
-              type="number"
-              min="1"
-              max="240"
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-              aria-label="Minutes to add"
-              className="w-20 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-center font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
-            />
-            <span className="text-label-md text-on-surface-variant">min</span>
-          </label>
         </div>
+
+        {/* The quick buttons cover the usual asks; the ruler is for the one
+            that is not five, ten or fifteen. */}
+        <NumberDial
+          value={minutes}
+          onChange={setMinutes}
+          min={1}
+          max={120}
+          majorEvery={5}
+          unit="min"
+          label="Minutes to add"
+          className="mt-4"
+        />
 
         <label className="mt-4 block">
           <span className="text-label-md text-on-surface-variant">
