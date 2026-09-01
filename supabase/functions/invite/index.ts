@@ -44,7 +44,12 @@ Deno.serve(async (req) => {
   if (userError || !userData?.user) return json({ error: 'Not signed in.' }, 401)
   const caller = userData.user
 
-  let payload: { email?: string; department_id?: string | null }
+  let payload: {
+    email?: string
+    department_id?: string | null
+    first_name?: string
+    last_name?: string
+  }
   try {
     payload = await req.json()
   } catch {
@@ -53,6 +58,11 @@ Deno.serve(async (req) => {
 
   const email = (payload.email ?? '').trim().toLowerCase()
   const departmentId = payload.department_id ?? null
+  // An invitation carries no name of its own, so a profile created from one
+  // arrives blank and the invited person is a nameless row on the rota until
+  // they fill it in. Whoever is inviting knows the name — this carries it.
+  const firstName = (payload.first_name ?? '').trim().slice(0, 80)
+  const lastName = (payload.last_name ?? '').trim().slice(0, 80)
   // Deliberately loose: an address is valid if a mail server says so, and a
   // stricter pattern here would only reject real addresses.
   if (!email || !email.includes('@') || email.length > 320) {
@@ -87,8 +97,16 @@ Deno.serve(async (req) => {
   if (existing) return json({ error: 'That address already has an account.' }, 409)
 
   const redirectTo = signupRedirect(req)
+  // `data` becomes the new user's metadata, which is where handle_new_user
+  // reads the name from when it writes the profile. Sent only when there is
+  // something to send: empty strings would overwrite nothing with nothing.
+  const metadata: Record<string, string> = {}
+  if (firstName) metadata.first_name = firstName
+  if (lastName) metadata.last_name = lastName
+
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
+    ...(Object.keys(metadata).length > 0 ? { data: metadata } : {}),
   })
   if (inviteError) {
     // The most common failure by far is the project's own email rate limit,

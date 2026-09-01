@@ -33,6 +33,8 @@ export function InviteDialog({
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [departmentId, setDepartmentId] = useState(fixedDepartmentId ?? '')
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState<string | null>(null)
@@ -40,7 +42,12 @@ export function InviteDialog({
   const invite = useMutation({
     mutationFn: async () => {
       const { data, error: callError } = await supabase.functions.invoke('invite', {
-        body: { email: email.trim(), department_id: departmentId || null },
+        body: {
+          email: email.trim(),
+          department_id: departmentId || null,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        },
       })
       // An edge function reports a refusal in the body, not by throwing, so a
       // "success" carrying an error is still a failure.
@@ -51,6 +58,8 @@ export function InviteDialog({
     onSuccess: (address) => {
       setSent(address)
       setEmail('')
+      setFirstName('')
+      setLastName('')
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['invitations'] })
     },
@@ -101,6 +110,32 @@ export function InviteDialog({
               }}
               autoFocus
               placeholder="name@example.com"
+              className={inputClasses}
+            />
+          </Field>
+
+          {/* An invitation carries no name of its own, so somebody invited
+              without one arrives as a blank row on the rota until they fill
+              their profile in. Whoever is inviting knows the name — it costs
+              them two boxes and saves the new person a chore on their first
+              morning. Optional, because a name nobody is sure of is worse
+              than none. */}
+          <Field label="First name (optional)" hint="Saves them filling it in when they arrive.">
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              maxLength={80}
+              placeholder="Grace"
+              className={inputClasses}
+            />
+          </Field>
+
+          <Field label="Last name (optional)">
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              maxLength={80}
+              placeholder="Mensah"
               className={inputClasses}
             />
           </Field>
