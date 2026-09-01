@@ -428,30 +428,45 @@ export function TeamRotaPage() {
               // and touching it opens the teams underneath.
               const open = !finished || isExpanded(service.id)
               const heading = (
-                <div className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                /*
+                  Name on its own line, everything about it on the next.
+                  
+                  These five things used to share one wrapping row, so the
+                  date could end up beside the name, under it, or halfway
+                  through the badge depending on the length of the service's
+                  name — and the count landed wherever was left. A service
+                  now reads the same way every time: what it is, then when,
+                  then how it stands.
+                */
+                <div className="w-full">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     {live && (
-                      <span className="flex items-center gap-2 self-center">
+                      <span className="flex shrink-0 items-center gap-2">
                         <LiveDot />
                         <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-accent-green-soft">
                           On now
                         </span>
                       </span>
                     )}
-                    <h2 className="text-headline-md">{service.service_type}</h2>
-                    <span className="font-mono text-label-sm text-on-surface-variant">
-                      {service.date === today ? 'Today' : formatServiceDay(service.date)}
-                    </span>
+                    <h2 className="min-w-0 break-words text-headline-md leading-tight">
+                      {service.service_type}
+                    </h2>
                     {finished && (
-                      <span className="self-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
-                        Finished · closed
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                        Finished
                       </span>
                     )}
                   </div>
-                  <span className="flex items-baseline gap-2 font-mono text-label-sm text-on-surface-variant">
-                    {serviceAssignments.length} assigned · {teamsWithPeople}/{myDepartments.length} teams
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-label-sm text-on-surface-variant">
+                    <span>{service.date === today ? 'Today' : formatServiceDay(service.date)}</span>
+                    <span aria-hidden="true" className="text-on-surface-faint">·</span>
+                    <span>{serviceAssignments.length} assigned</span>
+                    <span aria-hidden="true" className="text-on-surface-faint">·</span>
+                    <span>
+                      {teamsWithPeople}/{myDepartments.length} teams
+                    </span>
                     {finished && <Chevron open={open} />}
-                  </span>
+                  </div>
                 </div>
               )
 
@@ -535,26 +550,41 @@ export function TeamRotaPage() {
                             deptAssignments.length === 0 ? undefined : teamWash(dept.color, teamStyle)
                           }
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <TeamMark color={dept.color} />
-                              <span className="break-words text-headline-sm">{dept.name}</span>
-                              <span className="shrink-0 font-mono text-label-sm uppercase text-on-surface-faint">
+                          {/*
+                            A grid, not a wrapping row.
+                            
+                            With `flex-wrap` the button sat beside a short team
+                            name and dropped under a long one, so a column of
+                            six teams had its buttons at four different
+                            heights and read as broken rather than as a list.
+                            The name takes the space it needs, the count sits
+                            under it, and the button is always in the same
+                            place.
+                          */}
+                          <div className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1">
+                            <TeamMark color={dept.color} />
+                            <div className="min-w-0">
+                              <div className="break-words text-headline-sm leading-tight">
+                                {dept.name}
+                              </div>
+                              <div className="mt-1 font-mono text-label-sm uppercase text-on-surface-faint">
                                 {deptAssignments.length === 0
                                   ? 'nobody yet'
                                   : `${deptAssignments.length} assigned`}
-                              </span>
+                              </div>
                             </div>
 
-                            {manage && (
+                            {manage ? (
                               <button
                                 type="button"
                                 onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
                                 aria-expanded={formOpen}
-                                className="tap shrink-0 rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                                className="tap shrink-0 self-center rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
                               >
                                 {formOpen ? 'Cancel' : 'Assign role'}
                               </button>
+                            ) : (
+                              <span />
                             )}
                           </div>
 

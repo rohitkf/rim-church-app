@@ -116,3 +116,22 @@ export function whenLabel(daysAway: number): string {
   if (daysAway < 14) return 'Next week'
   return `In ${Math.round(daysAway / 7)} weeks`
 }
+
+/**
+ * Whole years between a date of birth and today.
+ *
+ * Counted from the calendar rather than from milliseconds: a birthday that
+ * has not come round yet this year has not happened, whatever the arithmetic
+ * on the elapsed days says. Returns null when the stored year is a
+ * placeholder — some profiles carry a birthday with no year, and "56" from
+ * 1970 is worse than saying nothing.
+ */
+export function ageFrom(dob: string | null | undefined, today: Date = new Date()): number | null {
+  if (!dob) return null
+  const [y, m, d] = dob.split('-').map(Number)
+  if (!y || !m || !d || y < 1900) return null
+  let age = today.getFullYear() - y
+  const monthNow = today.getMonth() + 1
+  if (monthNow < m || (monthNow === m && today.getDate() < d)) age -= 1
+  return age >= 0 && age < 130 ? age : null
+}

@@ -7,6 +7,7 @@ import type { ThemePreference } from '../lib/theme'
 import type { TeamStylePreference } from '../lib/teamStyle'
 import { SettingsIcon, UserCircleIcon } from './icons'
 import { InstallAppButton } from './PwaBanners'
+import { ageFrom } from '../lib/celebrations'
 
 const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -47,6 +48,7 @@ function primaryRoleLabel(isAdmin: boolean, roles?: { role_type: string }[]): st
 
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
   const { profile, roles, isAdmin } = useAuth()
+  const age = ageFrom(profile?.dob)
   const { preference, choose } = useTheme()
   const { teamStyle, choose: chooseTeamStyle } = useTeamStyle()
   const [open, setOpen] = useState(false)
@@ -102,6 +104,13 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             {profile?.email && (
               <div className="mt-0.5 break-all text-label-sm text-on-surface-faint">
                 {profile.email}
+              </div>
+            )}
+            {/* Only once a birthday is on file, and only the number: the
+                date itself is on the profile page, and this is a menu. */}
+            {age !== null && (
+              <div className="mt-0.5 font-mono text-label-sm text-on-surface-faint">
+                {age} years old
               </div>
             )}
           </div>

@@ -33,3 +33,17 @@ export function formatServiceDay(iso: string): string {
     year: 'numeric',
   })
 }
+
+/**
+ * The same day, short enough to sit in an eyebrow beside other words.
+ *
+ * "Sunday, September 6, 2026" is the right answer when the date is the whole
+ * line, and much too long when it is a third of one.
+ */
+export function shortServiceDay(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+}

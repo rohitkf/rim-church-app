@@ -142,37 +142,56 @@ export function ProfilePage() {
           </span>
         </label>
 
+        {/*
+          A section, not a <fieldset>. A legend is laid out inside the box's
+          own border, so a phone-width one wraps onto a second line and sits
+          on top of the border it was meant to interrupt — which is what made
+          this block look broken. A heading above the fields wraps like
+          ordinary text and cannot collide with anything.
+        */}
         {sensitive && (
-          <fieldset className="flex flex-col gap-4 rounded-[var(--radius-card)] hairline bg-surface-muted p-4">
-            <legend className="px-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-              Compliance details — only visible to you and Admin
-            </legend>
-            <label className={labelClasses}>
-              Visa type
-              <input
-                value={sensitive.visa_type ?? ''}
-                onChange={(e) => setSensitive({ ...sensitive, visa_type: e.target.value || null })}
-                className={`${inputClasses} bg-surface-lowest`}
-              />
-            </label>
-            <label className={labelClasses}>
-              Visa expiry
-              <input
-                type="date"
-                value={sensitive.visa_expiry ?? ''}
-                onChange={(e) => setSensitive({ ...sensitive, visa_expiry: e.target.value || null })}
-                className={`${inputClasses} bg-surface-lowest`}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-body-sm text-on-surface">
-              <input
-                type="checkbox"
-                checked={sensitive.has_dbs}
-                onChange={(e) => setSensitive({ ...sensitive, has_dbs: e.target.checked })}
-              />
-              Has valid DBS check
-            </label>
-          </fieldset>
+          <section className="rounded-[var(--radius-card)] bg-surface-muted p-4 hairline">
+            <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              Compliance details
+            </h2>
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              Only you and an Admin can see these.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-4">
+              <label className={labelClasses}>
+                Visa type
+                <input
+                  value={sensitive.visa_type ?? ''}
+                  onChange={(e) => setSensitive({ ...sensitive, visa_type: e.target.value || null })}
+                  className={`${inputClasses} bg-surface-lowest`}
+                />
+              </label>
+              <label className={labelClasses}>
+                Visa expiry
+                <input
+                  type="date"
+                  value={sensitive.visa_expiry ?? ''}
+                  onChange={(e) =>
+                    setSensitive({ ...sensitive, visa_expiry: e.target.value || null })
+                  }
+                  className={`${inputClasses} bg-surface-lowest [color-scheme:dark]`}
+                />
+              </label>
+              {/* `items-start` and a nudged box: with `items-center` a label
+                  that wraps to two lines centres the tick against the middle
+                  of the paragraph instead of the first line. */}
+              <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={sensitive.has_dbs}
+                  onChange={(e) => setSensitive({ ...sensitive, has_dbs: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <span className="min-w-0">Has a valid DBS check</span>
+              </label>
+            </div>
+          </section>
         )}
 
         {message && <p className="text-body-sm text-on-surface-variant">{message}</p>}

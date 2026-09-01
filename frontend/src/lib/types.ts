@@ -156,12 +156,17 @@ export const messageRowSchema = z.object({
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
+/** Which end of the service an item belongs to. */
+export const checklistPhaseSchema = z.enum(['pre', 'post'])
+export type ChecklistPhase = z.infer<typeof checklistPhaseSchema>
+
 export const roleChecklistItemSchema = z.object({
   id: z.string(),
   role_id: z.string(),
   department_id: z.string(),
   label: z.string(),
   sort_order: z.number(),
+  phase: checklistPhaseSchema,
 })
 export type RoleChecklistItem = z.infer<typeof roleChecklistItemSchema>
 

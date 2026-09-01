@@ -73,8 +73,11 @@ export async function fetchRoleChecklistItems(departmentIds: string[]): Promise<
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_role_checklist_items')
-    .select('id, role_id, department_id, label, sort_order')
+    .select('id, role_id, department_id, label, sort_order, phase')
     .in('department_id', departmentIds)
+    // Ordered within a phase here; the two phases are separated where they
+    // are shown, because "post" sorts before "pre" alphabetically and the
+    // service does not run in that order.
     .order('sort_order')
   if (error) throw error
   return z.array(roleChecklistItemSchema).parse(data)

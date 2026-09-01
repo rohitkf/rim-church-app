@@ -2,6 +2,14 @@ import { type FormEvent, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
+import {
+  DESIGNATION_BADGE,
+  DESIGNATION_LABEL,
+  DESIGNATION_RANK,
+  designationOn,
+  type Designation,
+} from '../lib/designation'
+import { userRoleSchema } from '../auth/types'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -49,6 +57,18 @@ async function fetchSensitive(userIds: string[]): Promise<Record<string, Sensiti
   return Object.fromEntries(rows.map((row) => [row.user_id, row]))
 }
 
+const departmentGrantSchema = userRoleSchema.extend({ user_id: z.string() })
+type DepartmentGrant = z.infer<typeof departmentGrantSchema>
+
+async function fetchDepartmentGrants(departmentId: string): Promise<DepartmentGrant[]> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('id, user_id, role_type, department_id, service_id')
+    .eq('department_id', departmentId)
+  if (error) throw error
+  return z.array(departmentGrantSchema).parse(data)
+}
+
 function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined }) {
   // RLS on profile_sensitive is the source of truth: if the row wasn't
   // returned, this viewer isn't allowed to see it (Admin + the individual
@@ -57,17 +77,17 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
     return <span className="text-body-sm text-on-surface-variant">—</span>
   }
   return (
-    <div className="flex flex-wrap gap-1">
-      <span
-        className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
-          sensitive.has_dbs
-            ? 'bg-status-coordinator/15 text-status-coordinator'
-            : 'bg-error-container text-on-error-container'
-        }`}
-      >
-        {sensitive.has_dbs ? 'DBS Clear' : 'DBS Missing'}
-      </span>
-    </div>
+    /* One line, always. "DBS MISSING" wrapping to two lines inside a pill
+       was most of what made this roster look broken on a phone. */
+    <span
+      className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
+        sensitive.has_dbs
+          ? 'bg-status-coordinator/15 text-status-coordinator'
+          : 'bg-error-container text-on-error-container'
+      }`}
+    >
+      {sensitive.has_dbs ? 'DBS ✓' : 'No DBS'}
+    </span>
   )
 }
 
@@ -95,9 +115,31 @@ export function DepartmentDetailPage() {
     enabled: !!id,
   })
 
+  /*
+   * Who runs this team.
+   *
+   * The roster listed everybody the same way, so the person to ask about a
+   * rota clash looked exactly like the person to ask about a camera. The
+   * grants live in user_roles rather than on the membership row, so they are
+   * fetched alongside and matched by user.
+   */
+  const grantsQuery = useQuery({
+    queryKey: ['department-grants', id],
+    queryFn: () => fetchDepartmentGrants(id!),
+    enabled: !!id,
+  })
+  const designationOf = (userId: string): Designation =>
+    designationOn((grantsQuery.data ?? []).filter((g) => g.user_id === userId), id!)
+
   // Split once: the roster renders twice — as cards on a phone and as a
   // table from `sm` up — and both need the same list.
-  const coreMembers = (membersQuery.data ?? []).filter((m) => m.member_type === 'core')
+  const coreMembers = [...(membersQuery.data ?? [])]
+    .filter((m) => m.member_type === 'core')
+    .sort(
+      (a, b) =>
+        DESIGNATION_RANK[designationOf(a.user_id)] - DESIGNATION_RANK[designationOf(b.user_id)] ||
+        (a.profiles?.first_name ?? '').localeCompare(b.profiles?.first_name ?? ''),
+    )
   const guestMembers = (membersQuery.data ?? []).filter((m) => m.member_type === 'guest')
 
   const memberIds = membersQuery.data?.map((m) => m.user_id) ?? []
@@ -265,33 +307,54 @@ export function DepartmentDetailPage() {
                 Below `sm` each member is a card instead — same fields,
                 stacked, nothing hidden. The table returns where it fits.
               */}
-              <ul className="mt-4 flex flex-col gap-3 sm:hidden">
-                {coreMembers.map((m) => (
-                  <li key={m.id} className="rounded-[var(--radius-chip)] hairline p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-body-sm font-medium text-on-surface">
+              {/*
+                Name, then who they are, then how to reach them, then the
+                one badge — in that order down the card rather than fought
+                over on one line. Remove sits at the bottom right as quiet
+                text: it is the rarest thing anyone does here and it used to
+                be the loudest thing on every row.
+              */}
+              <ul className="mt-4 flex flex-col gap-2.5 sm:hidden">
+                {coreMembers.map((m) => {
+                  const rank = designationOf(m.user_id)
+                  return (
+                    <li key={m.id} className="rounded-[var(--radius-row)] bg-raised p-3.5 hairline">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
                           {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
-                        </div>
-                        {/* An email has no spaces to wrap at, so it needs
-                            permission to break mid-word or it sets the
-                            card's width for it. */}
-                        <div className="mt-0.5 break-all text-body-sm text-on-surface-variant">
-                          {m.profiles?.email}
-                        </div>
+                        </span>
+                        {rank !== 'member' && (
+                          <span
+                            className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
+                              rank === 'head'
+                                ? 'bg-primary/15 text-primary'
+                                : 'bg-secondary/15 text-secondary'
+                            }`}
+                          >
+                            {DESIGNATION_BADGE[rank]}
+                          </span>
+                        )}
                       </div>
-                      <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
-                    </div>
-                    {canManage && (
-                      <button
-                        onClick={() => removeMember.mutate(m.id)}
-                        className="tap mt-1 inline-flex items-center text-body-sm text-error hover:underline"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </li>
-                ))}
+                      {/* An email has no spaces to wrap at, so it needs
+                          permission to break mid-word or it sets the card's
+                          width for it. */}
+                      <div className="mt-1 break-all text-body-sm text-on-surface-variant">
+                        {m.profiles?.email}
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                        <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
+                        {canManage && (
+                          <button
+                            onClick={() => removeMember.mutate(m.id)}
+                            className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
 
               <div className="mt-4 hidden overflow-x-auto sm:block">
@@ -299,6 +362,7 @@ export function DepartmentDetailPage() {
                   <thead>
                     <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                       <th className="py-2 pr-4">Member</th>
+                      <th className="py-2 pr-4">On this team</th>
                       <th className="py-2 pr-4">Contact</th>
                       <th className="py-2 pr-4">Compliance</th>
                       {canManage && <th className="py-2" />}
@@ -310,7 +374,12 @@ export function DepartmentDetailPage() {
                           <td className="py-3 pr-4 font-medium text-on-surface">
                             {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                           </td>
-                          <td className="py-3 pr-4 text-on-surface-variant">{m.profiles?.email}</td>
+                          <td className="py-3 pr-4 text-on-surface-variant">
+                            {DESIGNATION_LABEL[designationOf(m.user_id)]}
+                          </td>
+                          <td className="py-3 pr-4 break-all text-on-surface-variant">
+                            {m.profiles?.email}
+                          </td>
                           <td className="py-3 pr-4">
                             <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                           </td>
@@ -318,7 +387,7 @@ export function DepartmentDetailPage() {
                             <td className="py-3 text-right">
                               <button
                                 onClick={() => removeMember.mutate(m.id)}
-                                className="tap inline-flex items-center text-body-sm text-error hover:underline"
+                                className="tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-error hover:underline"
                               >
                                 Remove
                               </button>

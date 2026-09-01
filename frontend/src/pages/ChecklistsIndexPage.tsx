@@ -23,6 +23,7 @@ import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { PHASES, byPhase } from '../lib/checklistPhase'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
@@ -374,8 +375,19 @@ export function ChecklistsIndexPage() {
                                   No checklist defined for this role yet — the team head adds it under Teams.
                                 </p>
                               ) : (
-                                <ul className="mt-3 divide-y divide-border-subtle">
-                                  {items.map((item) => {
+                                /* Before and after, kept apart. A single
+                                   column meant scrolling past the packing-up
+                                   jobs to find the setting-up ones, twice a
+                                   service. A phase with nothing in it is not
+                                   drawn at all — an empty heading is worse
+                                   than no heading. */
+                                PHASES.filter((phase) => byPhase(items, phase.value).length > 0).map((phase) => (
+                                <div key={phase.value} className="mt-3">
+                                  <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                    {phase.label}
+                                  </div>
+                                  <ul className="mt-1 divide-y divide-border-subtle">
+                                  {byPhase(items, phase.value).map((item) => {
                                     const status = statusOf(item.id)
                                     return (
                                       <li
@@ -406,7 +418,9 @@ export function ChecklistsIndexPage() {
                                       </li>
                                     )
                                   })}
-                                </ul>
+                                  </ul>
+                                </div>
+                                ))
                               )}
                             </li>
                           )
