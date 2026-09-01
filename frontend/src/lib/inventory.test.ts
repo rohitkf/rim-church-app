@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countLabel,
   isLowStock,
   isOverdue,
   itemValue,
@@ -7,6 +8,8 @@ import {
   needsAttention,
   summarise,
   totalValue,
+  unitCostLabel,
+  valueHint,
 } from './inventory'
 import type { InventoryItem } from './types'
 
@@ -96,9 +99,13 @@ describe('matchesSearch', () => {
 describe('itemValue', () => {
   const priced = (over: Partial<InventoryItem>) => item({ estimated_cost: 100, ...over })
 
-  it('counts an asset once and a consumable per unit', () => {
+  it('counts the cost of one, however many there are', () => {
     expect(itemValue(priced({}))).toBe(100)
     expect(itemValue(priced({ kind: 'consumable', quantity: 7 }))).toBe(700)
+    // Ten screws at a pound each is ten pounds — and a pair of anything is
+    // two of it, whether the register calls it an asset or a consumable.
+    expect(itemValue(priced({ estimated_cost: 1, kind: 'consumable', quantity: 10 }))).toBe(10)
+    expect(itemValue(priced({ quantity: 2 }))).toBe(200)
   })
 
   it('counts nothing that is not in service', () => {
@@ -116,6 +123,10 @@ describe('itemValue', () => {
     expect(itemValue(priced({ estimated_cost: '249.99' }))).toBe(249.99)
   })
 
+  it('treats a missing count as one of the thing', () => {
+    expect(itemValue(priced({ quantity: 0 }))).toBe(100)
+  })
+
   it('adds up only what counts', () => {
     expect(
       totalValue([
@@ -124,5 +135,45 @@ describe('itemValue', () => {
         priced({ id: '3', kind: 'consumable', quantity: 3 }),
       ]),
     ).toBe(400)
+  })
+})
+
+describe('saying it in its own units', () => {
+  it('names the unit when there is one, and "each" when there is not', () => {
+    expect(unitCostLabel(item({ estimated_cost: 1, unit: 'screw' }))).toBe('£1 per screw')
+    expect(unitCostLabel(item({ estimated_cost: 249.99 }))).toBe('£249.99 each')
+  })
+
+  it('keeps the pennies — 75p is not a pound', () => {
+    expect(unitCostLabel(item({ estimated_cost: 0.75, unit: 'screw' }))).toBe('£0.75 per screw')
+  })
+
+  it('says nothing about a price nobody has recorded', () => {
+    expect(unitCostLabel(item({ estimated_cost: null }))).toBeNull()
+  })
+
+  it('counts in the words the register uses', () => {
+    expect(countLabel(item({ quantity: 10, unit: 'screw' }))).toBe('10 × screw')
+    expect(countLabel(item({ quantity: 10 }))).toBe('10')
+  })
+})
+
+describe('valueHint', () => {
+  it('does the sum the two fields are for', () => {
+    expect(valueHint('10', '1', 'screw')).toBe('10 × screw at £1 each — £10 on the register.')
+  })
+
+  it('works without a unit name, which is optional', () => {
+    expect(valueHint('2', '249.99', '')).toBe('2 at £249.99 each — £499.98 on the register.')
+  })
+
+  it('says what the cost means before a cost is typed', () => {
+    expect(valueHint('10', '', 'screw')).toBe('The cost of one screw, not of all of them.')
+    expect(valueHint('10', '', '')).toBe('The cost of one, not of all of them.')
+  })
+
+  it('treats nonsense as no cost rather than showing NaN', () => {
+    expect(valueHint('10', 'abc', '')).toBe('The cost of one, not of all of them.')
+    expect(valueHint('10', '0', '')).toBe('The cost of one, not of all of them.')
   })
 })

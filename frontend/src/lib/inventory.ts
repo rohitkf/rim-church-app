@@ -40,8 +40,14 @@ export function needsAttention(item: InventoryItem, todayIso: string): boolean {
 }
 
 /**
- * What one line of the register is worth: a consumable is its unit cost
- * times how many there are, an asset is its own.
+ * What one line of the register is worth: the cost of one, times how many
+ * there are. Ten screws at a pound each is ten pounds; one camera at nine
+ * hundred is nine hundred.
+ *
+ * The cost recorded is always the cost of one — that is what the `unit`
+ * beside it names. This used to multiply only for consumables, which was
+ * right for every row that existed and quietly wrong for the first asset
+ * anybody entered a pair of.
  *
  * Only kit in service counts. Something retired, missing or on the repair
  * bench is not value the church can rely on, and counting it quietly turns
@@ -51,11 +57,42 @@ export function itemValue(item: InventoryItem): number {
   const cost = typeof item.estimated_cost === 'string' ? Number(item.estimated_cost) : item.estimated_cost
   if (!cost || Number.isNaN(cost)) return 0
   if (statusOf(item) !== 'in_service') return 0
-  return kindOf(item) === 'consumable' ? cost * item.quantity : cost
+  // A row with no count is one of the thing, not none of it.
+  return cost * Math.max(item.quantity ?? 1, 1)
 }
 
 export function totalValue(items: InventoryItem[]): number {
   return items.reduce((sum, item) => sum + itemValue(item), 0)
+}
+
+/**
+ * What one of a thing costs, said in its own units: "£1 per screw", "£249.99
+ * each". To the penny, because a unit cost rounded to the pound turns 75p
+ * into £1 and a count of forty into a lie.
+ */
+export function unitCostLabel(item: InventoryItem): string | null {
+  const cost = typeof item.estimated_cost === 'string' ? Number(item.estimated_cost) : item.estimated_cost
+  if (!cost || Number.isNaN(cost)) return null
+  const unit = item.unit?.trim()
+  const money = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: Number.isInteger(cost) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(cost)
+  return unit ? `${money} per ${unit}` : `${money} each`
+}
+
+/**
+ * How many there are, in the words the register uses: "10 × screw".
+ *
+ * Multiplied rather than pluralised — the unit is stored as somebody typed
+ * it, and an app that turns "box" into "boxs" is worse than one that does
+ * not try.
+ */
+export function countLabel(item: InventoryItem): string {
+  const unit = item.unit?.trim()
+  return unit ? `${item.quantity} × ${unit}` : String(item.quantity)
 }
 
 /** Money, rounded to whole units — nobody budgets a PA system in pence. */
@@ -104,4 +141,28 @@ export function matchesSearch(item: InventoryItem, term: string): boolean {
   ]
     .filter((v): v is string => !!v)
     .some((v) => v.toLowerCase().includes(q))
+}
+
+/**
+ * What the register will actually count for a line being typed in, said
+ * back as arithmetic. "10 screws at £1 each" is the whole point of the
+ * count and the cost sitting next to each other, and a form that shows the
+ * sum is one nobody has to take on trust.
+ */
+export function valueHint(quantity: string, cost: string, unit: string): string {
+  const count = Math.max(Number(quantity) || 0, 0)
+  const each = Number(cost)
+  const named = unit.trim()
+  if (!cost.trim() || Number.isNaN(each) || each <= 0) {
+    return named ? `The cost of one ${named}, not of all of them.` : 'The cost of one, not of all of them.'
+  }
+  const money = (n: number) =>
+    new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(n)
+  const what = named ? `${count} × ${named}` : `${count}`
+  return `${what} at ${money(each)} each — ${money(count * each)} on the register.`
 }

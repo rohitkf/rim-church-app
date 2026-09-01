@@ -13,6 +13,7 @@ import { serviceBounds } from '../lib/serviceProgress'
 import { lastWeeklyClear, lastWeeklyClearDate } from '../lib/plannerWeek'
 import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
 import { formatTime } from '../lib/time'
+import { formatServiceDay } from '../lib/sunday'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
@@ -41,12 +42,18 @@ export function ServicePlannerIndexPage() {
   // form stays linkable — /service-planner?new=1 opens it directly.
   const [params, setParams] = useSearchParams()
   const creating = params.get('new') === '1'
-  const openCreate = () => {
+  // A date may ride along: tapping the 14th on the calendar is somebody
+  // saying which day they mean, and making them say it again in the form
+  // is the app not listening.
+  const openCreate = (date?: string) => {
     params.set('new', '1')
+    if (date) params.set('date', date)
+    else params.delete('date')
     setParams(params)
   }
   const closeCreate = () => {
     params.delete('new')
+    params.delete('date')
     setParams(params, { replace: true })
   }
   const [createError, setCreateError] = useState<string | null>(null)
@@ -58,6 +65,14 @@ export function ServicePlannerIndexPage() {
   const lastAutoFilledName = useRef('')
 
   const { blocker, allowNavigation } = useUnsavedChangesGuard(isNewServiceFormDirty(newDate, newType))
+
+  // The form reads its date from the URL, so /service-planner?new=1&date=…
+  // opens ready to fill in — whether that came from a tap on the calendar
+  // or from a link somebody sent.
+  const dateParam = params.get('date')
+  useEffect(() => {
+    if (creating && dateParam) setNewDate(dateParam)
+  }, [creating, dateParam])
 
   function handleTemplateChange(id: string) {
     setTemplateId(id)
@@ -264,7 +279,7 @@ export function ServicePlannerIndexPage() {
                sidebar; the sidebar is now a dock of destinations, and an
                action is not a destination — so it belongs here, where the
                design puts every page's one primary action. */
-            <ActionButton onClick={openCreate} glyph={<span aria-hidden="true">+</span>}>
+            <ActionButton onClick={() => openCreate()} glyph={<span aria-hidden="true">+</span>}>
               New service
             </ActionButton>
           )
@@ -317,10 +332,24 @@ export function ServicePlannerIndexPage() {
               return (
                 <div
                   key={cell.iso}
-                  className={`min-h-16 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
+                  className={`relative min-h-16 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
                 >
+                  {/* The whole square starts a service on that day. It is a
+                      real button behind the content rather than a click
+                      handler on the square, so it can be tabbed to and
+                      announces which day it means; the service chips sit
+                      above it and take their own clicks. */}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => openCreate(cell.iso)}
+                      aria-label={`New service on ${formatServiceDay(cell.iso)}`}
+                      title={`New service on ${formatServiceDay(cell.iso)}`}
+                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-300 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
+                    />
+                  )}
                   <div
-                    className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
+                    className={`pointer-events-none relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
                       isToday ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
                     }`}
                   >
@@ -334,7 +363,7 @@ export function ServicePlannerIndexPage() {
                     something on, and the agenda underneath — where the
                     names have a whole line each — says what.
                   */}
-                  <div className="mt-1 flex flex-wrap justify-center gap-1 sm:flex-col sm:flex-nowrap sm:justify-start">
+                  <div className="pointer-events-none relative z-10 mt-1 flex flex-wrap justify-center gap-1 sm:flex-col sm:flex-nowrap sm:justify-start">
                     {dayServices.map((s) => {
                       // Green once it has happened, blue while it is still
                       // to come — the same two colours the lists below
@@ -364,7 +393,7 @@ export function ServicePlannerIndexPage() {
                             type="button"
                             onClick={() => navigate(`/service-planner/${s.id}`)}
                             title={`${s.service_type} — ${s.date}`}
-                            className={`hidden w-full break-words rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
+                            className={`pointer-events-auto hidden w-full break-words rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
                           >
                             {s.service_type}
                           </button>

@@ -163,6 +163,14 @@ export function EventsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that event.')),
   })
 
+  // Opening the form with a day already chosen. Tapping the 14th is
+  // somebody saying which day they mean; asking again in the form is the
+  // app not listening.
+  function openAdd(on?: string) {
+    setDate(on ?? '')
+    setAdding(true)
+  }
+
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!title.trim() || !date) return
@@ -195,7 +203,7 @@ export function EventsPage() {
         description="Birthdays, anniversaries, services and everything else the church has a date for — in one diary."
         action={
           canAdd && (
-            <ActionButton onClick={() => setAdding(true)} glyph={<span aria-hidden="true">+</span>}>
+            <ActionButton onClick={() => openAdd()} glyph={<span aria-hidden="true">+</span>}>
               Add event
             </ActionButton>
           )
@@ -255,10 +263,22 @@ export function EventsPage() {
               return (
                 <div
                   key={cell.iso}
-                  className={`min-h-14 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
+                  className={`relative min-h-14 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
                 >
+                  {/* Tapping a square adds an event on that day. A real
+                      button behind the square rather than a handler on it,
+                      so it can be tabbed to and says which day it means. */}
+                  {canAdd && (
+                    <button
+                      type="button"
+                      onClick={() => openAdd(cell.iso)}
+                      aria-label={`Add an event on ${formatServiceDay(cell.iso)}`}
+                      title={`Add an event on ${formatServiceDay(cell.iso)}`}
+                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-300 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
+                    />
+                  )}
                   <div
-                    className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
+                    className={`pointer-events-none relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
                       cell.iso === today ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
                     }`}
                   >
@@ -268,7 +288,7 @@ export function EventsPage() {
                       says which days have something on and the list below
                       says what. One dot per kind, not per entry: five
                       birthdays are still "birthdays on this day". */}
-                  <div className="mt-1 flex flex-wrap justify-center gap-0.5">
+                  <div className="pointer-events-none relative z-10 mt-1 flex flex-wrap justify-center gap-0.5">
                     {[...new Set(onThisDay.map((e) => e.kind))].map((kind) => (
                       <span
                         key={kind}

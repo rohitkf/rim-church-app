@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from './QueryState'
@@ -7,6 +7,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { useDragReorder } from '../lib/useDragReorder'
 import { PHASES, byPhase } from '../lib/checklistPhase'
+import { suggestChecklistItems } from '../lib/checklistSuggestions'
 import type { ChecklistPhase } from '../lib/types'
 import { DragHandle } from './DragHandle'
 
@@ -23,11 +24,14 @@ function RoleChecklistEditor({
   departmentId,
   canManage,
   phase,
+  roleNames,
 }: {
   roleId: string
   departmentId: string
   canManage: boolean
   phase: ChecklistPhase
+  /** Role id → name, for saying which role a suggestion came from. */
+  roleNames: Map<string, string>
 }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -44,6 +48,21 @@ function RoleChecklistEditor({
   )
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['role-checklist-items'] })
+
+  // What the team's other roles already call this job. Camera Operator 1
+  // and Camera Operator 2 check the same batteries; typing it out twice is
+  // slower and ends in two nearly-identical lines that read as two jobs.
+  const suggestions = useMemo(
+    () =>
+      suggestChecklistItems({
+        items: itemsQuery.data ?? [],
+        roleNames,
+        roleId,
+        phase,
+        query: label,
+      }),
+    [itemsQuery.data, roleNames, roleId, phase, label],
+  )
 
   const addItem = useMutation({
     mutationFn: async (text: string) => {
@@ -152,6 +171,35 @@ function RoleChecklistEditor({
           </button>
         </form>
       )}
+
+      {canManage && suggestions.length > 0 && (
+        <div className="mt-1.5">
+          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            Already on another role
+          </div>
+          <ul className="mt-1 flex flex-col gap-1">
+            {suggestions.map((s) => (
+              <li key={s.label}>
+                <button
+                  type="button"
+                  onClick={() => addItem.mutate(s.label)}
+                  disabled={addItem.isPending}
+                  className="tap flex w-full items-baseline gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-2 py-1 text-left text-body-sm text-on-surface hover:bg-raised disabled:opacity-50"
+                >
+                  <span className="min-w-0 break-words">{s.label}</span>
+                  {s.usedBy.length > 0 && (
+                    <span className="ml-auto shrink-0 text-label-sm text-on-surface-faint">
+                      {s.usedBy.length > 2
+                        ? `${s.usedBy.length} roles`
+                        : s.usedBy.join(', ')}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
     </div>
   )
@@ -227,6 +275,9 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
 
   const roles = rolesQuery.data ?? []
   const roleById = new Map(roles.map((r) => [r.id, r]))
+  // Stable across renders so the suggestion list isn't recomputed on every
+  // keystroke's re-render of the card around it.
+  const roleNames = useMemo(() => new Map(roles.map((r) => [r.id, r.name])), [roles])
   const { ordered, handleProps, rowProps } = useDragReorder(
     roles.map((r) => r.id),
     (ids) => reorderRoles.mutate(ids),
@@ -357,6 +408,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                           departmentId={departmentId}
                           canManage={canManage}
                           phase={p.value}
+                          roleNames={roleNames}
                         />
                       </div>
                     ))}

@@ -47,3 +47,23 @@ describe('notificationHref', () => {
     }
   })
 })
+
+describe('a poll', () => {
+  it('says what was asked when the question came with it', () => {
+    expect(notificationLabel('team_poll', 'Which night suits rehearsal?')).toBe(
+      'Which night suits rehearsal?',
+    )
+  })
+
+  it('falls back to a sentence when it did not', () => {
+    expect(notificationLabel('team_poll')).toBe('Your team has a question for you')
+  })
+
+  it('opens the room it was asked in', () => {
+    expect(notificationHref('team_poll', 'dept-1')).toBe('/team-chat?team=dept-1')
+  })
+
+  it('still opens Team Chat without one', () => {
+    expect(notificationHref('team_poll')).toBe('/team-chat')
+  })
+})
