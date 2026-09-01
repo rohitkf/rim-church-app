@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, PageHeader } from '../components/Surface'
 import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
+import { InviteDialog } from '../components/InviteDialog'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
 import { TeamMark } from '../components/TeamMark'
@@ -74,6 +75,7 @@ export function VolunteersPage() {
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
   const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [inviting, setInviting] = useState(false)
 
   const volunteersQuery = useQuery({ queryKey: ['volunteers'], queryFn: fetchVolunteers, enabled: isAdmin })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
@@ -406,10 +408,26 @@ export function VolunteersPage() {
         title="Volunteers"
         description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
         action={
-          <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading}>
-            Export
-          </ActionButton>
+          <span className="flex flex-wrap items-center gap-2">
+            <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading}>
+              Export
+            </ActionButton>
+            {/* Somebody has to be told the app exists before they can appear
+                on this page at all — which is exactly the page you are on
+                when you notice they are missing. */}
+            {isAdmin && (
+              <ActionButton onClick={() => setInviting(true)} glyph={<span aria-hidden="true">✉</span>}>
+                Invite
+              </ActionButton>
+            )}
+          </span>
         }
+      />
+
+      <InviteDialog
+        open={inviting}
+        onClose={() => setInviting(false)}
+        departments={departments}
       />
 
       {exporting && (

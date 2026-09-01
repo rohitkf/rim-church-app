@@ -41,11 +41,24 @@ describe('AddTimeDialog', () => {
 
   it('takes an amount nobody put on a button', async () => {
     const { onConfirm, user } = show()
-    const field = screen.getByLabelText('Minutes to add')
+    // The ruler is the default, but tapping the number still lets you type
+    // the odd amount nobody made a button for.
+    await user.click(screen.getByRole('button', { name: '10' }))
+    const field = screen.getByRole('spinbutton')
     await user.clear(field)
-    await user.type(field, '7')
+    await user.type(field, '7{Enter}')
     await user.click(screen.getByRole('button', { name: 'Add 7 min' }))
     expect(onConfirm).toHaveBeenCalledWith(7, '')
+  })
+
+  it('nudges a minute at a time from the keyboard', async () => {
+    const { onConfirm, user } = show()
+    const ruler = screen.getByRole('slider', { name: 'Minutes to add' })
+    ruler.focus()
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(ruler).toHaveAttribute('aria-valuenow', '12')
+    await user.click(screen.getByRole('button', { name: 'Add 12 min' }))
+    expect(onConfirm).toHaveBeenCalledWith(12, '')
   })
 
   it('carries who asked, which is what makes it a grant', async () => {
@@ -71,13 +84,21 @@ describe('AddTimeDialog', () => {
     expect(screen.getByText('55m')).toBeInTheDocument()
   })
 
-  it('will not add nothing', async () => {
-    const { onConfirm, user } = show()
-    const field = screen.getByLabelText('Minutes to add')
+  it('will not add nothing — the ruler stops at one minute', async () => {
+    const { user } = show()
+    const ruler = screen.getByRole('slider', { name: 'Minutes to add' })
+    ruler.focus()
+    // Home is the far end of the ruler, and the far end is one, not zero:
+    // a grant of no time is not a thing anyone means to ask for.
+    await user.keyboard('{Home}')
+    expect(ruler).toHaveAttribute('aria-valuenow', '1')
+    expect(screen.getByRole('button', { name: 'Add 1 min' })).toBeEnabled()
+
+    // Typing zero lands on the same floor rather than arming a dead button.
+    await user.click(screen.getByRole('button', { name: '1' }))
+    const field = screen.getByRole('spinbutton')
     await user.clear(field)
-    await user.type(field, '0')
-    expect(screen.getByRole('button', { name: 'Add 0 min' })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: 'Add 0 min' }))
-    expect(onConfirm).not.toHaveBeenCalled()
+    await user.type(field, '0{Enter}')
+    expect(screen.getByRole('slider', { name: 'Minutes to add' })).toHaveAttribute('aria-valuenow', '1')
   })
 })

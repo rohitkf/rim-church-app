@@ -16,6 +16,7 @@ import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
 import { DragHandle } from '../components/DragHandle'
+import { NumberDialField } from '../components/NumberDial'
 import { useDragReorder } from '../lib/useDragReorder'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
@@ -1047,25 +1048,26 @@ export function ServicePlannerPage() {
                         meta={
                           canEdit ? (
                             <span className="flex items-center justify-end gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                aria-label={`${session.session_name} duration in minutes`}
-                                defaultValue={session.duration_minutes}
-                                onBlur={(e) => {
-                                  const value = Number(e.target.value)
-                                  if (Number.isNaN(value) || value === session.duration_minutes) return
+                              {/* The rail is 56px wide on a phone, so the
+                                  ruler opens over the row rather than living
+                                  in it — the chip is what the column can
+                                  hold, and a length is what the ruler is
+                                  good at. */}
+                              <NumberDialField
+                                value={session.duration_minutes}
+                                onChange={(next) => {
+                                  if (next === session.duration_minutes) return
                                   updateField.mutate({
                                     id: session.id,
-                                    patch: { duration_minutes: value },
+                                    patch: { duration_minutes: next },
                                   })
                                 }}
-                                className="w-14 rounded-full bg-raised px-1.5 py-0.5 text-right font-mono text-label-sm text-on-surface-variant"
+                                min={0}
+                                max={180}
+                                majorEvery={5}
+                                unit="min"
+                                label={`${session.session_name} duration in minutes`}
                               />
-                              {/* The unit stays outside the field: a number
-                                  input with "min" in it is a number input
-                                  people try to type "min" into. */}
-                              <span className="font-mono text-label-sm text-on-surface-faint">min</span>
                             </span>
                           ) : (
                             `${session.duration_minutes} min`

@@ -1,5 +1,8 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ItemDocuments } from '../components/ItemDocuments'
+import { NumberDial } from '../components/NumberDial'
+import { PurchaseRequests } from '../components/PurchaseRequests'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -58,6 +61,7 @@ export function InventoryPage() {
   // Heads and their assisting heads own the register; everyone on the team
   // can sign kit out, bring it back, and record a count.
   const canManage = isAdmin || (!!id && isDepartmentHead(id))
+  const [docsFor, setDocsFor] = useState<InventoryItem | null>(null)
 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
@@ -394,6 +398,7 @@ export function InventoryPage() {
                         onEdit={() => setEditing(item)}
                         onDelete={() => setDeleting(item)}
                         onShowQr={() => setQrFor(item)}
+                        onDocs={() => setDocsFor(item)}
                       />
                     </div>
                   )}
@@ -520,6 +525,7 @@ export function InventoryPage() {
                           onEdit={() => setEditing(item)}
                           onDelete={() => setDeleting(item)}
                           onShowQr={() => setQrFor(item)}
+                          onDocs={() => setDocsFor(item)}
                         />
                       </td>
                       )}
@@ -560,6 +566,47 @@ export function InventoryPage() {
         />
       )}
 
+      {/* The wishlist sits under the shelf on purpose: what a team has and
+          what it is still asking for are the same question at two points in
+          time, and the money reads together. */}
+      {id && (
+        <div className="mt-8">
+          <PurchaseRequests departmentId={id} departmentName={deptQuery.data?.name} />
+        </div>
+      )}
+
+      {docsFor && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Paperwork for ${docsFor.name}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setDocsFor(null) }}
+        >
+          <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-2 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+            <div className="flex items-baseline justify-between gap-3 px-3 pt-3">
+              <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
+                {docsFor.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDocsFor(null)}
+                className="tap shrink-0 text-label-md text-on-surface-variant hover:text-on-surface"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-1">
+              <ItemDocuments
+                itemId={docsFor.id}
+                departmentId={docsFor.department_id}
+                canManage={canManage}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {scanned && (
         <ScannedItemDialog
           itemId={scanned}
@@ -578,6 +625,10 @@ export function InventoryPage() {
           onShowQr={(item) => {
             setScanned(null)
             setQrFor(item)
+          }}
+          onDocs={(item) => {
+            setScanned(null)
+            setDocsFor(item)
           }}
           onClose={() => setScanned(null)}
         />
@@ -623,6 +674,7 @@ function RowActions({
   onEdit,
   onDelete,
   onShowQr,
+  onDocs,
 }: {
   item: InventoryItem
   canManage: boolean
@@ -631,6 +683,7 @@ function RowActions({
   onEdit: () => void
   onDelete: () => void
   onShowQr: () => void
+  onDocs: () => void
 }) {
   if (!canManage) return null
 
@@ -702,6 +755,20 @@ function RowActions({
           Back in service
         </button>
       )}
+      {item.product_url && (
+        <a
+          className={button}
+          href={item.product_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="The page it was bought from"
+        >
+          Link ↗
+        </a>
+      )}
+      <button className={button} onClick={onDocs}>
+        Paperwork
+      </button>
       <button className={button} onClick={onShowQr}>
         QR
       </button>
@@ -733,6 +800,7 @@ function AddItemForm({
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [brand, setBrand] = useState('')
+  const [productUrl, setProductUrl] = useState('')
   const [model, setModel] = useState('')
   const [serial, setSerial] = useState('')
   const [location, setLocation] = useState('')
@@ -757,6 +825,7 @@ function AddItemForm({
         kind,
         asset_tag: tag,
         brand: brand.trim() || null,
+        product_url: productUrl.trim() || null,
         model: model.trim() || null,
         serial_number: serial.trim() || null,
         location: location.trim() || null,
@@ -808,6 +877,18 @@ function AddItemForm({
           <input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Sennheiser" className={inputClasses} />
         </Field>
 
+        {/* The listing you bought it from: what you send somebody who asks
+            for another one, and what you check before ordering a spare. */}
+        <Field label="Product page" hint="A link to where it was bought, or the maker's page.">
+          <input
+            type="url"
+            value={productUrl}
+            onChange={(e) => setProductUrl(e.target.value)}
+            placeholder="https://…"
+            className={inputClasses}
+          />
+        </Field>
+
         {kind === 'asset' ? (
           <>
             <Field label="Product / model" hint="The manufacturer's name for it.">
@@ -820,10 +901,24 @@ function AddItemForm({
         ) : (
           <>
             <Field label="Quantity">
-              <input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+              <NumberDial
+                value={Number(quantity) || 0}
+                onChange={(next) => setQuantity(String(next))}
+                min={0}
+                max={100}
+                majorEvery={5}
+                label="Quantity"
+              />
             </Field>
             <Field label="Reorder at" hint="Flagged as low stock at or below this.">
-              <input type="number" min="0" value={reorder} onChange={(e) => setReorder(e.target.value)} className={inputClasses} />
+              <NumberDial
+                value={Number(reorder) || 0}
+                onChange={(next) => setReorder(String(next))}
+                min={0}
+                max={50}
+                majorEvery={5}
+                label="Reorder at"
+              />
             </Field>
           </>
         )}
@@ -872,6 +967,7 @@ function EditItemDialog({
   const errorText = useErrorText()
   const [name, setName] = useState(item.name)
   const [brand, setBrand] = useState(item.brand ?? '')
+  const [productUrl, setProductUrl] = useState(item.product_url ?? '')
   const [model, setModel] = useState(item.model ?? '')
   const [serial, setSerial] = useState(item.serial_number ?? '')
   const [location, setLocation] = useState(item.location ?? '')
@@ -886,6 +982,7 @@ function EditItemDialog({
         .update({
           name: name.trim(),
           brand: brand.trim() || null,
+          product_url: productUrl.trim() || null,
           model: model.trim() || null,
           serial_number: serial.trim() || null,
           location: location.trim() || null,
@@ -933,6 +1030,16 @@ function EditItemDialog({
             <input value={brand} onChange={(e) => setBrand(e.target.value)} className={inputClasses} />
           </Field>
 
+          <Field label="Product page">
+            <input
+              type="url"
+              value={productUrl}
+              onChange={(e) => setProductUrl(e.target.value)}
+              placeholder="https://…"
+              className={inputClasses}
+            />
+          </Field>
+
           {kindOf(item) === 'asset' ? (
             <>
               <Field label="Product / model">
@@ -945,10 +1052,24 @@ function EditItemDialog({
           ) : (
             <>
               <Field label="Quantity">
-                <input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputClasses} />
+                <NumberDial
+                  value={Number(quantity) || 0}
+                  onChange={(next) => setQuantity(String(next))}
+                  min={0}
+                  max={100}
+                  majorEvery={5}
+                  label="Quantity"
+                />
               </Field>
               <Field label="Reorder at">
-                <input type="number" min="0" value={reorder} onChange={(e) => setReorder(e.target.value)} className={inputClasses} />
+                <NumberDial
+                  value={Number(reorder) || 0}
+                  onChange={(next) => setReorder(String(next))}
+                  min={0}
+                  max={50}
+                  majorEvery={5}
+                  label="Reorder at"
+                />
               </Field>
             </>
           )}
@@ -1097,6 +1218,7 @@ function ScannedItemDialog({
   onEdit,
   onDelete,
   onShowQr,
+  onDocs,
   onClose,
 }: {
   itemId: string
@@ -1107,6 +1229,7 @@ function ScannedItemDialog({
   onEdit: (item: InventoryItem) => void
   onDelete: (item: InventoryItem) => void
   onShowQr: (item: InventoryItem) => void
+  onDocs: (item: InventoryItem) => void
   onClose: () => void
 }) {
   const item = items.find((i) => i.id === itemId) ?? null
@@ -1137,6 +1260,7 @@ function ScannedItemDialog({
                   onEdit={() => onEdit(item)}
                   onDelete={() => onDelete(item)}
                   onShowQr={() => onShowQr(item)}
+                  onDocs={() => onDocs(item)}
                 />
               ) : (
                 <p className="text-body-sm text-on-surface-variant">
