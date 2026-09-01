@@ -27,7 +27,10 @@ import {
 type NumberField = {
   key: keyof Omit<AppSettings, 'always_show_my_services' | 'board_clear_dow'>
   label: string
+  /** What the number means, in the words the pages themselves use. */
   help: string
+  /** Which pages move when it moves — the question people arrive with. */
+  affects: string
   min: number
   max: number
   unit: string
@@ -35,13 +38,14 @@ type NumberField = {
 
 const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
   {
-    heading: 'Team Rota and Availability',
-    blurb: 'How far ahead these two pages list services.',
+    heading: 'Team Rota, Availability and Checklists',
+    blurb: 'How far ahead these three pages list services.',
     fields: [
       {
         key: 'rota_window_days',
         label: 'Days ahead',
-        help: 'Every service in this many days is listed. If there is none, the nearest day with a service is shown instead, so the page is never empty.',
+        help: 'Every service dated within this many days of today is listed — not the next few services, which on a busy Sunday would be spent on one day and hide the week after. Two rules ride along and cannot be turned off: if nothing falls inside the window the nearest day that has a service is shown instead, so the page is never blank; and a service that has finished stops holding the window open, so the moment today’s service ends, next Sunday’s is already there.',
+        affects: 'Team Rota · Availability · Checklists',
         min: 1,
         max: 120,
         unit: 'days',
@@ -50,12 +54,13 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
   },
   {
     heading: 'Service Planner',
-    blurb: 'The agenda under the calendar.',
+    blurb: 'The agenda under the month calendar, and how long a finished service stays open.',
     fields: [
       {
         key: 'planner_upcoming_limit',
         label: 'Upcoming services listed',
-        help: 'How many services the “Upcoming services” list shows. Finished ones are not counted.',
+        help: 'How many services the “Upcoming services” list shows. A count rather than a window, because the calendar above it already shows the month — this list is what you are working on next. Finished services are removed before the count, so six always means six you can still act on.',
+        affects: 'Service Planner agenda only — not the calendar',
         min: 1,
         max: 50,
         unit: 'services',
@@ -63,7 +68,8 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
       {
         key: 'edit_grace_minutes',
         label: 'Editing stays open for',
-        help: 'How long after a service ends an Admin can still correct its running order. The database enforces this too, so it is a real lock rather than a hidden button.',
+        help: 'How long after a service ends its record stays open for correction. The clock starts when End service was pressed, or, if nobody pressed it, at the planned end of the last session. When it runs out the database itself starts refusing changes to the running order, checklist ticks and sign-offs, availability answers, and rota assignments for that service — so this is a real lock, not a hidden button. An hour is “walk off the stage and fix what you noticed”; a day suits a team that does its paperwork on Monday.',
+        affects: 'Running order · Checklists · Availability · Team Rota, for a service that is over',
         min: 0,
         max: 10080,
         unit: 'minutes',
@@ -72,12 +78,13 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
   },
   {
     heading: 'While a service is on',
-    blurb: 'When a service starts and stops reading as “on now”.',
+    blurb: 'When a service starts and stops reading as “on now”. Both ends are read from the running order, so a service with no running order planned is never “on now”.',
     fields: [
       {
         key: 'lead_in_minutes',
         label: 'Doors open before',
-        help: 'A service reads as on this long before its first session starts.',
+        help: 'A service starts wearing the “on now” badge this long before its first session, so the rota highlights the right service while teams are setting up.',
+        affects: 'The “on now” badge and highlight on Team Rota',
         min: 0,
         max: 240,
         unit: 'minutes',
@@ -85,7 +92,8 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
       {
         key: 'run_out_minutes',
         label: 'Still on after',
-        help: 'And it keeps reading as on this long after the last session ends, so the badge does not blink out mid-handshake.',
+        help: 'And it keeps the badge this long after the last session ends, so it does not blink out mid-handshake. Set it to 0 for the badge to go the second the service does.',
+        affects: 'The “on now” badge and highlight on Team Rota',
         min: 0,
         max: 240,
         unit: 'minutes',
@@ -168,8 +176,9 @@ export function AppSettingsCard() {
                           {field.unit}
                         </span>
                       </span>
-                      <span className="text-label-md text-on-surface-variant">
-                        {field.help} Default {DEFAULT_SETTINGS[field.key]}.
+                      <span className="text-label-md text-on-surface-variant">{field.help}</span>
+                      <span className="font-mono text-label-sm text-on-surface-faint">
+                        {field.affects} · default {DEFAULT_SETTINGS[field.key]}
                       </span>
                     </label>
                   ))}
@@ -200,8 +209,15 @@ export function AppSettingsCard() {
                   </select>
                 </span>
                 <span className="text-label-md text-on-surface-variant">
-                  At 00:00 UTC. Default {WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]} — two
-                  days after Sunday, so the week’s posts outlive the service they were about.
+                  At 00:00 UTC on this day, the message board empties — every post, plus the
+                  bell notifications pointing at them, so the bell never points at something
+                  that is gone. The planner’s Finished list resets on the same clock, so nobody
+                  has to learn two different weeks. The clear-out is a deletion and cannot be
+                  undone.
+                </span>
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  Message board · Service Planner’s Finished list · default{' '}
+                  {WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]}, two days after Sunday
                 </span>
               </label>
             </div>
@@ -216,8 +232,13 @@ export function AppSettingsCard() {
                 Always show a service somebody is rostered on
               </span>
               <span className="text-label-md text-on-surface-variant">
-                Keeps a service on a volunteer’s rota however far past the window it is. Turn this
-                off and somebody can be assigned to a service they cannot see.
+                A safety net over the window above: if somebody is assigned to a service further
+                out than the window, that service is added to their rota anyway, in date order.
+                Nobody else’s page changes. Turn this off and a volunteer can be given a role on
+                a service they cannot see, and will not know to tell you.
+              </span>
+              <span className="font-mono text-label-sm text-on-surface-faint">
+                Team Rota · default on
               </span>
             </label>
 
