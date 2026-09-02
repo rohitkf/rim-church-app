@@ -163,7 +163,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               menu doesn't carry a dead entry on desktop or once installed. */}
           <InstallAppButton />
 
-          <Link to="/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
+          <Link to="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />
             Settings
           </Link>
