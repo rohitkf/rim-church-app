@@ -183,10 +183,9 @@ export const departmentRoleSchema = z.object({
   department_id: z.string(),
   name: z.string(),
   sort_order: z.number(),
-  // Every family the role belongs to on the Teams page. Empty is a real
-  // answer — most teams are small enough to want no groups at all — and a
-  // role can sit in several.
-  group_ids: z.array(z.string()),
+  // Which family the role belongs to on the Teams page. Null is a real
+  // answer — most teams are small enough to want no groups at all.
+  group_id: z.string().nullable(),
 })
 export type DepartmentRole = z.infer<typeof departmentRoleSchema>
 

@@ -12,8 +12,8 @@ const role = (
   id: string,
   name: string,
   sort_order: number,
-  ...group_ids: string[]
-): GroupableRole => ({ id, name, sort_order, group_ids })
+  group_id: string | null = null,
+): GroupableRole => ({ id, name, sort_order, group_id })
 
 const group = (id: string, name: string, sort_order: number): RoleGroup => ({
   id,
@@ -60,22 +60,9 @@ describe('arrangeRoles', () => {
     expect(sections.at(-1)?.roles.map((r) => r.name)).toEqual(['Sound check'])
   })
 
-  it('draws a role under every group it belongs to', () => {
-    // Not two of the job — one job in two families, the way a person is in
-    // two departments without there being two of them.
-    const roles = [role('r1', 'Worship Leader 1', 1, 'g1', 'g2')]
-    const { sections } = arrangeRoles({ roles, groups: [leaders, band] })
-    expect(sections.map((s) => s.roles.map((r) => r.name))).toEqual([
-      ['Worship Leader 1'],
-      ['Worship Leader 1'],
-    ])
-    // And it is not also sitting in the unfiled pile.
-    expect(sections.some((s) => s.group === null)).toBe(false)
-  })
-
   it('keeps a role whose group has vanished, rather than dropping it', () => {
-    // The membership cascades away when a group is deleted; a page holding
-    // a stale list must not make a role disappear off the team meanwhile.
+    // The database nulls group_id when a group is deleted; a page holding a
+    // stale list must not make a role disappear off the team meanwhile.
     const roles = [role('r1', 'Keys 1', 1, 'gone')]
     const { sections } = arrangeRoles({ roles, groups: [] })
     expect(sections).toHaveLength(1)
@@ -100,17 +87,6 @@ describe('arrangeRoles', () => {
 })
 
 describe('fullRoleOrder', () => {
-  it('names a role once even when it is drawn twice', () => {
-    // reorder_department_roles wants every role of the team exactly once;
-    // a role in two groups appears twice on the page and must still be
-    // counted a single time, or the RPC refuses the whole reorder.
-    const arranged = arrangeRoles({
-      roles: [role('both', 'Worship Leader 1', 1, 'g1', 'g2'), role('k', 'Keys 1', 2, 'g2')],
-      groups: [group('g1', 'Leaders', 1), group('g2', 'Band', 2)],
-    })
-    expect(fullRoleOrder(arranged)).toEqual(['both', 'k'])
-  })
-
   it('reads coordinator first, then each group in turn', () => {
     const arranged = arrangeRoles({
       roles: [

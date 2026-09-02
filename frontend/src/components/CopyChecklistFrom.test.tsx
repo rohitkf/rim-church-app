@@ -43,8 +43,8 @@ const item = (over: Partial<RoleChecklistItem> = {}): RoleChecklistItem =>
   }) as RoleChecklistItem
 
 const roles = [
-  { id: 'cam1', name: 'Camera Operator 1', department_id: 'd1', sort_order: 0, group_ids: [] },
-  { id: 'cam2', name: 'Camera Operator 2', department_id: 'd1', sort_order: 1, group_ids: [] },
+  { id: 'cam1', name: 'Camera Operator 1', department_id: 'd1', sort_order: 0, group_id: null },
+  { id: 'cam2', name: 'Camera Operator 2', department_id: 'd1', sort_order: 1, group_id: null },
 ]
 
 function show(canManage = true) {

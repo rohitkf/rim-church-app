@@ -328,7 +328,7 @@ interface RoleRowProps {
   setEditingName: (name: string) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
-  onToggleGroup: (roleId: string, groupId: string, join: boolean) => void
+  onMoveToGroup: (id: string, groupId: string | null) => void
   renaming: boolean
   deleting: boolean
   dragHandle?: React.ReactNode
@@ -348,7 +348,7 @@ function RoleRow({
   setEditingName,
   onRename,
   onDelete,
-  onToggleGroup,
+  onMoveToGroup,
   renaming,
   deleting,
   dragHandle,
@@ -411,42 +411,19 @@ function RoleRow({
           canManage && (
             <span className="flex items-center gap-3">
               {groups.length > 0 && (
-                <details className="relative">
-                  <summary className="tap cursor-pointer list-none rounded-full hairline px-2 py-1 text-label-sm text-on-surface-variant hover:border-secondary">
-                    {role.group_ids.length === 0
-                      ? 'Groups'
-                      : `Groups · ${role.group_ids.length}`}
-                  </summary>
-                  {/* A list of checkboxes rather than a multi-select: a
-                      role belongs to as many families as it belongs to,
-                      and ctrl-clicking a native multi-select is a trick
-                      most people do not know and nobody should need. */}
-                  <div className="absolute right-0 z-10 mt-1 w-52 rounded-[var(--radius-chip)] bg-surface-lowest p-2 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
-                    <ul className="flex flex-col gap-1">
-                      {groups.map((g) => {
-                        const inGroup = role.group_ids.includes(g.id)
-                        return (
-                          <li key={g.id}>
-                            <label className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-chip)] px-1.5 py-1 text-body-sm text-on-surface hover:bg-raised">
-                              <input
-                                type="checkbox"
-                                checked={inGroup}
-                                aria-label={`${g.name} for ${role.name}`}
-                                onChange={() => onToggleGroup(role.id, g.id, !inGroup)}
-                              />
-                              <span className="min-w-0 break-words">{g.name}</span>
-                            </label>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                    {role.group_ids.length === 0 && (
-                      <p className="mt-1 px-1.5 text-label-sm text-on-surface-faint">
-                        In no group — shown under {UNGROUPED_LABEL}.
-                      </p>
-                    )}
-                  </div>
-                </details>
+                <select
+                  aria-label={`Group for ${role.name}`}
+                  value={role.group_id ?? ''}
+                  onChange={(e) => onMoveToGroup(role.id, e.target.value || null)}
+                  className="max-w-[10rem] rounded-full hairline bg-transparent px-2 py-1 text-label-sm text-on-surface-variant"
+                >
+                  <option value="">{UNGROUPED_LABEL}</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
               )}
               <button
                 onClick={() => {
@@ -709,35 +686,19 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that group.')),
   })
 
-  const toggleRoleGroup = useMutation({
-    mutationFn: async ({
-      roleId,
-      groupId,
-      join,
-    }: {
-      roleId: string
-      groupId: string
-      join: boolean
-    }) => {
-      if (join) {
-        const { error } = await supabase
-          .from('department_role_group_members')
-          .insert({ role_id: roleId, group_id: groupId })
-        if (error) throw error
-        return
-      }
+  const setRoleGroup = useMutation({
+    mutationFn: async ({ id, groupId }: { id: string; groupId: string | null }) => {
       const { error } = await supabase
-        .from('department_role_group_members')
-        .delete()
-        .eq('role_id', roleId)
-        .eq('group_id', groupId)
+        .from('department_roles')
+        .update({ group_id: groupId })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       setError(null)
       invalidate()
     },
-    onError: (err: unknown) => setError(errorText(err, 'Could not change that role’s groups.')),
+    onError: (err: unknown) => setError(errorText(err, 'Could not move that role.')),
   })
 
   const addRole = useMutation({
@@ -838,9 +799,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               setEditingName={setEditingName}
               onRename={(id, name) => renameRole.mutate({ id, name })}
               onDelete={(id) => deleteRole.mutate(id)}
-              onToggleGroup={(roleId, groupId, join) =>
-                toggleRoleGroup.mutate({ roleId, groupId, join })
-              }
+              onMoveToGroup={(id, groupId) => setRoleGroup.mutate({ id, groupId })}
               renaming={renameRole.isPending}
               deleting={deleteRole.isPending}
             />
@@ -864,9 +823,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               setEditingName={setEditingName}
               onRename={(id, name) => renameRole.mutate({ id, name })}
               onDelete={(id) => deleteRole.mutate(id)}
-              onToggleGroup={(roleId, groupId, join) =>
-                toggleRoleGroup.mutate({ roleId, groupId, join })
-              }
+              onMoveToGroup={(id, groupId) => setRoleGroup.mutate({ id, groupId })}
               onReorder={(ids) =>
                 reorderRoles.mutate(
                   reorderWithinGroup({

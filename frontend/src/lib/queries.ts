@@ -73,23 +73,14 @@ export async function fetchDepartmentRoles(departmentIds: string[]): Promise<Dep
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_roles')
-    .select('id, department_id, name, sort_order, memberships:department_role_group_members(group_id)')
+    .select('id, department_id, name, sort_order, group_id')
     .in('department_id', departmentIds)
     // Hand-set first, name only to break a tie: a team that has never
     // reordered its roles still reads alphabetically.
     .order('sort_order')
     .order('name')
   if (error) throw error
-  // Flattened here rather than in every component: the join arrives as
-  // rows of { group_id }, and a role's groups are a list of ids
-  // everywhere else in the app.
-  const flattened = (data ?? []).map((row) => {
-    const { memberships, ...role } = row as typeof row & {
-      memberships: { group_id: string }[] | null
-    }
-    return { ...role, group_ids: (memberships ?? []).map((m) => m.group_id) }
-  })
-  return z.array(departmentRoleSchema).parse(flattened)
+  return z.array(departmentRoleSchema).parse(data)
 }
 
 /** The standing checklist items for a set of departments' roles. */

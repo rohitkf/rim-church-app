@@ -4,8 +4,7 @@ export interface GroupableRole {
   id: string
   name: string
   sort_order: number
-  /** Every group this role belongs to. A role can be in several. */
-  group_ids: string[]
+  group_id: string | null
 }
 
 export interface RoleGroup {
@@ -45,11 +44,6 @@ export const UNGROUPED_LABEL = 'Everything else'
  * team — five leaders, seven backing vocals, a band — is obvious to
  * anybody standing in the room and invisible on the page.
  *
- * A role may sit under several headings. "Worship Leader 1" is genuinely
- * both a Worship Leader and a Vocal, and drawing it under both is not two
- * of the job — it is one job that belongs to two families, the way a
- * person is in two departments without there being two of them.
- *
  * The Team Coordinator is not in any of it. Every team has exactly one,
  * it is created for them rather than by them, and whoever holds it at a
  * service can verify that team's checklist — so it sits above the groups
@@ -72,15 +66,14 @@ export function arrangeRoles<T extends GroupableRole>({
   const known = new Set(groups.map((g) => g.id))
   const sections: RenderedGroup<T>[] = [...groups].sort(byOrder).map((group) => ({
     group,
-    roles: rest.filter((r) => r.group_ids.includes(group.id)).sort(byOrder),
+    roles: rest.filter((r) => r.group_id === group.id).sort(byOrder),
   }))
 
-  // Unfiled means in no group that still exists. A membership pointing at
-  // a deleted group is cleaned up by cascade, so this is a belt to that: a
-  // page holding a stale list must not silently drop a role off the team.
-  const ungrouped = rest
-    .filter((r) => !r.group_ids.some((id) => known.has(id)))
-    .sort(byOrder)
+  // A role whose group_id points at something no longer here reads as
+  // ungrouped rather than disappearing. The database nulls the column when
+  // a group is deleted, so this is a belt to that: a page holding a stale
+  // list must not silently drop a role off the team.
+  const ungrouped = rest.filter((r) => !r.group_id || !known.has(r.group_id)).sort(byOrder)
 
   // Shown when it has something in it, or when there are no groups at all
   // — a team that has never made one should still see its roles, without
@@ -110,17 +103,7 @@ export function fullRoleOrder<T extends GroupableRole>({
   sections: RenderedGroup<T>[]
 }): string[] {
   const ids = coordinator ? [coordinator.id] : []
-  // Once a role can sit under two headings it is drawn twice, and the RPC
-  // wants each role once. First appearance wins, which is the order the
-  // page reads top to bottom.
-  const seen = new Set(ids)
-  for (const section of sections) {
-    for (const role of section.roles) {
-      if (seen.has(role.id)) continue
-      seen.add(role.id)
-      ids.push(role.id)
-    }
-  }
+  for (const section of sections) ids.push(...section.roles.map((r) => r.id))
   return ids
 }
 
