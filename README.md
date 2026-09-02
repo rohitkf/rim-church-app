@@ -407,6 +407,29 @@ broken button, no error. `supabase/functions/push-notify/index.ts` sends to
 every one of a person's devices and deletes any endpoint the push service
 reports as gone (404/410), so uninstalled apps clean themselves up.
 
+**Notifications are never emailed.** The bell and the phone are the two
+channels, deliberately: a church already drowns in email, and a rota
+reminder that arrives there is one more thing to archive. The only mail
+this app sends is authentication — the invitation that carries somebody's
+first password, and a password reset — because there is no other way to
+deliver those. Anything that would put a service reminder, an alert or a
+message in somebody's inbox is out of scope rather than unbuilt.
+
+**Not everything pushes.** Whatever is aimed at one person does: a question
+they have to answer, a decision waiting on them, a job before a service, a
+head deliberately interrupting them. The public message board does not — an
+eighty-person church posting to it would make every phone in the building
+buzz all evening, and the fastest way to have a team switch notifications
+off is to spend them on things nobody needed that minute. The list lives in
+`NEVER_PUSHED` in the sender.
+
+**iOS is the coverage problem, and it has no workaround.** Web push reaches
+an iPhone only from an app installed to the Home Screen; in a Safari tab it
+is impossible. With email off the table for notifications, that install is
+the *only* route to an iPhone that is not currently open on the app — so
+the head's "Remind whoever hasn't finished" button is the backstop for the
+Friday reminder, not a nicety.
+
 Payloads carry only the type and a path — never a name or anything else
 that would end up readable on a lock screen. The one exception is an alert a
 head wrote themselves, which is text they deliberately sent to that person's
