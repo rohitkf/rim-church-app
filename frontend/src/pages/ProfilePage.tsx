@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { AdminResetCard } from '../components/AdminResetCard'
-import { AppSettingsCard } from '../components/AppSettingsCard'
-import { PermissionsCard } from '../components/PermissionsCard'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
 
@@ -12,7 +9,7 @@ const inputClasses =
 const labelClasses = 'flex flex-col gap-1 text-body-sm text-on-surface-variant'
 
 export function ProfilePage() {
-  const { profile, refreshProfile, isAdmin } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -99,8 +96,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg">
-      <h1 className="mb-6 text-headline-lg">My profile</h1>
+    <div className="max-w-lg">
       <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         {/* Two fields side by side need a phone to be wider than one, so
             below `sm` they stack. `min-w-0` is what lets them shrink at
@@ -205,17 +201,7 @@ export function ProfilePage() {
         </button>
       </form>
 
-      <AppSettingsCard />
 
-      {/* Admins only. Everybody else already knows what they can do — they
-          do it every Sunday — and the value here is to whoever is deciding
-          what somebody else should be able to do. */}
-      {isAdmin && (
-        <div className="mt-6">
-          <PermissionsCard />
-        </div>
-      )}
-      <AdminResetCard />
     </div>
   )
 }

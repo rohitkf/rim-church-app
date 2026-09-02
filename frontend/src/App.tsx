@@ -1,4 +1,10 @@
-import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom'
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Navigate,
+  Route,
+  RouterProvider,
+} from 'react-router-dom'
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -13,6 +19,12 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProfilePage } from './pages/ProfilePage'
+import {
+  AccessSettingsPane,
+  ChurchSettingsPane,
+  EraseDataPane,
+  SettingsPage,
+} from './pages/SettingsPage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { VolunteersPage } from './pages/VolunteersPage'
 import { EventsPage } from './pages/EventsPage'
@@ -79,7 +91,18 @@ const router = createBrowserRouter(
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          {/* Settings became four unrelated jobs on one scroll. Each is a
+              page now, so a section can be linked to rather than described.
+              /profile kept working: it is in the account menu, the search
+              and whatever anybody has bookmarked. */}
+          <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
+          <Route path="/settings" element={<SettingsPage />}>
+            <Route index element={<Navigate to="/settings/profile" replace />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="access" element={<AccessSettingsPane />} />
+            <Route path="church" element={<ChurchSettingsPane />} />
+            <Route path="data" element={<EraseDataPane />} />
+          </Route>
           <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/events" element={<EventsPage />} />

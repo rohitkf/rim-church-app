@@ -26,7 +26,9 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
   { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
   { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
-  { label: 'Settings', detail: 'Your profile and appearance', to: '/profile', keywords: 'profile account theme password' },
+  { label: 'Settings', detail: 'Your profile and appearance', to: '/settings/profile', keywords: 'profile account theme password' },
+  { label: 'Access & privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
+  { label: 'App settings', detail: 'The church’s clocks and windows', to: '/settings/church', keywords: 'settings timings rota window clear' },
 ]
 
 const MIN_QUERY = 2

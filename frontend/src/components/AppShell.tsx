@@ -65,6 +65,7 @@ const WASH: Record<string, string> = {
   '/inventory': 'var(--color-accent-orange)',
   '/messages': 'var(--color-accent-indigo)',
   '/team-chat': 'var(--color-accent-indigo)',
+  '/settings': 'var(--color-accent-indigo)',
 }
 
 function washFor(pathname: string) {
