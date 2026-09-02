@@ -183,8 +183,19 @@ export const departmentRoleSchema = z.object({
   department_id: z.string(),
   name: z.string(),
   sort_order: z.number(),
+  // Which family the role belongs to on the Teams page. Null is a real
+  // answer — most teams are small enough to want no groups at all.
+  group_id: z.string().nullable(),
 })
 export type DepartmentRole = z.infer<typeof departmentRoleSchema>
+
+export const departmentRoleGroupSchema = z.object({
+  id: z.string(),
+  department_id: z.string(),
+  name: z.string(),
+  sort_order: z.number(),
+})
+export type DepartmentRoleGroup = z.infer<typeof departmentRoleGroupSchema>
 
 export const rotaAssignmentSchema = z.object({
   id: z.string(),

@@ -4,6 +4,7 @@ import {
   availabilityRowSchema,
   departmentMemberRowSchema,
   departmentRoleSchema,
+  departmentRoleGroupSchema,
   departmentSchema,
   invitationSchema,
   joinRequestSchema,
@@ -17,6 +18,7 @@ import {
   type Department,
   type DepartmentMemberRow,
   type DepartmentRole,
+  type DepartmentRoleGroup,
   type Invitation,
   type JoinRequest,
   type RoleChecklistItem,
@@ -56,11 +58,22 @@ export async function fetchMembersForDepartments(departmentIds: string[]): Promi
 }
 
 /** The roles a set of departments fill, for the rota's role pickers. */
+export async function fetchRoleGroups(departmentId: string): Promise<DepartmentRoleGroup[]> {
+  const { data, error } = await supabase
+    .from('department_role_groups')
+    .select('id, department_id, name, sort_order')
+    .eq('department_id', departmentId)
+    .order('sort_order')
+    .order('name')
+  if (error) throw error
+  return z.array(departmentRoleGroupSchema).parse(data)
+}
+
 export async function fetchDepartmentRoles(departmentIds: string[]): Promise<DepartmentRole[]> {
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_roles')
-    .select('id, department_id, name, sort_order')
+    .select('id, department_id, name, sort_order, group_id')
     .in('department_id', departmentIds)
     // Hand-set first, name only to break a tie: a team that has never
     // reordered its roles still reads alphabetically.
