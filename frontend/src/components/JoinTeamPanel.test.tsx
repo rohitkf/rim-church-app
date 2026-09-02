@@ -20,6 +20,7 @@ function dept(id: string, name: string): Department {
     handbook_url: null,
     color: null,
     is_service_flow: false,
+    is_worship: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
   }

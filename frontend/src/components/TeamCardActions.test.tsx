@@ -11,6 +11,7 @@ const DEPT: Department = {
   color: '#5E5CE6',
   handbook_url: null,
   is_service_flow: false,
+    is_worship: false,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }

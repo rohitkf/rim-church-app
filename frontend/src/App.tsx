@@ -20,6 +20,7 @@ import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
 import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
 import { AvailabilityPage } from './pages/AvailabilityPage'
 import { TeamRotaPage } from './pages/TeamRotaPage'
+import { SetListsPage } from './pages/SetListsPage'
 import { DepartmentPrepPage } from './pages/DepartmentPrepPage'
 import { ServicePlannerIndexPage } from './pages/ServicePlannerIndexPage'
 import { ServicePlannerPage } from './pages/ServicePlannerPage'
@@ -86,6 +87,7 @@ const router = createBrowserRouter(
           <Route path="/checklists" element={<ChecklistsIndexPage />} />
           <Route path="/availability" element={<AvailabilityPage />} />
           <Route path="/rota" element={<TeamRotaPage />} />
+          <Route path="/set-lists" element={<SetListsPage />} />
           <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
           <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />

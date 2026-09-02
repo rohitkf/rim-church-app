@@ -23,6 +23,9 @@ export const departmentSchema = z.object({
   handbook_url: z.string().nullable(),
   color: z.string().nullable(),
   is_service_flow: z.boolean(),
+  // Which team keeps the set lists. A fact about the team rather than its
+  // name, so renaming it to "Worship & Creative" changes nothing.
+  is_worship: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -188,6 +191,18 @@ export const departmentRoleSchema = z.object({
   group_id: z.string().nullable(),
 })
 export type DepartmentRole = z.infer<typeof departmentRoleSchema>
+
+export const setListItemSchema = z.object({
+  id: z.string(),
+  service_id: z.string(),
+  title: z.string(),
+  led_by: z.string().nullable(),
+  link: z.string().nullable(),
+  lyrics: z.string().nullable(),
+  sort_order: z.number(),
+  leader: personSummarySchema.nullable(),
+})
+export type SetListItem = z.infer<typeof setListItemSchema>
 
 export const departmentRoleGroupSchema = z.object({
   id: z.string(),
