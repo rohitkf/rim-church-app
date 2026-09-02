@@ -133,3 +133,60 @@ export function reorderWithinGroup<T extends GroupableRole>({
   })
   return fullRoleOrder({ coordinator, sections: next })
 }
+
+/** What the rota shows for one role: whoever is in it. */
+export interface RotaRow {
+  id: string
+  role_label: string
+  role_id: string | null
+}
+
+/**
+ * The rota's assignments, under the same headings as the Teams page.
+ *
+ * Alignment is the whole point: somebody who has just filed Worship's
+ * roles into Worship Leaders, Backing Vocals and Band should meet those
+ * same three headings when they come to fill a Sunday, in the same order,
+ * rather than one flat list that makes them find Drums 2 again by eye.
+ *
+ * An assignment made before the roles existed carries a label and no
+ * role_id — free text typed at the time. Those keep their place in the
+ * unfiled section rather than being dropped, because a name on a rota is
+ * somebody who has been asked to turn up.
+ */
+export function arrangeRotaRows<T extends RotaRow>({
+  rows,
+  roles,
+  groups,
+}: {
+  rows: T[]
+  roles: GroupableRole[]
+  groups: RoleGroup[]
+}): { coordinator: T[]; sections: { group: RoleGroup | null; rows: T[] }[] } {
+  const roleById = new Map(roles.map((r) => [r.id, r]))
+  const known = new Set(groups.map((g) => g.id))
+
+  // Pinned above the rest, as on the Teams page. Matched on the label
+  // rather than the role id, because a coordinator assigned before the
+  // roles were set up has no id and is still the coordinator.
+  const coordinator = rows.filter((r) => isCoordinatorRole(r.role_label))
+  const rest = rows.filter((r) => !coordinator.includes(r))
+
+  const groupOf = (row: T): string | null => {
+    const role = row.role_id ? roleById.get(row.role_id) : undefined
+    const id = role?.group_id ?? null
+    return id && known.has(id) ? id : null
+  }
+
+  const sections: { group: RoleGroup | null; rows: T[] }[] = [...groups]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((group) => ({ group: group as RoleGroup | null, rows: rest.filter((r) => groupOf(r) === group.id) }))
+    // An empty group is a heading over nothing. On the Teams page that is
+    // useful — it is somewhere to file into. Here it is noise.
+    .filter((section) => section.rows.length > 0)
+
+  const ungrouped = rest.filter((r) => groupOf(r) === null)
+  if (ungrouped.length > 0) sections.push({ group: null, rows: ungrouped })
+
+  return { coordinator, sections }
+}
