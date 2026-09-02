@@ -34,7 +34,7 @@ function invitation(overrides: Partial<Invitation> = {}): Invitation {
   }
 }
 
-function show() {
+function render_() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -42,6 +42,17 @@ function show() {
     </QueryClientProvider>,
   )
   return userEvent.setup()
+}
+
+/**
+ * Render and open it. The panel is shut by default, so every case about
+ * what the list says has to ask for the list first — which is the same
+ * click an Admin makes.
+ */
+async function show() {
+  const user = render_()
+  await user.click(screen.getByRole('button', { name: 'Show' }))
+  return user
 }
 
 describe('InvitationHistory', () => {
@@ -55,14 +66,14 @@ describe('InvitationHistory', () => {
   })
 
   it('names who was asked and who asked them', async () => {
-    show()
+    await show()
     expect(await screen.findByText('grace@rehoboth.org')).toBeInTheDocument()
     expect(screen.getByText(/Invited by Ada Grace/)).toBeInTheDocument()
   })
 
   it('says plainly that nobody has been invited yet', async () => {
     fetchInvitations.mockResolvedValue([])
-    show()
+    await show()
     expect(await screen.findByText('Nobody has been invited yet.')).toBeInTheDocument()
   })
 
@@ -71,14 +82,14 @@ describe('InvitationHistory', () => {
       invitation({ id: 'a', email: 'new@rehoboth.org', created_at: daysAgo(1) }),
       invitation({ id: 'b', email: 'old@rehoboth.org', created_at: daysAgo(40) }),
     ])
-    show()
+    await show()
     expect(await screen.findByText('Waiting')).toBeInTheDocument()
     expect(screen.getByText('No reply')).toBeInTheDocument()
   })
 
   it('shows when somebody arrived, and stops offering to chase them', async () => {
     fetchInvitations.mockResolvedValue([invitation({ accepted_at: daysAgo(1) })])
-    show()
+    await show()
     expect(await screen.findByText('Accepted')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Send again/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Remove$/ })).not.toBeInTheDocument()
@@ -89,7 +100,7 @@ describe('InvitationHistory', () => {
       invitation({ id: 'a', email: 'waiting@rehoboth.org' }),
       invitation({ id: 'b', email: 'joined@rehoboth.org', accepted_at: daysAgo(1) }),
     ])
-    const user = show()
+    const user = await show()
     await screen.findByText('waiting@rehoboth.org')
     await user.click(screen.getByRole('button', { name: /Outstanding/ }))
     expect(screen.getByText('waiting@rehoboth.org')).toBeInTheDocument()
@@ -98,7 +109,7 @@ describe('InvitationHistory', () => {
 
   it('sends the same invitation again through the function that can send it', async () => {
     fetchInvitations.mockResolvedValue([invitation({ department_id: 'd1' })])
-    const user = show()
+    const user = await show()
     await user.click(await screen.findByRole('button', { name: /Send again/ }))
     expect(invoke).toHaveBeenCalledWith('invite', {
       body: { email: 'grace@rehoboth.org', department_id: 'd1' },
@@ -107,13 +118,41 @@ describe('InvitationHistory', () => {
 
   it('reports the refusal the function gives rather than a shrug', async () => {
     invoke.mockResolvedValue({ data: { error: 'Too many invitations have gone out.' }, error: null })
-    const user = show()
+    const user = await show()
     await user.click(await screen.findByRole('button', { name: /Send again/ }))
     expect(await screen.findByText('Too many invitations have gone out.')).toBeInTheDocument()
   })
 
+  describe('shut until asked for', () => {
+    it('shows no list at all until somebody opens it', async () => {
+      render_()
+      // The query still runs — the counts are the point of a closed panel —
+      // so waiting on them proves the list is hidden rather than merely slow.
+      expect(await screen.findByText(/1 outstanding/)).toBeInTheDocument()
+      expect(screen.queryByText('grace@rehoboth.org')).not.toBeVisible()
+    })
+
+    it('still reports what is outstanding while closed, so a stale one is not buried', async () => {
+      fetchInvitations.mockResolvedValue([
+        invitation({ id: 'a', created_at: daysAgo(40) }),
+        invitation({ id: 'b', email: 'in@rehoboth.org', accepted_at: daysAgo(2) }),
+      ])
+      render_()
+      expect(await screen.findByText(/1 outstanding/)).toBeInTheDocument()
+      expect(screen.getByText(/1 joined/)).toBeInTheDocument()
+    })
+
+    it('opens and shuts again on the same control', async () => {
+      const user = render_()
+      await user.click(screen.getByRole('button', { name: 'Show' }))
+      expect(await screen.findByText('grace@rehoboth.org')).toBeVisible()
+      await user.click(screen.getByRole('button', { name: 'Hide' }))
+      expect(screen.getByText('grace@rehoboth.org')).not.toBeVisible()
+    })
+  })
+
   it('asks before removing a record, and says it cannot un-send the email', async () => {
-    const user = show()
+    const user = await show()
     await user.click(await screen.findByRole('button', { name: /^Remove$/ }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/cannot un-send an email/)).toBeInTheDocument()
