@@ -8,6 +8,7 @@ import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { useDragReorder } from '../lib/useDragReorder'
 import { PHASES, byPhase } from '../lib/checklistPhase'
 import { suggestChecklistItems } from '../lib/checklistSuggestions'
+import { itemsToCopy, rolesWithChecklists } from '../lib/copyChecklist'
 import type { ChecklistPhase } from '../lib/types'
 import { DragHandle } from './DragHandle'
 
@@ -205,6 +206,114 @@ function RoleChecklistEditor({
   )
 }
 
+/**
+ * "Same as Camera Operator 1" — the whole checklist in one go.
+ *
+ * The suggestions box under each input already saves the typing, but it
+ * still asks for one interaction per line, and a role that does the same
+ * job as another has one thing to say, not ten. This says it.
+ *
+ * It copies rather than links, deliberately — see lib/copyChecklist.ts.
+ * The copied lines are ordinary items from the moment they land: reorder
+ * them, reword them, delete the two that do not apply, add your own. The
+ * role it came from neither knows nor cares.
+ */
+function CopyChecklistFrom({
+  roleId,
+  departmentId,
+  roles,
+}: {
+  roleId: string
+  departmentId: string
+  roles: { id: string; name: string }[]
+}) {
+  const errorText = useErrorText()
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  const itemsQuery = useQuery({
+    // Same key the per-phase editors use, so this reads the cache they
+    // already filled rather than fetching the team's items a third time.
+    queryKey: ['role-checklist-items', [departmentId]],
+    queryFn: () => fetchRoleChecklistItems([departmentId]),
+  })
+  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
+
+  const sources = useMemo(
+    () => rolesWithChecklists({ items, roles, excludeRoleId: roleId }),
+    [items, roles, roleId],
+  )
+
+  const copy = useMutation({
+    mutationFn: async (fromRoleId: string) => {
+      const rows = itemsToCopy({ items, fromRoleId, toRoleId: roleId })
+      const from = roles.find((r) => r.id === fromRoleId)?.name ?? 'that role'
+      // Nothing new to take is a normal outcome, not a failure: it is what
+      // copying the same role twice looks like, and saying so is kinder
+      // than a silent no-op that reads as a broken button.
+      if (rows.length === 0) return { added: 0, from }
+      const { error: insertError } = await supabase
+        .from('department_role_checklist_items')
+        .insert(rows.map((r) => ({ ...r, role_id: roleId, department_id: departmentId })))
+      if (insertError) throw insertError
+      return { added: rows.length, from }
+    },
+    onSuccess: ({ added, from }) => {
+      setError(null)
+      setCopied(
+        added === 0
+          ? `Nothing new to take from ${from} — this role already has all of it.`
+          : `Copied ${added} ${added === 1 ? 'item' : 'items'} from ${from}.`,
+      )
+      queryClient.invalidateQueries({ queryKey: ['role-checklist-items'] })
+    },
+    onError: (err: unknown) => {
+      setCopied(null)
+      setError(errorText(err, 'Could not copy that checklist.'))
+    },
+  })
+
+  if (sources.length === 0) return null
+
+  return (
+    <div className="rounded-[var(--radius-chip)] bg-surface-lowest/60 p-2.5">
+      <label className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          Same as
+        </span>
+        <select
+          // Deliberately not a controlled selection: this is an action, not
+          // a setting. Nothing about the role afterwards is "same as" any
+          // other, so leaving a name sitting in the box would claim a link
+          // that does not exist.
+          value=""
+          disabled={copy.isPending}
+          onChange={(e) => {
+            const from = e.target.value
+            if (from) copy.mutate(from)
+            e.target.value = ''
+          }}
+          className="min-w-0 flex-1 rounded-full hairline bg-transparent px-2 py-1 text-body-sm text-on-surface disabled:opacity-50"
+        >
+          <option value="">{copy.isPending ? 'Copying…' : 'Choose a role to copy from…'}</option>
+          {sources.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name} ({r.count})
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="mt-1 text-label-sm text-on-surface-faint">
+        Takes that role&rsquo;s whole checklist, before and after. Anything this role already has is
+        left alone, and you can still add your own.
+      </p>
+      {copied && <p className="mt-1 text-label-sm text-on-surface-variant">{copied}</p>}
+      {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
+    </div>
+  )
+}
+
 export function DepartmentRolesCard({ departmentId, canManage }: { departmentId: string; canManage: boolean }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -397,6 +506,13 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
                       and reading them as a single column means scanning past
                       half of it at both ends. */}
                   <div className="mt-2 flex flex-col gap-4">
+                    {canManage && (
+                      <CopyChecklistFrom
+                        roleId={role.id}
+                        departmentId={departmentId}
+                        roles={roles}
+                      />
+                    )}
                     {PHASES.map((p) => (
                       <div key={p.value} className="rounded-[var(--radius-chip)] bg-surface-lowest/60 p-2.5">
                         <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
