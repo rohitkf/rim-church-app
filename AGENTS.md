@@ -97,7 +97,9 @@ Routes live in `src/App.tsx`. Settings is a parent route with panes
 (`/settings/profile|access|alerts|church|data`).
 
 Environment: copy `frontend/.env.example`. Without `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` the app cannot boot.
+`VITE_SUPABASE_ANON_KEY` the app cannot boot. Standing a whole instance up
+from nothing — including making an account both Admin and Owner, which
+are separate and neither is automatic — is [SETUP.md](./SETUP.md).
 
 ---
 
