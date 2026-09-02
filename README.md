@@ -411,9 +411,16 @@ reports as gone (404/410), so uninstalled apps clean themselves up.
 channels, deliberately: a church already drowns in email, and a rota
 reminder that arrives there is one more thing to archive. The only mail
 this app sends is authentication — the invitation that carries somebody's
-first password, and a password reset — because there is no other way to
-deliver those. Anything that would put a service reminder, an alert or a
-message in somebody's inbox is out of scope rather than unbuilt.
+first password, and a password reset — through Supabase Auth's own sender,
+which this project points at Resend. Anything that would put a service
+reminder, an alert or a message in somebody's inbox is out of scope rather
+than unbuilt.
+
+That is enforced by the shape of the thing rather than by discipline: there
+is no mail library, no SMTP client and no provider key anywhere in the app.
+It could not email a notification if somebody asked it to, which is the
+point — adding one would mean adding the means first, and that is a change
+somebody has to make deliberately.
 
 **Not everything pushes.** Whatever is aimed at one person does: a question
 they have to answer, a decision waiting on them, a job before a service, a
