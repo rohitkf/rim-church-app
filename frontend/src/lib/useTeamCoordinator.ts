@@ -33,7 +33,7 @@ export function useTeamCoordinator(
       if (error) throw error
       // Matched case-insensitively, like the SQL side: the rota stores the
       // role as free text, so "coordinator" is the same job.
-      return (data ?? []).some((r) => r.role_label.trim().toLowerCase() === 'coordinator')
+      return (data ?? []).some((r) => isCoordinatorRole(r.role_label))
     },
     // Nothing to ask when the answer cannot matter.
     enabled: !!serviceId && !!departmentId && !!myId && !isAdmin,
@@ -48,8 +48,21 @@ export function useTeamCoordinator(
  * Kept beside the hook so the UI and is_rota_coordinator() cannot disagree
  * about what counts as coordinating.
  */
-export const COORDINATOR_ROLE = 'Coordinator'
+export const COORDINATOR_ROLE = 'Team Coordinator'
+
+/**
+ * Both spellings, for good.
+ *
+ * The role was called "Coordinator" until it was renamed, and the name is
+ * not merely a label: is_rota_coordinator() decides who may verify a
+ * team's checklist by reading it, and rota_assignments stores it as free
+ * text copied at the moment somebody was assigned. Migration 0071 moved
+ * the existing rows, but an assignment restored from a backup, or a team
+ * that types the old word next year, means the same job — so both are
+ * accepted here exactly as they are in SQL.
+ */
+const COORDINATOR_NAMES = new Set(['coordinator', 'team coordinator'])
 
 export function isCoordinatorRole(name: string): boolean {
-  return name.trim().toLowerCase() === COORDINATOR_ROLE.toLowerCase()
+  return COORDINATOR_NAMES.has(name.trim().toLowerCase())
 }
