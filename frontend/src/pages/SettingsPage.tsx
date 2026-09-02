@@ -4,6 +4,7 @@ import { PageHeader } from '../components/Surface'
 import { AdminResetCard } from '../components/AdminResetCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
+import { SendAlertCard } from '../components/SendAlertCard'
 
 /**
  * Settings, in rooms rather than one long corridor.
@@ -38,6 +39,12 @@ const SECTIONS: SettingsSection[] = [
     to: '/settings/access',
     label: 'Access & privileges',
     blurb: 'Who can do what, across the whole app.',
+    needs: 'admin',
+  },
+  {
+    to: '/settings/alerts',
+    label: 'Send an alert',
+    blurb: 'Interrupt everybody, a team, or a few people.',
     needs: 'admin',
   },
   {
@@ -120,6 +127,11 @@ export function SettingsPage() {
 /** Who can do what. The card carries its own heading and disclosure. */
 export function AccessSettingsPane() {
   return <PermissionsCard />
+}
+
+/** The loudest thing the app can do, and who it is aimed at. */
+export function SendAlertPane() {
+  return <SendAlertCard />
 }
 
 /** The church's clocks: rota window, lead-in, the day the board clears. */

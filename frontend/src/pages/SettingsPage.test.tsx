@@ -43,10 +43,11 @@ describe('SettingsPage', () => {
     expect(within(nav).queryByRole('link', { name: /Erase/ })).not.toBeInTheDocument()
   })
 
-  it('gives the Owner all four, erasing included', () => {
+  it('gives the Owner every room, erasing included', () => {
     const nav = show({ isAdmin: true, isSuperAdmin: true })
-    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(within(nav).getAllByRole('link')).toHaveLength(5)
     expect(within(nav).getByRole('link', { name: /Erase data/ })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: /Send an alert/ })).toBeInTheDocument()
   })
 
   it('renders the section that was asked for', () => {

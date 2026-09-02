@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = [
   'availability_reminder',
   'checklist_reminder',
   'team_alert',
+  'announcement',
   'team_poll',
   'mention',
 ] as const
@@ -38,6 +39,10 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },
+  // An announcement has no page of its own: the words are the whole of
+  // it, and they are already in the bell and in the banner. The dashboard
+  // is where somebody who taps it should land.
+  announcement: { label: 'A message from the church', href: '/' },
   team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
 }
