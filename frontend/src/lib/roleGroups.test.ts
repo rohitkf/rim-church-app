@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   arrangeRoles,
+  arrangeRotaRows,
   fullRoleOrder,
   reorderWithinGroup,
   UNGROUPED_LABEL,
@@ -151,5 +152,74 @@ describe('reorderWithinGroup', () => {
       'b',
       'c2',
     ])
+  })
+})
+
+describe('arrangeRotaRows', () => {
+  const band = group('g1', 'Band', 1)
+  const vocals = group('g2', 'Vocals', 2)
+  const roles = [
+    role('k1', 'Keys 1', 1, 'g1'),
+    role('d1', 'Drums 1', 2, 'g1'),
+    role('bv1', 'Backing Vocal 1', 3, 'g2'),
+    role('spare', 'Sound check', 4),
+  ]
+  const row = (id: string, role_label: string, role_id: string | null) => ({
+    id,
+    role_label,
+    role_id,
+  })
+
+  it('puts each assignment under the same heading the Teams page uses', () => {
+    const { sections } = arrangeRotaRows({
+      rows: [row('a', 'Backing Vocal 1', 'bv1'), row('b', 'Keys 1', 'k1')],
+      roles,
+      groups: [band, vocals],
+    })
+    expect(sections.map((s) => [s.group?.name, s.rows.map((r) => r.role_label)])).toEqual([
+      ['Band', ['Keys 1']],
+      ['Vocals', ['Backing Vocal 1']],
+    ])
+  })
+
+  it('pins the Team Coordinator above the groups, as the Teams page does', () => {
+    const { coordinator, sections } = arrangeRotaRows({
+      rows: [row('a', 'Keys 1', 'k1'), row('c', 'Team Coordinator', null)],
+      roles,
+      groups: [band],
+    })
+    expect(coordinator.map((r) => r.id)).toEqual(['c'])
+    expect(sections.flatMap((s) => s.rows.map((r) => r.id))).not.toContain('c')
+  })
+
+  it('keeps an old free-text assignment rather than dropping it', () => {
+    // Assignments made before the roles existed carry a label and no id. A
+    // name on a rota is somebody who has been asked to turn up.
+    const { sections } = arrangeRotaRows({
+      rows: [row('old', 'Keys (typed by hand)', null)],
+      roles,
+      groups: [band],
+    })
+    expect(sections).toEqual([{ group: null, rows: [{ id: 'old', role_label: 'Keys (typed by hand)', role_id: null }] }])
+  })
+
+  it('shows no heading for a group nobody is filling this week', () => {
+    // Unlike the Teams page, where an empty group is somewhere to file
+    // into. On a rota it is a heading over nothing.
+    const { sections } = arrangeRotaRows({
+      rows: [row('a', 'Keys 1', 'k1')],
+      roles,
+      groups: [band, vocals],
+    })
+    expect(sections.map((s) => s.group?.name)).toEqual(['Band'])
+  })
+
+  it('files a role whose group has been deleted with the unfiled ones', () => {
+    const { sections } = arrangeRotaRows({
+      rows: [row('a', 'Keys 1', 'k1')],
+      roles: [role('k1', 'Keys 1', 1, 'gone')],
+      groups: [],
+    })
+    expect(sections.map((s) => s.group)).toEqual([null])
   })
 })

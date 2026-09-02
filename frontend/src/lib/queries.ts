@@ -59,10 +59,18 @@ export async function fetchMembersForDepartments(departmentIds: string[]): Promi
 
 /** The roles a set of departments fill, for the rota's role pickers. */
 export async function fetchRoleGroups(departmentId: string): Promise<DepartmentRoleGroup[]> {
+  return fetchRoleGroupsFor([departmentId])
+}
+
+/** The same, for a page showing several teams at once — the rota does. */
+export async function fetchRoleGroupsFor(
+  departmentIds: string[],
+): Promise<DepartmentRoleGroup[]> {
+  if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_role_groups')
     .select('id, department_id, name, sort_order')
-    .eq('department_id', departmentId)
+    .in('department_id', departmentIds)
     .order('sort_order')
     .order('name')
   if (error) throw error

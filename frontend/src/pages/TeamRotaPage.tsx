@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
+import { arrangeRoles, arrangeRotaRows } from '../lib/roleGroups'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -9,6 +10,7 @@ import { ActionButton, Eyebrow, LiveDot, PageHeader, Tile } from '../components/
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
+  fetchRoleGroupsFor,
   fetchDepartments,
   fetchAvailabilityFor,
   fetchMembersForDepartments,
@@ -203,6 +205,11 @@ export function TeamRotaPage() {
     queryFn: () => fetchMembersForDepartments(myDepartmentIds),
     enabled: myDepartmentIds.length > 0,
   })
+  const groupsQuery = useQuery({
+    queryKey: ['role-groups', myDepartmentIds],
+    queryFn: () => fetchRoleGroupsFor(myDepartmentIds),
+  })
+
   const rolesQuery = useQuery({
     queryKey: ['department-roles', myDepartmentIds],
     queryFn: () => fetchDepartmentRoles(myDepartmentIds),
@@ -528,6 +535,12 @@ export function TeamRotaPage() {
                           availableHere.has(m.user_id),
                       )
                       const deptRoles = (rolesQuery.data ?? []).filter((r) => r.department_id === dept.id)
+                      const deptGroups = (groupsQuery.data ?? []).filter(
+                        (g) => g.department_id === dept.id,
+                      )
+                      // The same headings, in the same order, as the Teams
+                      // page shows for this team.
+                      const rolePicker = arrangeRoles({ roles: deptRoles, groups: deptGroups })
                       const formOpen = !!openForm[key]
 
                       const chosenPerson = draftPerson[key] ?? ''
@@ -589,61 +602,96 @@ export function TeamRotaPage() {
                           </div>
 
                           {deptAssignments.length > 0 && (
-                            /* A role and the person holding it belong on one
-                               line: the pairing is the whole content, and a
-                               table made you join two columns yourself. */
-                            <ul className="mt-3.5 flex flex-col gap-2">
-                              {deptAssignments.map((a) => {
-                                const pending = pendingFor(a.id)
-                                const mine = a.user_id === myId
+                            /* Grouped under the same headings the Teams
+                               page files these roles under, so somebody who
+                               has just arranged Worship into Leaders,
+                               Vocals and Band meets those three again here
+                               rather than one flat list to re-read.
+
+                               A team with no groups gets no headings and
+                               the plain list it always had. */
+                            <div className="mt-3.5 flex flex-col gap-3">
+                              {(() => {
+                                const arranged = arrangeRotaRows({
+                                  rows: deptAssignments,
+                                  roles: deptRoles,
+                                  groups: deptGroups,
+                                })
+                                const bare =
+                                  arranged.sections.length <= 1 && !arranged.sections[0]?.group
+                                const renderRow = (a: (typeof deptAssignments)[number]) => {
+                                  const pending = pendingFor(a.id)
+                                  const mine = a.user_id === myId
+                                  return (
+                                      <li
+                                        key={a.id}
+                                        /* Role above, person below on a phone —
+                                           "Camera Operator 1" and a full name
+                                           were sharing one line and running into
+                                           each other. One line again from `sm`. */
+                                        className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
+                                          pending
+                                            ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]'
+                                            : mine
+                                              ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)]'
+                                              : 'bg-inset'
+                                        }`}
+                                      >
+                                        <span className="min-w-0 break-words text-on-surface-variant sm:shrink-0">
+                                          {a.role_label}
+                                        </span>
+                                        <span className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
+                                          {pending ? (
+                                            <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
+                                              Release requested
+                                            </span>
+                                          ) : (
+                                            <span className="break-words text-on-surface">
+                                              {mine
+                                                ? 'You'
+                                                : a.profile
+                                                  ? `${a.profile.first_name} ${a.profile.last_name}`
+                                                  : 'Unknown'}
+                                            </span>
+                                          )}
+                                          {manage && (
+                                            <button
+                                              onClick={() => removeAssignment.mutate(a.id)}
+                                              aria-label={`Remove ${a.role_label}`}
+                                              /* Visible on a phone, where there
+                                                 is no hover to reveal it with. */
+                                              className="ml-auto shrink-0 font-mono text-label-sm text-on-surface-faint transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0"
+                                            >
+                                              ✕
+                                            </button>
+                                          )}
+                                        </span>
+                                      </li>
+                                  )
+                                }
                                 return (
-                                  <li
-                                    key={a.id}
-                                    /* Role above, person below on a phone —
-                                       "Camera Operator 1" and a full name
-                                       were sharing one line and running into
-                                       each other. One line again from `sm`. */
-                                    className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
-                                      pending
-                                        ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]'
-                                        : mine
-                                          ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)]'
-                                          : 'bg-inset'
-                                    }`}
-                                  >
-                                    <span className="min-w-0 break-words text-on-surface-variant sm:shrink-0">
-                                      {a.role_label}
-                                    </span>
-                                    <span className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
-                                      {pending ? (
-                                        <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
-                                          Release requested
-                                        </span>
-                                      ) : (
-                                        <span className="break-words text-on-surface">
-                                          {mine
-                                            ? 'You'
-                                            : a.profile
-                                              ? `${a.profile.first_name} ${a.profile.last_name}`
-                                              : 'Unknown'}
-                                        </span>
-                                      )}
-                                      {manage && (
-                                        <button
-                                          onClick={() => removeAssignment.mutate(a.id)}
-                                          aria-label={`Remove ${a.role_label}`}
-                                          /* Visible on a phone, where there
-                                             is no hover to reveal it with. */
-                                          className="ml-auto shrink-0 font-mono text-label-sm text-on-surface-faint transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0"
-                                        >
-                                          ✕
-                                        </button>
-                                      )}
-                                    </span>
-                                  </li>
+                                  <>
+                                    {arranged.coordinator.length > 0 && (
+                                      <ul className="flex flex-col gap-2">
+                                        {arranged.coordinator.map(renderRow)}
+                                      </ul>
+                                    )}
+                                    {arranged.sections.map((section) => (
+                                      <div key={section.group?.id ?? 'ungrouped'}>
+                                        {!bare && section.group && (
+                                          <h4 className="mb-1.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                            {section.group.name}
+                                          </h4>
+                                        )}
+                                        <ul className="flex flex-col gap-2">
+                                          {section.rows.map(renderRow)}
+                                        </ul>
+                                      </div>
+                                    ))}
+                                  </>
                                 )
-                              })}
-                            </ul>
+                              })()}
+                            </div>
                           )}
 
                           {formOpen && deptRoles.length === 0 && (
@@ -691,11 +739,37 @@ export function TeamRotaPage() {
                                   className="rounded-full hairline bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
                                 >
                                   <option value="">Select…</option>
-                                  {deptRoles.map((r) => (
-                                    <option key={r.id} value={r.name}>
-                                      {r.name}
+                                  {/* Grouped with optgroup, which is the
+                                      element this has always wanted: the
+                                      same headings the Teams page files
+                                      these roles under, rendered by the
+                                      browser's own picker on a phone. */}
+                                  {rolePicker.coordinator && (
+                                    <option value={rolePicker.coordinator.name}>
+                                      {rolePicker.coordinator.name}
                                     </option>
-                                  ))}
+                                  )}
+                                  {rolePicker.sections.map((section) =>
+                                    section.roles.length === 0 ? null : section.group ? (
+                                      <optgroup key={section.group.id} label={section.group.name}>
+                                        {section.roles.map((r) => (
+                                          <option key={r.id} value={r.name}>
+                                            {r.name}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    ) : (
+                                      // Ungrouped roles sit loose rather
+                                      // than under a heading, so a team
+                                      // with no groups sees the plain list
+                                      // it saw before.
+                                      section.roles.map((r) => (
+                                        <option key={r.id} value={r.name}>
+                                          {r.name}
+                                        </option>
+                                      ))
+                                    ),
+                                  )}
                                 </select>
                               </label>
                               <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
