@@ -171,6 +171,16 @@ export function SettingsIcon(props: IconProps) {
 }
 
 
+/** Permissions: what each standing is allowed to do. */
+export function ShieldIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3 5 6v5.5c0 4.2 2.9 8.1 7 9.5 4.1-1.4 7-5.3 7-9.5V6l-7-3Z" />
+      <path d="m9.5 12 1.8 1.8L15 10" />
+    </svg>
+  )
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
