@@ -23,6 +23,15 @@ system's rules; the components in `frontend/src/components/Surface.tsx` and
 `Select.tsx` are what pages compose from, rather than choosing their own
 colours or inventing their own controls.
 
+## Deploys and the update banner
+
+`public/sw.js` carries `const BUILD_ID = '__RIM_BUILD_ID__'`, and the build
+writes the commit into it (`frontend/build/swBuildId.ts`). Leave the
+placeholder alone: a browser installs a new service worker only when
+`sw.js` differs byte for byte, so without it the file is identical every
+deploy, no worker installs, and the app's "a new version is ready" banner
+can never appear. The build fails loudly if the line goes missing.
+
 ## Before pushing
 
 From `frontend/`:

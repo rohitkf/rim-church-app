@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  announcesUpdate,
+  askBuildId,
   getPwaState,
   initPwa,
   isIos,
@@ -9,6 +11,16 @@ import {
   subscribePwa,
   type InstallPromptEvent,
 } from './pwa'
+
+/** A worker that answers the build question however the test wants. */
+function workerReplying(reply: unknown): ServiceWorker {
+  return {
+    postMessage: (_message: unknown, transfer?: Transferable[]) => {
+      const port = transfer?.[0] as MessagePort | undefined
+      port?.postMessage(reply)
+    },
+  } as unknown as ServiceWorker
+}
 
 function installEvent(outcome: 'accepted' | 'dismissed') {
   const event = new Event('beforeinstallprompt') as InstallPromptEvent
@@ -142,5 +154,55 @@ describe('promptInstall', () => {
 
     await expect(promptInstall()).resolves.toBe(false)
     expect(getPwaState().installPrompt).toBeNull()
+  })
+})
+
+describe('announcesUpdate', () => {
+  it('stays quiet for the page that is already running the new build', () => {
+    // Opening the app after a deploy loads the new code straight away and
+    // the worker installs a moment later. Without this, every person's
+    // first visit after every deploy ended in being told to reload onto
+    // what they were already running.
+    expect(announcesUpdate('abc123', 'abc123')).toBe(false)
+  })
+
+  it('speaks up when the page is behind the worker', () => {
+    expect(announcesUpdate('abc123', 'def456')).toBe(true)
+  })
+
+  it('speaks up when either side cannot say which build it is', () => {
+    // A banner nobody needed is a smaller failure than an update nobody
+    // hears about — which is the failure this whole path exists to fix.
+    expect(announcesUpdate(null, 'def456')).toBe(true)
+    expect(announcesUpdate('abc123', null)).toBe(true)
+    expect(announcesUpdate(null, null)).toBe(true)
+  })
+})
+
+describe('askBuildId', () => {
+  it('reads the id the worker sends back', async () => {
+    await expect(askBuildId(workerReplying({ buildId: 'abc123' }))).resolves.toBe('abc123')
+  })
+
+  it('treats an answer that is not an id as no answer', async () => {
+    await expect(askBuildId(workerReplying({ nothing: true }))).resolves.toBeNull()
+  })
+
+  it('gives up rather than hanging when a worker never replies', async () => {
+    vi.useFakeTimers()
+    const silent = { postMessage: () => {} } as unknown as ServiceWorker
+    const answer = askBuildId(silent, 2000)
+    await vi.advanceTimersByTimeAsync(2000)
+    await expect(answer).resolves.toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('survives a worker that refuses the message outright', async () => {
+    const broken = {
+      postMessage: () => {
+        throw new Error('worker is gone')
+      },
+    } as unknown as ServiceWorker
+    await expect(askBuildId(broken)).resolves.toBeNull()
   })
 })

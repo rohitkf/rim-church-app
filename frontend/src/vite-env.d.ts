@@ -16,3 +16,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/**
+ * The build this bundle came from, written in by Vite. Compared against
+ * the id of a newly installed service worker to tell a page that is behind
+ * from one that has just loaded the very build being announced.
+ */
+declare const __RIM_BUILD_ID__: string
