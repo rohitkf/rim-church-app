@@ -372,3 +372,22 @@ export const joinRequestSchema = z.object({
   department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
 })
 export type JoinRequest = z.infer<typeof joinRequestSchema>
+
+/**
+ * An invitation that was sent, and whether it was ever answered.
+ *
+ * `accepted_at` is stamped when the address first signs in — not when the
+ * mail goes out and not when the row appears — so an invitation with a
+ * null there is genuinely still outstanding.
+ */
+export const invitationSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  department_id: z.string().nullable(),
+  invited_by: z.string().nullable(),
+  created_at: z.string(),
+  accepted_at: z.string().nullable(),
+  inviter: personSummarySchema.nullable(),
+  department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
+})
+export type Invitation = z.infer<typeof invitationSchema>
