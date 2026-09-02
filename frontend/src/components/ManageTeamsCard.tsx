@@ -5,6 +5,7 @@ import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
 import { ActionButton, Field, Panel, inputClasses } from './Surface'
 import { UsersIcon } from './icons'
+import { Select } from './Select'
 
 interface ManageTeamsCardProps {
   departments: Department[]
@@ -101,19 +102,15 @@ export function ManageTeamsCard({ departments }: ManageTeamsCardProps) {
           label="Team that signs checklists off"
           hint="The Service Flow Coordinator team: after a member ticks an item and their head verifies it, this team gives the last signature. Nothing can be signed off until one is chosen."
         >
-          <select
+          <Select
             value={signOffTeam?.id ?? ''}
-            onChange={(e) => setSignOffTeam.mutate(e.target.value)}
+            onChange={(id) => setSignOffTeam.mutate(id)}
             disabled={setSignOffTeam.isPending}
-            className={inputClasses}
-          >
-            <option value="">No team chosen</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'No team chosen' },
+              ...departments.map((d) => ({ value: d.id, label: d.name })),
+            ]}
+          />
         </Field>
       </div>
     </Panel>

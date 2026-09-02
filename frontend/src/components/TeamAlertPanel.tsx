@@ -7,6 +7,7 @@ import { ActionButton, inputClasses } from './Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { formatServiceDay } from '../lib/sunday'
 import { todayIso } from '../lib/monthGrid'
+import { Select } from './Select'
 
 const MAX = 500
 
@@ -139,17 +140,11 @@ export function TeamAlertPanel() {
         {departments.length > 1 && (
           <label className="flex flex-col gap-1.5">
             <span className="text-label-sm text-on-surface-variant">Team</span>
-            <select
+            <Select
               value={chosenDept}
-              onChange={(e) => setDeptId(e.target.value)}
-              className={inputClasses}
-            >
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              onChange={setDeptId}
+              options={departments.map((d) => ({ value: d.id, label: d.name }))}
+            />
           </label>
         )}
 
@@ -164,18 +159,18 @@ export function TeamAlertPanel() {
         {scope === 'service' && (
           <label className="flex flex-col gap-1.5">
             <span className="text-label-sm text-on-surface-variant">Service</span>
-            <select
+            <Select
               value={chosenService}
-              onChange={(e) => setServiceId(e.target.value)}
-              className={inputClasses}
-            >
-              {upcoming.length === 0 && <option value="">No services coming up</option>}
-              {upcoming.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.service_type} · {s.date === today ? 'Today' : formatServiceDay(s.date)}
-                </option>
-              ))}
-            </select>
+              onChange={setServiceId}
+              options={
+                upcoming.length === 0
+                  ? [{ value: '', label: 'No services coming up', disabled: true }]
+                  : upcoming.map((s) => ({
+                      value: s.id,
+                      label: `${s.service_type} · ${s.date === today ? 'Today' : formatServiceDay(s.date)}`,
+                    }))
+              }
+            />
             <span className="text-label-sm text-on-surface-faint">
               Anyone rostered on it, plus anyone who said yes or maybe.
             </span>

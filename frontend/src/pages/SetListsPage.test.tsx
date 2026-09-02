@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SetListsPage } from './SetListsPage'
+import { chooseOption } from '../test/select'
 
 const update = vi.fn()
 const insert = vi.fn()
@@ -107,7 +108,7 @@ describe('SetListsPage', () => {
     const user = show()
     const row = await songRow()
     await user.click(within(row).getByRole('button', { name: 'Add who leads it' }))
-    await user.selectOptions(within(row).getByLabelText('Led by'), 'u1')
+    await chooseOption(user, within(row).getByLabelText('Led by'), /Grace Mensah/)
     await user.click(within(row).getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(

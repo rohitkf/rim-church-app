@@ -17,6 +17,7 @@ import {
   fetchOwnDepartmentIds,
   fetchServices,
 } from '../lib/queries'
+import { Select, selectPillClasses, type SelectItem } from '../components/Select'
 import { todayIso } from '../lib/monthGrid'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import { formatServiceDay } from '../lib/sunday'
@@ -733,61 +734,66 @@ export function TeamRotaPage() {
                             >
                               <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
                                 Role
-                                <select
+                                <Select
                                   value={draftRole[key] ?? ''}
-                                  onChange={(e) => setDraftRole((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-full hairline bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
-                                >
-                                  <option value="">Select…</option>
-                                  {/* Grouped with optgroup, which is the
-                                      element this has always wanted: the
-                                      same headings the Teams page files
-                                      these roles under, rendered by the
-                                      browser's own picker on a phone. */}
-                                  {rolePicker.coordinator && (
-                                    <option value={rolePicker.coordinator.name}>
-                                      {rolePicker.coordinator.name}
-                                    </option>
-                                  )}
-                                  {rolePicker.sections.map((section) =>
-                                    section.roles.length === 0 ? null : section.group ? (
-                                      <optgroup key={section.group.id} label={section.group.name}>
-                                        {section.roles.map((r) => (
-                                          <option key={r.id} value={r.name}>
-                                            {r.name}
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    ) : (
-                                      // Ungrouped roles sit loose rather
-                                      // than under a heading, so a team
-                                      // with no groups sees the plain list
-                                      // it saw before.
-                                      section.roles.map((r) => (
-                                        <option key={r.id} value={r.name}>
-                                          {r.name}
-                                        </option>
-                                      ))
+                                  onChange={(role) => setDraftRole((s) => ({ ...s, [key]: role }))}
+                                  className={selectPillClasses}
+                                  aria-label="Role"
+                                  placeholder="Select…"
+                                  /* The same headings the Teams page files
+                                     these roles under: a group in the menu
+                                     is a group on that page. */
+                                  options={[
+                                    ...(rolePicker.coordinator
+                                      ? [
+                                          {
+                                            value: rolePicker.coordinator.name,
+                                            label: rolePicker.coordinator.name,
+                                          },
+                                        ]
+                                      : []),
+                                    ...rolePicker.sections.flatMap<SelectItem>((section) =>
+                                      section.roles.length === 0
+                                        ? []
+                                        : section.group
+                                          ? [
+                                              {
+                                                label: section.group.name,
+                                                options: section.roles.map((r) => ({
+                                                  value: r.name,
+                                                  label: r.name,
+                                                })),
+                                              },
+                                            ]
+                                          : // Ungrouped roles sit loose rather
+                                            // than under a heading, so a team
+                                            // with no groups sees the plain
+                                            // list it saw before.
+                                            section.roles.map((r) => ({
+                                              value: r.name,
+                                              label: r.name,
+                                            })),
                                     ),
-                                  )}
-                                </select>
+                                  ]}
+                                />
                               </label>
                               <label className="flex min-w-40 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
                                 Person · available only
-                                <select
+                                <Select
                                   value={chosenPerson}
-                                  onChange={(e) => setDraftPerson((s) => ({ ...s, [key]: e.target.value }))}
-                                  className="rounded-full hairline bg-surface-lowest px-3 py-2 text-body-md text-on-surface"
-                                >
-                                  <option value="">Select…</option>
-                                  {roster.map((m) => (
-                                    <option key={m.user_id} value={m.user_id}>
-                                      {m.profiles
-                                        ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                        : m.user_id}
-                                    </option>
-                                  ))}
-                                </select>
+                                  onChange={(person) =>
+                                    setDraftPerson((s) => ({ ...s, [key]: person }))
+                                  }
+                                  className={selectPillClasses}
+                                  aria-label="Person"
+                                  placeholder="Select…"
+                                  options={roster.map((m) => ({
+                                    value: m.user_id,
+                                    label: m.profiles
+                                      ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                      : m.user_id,
+                                  }))}
+                                />
                               </label>
                               <button
                                 type="submit"

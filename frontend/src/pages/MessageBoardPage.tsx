@@ -18,6 +18,7 @@ import { MessageBody } from '../components/MessageBody'
 import { parseMentions, type MentionablePerson } from '../lib/mentions'
 import { useErrorText } from '../lib/useErrorText'
 import { Link } from 'react-router-dom'
+import { Select, selectPillClasses } from '../components/Select'
 
 function BoardClearCountdown() {
   const [now, setNow] = useState(() => Date.now())
@@ -266,21 +267,19 @@ export function MessageBoardPage() {
               {(postAsOptions.length > 0 || isAdmin) && (
                 <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
                   Post as
-                  <select
+                  <Select
                     value={effectivePostAs ?? ''}
-                    onChange={(e) => {
+                    onChange={(id) => {
                       setPostAsTouched(true)
-                      setPostAsDeptId(e.target.value || null)
+                      setPostAsDeptId(id || null)
                     }}
-                    className="tap rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface"
-                  >
-                    {isAdmin && <option value="">Admin</option>}
-                    {postAsOptions.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    className={selectPillClasses}
+                    aria-label="Post as"
+                    options={[
+                      ...(isAdmin ? [{ value: '', label: 'Admin' }] : []),
+                      ...postAsOptions.map((o) => ({ value: o.id, label: o.label })),
+                    ]}
+                  />
                 </label>
               )}
               <button
