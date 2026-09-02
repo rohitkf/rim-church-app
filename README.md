@@ -54,17 +54,31 @@ docker-compose.yml   Runs both containers together for local/self-hosted deploym
 
 ## Getting started
 
+**Setting this up from a fork? Follow [SETUP.md](./SETUP.md)** — it is the
+whole thing in order, including the four steps that are easy to miss
+because the app still starts without them (no Owner, undeployed invite
+function, the push webhook, and a `vercel.json` that points at somebody
+else's database).
+
+The short version:
+
 ### Supabase
 
 1. Create a Supabase project.
-2. Apply the migrations in `supabase/migrations/` in order (via the
-   Supabase CLI `supabase db push`, or paste them into the SQL editor in
-   order — they're numbered).
-3. Promote your first user to Admin (there's no UI for this yet, by
-   design — bootstrapping the first Admin is a one-time manual step):
+2. Apply the migrations in `supabase/migrations/` in order — `supabase db
+   push`, or paste them into the SQL editor in filename order.
+3. **Sign up in the app first**, then make that account both Admin *and*
+   Owner. They are different: Admin runs everything; Owner is the account
+   that cannot be removed and the only one that can erase the data or hand
+   ownership on. A fresh database has no Owner and nothing creates one.
+
    ```sql
    insert into public.user_roles (user_id, role_type)
-   values ('<the user''s auth.users id>', 'admin');
+   select id, 'admin' from auth.users where email = 'you@example.org';
+
+   insert into public.app_owner (user_id)
+   select id from auth.users where email = 'you@example.org'
+   on conflict (only_row) do nothing;
    ```
 4. The `handbooks` and `avatars` Storage buckets are created by
    `0008_storage_handbooks.sql` along with their RLS policies — no manual
@@ -72,6 +86,8 @@ docker-compose.yml   Runs both containers together for local/self-hosted deploym
 5. `0009_realtime.sql` adds `messages` and `notifications` to the
    `supabase_realtime` publication so the notification bell and message
    board update live — no manual Realtime toggle needed either.
+6. Invitations and closed-app push each need an edge function deployed —
+   see [SETUP.md](./SETUP.md) steps 7 and 8.
 
 `supabase/_local_test/` holds stub `auth`/`storage` schemas used only to
 dry-run these migrations against a bare Postgres instance in CI — they are
