@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { AdminResetCard } from '../components/AdminResetCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
+import { PermissionsCard } from '../components/PermissionsCard'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
 
@@ -11,7 +12,7 @@ const inputClasses =
 const labelClasses = 'flex flex-col gap-1 text-body-sm text-on-surface-variant'
 
 export function ProfilePage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile, refreshProfile, isAdmin } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -205,6 +206,15 @@ export function ProfilePage() {
       </form>
 
       <AppSettingsCard />
+
+      {/* Admins only. Everybody else already knows what they can do — they
+          do it every Sunday — and the value here is to whoever is deciding
+          what somebody else should be able to do. */}
+      {isAdmin && (
+        <div className="mt-6">
+          <PermissionsCard />
+        </div>
+      )}
       <AdminResetCard />
     </div>
   )
