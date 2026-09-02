@@ -7,6 +7,7 @@ import { formatRelativeTime } from '../lib/relativeTime'
 
 const alertSchema = z.object({
   id: z.string(),
+  type: z.string(),
   body: z.string().nullable(),
   created_at: z.string(),
 })
@@ -34,9 +35,13 @@ export function AlertBanner() {
     queryFn: async (): Promise<PendingAlert[]> => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id, body, created_at')
+        .select('id, type, body, created_at')
         .eq('user_id', session!.user.id)
-        .eq('type', 'team_alert')
+        // Two things stop the page: a team's alert, and the church's own
+        // announcement. They are the same interruption and are dismissed
+        // the same way — only the line above the words differs, because
+        // "from your team" is a lie when it came from the office.
+        .in('type', ['team_alert', 'announcement'])
         .eq('read_boolean', false)
         .order('created_at', { ascending: true })
       if (error) throw error
@@ -68,7 +73,11 @@ export function AlertBanner() {
   const remaining = (pendingQuery.data?.length ?? 1) - 1
 
   return (
-    <Overlay label="Team alert" onDismiss={() => {}} align="center">
+    <Overlay
+      label={alert.type === 'announcement' ? 'Church announcement' : 'Team alert'}
+      onDismiss={() => {}}
+      align="center"
+    >
       <div className="w-full max-w-sm rounded-[var(--radius-tile)] bg-surface-low p-6 text-center shadow-[var(--shadow-lifted)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_30%,transparent)]">
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_16%,transparent)]">
           <svg
@@ -87,7 +96,7 @@ export function AlertBanner() {
         </div>
 
         <p className="mt-4 font-mono text-label-sm uppercase tracking-wide text-accent-orange">
-          From your team
+          {alert.type === 'announcement' ? 'From the church' : 'From your team'}
         </p>
         <p className="mt-2 text-body-md text-on-surface">{alert.body}</p>
         <p className="mt-2 font-mono text-label-sm text-on-surface-faint">

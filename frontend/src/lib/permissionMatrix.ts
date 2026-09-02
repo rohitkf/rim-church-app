@@ -204,6 +204,11 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'team' }),
         note: 'The one thing that puts author-written text on somebody’s lock screen.',
       },
+      {
+        action: 'Send that alert to the whole church, or to named people',
+        can: all({}),
+        note: 'A head can interrupt their own team. Reaching past it — everybody, several teams, three people by name — is an Admin’s, from Settings.',
+      },
     ],
   },
   {

@@ -6,9 +6,19 @@ import { AlertBanner } from './AlertBanner'
 
 const state = vi.hoisted(() => ({
   rows: [
-    { id: 'n1', body: 'Sound check moved to 8:30', created_at: new Date().toISOString() },
-    { id: 'n2', body: 'Bring the long XLR', created_at: new Date().toISOString() },
-  ] as { id: string; body: string; created_at: string }[],
+    {
+      id: 'n1',
+      type: 'team_alert',
+      body: 'Sound check moved to 8:30',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'n2',
+      type: 'team_alert',
+      body: 'Bring the long XLR',
+      created_at: new Date().toISOString(),
+    },
+  ] as { id: string; type: string; body: string; created_at: string }[],
   updated: [] as string[],
 }))
 
@@ -22,6 +32,7 @@ vi.mock('../lib/supabaseClient', () => ({
       const builder: Record<string, unknown> = {}
       const self = () => builder
       builder.select = self
+      builder.in = self
       builder.eq = (column: string, value: unknown) => {
         if (column === 'id') state.updated.push(String(value))
         return builder
@@ -67,5 +78,27 @@ describe('the alert that has to be acknowledged', () => {
     state.rows = []
     const { container } = renderBanner()
     await waitFor(() => expect(container).toBeEmptyDOMElement())
+  })
+})
+
+describe('where the interruption came from', () => {
+  it('says a team alert is from the team', async () => {
+    state.rows = [
+      { id: 'n1', type: 'team_alert', body: 'Sound check at 8:30', created_at: new Date().toISOString() },
+    ]
+    renderBanner()
+    expect(await screen.findByText('From your team')).toBeInTheDocument()
+  })
+
+  it('does not put the church\u2019s own words in a team\u2019s mouth', async () => {
+    // The banner used to say "from your team" over everything it showed,
+    // which would have been a lie the moment an Admin could write to the
+    // whole church from the settings page.
+    state.rows = [
+      { id: 'n2', type: 'announcement', body: 'The hall is locked until 9', created_at: new Date().toISOString() },
+    ]
+    renderBanner()
+    expect(await screen.findByText('From the church')).toBeInTheDocument()
+    expect(screen.queryByText('From your team')).not.toBeInTheDocument()
   })
 })

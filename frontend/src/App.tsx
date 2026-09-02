@@ -23,6 +23,7 @@ import {
   AccessSettingsPane,
   ChurchSettingsPane,
   EraseDataPane,
+  SendAlertPane,
   SettingsPage,
 } from './pages/SettingsPage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
@@ -100,6 +101,7 @@ const router = createBrowserRouter(
             <Route index element={<Navigate to="/settings/profile" replace />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="access" element={<AccessSettingsPane />} />
+            <Route path="alerts" element={<SendAlertPane />} />
             <Route path="church" element={<ChurchSettingsPane />} />
             <Route path="data" element={<EraseDataPane />} />
           </Route>
