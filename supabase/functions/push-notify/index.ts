@@ -11,6 +11,11 @@
  *   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.org
  * then add a Database Webhook: table `notifications`, event INSERT, calling
  * this function with the service-role key as the Authorization header.
+ *
+ * The webhook lives under Integrations → Webhooks in the dashboard
+ * (/dashboard/project/_/integrations/webhooks/overview), not under Database
+ * — it moved, and the old /database/hooks path is still linked from some
+ * pages of the docs.
  */
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -79,9 +84,17 @@ Deno.serve(async (req) => {
   //
   // The webhook already sends the service-role key, so requiring it costs
   // nothing and closes the door.
-  const presented = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  //
+  // Two headers are accepted because the dashboard has sent the key both
+  // ways: "Add auth header with service key" writes `Authorization: Bearer
+  // <key>`, while projects on the newer `sb_secret_...` keys must send it
+  // as `apikey` instead — those keys are not JWTs and are rejected on
+  // Authorization. Either header carrying the right key is the database;
+  // neither is anybody else.
+  const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  const apikey = req.headers.get('apikey') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  if (!serviceKey || presented !== serviceKey) {
+  if (!serviceKey || (bearer !== serviceKey && apikey !== serviceKey)) {
     return new Response(JSON.stringify({ error: 'Not allowed.' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
