@@ -1,10 +1,11 @@
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
+import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
 import { ConfigErrorPage } from './pages/ConfigErrorPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -31,6 +32,15 @@ import { TeamChatPage } from './pages/TeamChatPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
+  // Every read in the app comes through here, which makes it the one place
+  // that sees a session the database has stopped accepting. Somebody
+  // removed while they had the app open is signed out rather than left
+  // staring at a page where nothing loads and nothing says why.
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (isAccountRemoved(error)) void handleAccountRemoved()
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: 1,
