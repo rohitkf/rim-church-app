@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, PageHeader } from '../components/Surface'
 import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
+import { InvitationHistory } from '../components/InvitationHistory'
 import { InviteDialog } from '../components/InviteDialog'
 import { OwnershipTransfer } from '../components/OwnershipTransfer'
 import { fetchDepartments, fetchMembersForDepartments } from '../lib/queries'
@@ -448,6 +449,14 @@ export function VolunteersPage() {
 
       <div className="mt-6">
         <OwnershipTransfer />
+      </div>
+
+      {/* Inviting is the one action on this page whose result does not
+          appear on this page — the invited person joins the roster only
+          once they sign in. So the record of who was asked sits directly
+          under the button that asks them. */}
+      <div className="mt-6">
+        <InvitationHistory />
       </div>
 
       <QueryState

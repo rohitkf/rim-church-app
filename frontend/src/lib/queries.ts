@@ -5,6 +5,7 @@ import {
   departmentMemberRowSchema,
   departmentRoleSchema,
   departmentSchema,
+  invitationSchema,
   joinRequestSchema,
   roleChecklistItemSchema,
   rotaAssignmentSchema,
@@ -16,6 +17,7 @@ import {
   type Department,
   type DepartmentMemberRow,
   type DepartmentRole,
+  type Invitation,
   type JoinRequest,
   type RoleChecklistItem,
   type RotaAssignment,
@@ -203,4 +205,22 @@ export async function fetchJoinRequests(opts?: {
   const { data, error } = await query
   if (error) throw error
   return z.array(joinRequestSchema).parse(data)
+}
+
+/**
+ * Every invitation that has been sent, newest first.
+ *
+ * RLS decides the reach: an Admin sees the lot, a Head sees the ones aimed
+ * at their own team. That is what makes "has anybody asked them yet?"
+ * answerable without an Admin having to be found first.
+ */
+export async function fetchInvitations(): Promise<Invitation[]> {
+  const { data, error } = await supabase
+    .from('invitations')
+    .select(
+      'id, email, department_id, invited_by, created_at, accepted_at, inviter:profiles(id, first_name, last_name), department:departments(id, name, color)',
+    )
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return z.array(invitationSchema).parse(data)
 }
