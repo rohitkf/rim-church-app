@@ -16,9 +16,10 @@ import { formatTime } from '../lib/time'
 import { formatServiceDay } from '../lib/sunday'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
-import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
+import { ActionButton, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
 import type { Service } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
+import { Select } from '../components/Select'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -51,7 +52,16 @@ export function ServicePlannerIndexPage() {
     else params.delete('date')
     setParams(params)
   }
+  // Closing puts the draft back where it was found. It used to only take
+  // the modal off the screen: the date tapped on the calendar stayed in
+  // state, the form stayed "dirty", and the next click on any other page
+  // was met with "leave this page?" about a service nobody was writing.
   const closeCreate = () => {
+    setNewDate('')
+    setNewType('')
+    setTemplateId('')
+    setCreateError(null)
+    lastAutoFilledName.current = ''
     params.delete('new')
     params.delete('date')
     setParams(params, { replace: true })
@@ -408,12 +418,7 @@ export function ServicePlannerIndexPage() {
         </section>
 
         {isAdmin && creating && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-service-title"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-          >
+          <Overlay onDismiss={closeCreate} label="New service">
             <form
               onSubmit={handleCreate}
               className="w-full max-w-lg rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
@@ -453,18 +458,14 @@ export function ServicePlannerIndexPage() {
                   />
                 </Field>
                 <Field label="Template" className="sm:col-span-2">
-                  <select
+                  <Select
                     value={templateId}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    className={inputClasses}
-                  >
-                    <option value="">Blank</option>
-                    {templatesQuery.data?.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={handleTemplateChange}
+                    options={[
+                      { value: '', label: 'Blank' },
+                      ...(templatesQuery.data ?? []).map((t) => ({ value: t.id, label: t.name })),
+                    ]}
+                  />
                 </Field>
               </div>
 
@@ -491,7 +492,7 @@ export function ServicePlannerIndexPage() {
                 </ActionButton>
               </div>
             </form>
-          </div>
+          </Overlay>
         )}
 
         {upcomingDays.length > 0 && (

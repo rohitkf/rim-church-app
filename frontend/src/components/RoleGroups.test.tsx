@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DepartmentRolesCard } from './DepartmentRolesCard'
+import { chooseOption } from '../test/select'
+import { UNGROUPED_LABEL } from '../lib/roleGroups'
 
 const update = vi.fn()
 const eq = vi.fn()
@@ -96,7 +98,7 @@ describe('roles grouped on the Teams page', () => {
   it('moves a role to another group from its dropdown', async () => {
     const user = show()
     await screen.findByText('Keys 1')
-    await user.selectOptions(screen.getByLabelText('Group for Keys 1'), 'g1')
+    await chooseOption(user, screen.getByLabelText('Group for Keys 1'), 'Worship Leaders')
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('department_roles', { group_id: 'g1' }, 'k1'),
     )
@@ -105,7 +107,7 @@ describe('roles grouped on the Teams page', () => {
   it('takes a role out of every group by choosing the unfiled option', async () => {
     const user = show()
     await screen.findByText('Keys 1')
-    await user.selectOptions(screen.getByLabelText('Group for Keys 1'), '')
+    await chooseOption(user, screen.getByLabelText('Group for Keys 1'), UNGROUPED_LABEL)
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('department_roles', { group_id: null }, 'k1'),
     )

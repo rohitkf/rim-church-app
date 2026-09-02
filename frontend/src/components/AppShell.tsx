@@ -23,6 +23,7 @@ import { useNotificationRouting } from '../lib/useNotificationRouting'
 import { useScrolled } from '../lib/useScrolled'
 import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
+import { ComingSoonDialog } from './ComingSoonDialog'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import { PwaBanners } from './PwaBanners'
 import { AlertBanner } from './AlertBanner'
@@ -80,6 +81,7 @@ const AI_ASSISTANT_ENABLED = import.meta.env.VITE_AI_ASSISTANT_ENABLED === 'true
 export function AppShell() {
   const { profile, isAdmin, signOut } = useAuth()
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [comingSoon, setComingSoon] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
   useNotificationRouting()
@@ -164,13 +166,16 @@ export function AppShell() {
               Ask
             </button>
           ) : (
-            <span
-              title="The AI assistant is built but not deployed yet"
-              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_14%,transparent)] px-4 text-label-md text-accent-indigo-soft opacity-60"
+            /* Not deployed here yet — but a greyed-out label reads as a
+               button somebody broke. It presses, and says so. */
+            <button
+              type="button"
+              onClick={() => setComingSoon(true)}
+              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_14%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
             >
               <SparklesIcon width={17} height={17} className="shrink-0" />
               Ask
-            </span>
+            </button>
           )
         }
       />
@@ -206,6 +211,8 @@ export function AppShell() {
           </div>
         </div>
       )}
+
+      {comingSoon && <ComingSoonDialog onClose={() => setComingSoon(false)} />}
 
       {AI_ASSISTANT_ENABLED && (
         <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />

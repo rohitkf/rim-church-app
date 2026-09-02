@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
+import { Select } from './Select'
 
 export const DOC_BUCKET = 'inventory-docs'
 
@@ -232,15 +233,11 @@ export function ItemDocuments({
       {canManage && adding && (
         <form onSubmit={handleAdd} className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4">
           <Field label="What is it">
-            <select
+            <Select
               value={kind}
-              onChange={(e) => setKind(e.target.value as typeof kind)}
-              className={inputClasses}
-            >
-              {KINDS.map((k) => (
-                <option key={k.value} value={k.value}>{k.label}</option>
-              ))}
-            </select>
+              onChange={(next) => setKind(next as typeof kind)}
+              options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
+            />
           </Field>
           <Field label="Name it (optional)">
             <input

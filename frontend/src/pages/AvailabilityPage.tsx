@@ -25,6 +25,7 @@ import {
   type AvailabilityStatus,
   type DepartmentMemberRow,
 } from '../lib/types'
+import { Select } from '../components/Select'
 
 /**
  * Three answers, one tap.
@@ -475,15 +476,15 @@ export function AvailabilityPage() {
                                         )}
                                       </span>
                                       {isAdmin ? (
-                                        <select
+                                        <Select
                                           value={answer?.status ?? ''}
-                                          onChange={(e) =>
+                                          onChange={(status) =>
                                             setForMember.mutate({
                                               answerId: answer?.id ?? null,
                                               userId: m.user_id,
                                               serviceId: service.id,
                                               departmentId: dept.id,
-                                              status: (e.target.value || null) as AvailabilityStatus | null,
+                                              status: (status || null) as AvailabilityStatus | null,
                                             })
                                           }
                                           disabled={setForMember.isPending || finished}
@@ -493,14 +494,14 @@ export function AvailabilityPage() {
                                           className={`tap shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
                                             answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
                                           }`}
-                                        >
-                                          <option value="">No answer</option>
-                                          {STATUS_OPTIONS.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>
-                                              {opt.label}
-                                            </option>
-                                          ))}
-                                        </select>
+                                          options={[
+                                            { value: '', label: 'No answer' },
+                                            ...STATUS_OPTIONS.map((opt) => ({
+                                              value: opt.value,
+                                              label: opt.label,
+                                            })),
+                                          ]}
+                                        />
                                       ) : (
                                         <span
                                           className={`shrink-0 font-mono text-label-sm ${

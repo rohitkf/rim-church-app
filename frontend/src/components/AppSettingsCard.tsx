@@ -12,6 +12,7 @@ import {
   fetchAppSettings,
   type AppSettings,
 } from '../lib/appSettings'
+import { Select, selectPillClasses } from './Select'
 
 /**
  * The windows the app works to, in one place an Admin can change.
@@ -152,7 +153,7 @@ export function AppSettingsCard() {
   const changed = !!draft && !!query.data && JSON.stringify(draft) !== JSON.stringify(query.data)
 
   return (
-    <section className="mt-10 max-w-xl rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
+    <section className="w-full rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <h2 className="text-headline-md">App settings</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
         The windows the app works to. These are the church’s, not yours — everyone sees the
@@ -207,17 +208,16 @@ export function AppSettingsCard() {
               <label className="mt-3 flex flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
                   Clears every
-                  <select
-                    value={draft.board_clear_dow}
-                    onChange={(e) => set('board_clear_dow', Number(e.target.value))}
-                    className="rounded-full bg-raised px-3 py-1 text-body-sm text-on-surface hairline"
-                  >
-                    {WEEKDAY_NAMES.map((name, dow) => (
-                      <option key={name} value={dow}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={String(draft.board_clear_dow)}
+                    onChange={(dow) => set('board_clear_dow', Number(dow))}
+                    aria-label="Day the board clears"
+                    className={selectPillClasses}
+                    options={WEEKDAY_NAMES.map((name, dow) => ({
+                      value: String(dow),
+                      label: name,
+                    }))}
+                  />
                 </span>
                 <span className="text-label-md text-on-surface-variant">
                   At 00:00 UTC on this day, the message board empties — every post, plus the

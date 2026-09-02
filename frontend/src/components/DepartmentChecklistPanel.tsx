@@ -19,6 +19,7 @@ import {
   type Department,
   type DepartmentMemberRow,
 } from '../lib/types'
+import { Select, selectPillClasses } from './Select'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -352,18 +353,20 @@ export function DepartmentChecklistPanel({
               </label>
               <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
                 Assign to
-                <select
+                <Select
                   value={newAssignee}
-                  onChange={(e) => setNewAssignee(e.target.value)}
-                  className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
-                >
-                  <option value="">Select…</option>
-                  {membersQuery.data?.map((m) => (
-                    <option key={m.user_id} value={m.user_id}>
-                      {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : m.user_id}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setNewAssignee}
+                  className={selectPillClasses}
+                  options={[
+                    { value: '', label: 'Select…' },
+                    ...(membersQuery.data ?? []).map((m) => ({
+                      value: m.user_id,
+                      label: m.profiles
+                        ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                        : m.user_id,
+                    })),
+                  ]}
+                />
               </label>
               <button
                 type="submit"

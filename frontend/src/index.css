@@ -383,6 +383,27 @@ body::after {
   animation: rim-pulse 2.4s ease-in-out infinite;
 }
 
+/* Confetti: a fleck's own fall, drifting and spinning as it goes. */
+@keyframes rim-confetti-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--confetti-drift, 0), 120vh, 0) rotate(var(--confetti-spin, 180deg));
+    opacity: 0;
+  }
+}
+
+.confetti-fleck {
+  animation-name: rim-confetti-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1);
+  animation-fill-mode: both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

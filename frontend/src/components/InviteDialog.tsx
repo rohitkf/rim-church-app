@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { ActionButton, Field, inputClasses } from './Surface'
 import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
+import { Select } from './Select'
 
 /**
  * Asking somebody to join.
@@ -142,18 +143,14 @@ export function InviteDialog({
 
           {departments && departments.length > 0 && !fixedDepartmentId && (
             <Field label="Team (optional)">
-              <select
+              <Select
                 value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                className={inputClasses}
-              >
-                <option value="">No team yet</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setDepartmentId}
+                options={[
+                  { value: '', label: 'No team yet' },
+                  ...departments.map((d) => ({ value: d.id, label: d.name })),
+                ]}
+              />
             </Field>
           )}
         </div>

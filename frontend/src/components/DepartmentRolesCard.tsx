@@ -12,6 +12,7 @@ import { itemsToCopy, rolesWithChecklists } from '../lib/copyChecklist'
 import { arrangeRoles, reorderWithinGroup, UNGROUPED_LABEL, type RenderedGroup } from '../lib/roleGroups'
 import type { ChecklistPhase, DepartmentRole, DepartmentRoleGroup } from '../lib/types'
 import { DragHandle } from './DragHandle'
+import { Select, selectPillClasses } from './Select'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -283,27 +284,20 @@ function CopyChecklistFrom({
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           Same as
         </span>
-        <select
+        <Select
           // Deliberately not a controlled selection: this is an action, not
           // a setting. Nothing about the role afterwards is "same as" any
           // other, so leaving a name sitting in the box would claim a link
           // that does not exist.
           value=""
           disabled={copy.isPending}
-          onChange={(e) => {
-            const from = e.target.value
+          onChange={(from) => {
             if (from) copy.mutate(from)
-            e.target.value = ''
           }}
-          className="min-w-0 flex-1 rounded-full hairline bg-transparent px-2 py-1 text-body-sm text-on-surface disabled:opacity-50"
-        >
-          <option value="">{copy.isPending ? 'Copying…' : 'Choose a role to copy from…'}</option>
-          {sources.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r.count})
-            </option>
-          ))}
-        </select>
+          placeholder={copy.isPending ? 'Copying…' : 'Choose a role to copy from…'}
+          className={`min-w-0 flex-1 ${selectPillClasses}`}
+          options={sources.map((r) => ({ value: r.id, label: `${r.name} (${r.count})` }))}
+        />
       </label>
       <p className="mt-1 text-label-sm text-on-surface-faint">
         Takes that role&rsquo;s whole checklist, before and after. Anything this role already has is
@@ -411,19 +405,16 @@ function RoleRow({
           canManage && (
             <span className="flex items-center gap-3">
               {groups.length > 0 && (
-                <select
+                <Select
                   aria-label={`Group for ${role.name}`}
                   value={role.group_id ?? ''}
-                  onChange={(e) => onMoveToGroup(role.id, e.target.value || null)}
-                  className="max-w-[10rem] rounded-full hairline bg-transparent px-2 py-1 text-label-sm text-on-surface-variant"
-                >
-                  <option value="">{UNGROUPED_LABEL}</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(groupId) => onMoveToGroup(role.id, groupId || null)}
+                  className={`max-w-[10rem] ${selectPillClasses}`}
+                  options={[
+                    { value: '', label: UNGROUPED_LABEL },
+                    ...groups.map((g) => ({ value: g.id, label: g.name })),
+                  ]}
+                />
               )}
               <button
                 onClick={() => {

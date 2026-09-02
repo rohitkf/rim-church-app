@@ -61,6 +61,15 @@ function designationFor(grants: UserRole[], departmentId: string): string {
   return 'Team Member'
 }
 
+/** Every button on a card: one shape, so a row of them reads as a row. */
+const cardActionClasses =
+  'tap rounded-full px-3 py-1.5 text-label-md font-medium text-on-surface ring-1 ring-black/8 transition-all duration-300 ease-[var(--ease-glide)] hover:ring-black/25 dark:ring-white/12 dark:hover:ring-white/30'
+
+/** Two letters standing in for a face, so each card starts with a mark. */
+function initialsOf(v: { first_name: string; last_name: string }): string {
+  return `${v.first_name.charAt(0)}${v.last_name.charAt(0)}` || '?'
+}
+
 const designationClass: Record<string, string> = {
   'Department Head': 'bg-status-head/15 text-status-head',
   'Assisting Head': 'bg-status-coordinator/15 text-status-coordinator',
@@ -231,94 +240,67 @@ export function VolunteersPage() {
       .map((g) => g.department_id)
       .filter((id): id is string => !!id)
     const shownDeptIds = [...new Set([...core.map((m) => m.department_id), ...ledDeptIds])]
+    // Whether the foot of the card has anything on it at all. An account
+    // nobody present can act on shouldn't grow an empty bar for it.
+    const canManageAdmin = !holdsAdmin || (isSuperAdmin && !isOwner)
+    const canRemove = v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
 
     return (
       <li
         key={v.id}
-        className={`rounded-lg border p-5 ${
-          highlight
-            ? 'border-secondary/50 bg-secondary/5'
-            : 'border-border-subtle bg-surface-lowest'
+        className={`overflow-hidden rounded-[var(--radius-card)] hairline ${
+          highlight ? 'bg-secondary/5 shadow-[inset_0_0_0_1px_var(--color-secondary)]' : 'bg-surface-lowest'
         }`}
       >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="min-w-0">
-            <div className="font-medium text-on-surface">
-              {v.first_name} {v.last_name}
+        {/* Who this is. The name is the loudest thing on the card and the
+            only thing at that size, so a page of forty people can be
+            scanned down the left edge rather than read. Everything else —
+            what they hold, what you may do about it — is quieter and
+            lower, in its own band. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5 pb-4">
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised font-mono text-label-md uppercase text-on-surface-variant"
+          >
+            {initialsOf(v)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-headline-sm font-medium text-on-surface">
+                {v.first_name} {v.last_name}
+              </span>
               {v.id === session?.user.id && (
-                <span className="ml-2 font-mono text-label-sm text-secondary">You</span>
+                <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-secondary">
+                  You
+                </span>
               )}
             </div>
-            <div className="text-body-sm text-on-surface-variant">{v.email}</div>
+            <div className="truncate text-body-sm text-on-surface-variant">{v.email}</div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+          {/* What they are across the whole app, not on any one team. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {isOwner && (
               <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
                 Owner
               </span>
             )}
-            {holdsAdmin ? (
-              <>
-                <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
-                  Admin
-                </span>
-                {/* Taking Admin away is the owner's, or your own to give up.
-                    One Admin removing another is how a disagreement becomes
-                    a lockout, so the button simply isn't there. */}
-                {/* Only the owner takes Admin away, and never their own —
-                    stepping yourself down is a door that locks behind you. */}
-                {isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
-                  <button
-                    onClick={() => revokeRole.mutate(adminGrant.id)}
-                    className="text-body-sm text-error hover:underline"
-                  >
-                    Remove admin
-                  </button>
-                )}
-                {isSuperAdmin && !isOwner && (
-                  <button
-                    onClick={() => {
-                      setError(null)
-                      setTransferTo(v)
-                    }}
-                    className="rounded-full px-3 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
-                  >
-                    Transfer ownership
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                onClick={() => grantRole.mutate({ userId: v.id, roleType: 'admin', departmentId: null })}
-                className="tap rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-on-surface hover:border-secondary"
-              >
-                Make admin
-              </button>
-            )}
-            {v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin) && (
-              <button
-                onClick={() => {
-                  setError(null)
-                  setConfirmingRemoval(v)
-                }}
-                className="tap rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-error hover:border-error"
-              >
-                Remove
-              </button>
+            {holdsAdmin && (
+              <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
+                Admin
+              </span>
             )}
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <div className="grid grid-cols-1 gap-px bg-border-subtle sm:grid-cols-2">
+          <div className="bg-surface-lowest p-5">
+            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
               Core teams
             </div>
             {shownDeptIds.length === 0 ? (
               <p className="mt-2 text-body-sm text-on-surface-variant">Not on a team yet.</p>
             ) : (
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="mt-2.5 flex flex-col gap-2">
                 {shownDeptIds.map((deptId) => {
                   const dept = deptById.get(deptId)
                   const designation = designationFor(myGrants, deptId)
@@ -328,23 +310,33 @@ export function VolunteersPage() {
                       (g.role_type === 'department_head' || g.role_type === 'assisting_head'),
                   )
                   return (
-                    <li key={deptId} className="flex flex-wrap items-center gap-2 text-body-sm">
+                    /* The team, then what they are on it, then what can be
+                       done about that — three things that used to run
+                       together as one line of blue words. The standing is
+                       a badge, the actions are buttons, and the buttons
+                       sit off to the right where the next row's do. */
+                    <li
+                      key={deptId}
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[var(--radius-chip)] bg-raised px-3 py-2"
+                    >
                       <TeamMark color={dept?.color ?? null} />
-                      <span className="text-on-surface">{dept?.name ?? 'Unknown team'}</span>
+                      <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-on-surface">
+                        {dept?.name ?? 'Unknown team'}
+                      </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${designationClass[designation]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${designationClass[designation]}`}
                       >
                         {designation}
                       </span>
                       {leadGrant ? (
                         <button
                           onClick={() => revokeRole.mutate(leadGrant.id)}
-                          className="text-label-sm text-error hover:underline"
+                          className={`${cardActionClasses} shrink-0 text-error hover:ring-error/40`}
                         >
                           Step down
                         </button>
                       ) : (
-                        <>
+                        <span className="flex shrink-0 flex-wrap gap-1.5">
                           <button
                             onClick={() =>
                               grantRole.mutate({
@@ -353,7 +345,7 @@ export function VolunteersPage() {
                                 departmentId: deptId,
                               })
                             }
-                            className="tap text-label-sm font-medium text-secondary hover:underline"
+                            className={cardActionClasses}
                           >
                             Make head
                           </button>
@@ -365,11 +357,11 @@ export function VolunteersPage() {
                                 departmentId: deptId,
                               })
                             }
-                            className="tap text-label-sm font-medium text-secondary hover:underline"
+                            className={cardActionClasses}
                           >
                             Make assisting
                           </button>
-                        </>
+                        </span>
                       )}
                     </li>
                   )
@@ -378,18 +370,21 @@ export function VolunteersPage() {
             )}
           </div>
 
-          <div>
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <div className="bg-surface-lowest p-5">
+            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
               Guest teams
             </div>
             {guest.length === 0 ? (
               <p className="mt-2 text-body-sm text-on-surface-variant">None.</p>
             ) : (
-              <ul className="mt-2 flex flex-col gap-1.5">
+              <ul className="mt-2.5 flex flex-col gap-2">
                 {guest.map((m) => (
-                  <li key={m.id} className="flex items-center gap-2 text-body-sm">
+                  <li
+                    key={m.id}
+                    className="flex items-center gap-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm"
+                  >
                     <TeamMark color={deptById.get(m.department_id)?.color ?? null} />
-                    <span className="text-on-surface">
+                    <span className="min-w-0 truncate font-medium text-on-surface">
                       {deptById.get(m.department_id)?.name ?? 'Unknown team'}
                     </span>
                   </li>
@@ -398,6 +393,59 @@ export function VolunteersPage() {
             )}
           </div>
         </div>
+
+        {/* What an Admin can do to this account, all together at the foot
+            of the card rather than tucked in beside the name. Nothing here
+            is reversible by the person it happens to, so it reads as a row
+            of decisions and not as part of the heading. */}
+        {(canManageAdmin || canRemove) && (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
+            {!holdsAdmin && (
+              <button
+                onClick={() =>
+                  grantRole.mutate({ userId: v.id, roleType: 'admin', departmentId: null })
+                }
+                className={cardActionClasses}
+              >
+                Make admin
+              </button>
+            )}
+            {/* Taking Admin away is the owner's, or your own to give up.
+                One Admin removing another is how a disagreement becomes a
+                lockout, so the button simply isn't there. Never your own
+                either — stepping yourself down locks the door behind you. */}
+            {holdsAdmin && isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
+              <button
+                onClick={() => revokeRole.mutate(adminGrant.id)}
+                className={`${cardActionClasses} text-error hover:ring-error/40`}
+              >
+                Remove admin
+              </button>
+            )}
+            {holdsAdmin && isSuperAdmin && !isOwner && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  setTransferTo(v)
+                }}
+                className={cardActionClasses}
+              >
+                Transfer ownership
+              </button>
+            )}
+            {canRemove && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  setConfirmingRemoval(v)
+                }}
+                className={`${cardActionClasses} text-error hover:ring-error/40`}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )}
       </li>
     )
   }

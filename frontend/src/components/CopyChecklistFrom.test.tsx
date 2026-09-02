@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DepartmentRolesCard } from './DepartmentRolesCard'
 import type { RoleChecklistItem } from '../lib/types'
+import { chooseOption, openOptions } from '../test/select'
 
 const insert = vi.fn()
 const fetchDepartmentRoles = vi.fn()
@@ -78,8 +79,8 @@ describe('copying a checklist from another role', () => {
   it('offers the role that has a checklist, with how much it carries', async () => {
     const user = show()
     const row = await openChecklistOn(user, 'Camera Operator 2')
-    const picker = within(row).getByRole('combobox')
-    expect(within(picker).getByRole('option', { name: 'Camera Operator 1 (3)' })).toBeInTheDocument()
+    const listbox = await openOptions(user, within(row).getByRole('combobox'))
+    expect(within(listbox).getByRole('option', { name: 'Camera Operator 1 (3)' })).toBeInTheDocument()
   })
 
   it('does not offer the role itself', async () => {
@@ -93,7 +94,7 @@ describe('copying a checklist from another role', () => {
   it('writes the whole list — both halves — against the receiving role', async () => {
     const user = show()
     const row = await openChecklistOn(user, 'Camera Operator 2')
-    await user.selectOptions(within(row).getByRole('combobox'), 'cam1')
+    await chooseOption(user, within(row).getByRole('combobox'), /Camera Operator 1/)
 
     await waitFor(() => expect(insert).toHaveBeenCalled())
     expect(insert.mock.calls[0][0]).toEqual([
@@ -113,7 +114,7 @@ describe('copying a checklist from another role', () => {
     ])
     const user = show()
     const row = await openChecklistOn(user, 'Camera Operator 2')
-    await user.selectOptions(within(row).getByRole('combobox'), 'cam1')
+    await chooseOption(user, within(row).getByRole('combobox'), /Camera Operator 1/)
 
     expect(await screen.findByText(/Nothing new to take/)).toBeInTheDocument()
     expect(insert).not.toHaveBeenCalled()

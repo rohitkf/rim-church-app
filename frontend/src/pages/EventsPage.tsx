@@ -19,6 +19,7 @@ import {
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
+import { Select } from '../components/Select'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -62,10 +63,21 @@ async function fetchEvents(): Promise<DiaryEvent[]> {
   return z.array(eventSchema).parse(data)
 }
 
-/** The dot a day wears in the calendar, and the chip a row wears in the list. */
+/**
+ * The dot a day wears in the calendar, and the chip a row wears in the list.
+ *
+ * Four kinds, four hues, and no two of them the same one: an anniversary
+ * used to wear the secondary blue and a service the primary blue, which
+ * are a shade apart and read as one colour in a list — so the legend
+ * claimed a distinction the rows did not make. Anniversaries are indigo
+ * now, leaving blue to mean "a service" alone.
+ */
 const KIND_TONE: Record<DiaryKind, { dot: string; chip: string }> = {
   birthday: { dot: 'bg-accent-orange', chip: 'bg-accent-orange/15 text-accent-orange' },
-  anniversary: { dot: 'bg-secondary', chip: 'bg-secondary/15 text-secondary' },
+  anniversary: {
+    dot: 'bg-accent-indigo',
+    chip: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_18%,transparent)] text-accent-indigo-soft',
+  },
   service: { dot: 'bg-primary', chip: 'bg-primary/15 text-primary' },
   event: { dot: 'bg-accent-green', chip: 'bg-accent-green/15 text-accent-green' },
 }
@@ -440,18 +452,14 @@ export function EventsPage() {
                 />
               </Field>
               <Field label="Whose event" className="sm:col-span-2">
-                <select
+                <Select
                   value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  className={inputClasses}
-                >
-                  {isAdmin && <option value="">The whole church</option>}
-                  {myTeams.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setDepartmentId}
+                  options={[
+                    ...(isAdmin ? [{ value: '', label: 'The whole church' }] : []),
+                    ...myTeams.map((d) => ({ value: d.id, label: d.name })),
+                  ]}
+                />
               </Field>
               <Field label="Anything else (optional)" className="sm:col-span-2">
                 <textarea

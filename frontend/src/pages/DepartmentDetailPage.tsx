@@ -9,6 +9,7 @@ import {
   designationOn,
   type Designation,
 } from '../lib/designation'
+import { Select, selectPillClasses } from '../components/Select'
 import { userRoleSchema } from '../auth/types'
 import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
@@ -474,14 +475,16 @@ export function DepartmentDetailPage() {
                 </div>
                 <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
                   Type
-                  <select
+                  <Select
                     value={addType}
-                    onChange={(e) => setAddType(e.target.value as MemberType)}
-                    className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
-                  >
-                    <option value="core">Core</option>
-                    <option value="guest">Guest</option>
-                  </select>
+                    onChange={(type) => setAddType(type as MemberType)}
+                    className={selectPillClasses}
+                    aria-label="Member type"
+                    options={[
+                      { value: 'core', label: 'Core' },
+                      { value: 'guest', label: 'Guest' },
+                    ]}
+                  />
                 </label>
                 <button
                   type="submit"

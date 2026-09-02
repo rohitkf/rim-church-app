@@ -20,6 +20,7 @@ import { useFinishedServices } from '../lib/useFinishedServices'
 import { useErrorText } from '../lib/useErrorText'
 import { nextSongOrder, safeSongLink, songLeaders, songsFor } from '../lib/setList'
 import type { SetListItem } from '../lib/types'
+import { Select, selectPillClasses } from '../components/Select'
 
 /**
  * What we are singing, and who is leading it.
@@ -293,18 +294,19 @@ function SongInputs({
 
         <label className="flex min-w-40 flex-col gap-1 text-label-sm text-on-surface-variant">
           Led by
-          <select
+          <Select
             value={value.led_by ?? ''}
-            onChange={(e) => onChange({ ...value, led_by: e.target.value || null })}
-            className="rounded-full hairline bg-transparent px-3 py-2 text-body-md text-on-surface"
-          >
-            <option value="">Nobody yet</option>
-            {leaders.map((leader) => (
-              <option key={leader.id} value={leader.id}>
-                {leader.name} — {leader.role}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => onChange({ ...value, led_by: id || null })}
+            className={selectPillClasses}
+            aria-label="Led by"
+            options={[
+              { value: '', label: 'Nobody yet' },
+              ...leaders.map((leader) => ({
+                value: leader.id,
+                label: `${leader.name} — ${leader.role}`,
+              })),
+            ]}
+          />
         </label>
       </div>
 
