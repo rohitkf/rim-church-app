@@ -12,6 +12,8 @@ import { itemsToCopy, rolesWithChecklists } from '../lib/copyChecklist'
 import { arrangeRoles, reorderWithinGroup, UNGROUPED_LABEL, type RenderedGroup } from '../lib/roleGroups'
 import type { ChecklistPhase, DepartmentRole, DepartmentRoleGroup } from '../lib/types'
 import { DragHandle } from './DragHandle'
+import { Chevron } from './Collapsible'
+import { ActionButton, Field, Pill, inputClasses } from './Surface'
 import { Select, selectPillClasses } from './Select'
 
 /**
@@ -328,6 +330,28 @@ interface RoleRowProps {
   dragHandle?: React.ReactNode
 }
 
+/**
+ * Held back until the row is pointed at — but only where pointing is a
+ * thing that happens.
+ *
+ * A width breakpoint would have been the easy version and the wrong one: a
+ * tablet is wide and has no hover, so Edit and Delete would have been
+ * unreachable on it. The query asks the device what it can do rather than
+ * how big it is, and anything that cannot hover keeps every control in
+ * plain sight. Keyboard focus brings them back either way.
+ *
+ * Written out in full, twice, rather than built from parts: Tailwind finds
+ * classes by reading the source for them, and a name assembled at runtime
+ * is a name it never sees — the styles would simply not exist. The
+ * underscores are how a space is spelled inside an arbitrary variant;
+ * without them the query is invalid CSS and generates nothing at all.
+ */
+const REVEAL_ON_POINT = {
+  role: 'transition-opacity duration-300 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/role:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/role:opacity-100',
+  group:
+    'transition-opacity duration-300 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/group:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/group:opacity-100',
+}
+
 /** One role: its name, what may be done to it, and its checklist. */
 function RoleRow({
   role,
@@ -348,6 +372,7 @@ function RoleRow({
   dragHandle,
 }: RoleRowProps) {
   const isCoordinator = isCoordinatorRole(role.name)
+  const [showChecklist, setShowChecklist] = useState(false)
 
   if (editingId === role.id) {
     return (
@@ -358,34 +383,54 @@ function RoleRow({
           if (!name || name === role.name) return setEditingId(null)
           onRename(role.id, name)
         }}
-        className="flex flex-1 flex-wrap items-center gap-2"
+        className="flex w-full flex-col gap-3"
       >
-        <input
-          value={editingName}
-          onChange={(e) => setEditingName(e.target.value)}
-          autoFocus
-          className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
-        />
-        <button
-          type="submit"
-          disabled={renaming}
-          className="rounded-full bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary disabled:opacity-50"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditingId(null)}
-          className="text-body-sm text-on-surface-variant hover:underline"
-        >
-          Cancel
-        </button>
+        <Field label="Name">
+          <input
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            autoFocus
+            className={inputClasses}
+          />
+        </Field>
+        {/* Which family it belongs to, asked here rather than in a
+            dropdown on every resting row. A role already sits under its
+            group's heading — repeating that heading in a picker beside
+            each name said the same thing twice, and it was the widest
+            thing in the row. Editing a role is where what it is and where
+            it is filed both get decided. */}
+        {groups.length > 0 && (
+          <Field label="Group">
+            <Select
+              aria-label={`Group for ${role.name}`}
+              value={role.group_id ?? ''}
+              onChange={(groupId) => onMoveToGroup(role.id, groupId || null)}
+              options={[
+                { value: '', label: UNGROUPED_LABEL },
+                ...groups.map((g) => ({ value: g.id, label: g.name })),
+              ]}
+            />
+          </Field>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ActionButton type="submit" size="sm" disabled={renaming}>
+            Save
+          </ActionButton>
+          <ActionButton size="sm" tone="ghost" onClick={() => setEditingId(null)}>
+            Cancel
+          </ActionButton>
+        </div>
       </form>
     )
   }
 
   return (
     <>
+      {/* One line: what the role is called, and — held back until the row
+          is pointed at, on a screen wide enough for pointing — what can be
+          done to it. Five roles each showing a handle, a picker, two
+          coloured links and a disclosure is thirty controls at rest, and
+          the card stopped reading as a list of jobs. */}
       <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="flex min-w-0 items-center gap-1.5">
           {dragHandle}
@@ -393,56 +438,56 @@ function RoleRow({
             {role.name}
           </span>
         </span>
-        {/* The Team Coordinator is not an ordinary role: whoever the rota
-            puts in it can verify this team's checklist, and every team is
-            given one. Renaming or deleting it would take that away by
-            accident, so it is shown as the fixture it is. */}
-        {isCoordinator ? (
-          <span className="font-mono text-label-sm uppercase tracking-wide text-on-secondary-container">
-            Built in
-          </span>
-        ) : (
-          canManage && (
-            <span className="flex items-center gap-3">
-              {groups.length > 0 && (
-                <Select
-                  aria-label={`Group for ${role.name}`}
-                  value={role.group_id ?? ''}
-                  onChange={(groupId) => onMoveToGroup(role.id, groupId || null)}
-                  className={`max-w-[10rem] ${selectPillClasses}`}
-                  options={[
-                    { value: '', label: UNGROUPED_LABEL },
-                    ...groups.map((g) => ({ value: g.id, label: g.name })),
-                  ]}
-                />
-              )}
-              <button
-                onClick={() => {
-                  setEditingId(role.id)
-                  setEditingName(role.name)
-                }}
-                className="tap text-body-sm font-medium text-secondary hover:underline"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => onDelete(role.id)}
-                disabled={deleting}
-                className="tap text-body-sm text-error hover:underline disabled:opacity-50"
-              >
-                Delete
-              </button>
-            </span>
-          )
-        )}
+
+        <span className="flex shrink-0 items-center gap-1.5">
+          <ActionButton
+            size="sm"
+            tone="ghost"
+            onClick={() => setShowChecklist((was) => !was)}
+            aria-expanded={showChecklist}
+            glyph={<Chevron open={showChecklist} />}
+          >
+            Checklist
+          </ActionButton>
+
+          {/* The Team Coordinator is not an ordinary role: whoever the rota
+              puts in it can verify this team's checklist, and every team is
+              given one. Renaming or deleting it would take that away by
+              accident, so it is shown as the fixture it is. */}
+          {isCoordinator ? (
+            <Pill tone="blue">Built in</Pill>
+          ) : (
+            canManage && (
+              <span className={`flex items-center gap-1.5 ${REVEAL_ON_POINT.role}`}>
+                <ActionButton
+                  size="sm"
+                  tone="quiet"
+                  onClick={() => {
+                    setEditingId(role.id)
+                    setEditingName(role.name)
+                  }}
+                >
+                  Edit
+                </ActionButton>
+                <ActionButton
+                  size="sm"
+                  tone="danger-quiet"
+                  onClick={() => onDelete(role.id)}
+                  disabled={deleting}
+                >
+                  Delete
+                </ActionButton>
+              </span>
+            )
+          )}
+        </span>
       </div>
 
-      <details className="mt-1 w-full">
-        <summary className="cursor-pointer text-label-sm text-secondary">Checklist</summary>
-        {/* Two lists, not one: the jobs before the doors open and the jobs
-            once everyone has gone are done hours apart, and reading them as
-            a single column means scanning past half of it at both ends. */}
-        <div className="mt-2 flex flex-col gap-4">
+      {showChecklist && (
+        /* Two lists, not one: the jobs before the doors open and the jobs
+           once everyone has gone are done hours apart, and reading them as
+           a single column means scanning past half of it at both ends. */
+        <div className="mt-3 flex w-full flex-col gap-4">
           {canManage && (
             <CopyChecklistFrom roleId={role.id} departmentId={departmentId} roles={roles} />
           )}
@@ -462,7 +507,7 @@ function RoleRow({
             </div>
           ))}
         </div>
-      </details>
+      )}
     </>
   )
 }
@@ -505,7 +550,7 @@ function RoleGroupSection({
           wrong, and "Everything else" over the only list on the page would
           be a label for a distinction that does not exist yet. */}
       {!onlySection && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-1.5">
+        <div className="group/group flex flex-wrap items-center justify-between gap-2 pb-1.5">
           {renaming && section.group ? (
             <form
               onSubmit={(e) => {
@@ -520,53 +565,47 @@ function RoleGroupSection({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 autoFocus
-                className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
+                aria-label="Group name"
+                className={`min-w-0 flex-1 ${inputClasses}`}
               />
-              <button
-                type="submit"
-                className="rounded-full bg-primary px-3 py-1 text-label-sm font-medium text-on-primary"
-              >
+              <ActionButton type="submit" size="sm">
                 Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setRenaming(false)}
-                className="text-label-sm text-on-surface-variant hover:underline"
-              >
+              </ActionButton>
+              <ActionButton size="sm" tone="ghost" onClick={() => setRenaming(false)}>
                 Cancel
-              </button>
+              </ActionButton>
+              {/* Getting rid of a family of roles is a decision about the
+                  family, so it is asked where the family is being edited
+                  — not as a red word standing next to every heading. */}
+              <ActionButton
+                size="sm"
+                tone="danger-quiet"
+                onClick={() => onDeleteGroup(section.group!.id)}
+              >
+                Delete group
+              </ActionButton>
             </form>
           ) : (
             <>
               {/* A real heading, not a styled span: this is the structure
                   of the card, and a screen reader should be able to jump
-                  between families the way an eye does. It also stops the
-                  group's name being ambiguous with the same name sitting
-                  in every role's group dropdown below it. */}
+                  between families the way an eye does. */}
               <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                 {section.group?.name ?? UNGROUPED_LABEL}
                 <span className="ml-2 text-on-surface-faint">{section.roles.length}</span>
               </h3>
               {rowProps.canManage && section.group && (
-                <span className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraft(section.group!.name)
-                      setRenaming(true)
-                    }}
-                    className="tap text-label-sm font-medium text-secondary hover:underline"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteGroup(section.group!.id)}
-                    className="tap text-label-sm text-error hover:underline"
-                  >
-                    Delete group
-                  </button>
-                </span>
+                <ActionButton
+                  size="sm"
+                  tone="ghost"
+                  onClick={() => {
+                    setDraft(section.group!.name)
+                    setRenaming(true)
+                  }}
+                  className={REVEAL_ON_POINT.group}
+                >
+                  Rename
+                </ActionButton>
               )}
             </>
           )}
@@ -589,7 +628,12 @@ function RoleGroupSection({
                 /* Once this row grew a Checklist block underneath it, it
                    stopped being one line — and `rounded-full` on a tall box
                    draws an ellipse, not a pill. */
-                className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-[var(--radius-chip)] hairline px-3 py-2"
+                /* Once this row grew a checklist underneath it, it stopped
+                   being one line — and `rounded-full` on a tall box draws
+                   an ellipse, not a pill. A surface step rather than a
+                   hairline: five outlined boxes under a heading is five
+                   more lines than the eye needs to see a list. */
+                className="group/role flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-[var(--radius-row)] bg-raised px-4 py-2.5"
               >
                 <RoleRow
                   {...rowProps}
@@ -623,6 +667,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
   })
 
   const [newGroup, setNewGroup] = useState('')
+  const [addingGroup, setAddingGroup] = useState(false)
 
   const groupsQuery = useQuery({
     queryKey: ['role-groups', departmentId],
@@ -644,6 +689,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
     },
     onSuccess: () => {
       setNewGroup('')
+      setAddingGroup(false)
       setError(null)
       invalidate()
     },
@@ -834,51 +880,70 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
       </QueryState>
 
       {canManage && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (newGroup.trim()) addGroup.mutate(newGroup.trim())
-          }}
-          className="mt-4 flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4"
-        >
-          <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-            New group
-            <input
-              value={newGroup}
-              onChange={(e) => setNewGroup(e.target.value)}
-              placeholder="Worship Leaders, Backing Vocals, Band…"
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={addGroup.isPending}
-            className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
-          >
-            {addGroup.isPending ? 'Adding…' : 'Add group'}
-          </button>
-        </form>
-      )}
+        /* Adding a role is what this card is for, so its form is the one
+           thing standing open at the foot of it. Adding a group is a rarer
+           act — a team gets its families once and then lives with them —
+           and it was sitting here as a second form of equal weight, under
+           a second rule, making the bottom of the card look like a
+           settings page. It is a button until it is wanted. */
+        <div className="mt-5 flex flex-col gap-3 border-t border-border-subtle pt-5">
+          <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+            <Field label="New role" className="min-w-48 flex-1">
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Cameraman, Sound Desk, Usher…"
+                className={inputClasses}
+              />
+            </Field>
+            <ActionButton type="submit" disabled={addRole.isPending}>
+              {addRole.isPending ? 'Adding…' : 'Add'}
+            </ActionButton>
+          </form>
 
-      {canManage && (
-        <form onSubmit={handleAdd} className="mt-4 flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
-          <label className="flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
-            New role
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Cameraman, Sound Desk, Usher…"
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={addRole.isPending}
-            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-          >
-            {addRole.isPending ? 'Adding…' : 'Add'}
-          </button>
-        </form>
+          {addingGroup ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (newGroup.trim()) addGroup.mutate(newGroup.trim())
+              }}
+              className="flex flex-wrap items-end gap-2"
+            >
+              <Field label="New group" className="min-w-48 flex-1">
+                <input
+                  value={newGroup}
+                  onChange={(e) => setNewGroup(e.target.value)}
+                  autoFocus
+                  placeholder="Worship Leaders, Backing Vocals, Band…"
+                  className={inputClasses}
+                />
+              </Field>
+              <ActionButton type="submit" tone="quiet" disabled={addGroup.isPending}>
+                {addGroup.isPending ? 'Adding…' : 'Add group'}
+              </ActionButton>
+              <ActionButton
+                tone="ghost"
+                onClick={() => {
+                  setNewGroup('')
+                  setAddingGroup(false)
+                }}
+              >
+                Cancel
+              </ActionButton>
+            </form>
+          ) : (
+            <div>
+              <ActionButton
+                size="sm"
+                tone="ghost"
+                onClick={() => setAddingGroup(true)}
+                glyph={<span aria-hidden="true">+</span>}
+              >
+                Add a group
+              </ActionButton>
+            </div>
+          )}
+        </div>
       )}
 
       {error && (

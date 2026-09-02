@@ -118,6 +118,17 @@ describe('SetListsPage', () => {
     )
   })
 
+  it('keeps the add form shut until somebody asks for it', async () => {
+    // A page of set lists should read as a page of songs. Left open, the
+    // form was the tallest thing on every service and the songs sat
+    // between two of them.
+    const user = show()
+    await screen.findByText('Goodness of God')
+    expect(screen.queryByRole('button', { name: 'Add song' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Add a song/ }))
+    expect(screen.getByRole('button', { name: 'Add song' })).toBeInTheDocument()
+  })
+
   it('edits the title, link and lyrics of a song already listed', async () => {
     const user = show()
     const row = await songRow()
@@ -177,7 +188,7 @@ describe('SetListsPage', () => {
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Add who leads it' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /Add song/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Add a song/ })).not.toBeInTheDocument()
       // And is told, rather than left wondering why there is no leader.
       expect(screen.getByText('Nobody yet')).toBeInTheDocument()
     })

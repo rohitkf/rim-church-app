@@ -3,7 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { PageHeader } from '../components/Surface'
+import {
+  ActionButton,
+  Field,
+  PageHeader,
+  Pill,
+  Row,
+  Tile,
+  inputClasses,
+} from '../components/Surface'
 import { Chevron } from '../components/Collapsible'
 import {
   fetchCanEditSetList,
@@ -20,7 +28,7 @@ import { useFinishedServices } from '../lib/useFinishedServices'
 import { useErrorText } from '../lib/useErrorText'
 import { nextSongOrder, safeSongLink, songLeaders, songsFor } from '../lib/setList'
 import type { SetListItem } from '../lib/types'
-import { Select, selectPillClasses } from '../components/Select'
+import { Select } from '../components/Select'
 
 /**
  * What we are singing, and who is leading it.
@@ -153,7 +161,11 @@ export function SetListsPage() {
 
   return (
     <div>
-      <PageHeader title="Set Lists" description="What we are singing, and who is leading it." />
+      <PageHeader
+        eyebrow="What we are singing"
+        title="Set Lists"
+        description="One list per service, in the order the songs come. The worship team keeps it, and everybody can read it."
+      />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
@@ -172,74 +184,88 @@ export function SetListsPage() {
             const songs = songsFor(items, service.id)
             const leaders = songLeaders(assignments, service.id, worshipId)
             const open = isExpanded(service.id)
+            const finished = isFinished(service.id)
             return (
-              <li
+              /* The same tile the Team Rota gives a service, because it is
+                 the same service: name, then when, then how it stands, and
+                 the chevron at the end of that line rather than in front of
+                 the name. Two pages about one Sunday should not disagree
+                 about what a Sunday looks like. */
+              <Tile
                 key={service.id}
-                className="rounded-[var(--radius-card)] bg-surface-lowest hairline"
+                as="li"
+                padded={false}
+                className={finished ? 'opacity-70' : ''}
               >
-                <button
-                  type="button"
-                  onClick={() => toggle(service.id)}
-                  aria-expanded={open}
-                  className="tap flex w-full items-center gap-3 px-5 py-4 text-left"
+                <header className="px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
+                  <button
+                    type="button"
+                    onClick={() => toggle(service.id)}
+                    aria-expanded={open}
+                    aria-controls={`set-list-${service.id}`}
+                    className="tap flex w-full text-left"
+                  >
+                    <span className="w-full">
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <h2 className="min-w-0 break-words text-headline-md leading-tight">
+                          {service.service_type}
+                        </h2>
+                        {finished && <Pill tone="green">Finished</Pill>}
+                      </span>
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-label-sm text-on-surface-variant">
+                        <span>
+                          {service.date === today ? 'Today' : formatServiceDay(service.date)}
+                        </span>
+                        <span aria-hidden="true" className="text-on-surface-faint">
+                          ·
+                        </span>
+                        <span>
+                          {songs.length === 0
+                            ? 'no songs yet'
+                            : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`}
+                        </span>
+                        <Chevron open={open} />
+                      </span>
+                    </span>
+                  </button>
+                </header>
+
+                <div
+                  id={`set-list-${service.id}`}
+                  hidden={!open}
+                  className="px-5 pb-5 sm:px-7 sm:pb-7"
                 >
-                  <Chevron open={open} />
-                  {/* The service first, the date under it — the same shape
-                      the Team Rota and the Checklists use. Two services on
-                      one Sunday are told apart by their name, not by a date
-                      they share. */}
-                  <span className="min-w-0 flex-1">
-                    <span className="block break-words text-headline-md leading-tight text-on-surface">
-                      {service.service_type}
-                    </span>
-                    <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-label-sm text-on-surface-variant">
-                      <span>{service.date === today ? 'Today' : formatServiceDay(service.date)}</span>
-                      <span aria-hidden="true" className="text-on-surface-faint">
-                        ·
-                      </span>
-                      <span>
-                        {songs.length === 0
-                          ? 'no songs yet'
-                          : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`}
-                      </span>
-                    </span>
-                  </span>
-                </button>
+                  {songs.length === 0 ? (
+                    <Row variant="dashed" className="text-body-sm">
+                      Nothing listed yet.
+                      {!canEdit && ' The worship team will add the songs before the service.'}
+                    </Row>
+                  ) : (
+                    <ol className="flex flex-col gap-2">
+                      {songs.map((song, index) => (
+                        <SongRow
+                          key={song.id}
+                          song={song}
+                          index={index}
+                          canEdit={canEdit}
+                          leaders={leaders}
+                          onSave={(fields) => editSong.mutateAsync({ id: song.id, ...fields })}
+                          onRemove={() => removeSong.mutate(song.id)}
+                          removing={removeSong.isPending}
+                        />
+                      ))}
+                    </ol>
+                  )}
 
-                {open && (
-                  <div className="border-t border-border-subtle px-5 pb-5 pt-4">
-                    {songs.length === 0 ? (
-                      <p className="text-body-sm text-on-surface-variant">
-                        Nothing listed yet.
-                        {!canEdit && ' The worship team will add the songs before the service.'}
-                      </p>
-                    ) : (
-                      <ol className="flex flex-col gap-2">
-                        {songs.map((song, index) => (
-                          <SongRow
-                            key={song.id}
-                            song={song}
-                            index={index}
-                            canEdit={canEdit}
-                            leaders={leaders}
-                            onSave={(fields) => editSong.mutateAsync({ id: song.id, ...fields })}
-                            onRemove={() => removeSong.mutate(song.id)}
-                            removing={removeSong.isPending}
-                          />
-                        ))}
-                      </ol>
-                    )}
-
-                    {canEdit && (
-                      <AddSongForm
-                        leaders={leaders}
-                        busy={addSong.isPending}
-                        onAdd={(song) => addSong.mutate({ ...song, service_id: service.id })}
-                      />
-                    )}
-                  </div>
-                )}
-              </li>
+                  {canEdit && (
+                    <AddSongForm
+                      leaders={leaders}
+                      busy={addSong.isPending}
+                      onAdd={(song) => addSong.mutate({ ...song, service_id: service.id })}
+                    />
+                  )}
+                </div>
+              </Tile>
             )
           })}
         </ul>
@@ -281,23 +307,25 @@ function SongInputs({
 }) {
   return (
     <>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
-          Song
+      {/* Field and inputClasses, like every other form in the app: a mono
+          eyebrow over a chip-shaped box that lights from the inside when
+          it takes focus. This page used to draw pill inputs with a blue
+          border on focus, which is the one thing here that looked like a
+          different product. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Song" className="min-w-48 flex-1">
           <input
             value={value.title}
             onChange={(e) => onChange({ ...value, title: e.target.value })}
             placeholder={titlePlaceholder}
-            className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            className={inputClasses}
           />
-        </label>
+        </Field>
 
-        <label className="flex min-w-40 flex-col gap-1 text-label-sm text-on-surface-variant">
-          Led by
+        <Field label="Led by" className="min-w-44">
           <Select
             value={value.led_by ?? ''}
             onChange={(id) => onChange({ ...value, led_by: id || null })}
-            className={selectPillClasses}
             aria-label="Led by"
             options={[
               { value: '', label: 'Nobody yet' },
@@ -307,44 +335,44 @@ function SongInputs({
               })),
             ]}
           />
-        </label>
+        </Field>
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleExtras}
-        aria-expanded={showExtras}
-        className="tap mt-2 text-label-sm text-secondary hover:underline"
-      >
-        {showExtras ? 'Hide link and lyrics' : 'Add a link or lyrics'}
-      </button>
+      <div className="mt-3">
+        <ActionButton
+          size="sm"
+          tone="ghost"
+          onClick={onToggleExtras}
+          aria-expanded={showExtras}
+        >
+          {showExtras ? 'Hide link and lyrics' : 'Add a link or lyrics'}
+        </ActionButton>
+      </div>
 
       {showExtras && (
-        <div className="mt-2 flex flex-col gap-2">
-          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
-            Link
+        <div className="mt-3 flex flex-col gap-3">
+          <Field label="Link">
             <input
               value={value.link ?? ''}
               onChange={(e) => onChange({ ...value, link: e.target.value })}
               placeholder="youtube.com/watch?v=…"
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className={inputClasses}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
-            Lyrics
+          </Field>
+          <Field label="Lyrics">
             <textarea
               value={value.lyrics ?? ''}
               onChange={(e) => onChange({ ...value, lyrics: e.target.value })}
               rows={6}
               placeholder="Paste the words here…"
-              className="rounded-[var(--radius-chip)] hairline px-3 py-2 text-body-sm text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+              className={inputClasses}
             />
-          </label>
+          </Field>
         </div>
       )}
 
       {leaders.length === 0 && (
-        <p className="mt-2 text-label-sm text-on-surface-faint">
+        <p className="mt-3 text-label-sm text-on-surface-faint">
           Nobody from the worship team is on this service&rsquo;s rota yet, so there is nobody to
           put against a song. Assign them on the Team Rota and they will appear here.
         </p>
@@ -416,7 +444,7 @@ function SongRow({
 
   if (editing) {
     return (
-      <li className="rounded-[var(--radius-chip)] bg-raised px-3.5 py-3">
+      <Row as="li" variant="raised" stack>
         <form onSubmit={save}>
           <SongInputs
             value={draft}
@@ -425,31 +453,25 @@ function SongRow({
             showExtras={showExtras}
             onToggleExtras={() => setShowExtras((was) => !was)}
           />
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving || !draft.title.trim()}
-              className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary disabled:opacity-50"
-            >
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <ActionButton type="submit" size="sm" disabled={saving || !draft.title.trim()}>
               {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="text-body-sm text-on-surface-variant hover:underline"
-            >
+            </ActionButton>
+            <ActionButton size="sm" tone="ghost" onClick={() => setEditing(false)}>
               Cancel
-            </button>
+            </ActionButton>
           </div>
         </form>
-      </li>
+      </Row>
     )
   }
 
   return (
-    <li className="rounded-[var(--radius-chip)] bg-raised px-3.5 py-3">
+    <Row as="li" variant="raised" stack>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">{index + 1}</span>
+        <span className="shrink-0 font-mono text-label-sm tabular text-on-surface-faint">
+          {index + 1}
+        </span>
         <span className="min-w-0 flex-1 break-words text-body-md font-medium text-on-surface">
           {song.title}
         </span>
@@ -461,68 +483,61 @@ function SongRow({
           // Not a shrug: the commonest reason a song has nobody against it
           // is that the rota was not filled when it was added, and this is
           // the moment somebody can fix it.
-          <button
-            type="button"
-            onClick={startEditing}
-            className="tap shrink-0 text-label-sm text-secondary hover:underline"
-          >
+          <ActionButton size="sm" tone="quiet" onClick={startEditing}>
             Add who leads it
-          </button>
+          </ActionButton>
         ) : (
-          <span className="shrink-0 text-label-sm text-on-surface-faint">Nobody yet</span>
+          <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">Nobody yet</span>
         )}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-        {href && (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-label-sm text-secondary hover:underline"
-          >
-            Open the song
-          </a>
-        )}
-        {song.lyrics && (
-          <button
-            type="button"
-            onClick={() => setShowLyrics((was) => !was)}
-            aria-expanded={showLyrics}
-            className="tap text-label-sm text-secondary hover:underline"
-          >
-            {showLyrics ? 'Hide lyrics' : 'Lyrics'}
-          </button>
-        )}
-        {canEdit && (
-          <span className="ml-auto flex items-center gap-4">
-            <button
-              type="button"
-              onClick={startEditing}
-              className="tap text-label-sm font-medium text-secondary hover:underline"
+      {/* Every one of these was a blue underlined word in a row of blue
+          underlined words. They are buttons — the same pill every other
+          page uses for a row's actions — so the song is the thing being
+          read and these are the things being pressed. */}
+      {(href || song.lyrics || canEdit) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {href && (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tap inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-1.5 text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface"
             >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              disabled={removing}
-              className="tap text-label-sm text-error hover:underline disabled:opacity-50"
+              Open the song
+            </a>
+          )}
+          {song.lyrics && (
+            <ActionButton
+              size="sm"
+              tone="ghost"
+              onClick={() => setShowLyrics((was) => !was)}
+              aria-expanded={showLyrics}
             >
-              Remove
-            </button>
-          </span>
-        )}
-      </div>
+              {showLyrics ? 'Hide lyrics' : 'Lyrics'}
+            </ActionButton>
+          )}
+          {canEdit && (
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <ActionButton size="sm" tone="quiet" onClick={startEditing}>
+                Edit
+              </ActionButton>
+              <ActionButton size="sm" tone="danger-quiet" onClick={onRemove} disabled={removing}>
+                Remove
+              </ActionButton>
+            </span>
+          )}
+        </div>
+      )}
 
       {showLyrics && song.lyrics && (
         // Kept as typed: verses, blank lines and all. A lyric sheet
         // reflowed into a paragraph is no use to anybody on a stage.
-        <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-[var(--radius-chip)] bg-surface-lowest p-3 font-sans text-body-sm text-on-surface">
+        <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-[var(--radius-chip)] bg-surface-lowest p-4 font-sans text-body-sm text-on-surface">
           {song.lyrics}
         </pre>
       )}
-    </li>
+    </Row>
   )
 }
 
@@ -539,6 +554,11 @@ function AddSongForm({
   const empty: SongFields = { title: '', led_by: null, link: null, lyrics: null }
   const [draft, setDraft] = useState<SongFields>(empty)
   const [showExtras, setShowExtras] = useState(false)
+  // Shut until asked for. Open, it made a page of set lists read as a page
+  // of forms: two services meant two permanently-expanded forms stacked
+  // above the fold, and the songs — the thing anybody came to read — sat
+  // between them.
+  const [adding, setAdding] = useState(false)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -547,10 +567,29 @@ function AddSongForm({
     onAdd(fields)
     setDraft(empty)
     setShowExtras(false)
+    setAdding(false)
+  }
+
+  if (!adding) {
+    return (
+      <div className="mt-3">
+        <ActionButton
+          size="sm"
+          tone="quiet"
+          onClick={() => setAdding(true)}
+          glyph={<span aria-hidden="true">+</span>}
+        >
+          Add a song
+        </ActionButton>
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 border-t border-border-subtle pt-4">
+    <form
+      onSubmit={submit}
+      className="mt-3 rounded-[var(--radius-panel)] bg-raised p-4 sm:p-5"
+    >
       <SongInputs
         value={draft}
         onChange={setDraft}
@@ -559,13 +598,22 @@ function AddSongForm({
         onToggleExtras={() => setShowExtras((was) => !was)}
         titlePlaceholder="Goodness of God"
       />
-      <button
-        type="submit"
-        disabled={busy || !draft.title.trim()}
-        className="mt-3 rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-      >
-        {busy ? 'Adding…' : 'Add song'}
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <ActionButton type="submit" size="sm" disabled={busy || !draft.title.trim()}>
+          {busy ? 'Adding…' : 'Add song'}
+        </ActionButton>
+        <ActionButton
+          size="sm"
+          tone="ghost"
+          onClick={() => {
+            setDraft(empty)
+            setShowExtras(false)
+            setAdding(false)
+          }}
+        >
+          Cancel
+        </ActionButton>
+      </div>
     </form>
   )
 }
