@@ -11,6 +11,15 @@
  *
  * Bump CACHE_VERSION to retire every old cache on the next activation.
  */
+/*
+ * Filled in by the build (see build/swBuildId.ts). Its only job is to be
+ * different from the last deploy's: a byte-identical sw.js installs no new
+ * worker, and an app that installs no new worker can never say that one is
+ * ready. Left as the placeholder here so a dev build reads honestly, and
+ * so the build fails loudly if this line is ever lost.
+ */
+const BUILD_ID = '__RIM_BUILD_ID__'
+
 const CACHE_VERSION = 'v2'
 const SHELL_CACHE = `rim-shell-${CACHE_VERSION}`
 const ASSET_CACHE = `rim-assets-${CACHE_VERSION}`
@@ -55,7 +64,19 @@ self.addEventListener('activate', (event) => {
 // The page asks for the update rather than being reloaded from under the
 // user mid-sentence.
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting()
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting()
+    return
+  }
+
+  // Which build this worker is. A page that has just been opened after a
+  // deploy is already running the new code, and being told to reload onto
+  // what it is already running is a prompt that costs trust every time it
+  // appears. It asks; this answers; the banner stays away.
+  if (event.data && event.data.type === 'BUILD_ID') {
+    const port = event.ports && event.ports[0]
+    if (port) port.postMessage({ buildId: BUILD_ID })
+  }
 })
 
 /* ------------------------------------------------------------------ *
