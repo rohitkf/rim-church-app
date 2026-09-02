@@ -109,10 +109,14 @@ Deno.serve(async (req) => {
     ...(Object.keys(metadata).length > 0 ? { data: metadata } : {}),
   })
   if (inviteError) {
-    // The most common failure by far is the project's own email rate limit,
-    // which is worth saying plainly rather than as "unexpected failure".
+    // The most common failure by far is a rate limit, which is worth saying
+    // plainly rather than as "unexpected failure". It does not name a fix,
+    // deliberately: Supabase caps auth emails per project on top of
+    // whatever the mail provider allows, so the old advice to "set up
+    // custom SMTP" sent whoever read it to a setting that was already
+    // configured. Waiting is the answer either way.
     const message = /rate|limit/i.test(inviteError.message)
-      ? 'The email limit for this project has been reached — try again later, or set up custom SMTP in Supabase.'
+      ? 'Too many invitations have gone out in the last hour — that is a limit on the account, not on this address. Try again shortly.'
       : inviteError.message
     return json({ error: message }, 400)
   }
