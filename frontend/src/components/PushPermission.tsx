@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -7,10 +7,19 @@ import {
   requestPermission,
   subscribeToPush,
   unsubscribeFromPush,
-  webPushSupported,
   type PushPermission,
 } from '../lib/push'
 import { isIos, isStandalone } from '../lib/pwa'
+
+/**
+ * Whether this device is registered to be reached while the app is shut.
+ *
+ * Separate from the browser's permission, which is the mistake this
+ * component previously made: permission and a push subscription are two
+ * different things, and a device can hold the first without the second for
+ * a long time without anything looking wrong.
+ */
+type PushState = 'unknown' | 'registered' | 'in-app-only' | 'failed'
 
 /**
  * The one row at the foot of the notifications panel that turns phone
@@ -27,24 +36,62 @@ export function PushPermissionRow() {
   // Read once at mount: the browser's permission cannot change under us
   // without a click that goes through this component.
   const [state, setState] = useState<PushPermission>(permissionState)
+  const [push, setPush] = useState<PushState>('unknown')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /** Remember this browser so the server can reach it while the app is shut. */
-  const saveSubscription = async () => {
+  /**
+   * Remember this browser so the server can reach it while the app is shut.
+   *
+   * Safe to call as often as we like: the browser hands back the
+   * subscription it already has rather than minting a second one, and the
+   * write is an upsert keyed on the endpoint.
+   */
+  const saveSubscription = useCallback(async () => {
+    if (!session?.user.id) return
     const subscription = await subscribeToPush()
-    if (!subscription?.endpoint || !session?.user.id) return
-    const { error: saveError } = await supabase.from('push_subscriptions').upsert(
-      {
-        user_id: session.user.id,
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys?.p256dh ?? '',
-        auth: subscription.keys?.auth ?? '',
-      },
-      { onConflict: 'endpoint' },
-    )
+    // No key in this build, or a browser without PushManager. Permission
+    // still buys in-app notifications, which is worth saying accurately
+    // rather than calling the whole thing on.
+    if (!subscription?.endpoint) {
+      setPush('in-app-only')
+      return
+    }
+    const { error: saveError } = await supabase.rpc('register_push_device', {
+      p_endpoint: subscription.endpoint,
+      p_p256dh: subscription.keys?.p256dh ?? '',
+      p_auth: subscription.keys?.auth ?? '',
+    })
     if (saveError) throw saveError
-  }
+    setPush('registered')
+  }, [session?.user.id])
+
+  /**
+   * Catch up a device that granted permission before there was any push to
+   * grant it for.
+   *
+   * Everybody who used the notification bell before push existed is in
+   * exactly that position: permission granted, no subscription, and — until
+   * this ran — no button either, because the button only ever appeared
+   * while permission was still undecided. Their phones would have stayed
+   * silent for ever with the panel cheerfully reporting notifications were
+   * on. The same path re-registers a device whose subscription the browser
+   * has since dropped, which it does on its own schedule.
+   */
+  useEffect(() => {
+    if (state !== 'granted' || !session?.user.id) return
+    let cancelled = false
+    void (async () => {
+      try {
+        await saveSubscription()
+      } catch {
+        if (!cancelled) setPush('failed')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [state, session?.user.id, saveSubscription])
 
   const turnOn = async () => {
     setBusy(true)
@@ -52,12 +99,26 @@ export function PushPermissionRow() {
     try {
       const next = await requestPermission()
       setState(next)
-      if (next === 'granted' && webPushSupported()) await saveSubscription()
+      if (next === 'granted') await saveSubscription()
     } catch {
       // Permission is still granted for in-app notifications even if
       // registering for push failed, so say what didn't work rather than
       // pretending the whole thing did.
+      setPush('failed')
       setError("Notifications are on, but this device couldn't register for alerts while the app is closed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const retry = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await saveSubscription()
+    } catch {
+      setPush('failed')
+      setError("Still couldn't register this device. A reload usually clears it.")
     } finally {
       setBusy(false)
     }
@@ -68,6 +129,7 @@ export function PushPermissionRow() {
     try {
       const endpoint = await unsubscribeFromPush()
       if (endpoint) await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
+      setPush('in-app-only')
       setState(permissionState())
     } finally {
       setBusy(false)
@@ -97,17 +159,32 @@ export function PushPermissionRow() {
   }
 
   if (state === 'granted') {
+    // Only one of these is the full thing. Saying so is the whole point:
+    // "on for this device" over a device that cannot be reached while shut
+    // is the failure that hid here in the first place.
+    const said =
+      push === 'registered'
+        ? 'Notifications are on for this device.'
+        : push === 'failed'
+          ? 'Notifications are on here, but not while the app is closed.'
+          : push === 'in-app-only'
+            ? 'Notifications are on while the app is open.'
+            : 'Notifications are on. Checking this device…'
+
     return (
-      <div className={`${wrap} flex items-center justify-between gap-3`}>
-        <span className="text-on-surface-variant">Notifications are on for this device.</span>
-        <button
-          type="button"
-          onClick={turnOff}
-          disabled={busy}
-          className="shrink-0 text-on-surface-variant transition-colors hover:text-on-surface disabled:opacity-50"
-        >
-          Turn off
-        </button>
+      <div className={wrap}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-on-surface-variant">{said}</span>
+          <button
+            type="button"
+            onClick={push === 'failed' ? retry : turnOff}
+            disabled={busy}
+            className="shrink-0 text-on-surface-variant transition-colors hover:text-on-surface disabled:opacity-50"
+          >
+            {push === 'failed' ? 'Try again' : 'Turn off'}
+          </button>
+        </div>
+        {error && <p className="mt-2 text-label-sm text-error">{error}</p>}
       </div>
     )
   }
