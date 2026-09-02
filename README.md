@@ -398,14 +398,46 @@ up once:
      VAPID_SUBJECT=mailto:you@example.org
    ```
 
-   Then add a Database Webhook (Database → Webhooks) on
-   `public.notifications`, event **INSERT**, calling the `push-notify`
-   function with the service-role key as its `Authorization` header.
+   Then add a Database Webhook on `public.notifications`, event
+   **INSERT**, calling the `push-notify` function, with *Add new header →
+   Add auth header with service key*. In the dashboard these live under
+   **Integrations → Webhooks**, not under Database — they moved, and parts
+   of Supabase's own docs still link the old path.
 
 Until step 2 is done the app simply doesn't offer the closed-app half — no
 broken button, no error. `supabase/functions/push-notify/index.ts` sends to
 every one of a person's devices and deletes any endpoint the push service
 reports as gone (404/410), so uninstalled apps clean themselves up.
+
+**Only the database may ask for a push.** `verify_jwt` is not a door on its
+own: it accepts any JWT the project signed, and the anon key is one of
+those and ships in the frontend bundle. Without a caller check, anybody
+with devtools open could put their own sentence on any member's lock screen
+wearing the church's name. The sender therefore requires the service role —
+either the secret key verbatim, or a JWT claiming `service_role`, on
+`Authorization` or `apikey`. It reads both because a project can hold two
+service-role credentials at once: the legacy JWT the webhook button pastes,
+and the newer `sb_secret_…` key the edge runtime returns for the same
+variable. Comparing one against the other is how the first live webhook
+earned a 403.
+
+**Permission is not a subscription.** The two are tracked separately in
+`PushPermissionRow`, because conflating them silently broke every device
+that had granted permission before push existed: the code that registered a
+device only ran from the "Turn on notifications" button, and that button
+only appeared while permission was still undecided. Everyone already
+granted saw "Notifications are on for this device" and could never receive
+one. A granted device now registers itself on sight, and the panel
+distinguishes registered, in-app-only and failed rather than claiming a
+phone is reachable when it is not.
+
+Registration goes through `register_push_device()`
+(`0069`), not a client-side upsert, because the endpoint identifies the
+*browser* rather than the person: on a shared laptop the upsert landed on a
+row owned by whoever signed in first, and the UPDATE policy checked
+`auth.uid()` against that old owner and refused. A device may claim itself
+for whoever is signed in on it, and may do nothing else — narrower than an
+RLS policy can express, hence a `SECURITY DEFINER` function.
 
 **Notifications are never emailed.** The bell and the phone are the two
 channels, deliberately: a church already drowns in email, and a rota
