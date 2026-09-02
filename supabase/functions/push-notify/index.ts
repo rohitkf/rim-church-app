@@ -18,6 +18,11 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // Kept in step with frontend/src/lib/notificationLink.ts. Two copies is the
 // price of the sender living in Deno and the app in the browser; a type
 // missing here still sends, it just lands on the dashboard.
+//
+// It has already drifted once — `team_poll` was added to the app and not to
+// this list, so a poll would have buzzed a phone and then dropped whoever
+// tapped it on the dashboard rather than in the room the question was asked
+// in. Anything added to the app's list belongs here too.
 const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   message: { label: 'New message board post', href: '/messages' },
   rota_release_request: { label: 'A team has asked to borrow one of your volunteers', href: '/rota' },
@@ -29,7 +34,26 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },
+  team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
+  mention: { label: 'Someone mentioned you', href: '/messages' },
 }
+
+/**
+ * What is worth a buzz in somebody's pocket, as opposed to a number on the
+ * bell when they next look.
+ *
+ * Everything aimed at one person is here: a question they have to answer, a
+ * decision waiting on them, a job before a service, a head deliberately
+ * interrupting them. The public message board is not — a church of eighty
+ * people posting to it would make every phone buzz all evening, and the
+ * fastest way to have the whole team switch notifications off is to spend
+ * them on things nobody needed that minute.
+ *
+ * A type nobody has listed either way still pushes: a new kind of
+ * notification is far more likely to be something that matters than the
+ * noticeboard, and silence would be the harder failure to notice.
+ */
+const NEVER_PUSHED = new Set(['message'])
 
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')
@@ -59,6 +83,14 @@ Deno.serve(async (req) => {
   const type: string | undefined = row?.type
   if (!userId || !type) return new Response('ignored', { status: 200 })
 
+  // The bell already has it; this is only about the phone.
+  if (NEVER_PUSHED.has(type)) {
+    return new Response(JSON.stringify({ sent: 0, reason: `${type} is bell-only` }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   const known = NOTIFICATIONS[type]
   const payload = JSON.stringify({
     title: 'Rehoboth International Ministries',
@@ -66,10 +98,7 @@ Deno.serve(async (req) => {
     // that puts author-written text on a lock screen, and it is text a head
     // deliberately sent to that person's phone.
     body: (row?.body as string | null) || known?.label || 'Something needs you in the app.',
-    href:
-      type === 'team_join_approved' && row?.reference_id
-        ? `/departments/${row.reference_id}`
-        : (known?.href ?? '/'),
+    href: deepLink(type, row?.reference_id as string | null | undefined) ?? known?.href ?? '/',
     tag: type,
   })
 
@@ -110,3 +139,16 @@ Deno.serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
   })
 })
+
+/**
+ * Where a notification of this kind actually goes, when the row carries
+ * enough to be specific about it. Same two exceptions the app makes.
+ */
+function deepLink(type: string, referenceId: string | null | undefined): string | null {
+  if (!referenceId) return null
+  if (type === 'team_join_approved') return `/departments/${referenceId}`
+  // A poll's reference is the team it was asked of, so the link opens that
+  // room rather than whichever one the page would have picked.
+  if (type === 'team_poll') return `/team-chat?team=${referenceId}`
+  return null
+}
