@@ -114,6 +114,30 @@ export function SetListsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not add that song.')),
   })
 
+  const editSong = useMutation({
+    mutationFn: async ({
+      id,
+      ...song
+    }: {
+      id: string
+      title: string
+      led_by: string | null
+      link: string | null
+      lyrics: string | null
+    }) => {
+      const { error: updateError } = await supabase
+        .from('set_list_items')
+        .update({ ...song, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (updateError) throw updateError
+    },
+    onSuccess: () => {
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not save that song.')),
+  })
+
   const removeSong = useMutation({
     mutationFn: async (id: string) => {
       const { error: deleteError } = await supabase.from('set_list_items').delete().eq('id', id)
@@ -159,18 +183,25 @@ export function SetListsPage() {
                   className="tap flex w-full items-center gap-3 px-5 py-4 text-left"
                 >
                   <Chevron open={open} />
+                  {/* The service first, the date under it — the same shape
+                      the Team Rota and the Checklists use. Two services on
+                      one Sunday are told apart by their name, not by a date
+                      they share. */}
                   <span className="min-w-0 flex-1">
-                    <span className="block text-headline-md text-on-surface">
-                      {formatServiceDay(service.date)}
-                    </span>
-                    <span className="block text-label-sm text-on-surface-variant">
+                    <span className="block break-words text-headline-md leading-tight text-on-surface">
                       {service.service_type}
                     </span>
-                  </span>
-                  <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                    {songs.length === 0
-                      ? 'No songs yet'
-                      : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`}
+                    <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-label-sm text-on-surface-variant">
+                      <span>{service.date === today ? 'Today' : formatServiceDay(service.date)}</span>
+                      <span aria-hidden="true" className="text-on-surface-faint">
+                        ·
+                      </span>
+                      <span>
+                        {songs.length === 0
+                          ? 'no songs yet'
+                          : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`}
+                      </span>
+                    </span>
                   </span>
                 </button>
 
@@ -189,6 +220,8 @@ export function SetListsPage() {
                             song={song}
                             index={index}
                             canEdit={canEdit}
+                            leaders={leaders}
+                            onSave={(fields) => editSong.mutateAsync({ id: song.id, ...fields })}
                             onRemove={() => removeSong.mutate(song.id)}
                             removing={removeSong.isPending}
                           />
@@ -214,22 +247,202 @@ export function SetListsPage() {
   )
 }
 
+/** What a song is made of. The same fields whether adding or correcting. */
+export interface SongFields {
+  title: string
+  led_by: string | null
+  link: string | null
+  lyrics: string | null
+}
+
+/**
+ * The fields, shared by adding and editing.
+ *
+ * One set of inputs rather than two nearly-identical ones: a set list
+ * mostly gets written in a hurry and corrected later — a leader arrives,
+ * a key changes, somebody finds the lyrics — and the two jobs should not
+ * be able to drift apart in what they let you type.
+ */
+function SongInputs({
+  value,
+  onChange,
+  leaders,
+  showExtras,
+  onToggleExtras,
+  titlePlaceholder,
+}: {
+  value: SongFields
+  onChange: (next: SongFields) => void
+  leaders: ReturnType<typeof songLeaders>
+  showExtras: boolean
+  onToggleExtras: () => void
+  titlePlaceholder?: string
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex min-w-48 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
+          Song
+          <input
+            value={value.title}
+            onChange={(e) => onChange({ ...value, title: e.target.value })}
+            placeholder={titlePlaceholder}
+            className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+          />
+        </label>
+
+        <label className="flex min-w-40 flex-col gap-1 text-label-sm text-on-surface-variant">
+          Led by
+          <select
+            value={value.led_by ?? ''}
+            onChange={(e) => onChange({ ...value, led_by: e.target.value || null })}
+            className="rounded-full hairline bg-transparent px-3 py-2 text-body-md text-on-surface"
+          >
+            <option value="">Nobody yet</option>
+            {leaders.map((leader) => (
+              <option key={leader.id} value={leader.id}>
+                {leader.name} — {leader.role}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <button
+        type="button"
+        onClick={onToggleExtras}
+        aria-expanded={showExtras}
+        className="tap mt-2 text-label-sm text-secondary hover:underline"
+      >
+        {showExtras ? 'Hide link and lyrics' : 'Add a link or lyrics'}
+      </button>
+
+      {showExtras && (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
+            Link
+            <input
+              value={value.link ?? ''}
+              onChange={(e) => onChange({ ...value, link: e.target.value })}
+              placeholder="youtube.com/watch?v=…"
+              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
+            Lyrics
+            <textarea
+              value={value.lyrics ?? ''}
+              onChange={(e) => onChange({ ...value, lyrics: e.target.value })}
+              rows={6}
+              placeholder="Paste the words here…"
+              className="rounded-[var(--radius-chip)] hairline px-3 py-2 text-body-sm text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
+            />
+          </label>
+        </div>
+      )}
+
+      {leaders.length === 0 && (
+        <p className="mt-2 text-label-sm text-on-surface-faint">
+          Nobody from the worship team is on this service&rsquo;s rota yet, so there is nobody to
+          put against a song. Assign them on the Team Rota and they will appear here.
+        </p>
+      )}
+    </>
+  )
+}
+
+/** Trimmed, with the empty strings turned back into nothing. */
+function tidy(fields: SongFields): SongFields {
+  return {
+    title: fields.title.trim(),
+    led_by: fields.led_by || null,
+    link: fields.link?.trim() || null,
+    lyrics: fields.lyrics?.trim() || null,
+  }
+}
+
 /** One song: its place in the order, who leads it, and what is attached. */
 function SongRow({
   song,
   index,
   canEdit,
+  leaders,
+  onSave,
   onRemove,
   removing,
 }: {
   song: SetListItem
   index: number
   canEdit: boolean
+  leaders: ReturnType<typeof songLeaders>
+  onSave: (fields: SongFields) => Promise<unknown>
   onRemove: () => void
   removing: boolean
 }) {
   const [showLyrics, setShowLyrics] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<SongFields>(() => ({
+    title: song.title,
+    led_by: song.led_by,
+    link: song.link,
+    lyrics: song.lyrics,
+  }))
+  // Open on whichever of them already has something in it, so correcting a
+  // link does not begin with hunting for where the link went.
+  const [showExtras, setShowExtras] = useState(!!song.link || !!song.lyrics)
+  const [saving, setSaving] = useState(false)
   const href = safeSongLink(song.link)
+
+  const startEditing = () => {
+    setDraft({ title: song.title, led_by: song.led_by, link: song.link, lyrics: song.lyrics })
+    setShowExtras(!!song.link || !!song.lyrics)
+    setEditing(true)
+  }
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault()
+    const fields = tidy(draft)
+    if (!fields.title) return
+    setSaving(true)
+    try {
+      await onSave(fields)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-[var(--radius-chip)] bg-raised px-3.5 py-3">
+        <form onSubmit={save}>
+          <SongInputs
+            value={draft}
+            onChange={setDraft}
+            leaders={leaders}
+            showExtras={showExtras}
+            onToggleExtras={() => setShowExtras((was) => !was)}
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving || !draft.title.trim()}
+              className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-body-sm text-on-surface-variant hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </li>
+    )
+  }
 
   return (
     <li className="rounded-[var(--radius-chip)] bg-raised px-3.5 py-3">
@@ -242,6 +455,17 @@ function SongRow({
           <span className="shrink-0 text-body-sm text-on-surface-variant">
             {song.leader.first_name} {song.leader.last_name}
           </span>
+        ) : canEdit ? (
+          // Not a shrug: the commonest reason a song has nobody against it
+          // is that the rota was not filled when it was added, and this is
+          // the moment somebody can fix it.
+          <button
+            type="button"
+            onClick={startEditing}
+            className="tap shrink-0 text-label-sm text-secondary hover:underline"
+          >
+            Add who leads it
+          </button>
         ) : (
           <span className="shrink-0 text-label-sm text-on-surface-faint">Nobody yet</span>
         )}
@@ -269,14 +493,23 @@ function SongRow({
           </button>
         )}
         {canEdit && (
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={removing}
-            className="tap ml-auto text-label-sm text-error hover:underline disabled:opacity-50"
-          >
-            Remove
-          </button>
+          <span className="ml-auto flex items-center gap-4">
+            <button
+              type="button"
+              onClick={startEditing}
+              className="tap text-label-sm font-medium text-secondary hover:underline"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={removing}
+              className="tap text-label-sm text-error hover:underline disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </span>
         )}
       </div>
 
@@ -299,115 +532,38 @@ function AddSongForm({
 }: {
   leaders: ReturnType<typeof songLeaders>
   busy: boolean
-  onAdd: (song: {
-    title: string
-    led_by: string | null
-    link: string | null
-    lyrics: string | null
-  }) => void
+  onAdd: (song: SongFields) => void
 }) {
-  const [title, setTitle] = useState('')
-  const [ledBy, setLedBy] = useState('')
-  const [link, setLink] = useState('')
-  const [lyrics, setLyrics] = useState('')
+  const empty: SongFields = { title: '', led_by: null, link: null, lyrics: null }
+  const [draft, setDraft] = useState<SongFields>(empty)
   const [showExtras, setShowExtras] = useState(false)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
-    onAdd({
-      title: title.trim(),
-      led_by: ledBy || null,
-      link: link.trim() || null,
-      lyrics: lyrics.trim() || null,
-    })
-    setTitle('')
-    setLedBy('')
-    setLink('')
-    setLyrics('')
+    const fields = tidy(draft)
+    if (!fields.title) return
+    onAdd(fields)
+    setDraft(empty)
     setShowExtras(false)
   }
 
   return (
     <form onSubmit={submit} className="mt-4 border-t border-border-subtle pt-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-label-sm text-on-surface-variant">
-          Song
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Goodness of God"
-            className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-          />
-        </label>
-
-        <label className="flex min-w-40 flex-col gap-1 text-label-sm text-on-surface-variant">
-          Led by
-          <select
-            value={ledBy}
-            onChange={(e) => setLedBy(e.target.value)}
-            className="rounded-full hairline bg-transparent px-3 py-2 text-body-md text-on-surface"
-          >
-            <option value="">Nobody yet</option>
-            {leaders.map((leader) => (
-              <option key={leader.id} value={leader.id}>
-                {leader.name} — {leader.role}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="submit"
-          disabled={busy || !title.trim()}
-          className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? 'Adding…' : 'Add song'}
-        </button>
-      </div>
-
-      {/* The worship team is nobody's idea of a list of people who enjoy
-          filling in forms. A title and a name is the whole job most weeks;
-          the link and the words are there when somebody wants them. */}
+      <SongInputs
+        value={draft}
+        onChange={setDraft}
+        leaders={leaders}
+        showExtras={showExtras}
+        onToggleExtras={() => setShowExtras((was) => !was)}
+        titlePlaceholder="Goodness of God"
+      />
       <button
-        type="button"
-        onClick={() => setShowExtras((was) => !was)}
-        aria-expanded={showExtras}
-        className="tap mt-2 text-label-sm text-secondary hover:underline"
+        type="submit"
+        disabled={busy || !draft.title.trim()}
+        className="mt-3 rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
       >
-        {showExtras ? 'Hide link and lyrics' : 'Add a link or lyrics'}
+        {busy ? 'Adding…' : 'Add song'}
       </button>
-
-      {showExtras && (
-        <div className="mt-2 flex flex-col gap-2">
-          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
-            Link
-            <input
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder="youtube.com/watch?v=…"
-              className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-label-sm text-on-surface-variant">
-            Lyrics
-            <textarea
-              value={lyrics}
-              onChange={(e) => setLyrics(e.target.value)}
-              rows={6}
-              placeholder="Paste the words here…"
-              className="rounded-[var(--radius-chip)] hairline px-3 py-2 text-body-sm text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
-            />
-          </label>
-        </div>
-      )}
-
-      {leaders.length === 0 && (
-        <p className="mt-2 text-label-sm text-on-surface-faint">
-          Nobody from the worship team is on this service&rsquo;s rota yet, so there is nobody to
-          put against a song. Assign them on the Team Rota and they will appear here.
-        </p>
-      )}
     </form>
   )
 }
