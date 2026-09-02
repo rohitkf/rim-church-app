@@ -67,6 +67,27 @@ const supabase = createClient(
 )
 
 Deno.serve(async (req) => {
+  // Only the database may ask for a push.
+  //
+  // `verify_jwt` is not enough on its own: it accepts any JWT this project
+  // signed, and the anon key is one of those — it ships in the frontend
+  // bundle for anyone to read. Without this check, somebody with devtools
+  // open could post a user_id and a line of their own text and have it
+  // appear on that person's lock screen, wearing the church's name. The
+  // ids are not secret either; every signed-in person can read `profiles`,
+  // because that is what a roster is.
+  //
+  // The webhook already sends the service-role key, so requiring it costs
+  // nothing and closes the door.
+  const presented = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!serviceKey || presented !== serviceKey) {
+    return new Response(JSON.stringify({ error: 'Not allowed.' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     // Nothing to sign with. Say so plainly rather than failing per device.
     return new Response(JSON.stringify({ sent: 0, reason: 'no VAPID keys configured' }), {
