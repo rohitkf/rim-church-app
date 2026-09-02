@@ -451,14 +451,6 @@ export function VolunteersPage() {
         <OwnershipTransfer />
       </div>
 
-      {/* Inviting is the one action on this page whose result does not
-          appear on this page — the invited person joins the roster only
-          once they sign in. So the record of who was asked sits directly
-          under the button that asks them. */}
-      <div className="mt-6">
-        <InvitationHistory />
-      </div>
-
       <QueryState
         isLoading={isLoading}
         error={loadError}
@@ -520,6 +512,17 @@ export function VolunteersPage() {
         </div>
 
       </QueryState>
+
+      {/* Below the roster, and shut until asked for. Inviting is the one
+          action on this page whose result does not appear on this page —
+          the invited person joins the roster only once they sign in — so
+          the record has to live somewhere. But the roster is what the page
+          is for, and a mostly-settled list of invitations should not stand
+          between somebody and it. The counts show while it is closed, so a
+          stale invitation still announces itself. */}
+      <div className="mt-8">
+        <InvitationHistory />
+      </div>
 
       {transferTo && (
         <TransferOwnershipDialog

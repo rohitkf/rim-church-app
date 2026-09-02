@@ -49,6 +49,7 @@ function hedgeViaProxy(email: string, password: string): Promise<'signed-in'> {
 }
 
 export function LoginPage() {
+  const removed = new URLSearchParams(useLocation().search).get('removed') === '1'
   const { session } = useAuth()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -125,6 +126,15 @@ export function LoginPage() {
         </>
       }
     >
+      {/* Somebody whose account was removed while they had the app open is
+          sent here by the query cache. Without a word they would assume
+          they had been signed out by accident and try again, and again. */}
+      {removed && (
+        <div className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <p>Your account is no longer active. Speak to a church Admin if you think that is wrong.</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         <label className="flex flex-col gap-2">
           <AuthLabel>Email</AuthLabel>
