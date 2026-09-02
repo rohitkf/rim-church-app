@@ -27,6 +27,9 @@ interface SettingsSection {
   blurb: string
   /** Who it is for. Everybody, unless it says otherwise. */
   needs?: 'admin' | 'owner'
+  /** The one that destroys things. Dressed as such, so it never gets
+      clicked on the way to somewhere else. */
+  danger?: boolean
 }
 
 const SECTIONS: SettingsSection[] = [
@@ -48,6 +51,7 @@ const SECTIONS: SettingsSection[] = [
     label: 'Erase data',
     blurb: 'Clear the app back to an empty diary.',
     needs: 'owner',
+    danger: true,
   },
 ]
 
@@ -75,9 +79,13 @@ export function SettingsPage() {
               to={section.to}
               className={({ isActive }) =>
                 `tap shrink-0 rounded-[var(--radius-chip)] px-3.5 py-2.5 transition-colors duration-300 lg:shrink ${
-                  isActive
-                    ? 'bg-secondary-container text-on-surface'
-                    : 'text-on-surface-variant hover:bg-raised hover:text-on-surface'
+                  section.danger
+                    ? isActive
+                      ? 'bg-gradient-to-r from-error/35 via-error/20 to-transparent text-on-surface ring-1 ring-inset ring-error/50'
+                      : 'bg-gradient-to-r from-error/15 to-transparent text-error hover:from-error/25 hover:text-on-surface'
+                    : isActive
+                      ? 'bg-secondary-container text-on-surface'
+                      : 'text-on-surface-variant hover:bg-raised hover:text-on-surface'
                 }`
               }
             >
@@ -86,14 +94,22 @@ export function SettingsPage() {
               </span>
               {/* Room for the sentence only where there is room: on a phone
                   these are chips in a scrolling row. */}
-              <span className="hidden text-label-sm text-on-surface-faint lg:block">
+              <span
+                className={`hidden text-label-sm lg:block ${
+                  section.danger ? 'text-error/70' : 'text-on-surface-faint'
+                }`}
+              >
                 {section.blurb}
               </span>
             </NavLink>
           ))}
         </nav>
 
-        <div className="min-w-0 flex-1">
+        {/* Centred, and capped at a width a form can be read across.
+            Left to fill 1440px the profile's fields ran the width of a
+            desk and the page looked like a card with a wasteland beside
+            it; each pane now fills this column edge to edge. */}
+        <div className="mx-auto w-full min-w-0 max-w-4xl flex-1">
           <Outlet />
         </div>
       </div>

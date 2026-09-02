@@ -15,11 +15,17 @@ const rowFor = (action: string | RegExp) =>
     .closest('tr')!
 
 describe('PermissionsCard', () => {
-  it('starts shut, because it is a reference rather than a thing to read daily', () => {
+  it('starts open, because it is now a page somebody chose to walk into', () => {
     show()
+    expect(screen.getAllByRole('table').length).toBe(PERMISSIONS.length)
+  })
+
+  it('still folds away, and folding it takes the tables out of the tree', async () => {
+    const user = show()
     // Hidden content is out of the accessibility tree entirely, which is
     // the point: a screen reader should not wade through eight tables to
     // reach the rest of the settings either.
+    await user.click(screen.getByRole('button', { name: 'Hide' }))
     expect(screen.queryByRole('table')).toBeNull()
   })
 
@@ -28,9 +34,8 @@ describe('PermissionsCard', () => {
     expect(screen.getByText(/enforced by the database on every request, not by this page/)).toBeVisible()
   })
 
-  it('opens to a table per area, with a column per standing', async () => {
-    const user = show()
-    await user.click(screen.getByRole('button', { name: 'Show' }))
+  it('opens to a table per area, with a column per standing', () => {
+    show()
     expect(screen.getAllByRole('table')).toHaveLength(PERMISSIONS.length)
     for (const role of ROLES) {
       expect(screen.getAllByRole('columnheader', { name: role.label }).length).toBe(
@@ -39,21 +44,19 @@ describe('PermissionsCard', () => {
     }
   })
 
-  it('admits it can go stale, rather than implying an accuracy it cannot promise', async () => {
-    const user = show()
-    await user.click(screen.getByRole('button', { name: 'Show' }))
+  it('admits it can go stale, rather than implying an accuracy it cannot promise', () => {
+    show()
     expect(screen.getByText(/will not update this page by itself/)).toBeInTheDocument()
     expect(screen.getByText(/the app is right and this needs correcting/)).toBeInTheDocument()
   })
 
   describe('the answers it gives', () => {
-    it('lets everybody see their own DBS, and nobody else’s but an Admin', async () => {
+    it('lets everybody see their own DBS, and nobody else’s but an Admin', () => {
       // Verified against production: a Head reading profile_sensitive gets
       // exactly their own row and zero of anybody else's. The first draft
       // of this table said Heads could not see it at all, which was wrong
       // in a way only the database could settle.
-      const user = show()
-      await user.click(screen.getByRole('button', { name: 'Show' }))
+      show()
       const row = rowFor('See DBS and safeguarding details')
       const cells = within(row).getAllByRole('cell')
       expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
@@ -63,9 +66,8 @@ describe('PermissionsCard', () => {
       expect(within(row).getByText(/Only an Admin sees anybody else’s/)).toBeInTheDocument()
     })
 
-    it('shows the Coordinator holding exactly one power, and it is the checklist', async () => {
-      const user = show()
-      await user.click(screen.getByRole('button', { name: 'Show' }))
+    it('shows the Coordinator holding exactly one power, and it is the checklist', () => {
+      show()
       const coordinatorColumn = ROLES.findIndex((r) => r.key === 'coordinator')
       const granted = PERMISSIONS.flatMap((area) =>
         area.capabilities.filter((c) => c.can.coordinator !== 'no' && c.can.coordinator !== 'own'),
@@ -81,7 +83,7 @@ describe('PermissionsCard', () => {
       expect(coordinatorColumn).toBeGreaterThan(-1)
     })
 
-    it('never grants a Team Member something a Head is denied', async () => {
+    it('never grants a Team Member something a Head is denied', () => {
       // A sanity check on the whole grid rather than one row: standings
       // widen outwards, and an inversion would mean the table is wrong or
       // a policy is.

@@ -58,7 +58,7 @@ function Cell({ value }: { value: Allowed }) {
 }
 
 export function PermissionsCard() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
 
   return (
     <Panel

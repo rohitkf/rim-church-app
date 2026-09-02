@@ -152,7 +152,7 @@ export function AppSettingsCard() {
   const changed = !!draft && !!query.data && JSON.stringify(draft) !== JSON.stringify(query.data)
 
   return (
-    <section className="mt-10 max-w-xl rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
+    <section className="w-full rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <h2 className="text-headline-md">App settings</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
         The windows the app works to. These are the church’s, not yours — everyone sees the

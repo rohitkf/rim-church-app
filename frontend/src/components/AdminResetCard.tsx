@@ -55,7 +55,7 @@ export function AdminResetCard() {
   const canConfirm = !needsPhrase || typed.trim().toUpperCase() === CONFIRM_PHRASE
 
   return (
-    <section className="mt-10 max-w-xl rounded-lg border border-error/40 bg-error-container/30 p-6">
+    <section className="w-full rounded-lg border border-error/40 bg-error-container/30 p-6">
       <h2 className="text-headline-md">Reset app data</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
         For trying features out on a clean slate. This deletes real records and can't be undone —

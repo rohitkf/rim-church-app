@@ -96,7 +96,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="w-full">
       <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         {/* Two fields side by side need a phone to be wider than one, so
             below `sm` they stack. `min-w-0` is what lets them shrink at
