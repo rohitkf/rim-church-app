@@ -95,9 +95,18 @@ describe('roles grouped on the Teams page', () => {
     expect(within(pinned).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
   })
 
-  it('moves a role to another group from its dropdown', async () => {
+  /** The group picker lives inside a role's edit form: a role already
+   *  sits under its group's heading, so a picker repeating that heading on
+   *  every resting row said the same thing twice. */
+  const editRole = async (user: ReturnType<typeof show>, name: string) => {
+    const row = (await screen.findByText(name)).closest('li')!
+    await user.click(within(row).getByRole('button', { name: 'Edit' }))
+    return row
+  }
+
+  it('moves a role to another group from its edit form', async () => {
     const user = show()
-    await screen.findByText('Keys 1')
+    await editRole(user, 'Keys 1')
     await chooseOption(user, screen.getByLabelText('Group for Keys 1'), 'Worship Leaders')
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('department_roles', { group_id: 'g1' }, 'k1'),
@@ -106,7 +115,7 @@ describe('roles grouped on the Teams page', () => {
 
   it('takes a role out of every group by choosing the unfiled option', async () => {
     const user = show()
-    await screen.findByText('Keys 1')
+    await editRole(user, 'Keys 1')
     await chooseOption(user, screen.getByLabelText('Group for Keys 1'), UNGROUPED_LABEL)
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('department_roles', { group_id: null }, 'k1'),
@@ -117,10 +126,13 @@ describe('roles grouped on the Teams page', () => {
     // The column is `on delete set null`, so the roles fall back to the
     // unfiled list. Deleting a heading must never cost a team its
     // checklists and rota history.
+    // Deleting a family is asked for where the family is being edited,
+    // rather than as a red word standing beside every heading.
     const user = show()
     await screen.findByRole('heading', { name: /Band/ })
     const heading = screen.getByRole('heading', { name: /Band/ }).closest('div')!
-    await user.click(within(heading).getByRole('button', { name: 'Delete group' }))
+    await user.click(within(heading).getByRole('button', { name: 'Rename' }))
+    await user.click(screen.getByRole('button', { name: 'Delete group' }))
     await waitFor(() =>
       expect(eq).toHaveBeenCalledWith('department_role_groups', 'delete', 'id', 'g2'),
     )
