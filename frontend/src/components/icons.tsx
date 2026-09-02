@@ -171,6 +171,17 @@ export function SettingsIcon(props: IconProps) {
 }
 
 
+/** A set list: the songs a service is singing. */
+export function MusicIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 18V6l10-2v12" />
+      <circle cx="6.5" cy="18" r="2.5" />
+      <circle cx="16.5" cy="16" r="2.5" />
+    </svg>
+  )
+}
+
 /** Permissions: what each standing is allowed to do. */
 export function ShieldIcon(props: IconProps) {
   return (

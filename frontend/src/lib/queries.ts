@@ -5,6 +5,7 @@ import {
   departmentMemberRowSchema,
   departmentRoleSchema,
   departmentRoleGroupSchema,
+  setListItemSchema,
   departmentSchema,
   invitationSchema,
   joinRequestSchema,
@@ -19,6 +20,7 @@ import {
   type DepartmentMemberRow,
   type DepartmentRole,
   type DepartmentRoleGroup,
+  type SetListItem,
   type Invitation,
   type JoinRequest,
   type RoleChecklistItem,
@@ -58,6 +60,28 @@ export async function fetchMembersForDepartments(departmentIds: string[]): Promi
 }
 
 /** The roles a set of departments fill, for the rota's role pickers. */
+/** Every song on the set lists of these services, in the order they are sung. */
+export async function fetchSetListItems(serviceIds: string[]): Promise<SetListItem[]> {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('set_list_items')
+    .select(
+      'id, service_id, title, led_by, link, lyrics, sort_order, leader:profiles!set_list_items_led_by_fkey(id, first_name, last_name)',
+    )
+    .in('service_id', serviceIds)
+    .order('sort_order')
+    .order('created_at')
+  if (error) throw error
+  return z.array(setListItemSchema).parse(data)
+}
+
+/** Whether this person may keep a set list: an Admin, or the worship team. */
+export async function fetchCanEditSetList(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('can_edit_set_list', { uid: userId })
+  if (error) throw error
+  return data === true
+}
+
 export async function fetchRoleGroups(departmentId: string): Promise<DepartmentRoleGroup[]> {
   return fetchRoleGroupsFor([departmentId])
 }

@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   ChecklistIcon,
   ClipboardUserIcon,
+  MusicIcon,
   GridIcon,
   IdCardIcon,
   ChatTeamIcon,
@@ -34,6 +35,7 @@ const navItems: (DockItem & { adminOnly?: boolean })[] = [
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon },
   { to: '/availability', label: 'Availability', icon: UserCheckIcon },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon },
+  { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
   { to: '/events', label: 'Events', icon: CakeIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
@@ -55,6 +57,9 @@ const WASH: Record<string, string> = {
   '/checklists': 'var(--color-accent-green)',
   '/availability': 'var(--color-accent-green)',
   '/rota': 'var(--color-accent-blue)',
+  // Set Lists belongs to the same Sunday as the rota it reads its leaders
+  // from, so it is lit the same.
+  '/set-lists': 'var(--color-accent-blue)',
   '/departments': 'var(--color-accent-indigo)',
   '/volunteers': 'var(--color-accent-indigo)',
   '/inventory': 'var(--color-accent-orange)',
