@@ -139,13 +139,18 @@ export function PageHeader({
  * Buttons
  * ------------------------------------------------------------------ */
 
-export type ButtonTone = 'primary' | 'quiet' | 'success' | 'danger' | 'ghost'
+export type ButtonTone = 'primary' | 'quiet' | 'success' | 'danger' | 'danger-quiet' | 'ghost'
 
 const BUTTON_TONES: Record<ButtonTone, string> = {
   primary: 'bg-primary text-on-primary',
   quiet: 'bg-raised-strong text-on-surface hairline-strong',
   success: 'bg-accent-green text-accent-green-ink font-semibold',
   danger: 'bg-error text-on-error',
+  // Removing one row of a list is not the same act as erasing the app, and
+  // a filled red button in a row of five says it is. This is the quiet
+  // button wearing the error colour: the same shape as its neighbours,
+  // reading as the one that takes something away.
+  'danger-quiet': 'bg-raised-strong text-error hairline-strong',
   ghost: 'text-on-surface-variant hover:text-on-surface',
 }
 
@@ -165,6 +170,8 @@ export function ActionButton({
   className = '',
   title,
   'aria-label': ariaLabel,
+  'aria-expanded': ariaExpanded,
+  'aria-controls': ariaControls,
 }: {
   children: ReactNode
   glyph?: ReactNode
@@ -176,6 +183,9 @@ export function ActionButton({
   className?: string
   title?: string
   'aria-label'?: string
+  /** For a button that opens something: a disclosure is still a button. */
+  'aria-expanded'?: boolean
+  'aria-controls'?: string
 }) {
   // A small button is 32px tall, which a cursor hits and a thumb misses.
   // `tap` gives it the touch floor without changing how it looks on a
@@ -190,6 +200,8 @@ export function ActionButton({
       disabled={disabled}
       title={title}
       aria-label={ariaLabel}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       className={`inline-flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
     >
       {glyph}
@@ -252,11 +264,15 @@ export function Pill({
 export function Row({
   children,
   variant = 'raised',
+  stack = false,
   className = '',
   as: Tag = 'div',
 }: {
   children: ReactNode
   variant?: 'raised' | 'inset' | 'dashed' | 'bare'
+  /** The row's content runs down rather than across: a title line, then
+   *  what is attached to it. The surface and its padding do not change. */
+  stack?: boolean
   className?: string
   as?: 'div' | 'li'
 }) {
@@ -268,7 +284,13 @@ export function Row({
     bare: 'border-b border-border-subtle py-3.5 last:border-0',
   }
   return (
-    <Tag className={`flex items-center gap-3 ${variants[variant]} ${className}`}>{children}</Tag>
+    <Tag
+      className={`flex ${stack ? 'flex-col items-stretch gap-2' : 'items-center gap-3'} ${
+        variants[variant]
+      } ${className}`}
+    >
+      {children}
+    </Tag>
   )
 }
 

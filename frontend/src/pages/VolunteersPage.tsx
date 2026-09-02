@@ -61,9 +61,19 @@ function designationFor(grants: UserRole[], departmentId: string): string {
   return 'Team Member'
 }
 
-/** Every button on a card: one shape, so a row of them reads as a row. */
-const cardActionClasses =
-  'tap rounded-full px-3 py-1.5 text-label-md font-medium text-on-surface ring-1 ring-black/8 transition-all duration-300 ease-[var(--ease-glide)] hover:ring-black/25 dark:ring-white/12 dark:hover:ring-white/30'
+/**
+ * Every button on a card: one shape, so a row of them reads as a row.
+ *
+ * The colour is part of the recipe rather than a class bolted on after
+ * it — two `text-…` utilities on one element leave the winner to
+ * whichever Tailwind happened to emit last, which is not a thing to
+ * decide by luck.
+ */
+const cardActionBase =
+  'tap rounded-full px-3 py-1.5 text-label-md font-medium ring-1 ring-black/8 transition-all duration-300 ease-[var(--ease-glide)] hover:ring-black/25 dark:ring-white/12 dark:hover:ring-white/30'
+const cardActionClasses = `${cardActionBase} text-on-surface`
+/** The same button for the thing that takes something away. */
+const cardDangerClasses = `${cardActionBase} text-error hover:ring-error/40`
 
 /** Two letters standing in for a face, so each card starts with a mark. */
 function initialsOf(v: { first_name: string; last_name: string }): string {
@@ -331,7 +341,7 @@ export function VolunteersPage() {
                       {leadGrant ? (
                         <button
                           onClick={() => revokeRole.mutate(leadGrant.id)}
-                          className={`${cardActionClasses} shrink-0 text-error hover:ring-error/40`}
+                          className={`${cardDangerClasses} shrink-0`}
                         >
                           Step down
                         </button>
@@ -417,7 +427,7 @@ export function VolunteersPage() {
             {holdsAdmin && isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
               <button
                 onClick={() => revokeRole.mutate(adminGrant.id)}
-                className={`${cardActionClasses} text-error hover:ring-error/40`}
+                className={cardDangerClasses}
               >
                 Remove admin
               </button>
@@ -439,7 +449,7 @@ export function VolunteersPage() {
                   setError(null)
                   setConfirmingRemoval(v)
                 }}
-                className={`${cardActionClasses} text-error hover:ring-error/40`}
+                className={cardDangerClasses}
               >
                 Remove
               </button>
