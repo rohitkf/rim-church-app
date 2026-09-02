@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DepartmentRolesCard } from './DepartmentRolesCard'
 
 const update = vi.fn()
+const insert = vi.fn()
 const eq = vi.fn()
 const fetchDepartmentRoles = vi.fn()
 const fetchRoleGroups = vi.fn()
@@ -20,8 +21,23 @@ vi.mock('../lib/queries', () => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
-      insert: () => Promise.resolve({ error: null }),
-      delete: () => ({ eq: (col: string, id: string) => eq(table, 'delete', col, id) }),
+      insert: (row: unknown) => {
+        insert(table, row)
+        return Promise.resolve({ error: null })
+      },
+      delete: () => ({
+        eq: (col: string, id: string) => {
+          eq(table, 'delete', col, id)
+          // The membership delete chains a second eq; the group delete
+          // does not, so this has to be both a thenable and chainable.
+          return Object.assign(Promise.resolve({ error: null }), {
+            eq: (col2: string, id2: string) => {
+              eq(table, 'delete', col2, id2)
+              return Promise.resolve({ error: null })
+            },
+          })
+        },
+      }),
       update: (patch: unknown) => ({
         eq: (_col: string, id: string) => {
           update(table, patch, id)
@@ -33,12 +49,12 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 
-const role = (id: string, name: string, sort_order: number, group_id: string | null = null) => ({
+const role = (id: string, name: string, sort_order: number, ...group_ids: string[]) => ({
   id,
   name,
   department_id: 'd1',
   sort_order,
-  group_id,
+  group_ids,
 })
 
 function show(canManage = true) {
@@ -54,6 +70,7 @@ function show(canManage = true) {
 describe('roles grouped on the Teams page', () => {
   beforeEach(() => {
     update.mockReset()
+    insert.mockReset()
     eq.mockReset().mockResolvedValue({ error: null })
     fetchDepartmentRoles.mockReset().mockResolvedValue([
       role('c', 'Team Coordinator', 0),
@@ -93,22 +110,32 @@ describe('roles grouped on the Teams page', () => {
     expect(within(pinned).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
   })
 
-  it('moves a role to another group from its dropdown', async () => {
+  it('adds a role to a second group without taking it out of the first', async () => {
+    // The whole point of the change: Worship Leader 1 is genuinely both a
+    // Worship Leader and a Vocal.
     const user = show()
-    await screen.findByText('Keys 1')
-    await user.selectOptions(screen.getByLabelText('Group for Keys 1'), 'g1')
+    const row = (await screen.findByText('Keys 1')).closest('li')!
+    await user.click(within(row).getByText(/^Groups/))
+    await user.click(within(row).getByLabelText('Worship Leaders for Keys 1'))
     await waitFor(() =>
-      expect(update).toHaveBeenCalledWith('department_roles', { group_id: 'g1' }, 'k1'),
+      expect(insert).toHaveBeenCalledWith('department_role_group_members', {
+        role_id: 'k1',
+        group_id: 'g1',
+      }),
     )
+    // Nothing removed it from Band.
+    expect(eq).not.toHaveBeenCalledWith('department_role_group_members', 'delete', 'group_id', 'g2')
   })
 
-  it('takes a role out of every group by choosing the unfiled option', async () => {
+  it('takes a role out of one group by unticking it', async () => {
     const user = show()
-    await screen.findByText('Keys 1')
-    await user.selectOptions(screen.getByLabelText('Group for Keys 1'), '')
+    const row = (await screen.findByText('Keys 1')).closest('li')!
+    await user.click(within(row).getByText(/^Groups/))
+    await user.click(within(row).getByLabelText('Band for Keys 1'))
     await waitFor(() =>
-      expect(update).toHaveBeenCalledWith('department_roles', { group_id: null }, 'k1'),
+      expect(eq).toHaveBeenCalledWith('department_role_group_members', 'delete', 'role_id', 'k1'),
     )
+    expect(eq).toHaveBeenCalledWith('department_role_group_members', 'delete', 'group_id', 'g2')
   })
 
   it('deletes a group without taking its roles with it', async () => {
@@ -137,7 +164,7 @@ describe('roles grouped on the Teams page', () => {
   it('gives somebody who cannot manage the team no controls at all', async () => {
     show(false)
     await screen.findByText('Keys 1')
-    expect(screen.queryByLabelText('Group for Keys 1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Groups/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delete group' })).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/Worship Leaders, Backing Vocals/)).not.toBeInTheDocument()
   })
