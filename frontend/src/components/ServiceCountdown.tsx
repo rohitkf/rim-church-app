@@ -13,6 +13,7 @@ export function ServiceCountdown({
   startsAt,
   variant = 'inline',
   fallback,
+  label,
 }: {
   startsAt: string | null
   /** `hero` is the dashboard's headline clock; `inline` is a line of text. */
@@ -22,6 +23,12 @@ export function ServiceCountdown({
    * service yet, so no start time to count towards.
    */
   fallback?: ReactNode
+  /**
+   * What the clock is counting towards, when it is not the doors opening —
+   * a team's call time is the other thing worth a countdown, and it is
+   * half an hour earlier than the doors for a reason.
+   */
+  label?: string
 }) {
   const [now, setNow] = useState(() => Date.now())
 
@@ -35,7 +42,8 @@ export function ServiceCountdown({
   if (!countdownIsClockworthy(remaining)) return fallback ?? null
 
   const { days, hrs, mins, secs } = countdownParts(remaining)
-  const spoken = `Starts in ${days > 0 ? `${days} days ` : ''}${hrs}:${mins}:${secs}`
+  const clock = `${days > 0 ? `${days} days ` : ''}${hrs}:${mins}:${secs}`
+  const spoken = label ? `${clock} ${label}` : `Starts in ${clock}`
 
   if (variant === 'hero') {
     return (
@@ -57,7 +65,7 @@ export function ServiceCountdown({
           <span className="text-primary">{secs}</span>
         </span>
         <span className="pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
-          until doors
+          {label ?? 'until doors'}
         </span>
       </div>
     )
@@ -65,9 +73,11 @@ export function ServiceCountdown({
 
   return (
     <span className="flex items-baseline gap-1.5" aria-label={spoken}>
-      <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-        Starts in
-      </span>
+      {!label && (
+        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          Starts in
+        </span>
+      )}
       <span className="font-mono text-body-md tabular-nums text-on-surface">
         {days > 0 && <span className="mr-1 text-on-surface-variant">{days}d</span>}
         {hrs}
@@ -76,6 +86,11 @@ export function ServiceCountdown({
         <span className="text-on-surface-variant">:</span>
         <span className="text-primary">{secs}</span>
       </span>
+      {label && (
+        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          {label}
+        </span>
+      )}
     </span>
   )
 }
