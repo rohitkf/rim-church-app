@@ -72,7 +72,7 @@ export function ServiceCountdown({
   }
 
   return (
-    <span className="flex items-baseline gap-1.5" aria-label={spoken}>
+    <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5" aria-label={spoken}>
       {!label && (
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           Starts in

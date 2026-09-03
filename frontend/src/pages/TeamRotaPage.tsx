@@ -25,6 +25,7 @@ import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
 import { CallTimesPanel } from '../components/CallTimesPanel'
+import { serviceDays } from '../lib/callTimes'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -199,10 +200,18 @@ export function TeamRotaPage() {
    */
   const myTeamIds = useMemo(() => new Set(ownDeptsQuery.data ?? []), [ownDeptsQuery.data])
 
-  // Call times are only worth setting on a service still to come; a
-  // finished one is a record. Soonest first, so the panel opens on the
-  // next one without being told which that is.
-  const openServices = useMemo(() => upcoming.filter((s) => !isFinished(s.id)), [upcoming, isFinished])
+  /*
+   * The days ahead that have something on, each with everything on it.
+   *
+   * Days rather than services: a team is called once for the morning and
+   * then the day runs, so a Sunday with an English service and a Malayalam
+   * service is one call time, not two. A finished service is a record and
+   * nothing is worth setting on it.
+   */
+  const callTimeDays = useMemo(
+    () => serviceDays(upcoming.filter((s) => !isFinished(s.id))),
+    [upcoming, isFinished],
+  )
 
   const rotaQuery = useQuery({
     queryKey: ['rota', upcomingIds],
@@ -377,7 +386,7 @@ export function TeamRotaPage() {
       */}
       <div className="mt-6">
         <CallTimesPanel
-          services={openServices}
+          days={callTimeDays}
           teams={departmentsQuery.data ?? []}
           myTeamIds={myTeamIds}
           canManage={canManage}
