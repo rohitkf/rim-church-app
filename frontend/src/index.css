@@ -404,6 +404,77 @@ body::after {
   animation-fill-mode: both;
 }
 
+/*
+ * The install button's glow.
+ *
+ * It has to be noticed across a header that is deliberately quiet, without
+ * becoming the loudest thing on the page — so it breathes rather than
+ * flashes: a soft ring that swells and fades over four seconds. Reduced
+ * motion stops it entirely (the rule at the bottom of this file), which is
+ * fine: the button is still there and still says what it does.
+ */
+@keyframes rim-install-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklab, var(--color-accent-blue) 45%, transparent),
+      0 0 12px 0 color-mix(in oklab, var(--color-accent-blue) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px color-mix(in oklab, var(--color-accent-blue) 0%, transparent),
+      0 0 20px 3px color-mix(in oklab, var(--color-accent-blue) 55%, transparent);
+  }
+}
+
+@utility install-glow {
+  animation: rim-install-glow 4s ease-in-out infinite;
+}
+
+/*
+ * The glisten across the install dialog: a band of light travelling from
+ * the top-left corner to the bottom-right and away, on a long cycle with a
+ * pause built into it, so the card catches the light rather than strobing.
+ * It is drawn on an overlay that ignores the pointer, so nothing it passes
+ * over stops being clickable.
+ */
+@keyframes rim-sheen {
+  0% {
+    transform: translate3d(-120%, -120%, 0) rotate(8deg);
+  }
+  55%,
+  100% {
+    transform: translate3d(120%, 120%, 0) rotate(8deg);
+  }
+}
+
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    color-mix(in oklab, white 7%, transparent) 47%,
+    color-mix(in oklab, white 16%, transparent) 52%,
+    transparent 62%
+  );
+  animation: rim-sheen 4.5s cubic-bezier(0.4, 0.1, 0.3, 1) infinite;
+}
+
+/* On light the card is already white, so a white band is nothing at all.
+   The light there has to be coloured to be light. */
+:root[data-theme='light'] .sheen::after {
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    color-mix(in oklab, var(--color-accent-blue) 7%, transparent) 47%,
+    color-mix(in oklab, var(--color-accent-blue) 15%, transparent) 52%,
+    transparent 62%
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

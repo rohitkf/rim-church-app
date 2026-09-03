@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { applyUpdate, isIos, promptInstall } from '../lib/pwa'
+import { applyUpdate } from '../lib/pwa'
 import { usePwa } from '../lib/usePwa'
 
 /**
@@ -42,50 +41,5 @@ export function PwaBanners() {
         </div>
       )}
     </div>
-  )
-}
-
-/**
- * The install offer.
- *
- * Chromium hands over an event we can replay on a button press. Safari
- * never does — installing there is a Share-sheet gesture — so on iOS the
- * only honest thing to offer is the instruction.
- */
-export function InstallAppButton({ className = '' }: { className?: string }) {
-  const { installPrompt, installed } = usePwa()
-  const [showIosHint, setShowIosHint] = useState(false)
-  const ios = isIos()
-
-  if (installed) return null
-  if (!installPrompt && !ios) return null
-
-  if (ios) {
-    return (
-      <div className={className}>
-        <button
-          type="button"
-          onClick={() => setShowIosHint((v) => !v)}
-          className="w-full rounded-lg px-3 py-2 text-left text-body-sm text-on-surface hover:bg-surface-container"
-        >
-          Add to Home Screen
-        </button>
-        {showIosHint && (
-          <p className="px-3 pb-2 pt-1 text-label-sm text-on-surface-variant">
-            Tap the Share button in Safari, then &ldquo;Add to Home Screen&rdquo;.
-          </p>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => void promptInstall()}
-      className={`w-full rounded-lg px-3 py-2 text-left text-body-sm text-on-surface hover:bg-surface-container ${className}`}
-    >
-      Install app
-    </button>
   )
 }

@@ -257,3 +257,55 @@ export function ChatTeamIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Adding the app to a phone: a handset with a plus on it. */
+export function PhoneAddIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="6" y="2" width="12" height="20" rx="2.5" />
+      <path d="M12 8v7M8.5 11.5h7" />
+    </svg>
+  )
+}
+
+/** iOS's Share control, so the instruction can show what it is describing. */
+export function ShareIosIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v12" />
+      <path d="m8.5 6.5 3.5-3.5 3.5 3.5" />
+      <path d="M7 11H5.5A1.5 1.5 0 0 0 4 12.5v7A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 18.5 11H17" />
+    </svg>
+  )
+}
+
+/** Chrome's overflow menu, for the same reason. */
+export function DotsVerticalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="5" r="1.4" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+      <circle cx="12" cy="19" r="1.4" fill="currentColor" />
+    </svg>
+  )
+}
+
+/** A window with a chevron into it: installing on a computer. */
+export function MonitorDownIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+      <path d="M12 7v5M9.8 9.8 12 12l2.2-2.2" />
+    </svg>
+  )
+}
+
+/** Closing a dialog. */
+export function CloseIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
+  )
+}
