@@ -24,6 +24,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
+import { CallTimesPanel } from '../components/CallTimesPanel'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -187,6 +188,22 @@ export function TeamRotaPage() {
   }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, isDepartmentHead])
   const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
 
+  /*
+   * The teams you actually serve on.
+   *
+   * Deliberately not `myDepartments`, which counts a team you are head of
+   * as yours — an Admin's copy of that list is every team in the church,
+   * and a countdown against all eight says nothing about when *you* are
+   * due. A head who does not serve on their own team gets the times
+   * without a clock, which is the honest answer.
+   */
+  const myTeamIds = useMemo(() => new Set(ownDeptsQuery.data ?? []), [ownDeptsQuery.data])
+
+  // Call times are only worth setting on a service still to come; a
+  // finished one is a record. Soonest first, so the panel opens on the
+  // next one without being told which that is.
+  const openServices = useMemo(() => upcoming.filter((s) => !isFinished(s.id)), [upcoming, isFinished])
+
   const rotaQuery = useQuery({
     queryKey: ['rota', upcomingIds],
     queryFn: () => fetchRota(upcomingIds),
@@ -346,6 +363,26 @@ export function TeamRotaPage() {
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
+
+      {/*
+        Above the rota, because it is the question asked first. The rota
+        says who is on; this says what time to be there, which is what a
+        volunteer wants on a Saturday night — and every team is in it, not
+        just yours, so the person opening up knows who to expect at the
+        door.
+
+        Not scoped to `myDepartments`: that list is "teams you serve on or
+        run", which is the right audience for the assign forms below and
+        the wrong one here.
+      */}
+      <div className="mt-6">
+        <CallTimesPanel
+          services={openServices}
+          teams={departmentsQuery.data ?? []}
+          myTeamIds={myTeamIds}
+          canManage={canManage}
+        />
+      </div>
 
       {incoming.length > 0 && (
         /* Surfaced at the top rather than buried in the team it concerns:

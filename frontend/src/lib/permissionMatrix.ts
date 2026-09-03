@@ -86,7 +86,11 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Add an event to the church diary',
         can: all({ head: 'yes' }),
       },
-      { action: 'Set a team’s call time', can: all({ head: 'yes' }) },
+      {
+        action: 'Set a team’s call time',
+        can: all({ head: 'team' }),
+        note: 'Everyone can read every team’s — knowing Worship is called at eight is how whoever opens up knows who to expect.',
+      },
     ],
   },
   {
