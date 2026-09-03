@@ -13,6 +13,11 @@ import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
+import {
+  availabilityWindowDays,
+  opensByDefault,
+  splitAvailabilityGroups,
+} from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -104,18 +109,35 @@ export function AvailabilityPage() {
   // below the ones that still need an answer rather than sitting at the top
   // of the page asking for something nobody can give.
   const { isFinished } = useFinishedServices(candidates.map((s) => s.id))
-  // Finished services fold away, so the answer still owed is what the page
-  // opens on.
-  const { isExpanded, toggle: toggleService } = useExpanded()
+  /*
+   * `isExpanded` here means "toggled away from what this service does on
+   * its own", not "open": what opens by default depends on which group a
+   * service is in, and a single set of ids cannot carry both facts.
+   */
+  const { isExpanded: isToggled, toggle: toggleService } = useExpanded()
+
+  // Three weeks, not the rota's week. Availability is asked in advance —
+  // somebody knows in the second week of the month that they are away on
+  // the fourth Sunday, and a page showing only this week gives them
+  // nowhere to say so until it has stopped being useful.
   const listed = useMemo(
-    () => servicesToShow(candidates, today, { days: settings.rota_window_days, isFinished }),
+    () =>
+      servicesToShow(candidates, today, {
+        days: availabilityWindowDays(settings.rota_window_days),
+        isFinished,
+      }),
     [candidates, today, isFinished, settings],
   )
+
+  // In date order, so the split below can draw its line at a day. The old
+  // sort pushed finished services to the bottom of one flat list; they now
+  // stay on their own day, above the line, where the eye expects them.
   const upcoming = useMemo(
-    () => [...listed].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),
-    [listed, isFinished],
+    () => [...listed].sort((a, b) => a.date.localeCompare(b.date)),
+    [listed],
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
+  const groups = useMemo(() => splitAvailabilityGroups(upcoming, isFinished), [upcoming, isFinished])
 
   // Teams shown here: the ones you belong to or lead. Admins get every
   // team, so the check-ins they can record match the teams the dashboard
@@ -238,6 +260,314 @@ export function AvailabilityPage() {
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
   const error = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
 
+  /**
+   * One service's card.
+   *
+   * `inNowGroup` decides only whether it starts open — everything else
+   * about the card is the same wherever it sits, which is the point: a
+   * service three weeks out is answered exactly like this Sunday's.
+   */
+  const renderService = (service: (typeof upcoming)[number], inNowGroup: boolean) => {
+    const finished = isFinished(service.id)
+    // What opens itself, and what somebody has since touched. A service
+    // is open when those two disagree: the ones needing an answer now
+    // start open and close on a touch; a finished one, or one three
+    // weeks out, starts closed and opens on a touch.
+    const open = opensByDefault(inNowGroup, finished) !== isToggled(service.id)
+    const heading = (
+        <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-headline-md">{service.service_type}</h2>
+          <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
+            {finished && (
+              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                Finished · closed
+              </span>
+            )}
+            {service.date === today ? 'Today' : formatServiceDay(service.date)}
+            <Chevron open={open} />
+          </span>
+        </div>
+    )
+    return (
+    <section
+      key={service.id}
+      className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
+        finished ? 'opacity-70' : ''
+      }`}
+    >
+      {/* Every card folds now, not only the finished ones: a service
+        three weeks out has to be openable, and one that opens itself
+        has to be closable by whoever does not want it. */}
+    <button
+      type="button"
+      onClick={() => toggleService(service.id)}
+      aria-expanded={open}
+      aria-controls={`availability-teams-${service.id}`}
+      className="flex w-full text-left"
+    >
+      {heading}
+    </button>
+
+      {/* Each team is its own card, so the eye can jump to the one
+          that is short rather than reading a column of bars. */}
+      <ul
+        id={`availability-teams-${service.id}`}
+        hidden={!open}
+        className="mt-5 flex flex-col gap-3">
+        {myDepartments.map((dept) => {
+          const mine = myAnswer(service.id, dept.id)
+          const leads = ledDepartmentIds.includes(dept.id)
+          // Core members are the people expected to serve, and
+          // they are the denominator: a guest is not somebody the
+          // team is short of.
+          const onTeam = (membersQuery.data ?? []).filter(
+            (m) => m.department_id === dept.id,
+          )
+          const coreMembers = onTeam.filter((m) => m.member_type === 'core')
+          const answers = (availabilityQuery.data ?? []).filter(
+            (a) => a.service_id === service.id && a.department_id === dept.id,
+          )
+          const summary = availabilitySummary(
+            coreMembers.map((m) => m.user_id),
+            answers,
+          )
+          /*
+           * A guest who answered is still listed.
+           *
+           * The roster here was core-only, so a guest who took the
+           * trouble to say they could serve simply vanished — no
+           * row, no name, nothing to tell the head the answer had
+           * been given. They are shown after the core team and
+           * badged, so the count above still means what it says.
+           */
+          const answeredGuests = onTeam.filter(
+            (m) =>
+              m.member_type === 'guest' &&
+              answers.some((a) => a.user_id === m.user_id),
+          )
+          const teamMembers = [...coreMembers, ...answeredGuests]
+
+          // A team still owed answers keeps the amber row: what
+          // needs a person outranks whose team it is.
+          return (
+            <li
+              key={dept.id}
+              className={`rounded-[var(--radius-row)] px-4 py-3.5 sm:px-5 ${
+                summary.noAnswer > 0
+                  ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)]'
+                  : 'bg-raised hairline'
+              }`}
+              style={summary.noAnswer > 0 ? undefined : teamWash(dept.color, teamStyle)}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex items-center gap-2.5">
+                  <TeamMark color={dept.color} />
+                  <span className="text-body-md font-medium text-on-surface">{dept.name}</span>
+                </div>
+                <span
+                  className={`font-mono text-label-sm ${
+                    summary.noAnswer > 0 ? 'text-accent-orange-soft' : 'text-on-surface-faint'
+                  }`}
+                >
+                  {summary.noAnswer > 0
+                    ? `${summary.noAnswer} unanswered · ${summary.available}/${summary.total}`
+                    : `${summary.pct}% available · ${summary.available}/${summary.total}`}
+                  {summary.tentative > 0 && ` · ${summary.tentative} tentative`}
+                </span>
+              </div>
+
+              <div
+                className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-raised-strong"
+                role="img"
+                aria-label={`${dept.name}: ${summary.pct}% available, ${summary.tentative} tentative, ${summary.noAnswer} yet to answer`}
+              >
+                <div
+                  className="bg-success"
+                  style={{ width: `${summary.total > 0 ? (summary.available / summary.total) * 100 : 0}%` }}
+                />
+                <div
+                  className="bg-warning"
+                  style={{ width: `${summary.total > 0 ? (summary.tentative / summary.total) * 100 : 0}%` }}
+                />
+                <div
+                  className="bg-error"
+                  style={{
+                    width: `${summary.total > 0 ? (summary.unavailable / summary.total) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+
+              {/* Chasing an answer belongs beside the count of
+                  answers still missing, not in a settings page:
+                  this is the moment a head notices. */}
+              {!finished && summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
+                <div className="mt-3">
+                  <NudgeButton
+                    rpc="nudge_availability"
+                    args={{ dept_id: dept.id, svc_id: service.id }}
+                    nobodyLabel="Only you left to answer"
+                  >
+                    Remind the {summary.noAnswer} who haven&rsquo;t answered
+                  </NudgeButton>
+                </div>
+              )}
+
+              {canAnswer && !finished && (
+                <div
+                  role="group"
+                  aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
+                  className={`mt-3 flex gap-2 rounded-full bg-inset p-1 ${
+                    mine
+                      ? 'hairline'
+                      : /* Unanswered is the state that needs chasing,
+                           so the control itself asks for the tap. */
+                        'shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-accent-orange)_35%,transparent)]'
+                  }`}
+                >
+                  {STATUS_OPTIONS.map((opt) => {
+                    const active = mine === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        title={opt.full}
+                        aria-pressed={active}
+                        onClick={() =>
+                          setAvailability.mutate({
+                            serviceId: service.id,
+                            departmentId: dept.id,
+                            status: opt.value,
+                          })
+                        }
+                        disabled={setAvailability.isPending}
+                        className={`flex h-11 flex-1 items-center justify-center rounded-full text-body-sm transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-60 ${
+                          active
+                            ? `font-semibold ${opt.activeClass}`
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {leads && teamMembers.length > 0 && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
+                    Team responses ({answers.length}/{coreMembers.length})
+                    {answeredGuests.length > 0 &&
+                      ` + ${answeredGuests.length} guest${answeredGuests.length === 1 ? '' : 's'}`}
+                  </summary>
+                  <ul className="mt-2 flex flex-col gap-1.5 border-l border-border-subtle pl-3">
+                    {teamMembers.map((m) => {
+                      const answer = answers.find((a) => a.user_id === m.user_id)
+                      return (
+                        <li key={m.id} className="text-body-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                              <span className="break-words text-on-surface">
+                                {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
+                              </span>
+                              {m.member_type === 'guest' && (
+                                <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                  Guest
+                                </span>
+                              )}
+                            </span>
+                            {isAdmin ? (
+                              <Select
+                                value={answer?.status ?? ''}
+                                onChange={(status) =>
+                                  setForMember.mutate({
+                                    answerId: answer?.id ?? null,
+                                    userId: m.user_id,
+                                    serviceId: service.id,
+                                    departmentId: dept.id,
+                                    status: (status || null) as AvailabilityStatus | null,
+                                  })
+                                }
+                                disabled={setForMember.isPending || finished}
+                                aria-label={`Availability for ${
+                                  m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
+                                }`}
+                                className={`tap shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
+                                  answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
+                                }`}
+                                options={[
+                                  { value: '', label: 'No answer' },
+                                  ...STATUS_OPTIONS.map((opt) => ({
+                                    value: opt.value,
+                                    label: opt.label,
+                                  })),
+                                ]}
+                              />
+                            ) : (
+                              <span
+                                className={`shrink-0 font-mono text-label-sm ${
+                                  answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
+                                }`}
+                              >
+                                {answer ? statusLabel[answer.status] : 'No answer'}
+                              </span>
+                            )}
+                          </div>
+
+                          {answer?.status === 'available' && (
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-label-sm text-on-surface-variant">
+                                Turned up?
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAttended.mutate({
+                                    id: answer.id,
+                                    attended: answer.attended === true ? null : true,
+                                  })
+                                }
+                                className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
+                                  answer.attended === true
+                                    ? 'border-success bg-success/10 font-medium text-success'
+                                    : 'border-border-subtle text-on-surface hover:border-secondary'
+                                }`}
+                              >
+                                Present
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAttended.mutate({
+                                    id: answer.id,
+                                    attended: answer.attended === false ? null : false,
+                                  })
+                                }
+                                className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
+                                  answer.attended === false
+                                    ? 'border-error bg-error/10 font-medium text-error'
+                                    : 'border-border-subtle text-on-surface hover:border-secondary'
+                                }`}
+                              >
+                                No-show
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </details>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+    )
+  }
+
+
   return (
     <div>
       <PageHeader
@@ -267,304 +597,27 @@ export function AvailabilityPage() {
           </p>
         ) : (
           <div className="mt-6 flex flex-col gap-6">
-            {upcoming.map((service) => {
-              const finished = isFinished(service.id)
-              // Nobody can answer for a service that has happened, so it
-              // folds down to its own name and opens on a touch.
-              const open = !finished || isExpanded(service.id)
-              const heading = (
-                <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-headline-md">{service.service_type}</h2>
-                  <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
-                    {finished && (
-                      <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
-                        Finished · closed
-                      </span>
-                    )}
-                    {service.date === today ? 'Today' : formatServiceDay(service.date)}
-                    {finished && <Chevron open={open} />}
-                  </span>
+            {groups.now.map((service) => renderService(service, true))}
+
+            {groups.later.length > 0 && (
+              /* Everything past the next occasion. Real services with real
+                 questions on them — folded, because answering the one in
+                 front of you should not mean scrolling past a month first. */
+              <section aria-labelledby="upcoming-availability">
+                <h2
+                  id="upcoming-availability"
+                  className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
+                >
+                  Upcoming services availability
+                </h2>
+                <p className="mt-1 text-label-sm text-on-surface-faint">
+                  The next three weeks. Answer early if you already know.
+                </p>
+                <div className="mt-4 flex flex-col gap-6">
+                  {groups.later.map((service) => renderService(service, false))}
                 </div>
-              )
-              return (
-              <section
-                key={service.id}
-                className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
-                  finished ? 'opacity-70' : ''
-                }`}
-              >
-                {finished ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleService(service.id)}
-                    aria-expanded={open}
-                    aria-controls={`availability-teams-${service.id}`}
-                    className="flex w-full text-left"
-                  >
-                    {heading}
-                  </button>
-                ) : (
-                  heading
-                )}
-
-                {/* Each team is its own card, so the eye can jump to the one
-                    that is short rather than reading a column of bars. */}
-                <ul
-                  id={`availability-teams-${service.id}`}
-                  hidden={!open}
-                  className="mt-5 flex flex-col gap-3">
-                  {myDepartments.map((dept) => {
-                    const mine = myAnswer(service.id, dept.id)
-                    const leads = ledDepartmentIds.includes(dept.id)
-                    // Core members are the people expected to serve, and
-                    // they are the denominator: a guest is not somebody the
-                    // team is short of.
-                    const onTeam = (membersQuery.data ?? []).filter(
-                      (m) => m.department_id === dept.id,
-                    )
-                    const coreMembers = onTeam.filter((m) => m.member_type === 'core')
-                    const answers = (availabilityQuery.data ?? []).filter(
-                      (a) => a.service_id === service.id && a.department_id === dept.id,
-                    )
-                    const summary = availabilitySummary(
-                      coreMembers.map((m) => m.user_id),
-                      answers,
-                    )
-                    /*
-                     * A guest who answered is still listed.
-                     *
-                     * The roster here was core-only, so a guest who took the
-                     * trouble to say they could serve simply vanished — no
-                     * row, no name, nothing to tell the head the answer had
-                     * been given. They are shown after the core team and
-                     * badged, so the count above still means what it says.
-                     */
-                    const answeredGuests = onTeam.filter(
-                      (m) =>
-                        m.member_type === 'guest' &&
-                        answers.some((a) => a.user_id === m.user_id),
-                    )
-                    const teamMembers = [...coreMembers, ...answeredGuests]
-
-                    // A team still owed answers keeps the amber row: what
-                    // needs a person outranks whose team it is.
-                    return (
-                      <li
-                        key={dept.id}
-                        className={`rounded-[var(--radius-row)] px-4 py-3.5 sm:px-5 ${
-                          summary.noAnswer > 0
-                            ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)]'
-                            : 'bg-raised hairline'
-                        }`}
-                        style={summary.noAnswer > 0 ? undefined : teamWash(dept.color, teamStyle)}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <div className="flex items-center gap-2.5">
-                            <TeamMark color={dept.color} />
-                            <span className="text-body-md font-medium text-on-surface">{dept.name}</span>
-                          </div>
-                          <span
-                            className={`font-mono text-label-sm ${
-                              summary.noAnswer > 0 ? 'text-accent-orange-soft' : 'text-on-surface-faint'
-                            }`}
-                          >
-                            {summary.noAnswer > 0
-                              ? `${summary.noAnswer} unanswered · ${summary.available}/${summary.total}`
-                              : `${summary.pct}% available · ${summary.available}/${summary.total}`}
-                            {summary.tentative > 0 && ` · ${summary.tentative} tentative`}
-                          </span>
-                        </div>
-
-                        <div
-                          className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-raised-strong"
-                          role="img"
-                          aria-label={`${dept.name}: ${summary.pct}% available, ${summary.tentative} tentative, ${summary.noAnswer} yet to answer`}
-                        >
-                          <div
-                            className="bg-success"
-                            style={{ width: `${summary.total > 0 ? (summary.available / summary.total) * 100 : 0}%` }}
-                          />
-                          <div
-                            className="bg-warning"
-                            style={{ width: `${summary.total > 0 ? (summary.tentative / summary.total) * 100 : 0}%` }}
-                          />
-                          <div
-                            className="bg-error"
-                            style={{
-                              width: `${summary.total > 0 ? (summary.unavailable / summary.total) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-
-                        {/* Chasing an answer belongs beside the count of
-                            answers still missing, not in a settings page:
-                            this is the moment a head notices. */}
-                        {!finished && summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
-                          <div className="mt-3">
-                            <NudgeButton
-                              rpc="nudge_availability"
-                              args={{ dept_id: dept.id, svc_id: service.id }}
-                              nobodyLabel="Only you left to answer"
-                            >
-                              Remind the {summary.noAnswer} who haven&rsquo;t answered
-                            </NudgeButton>
-                          </div>
-                        )}
-
-                        {canAnswer && !finished && (
-                          <div
-                            role="group"
-                            aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
-                            className={`mt-3 flex gap-2 rounded-full bg-inset p-1 ${
-                              mine
-                                ? 'hairline'
-                                : /* Unanswered is the state that needs chasing,
-                                     so the control itself asks for the tap. */
-                                  'shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-accent-orange)_35%,transparent)]'
-                            }`}
-                          >
-                            {STATUS_OPTIONS.map((opt) => {
-                              const active = mine === opt.value
-                              return (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  title={opt.full}
-                                  aria-pressed={active}
-                                  onClick={() =>
-                                    setAvailability.mutate({
-                                      serviceId: service.id,
-                                      departmentId: dept.id,
-                                      status: opt.value,
-                                    })
-                                  }
-                                  disabled={setAvailability.isPending}
-                                  className={`flex h-11 flex-1 items-center justify-center rounded-full text-body-sm transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-60 ${
-                                    active
-                                      ? `font-semibold ${opt.activeClass}`
-                                      : 'text-on-surface-variant hover:text-on-surface'
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-
-                        {leads && teamMembers.length > 0 && (
-                          <details className="mt-3">
-                            <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
-                              Team responses ({answers.length}/{coreMembers.length})
-                              {answeredGuests.length > 0 &&
-                                ` + ${answeredGuests.length} guest${answeredGuests.length === 1 ? '' : 's'}`}
-                            </summary>
-                            <ul className="mt-2 flex flex-col gap-1.5 border-l border-border-subtle pl-3">
-                              {teamMembers.map((m) => {
-                                const answer = answers.find((a) => a.user_id === m.user_id)
-                                return (
-                                  <li key={m.id} className="text-body-sm">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                                        <span className="break-words text-on-surface">
-                                          {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
-                                        </span>
-                                        {m.member_type === 'guest' && (
-                                          <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                                            Guest
-                                          </span>
-                                        )}
-                                      </span>
-                                      {isAdmin ? (
-                                        <Select
-                                          value={answer?.status ?? ''}
-                                          onChange={(status) =>
-                                            setForMember.mutate({
-                                              answerId: answer?.id ?? null,
-                                              userId: m.user_id,
-                                              serviceId: service.id,
-                                              departmentId: dept.id,
-                                              status: (status || null) as AvailabilityStatus | null,
-                                            })
-                                          }
-                                          disabled={setForMember.isPending || finished}
-                                          aria-label={`Availability for ${
-                                            m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
-                                          }`}
-                                          className={`tap shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
-                                            answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
-                                          }`}
-                                          options={[
-                                            { value: '', label: 'No answer' },
-                                            ...STATUS_OPTIONS.map((opt) => ({
-                                              value: opt.value,
-                                              label: opt.label,
-                                            })),
-                                          ]}
-                                        />
-                                      ) : (
-                                        <span
-                                          className={`shrink-0 font-mono text-label-sm ${
-                                            answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
-                                          }`}
-                                        >
-                                          {answer ? statusLabel[answer.status] : 'No answer'}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {answer?.status === 'available' && (
-                                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                                        <span className="font-mono text-label-sm text-on-surface-variant">
-                                          Turned up?
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setAttended.mutate({
-                                              id: answer.id,
-                                              attended: answer.attended === true ? null : true,
-                                            })
-                                          }
-                                          className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
-                                            answer.attended === true
-                                              ? 'border-success bg-success/10 font-medium text-success'
-                                              : 'border-border-subtle text-on-surface hover:border-secondary'
-                                          }`}
-                                        >
-                                          Present
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setAttended.mutate({
-                                              id: answer.id,
-                                              attended: answer.attended === false ? null : false,
-                                            })
-                                          }
-                                          className={`tap rounded-full border px-2.5 py-1 text-label-sm ${
-                                            answer.attended === false
-                                              ? 'border-error bg-error/10 font-medium text-error'
-                                              : 'border-border-subtle text-on-surface hover:border-secondary'
-                                          }`}
-                                        >
-                                          No-show
-                                        </button>
-                                      </div>
-                                    )}
-                                  </li>
-                                )
-                              })}
-                            </ul>
-                          </details>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
               </section>
-              )
-            })}
+            )}
           </div>
         )}
       </QueryState>
