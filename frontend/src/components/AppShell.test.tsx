@@ -19,7 +19,7 @@ vi.mock('./NotificationsBell', () => ({ NotificationsBell: () => <div>bell</div>
 vi.mock('./AccountMenu', () => ({ AccountMenu: () => <div>account</div> }))
 vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => <div>theme</div> }))
 vi.mock('./AiAssistantPanel', () => ({ AiAssistantPanel: () => null }))
-vi.mock('./PwaBanners', () => ({ PwaBanners: () => null, InstallAppButton: () => null }))
+vi.mock('./PwaBanners', () => ({ PwaBanners: () => null }))
 // Data-driven, like the bell above it: these tests are about the dock.
 vi.mock('./AlertBanner', () => ({ AlertBanner: () => null }))
 

@@ -19,6 +19,7 @@ import {
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { ThemeToggle } from './ThemeToggle'
+import { InstallAppBadge } from './InstallApp'
 import { useNotificationRouting } from '../lib/useNotificationRouting'
 import { useScrolled } from '../lib/useScrolled'
 import { TeamStyleToggle } from './TeamStyleToggle'
@@ -141,6 +142,7 @@ export function AppShell() {
 
         <GlobalSearch />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <InstallAppBadge />
           <TeamStyleToggle />
           <ThemeToggle />
           <NotificationsBell />
