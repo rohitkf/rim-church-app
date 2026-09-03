@@ -282,15 +282,27 @@ export function Select({
             }}
             className="fixed z-[60] overflow-y-auto overscroll-contain rounded-[var(--radius-card)] bg-surface-lowest p-1 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
           >
-            {options.map((item) =>
+            {options.map((item, at) =>
               isGroup(item) ? (
-                <div key={`group-${item.label}`} className="py-1">
-                  <div className="px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                    {item.label}
+                <div
+                  key={`group-${item.label}`}
+                  className={at === 0 ? 'pb-1' : 'mt-1.5 border-t border-border-subtle pb-1 pt-1.5'}
+                >
+                  {/* The heading was the same faint grey as the options it
+                      was heading, in a list where both are short lines of
+                      text — so it read as another option rather than as the
+                      name of a family. It is brighter now, and carries a
+                      rule out to the edge of the menu, which is a shape no
+                      option has. */}
+                  <div className="flex items-center gap-2 px-3 py-1">
+                    <span className="shrink-0 font-mono text-label-sm font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                      {item.label}
+                    </span>
+                    <span aria-hidden="true" className="h-px flex-1 bg-border-subtle" />
                   </div>
                   {item.options.map((option) => {
                     index += 1
-                    return renderOption(option, index)
+                    return renderOption(option, index, true)
                   })}
                 </div>
               ) : (
@@ -306,7 +318,9 @@ export function Select({
     </>
   )
 
-  function renderOption(option: SelectOption, at: number) {
+  /** `grouped` indents the row, so a family is visible in the shape of the
+      list and not only in the words above it. */
+  function renderOption(option: SelectOption, at: number, grouped = false) {
     const isSelected = option.value === value
     return (
       <div
@@ -317,7 +331,9 @@ export function Select({
         data-active={at === active}
         onMouseEnter={() => setActive(at)}
         onClick={() => choose(at)}
-        className={`flex cursor-pointer items-center justify-between gap-2 rounded-[var(--radius-chip)] px-3 py-2 text-body-sm transition-colors duration-150 ${
+        className={`flex cursor-pointer items-center justify-between gap-2 rounded-[var(--radius-chip)] py-2 pr-3 text-body-sm transition-colors duration-150 ${
+          grouped ? 'pl-5' : 'pl-3'
+        } ${
           option.disabled
             ? 'cursor-not-allowed text-on-surface-faint'
             : at === active

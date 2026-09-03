@@ -79,6 +79,38 @@ describe('Select', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('Keys')
   })
 
+  it('draws a heading as a heading, not as another line of text', async () => {
+    // On the rota the headings were the same faint grey as the options
+    // under them, in a list where both are short lines — so a family name
+    // read as one more role you could pick. The heading now carries a rule
+    // to the edge of the menu and its options are indented: two things no
+    // option does.
+    const user = show({
+      options: [
+        { value: 'c', label: 'Team Coordinator' },
+        { label: 'Camera operators', options: [{ value: 'c1', label: 'Camera Operator 1' }] },
+      ],
+    })
+    await user.click(screen.getByRole('combobox'))
+    const listbox = screen.getByRole('listbox')
+
+    const heading = within(listbox).getByText('Camera operators').parentElement!
+    expect(heading.querySelector('[aria-hidden="true"]')).toBeInTheDocument()
+
+    const grouped = within(listbox).getByRole('option', { name: 'Camera Operator 1' })
+    const ungrouped = within(listbox).getByRole('option', { name: 'Team Coordinator' })
+    expect(grouped.className).toContain('pl-5')
+    expect(ungrouped.className).toContain('pl-3')
+  })
+
+  it('keeps a heading out of the options, so the arrows never land on one', async () => {
+    const user = show({
+      options: [{ label: 'Vision mix', options: [{ value: 'd', label: 'Director' }] }],
+    })
+    await user.click(screen.getByRole('combobox'))
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1)
+  })
+
   it('will not report a disabled option as a choice', async () => {
     const onChange = vi.fn()
     render(
