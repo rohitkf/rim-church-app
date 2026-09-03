@@ -51,10 +51,22 @@ interface Placement {
   left: number
   top: number
   width: number
+  /** What the menu may grow to, so a long option wraps instead of escaping. */
+  maxWidth: number
   maxHeight: number
 }
 
-/** Where the menu goes: under the field, or above it when the window ends. */
+/**
+ * Where the menu goes: under the field, or above it when the window ends —
+ * and never past the side of the screen.
+ *
+ * The menu is as wide as its widest option, which on a phone is how "
+ * Malayalam Service — Sunday, 6 September 2026" ran off the right-hand
+ * edge with the end of it unreachable. So the width is capped to what is
+ * actually there, and if the field sits far enough right that even a
+ * capped menu would overflow, the menu slides back until it fits. A list
+ * you cannot read the end of is a list that has not been drawn.
+ */
 function placementFor(trigger: HTMLElement): Placement {
   const rect = trigger.getBoundingClientRect()
   const gap = 6
@@ -63,9 +75,16 @@ function placementFor(trigger: HTMLElement): Placement {
   const above = rect.top - gap - margin
   const openUp = below < 180 && above > below
   const maxHeight = Math.max(120, Math.min(288, openUp ? above : below))
+
+  const room = window.innerWidth - margin * 2
+  const width = Math.min(Math.max(rect.width, 0), room)
+  // Pulled left only as far as it has to be, and never past the margin.
+  const left = Math.max(margin, Math.min(rect.left, window.innerWidth - margin - width))
+
   return {
-    left: rect.left,
-    width: rect.width,
+    left,
+    width,
+    maxWidth: room,
     top: openUp ? rect.top - gap - maxHeight : rect.bottom + gap,
     maxHeight,
   }
@@ -278,6 +297,7 @@ export function Select({
               left: placement.left,
               top: placement.top,
               minWidth: placement.width,
+              maxWidth: placement.maxWidth,
               maxHeight: placement.maxHeight,
             }}
             className="fixed z-[60] overflow-y-auto overscroll-contain rounded-[var(--radius-card)] bg-surface-lowest p-1 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
@@ -341,7 +361,7 @@ export function Select({
               : 'text-on-surface-variant'
         }`}
       >
-        <span className="min-w-0 truncate">{option.label}</span>
+        <span className="min-w-0 break-words">{option.label}</span>
         {isSelected && (
           <span aria-hidden="true" className="shrink-0 text-secondary">
             ✓
