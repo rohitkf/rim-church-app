@@ -7,7 +7,6 @@ import { useErrorText } from '../lib/useErrorText'
 import { Field, Overlay, inputClasses } from './Surface'
 import { Select } from './Select'
 import { NumberDial } from './NumberDial'
-import { UnitInput } from './UnitInput'
 import { QueryState } from './QueryState'
 import { inventoryCategorySchema, type InventoryCategory } from '../lib/types'
 import { categoryOptions } from '../lib/inventoryCategories'
@@ -29,8 +28,6 @@ const requestSchema = z.object({
   kind: z.enum(['asset', 'consumable']).nullable().optional(),
   quantity: z.number(),
   estimated_cost: z.union([z.number(), z.string()]).nullable(),
-  /** What one of it is — "screw", "box". The cost is the cost of one. */
-  unit: z.string().nullable().optional(),
   product_url: z.string().nullable(),
   reason: z.string().nullable(),
   // The rest of what the shelf will need, asked for once, here.
@@ -53,7 +50,7 @@ const requestSchema = z.object({
 export type PurchaseRequest = z.infer<typeof requestSchema>
 
 const REQUEST_COLUMNS =
-  'id, department_id, requested_by, item_name, kind, quantity, estimated_cost, unit, product_url, reason, brand, model, serial_number, location, category, category_id, reorder_level, status, decision_note, decided_at, created_at, inventory_item_id, requester:profiles!purchase_requests_requested_by_fkey(first_name, last_name), decider:profiles!purchase_requests_decided_by_fkey(first_name, last_name), department:departments(name, color)'
+  'id, department_id, requested_by, item_name, kind, quantity, estimated_cost, product_url, reason, brand, model, serial_number, location, category, category_id, reorder_level, status, decision_note, decided_at, created_at, inventory_item_id, requester:profiles!purchase_requests_requested_by_fkey(first_name, last_name), decider:profiles!purchase_requests_decided_by_fkey(first_name, last_name), department:departments(name, color)'
 
 const money = (value: number | string | null | undefined) =>
   value == null || value === '' ? null : `£${Number(value).toFixed(2)}`
@@ -582,11 +579,7 @@ function RequestFields({
         />
       </Field>
 
-      <Field label="What one is called (optional)" hint="Screw, box, metre — what the cost below is the cost of.">
-        <UnitInput value={draft.unit} onChange={(value) => set('unit', value)} />
-      </Field>
-
-      <Field label="Roughly what one costs (optional)" hint={valueHint(draft.quantity, draft.cost, draft.unit)}>
+      <Field label="Roughly what one costs (optional)" hint={valueHint(draft.quantity, draft.cost)}>
         <input
           type="number"
           min="0"
@@ -661,7 +654,6 @@ function RequestRow({
   // Ten screws at a pound each is ten pounds. Both numbers are shown,
   // because the one that gets typed in wrong is whichever is not.
   const total = row.estimated_cost == null ? null : money(Number(row.estimated_cost) * row.quantity)
-  const unit = row.unit?.trim()
   // What the register will get. Shown so the person approving can see it
   // is filled in — a blank here is a blank on the shelf later.
   const specifics = [
@@ -678,10 +670,9 @@ function RequestRow({
         <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
           {row.item_name}
         </span>
-        {(row.quantity > 1 || unit) && (
+        {row.quantity > 1 && (
           <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
             ×{row.quantity}
-            {unit ? ` ${unit}` : ''}
           </span>
         )}
         <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${STATUS_TONE[row.status]}`}>
@@ -698,7 +689,7 @@ function RequestRow({
           <>
             <span aria-hidden="true">·</span>
             <span>
-              {each} {unit ? `per ${unit}` : 'each'}
+              {each} each
               {row.quantity > 1 && total ? ` · ${total} in all` : ''}
             </span>
           </>

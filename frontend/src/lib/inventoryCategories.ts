@@ -105,13 +105,31 @@ export function nextCategoryOrder(categories: InventoryCategory[]): number {
  * exactly the flat list it always was, with no headings at all.
  */
 export type Row<T> =
-  | { kind: 'heading'; id: string | null; name: string; count: number }
+  | { kind: 'heading'; id: string | null; name: string; count: number; value: number }
   | { kind: 'item'; item: T }
 
-export function rowsForGroups<T>(groups: CategoryGroup<T>[] | null, flat: T[]): Row<T>[] {
+/**
+ * `valueOf` is how a heading learns what the shelf under it is worth —
+ * "Switchers 2 · £4,886". Optional, because the sum only means something
+ * where the caller has money to give it; without one every heading is
+ * worth nothing and shows no total.
+ */
+export function rowsForGroups<T>(
+  groups: CategoryGroup<T>[] | null,
+  flat: T[],
+  valueOf?: (item: T) => number,
+): Row<T>[] {
   if (!groups) return flat.map((item) => ({ kind: 'item', item }))
+  const worth = (items: T[]) =>
+    valueOf ? items.reduce((sum, item) => sum + valueOf(item), 0) : 0
   return groups.flatMap((group) => [
-    { kind: 'heading' as const, id: group.id, name: group.name, count: group.items.length },
+    {
+      kind: 'heading' as const,
+      id: group.id,
+      name: group.name,
+      count: group.items.length,
+      value: worth(group.items),
+    },
     ...group.items.map((item) => ({ kind: 'item' as const, item })),
   ])
 }
