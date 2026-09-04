@@ -272,7 +272,12 @@ export function InventoryPage() {
       </div>
 
       {adding && canManage && id && (
-        <AddItemForm departmentId={id} onDone={() => { setAdding(false); refresh() }} onError={setError} />
+        <AddItemForm
+          departmentId={id}
+          categories={categories}
+          onDone={() => { setAdding(false); refresh() }}
+          onError={setError}
+        />
       )}
 
       {canManage && id && (
@@ -512,7 +517,7 @@ export function InventoryPage() {
                     return (
                       <tr key={`heading-${row.id ?? 'loose'}`} className="bg-surface-low">
                         <td
-                          colSpan={12}
+                          colSpan={canManage ? 8 : 6}
                           className="px-4 py-2 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
                         >
                           {row.name}
@@ -873,10 +878,12 @@ function RowActions({
 /** Adding to the register: an asset gets a tag, a consumable gets a level. */
 function AddItemForm({
   departmentId,
+  categories,
   onDone,
   onError,
 }: {
   departmentId: string
+  categories: InventoryCategory[]
   onDone: () => void
   onError: (message: string) => void
 }) {
@@ -884,6 +891,8 @@ function AddItemForm({
   const [kind, setKind] = useState<'asset' | 'consumable'>('asset')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
+  // The shelf to file it on. '' is Uncategorised, which is a real answer.
+  const [categoryId, setCategoryId] = useState('')
   const [brand, setBrand] = useState('')
   const [productUrl, setProductUrl] = useState('')
   const [model, setModel] = useState('')
@@ -908,6 +917,7 @@ function AddItemForm({
         department_id: departmentId,
         name: name.trim(),
         category: category.trim() || null,
+        category_id: categoryId || null,
         kind,
         asset_tag: tag,
         brand: brand.trim() || null,
@@ -956,9 +966,21 @@ function AddItemForm({
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Wireless mic pack" className={inputClasses} />
         </Field>
 
-        {/* Not the shelf an item is filed on — that is `category_id`, set
-            from the Edit form. This is the word the asset tag is minted
-            from, which is why it is asked for once and never again. */}
+        {/* Only when the team has shelves to file onto. A picker whose one
+            option is "Uncategorised" is a question with a single answer. */}
+        {categories.length > 0 && (
+          <Field label="Category" hint="Which shelf it is filed on.">
+            <Select
+              value={categoryId}
+              onChange={setCategoryId}
+              options={categoryOptions(categories)}
+              aria-label="Category for the new item"
+            />
+          </Field>
+        )}
+
+        {/* Not the shelf — that is the picker above. This is the word the
+            asset tag is minted from, asked for once and never again. */}
         <Field label="Tag word" hint="Three letters of this become the middle of the tag — MEM in MED-MEM-0001.">
           <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Microphone" className={inputClasses} />
         </Field>

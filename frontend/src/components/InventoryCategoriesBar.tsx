@@ -79,7 +79,9 @@ export function InventoryCategoriesBar({
     },
     onSuccess: () => {
       setRenaming(null)
-      queryClient.invalidateQueries({ queryKey: ['inventory', departmentId] })
+      // The items carry the id of the shelf they were on; the list has to
+      // be re-read or it keeps drawing a heading that is gone.
+      queryClient.invalidateQueries({ queryKey: ['inventory-items', departmentId] })
       refresh()
     },
     onError: fail('Could not delete that category.'),
