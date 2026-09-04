@@ -492,7 +492,14 @@ export function AvailabilityPage() {
                                 aria-label={`Availability for ${
                                   m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
                                 }`}
-                                className={`tap shrink-0 rounded-full hairline bg-surface-lowest px-2 py-1 font-mono text-label-sm ${
+                                /* A fixed width, so a column of answers
+                                   lines up instead of each pill sizing to
+                                   its own word — "Yes" and "No answer"
+                                   started their text in different places
+                                   down the same column. Wide enough for
+                                   the longest of them, so nothing
+                                   truncates. */
+                                className={`tap w-28 shrink-0 rounded-full hairline bg-surface-lowest px-2.5 py-1.5 font-mono text-label-sm ${
                                   answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
                                 }`}
                                 options={[

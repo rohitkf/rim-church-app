@@ -116,3 +116,32 @@ describe('rowsForGroups', () => {
     ])
   })
 })
+
+describe('shelves that start shut', () => {
+  const groups = [
+    { id: 'c1', name: 'Cameras', items: [{ id: 'a' }, { id: 'b' }] },
+    { id: null, name: 'Uncategorised', items: [{ id: 'c' }] },
+  ]
+
+  it('draws every heading and fills in only the open ones', () => {
+    const rows = rowsForGroups(groups, [], undefined, (id) => id === 'c1')
+    expect(rows.map((r) => (r.kind === 'heading' ? `# ${r.name}` : r.item.id))).toEqual([
+      '# Cameras',
+      'a',
+      'b',
+      '# Uncategorised',
+    ])
+  })
+
+  it('still says how many are under a shut heading, and what they are worth', () => {
+    const rows = rowsForGroups(groups, [], () => 10, () => false)
+    const heading = rows[0]
+    expect(heading.kind === 'heading' && heading.count).toBe(2)
+    expect(heading.kind === 'heading' && heading.value).toBe(20)
+    expect(rows.filter((r) => r.kind === 'item')).toHaveLength(0)
+  })
+
+  it('opens everything when asked nothing', () => {
+    expect(rowsForGroups(groups, []).filter((r) => r.kind === 'item')).toHaveLength(3)
+  })
+})

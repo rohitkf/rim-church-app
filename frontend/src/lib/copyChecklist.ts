@@ -24,19 +24,24 @@ export interface CopiedChecklistItem {
  * the one thing worse than typing a checklist twice is a checklist that
  * changes when nobody touched it.
  *
- * Both halves come across together. "Same as Camera Operator 1" plainly
- * means the whole job, and copying only what is before the service would
- * leave somebody to notice the missing half on their own.
+ * Both halves come across by default: "same as Camera Operator 1" plainly
+ * means the whole job, and taking only what is before the service would
+ * leave somebody to notice the missing half on their own. `onlyItemIds`
+ * is how somebody says otherwise — the picker hands over exactly the rows
+ * that were ticked, and everything else about the copy is unchanged.
  */
 export function itemsToCopy({
   items,
   fromRoleId,
   toRoleId,
+  onlyItemIds,
 }: {
   /** Every checklist item on the team, across all its roles. */
   items: RoleChecklistItem[]
   fromRoleId: string
   toRoleId: string
+  /** Left out, the whole of the source role's list comes across. */
+  onlyItemIds?: ReadonlySet<string>
 }): CopiedChecklistItem[] {
   if (!fromRoleId || fromRoleId === toRoleId) return []
 
@@ -64,7 +69,7 @@ export function itemsToCopy({
   // be shown.
   const phaseRank = new Map(PHASES.map((p, i) => [p.value, i]))
   const source = items
-    .filter((i) => i.role_id === fromRoleId)
+    .filter((i) => i.role_id === fromRoleId && (!onlyItemIds || onlyItemIds.has(i.id)))
     .sort(
       (a, b) =>
         (phaseRank.get(a.phase) ?? 0) - (phaseRank.get(b.phase) ?? 0) ||

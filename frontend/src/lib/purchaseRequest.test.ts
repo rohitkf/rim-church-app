@@ -3,6 +3,7 @@ import {
   draftFrom,
   draftToRow,
   emptyDraft,
+  groupByTeam,
   itemFromRequest,
   type RequestRowFields,
 } from './purchaseRequest'
@@ -105,5 +106,43 @@ describe('itemFromRequest', () => {
 
   it('carries no tag when the database did not mint one', () => {
     expect(itemFromRequest(row, null).asset_tag).toBeNull()
+  })
+})
+
+describe('the wishlist, one team at a time', () => {
+  const ask = (
+    departmentId: string,
+    name: string,
+    cost: number | string | null,
+    quantity = 1,
+  ) => ({
+    department_id: departmentId,
+    quantity,
+    estimated_cost: cost,
+    department: { name, color: '#fff' },
+  })
+
+  it('gathers each team, in alphabetical order', () => {
+    const groups = groupByTeam([
+      ask('m', 'Media', 100),
+      ask('a', 'Audio', 50),
+      ask('m', 'Media', 25),
+    ])
+    expect(groups.map((g) => g.name)).toEqual(['Audio', 'Media'])
+    expect(groups[1].rows).toHaveLength(2)
+  })
+
+  it('totals what a team is asking for, counting how many of each', () => {
+    const groups = groupByTeam([ask('m', 'Media', '433.00', 3), ask('m', 'Media', 100)])
+    expect(groups[0].total).toBe(1399)
+  })
+
+  it('counts a request with no price as nothing rather than as NaN', () => {
+    expect(groupByTeam([ask('m', 'Media', null, 2)])[0].total).toBe(0)
+  })
+
+  it('still names a team whose row came back without one', () => {
+    const groups = groupByTeam([{ department_id: 'x', quantity: 1, estimated_cost: null }])
+    expect(groups[0].name).toBe('Another team')
   })
 })

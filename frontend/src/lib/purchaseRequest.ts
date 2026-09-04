@@ -151,3 +151,47 @@ export function itemFromRequest(
     asset_tag: assetTag,
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * The wishlist, one team at a time
+ * ------------------------------------------------------------------ */
+
+/**
+ * On a team's own page every row belongs to that team and a heading would
+ * say nothing. On the Admin's page across every team it ran as one list,
+ * so "what is Media waiting on" meant reading past Hospitality — and the
+ * only thing marking whose row was whose was the team's name in small
+ * type at the end of the line.
+ */
+export interface TeamRow {
+  department_id: string
+  quantity: number
+  estimated_cost?: number | string | null
+  department?: { name: string; color: string | null } | null
+}
+
+export interface TeamGroup<T> {
+  id: string
+  name: string
+  color: string | null
+  rows: T[]
+  /** What the team is asking for, in money. */
+  total: number
+}
+
+export function groupByTeam<T extends TeamRow>(rows: T[]): TeamGroup<T>[] {
+  const groups = new Map<string, TeamGroup<T>>()
+  for (const row of rows) {
+    const group = groups.get(row.department_id) ?? {
+      id: row.department_id,
+      name: row.department?.name ?? 'Another team',
+      color: row.department?.color ?? null,
+      rows: [],
+      total: 0,
+    }
+    group.rows.push(row)
+    group.total += row.estimated_cost == null ? 0 : Number(row.estimated_cost) * row.quantity
+    groups.set(row.department_id, group)
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
