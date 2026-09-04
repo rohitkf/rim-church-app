@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -28,6 +29,14 @@ import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
+import { useNow } from '../lib/useNow'
+import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
+import { ServiceCountdown } from '../components/ServiceCountdown'
+import type { CallTimeRow } from '../lib/callTimes'
+
+const CallTimeRows = z.array(
+  z.object({ department_id: z.string(), on_date: z.string(), call_time: z.string() }),
+)
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
@@ -81,6 +90,36 @@ export function ChecklistsIndexPage() {
     queryFn: () => fetchRotaProgress(assignmentIds),
     enabled: assignmentIds.length > 0,
   })
+
+  /*
+   * When each team is due in on each of the days shown.
+   *
+   * A checklist opens at its team's call time on the day of the service —
+   * the database refuses anything earlier (0079), and this is how the page
+   * knows to say so rather than letting somebody tap a box that will bounce.
+   */
+  const dayDates = useMemo(() => [...new Set(dayServices.map((s) => s.date))].sort(), [dayServices])
+  const callTimesQuery = useQuery({
+    queryKey: ['call-times', dayDates],
+    queryFn: async (): Promise<CallTimeRow[]> => {
+      const { data, error: err } = await supabase
+        .from('department_call_times')
+        .select('department_id, on_date, call_time')
+        .in('on_date', dayDates)
+      if (err) throw err
+      return CallTimeRows.parse(data)
+    },
+    enabled: dayDates.length > 0,
+  })
+  const callTimes = useMemo(() => callTimesQuery.data ?? [], [callTimesQuery.data])
+
+  // Recomputed on a timer, so a checklist opens while somebody is looking
+  // at the page rather than on the next reload.
+  const now = useNow()
+
+  /** Whether this team may tick anything yet, on this service's day. */
+  const windowFor = (departmentId: string, serviceDate: string) =>
+    checklistWindow({ serviceDate, departmentId, callTimes, now, alwaysOpen: isAdmin })
 
   const serviceFlowDept = (departmentsQuery.data ?? []).find((d) => d.is_service_flow)
 
@@ -335,7 +374,13 @@ export function ChecklistsIndexPage() {
                         {forService.map(({ assignment, rank }) => {
                           const items = (itemsQuery.data ?? []).filter((i) => i.role_id === assignment.role_id)
                           const progress = progressQuery.data ?? []
-                          const may = mayFor(assignment)
+                          // Shut until the team is called in. Nobody's
+                          // signature is exempt: a Head cannot verify what
+                          // nobody could have ticked yet.
+                          const gate = windowFor(assignment.department_id, service.date)
+                          const may = gate.open
+                            ? mayFor(assignment)
+                            : { member: false, head: false, sign: false }
                           const statusOf = (itemId: string): ChecklistItemStatus =>
                             progress.find((p) => p.assignment_id === assignment.id && p.item_id === itemId)
                               ?.status ?? 'pending'
@@ -377,6 +422,32 @@ export function ChecklistsIndexPage() {
                                   </span>
                                 </span>
                               </div>
+
+                              {/*
+                                Why the boxes are dead, and when they will
+                                not be. A locked control with no explanation
+                                reads as a broken one, and "your call time"
+                                is a thing everybody on the team already
+                                knows the meaning of — so it is said in
+                                those words, with the same clock the rota
+                                counts down to.
+                              */}
+                              {!finished && !gate.open && (
+                                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
+                                  <span className="text-body-sm text-on-surface-variant">
+                                    {whenItOpens(gate, formatServiceDay(service.date))}
+                                  </span>
+                                  <ServiceCountdown
+                                    startsAt={gate.opensAt}
+                                    label="until it opens"
+                                    fallback={
+                                      <span className="font-mono text-label-sm text-on-surface-faint">
+                                        opens at {gate.clock}
+                                      </span>
+                                    }
+                                  />
+                                </div>
+                              )}
 
                               {items.length === 0 ? (
                                 <p className="mt-3 text-body-sm text-on-surface-variant">
