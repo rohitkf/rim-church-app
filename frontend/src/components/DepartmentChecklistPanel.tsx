@@ -9,6 +9,11 @@ import { useHandbookUrl } from '../lib/useHandbookUrl'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useErrorText } from '../lib/useErrorText'
+import { useNow } from '../lib/useNow'
+import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
+import { ServiceCountdown } from './ServiceCountdown'
+import type { CallTimeRow } from '../lib/callTimes'
+
 import { useServiceFlowSigner } from '../lib/useServiceFlowSigner'
 import { useTeamCoordinator } from '../lib/useTeamCoordinator'
 import {
@@ -20,6 +25,10 @@ import {
   type DepartmentMemberRow,
 } from '../lib/types'
 import { Select, selectPillClasses } from './Select'
+
+const CallTimeRows = z.array(
+  z.object({ department_id: z.string(), on_date: z.string(), call_time: z.string() }),
+)
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -97,10 +106,38 @@ export function DepartmentChecklistPanel({
   // verify an item but not to manage the list it was on.
   const roleAllowsHeadWork = isAdmin || isDepartmentHead(departmentId) || isTeamCoordinator
 
-  // Outside Admin, a checklist is only workable on the service's own day —
-  // beforehand or after the fact it's read-only, so a past week's record
-  // can't be quietly rewritten.
-  const editingLocked = !isAdmin && !!serviceDate && serviceDate !== todayIso()
+  /*
+   * Outside Admin, a checklist is only workable on the service's own day —
+   * beforehand or after the fact it's read-only, so a past week's record
+   * can't be quietly rewritten. And on the day itself it stays shut until
+   * the team is called in: a box ticked from an armchair says nothing
+   * about whether the thing was done. The database refuses either way
+   * (0079); this is what lets the page say so first.
+   */
+  const now = useNow()
+  const callTimesQuery = useQuery({
+    queryKey: ['call-times', serviceDate ? [serviceDate] : []],
+    queryFn: async (): Promise<CallTimeRow[]> => {
+      const { data, error: err } = await supabase
+        .from('department_call_times')
+        .select('department_id, on_date, call_time')
+        .eq('on_date', serviceDate!)
+      if (err) throw err
+      return CallTimeRows.parse(data)
+    },
+    enabled: !!serviceDate,
+  })
+  const gate = serviceDate
+    ? checklistWindow({
+        serviceDate,
+        departmentId,
+        callTimes: callTimesQuery.data ?? [],
+        now,
+        alwaysOpen: isAdmin,
+      })
+    : null
+  const wrongDay = !isAdmin && !!serviceDate && serviceDate !== todayIso()
+  const editingLocked = wrongDay || (!!gate && !gate.open)
 
   const canManageChecklist = roleAllowsHeadWork && !editingLocked
   const canHeadVerify = canManageChecklist
@@ -220,9 +257,24 @@ export function DepartmentChecklistPanel({
       )}
 
       {editingLocked && (
-        <p className="mt-4 rounded-full hairline bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">
-          View only — this checklist can be worked on {formatServiceDay(serviceDate!)}.
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-chip)] hairline bg-surface-container px-3 py-2">
+          <span className="text-body-sm text-on-surface-variant">
+            {wrongDay || !gate
+              ? `View only — this checklist can be worked on ${formatServiceDay(serviceDate!)}.`
+              : whenItOpens(gate, formatServiceDay(serviceDate!))}
+          </span>
+          {!wrongDay && gate && (
+            <ServiceCountdown
+              startsAt={gate.opensAt}
+              label="until it opens"
+              fallback={
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  opens at {gate.clock}
+                </span>
+              }
+            />
+          )}
+        </div>
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
