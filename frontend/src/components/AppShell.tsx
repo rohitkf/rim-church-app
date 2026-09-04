@@ -30,8 +30,9 @@ import { PwaBanners } from './PwaBanners'
 import { AlertBanner } from './AlertBanner'
 import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
+import { useMyTeams } from '../lib/useMyTeams'
 
-const navItems: (DockItem & { adminOnly?: boolean })[] = [
+const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon },
@@ -41,9 +42,11 @@ const navItems: (DockItem & { adminOnly?: boolean })[] = [
   { to: '/events', label: 'Events', icon: CakeIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
-  { to: '/inventory', label: 'Inventory', icon: BoxIcon },
-  { to: '/messages', label: 'Messages', icon: MessageIcon },
-  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon },
+  // The teams' own pages: nothing in them belongs to somebody who is not
+  // on a team yet, so they are not offered until they do.
+  { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true },
+  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
 ]
 
 /**
@@ -85,6 +88,7 @@ export function AppShell() {
   const [comingSoon, setComingSoon] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
+  const { onATeam } = useMyTeams()
   useNotificationRouting()
   const scrolled = useScrolled()
 
@@ -92,7 +96,9 @@ export function AppShell() {
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
     : ''
 
-  const items = navItems.filter((item) => !item.adminOnly || isAdmin)
+  const items = navItems.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.teamOnly || onATeam),
+  )
 
   return (
     <div

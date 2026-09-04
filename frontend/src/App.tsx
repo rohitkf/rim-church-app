@@ -8,6 +8,7 @@ import {
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { TeamOnlyRoute } from './components/TeamOnlyRoute'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
@@ -117,12 +118,18 @@ const router = createBrowserRouter(
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
           <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
           <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
-          <Route path="/inventory" element={<InventoryIndexPage />} />
-          <Route path="/inventory/:id" element={<InventoryPage />} />
-          {/* Where a scanned label lands; it forwards to the item's own team. */}
-          <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
-          <Route path="/messages" element={<MessageBoardPage />} />
-          <Route path="/team-chat" element={<TeamChatPage />} />
+          {/* The teams' own pages. Somebody who has signed up but has not
+              been put on a team yet has nothing in any of them, so they go
+              back to the dashboard rather than meeting three empty rooms —
+              and the database refuses the rows regardless (0080). */}
+          <Route element={<TeamOnlyRoute />}>
+            <Route path="/inventory" element={<InventoryIndexPage />} />
+            <Route path="/inventory/:id" element={<InventoryPage />} />
+            {/* Where a scanned label lands; it forwards to the item's own team. */}
+            <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
+            <Route path="/messages" element={<MessageBoardPage />} />
+            <Route path="/team-chat" element={<TeamChatPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
