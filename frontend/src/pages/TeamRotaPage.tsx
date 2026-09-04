@@ -30,6 +30,7 @@ import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
+import { useMyTeams } from '../lib/useMyTeams'
 import {
   rotaAssignmentSchema,
   rotaReleaseRequestSchema,
@@ -199,6 +200,7 @@ export function TeamRotaPage() {
    * without a clock, which is the honest answer.
    */
   const myTeamIds = useMemo(() => new Set(ownDeptsQuery.data ?? []), [ownDeptsQuery.data])
+  const { onATeam } = useMyTeams()
 
   /*
    * The days ahead that have something on, each with everything on it.
@@ -384,6 +386,11 @@ export function TeamRotaPage() {
         run", which is the right audience for the assign forms below and
         the wrong one here.
       */}
+      {/* When each team is due in is the teams' own business: somebody who
+          has signed up and not been put on a team yet has no call time of
+          their own and no reason to read everyone else's. The database
+          says the same (0080), so the panel would come back empty anyway. */}
+      {onATeam && (
       <div className="mt-6">
         <CallTimesPanel
           days={callTimeDays}
@@ -392,6 +399,7 @@ export function TeamRotaPage() {
           canManage={canManage}
         />
       </div>
+      )}
 
       {incoming.length > 0 && (
         /* Surfaced at the top rather than buried in the team it concerns:

@@ -31,6 +31,7 @@ import {
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { ActivityFeed } from '../components/ActivityFeed'
+import { useMyTeams } from '../lib/useMyTeams'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
@@ -146,6 +147,8 @@ const roleLabel: Record<RoleType, string> = {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
+  // Whether this page has teams to report on at all — see useMyTeams.
+  const { onATeam, settled } = useMyTeams()
 
   // Everyone opens on the Sunday in question (today if it is Sunday,
   // otherwise the one coming up). Admins alone can step back through
@@ -701,6 +704,16 @@ export function DashboardPage() {
                     </div>
                   </Tile>
 
+                  {/*
+                    Everything below the clock is somebody's team: how
+                    ready they are, who is missing, what they have just
+                    ticked. To a person who has signed up and not been put
+                    on a team yet it is a wall of other people's
+                    arrangements, so they get the countdown and the way in,
+                    and the rest arrives with their first team.
+                  */}
+                  {onATeam && (
+                    <>
                   {/* Readiness, as the one big ring the screen is allowed. */}
                   <Tile className="lg:col-span-5">
                     <div className="flex items-baseline justify-between gap-4">
@@ -924,6 +937,26 @@ export function DashboardPage() {
                   </Tile>
 
                   <ActivityFeed serviceId={service.id} className="lg:col-span-12" />
+                    </>
+                  )}
+
+                  {!onATeam && settled && (
+                    <Tile className="lg:col-span-12">
+                      <Eyebrow>You are not on a team yet</Eyebrow>
+                      <p className="mt-2 text-body-md text-on-surface-variant">
+                        The countdown above is the whole church&rsquo;s. The rest of this page —
+                        who is on duty, what each team still has to do — arrives once a team head
+                        adds you to their team.
+                      </p>
+                      <Link
+                        to="/departments"
+                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                      >
+                        Find your team and ask to join
+                        <span aria-hidden="true">&rarr;</span>
+                      </Link>
+                    </Tile>
+                  )}
                   </div>
                   )}
 
