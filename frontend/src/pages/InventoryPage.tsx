@@ -16,6 +16,15 @@ import { ItemQrDialog } from '../components/ItemQrDialog'
 import { LabelSheetDialog } from '../components/LabelSheetDialog'
 import { QrScanner } from '../components/QrScanner'
 import { Overlay } from '../components/Surface'
+import {
+  categoryOptions,
+  groupByCategory,
+  rowsForGroups,
+  worthGrouping,
+} from '../lib/inventoryCategories'
+import { inventoryCategorySchema, type InventoryCategory } from '../lib/types'
+import { InventoryCategoriesBar } from '../components/InventoryCategoriesBar'
+import { Select } from '../components/Select'
 import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -124,6 +133,42 @@ export function InventoryPage() {
     [items, search, filter, today],
   )
 
+  const categoriesQuery = useQuery({
+    queryKey: ['inventory-categories', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_categories')
+        .select('id, department_id, name, sort_order')
+        .eq('department_id', id!)
+      if (error) throw error
+      return z.array(inventoryCategorySchema).parse(data)
+    },
+    enabled: !!id,
+  })
+  const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
+
+  /*
+   * The register, split onto its shelves.
+   *
+   * A team that has named none keeps the plain list it has always had: one
+   * heading over the only group on the page labels a distinction that does
+   * not exist. Empty shelves are dropped for anybody who cannot fill them,
+   * since to a reader they are just a word with nothing under it.
+   */
+  const itemsPerCategory = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      if (item.category_id) counts.set(item.category_id, (counts.get(item.category_id) ?? 0) + 1)
+    }
+    return counts
+  }, [items])
+
+  const grouped = useMemo(() => {
+    if (!worthGrouping(categories)) return null
+    const groups = groupByCategory(shown, categories)
+    return canManage ? groups : groups.filter((g) => g.items.length > 0)
+  }, [shown, categories, canManage])
+
   // Only what is on screen can be ticked, so a filtered-out item can never
   // ride along into a print run the user cannot see.
   const pickedItems = useMemo(() => shown.filter((item) => picked.has(item.id)), [shown, picked])
@@ -227,7 +272,21 @@ export function InventoryPage() {
       </div>
 
       {adding && canManage && id && (
-        <AddItemForm departmentId={id} onDone={() => { setAdding(false); refresh() }} onError={setError} />
+        <AddItemForm
+          departmentId={id}
+          categories={categories}
+          onDone={() => { setAdding(false); refresh() }}
+          onError={setError}
+        />
+      )}
+
+      {canManage && id && (
+        <InventoryCategoriesBar
+          departmentId={id}
+          categories={categories}
+          counts={itemsPerCategory}
+          onError={setError}
+        />
       )}
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -316,7 +375,23 @@ export function InventoryPage() {
             labelled, with nothing out of reach.
           */}
           <ul className="flex flex-col gap-3 p-4 lg:hidden">
-            {shown.map((item) => {
+            {rowsForGroups(grouped, shown).map((row) => {
+              if (row.kind === 'heading') {
+                return (
+                  <li
+                    key={`heading-${row.id ?? 'loose'}`}
+                    className="mt-2 flex items-baseline gap-2 border-b border-border-subtle pb-1.5 first:mt-0"
+                  >
+                    <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
+                      {row.name}
+                    </span>
+                    <span className="font-mono text-label-sm text-on-surface-faint">
+                      {row.count}
+                    </span>
+                  </li>
+                )
+              }
+              const item = row.item
               const status = statusOf(item)
               const kind = kindOf(item)
               const low = isLowStock(item)
@@ -437,7 +512,21 @@ export function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((item) => {
+                {rowsForGroups(grouped, shown).map((row) => {
+                  if (row.kind === 'heading') {
+                    return (
+                      <tr key={`heading-${row.id ?? 'loose'}`} className="bg-surface-low">
+                        <td
+                          colSpan={canManage ? 8 : 6}
+                          className="px-4 py-2 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
+                        >
+                          {row.name}
+                          <span className="ml-2 text-on-surface-faint">{row.count}</span>
+                        </td>
+                      </tr>
+                    )
+                  }
+                  const item = row.item
                   const status = statusOf(item)
                   const kind = kindOf(item)
                   const low = isLowStock(item)
@@ -547,6 +636,7 @@ export function InventoryPage() {
       {editing && canManage && (
         <EditItemDialog
           item={editing}
+          categories={categories}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)
@@ -763,7 +853,7 @@ function RowActions({
           rel="noopener noreferrer"
           title="The page it was bought from"
         >
-          Link ↗
+          Link
         </a>
       )}
       <button className={button} onClick={onDocs}>
@@ -788,10 +878,12 @@ function RowActions({
 /** Adding to the register: an asset gets a tag, a consumable gets a level. */
 function AddItemForm({
   departmentId,
+  categories,
   onDone,
   onError,
 }: {
   departmentId: string
+  categories: InventoryCategory[]
   onDone: () => void
   onError: (message: string) => void
 }) {
@@ -799,6 +891,8 @@ function AddItemForm({
   const [kind, setKind] = useState<'asset' | 'consumable'>('asset')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
+  // The shelf to file it on. '' is Uncategorised, which is a real answer.
+  const [categoryId, setCategoryId] = useState('')
   const [brand, setBrand] = useState('')
   const [productUrl, setProductUrl] = useState('')
   const [model, setModel] = useState('')
@@ -823,6 +917,7 @@ function AddItemForm({
         department_id: departmentId,
         name: name.trim(),
         category: category.trim() || null,
+        category_id: categoryId || null,
         kind,
         asset_tag: tag,
         brand: brand.trim() || null,
@@ -871,7 +966,22 @@ function AddItemForm({
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Wireless mic pack" className={inputClasses} />
         </Field>
 
-        <Field label="Category" hint="Three letters of this become the middle of the tag.">
+        {/* Only when the team has shelves to file onto. A picker whose one
+            option is "Uncategorised" is a question with a single answer. */}
+        {categories.length > 0 && (
+          <Field label="Category" hint="Which shelf it is filed on.">
+            <Select
+              value={categoryId}
+              onChange={setCategoryId}
+              options={categoryOptions(categories)}
+              aria-label="Category for the new item"
+            />
+          </Field>
+        )}
+
+        {/* Not the shelf — that is the picker above. This is the word the
+            asset tag is minted from, asked for once and never again. */}
+        <Field label="Tag word" hint="Three letters of this become the middle of the tag — MEM in MED-MEM-0001.">
           <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Microphone" className={inputClasses} />
         </Field>
 
@@ -960,11 +1070,13 @@ function AddItemForm({
 /** Correcting the register: the details, the price, where it lives. */
 function EditItemDialog({
   item,
+  categories,
   onClose,
   onSaved,
   onError,
 }: {
   item: InventoryItem
+  categories: InventoryCategory[]
   onClose: () => void
   onSaved: () => void
   onError: (message: string) => void
@@ -979,6 +1091,8 @@ function EditItemDialog({
   const [cost, setCost] = useState(item.estimated_cost != null ? String(item.estimated_cost) : '')
   const [unit, setUnit] = useState(item.unit ?? '')
   const [quantity, setQuantity] = useState(String(item.quantity))
+  // '' is Uncategorised, which is a real answer rather than a missing one.
+  const [categoryId, setCategoryId] = useState(item.category_id ?? '')
   const [reorder, setReorder] = useState(item.reorder_level != null ? String(item.reorder_level) : '')
 
   const save = useMutation({
@@ -994,6 +1108,7 @@ function EditItemDialog({
           location: location.trim() || null,
           unit: unit.trim() || null,
           estimated_cost: cost.trim() === '' ? null : Number(cost),
+          category_id: categoryId || null,
           // Day-to-day movement of a count belongs to adjust/audit, which
           // write it to the ledger. This is the correction: what the church
           // actually has, on an asset as much as on a consumable.
@@ -1033,6 +1148,19 @@ function EditItemDialog({
           <Field label="Where it lives">
             <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClasses} />
           </Field>
+
+          {/* Only when the team has shelves to file onto. A picker whose
+              only option is "Uncategorised" is a question with one answer. */}
+          {categories.length > 0 && (
+            <Field label="Category" hint="Which shelf it is filed on.">
+              <Select
+                value={categoryId}
+                onChange={setCategoryId}
+                options={categoryOptions(categories)}
+                aria-label={`Category for ${item.name}`}
+              />
+            </Field>
+          )}
 
           <Field label="Brand">
             <input value={brand} onChange={(e) => setBrand(e.target.value)} className={inputClasses} />

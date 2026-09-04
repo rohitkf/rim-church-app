@@ -79,6 +79,25 @@ describe('Overlay', () => {
     expect(onDismiss).toHaveBeenCalledTimes(2)
   })
 
+  it('always offers a way out, even when the dialog fills the screen', async () => {
+    // On a phone a long form covers every point on the glass, so there is
+    // no backdrop left to tap and no keyboard to press Escape on.
+    const onDismiss = vi.fn()
+    show(onDismiss)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it('can withhold that button from a dialog that must be answered', () => {
+    render(
+      <Overlay label="Are you sure" onDismiss={vi.fn()} closable={false}>
+        <div>decide</div>
+      </Overlay>,
+    )
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+  })
+
   it('stays open when the click is on the dialog itself', async () => {
     const onDismiss = vi.fn()
     show(onDismiss)

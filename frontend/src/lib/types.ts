@@ -326,6 +326,9 @@ export const inventoryItemSchema = z.object({
   brand: z.string().nullable().optional(),
   model: z.string().nullable().optional(),
   serial_number: z.string().nullable().optional(),
+  // The shelf it is filed on. Added by the categories migration; optional
+  // so the page still renders against a database without it.
+  category_id: z.string().nullable().optional(),
   item_status: inventoryStatusSchema.optional(),
   item_condition: inventoryConditionSchema.optional(),
   held_by: z.string().nullable().optional(),
@@ -344,6 +347,15 @@ export const inventoryItemSchema = z.object({
     .optional(),
 })
 export type InventoryItem = z.infer<typeof inventoryItemSchema>
+
+/** A shelf a team files its inventory on. */
+export const inventoryCategorySchema = z.object({
+  id: z.string(),
+  department_id: z.string(),
+  name: z.string(),
+  sort_order: z.number(),
+})
+export type InventoryCategory = z.infer<typeof inventoryCategorySchema>
 
 export const inventoryEventSchema = z.object({
   id: z.string(),

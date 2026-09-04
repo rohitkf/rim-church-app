@@ -456,11 +456,14 @@ export function Overlay({
   onDismiss,
   label,
   align = 'center',
+  closable = true,
 }: {
   children: ReactNode
   onDismiss: () => void
   label: string
   align?: 'center' | 'sheet'
+  /** Off for a dialog that must be answered rather than waved away. */
+  closable?: boolean
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -515,6 +518,36 @@ export function Overlay({
       >
         {children}
       </div>
+
+      {/*
+        A way out that is always on screen.
+        
+        Tapping the backdrop is the usual one, and on a phone there is
+        often no backdrop left to tap: a long form fills the width and
+        runs past both ends of the screen, so every point on the glass
+        belongs to the dialog. Escape is no help without a keyboard. This
+        sits above the dialog, pinned to the corner of the window rather
+        than to the top of a form that may have scrolled away, and clear
+        of the notch.
+      */}
+      {closable && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Close"
+          className="tap fixed right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-surface-container/90 text-on-surface shadow-[var(--shadow-lifted)] ring-1 ring-black/10 backdrop-blur transition-colors hover:bg-surface-container dark:ring-white/15"
+          style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="m6 6 12 12M18 6 6 18"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
     </div>,
     document.body,
   )
