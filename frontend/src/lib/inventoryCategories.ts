@@ -113,11 +113,18 @@ export type Row<T> =
  * "Switchers 2 · £4,886". Optional, because the sum only means something
  * where the caller has money to give it; without one every heading is
  * worth nothing and shows no total.
+ *
+ * `isOpen` is how a shelf stays shut. Five named shelves drawn open is the
+ * same wall of rows the shelves were meant to break up, so the page draws
+ * every heading and asks this which of them to fill in. Left out,
+ * everything is open — which is what a caller with no notion of opening
+ * and closing wants.
  */
 export function rowsForGroups<T>(
   groups: CategoryGroup<T>[] | null,
   flat: T[],
   valueOf?: (item: T) => number,
+  isOpen?: (id: string | null) => boolean,
 ): Row<T>[] {
   if (!groups) return flat.map((item) => ({ kind: 'item', item }))
   const worth = (items: T[]) =>
@@ -130,6 +137,8 @@ export function rowsForGroups<T>(
       count: group.items.length,
       value: worth(group.items),
     },
-    ...group.items.map((item) => ({ kind: 'item' as const, item })),
+    ...(isOpen && !isOpen(group.id)
+      ? []
+      : group.items.map((item) => ({ kind: 'item' as const, item }))),
   ])
 }

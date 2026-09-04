@@ -10,11 +10,16 @@ import { PHASES, byPhase } from '../lib/checklistPhase'
 import { suggestChecklistItems } from '../lib/checklistSuggestions'
 import { itemsToCopy, rolesWithChecklists } from '../lib/copyChecklist'
 import { arrangeRoles, reorderWithinGroup, UNGROUPED_LABEL, type RenderedGroup } from '../lib/roleGroups'
-import type { ChecklistPhase, DepartmentRole, DepartmentRoleGroup } from '../lib/types'
+import type {
+  ChecklistPhase,
+  DepartmentRole,
+  DepartmentRoleGroup,
+  RoleChecklistItem,
+} from '../lib/types'
 import { DragHandle } from './DragHandle'
 import { Chevron } from './Collapsible'
-import { ActionButton, Field, Pill, inputClasses } from './Surface'
-import { Select, selectPillClasses } from './Select'
+import { ActionButton, Field, Overlay, Pill, inputClasses } from './Surface'
+import { Select } from './Select'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -119,9 +124,11 @@ function RoleChecklistEditor({
   )
 
   return (
-    <div className="mt-2 border-l border-border-subtle pl-3">
+    <div className="mt-2.5">
       {items.length === 0 ? (
-        <p className="text-label-sm text-on-surface-variant">Nothing here yet.</p>
+        <p className="rounded-[var(--radius-chip)] px-2 py-1.5 text-label-sm text-on-surface-faint">
+          Nothing here yet.
+        </p>
       ) : (
         <ul className="flex flex-col gap-1">
           {ordered.map((id) => {
@@ -131,7 +138,7 @@ function RoleChecklistEditor({
               <li
                 key={item.id}
                 {...rowProps(item.id)}
-                className="flex items-center justify-between gap-2 rounded-[var(--radius-chip)] bg-surface-lowest text-body-sm"
+                className="flex items-center justify-between gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-2 py-1.5 text-body-sm hairline"
               >
                 <span className="flex min-w-0 items-center gap-1.5">
                   {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
@@ -157,7 +164,7 @@ function RoleChecklistEditor({
             e.preventDefault()
             if (label.trim()) addItem.mutate(label.trim())
           }}
-          className="mt-2 flex flex-wrap items-center gap-2"
+          className="mt-2.5 flex items-center gap-2"
         >
           <input
             value={label}
@@ -165,21 +172,21 @@ function RoleChecklistEditor({
             placeholder={
               phase === 'pre' ? 'Check batteries, test focus…' : 'Batteries on charge, cards filed…'
             }
-            className="min-w-0 flex-1 rounded-full hairline px-2 py-1 text-body-sm text-on-surface"
+            className="min-w-0 flex-1 rounded-full bg-surface-lowest px-3 py-1.5 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
           />
           <button
             type="submit"
-            disabled={addItem.isPending}
-            className="tap rounded-full hairline px-3 py-1 text-label-sm font-medium text-on-surface hover:border-secondary disabled:opacity-50"
+            disabled={addItem.isPending || !label.trim()}
+            className="tap shrink-0 rounded-full bg-raised px-3 py-1.5 text-label-sm font-medium text-on-surface hairline transition-colors hover:bg-surface-container disabled:opacity-40"
           >
-            Add item
+            Add
           </button>
         </form>
       )}
 
       {canManage && suggestions.length > 0 && (
-        <div className="mt-1.5">
-          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+        <div className="mt-3 border-t border-border-subtle pt-2.5">
+          <div className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
             Already on another role
           </div>
           <ul className="mt-1 flex flex-col gap-1">
@@ -235,6 +242,11 @@ function CopyChecklistFrom({
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  /** The role being copied from, once one is chosen. */
+  const [from, setFrom] = useState('')
+  /** Which of its lines are coming across. Everything, until told otherwise. */
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
 
   const itemsQuery = useQuery({
     // Same key the per-phase editors use, so this reads the cache they
@@ -251,7 +263,7 @@ function CopyChecklistFrom({
 
   const copy = useMutation({
     mutationFn: async (fromRoleId: string) => {
-      const rows = itemsToCopy({ items, fromRoleId, toRoleId: roleId })
+      const rows = itemsToCopy({ items, fromRoleId, toRoleId: roleId, onlyItemIds: picked })
       const from = roles.find((r) => r.id === fromRoleId)?.name ?? 'that role'
       // Nothing new to take is a normal outcome, not a failure: it is what
       // copying the same role twice looks like, and saying so is kinder
@@ -263,12 +275,15 @@ function CopyChecklistFrom({
       if (insertError) throw insertError
       return { added: rows.length, from }
     },
-    onSuccess: ({ added, from }) => {
+    onSuccess: ({ added, from: fromRole }) => {
       setError(null)
+      setOpen(false)
+      setFrom('')
+      setPicked(new Set())
       setCopied(
         added === 0
-          ? `Nothing new to take from ${from} — this role already has all of it.`
-          : `Copied ${added} ${added === 1 ? 'item' : 'items'} from ${from}.`,
+          ? `Nothing new to take from ${fromRole} — this role already has all of it.`
+          : `Copied ${added} ${added === 1 ? 'item' : 'items'} from ${fromRole}.`,
       )
       queryClient.invalidateQueries({ queryKey: ['role-checklist-items'] })
     },
@@ -278,35 +293,219 @@ function CopyChecklistFrom({
     },
   })
 
+  // What the receiving role already has, matched on wording the way the
+  // copy itself matches it. A line it already carries is shown in the
+  // picker greyed and unticked rather than hidden: "why is that one not
+  // coming across" is a fair question and this answers it in place.
+  const alreadyHere = useMemo(() => {
+    const has = new Set<string>()
+    for (const i of items) {
+      if (i.role_id === roleId) has.add(`${i.phase}:${i.label.trim().toLowerCase()}`)
+    }
+    return has
+  }, [items, roleId])
+
+  const sourceItems = useMemo(
+    () => (from ? items.filter((i) => i.role_id === from) : []),
+    [items, from],
+  )
+  const isDuplicate = (item: RoleChecklistItem) =>
+    alreadyHere.has(`${item.phase}:${item.label.trim().toLowerCase()}`)
+
+  function pickRole(nextFrom: string) {
+    setFrom(nextFrom)
+    setCopied(null)
+    setError(null)
+    // Select all is the default, because taking the whole list is what
+    // somebody opening this came to do; the ticks are for the exception.
+    const source = items.filter((i) => i.role_id === nextFrom)
+    setPicked(
+      new Set(
+        source
+          .filter((i) => !alreadyHere.has(`${i.phase}:${i.label.trim().toLowerCase()}`))
+          .map((i) => i.id),
+      ),
+    )
+  }
+
+  function close() {
+    setOpen(false)
+    setFrom('')
+    setPicked(new Set())
+    setError(null)
+  }
+
+  const toggleItem = (id: string) =>
+    setPicked((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  const phaseItems = (phase: ChecklistPhase) => byPhase(sourceItems, phase)
+  const allPickedIn = (phase: ChecklistPhase) => {
+    const rows = phaseItems(phase).filter((i) => !isDuplicate(i))
+    return rows.length > 0 && rows.every((i) => picked.has(i.id))
+  }
+  const togglePhase = (phase: ChecklistPhase) => {
+    const rows = phaseItems(phase).filter((i) => !isDuplicate(i))
+    const turnOff = allPickedIn(phase)
+    setPicked((current) => {
+      const next = new Set(current)
+      for (const row of rows) {
+        if (turnOff) next.delete(row.id)
+        else next.add(row.id)
+      }
+      return next
+    })
+  }
+
   if (sources.length === 0) return null
 
+  const fromName = sources.find((r) => r.id === from)?.name ?? ''
+
   return (
-    <div className="rounded-[var(--radius-chip)] bg-surface-lowest/60 p-2.5">
-      <label className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-          Same as
+    /*
+     * A button, not a field.
+     *
+     * It used to be a dropdown sitting open on the page, above the very
+     * lists it fills in — the widest, brightest thing in the panel, for
+     * something used once in a role's life. And choosing a name did the
+     * copy there and then: the whole of another role's checklist landed
+     * with no way to say "all of it except that one", which for two roles
+     * that are nearly the same is the only interesting case.
+     */
+    <div className="border-t border-border-subtle pt-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <ActionButton size="sm" tone="quiet" onClick={() => setOpen(true)}>
+          Copy from…
+        </ActionButton>
+        <span className="text-label-sm text-on-surface-faint">
+          Take another role&rsquo;s checklist, all of it or the parts you pick.
         </span>
-        <Select
-          // Deliberately not a controlled selection: this is an action, not
-          // a setting. Nothing about the role afterwards is "same as" any
-          // other, so leaving a name sitting in the box would claim a link
-          // that does not exist.
-          value=""
-          disabled={copy.isPending}
-          onChange={(from) => {
-            if (from) copy.mutate(from)
-          }}
-          placeholder={copy.isPending ? 'Copying…' : 'Choose a role to copy from…'}
-          className={`min-w-0 flex-1 ${selectPillClasses}`}
-          options={sources.map((r) => ({ value: r.id, label: `${r.name} (${r.count})` }))}
-        />
-      </label>
-      <p className="mt-1 text-label-sm text-on-surface-faint">
-        Takes that role&rsquo;s whole checklist, before and after. Anything this role already has is
-        left alone, and you can still add your own.
-      </p>
-      {copied && <p className="mt-1 text-label-sm text-on-surface-variant">{copied}</p>}
-      {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
+      </div>
+      {copied && <p className="mt-1.5 text-label-sm text-on-surface-variant">{copied}</p>}
+      {error && !open && <p className="mt-1.5 text-label-sm text-error">{error}</p>}
+
+      {open && (
+        <Overlay onDismiss={close} label="Copy a checklist from another role">
+          <div className="w-full max-w-lg rounded-[var(--radius-card)] bg-surface-container p-5 shadow-[var(--shadow-lifted)] sm:p-6">
+            <h3 className="text-headline-md">Copy a checklist</h3>
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              It is a copy: once the lines are here they are this role&rsquo;s, and changing them
+              changes nothing anywhere else.
+            </p>
+
+            <div className="mt-4">
+              <Field label="Role to copy from">
+                <Select
+                  value={from}
+                  onChange={pickRole}
+                  placeholder="Choose a role…"
+                  aria-label="Role to copy the checklist from"
+                  options={sources.map((r) => ({
+                    value: r.id,
+                    label: `${r.name} (${r.count})`,
+                  }))}
+                />
+              </Field>
+            </div>
+
+            {/* Nothing to tick until there is something to tick: the two
+                lists stay away entirely until a role is chosen, rather
+                than sitting there greyed out as furniture. */}
+            {from && (
+              <div className="mt-4 flex flex-col gap-3">
+                {PHASES.map((p) => {
+                  const rows = phaseItems(p.value)
+                  return (
+                    <section
+                      key={p.value}
+                      className="rounded-[var(--radius-chip)] bg-surface-lowest p-3 hairline"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface">
+                          {p.label}
+                        </span>
+                        {rows.some((i) => !isDuplicate(i)) && (
+                          <button
+                            type="button"
+                            onClick={() => togglePhase(p.value)}
+                            className="tap ml-auto rounded-full px-2.5 py-1 text-label-sm text-on-surface-variant hairline hover:text-on-surface"
+                          >
+                            {allPickedIn(p.value) ? 'Select none' : 'Select all'}
+                          </button>
+                        )}
+                      </div>
+
+                      {rows.length === 0 ? (
+                        <p className="mt-2 text-label-sm text-on-surface-faint">
+                          {fromName} has nothing here.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 flex flex-col gap-1">
+                          {rows.map((row) => {
+                            const dup = isDuplicate(row)
+                            return (
+                              <li key={row.id}>
+                                <label
+                                  className={`flex items-center gap-2.5 rounded-[var(--radius-chip)] px-2 py-1.5 text-body-sm ${
+                                    dup ? 'text-on-surface-faint' : 'text-on-surface'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={picked.has(row.id)}
+                                    disabled={dup}
+                                    onChange={() => toggleItem(row.id)}
+                                    className="size-4 shrink-0 accent-[var(--color-primary)]"
+                                  />
+                                  <span className="min-w-0 break-words">{row.label}</span>
+                                  {dup && (
+                                    <span className="ml-auto shrink-0 font-mono text-label-sm text-on-surface-faint">
+                                      already here
+                                    </span>
+                                  )}
+                                </label>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </section>
+                  )
+                })}
+              </div>
+            )}
+
+            {error && (
+              <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-full px-3 py-1.5 text-label-md text-on-surface-variant hover:text-on-surface"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!from || picked.size === 0 || copy.isPending}
+                onClick={() => copy.mutate(from)}
+                className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+              >
+                {copy.isPending
+                  ? 'Copying…'
+                  : `Copy ${picked.size} ${picked.size === 1 ? 'item' : 'items'}`}
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   )
 }
@@ -373,6 +572,19 @@ function RoleRow({
 }: RoleRowProps) {
   const isCoordinator = isCoordinatorRole(role.name)
   const [showChecklist, setShowChecklist] = useState(false)
+
+  // How long this role's checklist is, said on the toggle and again on
+  // each phase. The same query key the editors use, so this is the cache
+  // they already filled rather than a third trip for the same rows.
+  const checklistQuery = useQuery({
+    queryKey: ['role-checklist-items', [departmentId]],
+    queryFn: () => fetchRoleChecklistItems([departmentId]),
+  })
+  const mine = useMemo(
+    () => (checklistQuery.data ?? []).filter((i) => i.role_id === role.id),
+    [checklistQuery.data, role.id],
+  )
+  const countFor = (phase: ChecklistPhase) => byPhase(mine, phase).length
 
   if (editingId === role.id) {
     return (
@@ -448,6 +660,11 @@ function RoleRow({
             glyph={<Chevron open={showChecklist} />}
           >
             Checklist
+            {mine.length > 0 && (
+              <span className="ml-1.5 font-mono text-label-sm text-on-surface-faint">
+                {mine.length}
+              </span>
+            )}
           </ActionButton>
 
           {/* The Team Coordinator is not an ordinary role: whoever the rota
@@ -484,28 +701,49 @@ function RoleRow({
       </div>
 
       {showChecklist && (
-        /* Two lists, not one: the jobs before the doors open and the jobs
-           once everyone has gone are done hours apart, and reading them as
-           a single column means scanning past half of it at both ends. */
-        <div className="mt-3 flex w-full flex-col gap-4">
+        /*
+         * Two lists, not one: the jobs before the doors open and the jobs
+         * once everyone has gone are done hours apart, and reading them as
+         * a single column means scanning past half of it at both ends.
+         *
+         * Side by side where there is room. Stacked, the panel was four
+         * boxes of equal weight — a copy-from, two phases and a suggestion
+         * list — and nothing in it said which was the checklist. The two
+         * phases now sit level with each other as the pair they are, in
+         * one panel that is plainly the role's, with the shortcut under
+         * them rather than over.
+         */
+        <div className="mt-3 w-full rounded-[var(--radius-card)] bg-surface-lowest/70 p-3 hairline sm:p-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {PHASES.map((p) => (
+              <section
+                key={p.value}
+                className="flex flex-col rounded-[var(--radius-chip)] bg-raised/50 p-3"
+              >
+                <div className="flex items-baseline gap-2">
+                  <h4 className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface">
+                    {p.label}
+                  </h4>
+                  <span className="ml-auto shrink-0 font-mono text-label-sm tabular-nums text-on-surface-faint">
+                    {countFor(p.value)}
+                  </span>
+                </div>
+                <p className="mt-1 text-label-sm text-on-surface-faint">{p.blurb}</p>
+                <RoleChecklistEditor
+                  roleId={role.id}
+                  departmentId={departmentId}
+                  canManage={canManage}
+                  phase={p.value}
+                  roleNames={roleNames}
+                />
+              </section>
+            ))}
+          </div>
           {canManage && (
-            <CopyChecklistFrom roleId={role.id} departmentId={departmentId} roles={roles} />
-          )}
-          {PHASES.map((p) => (
-            <div key={p.value} className="rounded-[var(--radius-chip)] bg-surface-lowest/60 p-2.5">
-              <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                {p.label}
-              </div>
-              <p className="text-label-sm text-on-surface-faint">{p.blurb}</p>
-              <RoleChecklistEditor
-                roleId={role.id}
-                departmentId={departmentId}
-                canManage={canManage}
-                phase={p.value}
-                roleNames={roleNames}
-              />
+            <div className="mt-3">
+              <CopyChecklistFrom roleId={role.id} departmentId={departmentId} roles={roles} />
             </div>
-          ))}
+          )}
         </div>
       )}
     </>

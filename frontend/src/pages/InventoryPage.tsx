@@ -103,6 +103,14 @@ export function InventoryPage() {
     next.delete('item')
     setUrlParams(next, { replace: true })
   }, [scanParam, urlParams, setUrlParams])
+  /*
+   * Which shelves are open. Empty means all shut, which is where the page
+   * starts: every heading opened at once is the flat list the shelves were
+   * meant to break up, and a heading you can read in one glance — its
+   * count and what it is worth — is most of what somebody scrolling was
+   * after anyway.
+   */
+  const [openCategories, setOpenCategories] = useState<ReadonlySet<string>>(new Set())
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [deleting, setDeleting] = useState<InventoryItem | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -165,6 +173,22 @@ export function InventoryPage() {
 
   // Only what is on screen can be ticked, so a filtered-out item can never
   // ride along into a print run the user cannot see.
+  // While somebody is searching or filtering, every shelf is open: a
+  // heading with a count and nothing under it is not an answer to "where
+  // is the memory card".
+  const searching = search.trim() !== '' || filter !== 'all'
+
+  // A heading with no id is the Uncategorised run; it opens and closes
+  // like any other, under a key of its own.
+  const keyOf = (id: string | null) => id ?? 'uncategorised'
+  const isCategoryOpen = (id: string | null) => searching || openCategories.has(keyOf(id))
+  const toggleCategory = (id: string | null) =>
+    setOpenCategories((current) => {
+      const next = new Set(current)
+      if (!next.delete(keyOf(id))) next.add(keyOf(id))
+      return next
+    })
+
   const pickedItems = useMemo(() => shown.filter((item) => picked.has(item.id)), [shown, picked])
   const allShownPicked = shown.length > 0 && shown.every((item) => picked.has(item.id))
 
@@ -369,26 +393,33 @@ export function InventoryPage() {
             labelled, with nothing out of reach.
           */}
           <ul className="flex flex-col gap-3 p-4 lg:hidden">
-            {rowsForGroups(grouped, shown, itemValue).map((row) => {
+            {rowsForGroups(grouped, shown, itemValue, isCategoryOpen).map((row) => {
               if (row.kind === 'heading') {
                 return (
-                  <li
-                    key={`heading-${row.id ?? 'loose'}`}
-                    className="mt-2 flex items-baseline gap-2 border-b border-border-subtle pb-1.5 first:mt-0"
-                  >
-                    <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
-                      {row.name}
-                    </span>
-                    <span className="font-mono text-label-sm text-on-surface-faint">
-                      {row.count}
-                    </span>
-                    {/* What the shelf is worth, on the same line as what is
-                        on it — a category is a budget as much as a place. */}
-                    {row.value > 0 && (
-                      <span className="ml-auto font-mono text-label-sm tabular-nums text-on-surface-faint">
-                        {formatMoney(row.value)}
+                  <li key={`heading-${row.id ?? 'loose'}`} className="mt-2 first:mt-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(row.id)}
+                      aria-expanded={isCategoryOpen(row.id)}
+                      disabled={searching}
+                      className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-1.5 text-left"
+                    >
+                      <CategoryChevron open={isCategoryOpen(row.id)} />
+                      <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
+                        {row.name}
                       </span>
-                    )}
+                      <span className="font-mono text-label-sm text-on-surface-faint">
+                        {row.count}
+                      </span>
+                      {/* What the shelf is worth, on the same line as what
+                          is on it — a category is a budget as much as a
+                          place. */}
+                      {row.value > 0 && (
+                        <span className="ml-auto font-mono text-label-sm tabular-nums text-on-surface-faint">
+                          {formatMoney(row.value)}
+                        </span>
+                      )}
+                    </button>
                   </li>
                 )
               }
@@ -513,21 +544,27 @@ export function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {rowsForGroups(grouped, shown, itemValue).map((row) => {
+                {rowsForGroups(grouped, shown, itemValue, isCategoryOpen).map((row) => {
                   if (row.kind === 'heading') {
                     return (
                       <tr key={`heading-${row.id ?? 'loose'}`} className="bg-surface-low">
-                        <td
-                          colSpan={canManage ? 8 : 6}
-                          className="px-4 py-2 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
-                        >
-                          {row.name}
-                          <span className="ml-2 text-on-surface-faint">{row.count}</span>
-                          {row.value > 0 && (
-                            <span className="ml-2 tabular-nums text-on-surface-faint">
-                              {formatMoney(row.value)}
-                            </span>
-                          )}
+                        <td colSpan={canManage ? 8 : 6} className="p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(row.id)}
+                            aria-expanded={isCategoryOpen(row.id)}
+                            disabled={searching}
+                            className="tap flex w-full items-center gap-2 px-4 py-2 text-left font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
+                          >
+                            <CategoryChevron open={isCategoryOpen(row.id)} />
+                            {row.name}
+                            <span className="text-on-surface-faint">{row.count}</span>
+                            {row.value > 0 && (
+                              <span className="ml-auto tabular-nums text-on-surface-faint">
+                                {formatMoney(row.value)}
+                              </span>
+                            )}
+                          </button>
                         </td>
                       </tr>
                     )
@@ -762,6 +799,30 @@ export function InventoryPage() {
  * Only the team head and Admin can change anything; for everyone else the
  * register is a reference, and no button appears that would refuse them.
  */
+/** Which way a shelf's heading points: shut, or opened downwards. */
+function CategoryChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width={12}
+      height={12}
+      className={`shrink-0 text-on-surface-faint transition-transform duration-300 ease-[var(--ease-glide)] ${
+        open ? 'rotate-0' : '-rotate-90'
+      }`}
+    >
+      <path
+        d="M4 6.5 8 10.5 12 6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function RowActions({
   item,
   canManage,

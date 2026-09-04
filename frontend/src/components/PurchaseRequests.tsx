@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -8,12 +8,17 @@ import { Field, Overlay, inputClasses } from './Surface'
 import { Select } from './Select'
 import { NumberDial } from './NumberDial'
 import { QueryState } from './QueryState'
+import { TeamMark } from './TeamMark'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { inventoryCategorySchema, type InventoryCategory } from '../lib/types'
 import { categoryOptions } from '../lib/inventoryCategories'
 import { valueHint } from '../lib/inventory'
 import {
   type RequestDraft,
+  type TeamGroup,
   draftFrom,
+  groupByTeam,
   draftToRow,
   emptyDraft,
   itemFromRequest,
@@ -271,9 +276,34 @@ export function PurchaseRequests({
   const outstanding = wanted.reduce((sum, r) => sum + lineTotal(r), 0)
   const committed = waiting.reduce((sum, r) => sum + lineTotal(r), 0)
 
+  /*
+   * One team's rows, or every team's under its own heading.
+   *
+   * The heading is the team's, in the team's colour, the way the rota and
+   * the availability tracker say whose section you are in — and closed to
+   * start with, because eight teams' asks opened at once is the wall of
+   * text this is meant to replace. Closed it still answers the question
+   * the Admin came with: how many, and how much.
+   */
+  const renderList = (list: PurchaseRequest[]) =>
+    departmentId ? (
+      <ul className="mt-2 flex flex-col gap-2.5">
+        {list.map((row) => (
+          <RequestRow key={row.id} {...rowProps(row)} />
+        ))}
+      </ul>
+    ) : (
+      <TeamSections
+        groups={groupByTeam(list)}
+        renderRow={(row) => <RequestRow key={row.id} {...rowProps(row)} />}
+      />
+    )
+
   const rowProps = (row: PurchaseRequest) => ({
     row,
-    showTeam: !departmentId,
+    // The team's heading above the row says whose it is, so the row does
+    // not repeat it.
+    showTeam: false,
     canDecide: mayDecide(row),
     onDecide: (status: PurchaseRequest['status']) => decide.mutate({ id: row.id, status }),
     onPurchased: () => markPurchased.mutate(row),
@@ -300,11 +330,7 @@ export function PurchaseRequests({
               {waiting.length} waiting{committed > 0 ? ` · ${money(committed)}` : ''}
             </span>
           </div>
-          <ul className="mt-3 flex flex-col gap-2.5">
-            {waiting.map((row) => (
-              <RequestRow key={row.id} {...rowProps(row)} />
-            ))}
-          </ul>
+          {renderList(waiting)}
         </section>
       )}
 
@@ -363,11 +389,7 @@ export function PurchaseRequests({
                 </>
               )}
             </div>
-            <ul className="mt-2 flex flex-col gap-2.5">
-              {wanted.map((row) => (
-                <RequestRow key={row.id} {...rowProps(row)} />
-              ))}
-            </ul>
+            {renderList(wanted)}
           </>
         )}
 
@@ -428,6 +450,79 @@ export function PurchaseRequests({
         </Overlay>
       )}
     </div>
+  )
+}
+
+/** Every team's asks, each team behind its own heading. */
+function TeamSections({
+  groups,
+  renderRow,
+}: {
+  groups: TeamGroup<PurchaseRequest>[]
+  renderRow: (row: PurchaseRequest) => ReactNode
+}) {
+  const { teamStyle } = useTeamStyle()
+  // Closed to start with. Opening one is a decision to read that team.
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (id: string) =>
+    setOpen((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  return (
+    <ul className="mt-2 flex flex-col gap-2.5">
+      {groups.map((group) => {
+        const isOpen = open.has(group.id)
+        return (
+          <li
+            key={group.id}
+            className="overflow-hidden rounded-[var(--radius-row)] bg-raised hairline"
+          >
+            <button
+              type="button"
+              onClick={() => toggle(group.id)}
+              aria-expanded={isOpen}
+              className="tap flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-3 text-left"
+              style={teamWash(group.color, teamStyle)}
+            >
+              <TeamMark color={group.color} />
+              <span className="min-w-0 flex-1 break-words text-body-md font-medium text-on-surface">
+                {group.name}
+              </span>
+              <span className="shrink-0 font-mono text-label-sm text-on-surface-variant">
+                {group.rows.length} {group.rows.length === 1 ? 'request' : 'requests'}
+                {group.total > 0 ? ` · ${money(group.total)}` : ''}
+              </span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                width={14}
+                height={14}
+                className={`shrink-0 text-on-surface-faint transition-transform duration-300 ease-[var(--ease-glide)] ${
+                  isOpen ? 'rotate-180' : ''
+                }`}
+              >
+                <path
+                  d="M4 6.5 8 10.5 12 6.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            {isOpen && (
+              <ul className="flex flex-col gap-2.5 border-t border-border-subtle p-2.5">
+                {group.rows.map(renderRow)}
+              </ul>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
