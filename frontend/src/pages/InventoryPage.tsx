@@ -2,7 +2,6 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ItemDocuments } from '../components/ItemDocuments'
 import { NumberDial } from '../components/NumberDial'
-import { UnitInput } from '../components/UnitInput'
 import { PurchaseRequests } from '../components/PurchaseRequests'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -29,24 +28,26 @@ import { useErrorText } from '../lib/useErrorText'
 import { todayIso } from '../lib/monthGrid'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
-  countLabel,
   formatMoney,
   itemValue,
   isLowStock,
   isOverdue,
   kindOf,
+  matchesFilter,
   matchesSearch,
-  needsAttention,
   statusOf,
   summarise,
   unitCostLabel,
   valueHint,
+  filterCounts,
+  FILTER_LABEL,
+  FILTER_MEANING,
+  FILTER_ORDER,
   STATUS_LABEL,
   STATUS_TONE,
+  type InventoryFilter,
 } from '../lib/inventory'
 import { departmentSchema, inventoryItemSchema, type Department, type InventoryItem } from '../lib/types'
-
-type Filter = 'all' | 'assets' | 'consumables' | 'out' | 'attention'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -77,7 +78,7 @@ export function InventoryPage() {
   const [docsFor, setDocsFor] = useState<InventoryItem | null>(null)
 
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<InventoryFilter>('all')
   const [openItem, setOpenItem] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [qrFor, setQrFor] = useState<InventoryItem | null>(null)
@@ -122,14 +123,7 @@ export function InventoryPage() {
 
   const shown = useMemo(
     () =>
-      items.filter((item) => {
-        if (!matchesSearch(item, search)) return false
-        if (filter === 'assets') return kindOf(item) === 'asset'
-        if (filter === 'consumables') return kindOf(item) === 'consumable'
-        if (filter === 'out') return statusOf(item) === 'on_loan'
-        if (filter === 'attention') return needsAttention(item, today)
-        return true
-      }),
+      items.filter((item) => matchesSearch(item, search) && matchesFilter(item, filter, today)),
     [items, search, filter, today],
   )
 
@@ -197,13 +191,9 @@ export function InventoryPage() {
     onError: (err: unknown) => setError(errorText(err, 'That did not go through.')),
   })
 
-  const FILTERS: { value: Filter; label: string; count?: number }[] = [
-    { value: 'all', label: 'Everything', count: items.length },
-    { value: 'assets', label: 'Assets', count: summary.assets },
-    { value: 'consumables', label: 'Consumables', count: summary.consumables },
-    { value: 'out', label: 'Signed out', count: summary.onLoan },
-    { value: 'attention', label: 'Needs attention', count: summary.attention },
-  ]
+  // The chips and their numbers come from the same rule, so pressing one
+  // always shows exactly as many rows as it said it would.
+  const chipCounts = useMemo(() => filterCounts(items, today), [items, today])
 
   return (
     <div>
@@ -257,7 +247,7 @@ export function InventoryPage() {
 
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: 'In service', value: String(summary.assets + summary.consumables - summary.attention) },
+          { label: 'In service', value: String(summary.inService) },
           { label: 'Signed out', value: String(summary.onLoan) },
           { label: 'Needs attention', value: String(summary.attention) },
           { label: 'Value in service', value: formatMoney(summary.value) },
@@ -298,24 +288,28 @@ export function InventoryPage() {
           className={`${inputClasses} max-w-sm`}
         />
         <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
+          {FILTER_ORDER.map((f) => (
             <button
-              key={f.value}
+              key={f}
               type="button"
-              onClick={() => setFilter(f.value)}
+              onClick={() => setFilter(f)}
+              title={FILTER_MEANING[f]}
+              aria-pressed={filter === f}
               className={`tap rounded-full px-3.5 py-1.5 text-body-sm transition-all duration-500 ease-[var(--ease-glide)] ${
-                filter === f.value
+                filter === f
                   ? 'bg-primary text-on-primary shadow-[var(--shadow-ambient)]'
                   : 'text-on-surface-variant ring-1 ring-black/8 hover:text-on-surface dark:ring-white/10'
               }`}
             >
-              {f.label}
-              {typeof f.count === 'number' && (
-                <span className="ml-1.5 font-mono text-label-sm opacity-70">{f.count}</span>
-              )}
+              {FILTER_LABEL[f]}
+              <span className="ml-1.5 font-mono text-label-sm opacity-70">{chipCounts[f]}</span>
             </button>
           ))}
         </div>
+        {/* What the chip you are on actually means. Five words and five
+            numbers said nothing about why a camera is one pile and gaffer
+            tape another, and nobody can trust a filter they cannot read. */}
+        <p className="w-full text-label-md text-on-surface-faint">{FILTER_MEANING[filter]}</p>
       </div>
 
       {picking && canManage && shown.length > 0 && (
@@ -375,7 +369,7 @@ export function InventoryPage() {
             labelled, with nothing out of reach.
           */}
           <ul className="flex flex-col gap-3 p-4 lg:hidden">
-            {rowsForGroups(grouped, shown).map((row) => {
+            {rowsForGroups(grouped, shown, itemValue).map((row) => {
               if (row.kind === 'heading') {
                 return (
                   <li
@@ -388,6 +382,13 @@ export function InventoryPage() {
                     <span className="font-mono text-label-sm text-on-surface-faint">
                       {row.count}
                     </span>
+                    {/* What the shelf is worth, on the same line as what is
+                        on it — a category is a budget as much as a place. */}
+                    {row.value > 0 && (
+                      <span className="ml-auto font-mono text-label-sm tabular-nums text-on-surface-faint">
+                        {formatMoney(row.value)}
+                      </span>
+                    )}
                   </li>
                 )
               }
@@ -438,7 +439,7 @@ export function InventoryPage() {
                   </div>
                   {kind === 'consumable' && (
                     <div className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                      {countLabel(item)} in stock
+                      {item.quantity} in stock
                       {typeof item.reorder_level === 'number' && ` · reorder at ${item.reorder_level}`}
                       {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
                     </div>
@@ -512,7 +513,7 @@ export function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {rowsForGroups(grouped, shown).map((row) => {
+                {rowsForGroups(grouped, shown, itemValue).map((row) => {
                   if (row.kind === 'heading') {
                     return (
                       <tr key={`heading-${row.id ?? 'loose'}`} className="bg-surface-low">
@@ -522,6 +523,11 @@ export function InventoryPage() {
                         >
                           {row.name}
                           <span className="ml-2 text-on-surface-faint">{row.count}</span>
+                          {row.value > 0 && (
+                            <span className="ml-2 tabular-nums text-on-surface-faint">
+                              {formatMoney(row.value)}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     )
@@ -580,7 +586,7 @@ export function InventoryPage() {
                         </div>
                         {kind === 'consumable' && (
                           <div className="mt-1.5 font-mono text-label-sm text-on-surface-variant">
-                            {countLabel(item)} in stock
+                            {item.quantity} in stock
                             {typeof item.reorder_level === 'number' && ` · reorder at ${item.reorder_level}`}
                             {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
                           </div>
@@ -779,8 +785,11 @@ function RowActions({
 
   const status = statusOf(item)
   const kind = kindOf(item)
+  // inline-flex rather than the default: this same pill is worn by the
+  // Link anchor, and vertical padding on an inline element does not grow
+  // its line box, so that one sat taller than the buttons beside it.
   const button =
-    'tap rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
+    'tap inline-flex items-center justify-center rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
 
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
@@ -900,7 +909,6 @@ function AddItemForm({
   const [location, setLocation] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [reorder, setReorder] = useState('')
-  const [unit, setUnit] = useState('')
   const [cost, setCost] = useState('')
 
   const add = useMutation({
@@ -925,9 +933,11 @@ function AddItemForm({
         model: model.trim() || null,
         serial_number: serial.trim() || null,
         location: location.trim() || null,
-        quantity: kind === 'consumable' ? Number(quantity) || 0 : 1,
+        // However many there are, whatever the register calls it. This
+        // used to force an asset to 1, so a pair of tripods entered as two
+        // was saved as one and the value was half what the church owns.
+        quantity: Math.max(Number(quantity) || (kind === 'consumable' ? 0 : 1), 0),
         reorder_level: kind === 'consumable' && reorder ? Number(reorder) : null,
-        unit: unit.trim() || null,
         estimated_cost: cost.trim() === '' ? null : Number(cost),
       })
       if (error) throw error
@@ -1041,11 +1051,7 @@ function AddItemForm({
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Storage cupboard A" className={inputClasses} />
         </Field>
 
-        <Field label="Unit name" hint="Optional — screw, box, metre. What one of them is called.">
-          <UnitInput value={unit} onChange={setUnit} />
-        </Field>
-
-        <Field label="Cost of one" hint={valueHint(quantity, cost, unit)}>
+        <Field label="Cost of one" hint={valueHint(quantity, cost)}>
           <input
             type="number"
             min="0"
@@ -1089,7 +1095,6 @@ function EditItemDialog({
   const [serial, setSerial] = useState(item.serial_number ?? '')
   const [location, setLocation] = useState(item.location ?? '')
   const [cost, setCost] = useState(item.estimated_cost != null ? String(item.estimated_cost) : '')
-  const [unit, setUnit] = useState(item.unit ?? '')
   const [quantity, setQuantity] = useState(String(item.quantity))
   // '' is Uncategorised, which is a real answer rather than a missing one.
   const [categoryId, setCategoryId] = useState(item.category_id ?? '')
@@ -1106,7 +1111,6 @@ function EditItemDialog({
           model: model.trim() || null,
           serial_number: serial.trim() || null,
           location: location.trim() || null,
-          unit: unit.trim() || null,
           estimated_cost: cost.trim() === '' ? null : Number(cost),
           category_id: categoryId || null,
           // Day-to-day movement of a count belongs to adjust/audit, which
@@ -1213,11 +1217,7 @@ function EditItemDialog({
             />
           </Field>
 
-          <Field label="Unit name" hint="Optional — screw, box, metre. What one of them is called.">
-            <UnitInput value={unit} onChange={setUnit} />
-          </Field>
-
-          <Field label="Cost of one" hint={valueHint(quantity, cost, unit)}>
+          <Field label="Cost of one" hint={valueHint(quantity, cost)}>
             <input
               type="number"
               min="0"
@@ -1375,7 +1375,7 @@ function ScannedItemDialog({
             </p>
             {kindOf(item) === 'consumable' && (
               <p className="mt-1 font-mono text-label-sm text-on-surface-variant">
-                {countLabel(item)} in stock
+                {item.quantity} in stock
                 {unitCostLabel(item) && ` · ${unitCostLabel(item)}`}
               </p>
             )}

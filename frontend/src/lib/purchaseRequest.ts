@@ -24,7 +24,6 @@ export interface RequestDraft {
   itemName: string
   kind: 'asset' | 'consumable'
   quantity: string
-  unit: string
   cost: string
   url: string
   reason: string
@@ -44,7 +43,6 @@ export interface RequestRowFields {
   item_name: string
   kind?: string | null
   quantity: number
-  unit?: string | null
   estimated_cost?: number | string | null
   product_url?: string | null
   reason?: string | null
@@ -65,7 +63,6 @@ export function emptyDraft(): RequestDraft {
     // its own tag and history either way.
     kind: 'asset',
     quantity: '1',
-    unit: '',
     cost: '',
     url: '',
     reason: '',
@@ -87,7 +84,6 @@ export function draftFrom(row: RequestRowFields): RequestDraft {
     itemName: row.item_name,
     kind: row.kind === 'consumable' ? 'consumable' : 'asset',
     quantity: String(row.quantity ?? 1),
-    unit: text(row.unit),
     cost: row.estimated_cost == null ? '' : String(row.estimated_cost),
     url: text(row.product_url),
     reason: text(row.reason),
@@ -110,7 +106,6 @@ export function draftToRow(draft: RequestDraft): RequestRowFields {
     item_name: draft.itemName.trim(),
     kind: draft.kind,
     quantity: Math.max(1, Number(draft.quantity) || 1),
-    unit: trimmed(draft.unit),
     estimated_cost: number(draft.cost),
     product_url: trimmed(draft.url),
     reason: trimmed(draft.reason),
@@ -143,7 +138,6 @@ export function itemFromRequest(
     // Asked at request time now, rather than guessed from the count.
     kind: row.kind === 'consumable' ? 'consumable' : 'asset',
     quantity: row.quantity,
-    unit: row.unit ?? null,
     estimated_cost: row.estimated_cost == null ? null : Number(row.estimated_cost),
     product_url: row.product_url ?? null,
     notes: row.reason ?? null,

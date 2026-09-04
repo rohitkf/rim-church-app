@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  countLabel,
+  filterCounts,
   isLowStock,
   isOverdue,
   itemValue,
   matchesSearch,
   needsAttention,
+  matchesFilter,
   summarise,
   totalValue,
   unitCostLabel,
@@ -66,7 +67,7 @@ describe('needsAttention', () => {
 })
 
 describe('summarise', () => {
-  it('counts each thing once, and leaves retired kit out of the asset count', () => {
+  it('counts each thing once, and counts in service from the status itself', () => {
     const summary = summarise(
       [
         item({ id: '1' }),
@@ -76,7 +77,13 @@ describe('summarise', () => {
       ],
       '2026-08-27',
     )
-    expect(summary).toMatchObject({ assets: 2, consumables: 1, onLoan: 1, attention: 2 })
+    expect(summary).toMatchObject({
+      assets: 3,
+      consumables: 1,
+      inService: 2,
+      onLoan: 1,
+      attention: 2,
+    })
   })
 })
 
@@ -138,42 +145,67 @@ describe('itemValue', () => {
   })
 })
 
-describe('saying it in its own units', () => {
-  it('names the unit when there is one, and "each" when there is not', () => {
-    expect(unitCostLabel(item({ estimated_cost: 1, unit: 'screw' }))).toBe('£1 per screw')
+describe('what one of it costs', () => {
+  it('says it per one, to the penny', () => {
+    expect(unitCostLabel(item({ estimated_cost: 1 }))).toBe('£1 each')
     expect(unitCostLabel(item({ estimated_cost: 249.99 }))).toBe('£249.99 each')
   })
 
   it('keeps the pennies — 75p is not a pound', () => {
-    expect(unitCostLabel(item({ estimated_cost: 0.75, unit: 'screw' }))).toBe('£0.75 per screw')
+    expect(unitCostLabel(item({ estimated_cost: 0.75 }))).toBe('£0.75 each')
   })
 
   it('says nothing about a price nobody has recorded', () => {
     expect(unitCostLabel(item({ estimated_cost: null }))).toBeNull()
   })
-
-  it('counts in the words the register uses', () => {
-    expect(countLabel(item({ quantity: 10, unit: 'screw' }))).toBe('10 × screw')
-    expect(countLabel(item({ quantity: 10 }))).toBe('10')
-  })
 })
 
 describe('valueHint', () => {
   it('does the sum the two fields are for', () => {
-    expect(valueHint('10', '1', 'screw')).toBe('10 × screw at £1 each — £10 on the register.')
-  })
-
-  it('works without a unit name, which is optional', () => {
-    expect(valueHint('2', '249.99', '')).toBe('2 at £249.99 each — £499.98 on the register.')
+    expect(valueHint('10', '1')).toBe('10 at £1 each — £10 on the register.')
+    expect(valueHint('2', '249.99')).toBe('2 at £249.99 each — £499.98 on the register.')
   })
 
   it('says what the cost means before a cost is typed', () => {
-    expect(valueHint('10', '', 'screw')).toBe('The cost of one screw, not of all of them.')
-    expect(valueHint('10', '', '')).toBe('The cost of one, not of all of them.')
+    expect(valueHint('10', '')).toBe('The cost of one, not of all of them.')
   })
 
   it('treats nonsense as no cost rather than showing NaN', () => {
-    expect(valueHint('10', 'abc', '')).toBe('The cost of one, not of all of them.')
-    expect(valueHint('10', '0', '')).toBe('The cost of one, not of all of them.')
+    expect(valueHint('10', 'abc')).toBe('The cost of one, not of all of them.')
+    expect(valueHint('10', '0')).toBe('The cost of one, not of all of them.')
+  })
+})
+
+describe('the five chips above the register', () => {
+  const today = '2026-08-27'
+  const register = [
+    item({ id: '1' }),
+    item({ id: '2', item_status: 'on_loan', due_back: '2026-08-01' }),
+    item({ id: '3', item_status: 'retired' }),
+    item({ id: '4', kind: 'consumable', quantity: 1, reorder_level: 5 }),
+  ]
+
+  it('counts exactly what pressing the chip would show', () => {
+    const counts = filterCounts(register, today)
+    for (const filter of ['all', 'assets', 'consumables', 'out', 'attention'] as const) {
+      expect(counts[filter]).toBe(register.filter((i) => matchesFilter(i, filter, today)).length)
+    }
+  })
+
+  it('keeps retired kit under Assets, where pressing Assets shows it', () => {
+    // The count and the filter used to disagree about this one: the chip
+    // said three and the list underneath it drew four.
+    expect(filterCounts(register, today).assets).toBe(3)
+    expect(matchesFilter(item({ item_status: 'retired' }), 'assets', today)).toBe(true)
+  })
+
+  it('sorts each item by what it is and where it is', () => {
+    expect(filterCounts(register, today)).toMatchObject({
+      all: 4,
+      assets: 3,
+      consumables: 1,
+      out: 1,
+      attention: 2,
+    })
   })
 })
