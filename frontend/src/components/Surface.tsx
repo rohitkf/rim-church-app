@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import type { ComponentType, ReactNode } from 'react'
+import type { ComponentType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 /**
  * The design system's primitives.
@@ -410,6 +410,47 @@ export function StackedBar({
  * `align` decides where it rests: `center` for a confirmation, `sheet` for
  * something dragged up from the bottom edge of a phone.
  */
+/*
+ * How many overlays are open, so nesting cannot unlock the page early.
+ *
+ * The first one to open locks the body and remembers where the page was;
+ * the last one to close puts it back. Without the count, a dialog opened
+ * from inside another would restore the scroll position on its own way
+ * out and leave the page underneath moving again with a modal still up.
+ */
+let openOverlays = 0
+let lockedScrollY = 0
+
+function lockPageScroll() {
+  openOverlays += 1
+  if (openOverlays > 1) return
+  lockedScrollY = window.scrollY
+  const { body, documentElement } = document
+  // The width the scrollbar was taking, so locking does not let the page
+  // jump sideways on a desktop as it disappears.
+  const gutter = window.innerWidth - documentElement.clientWidth
+  body.style.position = 'fixed'
+  body.style.top = `-${lockedScrollY}px`
+  body.style.left = '0'
+  body.style.right = '0'
+  if (gutter > 0) body.style.paddingRight = `${gutter}px`
+}
+
+function unlockPageScroll() {
+  openOverlays = Math.max(0, openOverlays - 1)
+  if (openOverlays > 0) return
+  const { body } = document
+  body.style.position = ''
+  body.style.top = ''
+  body.style.left = ''
+  body.style.right = ''
+  body.style.paddingRight = ''
+  // `position: fixed` threw the page back to the top; put it where it was.
+  // Only when there is somewhere to go back to — a modal opened at the top
+  // of a page needs no restoring, and jsdom has no scrollTo to call.
+  if (lockedScrollY > 0) window.scrollTo(0, lockedScrollY)
+}
+
 export function Overlay({
   children,
   onDismiss,
@@ -429,23 +470,56 @@ export function Overlay({
     return () => window.removeEventListener('keydown', onKey)
   }, [onDismiss])
 
+  /*
+   * Hold the page still underneath.
+   *
+   * Without this a drag anywhere on the overlay scrolled the page behind
+   * it instead of the dialog — on a phone, where a long form is exactly
+   * the thing you have to drag through, that made the form unusable.
+   * `overflow: hidden` on the body is not enough on iOS; taking the body
+   * out of flow at its current offset is what actually holds.
+   */
+  useEffect(() => {
+    lockPageScroll()
+    return unlockPageScroll
+  }, [])
+
+  // Dismissing on a click outside the dialog, on either of the two
+  // wrappers below — whichever the click actually landed on.
+  const dismissIfOutside = (e: ReactMouseEvent) => {
+    if (e.target === e.currentTarget) onDismiss()
+  }
+
   return createPortal(
+    /*
+     * Two elements on purpose. The outer one scrolls; the inner one
+     * centres. Centring and scrolling on the same element is the old
+     * flexbox trap: `items-center` with content taller than the viewport
+     * pushes both ends outside the scrollable area, so the top of a long
+     * form cannot be reached at all. With the scroll on the outside and a
+     * `min-h-full` flex row within, a short dialog still sits in the
+     * middle and a tall one simply makes the overlay scroll.
+     */
     <div
       role="dialog"
       aria-modal="true"
       aria-label={label}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss()
-      }}
-      className={`fixed inset-0 z-50 flex justify-center bg-black/55 backdrop-blur-[2px] ${
-        align === 'sheet' ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'
-      }`}
+      onClick={dismissIfOutside}
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/55 backdrop-blur-[2px]"
     >
-      {children}
+      <div
+        onClick={dismissIfOutside}
+        className={`flex min-h-full justify-center ${
+          align === 'sheet' ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'
+        }`}
+      >
+        {children}
+      </div>
     </div>,
     document.body,
   )
 }
+
 
 /* ------------------------------------------------------------------ *
  * Forms

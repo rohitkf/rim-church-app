@@ -582,14 +582,8 @@ export function InventoryPage() {
       )}
 
       {docsFor && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Paperwork for ${docsFor.name}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setDocsFor(null) }}
-        >
-          <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-2 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+        <Overlay label={`Paperwork for ${docsFor.name}`} onDismiss={() => setDocsFor(null)}>
+          <div className="w-full max-w-lg rounded-[var(--radius-shell)] bg-surface-lowest p-2 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
             <div className="flex items-baseline justify-between gap-3 px-3 pt-3">
               <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
                 {docsFor.name}
@@ -610,7 +604,7 @@ export function InventoryPage() {
               />
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {scanned && (
@@ -1013,13 +1007,15 @@ function EditItemDialog({
     onError: (err: unknown) => onError(errorText(err, 'Could not save those changes.')),
   })
 
+  /*
+   * This used to draw its own backdrop rather than using `Overlay`, and
+   * so missed everything Overlay does: no Escape to close, no scroll lock
+   * on the page behind, and no way to reach the ends of a form taller
+   * than the phone. This is the longest form in the app, so it was the
+   * one where all three mattered most.
+   */
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-item-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-    >
+    <Overlay label={`Edit ${item.name}`} onDismiss={onClose}>
       <form
         onSubmit={(e: FormEvent) => {
           e.preventDefault()
@@ -1028,9 +1024,7 @@ function EditItemDialog({
         className="w-full max-w-xl rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
       >
         <Eyebrow>{item.asset_tag ?? 'Item'}</Eyebrow>
-        <h2 id="edit-item-title" className="mt-1 text-headline-md">
-          Edit {item.name}
-        </h2>
+        <h2 className="mt-1 text-headline-md">Edit {item.name}</h2>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Name">
@@ -1120,7 +1114,7 @@ function EditItemDialog({
           </ActionButton>
         </div>
       </form>
-    </div>
+    </Overlay>
   )
 }
 
@@ -1166,16 +1160,9 @@ function DeleteItemDialog({
   const busy = remove.isPending || retire.isPending
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-item-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-    >
+    <Overlay label={`Remove ${item.name}?`} onDismiss={onClose}>
       <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
-        <h2 id="delete-item-title" className="text-headline-md">
-          Remove {item.name}?
-        </h2>
+        <h2 className="text-headline-md">Remove {item.name}?</h2>
         <p className="mt-2 text-body-sm text-on-surface-variant">
           Deleting takes its whole history with it — every sign-out, repair and stock check. If it
           is simply gone or beyond use, retiring keeps the record and stops it counting toward the
@@ -1208,7 +1195,7 @@ function DeleteItemDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }
 
