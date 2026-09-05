@@ -110,11 +110,7 @@ const router = createBrowserRouter(
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/departments/:id" element={<DepartmentDetailPage />} />
-          <Route path="/checklists" element={<ChecklistsIndexPage />} />
-          <Route path="/availability" element={<AvailabilityPage />} />
-          <Route path="/rota" element={<TeamRotaPage />} />
           <Route path="/set-lists" element={<SetListsPage />} />
-          <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
           <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
           <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
@@ -123,6 +119,12 @@ const router = createBrowserRouter(
               back to the dashboard rather than meeting three empty rooms —
               and the database refuses the rows regardless (0080). */}
           <Route element={<TeamOnlyRoute />}>
+            {/* A rota, an availability answer and a checklist are all
+                somebody's team's. On no team they are three empty pages. */}
+            <Route path="/checklists" element={<ChecklistsIndexPage />} />
+            <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
+            <Route path="/availability" element={<AvailabilityPage />} />
+            <Route path="/rota" element={<TeamRotaPage />} />
             <Route path="/inventory" element={<InventoryIndexPage />} />
             <Route path="/inventory/:id" element={<InventoryPage />} />
             {/* Where a scanned label lands; it forwards to the item's own team. */}

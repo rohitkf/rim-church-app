@@ -36,9 +36,9 @@ import { WelcomeTour } from './WelcomeTour'
 const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon },
-  { to: '/availability', label: 'Availability', icon: UserCheckIcon },
-  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
+  { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true },
+  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
   { to: '/events', label: 'Events', icon: CakeIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
