@@ -17,7 +17,15 @@ vi.mock('../lib/queries', () => ({
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'ada' } },
-    profile: { first_name: 'Ada', last_name: 'Grace', email: 'ada@example.com' },
+    // Welcomed long ago: the first-time welcome has its own tests, and it
+    // would otherwise sit over the dock in every one of these.
+    profile: {
+      id: 'ada',
+      first_name: 'Ada',
+      last_name: 'Grace',
+      email: 'ada@example.com',
+      welcomed_at: '2026-01-01T00:00:00Z',
+    },
     roles: [],
     isAdmin: false,
     ledDepartmentIds: [],

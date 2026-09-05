@@ -31,6 +31,7 @@ import { AlertBanner } from './AlertBanner'
 import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
 import { useMyTeams } from '../lib/useMyTeams'
+import { WelcomeTour } from './WelcomeTour'
 
 const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
@@ -187,6 +188,11 @@ export function AppShell() {
           )
         }
       />
+
+      {/* First time in: who you are, what this is for, and the one thing
+          to do about it. Shown once ever, and the once is on the profile
+          rather than in this browser — see WelcomeTour. */}
+      <WelcomeTour />
 
       <PwaBanners />
 
