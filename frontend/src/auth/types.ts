@@ -25,5 +25,7 @@ export const profileSchema = z.object({
   email: z.string(),
   phone: z.string().nullable(),
   avatar_url: z.string().nullable(),
+  /** When the welcome was shown. Null means this is somebody's first time. */
+  welcomed_at: z.string().nullable().optional(),
 })
 export type Profile = z.infer<typeof profileSchema>
