@@ -145,9 +145,9 @@ export interface DatedService {
 }
 
 /** A day the church has something on, and what it has on. */
-export interface ServiceDay {
+export interface ServiceDay<T extends DatedService = DatedService> {
   date: string
-  services: DatedService[]
+  services: T[]
 }
 
 /**
@@ -158,8 +158,8 @@ export interface ServiceDay {
  * "you are due at seven" makes sense once you can see it is the Sunday
  * with two services on it.
  */
-export function serviceDays(services: DatedService[]): ServiceDay[] {
-  const byDate = new Map<string, DatedService[]>()
+export function serviceDays<T extends DatedService>(services: T[]): ServiceDay<T>[] {
+  const byDate = new Map<string, T[]>()
   for (const service of services) {
     const held = byDate.get(service.date)
     if (held) held.push(service)

@@ -5,7 +5,8 @@ import { z } from 'zod'
 import {
   DESIGNATION_BADGE,
   DESIGNATION_LABEL,
-  DESIGNATION_RANK,
+  orderByDesignation,
+  orderByName,
   designationOn,
   type Designation,
 } from '../lib/designation'
@@ -136,14 +137,13 @@ export function DepartmentDetailPage() {
 
   // Split once: the roster renders twice — as cards on a phone and as a
   // table from `sm` up — and both need the same list.
-  const coreMembers = [...(membersQuery.data ?? [])]
-    .filter((m) => m.member_type === 'core')
-    .sort(
-      (a, b) =>
-        DESIGNATION_RANK[designationOf(a.user_id)] - DESIGNATION_RANK[designationOf(b.user_id)] ||
-        (a.profiles?.first_name ?? '').localeCompare(b.profiles?.first_name ?? ''),
-    )
-  const guestMembers = (membersQuery.data ?? []).filter((m) => m.member_type === 'guest')
+  const coreMembers = orderByDesignation(
+    (membersQuery.data ?? []).filter((m) => m.member_type === 'core'),
+    designationOf,
+  )
+  const guestMembers = orderByName(
+    (membersQuery.data ?? []).filter((m) => m.member_type === 'guest'),
+  )
 
   const memberIds = membersQuery.data?.map((m) => m.user_id) ?? []
   const sensitiveQuery = useQuery({
