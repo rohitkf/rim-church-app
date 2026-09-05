@@ -8,6 +8,7 @@ import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
+import { serviceDays } from '../lib/callTimes'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
@@ -138,6 +139,16 @@ export function AvailabilityPage() {
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
   const groups = useMemo(() => splitAvailabilityGroups(upcoming, isFinished), [upcoming, isFinished])
+
+  /*
+   * A Sunday is one occasion, not two questions.
+   *
+   * The page listed each service on its own, so a church with an English
+   * service and a Malayalam service on the same morning read as two
+   * separate days — and three weeks of that is six headings for three
+   * Sundays. The day is the heading now; the services sit under it.
+   */
+  const daysOf = (services: typeof upcoming) => serviceDays(services)
 
   // Teams shown here: the ones you belong to or lead. Admins get every
   // team, so the check-ins they can record match the teams the dashboard
@@ -283,7 +294,6 @@ export function AvailabilityPage() {
                 Finished · closed
               </span>
             )}
-            {service.date === today ? 'Today' : formatServiceDay(service.date)}
             <Chevron open={open} />
           </span>
         </div>
@@ -604,7 +614,14 @@ export function AvailabilityPage() {
           </p>
         ) : (
           <div className="mt-6 flex flex-col gap-6">
-            {groups.now.map((service) => renderService(service, true))}
+            {daysOf(groups.now).map((day) => (
+              <section key={day.date} aria-label={formatServiceDay(day.date)}>
+                <DayHeading date={day.date} today={today} count={day.services.length} />
+                <div className="mt-3 flex flex-col gap-4">
+                  {day.services.map((service) => renderService(service, true))}
+                </div>
+              </section>
+            ))}
 
             {groups.later.length > 0 && (
               /* Everything past the next occasion. Real services with real
@@ -621,13 +638,50 @@ export function AvailabilityPage() {
                   The next three weeks. Answer early if you already know.
                 </p>
                 <div className="mt-4 flex flex-col gap-6">
-                  {groups.later.map((service) => renderService(service, false))}
+                  {daysOf(groups.later).map((day) => (
+                    <section key={day.date} aria-label={formatServiceDay(day.date)}>
+                      <DayHeading date={day.date} today={today} count={day.services.length} />
+                      <div className="mt-3 flex flex-col gap-4">
+                        {day.services.map((service) => renderService(service, false))}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </section>
             )}
           </div>
         )}
       </QueryState>
+    </div>
+  )
+}
+
+/**
+ * The day a run of services belongs to.
+ *
+ * Said once, above them, rather than repeated on each card: two services
+ * on one Sunday are one occasion to answer for, and a page that repeats
+ * "Sunday, 6 September 2026" under every service reads as six mornings
+ * where there are three.
+ */
+function DayHeading({
+  date,
+  today,
+  count,
+}: {
+  date: string
+  today: string
+  count: number
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <h2 className="shrink-0 font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
+        {date === today ? `Today · ${formatServiceDay(date)}` : formatServiceDay(date)}
+      </h2>
+      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border-subtle" />
+      <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">
+        {count} {count === 1 ? 'service' : 'services'}
+      </span>
     </div>
   )
 }

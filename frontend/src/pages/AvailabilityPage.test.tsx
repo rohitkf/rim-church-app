@@ -39,6 +39,8 @@ vi.mock('../lib/queries', () => ({
   fetchServices: () =>
     Promise.resolve([
       { id: 's1', date: SUNDAY, service_type: 'English Service' },
+      // Two on one morning: the case the day headings exist for.
+      { id: 's1b', date: SUNDAY, service_type: 'Malayalam Service' },
       { id: 's2', date: NEXT, service_type: 'English Service' },
       { id: 's3', date: AFTER, service_type: 'English Service' },
       { id: 's4', date: MONTHS_OUT, service_type: 'Carol Service' },
@@ -66,10 +68,17 @@ function show() {
   return userEvent.setup()
 }
 
-/** A service's card, found by the day it is on. The date is rendered
- *  through `toLocaleDateString`, so it is matched loosely rather than
- *  pinned to whichever locale the test runner happens to be in. */
-const cardFor = (day: string | RegExp) => screen.getByText(day).closest('section')!
+/*
+ * A day's section, found by its heading, and a service's card within it.
+ * The date is rendered through `toLocaleDateString`, so it is matched
+ * loosely rather than pinned to whichever locale the runner is in.
+ */
+const dayFor = (day: string | RegExp) =>
+  screen.getByRole('heading', { name: day, level: 2 }).closest('section')!
+
+/** One service inside a day, by the name on its own heading. */
+const cardFor = (day: string | RegExp, service = 'English Service') =>
+  within(dayFor(day)).getByRole('heading', { name: service, level: 2 }).closest('section')!
 
 const teamsOf = (card: HTMLElement) => card.querySelector('ul[id^="availability-teams-"]')!
 
@@ -82,39 +91,51 @@ describe('the availability tracker over three weeks', () => {
     // The window used to be the rota's seven days, so the answer somebody
     // already knew about the third Sunday had nowhere to go.
     show()
-    await screen.findByText('Today')
+    await screen.findByRole('heading', { name: /Today/ })
     expect(screen.getByText(/September 13/)).toBeInTheDocument()
     expect(screen.getByText(/September 20/)).toBeInTheDocument()
   })
 
   it('still stops at three weeks — a Carol service in December is not this', async () => {
     show()
-    await screen.findByText('Today')
+    await screen.findByRole('heading', { name: /Today/ })
     expect(screen.queryByText(/December/)).not.toBeInTheDocument()
   })
 
   it('opens the soonest service and folds the rest', async () => {
     show()
-    await screen.findByText('Today')
-    expect(teamsOf(cardFor('Today'))).not.toHaveAttribute('hidden')
+    await screen.findByRole('heading', { name: /Today/ })
+    expect(teamsOf(cardFor(/Today/))).not.toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 13/))).toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 20/))).toHaveAttribute('hidden')
   })
 
   it('files everything past the next occasion under its own heading', async () => {
     show()
-    await screen.findByText('Today')
+    await screen.findByRole('heading', { name: /Today/ })
     const heading = screen.getByRole('heading', { name: 'Upcoming services availability' })
     const section = heading.closest('section')!
     expect(within(section).getByText(/September 13/)).toBeInTheDocument()
     expect(within(section).getByText(/September 20/)).toBeInTheDocument()
     // The one in front of you is not filed under "upcoming".
-    expect(within(section).queryByText('Today')).not.toBeInTheDocument()
+    expect(within(section).queryByText(/Today/)).not.toBeInTheDocument()
+  })
+
+  it('gathers a morning’s services under one date, said once', async () => {
+    show()
+    const today = await screen.findByRole('heading', { name: /Today/ })
+    const day = today.closest('section')!
+    // Both services on the morning, under the one heading…
+    expect(within(day).getByRole('heading', { name: 'English Service' })).toBeInTheDocument()
+    expect(within(day).getByRole('heading', { name: 'Malayalam Service' })).toBeInTheDocument()
+    expect(within(day).getByText('2 services')).toBeInTheDocument()
+    // …and the date is not repeated on the cards underneath it.
+    expect(within(day).getAllByText(/September 6/)).toHaveLength(1)
   })
 
   it('opens a folded service on a touch', async () => {
     const user = show()
-    await screen.findByText('Today')
+    await screen.findByRole('heading', { name: /Today/ })
     const later = cardFor(/September 13/)
     expect(teamsOf(later)).toHaveAttribute('hidden')
     await user.click(within(later).getByRole('button', { expanded: false }))
@@ -123,21 +144,22 @@ describe('the availability tracker over three weeks', () => {
 
   it('closes the open one on a touch, for somebody who wants it out of the way', async () => {
     const user = show()
-    await screen.findByText('Today')
-    const soonest = cardFor('Today')
+    await screen.findByRole('heading', { name: /Today/ })
+    const soonest = cardFor(/Today/)
     expect(teamsOf(soonest)).not.toHaveAttribute('hidden')
     await user.click(within(soonest).getByRole('button', { expanded: true }))
     await waitFor(() => expect(teamsOf(soonest)).toHaveAttribute('hidden'))
   })
 
-  it('moves on to the next answerable service once today’s has finished', async () => {
-    // Today's is a record now. The 13th is the question, so it opens —
-    // and is no longer filed under "upcoming".
-    state.finished = new Set(['s1'])
+  it('moves on to the next day once the whole of today has finished', async () => {
+    // Both of this morning's services are a record now — the line is
+    // drawn at a day, so one of the two finishing would not move it. The
+    // 13th is the question, so it opens.
+    state.finished = new Set(['s1', 's1b'])
     show()
-    await screen.findByText('Today')
+    await screen.findByRole('heading', { name: /Today/ })
     const next = cardFor(/September 13/)
     expect(teamsOf(next)).not.toHaveAttribute('hidden')
-    expect(teamsOf(cardFor('Today'))).toHaveAttribute('hidden')
+    expect(teamsOf(cardFor(/Today/))).toHaveAttribute('hidden')
   })
 })
