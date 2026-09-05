@@ -78,7 +78,14 @@ describe('AppShell dock', () => {
     // they are still absent once the roster has come back empty.
     expect(await screen.findByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
     await waitFor(() => {
-      for (const label of ['Inventory', 'Messages', 'Team Chat']) {
+      for (const label of [
+        'Inventory',
+        'Messages',
+        'Team Chat',
+        'Checklists',
+        'Availability',
+        'Team Rota',
+      ]) {
         expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument()
       }
     })
