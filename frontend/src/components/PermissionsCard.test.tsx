@@ -83,6 +83,38 @@ describe('PermissionsCard', () => {
       expect(coordinatorColumn).toBeGreaterThan(-1)
     })
 
+    it('never grants a new account something a Team Member is denied', () => {
+      // Being on no team is the narrowest standing there is: it can only
+      // ever see less than somebody on a team, never more.
+      const rank: Record<string, number> = { no: 0, own: 1, team: 2, yes: 3 }
+      for (const area of PERMISSIONS) {
+        for (const c of area.capabilities) {
+          expect(rank[c.can.newcomer], `${area.area} / ${c.action}`).toBeLessThanOrEqual(
+            rank[c.can.member],
+          )
+        }
+      }
+    })
+
+    it('gives a new account nothing that belongs to a team', () => {
+      // The six pages the app now turns them away from. If one of these
+      // ever reads "yes" again, either a policy was widened or this table
+      // is lying about it.
+      const teamsOwn = [
+        'See the rota',
+        'See the register and its documents',
+        'Read the message board',
+        'Read and post in a team’s chat',
+        'See what a team has answered',
+      ]
+      const rows = PERMISSIONS.flatMap((a) => a.capabilities)
+      for (const action of teamsOwn) {
+        const row = rows.find((c) => c.action === action)
+        expect(row, action).toBeDefined()
+        expect(row!.can.newcomer, action).toBe('no')
+      }
+    })
+
     it('never grants a Team Member something a Head is denied', () => {
       // A sanity check on the whole grid rather than one row: standings
       // widen outwards, and an inversion would mean the table is wrong or

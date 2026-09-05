@@ -17,7 +17,7 @@
  * rather than implying an accuracy it cannot promise.
  */
 
-export const CHECKED_ON = '2 September 2026'
+export const CHECKED_ON = '5 September 2026'
 
 /** The standings a person can hold. Columns, left to right. */
 export const ROLES = [
@@ -37,7 +37,13 @@ export const ROLES = [
     label: 'Coordinator',
     blurb: 'Whoever the rota puts in Team Coordinator, for that service only. Not a standing rank.',
   },
-  { key: 'member', label: 'Team Member', blurb: 'Everybody else who is signed in.' },
+  { key: 'member', label: 'Team Member', blurb: 'On at least one team. Most of the church.' },
+  {
+    key: 'newcomer',
+    label: 'New',
+    blurb:
+      'Signed in, and not on a team yet. They see the church’s shape — the services, the teams, the countdown — and none of the teams’ own working: no rota, no register, no boards, no call times.',
+  },
 ] as const
 
 export type RoleKey = (typeof ROLES)[number]['key']
@@ -63,6 +69,9 @@ const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allo
   head: 'no',
   coordinator: 'no',
   member: 'no',
+  // A new account can do none of it until somebody puts them on a team;
+  // the handful of things they can see say so row by row.
+  newcomer: 'no',
   ...over,
 })
 
@@ -72,7 +81,8 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See services and the running order',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+        note: 'The church’s own shape, open to anybody signed in — it is what the countdown on the dashboard counts to.',
       },
       { action: 'Create, edit or delete a service', can: all() },
       { action: 'Build and edit service templates', can: all() },
@@ -89,7 +99,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Set a team’s call time',
         can: all({ head: 'team' }),
-        note: 'Everyone can read every team’s — knowing Worship is called at eight is how whoever opens up knows who to expect.',
+        note: 'Anybody on a team can read every team’s — knowing Worship is called at eight is how whoever opens up knows who to expect. Somebody on no team reads none of them.',
       },
     ],
   },
@@ -99,7 +109,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See the rota',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'The whole church can see who is serving when.',
+        note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
       { action: 'Assign somebody to a role', can: all({ head: 'team' }) },
       { action: 'Ask another team to release a volunteer', can: all({ head: 'team' }) },
@@ -112,7 +122,13 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See teams, their roles and their checklists',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+        note: 'How the church is organised is not private: it is how somebody new finds the team to ask to join.',
+      },
+      {
+        action: 'See who heads a team, and who assists',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'team' }),
+        note: 'Your own teams. Until September 2026 only an Admin could see this, so the roster showed no Head at all to the people on it.',
       },
       { action: 'Create or delete a team', can: all() },
       { action: 'Rename a team, set its colour or handbook', can: all({ head: 'team' }) },
@@ -129,11 +145,12 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See your own checklist and tick it off',
         can: all({ head: 'own', coordinator: 'own', member: 'own' }),
+        note: 'From your team’s call time on the day of the service until the service finishes — not before, not after. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
       },
       {
         action: 'Verify a team’s checklist as done',
         can: all({ head: 'team', coordinator: 'team' }),
-        note: 'The Coordinator is why a Sunday does not stall on whoever happens to be in the building.',
+        note: 'The Coordinator is why a Sunday does not stall on whoever happens to be in the building. The same window applies: nobody verifies before the call time.',
       },
       { action: 'Record attendance for a team', can: all({ head: 'team' }) },
       { action: 'Nudge somebody who has not finished', can: all({ head: 'team' }) },
@@ -164,6 +181,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See the register and its documents',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'Any team’s, by anybody on a team. Somebody on no team sees none of it.',
       },
       { action: 'Add, edit or remove an item', can: all({ head: 'yes' }) },
       { action: 'Record stock movements and stock checks', can: all({ head: 'yes' }) },
@@ -186,6 +204,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Read the message board',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'The church-wide board, for anybody on a team.',
       },
       {
         action: 'Post to the message board',
@@ -220,16 +239,24 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See the roster and contact details',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+        note: 'Names, emails and phone numbers are readable by anybody signed in, a new account included. Worth knowing, and worth a decision one day.',
       },
       {
         action: 'Edit your own profile',
-        can: all({ owner: 'own', admin: 'own', head: 'own', coordinator: 'own', member: 'own' }),
+        can: all({
+          owner: 'own',
+          admin: 'own',
+          head: 'own',
+          coordinator: 'own',
+          member: 'own',
+          newcomer: 'own',
+        }),
       },
       { action: 'Edit somebody else’s profile', can: all() },
       {
         action: 'See DBS and safeguarding details',
-        can: all({ head: 'own', coordinator: 'own', member: 'own' }),
+        can: all({ head: 'own', coordinator: 'own', member: 'own', newcomer: 'own' }),
         note: 'Everybody sees their own. Only an Admin sees anybody else’s — leading a team is not a reason to read somebody’s safeguarding record.',
       },
       { action: 'Invite somebody to the app', can: all({ head: 'team' }) },
