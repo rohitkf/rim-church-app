@@ -40,6 +40,7 @@ import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog
 import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import {
   serviceSchema,
   serviceSessionRowSchema,
@@ -631,6 +632,65 @@ export function ServicePlannerPage() {
 
   const { ask, dialog } = useConfirmAction()
 
+  /*
+   * What can be done to the service itself, as one menu.
+   *
+   * Export sits outside the Admin block deliberately: anyone rostered on
+   * needs the running order on a phone or a printed sheet, and having to
+   * ask an Admin for a copy of a plan they can already read on this page
+   * is a worse answer than letting them take it. It stays in Preview,
+   * which is meant to show what everyone else gets.
+   */
+  const pageActions: MenuAction[] = [
+    {
+      label: 'Export',
+      hint: 'The running order as an image or a PDF',
+      onSelect: () => setExporting(true),
+    },
+    ...(canManage
+      ? ([
+          {
+            label: 'Preview',
+            hint: 'See the page as everyone who is not an Admin sees it',
+            onSelect: () => setPreviewing(true),
+          },
+          ...(sessions.length > 0
+            ? ([
+                {
+                  label: 'Save as template',
+                  hint: 'Reuse this running order for another service',
+                  onSelect: () => {
+                    setTemplateMessage(null)
+                    setTemplateFormOpen((v) => !v)
+                  },
+                },
+              ] as MenuAction[])
+            : []),
+          ...(canEdit && sessions.length > 0
+            ? ([
+                {
+                  label: 'Clear plan',
+                  hint: 'Empties the running order, keeping the service',
+                  tone: 'danger',
+                  onSelect: () => {
+                    setConfirmingDelete(false)
+                    setConfirmingClear(true)
+                  },
+                },
+              ] as MenuAction[])
+            : []),
+          {
+            label: 'Delete service',
+            tone: 'danger',
+            onSelect: () => {
+              setConfirmingClear(false)
+              setConfirmingDelete(true)
+            },
+          },
+        ] as MenuAction[])
+      : []),
+  ]
+
   function handleSaveTemplate(e: FormEvent) {
     e.preventDefault()
     if (!templateName.trim() || sessions.length === 0) return
@@ -685,82 +745,38 @@ export function ServicePlannerPage() {
               </>
             )}
           </div>
-          {/* Four buttons come to 517px, and `shrink-0` meant they ran
-              off the side of a phone rather than wrapping. They wrap
-              here and stay one row from `sm`, where they fit. */}
+          {/* One primary action and a menu.
+              Six pills across the top — Export, Preview, Save as template,
+              Add Session, Clear plan, Delete — wrapped into three rows on
+              a phone and put a red word beside a blue one at the same
+              size, so the page opened as a wall of buttons above the
+              running order it is actually for. Adding a session is the
+              thing an Admin came to do; the rest is a menu. */}
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            {/* Export is not an editing control. Anyone rostered on needs the
-                running order on a phone screen or a printed sheet, and having
-                to ask an Admin for a copy of a plan they can already read on
-                this page is a worse answer than letting them take it. It sits
-                outside the Admin block for that reason, and stays visible in
-                Preview, which is meant to show what everyone else gets. */}
-            <button
-              onClick={() => setExporting(true)}
-              className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
-            >
-              Export
-            </button>
-            {canManage && (
-            <>
+            {canEdit && undoStack.length > 0 && (
               <button
-                onClick={() => setPreviewing(true)}
-                className="tap rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                onClick={() => undo.mutate()}
+                disabled={undo.isPending}
+                title="Only what has been changed since this page was opened"
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface disabled:opacity-50"
               >
-                Preview
+                {undo.isPending ? 'Undoing…' : `Undo ${undoStack.at(-1)!.label}`}
               </button>
-              {sessions.length > 0 && (
-                <button
-                  onClick={() => {
-                    setTemplateMessage(null)
-                    setTemplateFormOpen((v) => !v)
-                  }}
-                  className="rounded-full bg-raised-strong px-4 py-2.5 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
-                >
-                  Save as template
-                </button>
-              )}
-              {canEdit && undoStack.length > 0 && (
-                <button
-                  onClick={() => undo.mutate()}
-                  disabled={undo.isPending}
-                  title="Only what has been changed since this page was opened"
-                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface disabled:opacity-50"
-                >
-                  {undo.isPending ? 'Undoing…' : `Undo ${undoStack.at(-1)!.label}`}
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  onClick={() => addSession.mutate()}
-                  disabled={addSession.isPending}
-                  className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-                >
-                  {addSession.isPending ? 'Adding…' : '+ Add Session'}
-                </button>
-              )}
-              {canEdit && sessions.length > 0 && (
-                <button
-                  onClick={() => {
-                    setConfirmingDelete(false)
-                    setConfirmingClear(true)
-                  }}
-                  className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
-                >
-                  Clear plan
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setConfirmingClear(false)
-                  setConfirmingDelete(true)
-                }}
-                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-error hover:border-error"
-              >
-                Delete
-              </button>
-            </>
             )}
+            {canEdit && (
+              <button
+                onClick={() => addSession.mutate()}
+                disabled={addSession.isPending}
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+              >
+                {addSession.isPending ? 'Adding…' : '+ Add Session'}
+              </button>
+            )}
+            <ActionMenu
+              label="this service"
+              actions={pageActions}
+              className="h-11 w-11 bg-raised-strong hairline-strong"
+            />
           </div>
         </div>
 
@@ -1080,6 +1096,100 @@ export function ServicePlannerPage() {
                         className="w-full min-w-0 rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
                       />
                     )
+
+                    /*
+                     * Everything that can be done to this session, in the
+                     * order somebody would reach for it on a Sunday: what
+                     * is happening now, then the clock, then the shape of
+                     * the running order, then the one that removes it.
+                     *
+                     * Built as data rather than as buttons so the same
+                     * list can be read by the menu and by a test — and so
+                     * a session nobody may edit simply has none.
+                     */
+                    const sessionActions: MenuAction[] = skipped
+                      ? canEdit
+                        ? [
+                            {
+                              label: 'Put it back',
+                              hint: 'Undoes the skip and returns it to the running order',
+                              tone: 'accent',
+                              disabled: runPlan.isPending,
+                              onSelect: () =>
+                                runPlan.mutate({
+                                  label: `un-skipping ${session.session_name}`,
+                                  build: (rows) =>
+                                    unskipPlan(
+                                      rows,
+                                      rows.findIndex((r) => r.id === session.id),
+                                    ),
+                                }),
+                            },
+                          ]
+                        : []
+                      : canEdit
+                        ? [
+                            {
+                              label: 'Session started',
+                              hint: 'Sets this to now and moves everything after it',
+                              tone: 'accent',
+                              disabled: runPlan.isPending,
+                              onSelect: () => setConfirming({ action: 'start', id: session.id }),
+                              badge: isNext ? (
+                                <span className="shrink-0 rounded-full bg-accent-green px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-green-ink">
+                                  Next
+                                </span>
+                              ) : undefined,
+                            },
+                            {
+                              label: held ? 'Still not started' : 'Not started',
+                              hint: held
+                                ? 'Keeps holding: the one before it is still running'
+                                : 'Holds the start until the one before it finishes',
+                              disabled: runPlan.isPending,
+                              onSelect: () =>
+                                runPlan.mutate({
+                                  label: held
+                                    ? `un-holding ${session.session_name}`
+                                    : `holding ${session.session_name}`,
+                                  build: (rows, at) => {
+                                    const i = rows.findIndex((r) => r.id === session.id)
+                                    if (i < 0) return []
+                                    return held ? releasePlan(rows, i) : holdPlan(rows, i, at)
+                                  },
+                                }),
+                            },
+                            {
+                              label: 'Add time',
+                              hint: 'Grants extra minutes and moves the rest down',
+                              disabled: runPlan.isPending,
+                              onSelect: () => setAddingTimeTo(session.id),
+                            },
+                            {
+                              label: 'Skip this session',
+                              hint: 'Takes it out of the order without deleting it',
+                              disabled: runPlan.isPending,
+                              onSelect: () => setConfirming({ action: 'skip', id: session.id }),
+                            },
+                            {
+                              label: 'Add a session below',
+                              disabled: addSessionAfter.isPending,
+                              onSelect: () => addSessionAfter.mutate(session.id),
+                            },
+                            {
+                              label: 'Remove this session',
+                              tone: 'danger',
+                              onSelect: () =>
+                                ask({
+                                  title: `Remove ${session.session_name}?`,
+                                  body: 'The session and everything written against it go, and the ones after it move up.',
+                                  confirmLabel: 'Remove',
+                                  onConfirm: () => deleteSession.mutate(session.id),
+                                }),
+                            },
+                          ]
+                        : []
+
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
@@ -1156,146 +1266,27 @@ export function ServicePlannerPage() {
                                   : 'plain'
                           }
                         >
-                          {/* The chip is not gated on edit: everyone reading
-                              the running order needs to know this one did not
-                              happen. Only putting it back is the Admin's. */}
-                          {(skipped || canEdit) && (
-                            <div className="mb-3 flex flex-wrap items-center gap-2">
-                              {skipped ? (
-                                <>
-                                  <span className="rounded-full bg-raised-strong px-3 py-1.5 text-label-md text-on-surface-variant">
-                                    Skipped
-                                  </span>
-                                  {canEdit && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      runPlan.mutate({
-                                        label: `un-skipping ${session.session_name}`,
-                                        build: (rows) =>
-                                          unskipPlan(rows, rows.findIndex((r) => r.id === session.id)),
-                                      })
-                                    }
-                                    disabled={runPlan.isPending}
-                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface disabled:opacity-50"
-                                  >
-                                    Put it back
-                                  </button>
-                                  )}
-                                </>
-                              ) : canEdit ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirming({ action: 'start', id: session.id })}
-                                    disabled={runPlan.isPending}
-                                    className={`tap rounded-full px-3.5 py-1.5 text-label-md font-medium transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 ${
-                                      isNext
-                                        ? 'bg-accent-green text-accent-green-ink'
-                                        : 'hairline text-on-surface'
-                                    }`}
-                                  >
-                                    Session started
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      runPlan.mutate({
-                                        label: held
-                                          ? `un-holding ${session.session_name}`
-                                          : `holding ${session.session_name}`,
-                                        build: (rows, at) => {
-                                          const i = rows.findIndex((r) => r.id === session.id)
-                                          if (i < 0) return []
-                                          return held ? releasePlan(rows, i) : holdPlan(rows, i, at)
-                                        },
-                                      })
-                                    }
-                                    disabled={runPlan.isPending}
-                                    className={`tap rounded-full px-3.5 py-1.5 text-label-md font-medium disabled:opacity-50 ${
-                                      held
-                                        ? 'bg-error-container text-on-error-container'
-                                        : 'hairline text-on-surface-variant'
-                                    }`}
-                                  >
-                                    {held ? 'Still not started' : 'Not started'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setAddingTimeTo(session.id)}
-                                    disabled={runPlan.isPending}
-                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface disabled:opacity-50"
-                                  >
-                                    + Time
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirming({ action: 'skip', id: session.id })}
-                                    disabled={runPlan.isPending}
-                                    className="tap rounded-full hairline px-3.5 py-1.5 text-label-md font-medium text-on-surface-variant hover:text-error disabled:opacity-50"
-                                  >
-                                    Skip
-                                  </button>
-                                  {held && (
-                                    <span className="basis-full text-label-sm text-error">
-                                      Not started yet — the one before it is still running, and its
-                                      overrun is still counting.
-                                    </span>
-                                  )}
-                                  {isNext && !held && (
-                                    <span className="basis-full text-label-sm text-on-surface-faint sm:basis-auto">
-                                      Sets this to now and moves everything after it.
-                                    </span>
-                                  )}
-                                </>
-                              ) : null}
-                            </div>
-                          )}
-                          {!skipped && grantsOf(session).length > 0 && (
-                            <ul className="mb-3 flex flex-col gap-0.5">
-                              {grantsOf(session).map((grant, i) => (
-                                <li key={i} className="text-label-md text-accent-blue">
-                                  +{grant.minutes} min added on request
-                                  {grant.note ? ` — ${grant.note}` : ''}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {skipped && session.skip_reason && (
-                            <p className="mb-3 text-label-md text-on-surface-faint">
-                              Skipped — {session.skip_reason}
-                            </p>
-                          )}
-                          {isFirst && canEdit && (
-                            <label className="mb-3 flex items-center gap-2 sm:hidden">
-                              <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                                Starts
-                              </span>
-                              {startTimeEditor}
-                            </label>
-                          )}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                            {/* `min-w-0` lets this shrink, which is what a
-                                wrapping row needs — but with nothing to
-                                shrink *to* it collapsed against the lead
-                                picker's own width until the name was one
-                                letter wide. `basis-full` gives it the whole
-                                line on a phone, so the picker wraps under
-                                it instead of squeezing it. */}
-                            <div className="min-w-0 flex-1 basis-full sm:basis-0">
-                              <div className="flex items-start gap-1">
-                              {/* The grip sits with the name rather than
-                                  out at the card's edge: it is the row's
-                                  first thing, and on a phone an edge is
-                                  where the thumb already is for scrolling. */}
-                              {canEdit && (
-                                <DragHandle
-                                  label={session.session_name}
-                                  className="mt-1.5"
-                                  {...dragHandleProps(session.id)}
-                                />
-                              )}
-                              <div className="min-w-0 flex-1">
+                          {/*
+                            The card at rest says the two things anybody
+                            opens the running order for: what the session
+                            is, and who is doing it. Everything that can be
+                            done to it — started, not started, more time,
+                            skip, add one below, remove — used to sit on
+                            the card as seven pills, which on a phone was
+                            four rows of buttons above one line of fact.
+                            They are all still one press away, behind the
+                            menu at the end of the row.
+                          */}
+                          <div className="flex items-start gap-2">
+                            {canEdit && (
+                              <DragHandle
+                                label={session.session_name}
+                                className="mt-2"
+                                {...dragHandleProps(session.id)}
+                              />
+                            )}
+
+                            <div className="min-w-0 flex-1">
                               {canEdit ? (
                                 <GrowingField
                                   value={session.session_name}
@@ -1311,96 +1302,117 @@ export function ServicePlannerPage() {
                               ) : (
                                 <div className="text-headline-sm">{session.session_name}</div>
                               )}
+
+                              {/* Who is doing it, directly under the name:
+                                  the pair reads as one fact, and neither
+                                  has to compete with a row of controls. */}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                                {canEdit ? (
+                                  <LeadPicker
+                                    label={`Who leads ${session.session_name}`}
+                                    options={leadOptions}
+                                    value={
+                                      session.assigned_user_id
+                                        ? { kind: 'member', id: session.assigned_user_id }
+                                        : session.guest_id
+                                          ? { kind: 'guest', id: session.guest_id }
+                                          : null
+                                    }
+                                    onChange={(next) =>
+                                      updateField.mutate({
+                                        id: session.id,
+                                        // Both fields are written every
+                                        // time: a session has one lead, and
+                                        // setting one without clearing the
+                                        // other is the pair the database
+                                        // refuses.
+                                        patch: {
+                                          assigned_user_id: next?.kind === 'member' ? next.id : null,
+                                          guest_id: next?.kind === 'guest' ? next.id : null,
+                                        },
+                                      })
+                                    }
+                                  />
+                                ) : session.guest ? (
+                                  <AssigneePill
+                                    name={session.guest.name}
+                                    initials={session.guest.name
+                                      .split(' ')
+                                      .map((part) => part.slice(0, 1))
+                                      .join('')
+                                      .slice(0, 2)
+                                      .toUpperCase()}
+                                  />
+                                ) : session.assignee ? (
+                                  <AssigneePill
+                                    name={`${session.assignee.first_name} ${session.assignee.last_name}`}
+                                    initials={initialsOf(
+                                      session.assignee.first_name,
+                                      session.assignee.last_name,
+                                    )}
+                                  />
+                                ) : null}
+
+                                {unassigned && (
+                                  <span className="text-label-md text-accent-orange-soft">
+                                    Nobody assigned yet
+                                  </span>
+                                )}
+                                {skipped && (
+                                  <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                                    Skipped
+                                  </span>
+                                )}
+                                {held && !skipped && (
+                                  <span className="rounded-full bg-error-container px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-error-container">
+                                    Holding
+                                  </span>
+                                )}
                               </div>
-                              </div>
-                              {unassigned && (
-                                <div className="mt-1 px-0.5 text-label-md text-accent-orange-soft">
-                                  Nobody assigned yet
-                                </div>
-                              )}
                             </div>
 
-                            {canEdit ? (
-                              <LeadPicker
-                                label={`Who leads ${session.session_name}`}
-                                options={leadOptions}
-                                value={
-                                  session.assigned_user_id
-                                    ? { kind: 'member', id: session.assigned_user_id }
-                                    : session.guest_id
-                                      ? { kind: 'guest', id: session.guest_id }
-                                      : null
-                                }
-                                onChange={(next) =>
-                                  updateField.mutate({
-                                    id: session.id,
-                                    // Both fields are written every time: a
-                                    // session has one lead, and setting one
-                                    // without clearing the other is exactly
-                                    // the pair the database refuses.
-                                    patch: {
-                                      assigned_user_id: next?.kind === 'member' ? next.id : null,
-                                      guest_id: next?.kind === 'guest' ? next.id : null,
-                                    },
-                                  })
-                                }
-                              />
-                            ) : session.guest ? (
-                              <AssigneePill
-                                name={session.guest.name}
-                                initials={session.guest.name
-                                  .split(' ')
-                                  .map((part) => part.slice(0, 1))
-                                  .join('')
-                                  .slice(0, 2)
-                                  .toUpperCase()}
-                              />
-                            ) : session.assignee ? (
-                              <AssigneePill
-                                name={`${session.assignee.first_name} ${session.assignee.last_name}`}
-                                initials={initialsOf(
-                                  session.assignee.first_name,
-                                  session.assignee.last_name,
-                                )}
-                              />
-                            ) : null}
-
-                            {canEdit && (
-                              <>
-                                {/* Where the next thing goes. Beside
-                                    Remove because they are the two edits
-                                    that change the shape of the running
-                                    order rather than the contents of a
-                                    row, and it reads as the opposite of
-                                    the one next to it. */}
-                                <button
-                                  type="button"
-                                  onClick={() => addSessionAfter.mutate(session.id)}
-                                  disabled={addSessionAfter.isPending}
-                                  aria-label={`Add a session after ${session.session_name}`}
-                                  title="Add a session below this one"
-                                  className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-secondary disabled:opacity-50"
-                                >
-                                  + Session below
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    ask({
-                                      title: `Remove ${session.session_name}?`,
-                                      body: 'The session and everything written against it go, and the ones after it move up.',
-                                      confirmLabel: 'Remove',
-                                      onConfirm: () => deleteSession.mutate(session.id),
-                                    })
-                                  }
-                                  aria-label={`Remove ${session.session_name}`}
-                                  className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
-                                >
-                                  Remove
-                                </button>
-                              </>
-                            )}
+                            <ActionMenu
+                              label={session.session_name}
+                              actions={sessionActions}
+                              className="mt-0.5"
+                            />
                           </div>
+
+                          {/* What the plan is carrying that the two lines
+                              above cannot say: why it was held, why it was
+                              skipped, and every minute granted on request. */}
+                          {held && !skipped && (
+                            <p className="mt-2.5 text-label-sm text-error">
+                              Not started yet — the one before it is still running, and its overrun
+                              is still counting.
+                            </p>
+                          )}
+                          {skipped && session.skip_reason && (
+                            <p className="mt-2.5 text-label-md text-on-surface-faint">
+                              Skipped — {session.skip_reason}
+                            </p>
+                          )}
+                          {!skipped && grantsOf(session).length > 0 && (
+                            <ul className="mt-2.5 flex flex-col gap-0.5">
+                              {grantsOf(session).map((grant, i) => (
+                                <li key={i} className="text-label-md text-accent-blue">
+                                  +{grant.minutes} min added on request
+                                  {grant.note ? ` — ${grant.note}` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+
+                          {/* The rail is too narrow for a time field on a
+                              phone, so the first session carries its own. */}
+                          {isFirst && canEdit && (
+                            <label className="mt-3 flex items-center gap-2 sm:hidden">
+                              <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                Starts
+                              </span>
+                              {startTimeEditor}
+                            </label>
+                          )}
                         </TimelineCard>
                       </TimelineRow>
                     )
