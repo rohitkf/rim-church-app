@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { serviceSheetPage, type ServiceSheet } from './serviceSheet'
 import { A4 } from './pdfDoc'
 import { textWidth } from './helveticaMetrics'
+import { contrastFloor, contrastRatio } from './contrast'
 
 const sheet = (over: Partial<ServiceSheet> = {}): ServiceSheet => ({
   serviceType: 'Sunday Morning Celebration',
@@ -238,10 +239,68 @@ describe('serviceSheetPage', () => {
     })
 
     it('keeps the unassigned pill readable on paper', () => {
-      // #ff9f0a on white is a smear; the light theme has its own orange.
+      // The gap is the thing a planner is scanning for, so it is the last
+      // thing that should be pale. Asserted as a ratio rather than a hex:
+      // the colour may be tuned, the legibility may not.
       const light = serviceSheetPage(sheet(), 'content', 'light')
       const warned = light.texts.find((t) => t.text === 'Nobody assigned')!
-      expect(warned.color).toBe('#b86e00')
+      const pill = light.rects.find((r) => r.color === '#fdf1de')!
+      expect(contrastRatio(warned.color!, pill.color!)).toBeGreaterThanOrEqual(4.5)
+    })
+  })
+
+  /*
+   * Every word on the sheet, against whatever it is actually sitting on.
+   *
+   * The sheet is drawn as coordinates and colours rather than as a page a
+   * browser could be asked about, so "is that grey readable" would
+   * otherwise be answered by somebody looking at their own screen, in
+   * their own light, and being sure. This measures it: the ground under
+   * each piece of text is the last thing painted beneath it — a circle
+   * first, since those are drawn over the rectangles, then the topmost
+   * rectangle containing it, then the page itself.
+   */
+  describe.each(['dark', 'light'] as const)('%s: everything is legible', (theme) => {
+    const page = serviceSheetPage(
+      sheet({
+        sessions: [
+          { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', lead: 'Ama Serwaa' },
+          { time: '09:35 AM', minutes: 25, name: 'Worship Set', lead: null },
+        ],
+      }),
+      'content',
+      theme,
+    )
+
+    /** What this text is painted on. */
+    const groundUnder = (t: (typeof page.texts)[number]) => {
+      // A baseline sits at the bottom of the glyphs; the middle of the
+      // line is what is actually behind them.
+      const x = t.x + 1
+      const y = t.y - t.size * 0.35
+      const circle = (page.circles ?? []).find(
+        (c) => (c.cx - x) ** 2 + (c.cy - y) ** 2 <= c.r ** 2,
+      )
+      if (circle?.color) return circle.color
+      const covering = page.rects.filter(
+        (r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h,
+      )
+      return covering[covering.length - 1]?.color ?? page.background ?? '#ffffff'
+    }
+
+    it('clears the contrast floor for every piece of text on it', () => {
+      const failures = page.texts
+        .map((t) => ({
+          text: t.text,
+          ratio: contrastRatio(t.color ?? '#000000', groundUnder(t)),
+          floor: contrastFloor({ size: t.size, bold: t.bold }),
+          on: groundUnder(t),
+          ink: t.color,
+        }))
+        .filter((row) => row.ratio < row.floor)
+        .map((row) => `"${row.text}" ${row.ink} on ${row.on} — ${row.ratio.toFixed(2)}:1 (needs ${row.floor})`)
+
+      expect(failures).toEqual([])
     })
   })
 })

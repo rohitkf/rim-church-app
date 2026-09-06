@@ -58,6 +58,9 @@ interface Palette {
   muted: string
   faint: string
   rail: string
+  /** The initials disc, and the letters on it — a pair, so they hold. */
+  avatarDisc: string
+  avatarInk: string
   primary: string
   warn: string
   windowTile: string
@@ -83,9 +86,11 @@ const PALETTES: Record<SheetTheme, Palette> = {
     pill: '#26262e',
     pillEmpty: '#2a2118',
     ink: '#f5f5f7',
-    muted: '#98989d',
-    faint: '#8e8e93',
+    muted: '#a5a5ab',
+    faint: '#9a9aa0',
     rail: '#38383f',
+    avatarDisc: '#4a4a52',
+    avatarInk: '#ececf0',
     primary: '#0a84ff',
     warn: '#ff9f0a',
     windowTile: '#101a26',
@@ -99,13 +104,15 @@ const PALETTES: Record<SheetTheme, Palette> = {
     pill: '#ebebf0',
     pillEmpty: '#fdf1de',
     ink: '#1c1c1e',
-    muted: '#6e6e73',
-    faint: '#8a8a8f',
+    muted: '#57575c',
+    faint: '#5c5c63',
     rail: '#c7c7cc',
+    avatarDisc: '#d8d8de',
+    avatarInk: '#3a3a3c',
     primary: '#007aff',
-    // The light theme's own orange-on-white, which is readable where
-    // #ff9f0a on white is a smear.
-    warn: '#b86e00',
+    // Dark enough to read on its own pale ground: #ff9f0a on paper is a
+    // smear, and even the theme's own #b86e00 only manages 3.6:1 there.
+    warn: '#8a5200',
     windowTile: '#eaf2ff',
     time: '#1c1c1e',
     minutes: '#3a3a3c',
@@ -169,6 +176,8 @@ export function serviceSheetPage(
     muted: MUTED,
     faint: FAINT,
     rail: RAIL,
+    avatarDisc: AVATAR_DISC,
+    avatarInk: AVATAR_INK,
     primary: PRIMARY,
     warn: WARN,
     windowTile: WINDOW_TILE,
@@ -296,7 +305,7 @@ export function serviceSheetPage(
       radius: Math.min(15, pillH / 2),
     })
     if (lead) {
-      circles.push({ cx: pillX + PILL_PAD + AVATAR, cy: mid, r: AVATAR, color: RAIL })
+      circles.push({ cx: pillX + PILL_PAD + AVATAR, cy: mid, r: AVATAR, color: AVATAR_DISC })
       const ini = initialsOf(lead)
       texts.push({
         x: pillX + PILL_PAD + AVATAR - textWidth(ini, 7.5, false, true) / 2,
@@ -304,7 +313,7 @@ export function serviceSheetPage(
         size: 7.5,
         text: ini,
         mono: true,
-        color: MUTED,
+        color: AVATAR_INK,
       })
     }
     let leadY = mid - ((leadLines.length - 1) * LEAD_LINE) / 2 + 4
