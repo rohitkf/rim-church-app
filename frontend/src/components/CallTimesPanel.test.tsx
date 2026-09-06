@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -79,13 +79,26 @@ const openPanel = async (user: ReturnType<typeof show>) => {
 
 const tileFor = (name: string) => screen.getByText(name).closest('li')!
 
+/*
+ * The night before.
+ *
+ * A countdown only runs towards a moment that has not come, so this file
+ * used to pass until the real clock reached its own fixture date — 6
+ * September 2026 — and then failed for nobody's mistake. It stands at
+ * eight the evening before now, which is a fixed distance from every call
+ * time in here.
+ */
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date('2026-09-05T20:00:00'))
   state.rows = [
     { department_id: 'media', on_date: SUNDAY, call_time: '08:30:00' },
     { department_id: 'worship', on_date: SUNDAY, call_time: '08:00:00' },
   ]
   state.writes = []
 })
+
+afterEach(() => vi.useRealTimers())
 
 describe('the call times panel', () => {
   it('starts shut — the rota underneath is what the page is for', () => {
