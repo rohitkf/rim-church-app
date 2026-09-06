@@ -39,6 +39,7 @@ export function NumberDial({
   majorEvery = 5,
   disabled = false,
   className = '',
+  commitOn = 'change',
 }: {
   value: number
   onChange: (next: number) => void
@@ -53,6 +54,14 @@ export function NumberDial({
   majorEvery?: number
   disabled?: boolean
   className?: string
+  /**
+   * When `onChange` fires: on every step of the drag, or once on letting
+   * go. 'release' is for a parent whose change is expensive — a database
+   * write per tick is forty writes for one gesture — and costs nothing in
+   * feel, because the number above the ruler follows the finger either
+   * way.
+   */
+  commitOn?: 'change' | 'release'
 }) {
   const count = stepCount(min, max, step)
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -89,6 +98,18 @@ export function NumberDial({
     return () => observer.disconnect()
   }, [])
 
+  /*
+   * What the ruler currently says.
+   *
+   * Mid-drag this is where the ruler is, not what the parent last handed
+   * back — the two are the same only when the parent keeps the value in
+   * local state and re-renders in the same frame. The service planner
+   * writes each change to the database, so the number sat still through a
+   * whole drag and only caught up afterwards: the ruler moved and nothing
+   * else did, which reads as a broken control.
+   */
+  const shown = dragging ? valueAt(position, min, max, step) : value
+
   const commit = useCallback(
     (index: number) => {
       const next = valueAt(index, min, max, step)
@@ -106,13 +127,15 @@ export function NumberDial({
       e.preventDefault()
       const next = Math.min(Math.max(grab.current.from - (e.clientX - grab.current.x) / PX_PER_STEP, 0), count)
       setPosition(next)
-      commit(next)
+      if (commitOn === 'change') commit(next)
     }
     const end = () => {
       setDragging(false)
       // Snap: a ruler resting between two marks is a ruler that has not
       // answered the question.
-      setPosition(Math.round(positionRef.current))
+      const snapped = Math.round(positionRef.current)
+      setPosition(snapped)
+      if (commitOn === 'release') commit(snapped)
     }
     window.addEventListener('pointermove', move, { passive: false })
     window.addEventListener('pointerup', end)
@@ -122,7 +145,7 @@ export function NumberDial({
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
     }
-  }, [dragging, count, commit])
+  }, [dragging, count, commit, commitOn])
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (disabled || e.button !== 0) return
@@ -195,11 +218,11 @@ export function NumberDial({
           <button
             type="button"
             disabled={disabled}
-            onClick={() => { setDraft(String(value)); setTyping(true) }}
+            onClick={() => { setDraft(String(shown)); setTyping(true) }}
             title="Type a value"
             className="font-mono text-headline-lg leading-none tabular text-primary disabled:opacity-50"
           >
-            {value}
+            {shown}
           </button>
         )}
         {unit && !typing && (
@@ -211,7 +234,7 @@ export function NumberDial({
         ref={trackRef}
         role="slider"
         aria-label={label}
-        aria-valuenow={value}
+        aria-valuenow={shown}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-disabled={disabled || undefined}
@@ -252,7 +275,7 @@ export function NumberDial({
                 {major && (
                   <span
                     className={`mt-1 font-mono text-label-sm tabular ${
-                      tickValue === value ? 'text-primary' : 'text-on-surface-faint'
+                      tickValue === shown ? 'text-primary' : 'text-on-surface-faint'
                     }`}
                   >
                     {tickValue}
@@ -307,6 +330,18 @@ export function NumberDialField({
   className = '',
 }: Parameters<typeof NumberDial>[0]) {
   const [open, setOpen] = useState(false)
+  /*
+   * What the chip says while the ruler is open.
+   *
+   * The row this sits in writes its changes to the database, so handing it
+   * every step of a drag is forty writes for one gesture and a chip that
+   * lags a round trip behind the finger. The ruler reports on release
+   * instead, and this keeps the chip honest in between.
+   */
+  // Seeded when the ruler opens rather than followed with an effect: the
+  // chip shows the parent's number whenever the ruler is shut, so there is
+  // nothing to keep in step in between.
+  const [live, setLive] = useState(value)
   const holder = useRef<HTMLDivElement | null>(null)
   const popover = useRef<HTMLDivElement | null>(null)
   // How far the popover has been nudged sideways to stay on screen. A ruler
@@ -364,12 +399,15 @@ export function NumberDialField({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setLive(value)
+          setOpen((v) => !v)
+        }}
         aria-label={label}
         aria-expanded={open}
         className="tap rounded-full bg-raised px-3 py-1 text-center font-mono text-label-md tabular text-on-surface hairline hover:border-secondary disabled:opacity-50"
       >
-        {value}
+        {open ? live : value}
         {unit ? <span className="ml-1 text-on-surface-faint">{unit}</span> : null}
       </button>
 
@@ -380,8 +418,12 @@ export function NumberDialField({
           className="absolute left-1/2 top-full z-30 mt-2 w-[min(20rem,calc(100vw-1rem))] rounded-[var(--radius-card)] bg-surface-lowest p-3 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
         >
           <NumberDial
-            value={value}
-            onChange={onChange}
+            value={live}
+            onChange={(next) => {
+              setLive(next)
+              onChange(next)
+            }}
+            commitOn="release"
             min={min}
             max={max}
             step={step}
