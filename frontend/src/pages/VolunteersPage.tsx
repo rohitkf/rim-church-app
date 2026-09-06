@@ -17,6 +17,7 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
 import { useErrorText } from '../lib/useErrorText'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { useConfirmAction } from '../components/ConfirmAction'
 
 /**
  * The one section that is open when the page loads.
@@ -183,6 +184,7 @@ export function VolunteersPage() {
    * one it is, and a single set of ids cannot carry both facts.
    */
   const { isExpanded: isToggled, toggle: toggleSection } = useExpanded()
+  const { ask, dialog } = useConfirmAction()
   const sectionOpen = (id: string) => (id === UNATTACHED) !== isToggled(id)
 
   if (!isAdmin) return <Navigate to="/" replace />
@@ -359,7 +361,16 @@ export function VolunteersPage() {
                       </span>
                       {leadGrant ? (
                         <button
-                          onClick={() => revokeRole.mutate(leadGrant.id)}
+                          onClick={() =>
+                            ask({
+                              title: `Step ${v.first_name} down from leading ${
+                                dept?.name ?? 'this team'
+                              }?`,
+                              body: 'They stay on the team as a member, but lose everything a head can see and change.',
+                              confirmLabel: 'Step down',
+                              onConfirm: () => revokeRole.mutate(leadGrant.id),
+                            })
+                          }
                           className={`${cardDangerClasses} shrink-0`}
                         >
                           Step down
@@ -445,7 +456,14 @@ export function VolunteersPage() {
                 either — stepping yourself down locks the door behind you. */}
             {holdsAdmin && isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
               <button
-                onClick={() => revokeRole.mutate(adminGrant.id)}
+                onClick={() =>
+                  ask({
+                    title: `Remove Admin from ${v.first_name} ${v.last_name}?`,
+                    body: 'They keep their account and their teams, but lose every app-wide privilege.',
+                    confirmLabel: 'Remove admin',
+                    onConfirm: () => revokeRole.mutate(adminGrant.id),
+                  })
+                }
                 className={cardDangerClasses}
               >
                 Remove admin
@@ -687,6 +705,8 @@ export function VolunteersPage() {
           </div>
         </div>
       )}
+
+      {dialog}
     </div>
   )
 }

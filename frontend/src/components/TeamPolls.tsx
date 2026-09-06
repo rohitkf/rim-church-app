@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { QueryState } from './QueryState'
 import { Eyebrow } from './Surface'
+import { useConfirmAction } from './ConfirmAction'
 import { optionShare, pollIsOpen, tallyVotes, timeLeft, type ChoiceMode } from '../lib/polls'
 
 const pollSchema = z.object({
@@ -114,6 +115,8 @@ export function TeamPolls({ departmentId }: { departmentId: string | null }) {
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that poll.')),
   })
 
+  const { ask, dialog } = useConfirmAction()
+
   if (!departmentId) return null
 
   return (
@@ -179,7 +182,18 @@ export function TeamPolls({ departmentId }: { departmentId: string | null }) {
                   {canAsk && (
                     <button
                       type="button"
-                      onClick={() => removePoll.mutate(poll.id)}
+                      onClick={() =>
+                        ask({
+                          title: 'Delete this poll?',
+                          body: (
+                            <>
+                              <strong>{poll.question}</strong> and every answer given to it go for
+                              good.
+                            </>
+                          ),
+                          onConfirm: () => removePoll.mutate(poll.id),
+                        })
+                      }
                       aria-label={`Delete poll: ${poll.question}`}
                       className="tap shrink-0 text-label-sm text-on-surface-faint hover:text-error"
                     >
@@ -257,6 +271,8 @@ export function TeamPolls({ departmentId }: { departmentId: string | null }) {
           })}
         </ul>
       </QueryState>
+
+      {dialog}
     </section>
   )
 }

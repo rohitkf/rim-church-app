@@ -29,6 +29,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { nextSongOrder, safeSongLink, songLeaders, songsFor } from '../lib/setList'
 import type { SetListItem } from '../lib/types'
 import { Select } from '../components/Select'
+import { useConfirmAction } from '../components/ConfirmAction'
 
 /**
  * What we are singing, and who is leading it.
@@ -422,6 +423,7 @@ function SongRow({
   const [showExtras, setShowExtras] = useState(!!song.link || !!song.lyrics)
   const [saving, setSaving] = useState(false)
   const href = safeSongLink(song.link)
+  const { ask, dialog } = useConfirmAction()
 
   const startEditing = () => {
     setDraft({ title: song.title, led_by: song.led_by, link: song.link, lyrics: song.lyrics })
@@ -522,7 +524,19 @@ function SongRow({
               <ActionButton size="sm" tone="quiet" onClick={startEditing}>
                 Edit
               </ActionButton>
-              <ActionButton size="sm" tone="danger-quiet" onClick={onRemove} disabled={removing}>
+              <ActionButton
+                size="sm"
+                tone="danger-quiet"
+                onClick={() =>
+                  ask({
+                    title: `Remove ${song.title} from the set?`,
+                    body: 'The lyrics and the link go with it.',
+                    confirmLabel: 'Remove',
+                    onConfirm: onRemove,
+                  })
+                }
+                disabled={removing}
+              >
                 Remove
               </ActionButton>
             </span>
@@ -537,6 +551,8 @@ function SongRow({
           {song.lyrics}
         </pre>
       )}
+
+      {dialog}
     </Row>
   )
 }

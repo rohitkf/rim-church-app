@@ -103,6 +103,14 @@ describe('ActivityFeed', () => {
     await screen.findByText('Grace Mensah')
 
     await user.click(screen.getByRole('button', { name: 'Clear' }))
+    // Nothing goes on the first press: erasing the feed is asked about.
+    expect(rpc).not.toHaveBeenCalledWith('clear_activity', { svc: 's1' })
+
+    await user.click(
+      screen
+        .getAllByRole('button', { name: 'Clear' })
+        .find((b) => b.closest('[role="alertdialog"]'))!,
+    )
     expect(rpc).toHaveBeenCalledWith('clear_activity', { svc: 's1' })
   })
 })

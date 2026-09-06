@@ -12,6 +12,7 @@ import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import type { ServiceTemplate } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
+import { useConfirmAction } from '../components/ConfirmAction'
 
 interface SessionDraft {
   session_name: string
@@ -122,6 +123,8 @@ export function ServiceTemplatesPage() {
     setFormError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const { ask, dialog } = useConfirmAction()
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -267,7 +270,13 @@ export function ServiceTemplatesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteTemplate.mutate(t.id)}
+                  onClick={() =>
+                    ask({
+                      title: `Delete the template ${t.name}?`,
+                      body: 'Services already built from it are untouched — only the template goes.',
+                      onConfirm: () => deleteTemplate.mutate(t.id),
+                    })
+                  }
                   disabled={deleteTemplate.isPending}
                   className="shrink-0 text-body-sm text-error hover:underline disabled:opacity-50"
                 >
@@ -283,6 +292,8 @@ export function ServiceTemplatesPage() {
         blocker={blocker}
         message="This template hasn’t been saved yet. Leaving now discards it."
       />
+
+      {dialog}
     </div>
   )
 }

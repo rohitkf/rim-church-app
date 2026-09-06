@@ -25,6 +25,7 @@ import {
   type DepartmentMemberRow,
 } from '../lib/types'
 import { Select, selectPillClasses } from './Select'
+import { useConfirmAction } from './ConfirmAction'
 
 const CallTimeRows = z.array(
   z.object({ department_id: z.string(), on_date: z.string(), call_time: z.string() }),
@@ -227,6 +228,8 @@ export function DepartmentChecklistPanel({
 
 
 
+  const { ask, dialog } = useConfirmAction()
+
   const items = itemsQuery.data ?? []
   const counts = {
     memberComplete: items.filter((i) => i.status === 'member_complete').length,
@@ -375,7 +378,18 @@ export function DepartmentChecklistPanel({
                         )}
                         {canManageChecklist && (
                           <button
-                            onClick={() => deleteItem.mutate(item.id)}
+                            onClick={() =>
+                              ask({
+                                title: 'Delete this checklist item?',
+                                body: (
+                                  <>
+                                    The row for <strong>{item.role_label}</strong> comes off this
+                                    checklist, along with whatever has been ticked against it.
+                                  </>
+                                ),
+                                onConfirm: () => deleteItem.mutate(item.id),
+                              })
+                            }
                             className="ml-auto text-body-sm text-error hover:underline"
                           >
                             Delete
@@ -451,6 +465,8 @@ export function DepartmentChecklistPanel({
 
         </div>
       </div>
+
+      {dialog}
     </div>
   )
 }

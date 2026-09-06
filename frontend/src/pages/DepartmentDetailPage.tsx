@@ -22,6 +22,7 @@ import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
 import { useErrorText } from '../lib/useErrorText'
+import { useConfirmAction } from '../components/ConfirmAction'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -233,6 +234,8 @@ export function DepartmentDetailPage() {
     onError: (err: unknown) => setUploadError(errorText(err, 'Could not remove the handbook.')),
   })
 
+  const { ask, dialog } = useConfirmAction()
+
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!addEmail.trim()) return
@@ -358,7 +361,18 @@ export function DepartmentDetailPage() {
                         <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                         {canManage && (
                           <button
-                            onClick={() => removeMember.mutate(m.id)}
+                            onClick={() =>
+                            ask({
+                              title: `Remove ${
+                                m.profiles
+                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                  : 'this person'
+                              } from the team?`,
+                              body: 'They keep their account and can be added back at any time.',
+                              confirmLabel: 'Remove',
+                              onConfirm: () => removeMember.mutate(m.id),
+                            })
+                          }
                             className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
                           >
                             Remove
@@ -399,7 +413,18 @@ export function DepartmentDetailPage() {
                           {canManage && (
                             <td className="py-3 text-right">
                               <button
-                                onClick={() => removeMember.mutate(m.id)}
+                                onClick={() =>
+                            ask({
+                              title: `Remove ${
+                                m.profiles
+                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                  : 'this person'
+                              } from the team?`,
+                              body: 'They keep their account and can be added back at any time.',
+                              confirmLabel: 'Remove',
+                              onConfirm: () => removeMember.mutate(m.id),
+                            })
+                          }
                                 className="tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-error hover:underline"
                               >
                                 Remove
@@ -524,7 +549,18 @@ export function DepartmentDetailPage() {
                       </div>
                       {canManage && (
                         <button
-                          onClick={() => removeMember.mutate(m.id)}
+                          onClick={() =>
+                            ask({
+                              title: `Remove ${
+                                m.profiles
+                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                  : 'this person'
+                              } from the team?`,
+                              body: 'They keep their account and can be added back at any time.',
+                              confirmLabel: 'Remove',
+                              onConfirm: () => removeMember.mutate(m.id),
+                            })
+                          }
                           className="tap inline-flex items-center text-body-sm text-error hover:underline"
                         >
                           Remove
@@ -595,6 +631,8 @@ export function DepartmentDetailPage() {
           </div>
         )}
       </div>
+
+      {dialog}
     </QueryState>
   )
 }

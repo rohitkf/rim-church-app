@@ -8,6 +8,7 @@ import { Panel } from './Surface'
 import { activitySentence, activityTone } from '../lib/activity'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { useErrorText } from '../lib/useErrorText'
+import { useConfirmAction } from './ConfirmAction'
 
 const activityRowSchema = z.object({
   id: z.string(),
@@ -76,6 +77,8 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['activity', serviceId] }),
   })
 
+  const { ask, dialog } = useConfirmAction()
+
   const rows = activityQuery.data ?? []
 
   return (
@@ -87,7 +90,14 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
         isAdmin && rows.length > 0 ? (
           <button
             type="button"
-            onClick={() => clear.mutate()}
+            onClick={() =>
+              ask({
+                title: 'Clear the activity feed?',
+                body: `All ${rows.length} entries for this service are erased. Nothing else changes — the rota, the checklists and the register stay as they are.`,
+                confirmLabel: 'Clear',
+                onConfirm: () => clear.mutate(),
+              })
+            }
             disabled={clear.isPending}
             className="tap text-label-md text-on-surface-variant transition-colors hover:text-error disabled:opacity-50"
           >
@@ -136,6 +146,8 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
           })}
         </ul>
       </QueryState>
+
+      {dialog}
     </Panel>
   )
 }

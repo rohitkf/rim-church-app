@@ -20,6 +20,7 @@ import { DragHandle } from './DragHandle'
 import { Chevron } from './Collapsible'
 import { ActionButton, Field, Overlay, Pill, inputClasses } from './Surface'
 import { Select } from './Select'
+import { useConfirmAction } from './ConfirmAction'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -47,6 +48,7 @@ function RoleChecklistEditor({
   const queryClient = useQueryClient()
   const [label, setLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const { ask, dialog } = useConfirmAction()
 
   const itemsQuery = useQuery({
     queryKey: ['role-checklist-items', [departmentId]],
@@ -146,7 +148,18 @@ function RoleChecklistEditor({
                 </span>
                 {canManage && (
                   <button
-                    onClick={() => deleteItem.mutate(item.id)}
+                    onClick={() =>
+                      ask({
+                        title: 'Remove this checklist line?',
+                        body: (
+                          <>
+                            <strong>{item.label}</strong> comes off this role for every service.
+                          </>
+                        ),
+                        confirmLabel: 'Remove',
+                        onConfirm: () => deleteItem.mutate(item.id),
+                      })
+                    }
                     className="shrink-0 text-label-sm text-on-surface-faint hover:text-error hover:underline"
                   >
                     Remove
@@ -213,6 +226,8 @@ function RoleChecklistEditor({
         </div>
       )}
       {error && <p className="mt-1 text-label-sm text-error">{error}</p>}
+
+      {dialog}
     </div>
   )
 }
@@ -585,6 +600,7 @@ function RoleRow({
     [checklistQuery.data, role.id],
   )
   const countFor = (phase: ChecklistPhase) => byPhase(mine, phase).length
+  const { ask, dialog } = useConfirmAction()
 
   if (editingId === role.id) {
     return (
@@ -689,7 +705,13 @@ function RoleRow({
                 <ActionButton
                   size="sm"
                   tone="danger-quiet"
-                  onClick={() => onDelete(role.id)}
+                  onClick={() =>
+                    ask({
+                      title: `Delete the role ${role.name}?`,
+                      body: 'Its checklist goes with it, and anyone assigned to it on a future service loses that assignment.',
+                      onConfirm: () => onDelete(role.id),
+                    })
+                  }
                   disabled={deleting}
                 >
                   Delete
@@ -746,6 +768,8 @@ function RoleRow({
           )}
         </div>
       )}
+
+      {dialog}
     </>
   )
 }
@@ -774,6 +798,7 @@ function RoleGroupSection({
 } & Omit<RoleRowProps, 'role' | 'dragHandle'>) {
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(section.group?.name ?? '')
+  const { ask, dialog } = useConfirmAction()
 
   const roleById = new Map(section.roles.map((r) => [r.id, r]))
   const { ordered, handleProps, rowProps: dragRowProps } = useDragReorder(
@@ -818,7 +843,14 @@ function RoleGroupSection({
               <ActionButton
                 size="sm"
                 tone="danger-quiet"
-                onClick={() => onDeleteGroup(section.group!.id)}
+                onClick={() =>
+                  ask({
+                    title: `Delete the group ${section.group!.name}?`,
+                    body: `The ${section.roles.length} role${section.roles.length === 1 ? '' : 's'} in it are kept — they just stop being filed under this name.`,
+                    confirmLabel: 'Delete group',
+                    onConfirm: () => onDeleteGroup(section.group!.id),
+                  })
+                }
               >
                 Delete group
               </ActionButton>
@@ -887,6 +919,8 @@ function RoleGroupSection({
           })}
         </ul>
       )}
+
+      {dialog}
     </div>
   )
 }

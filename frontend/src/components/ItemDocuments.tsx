@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
 import { Select } from './Select'
+import { useConfirmAction } from './ConfirmAction'
 
 export const DOC_BUCKET = 'inventory-docs'
 
@@ -165,6 +166,8 @@ export function ItemDocuments({
     addDocument.mutate()
   }
 
+  const { ask, dialog } = useConfirmAction()
+
   const docs = documentsQuery.data ?? []
 
   return (
@@ -219,7 +222,16 @@ export function ItemDocuments({
               {canManage && (
                 <button
                   type="button"
-                  onClick={() => removeDocument.mutate(doc)}
+                  onClick={() =>
+                    ask({
+                      title: 'Remove this document?',
+                      body: doc.link_url
+                        ? 'The link comes off the item. Whatever it points at is untouched.'
+                        : 'The file is deleted from storage as well as from the item.',
+                      confirmLabel: 'Remove',
+                      onConfirm: () => removeDocument.mutate(doc),
+                    })
+                  }
                   className="tap shrink-0 text-label-md text-on-surface-faint hover:text-error hover:underline"
                 >
                   Remove
@@ -282,6 +294,8 @@ export function ItemDocuments({
           </div>
         </form>
       )}
+
+      {dialog}
     </section>
   )
 }
