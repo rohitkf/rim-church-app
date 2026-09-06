@@ -61,6 +61,18 @@ interface Palette {
   primary: string
   warn: string
   windowTile: string
+  /**
+   * The two numbers in the left column: when a session starts, and how
+   * long it runs.
+   *
+   * They had the sheet's quietest greys, which is right on black and
+   * nearly invisible on white — the duration in particular, at #8e8e93 on
+   * paper. They are the column somebody standing at the back reads off a
+   * printout, so each theme names its own pair: bright enough to carry,
+   * with the duration a step quieter than the time so the hierarchy holds.
+   */
+  time: string
+  minutes: string
 }
 
 const PALETTES: Record<SheetTheme, Palette> = {
@@ -77,6 +89,8 @@ const PALETTES: Record<SheetTheme, Palette> = {
     primary: '#0a84ff',
     warn: '#ff9f0a',
     windowTile: '#101a26',
+    time: '#f5f5f7',
+    minutes: '#c7c7cc',
   },
   light: {
     backdrop: '#ffffff',
@@ -93,6 +107,8 @@ const PALETTES: Record<SheetTheme, Palette> = {
     // #ff9f0a on white is a smear.
     warn: '#b86e00',
     windowTile: '#eaf2ff',
+    time: '#1c1c1e',
+    minutes: '#3a3a3c',
   },
 }
 
@@ -156,6 +172,8 @@ export function serviceSheetPage(
     primary: PRIMARY,
     warn: WARN,
     windowTile: WINDOW_TILE,
+    time: TIME_INK,
+    minutes: MINUTES_INK,
   } = PALETTES[theme]
 
   const texts: PdfText[] = []
@@ -241,7 +259,7 @@ export function serviceSheetPage(
       size: 11,
       text: time,
       mono: true,
-      color: MUTED,
+      color: TIME_INK,
     })
     const mins = `${session.minutes} min`
     texts.push({
@@ -250,7 +268,7 @@ export function serviceSheetPage(
       size: 9,
       text: mins,
       mono: true,
-      color: FAINT,
+      color: MINUTES_INK,
     })
 
     // The dot on the rail. The first is lit, as the page lights the one

@@ -221,6 +221,22 @@ describe('serviceSheetPage', () => {
       )
     })
 
+    it('writes the time and the duration in ink that carries on paper', () => {
+      // They had the sheet's quietest greys, which is right on black and
+      // nearly invisible on white.
+      const light = serviceSheetPage(sheet(), 'content', 'light')
+      const inkOf = (text: string) => light.texts.find((t) => t.text === text)!.color
+      expect(inkOf('09:30 AM')).toBe('#1c1c1e')
+      expect(inkOf('5 min')).toBe('#3a3a3c')
+    })
+
+    it('keeps the same pair legible the other way up', () => {
+      const dark = serviceSheetPage(sheet(), 'content', 'dark')
+      const inkOf = (text: string) => dark.texts.find((t) => t.text === text)!.color
+      expect(inkOf('09:30 AM')).toBe('#f5f5f7')
+      expect(inkOf('5 min')).toBe('#c7c7cc')
+    })
+
     it('keeps the unassigned pill readable on paper', () => {
       // #ff9f0a on white is a smear; the light theme has its own orange.
       const light = serviceSheetPage(sheet(), 'content', 'light')
