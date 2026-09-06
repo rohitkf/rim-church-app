@@ -18,6 +18,7 @@ import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../compo
 import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
 import { useDragReorder } from '../lib/useDragReorder'
+import { orderWithInsert } from '../lib/sessionInsert'
 import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
@@ -267,6 +268,62 @@ export function ServicePlannerPage() {
     // Returning the promise keeps the button in its "Adding…" state until
     // the refreshed list is actually in hand, so the new row is on screen
     // the moment the button reads normally again.
+    onSuccess: () => {
+      setServiceError(null)
+      return invalidate()
+    },
+    onError: (err: unknown) =>
+      setServiceError(errorText(err, 'Could not add the session.')),
+  })
+
+  /**
+   * A session added where somebody is looking, rather than at the end.
+   *
+   * A running order is built in the order the morning runs, and a service
+   * that has been planned once is edited in the middle of it: the notices
+   * go after the second worship set, not after the benediction. Every new
+   * session landing at the bottom meant adding one and then dragging it up
+   * past eight others, on a phone, with a finger.
+   *
+   * It is still inserted at the end first. The order index has a unique
+   * constraint on it and the start times cascade from the first session,
+   * so the safe move is to add where nothing can collide and then hand the
+   * whole order to `reorder_service_sessions`, which renumbers and redoes
+   * the cascade in one transaction — the same function a drag uses.
+   */
+  const addSessionAfter = useMutation({
+    mutationFn: async (afterId: string) => {
+      const current = await fetchSessions(serviceId!)
+      const last = current[current.length - 1]
+      const nextOrderIndex = (last?.order_index ?? 0) + 1
+      const startTime = last
+        ? addMinutesIso(last.start_time, last.duration_minutes)
+        : combineDateAndTime(serviceQuery.data!.date, '09:00')
+
+      const { data: created, error } = await supabase
+        .from('service_sessions')
+        .insert({
+          service_id: serviceId,
+          order_index: nextOrderIndex,
+          start_time: startTime,
+          duration_minutes: 5,
+          session_name: 'New Session',
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+
+      const order = orderWithInsert(current.map((s) => s.id), afterId, created.id)
+      // Already at the end: the anchor has gone under somebody else's
+      // edit, and there is nothing to put right.
+      if (order[order.length - 1] === created.id) return
+
+      const { error: moveError } = await supabase.rpc('reorder_service_sessions', {
+        svc: serviceId,
+        ids: order,
+      })
+      if (moveError) throw moveError
+    },
     onSuccess: () => {
       setServiceError(null)
       return invalidate()
@@ -1306,14 +1363,32 @@ export function ServicePlannerPage() {
                             ) : null}
 
                             {canEdit && (
-                              <button
-                                type="button"
-                                onClick={() => deleteSession.mutate(session.id)}
-                                aria-label={`Remove ${session.session_name}`}
-                                className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
-                              >
-                                Remove
-                              </button>
+                              <>
+                                {/* Where the next thing goes. Beside
+                                    Remove because they are the two edits
+                                    that change the shape of the running
+                                    order rather than the contents of a
+                                    row, and it reads as the opposite of
+                                    the one next to it. */}
+                                <button
+                                  type="button"
+                                  onClick={() => addSessionAfter.mutate(session.id)}
+                                  disabled={addSessionAfter.isPending}
+                                  aria-label={`Add a session after ${session.session_name}`}
+                                  title="Add a session below this one"
+                                  className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-secondary disabled:opacity-50"
+                                >
+                                  + Session below
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteSession.mutate(session.id)}
+                                  aria-label={`Remove ${session.session_name}`}
+                                  className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
+                                >
+                                  Remove
+                                </button>
+                              </>
                             )}
                           </div>
                         </TimelineCard>
