@@ -121,8 +121,10 @@ const PALETTES: Record<SheetTheme, Palette> = {
 
 const PAGE_PAD = 34
 const CARD_PAD = 22
-const RAIL_X = PAGE_PAD + CARD_PAD + 96
-const ROW_X = RAIL_X + 22
+/** The left column: when it starts, and how long it runs. */
+const TIME_COL = 104
+const RAIL_X = PAGE_PAD + CARD_PAD + TIME_COL
+const ROW_X = RAIL_X + 24
 /**
  * A row is at least this tall, and taller when what is in it needs the
  * room.
@@ -134,17 +136,35 @@ const ROW_X = RAIL_X + 22
  * three quarters of a session's name is not information, it is a hint.
  * Everything wraps now, and the row grows to hold it.
  */
-const ROW_MIN_H = 54
-const ROW_GAP = 8
-const ROW_PAD_Y = 13
-const NAME_SIZE = 13
-const NAME_LINE = 17
-const LEAD_SIZE = 10.5
-const LEAD_LINE = 14
-/** How wide a name pill may get before it starts wrapping instead. */
-const LEAD_MAX_W = 150
-const PILL_PAD = 10
-const AVATAR = 11
+const ROW_MIN_H = 76
+const ROW_GAP = 10
+const ROW_PAD_X = 20
+const ROW_PAD_Y = 16
+/*
+ * The type scale.
+ *
+ * The sheet was drawn at the sizes a dense screen uses — a 13pt session
+ * name on a 595pt page — and then looked at as a phone-sized image, where
+ * it read as a photograph of a document rather than as a document: right,
+ * but too far away to use. A running order is read at arm's length off a
+ * printout, or on a phone in a dark room five minutes before the doors
+ * open. So the name is the size of a heading, the time beside it is the
+ * size of a clock, and the person is a line of prose rather than a label.
+ */
+const TITLE_SIZE = 34
+const TITLE_LINE = 40
+const DATE_SIZE = 12.5
+const EYEBROW_SIZE = 10.5
+const NAME_SIZE = 19
+const NAME_LINE = 24
+const LEAD_SIZE = 13
+const LEAD_LINE = 17
+const TIME_SIZE = 16
+const MINUTES_SIZE = 11
+const FOOTER_SIZE = 9.5
+const PILL_PAD = 12
+const PILL_GAP = 9
+const AVATAR = 13
 
 /**
  * `page` keeps A4, which is what a printed PDF wants. `content` ends the
@@ -196,32 +216,39 @@ export function serviceSheetPage(
   // Title, as the page has it: the service, and its date beneath in mono.
   // A service named at length pushes the card down rather than losing its
   // own name.
-  const titleLines = wrapText(sheet.serviceType, 26, cardW, true)
-  let titleY = 62
+  const titleLines = wrapText(sheet.serviceType, TITLE_SIZE, cardW, true)
+  let titleY = 70
   for (const line of titleLines) {
-    texts.push({ x: PAGE_PAD, y: titleY, size: 26, text: line, bold: true, color: INK })
-    titleY += 32
+    texts.push({ x: PAGE_PAD, y: titleY, size: TITLE_SIZE, text: line, bold: true, color: INK })
+    titleY += TITLE_LINE
   }
-  const dateY = titleY - 32 + 20
-  texts.push({ x: PAGE_PAD, y: dateY, size: 9.5, text: sheet.date, mono: true, color: MUTED })
+  const dateY = titleY - TITLE_LINE + 26
+  texts.push({ x: PAGE_PAD, y: dateY, size: DATE_SIZE, text: sheet.date, mono: true, color: MUTED })
 
   // The running-order card.
-  const cardTop = dateY + 22
-  let y = cardTop + 30
+  const cardTop = dateY + 26
+  let y = cardTop + 34
 
-  texts.push({ x: PAGE_PAD + CARD_PAD, y, size: 8.5, text: 'RUNNING ORDER', mono: true, color: MUTED })
+  texts.push({
+    x: PAGE_PAD + CARD_PAD,
+    y,
+    size: EYEBROW_SIZE,
+    text: 'RUNNING ORDER',
+    mono: true,
+    color: MUTED,
+  })
   const count = `${sheet.sessions.length} ${sheet.sessions.length === 1 ? 'session' : 'sessions'} · ${sheet.totalLabel}`
   texts.push({
-    x: W - PAGE_PAD - CARD_PAD - textWidth(count, 8.5, false, true),
+    x: W - PAGE_PAD - CARD_PAD - textWidth(count, EYEBROW_SIZE, false, true),
     y,
-    size: 8.5,
+    size: EYEBROW_SIZE,
     text: count,
     mono: true,
     color: MUTED,
   })
 
-  y += 22
-  // Where the rail starts and stops: the middle of the first row and of
+  y += 26
+  // Where the rail starts and stops: the anchor of the first row and of
   // the last, which is no longer a fixed distance apart now that rows
   // grow to fit what is in them.
   let railTop: number | null = null
@@ -231,50 +258,54 @@ export function serviceSheetPage(
     const top = y
 
     /*
-     * The row is measured before it is drawn.
+     * The row is two lines stacked, not two columns side by side.
      *
-     * The pill takes what it needs up to its own limit and wraps beyond
-     * it; the name takes the rest of the width and wraps into as many
-     * lines as it needs; and the row is as tall as the taller of the two.
-     * Nothing is cut, which is the whole point of the sheet.
+     * Side by side, a long name and a long lead fought over one width and
+     * both lost — the name squeezed into a column a few letters across
+     * while the pill wrapped into a paragraph. Down the page they each
+     * get the whole row: the name at heading size on the first line, and
+     * who is doing it directly beneath, which is also the order somebody
+     * reads them in.
      */
     const lead = session.lead
     const leadText = lead ?? 'Nobody assigned'
-    const leadLines = wrapText(leadText, LEAD_SIZE, LEAD_MAX_W)
+    const innerW = rowW - ROW_PAD_X * 2
+    const nameLines = wrapText(session.name, NAME_SIZE, innerW)
+
+    const leadTextW = innerW - PILL_PAD * 2 - (lead ? AVATAR * 2 + PILL_GAP : 0)
+    const leadLines = wrapText(leadText, LEAD_SIZE, Math.max(leadTextW, 60))
     const leadW = Math.max(...leadLines.map((line) => textWidth(line, LEAD_SIZE, false)))
-    const pillW = (lead ? AVATAR * 2 + 8 : 0) + PILL_PAD * 2 + leadW
-    const pillH = Math.max(30, leadLines.length * LEAD_LINE + 12)
-    const pillX = ROW_X + rowW - 12 - pillW
+    const pillW = (lead ? AVATAR * 2 + PILL_GAP : 0) + PILL_PAD * 2 + leadW
+    const pillH = Math.max(AVATAR * 2 + 8, leadLines.length * LEAD_LINE + 12)
 
-    // Never narrower than something a word can land in: a very wide pill
-    // must not squeeze the name into a column one letter across.
-    const nameW = Math.max(pillX - ROW_X - 26, 90)
-    const nameLines = wrapText(session.name, NAME_SIZE, nameW)
-
-    const rowH = Math.max(
-      ROW_MIN_H,
-      nameLines.length * NAME_LINE + ROW_PAD_Y * 2,
-      pillH + 16,
-    )
-    const mid = top + rowH / 2
-    if (railTop === null) railTop = mid
-    railBottom = mid
+    // What the row hangs from: the first line of the name, so the clock
+    // beside it and the dot on the rail line up with the words rather
+    // than with the middle of a box whose height depends on the text.
+    // A baseline is not a top edge, so the cap height is added back —
+    // otherwise the padding above the name measures shorter than the
+    // padding below the pill and the row sits low in its own box.
+    const anchor = top + ROW_PAD_Y + NAME_SIZE * 0.72
+    const pillTop = anchor + (nameLines.length - 1) * NAME_LINE + 10
+    const rowH = Math.max(ROW_MIN_H, pillTop - top + pillH + ROW_PAD_Y)
+    if (railTop === null) railTop = anchor
+    railBottom = anchor
 
     // Time and duration in the left column, right-aligned to the rail.
     const time = session.time
     texts.push({
-      x: RAIL_X - 14 - textWidth(time, 11, false, true),
-      y: mid - 2,
-      size: 11,
+      x: RAIL_X - 16 - textWidth(time, TIME_SIZE, true, true),
+      y: anchor,
+      size: TIME_SIZE,
       text: time,
       mono: true,
+      bold: true,
       color: TIME_INK,
     })
     const mins = `${session.minutes} min`
     texts.push({
-      x: RAIL_X - 14 - textWidth(mins, 9, false, true),
-      y: mid + 12,
-      size: 9,
+      x: RAIL_X - 16 - textWidth(mins, MINUTES_SIZE, false, true),
+      y: anchor + 18,
+      size: MINUTES_SIZE,
       text: mins,
       mono: true,
       color: MINUTES_INK,
@@ -282,44 +313,46 @@ export function serviceSheetPage(
 
     // The dot on the rail. The first is lit, as the page lights the one
     // the service opens with.
-    circles.push({ cx: RAIL_X, cy: mid, r: i === 0 ? 4 : 3, color: i === 0 ? PRIMARY : RAIL })
+    circles.push({ cx: RAIL_X, cy: anchor - 5, r: i === 0 ? 5 : 3.5, color: i === 0 ? PRIMARY : RAIL })
 
     // The session's own card.
-    rects.push({ x: ROW_X, y: top, w: rowW, h: rowH, color: CARD, radius: 14 })
+    rects.push({ x: ROW_X, y: top, w: rowW, h: rowH, color: CARD, radius: 16 })
 
-    // The name, centred on the row however many lines it runs to.
-    let nameY = mid - ((nameLines.length - 1) * NAME_LINE) / 2 + 4
+    // The name, as many lines as it runs to.
+    let nameY = anchor
     for (const line of nameLines) {
-      texts.push({ x: ROW_X + 18, y: nameY, size: NAME_SIZE, text: line, color: INK })
+      texts.push({ x: ROW_X + ROW_PAD_X, y: nameY, size: NAME_SIZE, text: line, bold: true, color: INK })
       nameY += NAME_LINE
     }
 
-    // The assignee pill: an initials disc, then the name — or the gap,
-    // named, because that is what a planner is scanning for.
+    // Who is doing it, on its own line beneath — or the gap, named,
+    // because that is what a planner is scanning for.
+    const pillX = ROW_X + ROW_PAD_X
     rects.push({
       x: pillX,
-      y: mid - pillH / 2,
+      y: pillTop,
       w: pillW,
       h: pillH,
       color: lead ? PILL : PILL_EMPTY,
-      radius: Math.min(15, pillH / 2),
+      radius: Math.min(17, pillH / 2),
     })
+    const pillMid = pillTop + pillH / 2
     if (lead) {
-      circles.push({ cx: pillX + PILL_PAD + AVATAR, cy: mid, r: AVATAR, color: AVATAR_DISC })
+      circles.push({ cx: pillX + PILL_PAD + AVATAR, cy: pillMid, r: AVATAR, color: AVATAR_DISC })
       const ini = initialsOf(lead)
       texts.push({
-        x: pillX + PILL_PAD + AVATAR - textWidth(ini, 7.5, false, true) / 2,
-        y: mid + 3,
-        size: 7.5,
+        x: pillX + PILL_PAD + AVATAR - textWidth(ini, 9, false, true) / 2,
+        y: pillMid + 3.5,
+        size: 9,
         text: ini,
         mono: true,
         color: AVATAR_INK,
       })
     }
-    let leadY = mid - ((leadLines.length - 1) * LEAD_LINE) / 2 + 4
+    let leadY = pillMid - ((leadLines.length - 1) * LEAD_LINE) / 2 + 4.5
     for (const line of leadLines) {
       texts.push({
-        x: pillX + PILL_PAD + (lead ? AVATAR * 2 + 8 : 0),
+        x: pillX + PILL_PAD + (lead ? AVATAR * 2 + PILL_GAP : 0),
         y: leadY,
         size: LEAD_SIZE,
         text: line,
@@ -328,14 +361,14 @@ export function serviceSheetPage(
       leadY += LEAD_LINE
     }
 
-    y += rowH + ROW_GAP
+    y = top + rowH + ROW_GAP
   })
 
   if (sheet.sessions.length === 0) {
     texts.push({
       x: ROW_X,
-      y: y + 18,
-      size: 11,
+      y: y + 22,
+      size: NAME_SIZE,
       text: 'No sessions planned yet.',
       color: MUTED,
     })
@@ -360,38 +393,38 @@ export function serviceSheetPage(
   // The service-window tile, as the page ends.
   const tileTop = cardTop + cardH + 16
   const windowLines = sheet.windowLabel
-    ? wrapText(sheet.windowLabel, 10.5, cardW - CARD_PAD * 2)
+    ? wrapText(sheet.windowLabel, LEAD_SIZE, cardW - CARD_PAD * 2)
     : []
-  const tileH = windowLines.length > 0 ? 74 + 8 + windowLines.length * 15 : 74
+  const tileH = windowLines.length > 0 ? 92 + 8 + windowLines.length * 18 : 92
   rects.push({ x: PAGE_PAD, y: tileTop, w: cardW, h: tileH, color: WINDOW_TILE, radius: 20 })
   texts.push({
     x: PAGE_PAD + CARD_PAD,
-    y: tileTop + 26,
-    size: 8.5,
+    y: tileTop + 30,
+    size: EYEBROW_SIZE,
     text: 'SERVICE WINDOW',
     mono: true,
     color: MUTED,
   })
   texts.push({
     x: PAGE_PAD + CARD_PAD,
-    y: tileTop + 56,
-    size: 22,
+    y: tileTop + 70,
+    size: 28,
     text: sheet.totalLabel,
     bold: true,
     mono: true,
     color: INK,
   })
   texts.push({
-    x: PAGE_PAD + CARD_PAD + textWidth(sheet.totalLabel, 22, true, true) + 10,
-    y: tileTop + 56,
-    size: 10.5,
+    x: PAGE_PAD + CARD_PAD + textWidth(sheet.totalLabel, 28, true, true) + 12,
+    y: tileTop + 70,
+    size: LEAD_SIZE,
     text: 'end to end',
     color: MUTED,
   })
-  let windowY = tileTop + 80
+  let windowY = tileTop + 96
   for (const line of windowLines) {
-    texts.push({ x: PAGE_PAD + CARD_PAD, y: windowY, size: 10.5, text: line, color: MUTED })
-    windowY += 15
+    texts.push({ x: PAGE_PAD + CARD_PAD, y: windowY, size: LEAD_SIZE, text: line, color: MUTED })
+    windowY += 18
   }
 
   /*
@@ -409,7 +442,7 @@ export function serviceSheetPage(
   texts.push({
     x: PAGE_PAD,
     y: footerBaseline,
-    size: 8,
+    size: FOOTER_SIZE,
     text: `Rehoboth International Ministries · ${sheet.printedOn}`,
     color: FAINT,
   })
