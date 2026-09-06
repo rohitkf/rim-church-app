@@ -60,6 +60,13 @@ export interface PdfPage {
   rects: PdfRect[]
   lines?: PdfLine[]
   circles?: PdfCircle[]
+  /**
+   * The ground the page is painted on, for a format with no transparency
+   * to fall back to. A PDF ignores it — its own backdrop rectangle is
+   * drawn like any other — but a JPEG has to start from something, and
+   * starting from white put a white hairline round a black sheet.
+   */
+  background?: string
 }
 
 /**
