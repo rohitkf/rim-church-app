@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { serviceSheetPage, type ServiceSheet } from './serviceSheet'
 import { A4 } from './pdfDoc'
+import { textWidth } from './helveticaMetrics'
 
 const sheet = (over: Partial<ServiceSheet> = {}): ServiceSheet => ({
   serviceType: 'Sunday Morning Celebration',
@@ -84,5 +85,94 @@ describe('serviceSheetPage', () => {
     const page = serviceSheetPage(sheet(), 'content')
     for (const r of page.rects) expect(r.x + r.w).toBeLessThanOrEqual(page.width + 0.01)
     for (const l of page.lines ?? []) expect(Math.max(l.x1, l.x2)).toBeLessThanOrEqual(page.width)
+  })
+
+  /*
+   * Nothing on this sheet is allowed to be cut short. It is handed to
+   * somebody who was not in the room when the service was planned, and
+   * three quarters of a session's name is a hint rather than information.
+   */
+  describe('long text', () => {
+    const long = sheet({
+      serviceType: 'Malayalam Service of Word, Worship and Communion',
+      sessions: [
+        {
+          time: '12:18 PM',
+          minutes: 10,
+          name: 'Welcome | Introduction | Short Message | Announcements',
+          lead: 'Rohit Kochikkat Francis',
+        },
+        { time: '12:28 PM', minutes: 60, name: 'Worship 3', lead: 'Blessy Jijin' },
+      ],
+    })
+
+    /** Every word of a phrase, in order, somewhere in the page's text. */
+    const carries = (page: ReturnType<typeof serviceSheetPage>, phrase: string) => {
+      const said = page.texts.map((t) => t.text).join(' ')
+      return phrase.split(/\s+/).every((word) => said.includes(word))
+    }
+
+    it('never writes an ellipsis, which is the shape of a cut', () => {
+      for (const t of serviceSheetPage(long, 'content').texts) {
+        expect(t.text, t.text).not.toMatch(/\.\.\.|…/)
+      }
+    })
+
+    it('keeps every word of a long session name', () => {
+      const page = serviceSheetPage(long, 'content')
+      expect(carries(page, 'Welcome | Introduction | Short Message | Announcements')).toBe(true)
+    })
+
+    it('keeps every word of a long lead name and a long service name', () => {
+      const page = serviceSheetPage(long, 'content')
+      expect(carries(page, 'Rohit Kochikkat Francis')).toBe(true)
+      expect(carries(page, 'Malayalam Service of Word, Worship and Communion')).toBe(true)
+    })
+
+    it('grows the sheet to hold what it is now drawing', () => {
+      const wrapped = serviceSheetPage(long, 'content').height
+      const plain = serviceSheetPage(
+        sheet({ sessions: long.sessions.map((x) => ({ ...x, name: 'Short', lead: 'A B' })) }),
+        'content',
+      ).height
+      expect(wrapped).toBeGreaterThan(plain)
+    })
+
+    it('leaves no line of text running off the edge of the sheet', () => {
+      const page = serviceSheetPage(long, 'content')
+      for (const t of page.texts) {
+        const right = t.x + textWidth(t.text, t.size, !!t.bold, !!t.mono)
+        expect(right, t.text).toBeLessThanOrEqual(page.width - 4)
+      }
+    })
+
+    it('keeps the rows apart rather than letting a tall one overlap the next', () => {
+      const page = serviceSheetPage(long, 'content')
+      // The session cards, in the order they were drawn.
+      const cards = page.rects.filter((r) => r.radius === 14)
+      for (let i = 1; i < cards.length; i++) {
+        expect(cards[i].y).toBeGreaterThanOrEqual(cards[i - 1].y + cards[i - 1].h)
+      }
+    })
+  })
+
+  it('grows a printed page past A4 rather than losing the end of a long service', () => {
+    const many = sheet({
+      sessions: Array.from({ length: 24 }, (_, i) => ({
+        time: '09:30 AM',
+        minutes: 5,
+        name: `Session ${i + 1} with a name long enough to want a second line of its own`,
+        lead: 'Somebody With A Long Name',
+      })),
+    })
+    const page = serviceSheetPage(many, 'page')
+    expect(page.height).toBeGreaterThan(A4.height)
+    // And everything it drew is on it.
+    for (const t of page.texts) expect(t.y, t.text).toBeLessThanOrEqual(page.height)
+    for (const r of page.rects) expect(r.y + r.h).toBeLessThanOrEqual(page.height + 0.01)
+  })
+
+  it('still gives a short service the whole printed page', () => {
+    expect(serviceSheetPage(sheet(), 'page').height).toBe(A4.height)
   })
 })
