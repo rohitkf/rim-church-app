@@ -133,6 +133,13 @@ describe('roles grouped on the Teams page', () => {
     const heading = screen.getByRole('heading', { name: /Band/ }).closest('div')!
     await user.click(within(heading).getByRole('button', { name: 'Rename' }))
     await user.click(screen.getByRole('button', { name: 'Delete group' }))
+    // Asked about first — the confirmation's own button is the one that
+    // does it, and it says the same word.
+    await user.click(
+      screen
+        .getAllByRole('button', { name: 'Delete group' })
+        .find((b) => b.closest('[role="alertdialog"]'))!,
+    )
     await waitFor(() =>
       expect(eq).toHaveBeenCalledWith('department_role_groups', 'delete', 'id', 'g2'),
     )

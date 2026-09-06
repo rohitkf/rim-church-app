@@ -20,6 +20,7 @@ import {
   type DiaryKind,
 } from '../lib/churchDiary'
 import { Select } from '../components/Select'
+import { useConfirmAction } from '../components/ConfirmAction'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -108,6 +109,8 @@ export function EventsPage() {
   const [location, setLocation] = useState('')
   const [details, setDetails] = useState('')
   const [departmentId, setDepartmentId] = useState('')
+
+  const { ask, dialog } = useConfirmAction()
 
   const peopleQuery = useQuery({ queryKey: ['diary-people'], queryFn: fetchPeople })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
@@ -380,7 +383,15 @@ export function EventsPage() {
                               {mayEdit(entry) && (
                                 <button
                                   type="button"
-                                  onClick={() => removeEvent.mutate(entry.id.replace('event:', ''))}
+                                  onClick={() =>
+                                    ask({
+                                      title: `Remove ${entry.title} from the diary?`,
+                                      body: 'It disappears from the calendar for everybody.',
+                                      confirmLabel: 'Remove',
+                                      onConfirm: () =>
+                                        removeEvent.mutate(entry.id.replace('event:', '')),
+                                    })
+                                  }
                                   className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
                                 >
                                   Remove
@@ -486,6 +497,8 @@ export function EventsPage() {
           </form>
         </div>
       )}
+
+      {dialog}
     </div>
   )
 }

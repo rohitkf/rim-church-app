@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { ActionButton, Eyebrow, Tile } from './Surface'
 import { useErrorText } from '../lib/useErrorText'
+import { useConfirmAction } from './ConfirmAction'
 
 export const serviceGuestSchema = z.object({
   id: z.string(),
@@ -123,6 +124,8 @@ export function ServiceGuestsPanel({
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that guest.')),
   })
 
+  const { ask, dialog } = useConfirmAction()
+
   const guests = guestsQuery.data ?? []
   if (!canManage && guests.length === 0) return null
 
@@ -215,7 +218,14 @@ export function ServiceGuestsPanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => remove.mutate(guest.id)}
+                        onClick={() =>
+                          ask({
+                            title: `Remove ${guest.name} from the guest list?`,
+                            body: 'They come off this service only.',
+                            confirmLabel: 'Remove',
+                            onConfirm: () => remove.mutate(guest.id),
+                          })
+                        }
                         className="tap text-label-md font-medium text-on-surface-variant hover:text-error"
                       >
                         Remove
@@ -261,6 +271,8 @@ export function ServiceGuestsPanel({
           {error}
         </p>
       )}
+
+      {dialog}
     </Tile>
   )
 }

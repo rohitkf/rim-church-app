@@ -39,6 +39,7 @@ import {
 import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog'
 import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
+import { useConfirmAction } from '../components/ConfirmAction'
 import {
   serviceSchema,
   serviceSessionRowSchema,
@@ -627,6 +628,8 @@ export function ServicePlannerPage() {
         text: errorText(err, 'Could not save template.'),
       }),
   })
+
+  const { ask, dialog } = useConfirmAction()
 
   function handleSaveTemplate(e: FormEvent) {
     e.preventDefault()
@@ -1382,7 +1385,14 @@ export function ServicePlannerPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => deleteSession.mutate(session.id)}
+                                  onClick={() =>
+                                    ask({
+                                      title: `Remove ${session.session_name}?`,
+                                      body: 'The session and everything written against it go, and the ones after it move up.',
+                                      confirmLabel: 'Remove',
+                                      onConfirm: () => deleteSession.mutate(session.id),
+                                    })
+                                  }
                                   aria-label={`Remove ${session.session_name}`}
                                   className="tap shrink-0 rounded-full px-2.5 py-2 text-label-md text-on-surface-faint transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
                                 >
@@ -1496,6 +1506,8 @@ export function ServicePlannerPage() {
             </div>
           </div>
         </QueryState>
+
+        {dialog}
       </div>
     </QueryState>
   )

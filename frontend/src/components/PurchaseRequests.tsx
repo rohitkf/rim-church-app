@@ -12,6 +12,7 @@ import { TeamMark } from './TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { inventoryCategorySchema, type InventoryCategory } from '../lib/types'
+import { useConfirmAction } from './ConfirmAction'
 import { categoryOptions } from '../lib/inventoryCategories'
 import { valueHint } from '../lib/inventory'
 import {
@@ -745,6 +746,7 @@ function RequestRow({
   onRemove?: () => void
   busy: boolean
 }) {
+  const { ask, dialog } = useConfirmAction()
   const each = money(row.estimated_cost)
   // Ten screws at a pound each is ten pounds. Both numbers are shown,
   // because the one that gets typed in wrong is whichever is not.
@@ -867,7 +869,14 @@ function RequestRow({
             <button
               type="button"
               disabled={busy}
-              onClick={() => onRemove()}
+              onClick={() =>
+                ask({
+                  title: `Remove ${row.item_name} from the list?`,
+                  body: 'The request goes for good. Asking again means filling the form in again.',
+                  confirmLabel: 'Remove',
+                  onConfirm: () => onRemove(),
+                })
+              }
               aria-label={`Remove ${row.item_name} from the list`}
               className="text-label-md text-on-surface-faint hover:text-error disabled:opacity-40"
             >
@@ -876,6 +885,8 @@ function RequestRow({
           )}
         </div>
       )}
+
+      {dialog}
     </li>
   )
 }

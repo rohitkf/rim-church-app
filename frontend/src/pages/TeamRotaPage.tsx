@@ -31,6 +31,7 @@ import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
 import { useMyTeams } from '../lib/useMyTeams'
+import { useConfirmAction } from '../components/ConfirmAction'
 import {
   rotaAssignmentSchema,
   rotaReleaseRequestSchema,
@@ -359,6 +360,8 @@ export function TeamRotaPage() {
 
   const pendingFor = (assignmentId: string) =>
     requests.find((r) => r.assignment_id === assignmentId && r.status === 'pending')
+
+  const { ask, dialog } = useConfirmAction()
 
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
   const loadError = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
@@ -711,7 +714,18 @@ export function TeamRotaPage() {
                                           )}
                                           {manage && (
                                             <button
-                                              onClick={() => removeAssignment.mutate(a.id)}
+                                              onClick={() =>
+                                                ask({
+                                                  title: `Take ${
+                                                    a.profile
+                                                      ? `${a.profile.first_name} ${a.profile.last_name}`
+                                                      : 'this person'
+                                                  } off ${a.role_label}?`,
+                                                  body: 'The role goes back to unassigned for this service.',
+                                                  confirmLabel: 'Remove',
+                                                  onConfirm: () => removeAssignment.mutate(a.id),
+                                                })
+                                              }
                                               aria-label={`Remove ${a.role_label}`}
                                               /* Visible on a phone, where there
                                                  is no hover to reveal it with. */
@@ -903,6 +917,8 @@ export function TeamRotaPage() {
           </div>
         )}
       </QueryState>
+
+      {dialog}
     </div>
   )
 }
