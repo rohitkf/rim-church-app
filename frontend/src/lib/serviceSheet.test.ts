@@ -175,4 +175,57 @@ describe('serviceSheetPage', () => {
   it('still gives a short service the whole printed page', () => {
     expect(serviceSheetPage(sheet(), 'page').height).toBe(A4.height)
   })
+
+  /*
+   * The same sheet, printable. A black page costs a cartridge and comes
+   * out of most church printers grey, so the light one exists for paper;
+   * the dark one is what belongs in a group chat.
+   */
+  describe('light and dark', () => {
+    const ground = (page: ReturnType<typeof serviceSheetPage>) => page.rects[0].color
+
+    it('paints the dark sheet on black, and says so for a format with no transparency', () => {
+      const page = serviceSheetPage(sheet(), 'content', 'dark')
+      expect(ground(page)).toBe('#000000')
+      expect(page.background).toBe('#000000')
+    })
+
+    it('paints the light sheet on white', () => {
+      const page = serviceSheetPage(sheet(), 'content', 'light')
+      expect(ground(page)).toBe('#ffffff')
+      expect(page.background).toBe('#ffffff')
+    })
+
+    it('is dark unless asked otherwise, as it has always been', () => {
+      expect(serviceSheetPage(sheet(), 'content').background).toBe('#000000')
+    })
+
+    it('turns the ink over with the ground rather than only the background', () => {
+      const dark = serviceSheetPage(sheet(), 'content', 'dark')
+      const light = serviceSheetPage(sheet(), 'content', 'light')
+      const inkOf = (page: ReturnType<typeof serviceSheetPage>) =>
+        page.texts.find((t) => t.text === 'Sunday Morning Celebration')!.color
+      expect(inkOf(dark)).toBe('#f5f5f7')
+      expect(inkOf(light)).toBe('#1c1c1e')
+    })
+
+    it('lays both out identically — only the colours differ', () => {
+      const strip = (page: ReturnType<typeof serviceSheetPage>) =>
+        JSON.stringify({
+          height: page.height,
+          texts: page.texts.map(({ x, y, size, text }) => ({ x, y, size, text })),
+          rects: page.rects.map(({ x, y, w, h }) => ({ x, y, w, h })),
+        })
+      expect(strip(serviceSheetPage(sheet(), 'content', 'light'))).toBe(
+        strip(serviceSheetPage(sheet(), 'content', 'dark')),
+      )
+    })
+
+    it('keeps the unassigned pill readable on paper', () => {
+      // #ff9f0a on white is a smear; the light theme has its own orange.
+      const light = serviceSheetPage(sheet(), 'content', 'light')
+      const warned = light.texts.find((t) => t.text === 'Nobody assigned')!
+      expect(warned.color).toBe('#b86e00')
+    })
+  })
 })

@@ -21,8 +21,9 @@ export async function renderPageToJpeg(page: PdfPage, scale = 2, quality = 0.92)
   if (!ctx) throw new Error('This browser would not give us a canvas to draw on.')
 
   ctx.scale(scale, scale)
-  // JPEG has no transparency, so the paper has to be painted.
-  ctx.fillStyle = '#ffffff'
+  // JPEG has no transparency, so the paper has to be painted — in the
+  // page's own colour, or a dark sheet rounds off against a white edge.
+  ctx.fillStyle = page.background ?? '#ffffff'
   ctx.fillRect(0, 0, page.width, page.height)
 
   for (const r of page.rects) {

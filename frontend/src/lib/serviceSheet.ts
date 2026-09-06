@@ -33,18 +33,68 @@ export interface ServiceSheet {
   printedOn: string
 }
 
-/* The app's own dark palette, so the file and the screen are one thing. */
-const BACKDROP = '#000000'
-const SURFACE = '#141418'
-const CARD = '#1c1c22'
-const PILL = '#26262e'
-const INK = '#f5f5f7'
-const MUTED = '#98989d'
-const FAINT = '#8e8e93'
-const RAIL = '#38383f'
-const PRIMARY = '#0a84ff'
-const WARN = '#ff9f0a'
-const WINDOW_TILE = '#101a26'
+/**
+ * The app's own palettes, so the file and the screen are one thing.
+ *
+ * Dark is what the planner looks like and what a running order dropped
+ * into a group chat should look like. Light is what a printer wants: a
+ * black page costs a cartridge and comes out of most church printers grey
+ * and streaked, and somebody pinning the order to a wall wants ink on
+ * paper rather than paper made of ink.
+ *
+ * The two are the app's own tokens, read off `index.css` rather than
+ * invented here — the accents step to their light-background variants so
+ * they keep their contrast instead of glowing.
+ */
+export type SheetTheme = 'dark' | 'light'
+
+interface Palette {
+  backdrop: string
+  surface: string
+  card: string
+  pill: string
+  pillEmpty: string
+  ink: string
+  muted: string
+  faint: string
+  rail: string
+  primary: string
+  warn: string
+  windowTile: string
+}
+
+const PALETTES: Record<SheetTheme, Palette> = {
+  dark: {
+    backdrop: '#000000',
+    surface: '#141418',
+    card: '#1c1c22',
+    pill: '#26262e',
+    pillEmpty: '#2a2118',
+    ink: '#f5f5f7',
+    muted: '#98989d',
+    faint: '#8e8e93',
+    rail: '#38383f',
+    primary: '#0a84ff',
+    warn: '#ff9f0a',
+    windowTile: '#101a26',
+  },
+  light: {
+    backdrop: '#ffffff',
+    surface: '#f2f2f7',
+    card: '#ffffff',
+    pill: '#ebebf0',
+    pillEmpty: '#fdf1de',
+    ink: '#1c1c1e',
+    muted: '#6e6e73',
+    faint: '#8a8a8f',
+    rail: '#c7c7cc',
+    primary: '#007aff',
+    // The light theme's own orange-on-white, which is readable where
+    // #ff9f0a on white is a smear.
+    warn: '#b86e00',
+    windowTile: '#eaf2ff',
+  },
+}
 
 const PAGE_PAD = 34
 const CARD_PAD = 22
@@ -88,7 +138,26 @@ function initialsOf(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
-export function serviceSheetPage(sheet: ServiceSheet, fit: SheetFit = 'page'): PdfPage {
+export function serviceSheetPage(
+  sheet: ServiceSheet,
+  fit: SheetFit = 'page',
+  theme: SheetTheme = 'dark',
+): PdfPage {
+  const {
+    backdrop: BACKDROP,
+    surface: SURFACE,
+    card: CARD,
+    pill: PILL,
+    pillEmpty: PILL_EMPTY,
+    ink: INK,
+    muted: MUTED,
+    faint: FAINT,
+    rail: RAIL,
+    primary: PRIMARY,
+    warn: WARN,
+    windowTile: WINDOW_TILE,
+  } = PALETTES[theme]
+
   const texts: PdfText[] = []
   const rects: PdfRect[] = []
   const lines: PdfLine[] = []
@@ -205,7 +274,7 @@ export function serviceSheetPage(sheet: ServiceSheet, fit: SheetFit = 'page'): P
       y: mid - pillH / 2,
       w: pillW,
       h: pillH,
-      color: lead ? PILL : '#2a2118',
+      color: lead ? PILL : PILL_EMPTY,
       radius: Math.min(15, pillH / 2),
     })
     if (lead) {
@@ -322,7 +391,7 @@ export function serviceSheetPage(sheet: ServiceSheet, fit: SheetFit = 'page'): P
   // The backdrop has to cover whatever height we settled on.
   rects[0] = { x: 0, y: 0, w: W, h: height, color: BACKDROP }
 
-  return { width: W, height, texts, rects, lines, circles }
+  return { width: W, height, texts, rects, lines, circles, background: BACKDROP }
 }
 
 /** Long names push a row taller; the sheet stays readable either way. */
