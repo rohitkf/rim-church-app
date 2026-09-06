@@ -16,6 +16,17 @@ import { teamHeadingStyle } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
 import { useErrorText } from '../lib/useErrorText'
+import { Chevron, useExpanded } from '../components/Collapsible'
+
+/**
+ * The one section that is open when the page loads.
+ *
+ * Everybody with a team is filed under it, shut, so the page opens as a
+ * list of teams a screen long rather than a hundred cards. Whoever is on
+ * no team is the exception, because they are the reason somebody comes to
+ * this page: they are waiting to be put somewhere.
+ */
+const UNATTACHED = 'unattached'
 
 const volunteerSchema = z.object({
   id: z.string(),
@@ -165,6 +176,14 @@ export function VolunteersPage() {
     onError: (err: unknown) =>
       setError(errorText(err, 'Could not remove that person.')),
   })
+
+  /*
+   * Which sections are open. `isToggled` means "somebody has touched
+   * this", not "open" — what a section does on its own depends on which
+   * one it is, and a single set of ids cannot carry both facts.
+   */
+  const { isExpanded: isToggled, toggle: toggleSection } = useExpanded()
+  const sectionOpen = (id: string) => (id === UNATTACHED) !== isToggled(id)
 
   if (!isAdmin) return <Navigate to="/" replace />
 
@@ -524,8 +543,12 @@ export function VolunteersPage() {
                   than sitting in a mark beside it: with a page this long,
                   what tells you a new team has started is a band, not a
                   6px spine. */}
-              <div
-                className="flex items-center gap-2 rounded-t-[var(--radius-chip)] border-b px-3 py-2"
+              <button
+                type="button"
+                onClick={() => toggleSection(dept.id)}
+                aria-expanded={sectionOpen(dept.id)}
+                aria-controls={`volunteers-${dept.id}`}
+                className="tap flex w-full items-center gap-2 rounded-t-[var(--radius-chip)] border-b px-3 py-2 text-left"
                 style={teamHeadingStyle(dept.color, teamStyle)}
               >
                 <TeamMark color={dept.color} />
@@ -533,8 +556,15 @@ export function VolunteersPage() {
                 <span className="font-mono text-label-sm text-on-surface-variant">
                   {people.length} {people.length === 1 ? 'person' : 'people'}
                 </span>
-              </div>
-              <ul className="mt-4 flex flex-col gap-4">
+                <span className="ml-auto">
+                  <Chevron open={sectionOpen(dept.id)} />
+                </span>
+              </button>
+              <ul
+                id={`volunteers-${dept.id}`}
+                hidden={!sectionOpen(dept.id)}
+                className="mt-4 flex flex-col gap-4"
+              >
                 {people.map(({ volunteer }) => renderCard(volunteer, volunteer.id === me?.id))}
               </ul>
             </section>
@@ -542,13 +572,26 @@ export function VolunteersPage() {
 
           {adminsOnNoTeam.length > 0 && (
             <section>
-              <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+              <button
+                type="button"
+                onClick={() => toggleSection('admins')}
+                aria-expanded={sectionOpen('admins')}
+                aria-controls="volunteers-admins"
+                className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-2 text-left"
+              >
                 <h2 className="text-headline-md">Admins</h2>
                 <span className="font-mono text-label-sm text-on-surface-variant">
                   {adminsOnNoTeam.length}
                 </span>
-              </div>
-              <ul className="mt-4 flex flex-col gap-4">
+                <span className="ml-auto">
+                  <Chevron open={sectionOpen('admins')} />
+                </span>
+              </button>
+              <ul
+                id="volunteers-admins"
+                hidden={!sectionOpen('admins')}
+                className="mt-4 flex flex-col gap-4"
+              >
                 {adminsOnNoTeam.map((v) => renderCard(v, v.id === me?.id))}
               </ul>
             </section>
@@ -556,13 +599,26 @@ export function VolunteersPage() {
 
           {onNoTeam.length > 0 && (
             <section>
-              <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+              <button
+                type="button"
+                onClick={() => toggleSection(UNATTACHED)}
+                aria-expanded={sectionOpen(UNATTACHED)}
+                aria-controls="volunteers-unattached"
+                className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-2 text-left"
+              >
                 <h2 className="text-headline-md">Not on a team yet</h2>
                 <span className="font-mono text-label-sm text-on-surface-variant">
                   {onNoTeam.length}
                 </span>
-              </div>
-              <ul className="mt-4 flex flex-col gap-4">
+                <span className="ml-auto">
+                  <Chevron open={sectionOpen(UNATTACHED)} />
+                </span>
+              </button>
+              <ul
+                id="volunteers-unattached"
+                hidden={!sectionOpen(UNATTACHED)}
+                className="mt-4 flex flex-col gap-4"
+              >
                 {onNoTeam.map((v) => renderCard(v, v.id === me?.id))}
               </ul>
             </section>
