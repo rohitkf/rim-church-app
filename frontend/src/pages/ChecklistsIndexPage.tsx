@@ -23,6 +23,8 @@ import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { splitFinished } from '../lib/finishedSection'
+import { FinishedServices } from '../components/FinishedServices'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
 import { teamWashSoft } from '../lib/teamGradient'
@@ -246,50 +248,18 @@ export function ChecklistsIndexPage() {
     [dayServices, isFinished],
   )
 
+  // Off the page proper, not merely sorted last: a Sunday evening opened
+  // on three cards of things that can no longer be ticked.
+  const { live: liveServices, finished: finishedServices } = useMemo(
+    () => splitFinished(orderedServices, (s) => isFinished(s.id)),
+    [orderedServices, isFinished],
+  )
+
   const daysShown = new Set(dayServices.map((s) => s.date)).size
   const firstDayShown = dayServices.map((s) => s.date).sort()[0]
 
-  const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
-  const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow={
-          /* One day reads as a day; a window reads as a window. Saying
-             "next service day" over a fortnight of them would be a lie the
-             page then spends five sections contradicting. */
-          daysShown > 1
-            ? `The next ${settings.rota_window_days} days · from ${formatServiceDay(firstDayShown!)}`
-            : dayIso
-              ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
-              : 'No service day yet'
-        }
-        title="Checklists"
-        description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."
-      />
-
-      {error && (
-        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
-      )}
-
-      <QueryState isLoading={isLoading} error={loadError}>
-        {!dayIso ? (
-          <p className="mt-4 text-body-sm text-on-surface-variant">
-            No services scheduled yet
-            {isAdmin ? ' — add one from the Service Planner.' : ' — check back soon.'}
-          </p>
-        ) : (
-          <>
-
-            {mineFirst.length === 0 ? (
-              <p className="mt-6 text-body-sm text-on-surface-variant">
-                You have no role on the rota for this service. Your team head assigns roles under Team
-                Rota.
-              </p>
-            ) : (
-              <div className="mt-6 flex flex-col gap-10">
-                {orderedServices.map((service) => {
+  /* One service, with my roles on it and the teams I oversee. */
+  const renderService = (service: (typeof orderedServices)[number]) => {
                   // A service that has been and gone is a record now: it
                   // sinks below the ones still to prepare for, and nothing
                   // in it can be ticked, un-ticked or chased.
@@ -507,7 +477,65 @@ export function ChecklistsIndexPage() {
                       </ul>
                     </section>
                   )
-                })}
+  }
+
+  const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
+  const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={
+          /* One day reads as a day; a window reads as a window. Saying
+             "next service day" over a fortnight of them would be a lie the
+             page then spends five sections contradicting. */
+          daysShown > 1
+            ? `The next ${settings.rota_window_days} days · from ${formatServiceDay(firstDayShown!)}`
+            : dayIso
+              ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
+              : 'No service day yet'
+        }
+        title="Checklists"
+        description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."
+      />
+
+      {error && (
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+      )}
+
+      <QueryState isLoading={isLoading} error={loadError}>
+        {!dayIso ? (
+          <p className="mt-4 text-body-sm text-on-surface-variant">
+            No services scheduled yet
+            {isAdmin ? ' — add one from the Service Planner.' : ' — check back soon.'}
+          </p>
+        ) : (
+          <>
+
+            {mineFirst.length === 0 ? (
+              <p className="mt-6 text-body-sm text-on-surface-variant">
+                You have no role on the rota for this service. Your team head assigns roles under Team
+                Rota.
+              </p>
+            ) : (
+              <div className="mt-6 flex flex-col gap-10">
+                {/* What can still be prepared for. A service that has
+                    been and gone is a record — it waits under Finished
+                    at the foot of the page rather than above the one
+                    still to prepare for. */}
+                {liveServices.map(renderService)}
+
+                {liveServices.length === 0 && (
+                  <p className="text-body-sm text-on-surface-variant">
+                    Nothing left to prepare for. What was ticked is under Finished.
+                  </p>
+                )}
+
+                {finishedServices.length > 0 && (
+                  <FinishedServices count={finishedServices.length} id="finished-checklists">
+                    {finishedServices.map(renderService)}
+                  </FinishedServices>
+                )}
               </div>
             )}
           </>

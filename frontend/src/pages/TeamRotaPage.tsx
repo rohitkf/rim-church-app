@@ -32,6 +32,8 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { splitFinished } from '../lib/finishedSection'
+import { FinishedServices } from '../components/FinishedServices'
 import {
   rotaAssignmentSchema,
   rotaReleaseRequestSchema,
@@ -178,6 +180,14 @@ export function TeamRotaPage() {
   const listed = useMemo(
     () => [...upcoming].sort((a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id))),
     [upcoming, isFinished],
+  )
+
+  // And then taken off the page proper altogether. Sorting a record last
+  // still leaves it in the list; a Sunday evening's rota is three cards
+  // of "who served", above the Sunday that has not been planned yet.
+  const { live, finished: finishedServices } = useMemo(
+    () => splitFinished(listed, (s) => isFinished(s.id)),
+    [listed, isFinished],
   )
 
   const myDepartments = useMemo(() => {
@@ -363,111 +373,8 @@ export function TeamRotaPage() {
 
   const { ask, dialog } = useConfirmAction()
 
-  const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
-  const loadError = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow="Who is on what"
-        title="Team Rota"
-        description="One role per person per service — except Team Coordinator, which sits alongside a job rather than replacing it. Borrowing someone needs their head's approval."
-      />
-
-      {error && (
-        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
-      )}
-
-      {/*
-        Above the rota, because it is the question asked first. The rota
-        says who is on; this says what time to be there, which is what a
-        volunteer wants on a Saturday night — and every team is in it, not
-        just yours, so the person opening up knows who to expect at the
-        door.
-
-        Not scoped to `myDepartments`: that list is "teams you serve on or
-        run", which is the right audience for the assign forms below and
-        the wrong one here.
-      */}
-      {/* When each team is due in is the teams' own business: somebody who
-          has signed up and not been put on a team yet has no call time of
-          their own and no reason to read everyone else's. The database
-          says the same (0080), so the panel would come back empty anyway. */}
-      {onATeam && (
-      <div className="mt-6">
-        <CallTimesPanel
-          days={callTimeDays}
-          teams={departmentsQuery.data ?? []}
-          myTeamIds={myTeamIds}
-          canManage={canManage}
-        />
-      </div>
-      )}
-
-      {incoming.length > 0 && (
-        /* Surfaced at the top rather than buried in the team it concerns:
-           someone is waiting on this answer to finish their own rota. */
-        <Tile tone="warning" as="section" className="mb-5">
-          <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)] text-accent-orange-soft"
-            >
-              !
-            </span>
-            <Eyebrow>Release requests for your team</Eyebrow>
-          </div>
-          <ul className="mt-4 flex flex-col gap-3">
-            {incoming.map((r) => (
-              <li key={r.id} className="rounded-[var(--radius-row)] bg-raised px-4 py-4">
-                <p className="text-body-sm text-on-surface">
-                  <span className="font-medium">
-                    {r.requesting_department?.name ?? 'Another team'}
-                  </span>{' '}
-                  would like{' '}
-                  <span className="font-medium">
-                    {r.assignment?.profile
-                      ? `${r.assignment.profile.first_name} ${r.assignment.profile.last_name}`
-                      : 'a volunteer'}
-                  </span>{' '}
-                  as <span className="font-medium">{r.requested_role_label}</span>. They're currently{' '}
-                  <span className="font-medium">{r.assignment?.role_label}</span> for{' '}
-                  {r.assignment?.department?.name}.
-                </p>
-                <div className="mt-3.5 flex flex-wrap gap-2.5">
-                  <ActionButton
-                    tone="success"
-                    size="sm"
-                    disabled={decideRequest.isPending}
-                    onClick={() => decideRequest.mutate({ request: r, approve: true })}
-                  >
-                    Approve &amp; release
-                  </ActionButton>
-                  <ActionButton
-                    tone="quiet"
-                    size="sm"
-                    disabled={decideRequest.isPending}
-                    onClick={() => decideRequest.mutate({ request: r, approve: false })}
-                  >
-                    Deny
-                  </ActionButton>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Tile>
-      )}
-
-      <QueryState isLoading={isLoading} error={loadError}>
-        {upcoming.length === 0 ? (
-          <p className="mt-6 text-body-sm text-on-surface-variant">No upcoming services scheduled yet.</p>
-        ) : myDepartments.length === 0 ? (
-          <p className="mt-6 text-body-sm text-on-surface-variant">
-            You're not on a team yet — an Admin can add you to one.
-          </p>
-        ) : (
-          <div className="mt-6 flex flex-col gap-8">
-            {listed.map((service) => {
+  /* One service, and every team of mine on it. */
+  const renderService = (service: (typeof listed)[number]) => {
               const finished = isFinished(service.id)
               // The live window pads fifteen minutes past the last session
               // so the badge doesn't blink out mid-handshake — but once the
@@ -913,7 +820,129 @@ export function TeamRotaPage() {
                   </ul>
                 </Tile>
               )
-            })}
+  }
+
+
+  const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
+  const loadError = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow="Who is on what"
+        title="Team Rota"
+        description="One role per person per service — except Team Coordinator, which sits alongside a job rather than replacing it. Borrowing someone needs their head's approval."
+      />
+
+      {error && (
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
+      )}
+
+      {/*
+        Above the rota, because it is the question asked first. The rota
+        says who is on; this says what time to be there, which is what a
+        volunteer wants on a Saturday night — and every team is in it, not
+        just yours, so the person opening up knows who to expect at the
+        door.
+
+        Not scoped to `myDepartments`: that list is "teams you serve on or
+        run", which is the right audience for the assign forms below and
+        the wrong one here.
+      */}
+      {/* When each team is due in is the teams' own business: somebody who
+          has signed up and not been put on a team yet has no call time of
+          their own and no reason to read everyone else's. The database
+          says the same (0080), so the panel would come back empty anyway. */}
+      {onATeam && (
+      <div className="mt-6">
+        <CallTimesPanel
+          days={callTimeDays}
+          teams={departmentsQuery.data ?? []}
+          myTeamIds={myTeamIds}
+          canManage={canManage}
+        />
+      </div>
+      )}
+
+      {incoming.length > 0 && (
+        /* Surfaced at the top rather than buried in the team it concerns:
+           someone is waiting on this answer to finish their own rota. */
+        <Tile tone="warning" as="section" className="mb-5">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)] text-accent-orange-soft"
+            >
+              !
+            </span>
+            <Eyebrow>Release requests for your team</Eyebrow>
+          </div>
+          <ul className="mt-4 flex flex-col gap-3">
+            {incoming.map((r) => (
+              <li key={r.id} className="rounded-[var(--radius-row)] bg-raised px-4 py-4">
+                <p className="text-body-sm text-on-surface">
+                  <span className="font-medium">
+                    {r.requesting_department?.name ?? 'Another team'}
+                  </span>{' '}
+                  would like{' '}
+                  <span className="font-medium">
+                    {r.assignment?.profile
+                      ? `${r.assignment.profile.first_name} ${r.assignment.profile.last_name}`
+                      : 'a volunteer'}
+                  </span>{' '}
+                  as <span className="font-medium">{r.requested_role_label}</span>. They're currently{' '}
+                  <span className="font-medium">{r.assignment?.role_label}</span> for{' '}
+                  {r.assignment?.department?.name}.
+                </p>
+                <div className="mt-3.5 flex flex-wrap gap-2.5">
+                  <ActionButton
+                    tone="success"
+                    size="sm"
+                    disabled={decideRequest.isPending}
+                    onClick={() => decideRequest.mutate({ request: r, approve: true })}
+                  >
+                    Approve &amp; release
+                  </ActionButton>
+                  <ActionButton
+                    tone="quiet"
+                    size="sm"
+                    disabled={decideRequest.isPending}
+                    onClick={() => decideRequest.mutate({ request: r, approve: false })}
+                  >
+                    Deny
+                  </ActionButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Tile>
+      )}
+
+      <QueryState isLoading={isLoading} error={loadError}>
+        {upcoming.length === 0 ? (
+          <p className="mt-6 text-body-sm text-on-surface-variant">No upcoming services scheduled yet.</p>
+        ) : myDepartments.length === 0 ? (
+          <p className="mt-6 text-body-sm text-on-surface-variant">
+            You're not on a team yet — an Admin can add you to one.
+          </p>
+        ) : (
+          <div className="mt-6 flex flex-col gap-8">
+            {/* Everything still ahead. What has happened is below, in
+                its own section: the rota is read to find out who is on
+                next, and a service that is over answers nothing. */}
+            {live.map(renderService)}
+
+            {live.length === 0 && (
+              <p className="text-body-sm text-on-surface-variant">
+                Every service in the window is over. What was rostered is under Finished.
+              </p>
+            )}
+
+            {finishedServices.length > 0 && (
+              <FinishedServices count={finishedServices.length} id="finished-rota">
+                {finishedServices.map(renderService)}
+              </FinishedServices>
+            )}
           </div>
         )}
       </QueryState>

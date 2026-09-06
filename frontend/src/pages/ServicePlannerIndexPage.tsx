@@ -4,13 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
-import { Chevron } from '../components/Collapsible'
 import { useAuth } from '../auth/AuthContext'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { serviceBounds } from '../lib/serviceProgress'
 import { lastWeeklyClear, lastWeeklyClearDate } from '../lib/plannerWeek'
+import { FinishedServices } from '../components/FinishedServices'
 import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
 import { formatTime } from '../lib/time'
 import { formatServiceDay } from '../lib/sunday'
@@ -67,9 +67,6 @@ export function ServicePlannerIndexPage() {
     setParams(params, { replace: true })
   }
   const [createError, setCreateError] = useState<string | null>(null)
-  // What has already run is folded away by default. It is a record, and it
-  // was pushing the services still to plan off the bottom of a phone.
-  const [showFinished, setShowFinished] = useState(false)
   // Tracks the last value WE wrote into the name field, so switching
   // templates keeps auto-filling until the admin types their own name.
   const lastAutoFilledName = useRef('')
@@ -516,39 +513,31 @@ export function ServicePlannerIndexPage() {
             Still openable — the running order is where the overruns and
             the sign-offs are, and the week after is when anyone actually
             looks at them. */}
+        {/* What has already happened, out of the way of what hasn't.
+            Still openable — the running order is where the overruns and
+            the sign-offs are, and the week after is when anyone actually
+            looks at them. */}
         {finishedDays.length > 0 && (
-          <section className="mt-8">
-            <button
-              type="button"
-              onClick={() => setShowFinished((v) => !v)}
-              aria-expanded={showFinished}
-              aria-controls="finished-services"
-              className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left"
-            >
-              <div className="flex items-baseline gap-2 text-headline-md text-on-surface-variant">
-                Finished
-                <span className="font-mono text-label-sm text-on-surface-faint">
-                  {finished.length}
-                </span>
-                <Chevron open={showFinished} />
-              </div>
-              <p className="font-mono text-label-sm text-on-surface-faint">
+          <FinishedServices
+            count={finished.length}
+            id="finished-services"
+            aside={
+              <span className="font-mono text-label-sm text-on-surface-faint">
                 Clears every {WEEKDAY_NAMES[settings.board_clear_dow]}
-              </p>
-            </button>
-            <div id="finished-services" hidden={!showFinished} className="mt-3 flex flex-col gap-5">
-              {finishedDays.map(([date, services]) => (
-                <DayGroup
-                  key={date}
-                  date={date}
-                  services={services}
-                  windowFor={windowFor}
-                  finished
-                  onOpen={(id) => navigate(`/service-planner/${id}`)}
-                />
-              ))}
-            </div>
-          </section>
+              </span>
+            }
+          >
+            {finishedDays.map(([date, services]) => (
+              <DayGroup
+                key={date}
+                date={date}
+                services={services}
+                windowFor={windowFor}
+                finished
+                onOpen={(id) => navigate(`/service-planner/${id}`)}
+              />
+            ))}
+          </FinishedServices>
         )}
       </QueryState>
 

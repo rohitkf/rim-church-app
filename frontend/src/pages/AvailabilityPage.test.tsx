@@ -152,14 +152,38 @@ describe('the availability tracker over three weeks', () => {
   })
 
   it('moves on to the next day once the whole of today has finished', async () => {
-    // Both of this morning's services are a record now — the line is
-    // drawn at a day, so one of the two finishing would not move it. The
-    // 13th is the question, so it opens.
+    // Both of this morning's services are a record now, so they leave the
+    // page proper altogether and the 13th becomes the question.
     state.finished = new Set(['s1', 's1b'])
     show()
-    await screen.findByRole('heading', { name: /Today/ })
-    const next = cardFor(/September 13/)
-    expect(teamsOf(next)).not.toHaveAttribute('hidden')
-    expect(teamsOf(cardFor(/Today/))).toHaveAttribute('hidden')
+    await screen.findByRole('heading', { name: /September 13/ })
+    expect(teamsOf(cardFor(/September 13/))).not.toHaveAttribute('hidden')
+    expect(screen.queryByRole('heading', { name: /Today/ })).toBeNull()
+  })
+
+  describe('what is over', () => {
+    it('files a finished service under Finished rather than on the page', async () => {
+      state.finished = new Set(['s1', 's1b'])
+      show()
+      // Folded away: the day it was on is no longer reachable on the page,
+      // which is what "out of the way" has to mean to be worth doing.
+      expect(await screen.findByRole('button', { name: /Finished/ })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: /Today/ })).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Malayalam Service' })).toBeNull()
+    })
+
+    it('opens on a press, because last Sunday is still a real question', async () => {
+      state.finished = new Set(['s1', 's1b'])
+      const user = show()
+      await user.click(await screen.findByRole('button', { name: /Finished/ }))
+      await waitFor(() => expect(screen.getByRole('heading', { name: /Today/ })).toBeInTheDocument())
+      expect(screen.getByRole('heading', { name: 'Malayalam Service' })).toBeInTheDocument()
+    })
+
+    it('says so plainly when every service in the window is over', async () => {
+      state.finished = new Set(['s1', 's1b', 's2', 's3', 's4'])
+      show()
+      expect(await screen.findByText(/Every service in the window is over/)).toBeInTheDocument()
+    })
   })
 })
