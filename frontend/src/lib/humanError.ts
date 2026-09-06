@@ -11,7 +11,7 @@ import { errorMessage } from './errorMessage'
  */
 const BY_CONSTRAINT: Record<string, string> = {
   rota_assignments_one_role_per_service:
-    'They already have a role in this service — apart from Coordinator, someone can only hold one role per service, in this team or any other. Remove the existing one first, or pick someone else.',
+    'They already have a role in this service — apart from Team Coordinator, someone can only hold one role per service, in this team or any other. Remove the existing one first, or pick someone else.',
   rota_assignments_one_coordinator_per_team:
     'They are already this team’s Coordinator for this service.',
   departments_one_service_flow:

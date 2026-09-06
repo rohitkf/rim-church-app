@@ -32,7 +32,7 @@ describe('humanError', () => {
 
   it('names Coordinator as the exception, since that is the rule people trip on', () => {
     const text = humanError(duplicateRota, 'Could not assign that role.', false)
-    expect(text).toContain('apart from Coordinator')
+    expect(text).toContain('apart from Team Coordinator')
   })
 
   it('tells a second Coordinator apart from a second job', () => {
