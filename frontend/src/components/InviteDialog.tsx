@@ -141,8 +141,16 @@ export function InviteDialog({
             />
           </Field>
 
+          {/* The team is not a filing label. Until now it decided only which
+              Head could see the invitation in their list, so an Admin who
+              said "Media" here watched the person arrive on no team and had
+              to add them by hand — having already answered the question at
+              the only moment anybody asked it. Saying what it does now. */}
           {departments && departments.length > 0 && !fixedDepartmentId && (
-            <Field label="Team (optional)">
+            <Field
+              label="Team (optional)"
+              hint="They join it the first time they sign in — not before."
+            >
               <Select
                 value={departmentId}
                 onChange={setDepartmentId}

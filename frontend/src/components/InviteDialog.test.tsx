@@ -27,6 +27,18 @@ function show(props: Partial<Parameters<typeof InviteDialog>[0]> = {}) {
 
 const sentBody = () => invoke.mock.calls[0][1].body
 
+/** A department row, of which the dialog reads only the id and the name. */
+const team = (id: string, name: string) => ({
+  id,
+  name,
+  handbook_url: null,
+  color: null,
+  is_service_flow: false,
+  is_worship: false,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+})
+
 describe('InviteDialog', () => {
   beforeEach(() => {
     invoke.mockReset()
@@ -55,6 +67,29 @@ describe('InviteDialog', () => {
     await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
     await user.click(screen.getByRole('button', { name: /Send invite/ }))
     expect(sentBody()).toMatchObject({ first_name: '', last_name: '' })
+  })
+
+  it('carries the team, which is what joins them to it when they arrive', async () => {
+    const { user } = show({
+      departments: [team('d1', 'Media'), team('d2', 'Hospitality')],
+    })
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'Media' }))
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(sentBody().department_id).toBe('d1')
+  })
+
+  it('says what picking a team actually does, now that it does something', () => {
+    show({ departments: [team('d1', 'Media')] })
+    expect(screen.getByText(/join it the first time they sign in/i)).toBeInTheDocument()
+  })
+
+  it('sends no team when none was picked, rather than an empty string', async () => {
+    const { user } = show({ departments: [team('d1', 'Media')] })
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(sentBody().department_id).toBeNull()
   })
 
   it('reports the refusal the function gives, not a shrug', async () => {
