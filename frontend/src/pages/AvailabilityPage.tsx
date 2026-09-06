@@ -9,6 +9,8 @@ import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/q
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { serviceDays } from '../lib/callTimes'
+import { splitFinished } from '../lib/finishedSection'
+import { FinishedServices } from '../components/FinishedServices'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
@@ -130,15 +132,25 @@ export function AvailabilityPage() {
     [candidates, today, isFinished, settings],
   )
 
-  // In date order, so the split below can draw its line at a day. The old
-  // sort pushed finished services to the bottom of one flat list; they now
-  // stay on their own day, above the line, where the eye expects them.
+  // In date order, so the split below can draw its line at a day.
   const upcoming = useMemo(
     () => [...listed].sort((a, b) => a.date.localeCompare(b.date)),
     [listed],
   )
   const upcomingIds = useMemo(() => upcoming.map((s) => s.id), [upcoming])
-  const groups = useMemo(() => splitAvailabilityGroups(upcoming, isFinished), [upcoming, isFinished])
+
+  /*
+   * A service that is over cannot be answered for, so it leaves the page
+   * proper entirely and waits at the foot of it under "Finished". It used
+   * to stay on its own day at the top — the right place for a Sunday that
+   * has been and gone, and the wrong place for a question nobody can
+   * answer, which is what every card on this page is.
+   */
+  const { live, finished } = useMemo(
+    () => splitFinished(upcoming, (s) => isFinished(s.id)),
+    [upcoming, isFinished],
+  )
+  const groups = useMemo(() => splitAvailabilityGroups(live, isFinished), [live, isFinished])
 
   /*
    * A Sunday is one occasion, not two questions.
@@ -623,6 +635,12 @@ export function AvailabilityPage() {
               </section>
             ))}
 
+            {live.length === 0 && (
+              <p className="text-body-sm text-on-surface-variant">
+                Every service in the window is over. What was answered is under Finished.
+              </p>
+            )}
+
             {groups.later.length > 0 && (
               /* Everything past the next occasion. Real services with real
                  questions on them — folded, because answering the one in
@@ -648,6 +666,22 @@ export function AvailabilityPage() {
                   ))}
                 </div>
               </section>
+            )}
+
+            {/* The record, folded. Openable, because "who said they could
+                serve last Sunday" is a real question — just never the one
+                the page is for. */}
+            {finished.length > 0 && (
+              <FinishedServices count={finished.length} id="finished-availability">
+                {daysOf(finished).map((day) => (
+                  <section key={day.date} aria-label={formatServiceDay(day.date)}>
+                    <DayHeading date={day.date} today={today} count={day.services.length} />
+                    <div className="mt-3 flex flex-col gap-4">
+                      {day.services.map((service) => renderService(service, false))}
+                    </div>
+                  </section>
+                ))}
+              </FinishedServices>
             )}
           </div>
         )}
