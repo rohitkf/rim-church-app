@@ -211,6 +211,20 @@ describe('AppShell dock', () => {
       expect(onBar('Inventory')).toBe(false)
     })
 
+    it('paints the highlight as one travelling thing, not a colour per link', async () => {
+      // Two blues would fight: the pill is behind, the link carries only
+      // its text colour, and the pill measures itself against the link
+      // marked as current.
+      await standOn('/checklists', 'Checklists')
+      const dock = screen.getByRole('navigation', { name: 'Main' })
+      const pill = dock.querySelector('span.bg-primary')
+
+      expect(pill).not.toBeNull()
+      expect(pill).toHaveAttribute('aria-hidden', 'true')
+      expect(dock.querySelectorAll('[data-dock-active="true"]')).toHaveLength(1)
+      expect(screen.getByRole('link', { name: 'Checklists' })).not.toHaveClass('bg-primary')
+    })
+
     it('keeps More, which is still how you jump rather than walk', async () => {
       await standOn('/checklists', 'Checklists')
       expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
