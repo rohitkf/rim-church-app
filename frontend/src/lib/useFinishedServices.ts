@@ -15,6 +15,12 @@ import { serviceStanding } from './serviceState'
  * A service with no running order is never finished. There is no end time
  * to have passed, and guessing one from the date would close a service
  * nobody has planned yet.
+ *
+ * The same query already knows when each service *starts*, which is a
+ * second question worth answering from one place rather than two: it is
+ * the moment a volunteer's own answer stops being a plan and becomes a
+ * note about the past, so the availability page needs it to close the
+ * question and to count down to it.
  */
 export function useFinishedServices(serviceIds: string[]) {
   const ids = useMemo(() => [...serviceIds].sort(), [serviceIds])
@@ -59,12 +65,25 @@ export function useFinishedServices(serviceIds: string[]) {
     }
 
     const finished = new Set<string>()
+    const startsAt = new Map<string, string>()
     for (const [serviceId, sessions] of byService) {
-      if (serviceStanding(sessions, clock).state === 'done') finished.add(serviceId)
+      const standing = serviceStanding(sessions, clock)
+      if (standing.state === 'done') finished.add(serviceId)
+      if (standing.from !== null) startsAt.set(serviceId, new Date(standing.from).toISOString())
     }
     return {
       finished,
       isFinished: (serviceId: string) => finished.has(serviceId),
+      /**
+       * When this service begins, ISO — null when nothing is planned, so a
+       * caller can tell "not yet started" from "no start to speak of".
+       */
+      startsAt: (serviceId: string) => startsAt.get(serviceId) ?? null,
+      /** Whether the first session's start has passed. */
+      hasStarted: (serviceId: string) => {
+        const at = startsAt.get(serviceId)
+        return at !== undefined && clock >= new Date(at).getTime()
+      },
       isLoading: sessionsQuery.isLoading,
     }
   }, [sessionsQuery.data, sessionsQuery.isLoading, clock])
