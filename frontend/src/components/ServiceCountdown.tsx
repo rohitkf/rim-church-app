@@ -66,12 +66,12 @@ export function ServiceCountdown({
               <RollingDigits value={String(days)} />d
             </span>
           )}
-          <RollingDigits value={hrs} tall />
+          <RollingDigits value={hrs} />
           <span className="text-on-surface-faint/50">:</span>
-          <RollingDigits value={mins} tall />
+          <RollingDigits value={mins} />
           <span className="text-on-surface-faint/50">:</span>
           <span className="text-primary">
-            <RollingDigits value={secs} tall />
+            <RollingDigits value={secs} />
           </span>
         </span>
         <span className="pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
