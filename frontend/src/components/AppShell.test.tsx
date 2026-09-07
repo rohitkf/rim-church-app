@@ -185,12 +185,12 @@ describe('AppShell dock', () => {
     }
 
     it('shows what comes next, not just what came before', async () => {
-      // Checklists is the third destination. The one after it has to be
-      // reachable in a tap, which is the whole complaint.
+      // Checklists is well past the three the bar used to hold. The one
+      // after it has to be reachable in a tap, which is the complaint.
       await standOn('/checklists', 'Checklists')
-      expect(onBar('Checklists')).toBe(true)
-      expect(onBar('Service Planner')).toBe(true)
       expect(onBar('Team Rota')).toBe(true)
+      expect(onBar('Checklists')).toBe(true)
+      expect(onBar('Set Lists')).toBe(true)
       expect(onBar('Dashboard')).toBe(false)
     })
 
@@ -206,8 +206,8 @@ describe('AppShell dock', () => {
       // query, and the window is not settled until they are all in.
       await standOn('/', 'Availability')
       expect(onBar('Dashboard')).toBe(true)
+      expect(onBar('Service Planner')).toBe(true)
       expect(onBar('Availability')).toBe(true)
-      expect(onBar('Team Rota')).toBe(true)
       expect(onBar('Inventory')).toBe(false)
     })
 
@@ -231,10 +231,10 @@ describe('AppShell dock', () => {
     // other destination is here, in order.
     expect(labels).toEqual([
       'Dashboard',
+      'Service Planner',
       'Availability',
       'Team Rota',
       'Checklists',
-      'Service Planner',
       'Set Lists',
       'Messages',
       'Team Chat',
