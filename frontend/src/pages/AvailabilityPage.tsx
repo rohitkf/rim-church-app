@@ -8,7 +8,9 @@ import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
-import { serviceDays } from '../lib/callTimes'
+import { callTimeRowSchema, serviceDays, type CallTimeRow } from '../lib/callTimes'
+import { checklistWindow } from '../lib/checklistWindow'
+import { useNow } from '../lib/useNow'
 import { splitFinished } from '../lib/finishedSection'
 import { FinishedServices } from '../components/FinishedServices'
 import { TeamMark } from '../components/TeamMark'
@@ -146,6 +148,37 @@ export function AvailabilityPage() {
    * has been and gone, and the wrong place for a question nobody can
    * answer, which is what every card on this page is.
    */
+  /*
+   * The call times for the days on the page.
+   *
+   * Attendance is a fact about a morning: it cannot be recorded before
+   * the team has been called in, because until then nobody has turned up
+   * or failed to. The same rule, and the same table, as the checklist
+   * window (0079) — one call time per team per day, seven o'clock when
+   * nobody has set one.
+   */
+  const shownDates = useMemo(
+    () => [...new Set(upcoming.map((s) => s.date))].sort(),
+    [upcoming],
+  )
+  const callTimesQuery = useQuery({
+    queryKey: ['call-times', shownDates],
+    queryFn: async (): Promise<CallTimeRow[]> => {
+      const { data, error: err } = await supabase
+        .from('department_call_times')
+        .select('department_id, on_date, call_time')
+        .in('on_date', shownDates)
+      if (err) throw err
+      return callTimeRowSchema.array().parse(data)
+    },
+    enabled: shownDates.length > 0,
+  })
+  const callTimes = useMemo(() => callTimesQuery.data ?? [], [callTimesQuery.data])
+
+  // Recomputed on a timer, so the buttons appear while somebody is
+  // looking at the page rather than on the next reload.
+  const now = useNow()
+
   const { live, finished } = useMemo(
     () => splitFinished(upcoming, (s) => isFinished(s.id)),
     [upcoming, isFinished],
@@ -354,6 +387,26 @@ export function AvailabilityPage() {
             answers,
           )
           /*
+           * Whether anybody can be marked present yet.
+           *
+           * Attendance is a fact about a morning, not a plan: before the
+           * team is called in nobody has turned up, and nobody has failed
+           * to. The buttons were there from the moment somebody said yes —
+           * three weeks early, on a service nobody had been to — which
+           * makes "no-show" a thing you can record about next month.
+           *
+           * The same rule and the same table as the checklist window
+           * (0079): the team's own call time on the day, seven o'clock
+           * when nobody has set one. Once open it stays open, because the
+           * register is usually filled in after the fact.
+           */
+          const attendance = checklistWindow({
+            serviceDate: service.date,
+            departmentId: dept.id,
+            callTimes,
+            now,
+          })
+          /*
            * A guest who answered is still listed.
            *
            * The roster here was core-only, so a guest who took the
@@ -482,6 +535,17 @@ export function AvailabilityPage() {
                     {answeredGuests.length > 0 &&
                       ` + ${answeredGuests.length} guest${answeredGuests.length === 1 ? '' : 's'}`}
                   </summary>
+                  {/* Said once for the team rather than once per person:
+                      ten names each carrying the same sentence is a wall,
+                      and the fact belongs to the morning, not to anybody
+                      on the list. */}
+                  {!attendance.open && answers.some((a) => a.status === 'available') && (
+                    <p className="mt-2 text-label-sm text-on-surface-faint">
+                      Present and no-show can be marked from {attendance.clock} on{' '}
+                      {formatServiceDay(service.date)}, when {dept.name} is called in.
+                    </p>
+                  )}
+
                   <ul className="mt-2 flex flex-col gap-1.5 border-l border-border-subtle pl-3">
                     {teamMembers.map((m) => {
                       const answer = answers.find((a) => a.user_id === m.user_id)
@@ -543,7 +607,7 @@ export function AvailabilityPage() {
                             )}
                           </div>
 
-                          {answer?.status === 'available' && (
+                          {answer?.status === 'available' && attendance.open && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className="font-mono text-label-sm text-on-surface-variant">
                                 Turned up?
