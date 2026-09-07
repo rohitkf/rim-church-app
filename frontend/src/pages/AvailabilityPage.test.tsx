@@ -22,6 +22,8 @@ const state = vi.hoisted(() => ({
   leads: false,
   /** Rows the page reads straight from Postgres, by table. */
   rows: {} as Record<string, unknown[]>,
+  /** When each service begins, ISO — absent when nothing is planned. */
+  starts: {} as Record<string, string>,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -36,7 +38,12 @@ vi.mock('../lib/monthGrid', () => ({ todayIso: () => SUNDAY }))
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'dot' }) }))
 vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ rota_window_days: 7 }) }))
 vi.mock('../lib/useFinishedServices', () => ({
-  useFinishedServices: () => ({ isFinished: (id: string) => state.finished.has(id) }),
+  useFinishedServices: () => ({
+    isFinished: (id: string) => state.finished.has(id),
+    startsAt: (id: string) => state.starts[id] ?? null,
+    hasStarted: (id: string) =>
+      state.starts[id] !== undefined && Date.now() >= new Date(state.starts[id]).getTime(),
+  }),
 }))
 vi.mock('../components/NudgeButton', () => ({ NudgeButton: () => null }))
 
@@ -93,6 +100,7 @@ beforeEach(() => {
   state.finished = new Set()
   state.leads = false
   state.rows = {}
+  state.starts = {}
 })
 
 /*
@@ -240,6 +248,103 @@ describe('present and no-show', () => {
     const today = await todayCard()
 
     expect(within(today).queryByText(/marked from/)).toBeNull()
+  })
+})
+
+/*
+ * The deadline on an answer.
+ *
+ * "Can you serve on Sunday?" is asked in advance so a rota can be built
+ * from the answers. It stops being a question the moment the doors open:
+ * somebody changing their yes to a no from the car park is not answering,
+ * they are telling the head something — and the head has already built
+ * the morning around it.
+ */
+describe('answering closes when the service starts', () => {
+  /** The three answer buttons. `hidden` reaches into a folded card. */
+  const answerGroup = (card: HTMLElement, hidden = false) =>
+    within(card).queryByRole('group', { name: /Can you serve/, hidden })
+
+  const standAt = (iso: string) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(iso))
+  }
+
+  afterEach(() => vi.useRealTimers())
+
+  it('takes answers right up to the start', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00` }
+    standAt(`${SUNDAY}T09:59:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(answerGroup(cardFor(/Today/))).toBeInTheDocument()
+  })
+
+  it('stops taking them once it has begun', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00` }
+    standAt(`${SUNDAY}T10:01:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(answerGroup(cardFor(/Today/))).toBeNull()
+  })
+
+  it('says why, and who to ask', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00` }
+    standAt(`${SUNDAY}T10:01:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    const today = cardFor(/Today/) as HTMLElement
+    expect(within(today).getByText(/Answers closed when the service started/)).toBeInTheDocument()
+    // A change of plan after this is a conversation, not a button.
+    expect(within(today).getByText(/team head or an Admin/)).toBeInTheDocument()
+  })
+
+  it('counts down to it, because a deadline nobody can see surprises people', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00` }
+    standAt(`${SUNDAY}T08:30:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    // The clock is drawn as separate elements — hours, colon, minutes —
+    // so the sentence it reads out is what to check.
+    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
+    // A second or two passes while the page renders, so the minute is
+    // what is worth pinning rather than the second.
+    expect(clock).toHaveAccessibleName(/^01:(29|30):\d{2} left to answer$/)
+  })
+
+  it('drops the countdown once the deadline has gone', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00` }
+    standAt(`${SUNDAY}T10:01:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(within(cardFor(/Today/) as HTMLElement).queryByText(/left to answer/)).toBeNull()
+  })
+
+  it('leaves a service nobody has planned open', async () => {
+    // No running order means no start to have passed. Guessing one from
+    // the date would close a service that does not exist yet.
+    state.starts = {}
+    standAt(`${SUNDAY}T23:00:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(answerGroup(cardFor(/Today/))).toBeInTheDocument()
+  })
+
+  it('closes only the service that started, not the ones after it', async () => {
+    state.starts = { s1: `${SUNDAY}T10:00:00`, s2: `${NEXT}T10:00:00` }
+    standAt(`${SUNDAY}T10:01:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(answerGroup(cardFor(/Today/))).toBeNull()
+    // Folded, being further out — but the buttons are still in it.
+    expect(answerGroup(cardFor(/September 13/), true)).toBeInTheDocument()
   })
 })
 

@@ -9,6 +9,7 @@ import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/q
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { callTimeRowSchema, serviceDays, type CallTimeRow } from '../lib/callTimes'
+import { ServiceCountdown } from '../components/ServiceCountdown'
 import { checklistWindow } from '../lib/checklistWindow'
 import { useNow } from '../lib/useNow'
 import { splitFinished } from '../lib/finishedSection'
@@ -113,7 +114,7 @@ export function AvailabilityPage() {
   // A service that has happened can no longer be answered for, so it drops
   // below the ones that still need an answer rather than sitting at the top
   // of the page asking for something nobody can give.
-  const { isFinished } = useFinishedServices(candidates.map((s) => s.id))
+  const { isFinished, startsAt, hasStarted } = useFinishedServices(candidates.map((s) => s.id))
   /*
    * `isExpanded` here means "toggled away from what this service does on
    * its own", not "open": what opens by default depends on which group a
@@ -325,6 +326,22 @@ export function AvailabilityPage() {
    */
   const renderService = (service: (typeof upcoming)[number], inNowGroup: boolean) => {
     const finished = isFinished(service.id)
+    /*
+     * When a volunteer's own answer is due.
+     *
+     * "Can you serve on Sunday?" is asked in advance so a rota can be
+     * built from the answers; it stops being a question the moment the
+     * doors open. Somebody changing their yes to a no from the car park
+     * is not answering — they are telling the head something, and the
+     * head has already built the morning around it.
+     *
+     * The database says the same (0088), so this is not the rule, only
+     * the page's way of saying it before somebody taps a button that
+     * would bounce. A service with nothing planned has no start to have
+     * passed, and stays open.
+     */
+    const answersClose = startsAt(service.id)
+    const answersClosed = hasStarted(service.id)
     // What opens itself, and what somebody has since touched. A service
     // is open when those two disagree: the ones needing an answer now
     // start open and close on a touch; a finished one, or one three
@@ -487,7 +504,7 @@ export function AvailabilityPage() {
                 </div>
               )}
 
-              {canAnswer && !finished && (
+              {canAnswer && !finished && !answersClosed && (
                 <div
                   role="group"
                   aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
@@ -526,6 +543,33 @@ export function AvailabilityPage() {
                     )
                   })}
                 </div>
+              )}
+
+              {/*
+                How long is left to answer.
+                
+                A deadline nobody can see is a deadline that surprises
+                people, and this one is worth a clock rather than a date:
+                somebody looking at the page on the morning itself wants
+                to know whether they still have twenty minutes, and the
+                answer changes while they read it.
+              */}
+              {canAnswer && !finished && !answersClosed && answersClose && (
+                <p className="mt-2 text-label-sm text-on-surface-faint">
+                  <ServiceCountdown startsAt={answersClose} label="left to answer" />
+                </p>
+              )}
+
+              {/* And what it means once it has run out. Said plainly, with
+                  the way out named — a change of plan after this is a
+                  conversation, not a button. */}
+              {canAnswer && answersClosed && (
+                <p className="mt-2 text-label-sm text-on-surface-faint">
+                  {mine
+                    ? `Answers closed when the service started — you said ${statusLabel[mine].toLowerCase()}. `
+                    : 'Answers closed when the service started. '}
+                  Ask your team head or an Admin if this needs putting right.
+                </p>
               )}
 
               {leads && teamMembers.length > 0 && (
