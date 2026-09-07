@@ -159,6 +159,91 @@ describe('AppShell dock', () => {
     expect(screen.getByRole('link', { name: 'Checklists' })).toHaveClass('hidden')
   })
 
+  /*
+   * The bar carries three destinations on a phone and hides the rest with
+   * `hidden`. It used to carry the *first* three, so standing on the third
+   * you saw nothing at all to the right of you and the only way onwards
+   * was to open More and read a menu.
+   */
+  describe('the phone dock slides with you', () => {
+    const onBar = (label: string) =>
+      !screen.getByRole('link', { name: label }).classList.contains('hidden')
+
+    const standOn = async (path: string, label: string) => {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path={path} element={<div>page</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+      await screen.findByRole('link', { name: label })
+    }
+
+    it('shows what comes next, not just what came before', async () => {
+      // Checklists is the third destination. The one after it has to be
+      // reachable in a tap, which is the whole complaint.
+      await standOn('/checklists', 'Checklists')
+      expect(onBar('Checklists')).toBe(true)
+      expect(onBar('Service Planner')).toBe(true)
+      expect(onBar('Team Rota')).toBe(true)
+      expect(onBar('Dashboard')).toBe(false)
+    })
+
+    it('keeps a neighbour on each side, wherever you are', async () => {
+      await standOn('/messages', 'Messages')
+      expect(onBar('Set Lists')).toBe(true)
+      expect(onBar('Messages')).toBe(true)
+      expect(onBar('Team Chat')).toBe(true)
+    })
+
+    it('stops at the beginning rather than wrapping', async () => {
+      // Waiting on a team-only link: they arrive after the memberships
+      // query, and the window is not settled until they are all in.
+      await standOn('/', 'Availability')
+      expect(onBar('Dashboard')).toBe(true)
+      expect(onBar('Availability')).toBe(true)
+      expect(onBar('Team Rota')).toBe(true)
+      expect(onBar('Inventory')).toBe(false)
+    })
+
+    it('keeps More, which is still how you jump rather than walk', async () => {
+      await standOn('/checklists', 'Checklists')
+      expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
+    })
+  })
+
+  it('runs the destinations in the order a Sunday happens', async () => {
+    // Answer, then see who was put on, then tick it off on the day. The
+    // order is the path the dock walks along, so it is worth pinning.
+    renderShell()
+    await screen.findByRole('link', { name: 'Messages' })
+    const dock = screen.getByRole('navigation', { name: 'Main' })
+    const labels = within(dock)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('title'))
+
+    // Volunteers is missing because this viewer is not an Admin; every
+    // other destination is here, in order.
+    expect(labels).toEqual([
+      'Dashboard',
+      'Availability',
+      'Team Rota',
+      'Checklists',
+      'Service Planner',
+      'Set Lists',
+      'Messages',
+      'Team Chat',
+      'Events',
+      'Teams',
+      'Inventory',
+    ])
+  })
+
   it('asks before signing out, rather than just doing it', async () => {
     const user = renderShell()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
