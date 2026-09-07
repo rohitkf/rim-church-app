@@ -16,15 +16,17 @@ import { useEffect, useRef, useState } from 'react'
  * looks like a mistake being corrected. Rolling forward past the seam and
  * silently stepping back a lap afterwards keeps it turning like a wheel.
  *
- * The face carries a seam across the middle and shade at both edges, so a
- * digit arrives out of the dark and leaves into it — the flap of a
- * split-flap board, drawn rather than hinged.
+ * Nothing is drawn over the digit. An earlier version shaded the window's
+ * edges towards `--color-background` to suggest a flap, which only worked
+ * where the clock happened to sit on the page background — on the
+ * dashboard's raised tile it painted a visible grey box around every
+ * digit instead. The movement is the effect; it does not need a bezel.
  */
 
 /** Long enough to see it turn, short enough not to be waiting for it. */
 const ROLL_MS = 420
 
-function Digit({ value, tall }: { value: number; tall: boolean }) {
+function Digit({ value }: { value: number }) {
   // Which of the twenty rows is in the window. Only ever counts up, and
   // steps back a lap once the roll has finished and nobody is looking.
   const [row, setRow] = useState(value)
@@ -60,35 +62,33 @@ function Digit({ value, tall }: { value: number; tall: boolean }) {
   }, [row])
 
   return (
-    <span
-      aria-hidden="true"
-      className="relative inline-block overflow-hidden align-baseline"
-      style={{ height: '1em', width: tall ? '0.62em' : '0.6em' }}
-    >
-      <span
-        className="absolute inset-x-0 top-0 flex flex-col"
-        style={{
-          transform: `translateY(-${row}em)`,
-          transition: animate ? `transform ${ROLL_MS}ms cubic-bezier(0.2, 0.9, 0.25, 1)` : 'none',
-        }}
-      >
-        {Array.from({ length: 20 }, (_, i) => (
-          <span key={i} className="flex h-[1em] items-center justify-center leading-none">
-            {i % 10}
-          </span>
-        ))}
+    // A column is as wide as a digit and one line tall, and it does not
+    // clip: an inline-block that hides its overflow takes its baseline
+    // from its bottom edge, which is what lifted the rolling digits off
+    // the line their neighbours sit on — the "d" in "5d" most visibly.
+    // The hidden nought below sizes the column in whatever face and size
+    // it has been dropped into, and hands its own baseline to the line.
+    // The clipping happens one level in, where it costs nothing.
+    <span aria-hidden="true" className="relative inline-block text-left leading-none">
+      <span className="invisible">0</span>
+      <span className="absolute inset-0 overflow-hidden">
+        <span
+          className="absolute inset-x-0 top-0"
+          style={{
+            transform: `translateY(-${row}em)`,
+            transition: animate ? `transform ${ROLL_MS}ms cubic-bezier(0.2, 0.9, 0.25, 1)` : 'none',
+          }}
+        >
+          {Array.from({ length: 20 }, (_, i) => (
+            // One em tall on a one-em line, exactly like the nought that
+            // sized the column, so every row lands on the same baseline
+            // as the text around it.
+            <span key={i} className="block h-[1em] leading-none">
+              {i % 10}
+            </span>
+          ))}
+        </span>
       </span>
-
-      {/* The face: shade at the edges so a digit rises out of the dark,
-          and a hairline where the two halves of a flap would meet. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--color-background)_55%,transparent),transparent_28%,transparent_72%,color-mix(in_oklab,var(--color-background)_55%,transparent))]"
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-[color-mix(in_oklab,var(--color-background)_45%,transparent)]"
-      />
     </span>
   )
 }
@@ -101,21 +101,12 @@ function Digit({ value, tall }: { value: number; tall: boolean }) {
  * so every glyph in here is hidden from the tree: twenty rows of digits
  * per column is not something anybody should have read to them.
  */
-export function RollingDigits({
-  value,
-  className = '',
-  tall = false,
-}: {
-  value: string
-  className?: string
-  /** The dashboard's display-size clock, which wants a hair more room. */
-  tall?: boolean
-}) {
+export function RollingDigits({ value, className = '' }: { value: string; className?: string }) {
   return (
     <span className={`inline-flex items-baseline ${className}`}>
       {value.split('').map((char, i) =>
         /\d/.test(char) ? (
-          <Digit key={i} value={Number(char)} tall={tall} />
+          <Digit key={i} value={Number(char)} />
         ) : (
           <span key={i} aria-hidden="true" className={char === ' ' ? 'w-[0.3em]' : ''}>
             {char === ' ' ? '' : char}
