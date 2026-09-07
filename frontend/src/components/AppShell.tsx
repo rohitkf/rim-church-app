@@ -34,21 +34,51 @@ import { ActionButton } from './Surface'
 import { useMyTeams } from '../lib/useMyTeams'
 import { WelcomeTour } from './WelcomeTour'
 
+/*
+ * The destinations, in the order a Sunday actually happens.
+ *
+ * They used to be in the order they were built, which is nobody's order:
+ * Checklists before Availability, though you answer weeks before you tick
+ * anything; Set Lists three places from the Service Planner it belongs
+ * to; Team Chat at the far end from Messages.
+ *
+ * Four runs, and the reason for each:
+ *
+ *   1. Dashboard — where am I, what wants me.
+ *   2. Your Sunday, in the order it reaches you: say whether you can serve,
+ *      see who was put on, tick what you have done on the day.
+ *   3. The service itself: the running order, and the songs in it.
+ *   4. Talking about it, then the reference pages you visit rarely and on
+ *      purpose — the diary, the teams, the people, the cupboard.
+ *
+ * The dock's phone window slides along this list (lib/dockWindow), so the
+ * order is not only a menu but the path along it: from Availability the
+ * next step right is the rota built from it, and the one after is the
+ * checklist for the morning. Getting it wrong costs a tap every time.
+ */
 const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
-  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
+
+  // Your Sunday, in the order it happens to you.
   { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
+
+  // The service itself, and what is in it.
+  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
+
+  // Talking about it. Nothing in either belongs to somebody who is not on
+  // a team yet, so neither is offered until they are.
+  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
+
+  // Looked up rather than lived in: the diary, the teams, the people who
+  // fill them, and the cupboard they draw on.
   { to: '/events', label: 'Events', icon: CakeIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
-  // The teams' own pages: nothing in them belongs to somebody who is not
-  // on a team yet, so they are not offered until they do.
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true },
-  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
-  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
 ]
 
 /**

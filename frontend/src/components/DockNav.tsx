@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { MoreIcon } from './icons'
 import { Overlay } from './Surface'
+import { dockWindow } from '../lib/dockWindow'
 
 export interface DockItem {
   to: string
@@ -31,12 +32,17 @@ const PHONE_SLOTS = 3
  * wearing a label — which is what lets the others be icons alone without
  * the row becoming a puzzle.
  *
- * A phone cannot hold nine of those at once. It used to try, in a strip
- * that scrolled sideways with its scrollbar hidden, which meant four
+ * A phone cannot hold twelve of those at once. It used to try, in a strip
+ * that scrolled sideways with its scrollbar hidden, which meant most
  * destinations existed only for whoever thought to swipe a bar that gave
- * no sign it could be swiped. So below `md` the bar carries the first few
- * and More opens the rest as a sheet — always including wherever you are,
- * so the dock still answers "where am I" from any page.
+ * no sign it could be swiped. So below `md` the bar carries a few and
+ * More opens the rest as a sheet.
+ *
+ * The few it carries slide with you rather than being the first three:
+ * see lib/dockWindow. Standing on the third destination used to show
+ * nothing at all to the right of you, so the only way onwards was to open
+ * a menu and read it — while the bar sat there with two thirds of the app
+ * one step away and no way to take the step.
  */
 export function DockNav({
   items,
@@ -54,13 +60,10 @@ export function DockNav({
   const isCurrent = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
   const activeIndex = items.findIndex((item) => isCurrent(item.to))
 
-  // The bar keeps a fixed number of slots on a phone. When you are
-  // somewhere that would not have made the cut, it takes the last slot
-  // rather than being added to them — a dock that grows by one on certain
-  // pages is a dock that jumps.
-  const overflowActive = activeIndex >= PHONE_SLOTS
-  const onPhoneBar = (index: number) =>
-    index === activeIndex || (index < PHONE_SLOTS && !(overflowActive && index === PHONE_SLOTS - 1))
+  // The window that slides. Always the same number of slots, so the dock
+  // never grows or shrinks as you walk along it.
+  const shown = new Set(dockWindow(items.length, activeIndex, PHONE_SLOTS))
+  const onPhoneBar = (index: number) => shown.has(index)
 
   return (
     <nav
