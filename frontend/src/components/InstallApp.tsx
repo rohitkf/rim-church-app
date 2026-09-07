@@ -11,9 +11,11 @@ import { promptInstall } from '../lib/pwa'
 import { usePwa } from '../lib/usePwa'
 import {
   GUIDES,
-  detectPlatform,
+  GUIDE_ORDER,
+  detectEnvironment,
   hasSeenInstallGuide,
   markInstallGuideSeen,
+  type GuideId,
   type Platform,
 } from '../lib/installGuide'
 
@@ -38,8 +40,6 @@ const PLATFORM_ICONS: Record<Platform, typeof PhoneAddIcon> = {
   android: DotsVerticalIcon,
   desktop: MonitorDownIcon,
 }
-
-const ORDER: Platform[] = ['android', 'ios', 'desktop']
 
 /**
  * The header button. Absent once installed — `installed` is display-mode
@@ -90,20 +90,24 @@ export function InstallAppBadge() {
  */
 export function InstallAppGuide({ onClose }: { onClose: () => void }) {
   const { installPrompt } = usePwa()
-  const here = detectPlatform()
-  const [platform, setPlatform] = useState<Platform>(here)
+  // Read once: the browser does not change under somebody's hands.
+  const [here] = useState(detectEnvironment)
+  const [guideId, setGuideId] = useState<GuideId>(here.guide)
+  const [picking, setPicking] = useState(false)
   const [landed, setLanded] = useState(false)
-  const guide = GUIDES[platform]
+  const guide = GUIDES[guideId]
+  const Icon = PLATFORM_ICONS[guide.platform]
 
   useEffect(() => {
     const id = window.setTimeout(() => setLanded(true), 20)
     return () => window.clearTimeout(id)
   }, [])
 
-  // Chromium can do the whole thing on a tap. Only ever offered on the
-  // device we are actually on: an "Install now" button under the iPhone
-  // steps would install it on the laptop reading them.
-  const canInstallHere = installPrompt !== null && platform === here
+  // Chromium can do the whole thing on a tap. Only ever offered while the
+  // steps on screen are the ones for the browser we are actually in: an
+  // "Install now" button under the iPhone steps would install it on the
+  // laptop reading them.
+  const canInstallHere = installPrompt !== null && guideId === here.guide
 
   return (
     <Overlay onDismiss={onClose} label="How to install the app" align="sheet">
@@ -155,41 +159,78 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Which device the steps are for. The one you are holding comes
-              preselected, so most people never touch this row. */}
-          <div
-            role="tablist"
-            aria-label="Choose your device"
-            className="mt-5 flex gap-1 rounded-full hairline p-1"
-          >
-            {ORDER.map((key) => {
-              const Icon = PLATFORM_ICONS[key]
-              const active = key === platform
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setPlatform(key)}
-                  className={`tap flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-label-sm transition-colors duration-300 ${
-                    active
-                      ? 'bg-primary font-medium text-on-primary'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  <Icon width={14} height={14} aria-hidden="true" />
-                  {GUIDES[key].label}
-                </button>
-              )
-            })}
+          {/*
+            Which browser these steps are for, said out loud.
+            
+            The directions used to be chosen by platform alone and headed
+            "In Chrome" whatever you were holding. Naming what we detected
+            does two things: it is right for almost everybody without a
+            tap, and when it is wrong it is visibly wrong, which is what
+            the button beside it is for.
+          */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Icon width={15} height={15} aria-hidden="true" className="shrink-0 text-on-surface-faint" />
+              <span className="min-w-0 text-body-sm text-on-surface">
+                {guideId === here.guide ? (
+                  <>
+                    Steps for <strong className="font-medium">{here.name}</strong>
+                  </>
+                ) : (
+                  <>
+                    Steps for{' '}
+                    <strong className="font-medium">
+                      {guide.label} · {guide.group}
+                    </strong>
+                  </>
+                )}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPicking((was) => !was)}
+              aria-expanded={picking}
+              aria-controls="install-guide-picker"
+              className="tap shrink-0 rounded-full px-2.5 py-1 text-label-md font-medium text-secondary hover:underline"
+            >
+              {picking ? 'Never mind' : 'Not this one?'}
+            </button>
           </div>
 
-          <p className="mt-4 text-label-sm uppercase tracking-wide text-on-surface-faint">
-            In {guide.browser}
-          </p>
+          {/* Every set, for the person whose browser we guessed wrong —
+              and for a head walking a volunteer through it on a Sunday,
+              who needs the other device's steps without borrowing it. */}
+          <div id="install-guide-picker" hidden={!picking} className="mt-3">
+            {GROUPS.map((group) => (
+              <div key={group} className="mt-3 first:mt-0">
+                <p className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+                  {group}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {GUIDE_ORDER.filter((id) => GUIDES[id].group === group).map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={id === guideId}
+                      onClick={() => {
+                        setGuideId(id)
+                        setPicking(false)
+                      }}
+                      className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
+                        id === guideId
+                          ? 'bg-primary font-medium text-on-primary'
+                          : 'bg-raised text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      {GUIDES[id].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
 
-          <ol className="mt-3 flex flex-col gap-4">
+          <ol className="mt-5 flex flex-col gap-4">
             {guide.steps.map((step, i) => (
               <li key={step.title} className="flex gap-3">
                 <span
@@ -224,3 +265,6 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
     </Overlay>
   )
 }
+
+/** The device families, in the order the picker lists them. */
+const GROUPS = [...new Set(GUIDE_ORDER.map((id) => GUIDES[id].group))]
