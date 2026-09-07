@@ -12,7 +12,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
 import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
 import { ServiceCountdown } from './ServiceCountdown'
-import type { CallTimeRow } from '../lib/callTimes'
+import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 
 import { useServiceFlowSigner } from '../lib/useServiceFlowSigner'
 import { useTeamCoordinator } from '../lib/useTeamCoordinator'
@@ -26,10 +26,6 @@ import {
 } from '../lib/types'
 import { Select, selectPillClasses } from './Select'
 import { useConfirmAction } from './ConfirmAction'
-
-const CallTimeRows = z.array(
-  z.object({ department_id: z.string(), on_date: z.string(), call_time: z.string() }),
-)
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -124,7 +120,7 @@ export function DepartmentChecklistPanel({
         .select('department_id, on_date, call_time')
         .eq('on_date', serviceDate!)
       if (err) throw err
-      return CallTimeRows.parse(data)
+      return callTimeRowSchema.array().parse(data)
     },
     enabled: !!serviceDate,
   })

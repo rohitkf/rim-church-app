@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -34,11 +33,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
 import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
 import { ServiceCountdown } from '../components/ServiceCountdown'
-import type { CallTimeRow } from '../lib/callTimes'
-
-const CallTimeRows = z.array(
-  z.object({ department_id: z.string(), on_date: z.string(), call_time: z.string() }),
-)
+import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
@@ -109,7 +104,7 @@ export function ChecklistsIndexPage() {
         .select('department_id, on_date, call_time')
         .in('on_date', dayDates)
       if (err) throw err
-      return CallTimeRows.parse(data)
+      return callTimeRowSchema.array().parse(data)
     },
     enabled: dayDates.length > 0,
   })

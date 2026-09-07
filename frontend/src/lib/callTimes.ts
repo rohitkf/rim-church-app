@@ -17,12 +17,27 @@
  * team's own business: its Head, its Assisting Head, or an Admin.
  */
 
+import { z } from 'zod'
+
 export interface CallTimeRow {
   department_id: string
   on_date: string
   /** `HH:MM` or `HH:MM:SS`, as Postgres `time` comes back. */
   call_time: string
 }
+
+/**
+ * The row as it arrives.
+ *
+ * Here rather than in each page that reads it: four screens fetch this
+ * same shape, and four copies of one schema is three chances for them to
+ * drift apart.
+ */
+export const callTimeRowSchema = z.object({
+  department_id: z.string(),
+  on_date: z.string(),
+  call_time: z.string(),
+})
 
 /** A team, as much of one as this module needs. */
 export interface CallTimeTeam {

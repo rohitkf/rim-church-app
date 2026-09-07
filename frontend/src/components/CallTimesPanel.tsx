@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { Chevron } from './Collapsible'
 import { Eyebrow, Tile } from './Surface'
@@ -13,6 +12,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import {
   DEFAULT_CALL_TIME,
+  callTimeRowSchema,
   effectiveCallTime,
   myNextCallTime,
   orderTeamsForCallTimes,
@@ -47,14 +47,6 @@ import {
  * column with the clock jammed against it — so this one goes down the
  * page and wraps, and nothing is ever pushed off the side.
  */
-
-const CallTimeRows = z.array(
-  z.object({
-    department_id: z.string(),
-    on_date: z.string(),
-    call_time: z.string(),
-  }),
-)
 
 export interface CallTimesTeam {
   id: string
@@ -96,7 +88,7 @@ export function CallTimesPanel({
         .select('department_id, on_date, call_time')
         .eq('on_date', day!.date)
       if (err) throw err
-      return CallTimeRows.parse(data)
+      return callTimeRowSchema.array().parse(data)
     },
     enabled: !!day,
   })

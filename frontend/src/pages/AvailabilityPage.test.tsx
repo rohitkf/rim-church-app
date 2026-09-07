@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -17,13 +17,18 @@ const NEXT = '2026-09-13'
 const AFTER = '2026-09-20'
 const MONTHS_OUT = '2026-12-06'
 
-const state = vi.hoisted(() => ({ finished: new Set<string>() }))
+const state = vi.hoisted(() => ({
+  finished: new Set<string>(),
+  leads: false,
+  /** Rows the page reads straight from Postgres, by table. */
+  rows: {} as Record<string, unknown[]>,
+}))
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
     isAdmin: false,
-    isDepartmentHead: () => false,
+    isDepartmentHead: () => state.leads,
   }),
 }))
 
@@ -52,8 +57,10 @@ vi.mock('../lib/queries', () => ({
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
-    from: () => ({
-      select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }),
+    from: (table: string) => ({
+      select: () => ({
+        in: () => Promise.resolve({ data: state.rows[table] ?? [], error: null }),
+      }),
     }),
   },
 }))
@@ -84,6 +91,156 @@ const teamsOf = (card: HTMLElement) => card.querySelector('ul[id^="availability-
 
 beforeEach(() => {
   state.finished = new Set()
+  state.leads = false
+  state.rows = {}
+})
+
+/*
+ * The register.
+ *
+ * Marking somebody present is a fact about a morning: before the team is
+ * called in nobody has turned up, and nobody has failed to. The buttons
+ * used to appear the moment somebody said yes — three weeks early, on a
+ * service nobody had been to, which makes "no-show" a thing you can
+ * record about next month.
+ */
+describe('present and no-show', () => {
+  /** A head, looking at a team where one person has said yes. */
+  const asHead = (callTime: string | null) => {
+    state.leads = true
+    state.rows = {
+      department_members: [
+        {
+          id: 'm1',
+          department_id: 'd1',
+          user_id: 'u2',
+          member_type: 'core',
+          created_at: '2026-01-01T00:00:00Z',
+          profiles: {
+            id: 'u2',
+            first_name: 'Joel',
+            last_name: 'Skaria',
+            email: 'joel@rehoboth.org',
+            phone: null,
+            avatar_url: null,
+          },
+        },
+      ],
+      availability: [
+        {
+          id: 'a1',
+          service_id: 's1',
+          department_id: 'd1',
+          user_id: 'u2',
+          status: 'available',
+          note: null,
+          attended: null,
+          updated_at: '2026-09-01T00:00:00Z',
+        },
+      ],
+      department_call_times: callTime
+        ? [{ department_id: 'd1', on_date: SUNDAY, call_time: callTime }]
+        : [],
+    }
+  }
+
+  /** Stand at a wall-clock time on the morning of the service. */
+  const standAt = (clock: string) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(`${SUNDAY}T${clock}`))
+  }
+
+  /** Today's card, once the team's answers have arrived. The same member
+   *  is listed under every service, so every check is scoped to one. */
+  const todayCard = async () => {
+    await screen.findAllByText('Joel Skaria')
+    return cardFor(/Today/) as HTMLElement
+  }
+
+  afterEach(() => vi.useRealTimers())
+
+  it('offers nothing to mark before the team is called in', async () => {
+    asHead('09:00')
+    standAt('06:30')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).queryByRole('button', { name: 'Present' })).toBeNull()
+    expect(within(today).queryByRole('button', { name: 'No-show' })).toBeNull()
+  })
+
+  it('says when it will open rather than leaving a gap', async () => {
+    asHead('09:00')
+    standAt('06:30')
+    show()
+    const today = await todayCard()
+
+    // Once for the team, not once per person: ten names each carrying the
+    // same sentence is a wall.
+    expect(within(today).getByText(/marked from 09:00/)).toBeInTheDocument()
+  })
+
+  it('offers them from the call time onwards', async () => {
+    asHead('09:00')
+    standAt('09:01')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).getByRole('button', { name: 'Present' })).toBeInTheDocument()
+    expect(within(today).getByRole('button', { name: 'No-show' })).toBeInTheDocument()
+    expect(within(today).queryByText(/marked from/)).toBeNull()
+  })
+
+  it('keeps them afterwards, because the register is filled in late', async () => {
+    // Long after the service. Correcting the record is the common case, so
+    // the window opens and stays open rather than closing at the end.
+    asHead('09:00')
+    standAt('22:00')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).getByRole('button', { name: 'Present' })).toBeInTheDocument()
+  })
+
+  it('falls back to seven o\u2019clock when the team has set no call time', async () => {
+    asHead(null)
+    standAt('06:30')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).queryByRole('button', { name: 'Present' })).toBeNull()
+    expect(within(today).getByText(/marked from 07:00/)).toBeInTheDocument()
+  })
+
+  it('opens at that seven o\u2019clock too', async () => {
+    asHead(null)
+    standAt('07:30')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).getByRole('button', { name: 'Present' })).toBeInTheDocument()
+  })
+
+  it('says nothing about a team where nobody has said yes', async () => {
+    asHead('09:00')
+    state.rows.availability = [
+      {
+        id: 'a1',
+        service_id: 's1',
+        department_id: 'd1',
+        user_id: 'u2',
+        status: 'unavailable',
+        note: null,
+        attended: null,
+        updated_at: '2026-09-01T00:00:00Z',
+      },
+    ]
+    standAt('06:30')
+    show()
+    const today = await todayCard()
+
+    expect(within(today).queryByText(/marked from/)).toBeNull()
+  })
 })
 
 describe('the availability tracker over three weeks', () => {
