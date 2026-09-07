@@ -165,12 +165,19 @@ function watchWorker(registration: ServiceWorkerRegistration) {
  *
  * A browser checks sw.js on navigation and then rarely — which is no use
  * to the case this is for: the app open on a phone through a Sunday
- * morning, while a fix goes out. So the page asks, on a slow timer and
+ * morning, while a fix goes out. So the page asks, on a timer and
  * whenever somebody comes back to it, throttled so returning to the tab
  * ten times in a minute is still one request.
+ *
+ * Two minutes rather than the thirty this started at. Thirty is the right
+ * number for a deploy nobody is waiting on, and the wrong one for the
+ * only deploy that matters — the fix that goes out at ten past eleven,
+ * which a phone would then not hear about until the service was over. The
+ * request is a conditional GET of one small file, and it is now the
+ * cheapest thing this app does on a timer.
  */
-const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
-const UPDATE_CHECK_THROTTLE_MS = 5 * 60 * 1000
+const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000
+const UPDATE_CHECK_THROTTLE_MS = 30 * 1000
 
 function pollForUpdates(registration: ServiceWorkerRegistration): () => void {
   let lastCheck = Date.now()

@@ -27,6 +27,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { ComingSoonDialog } from './ComingSoonDialog'
 import { AiAssistantPanel } from './AiAssistantPanel'
 import { PwaBanners } from './PwaBanners'
+import { useLiveData } from '../lib/useLiveData'
 import { AlertBanner } from './AlertBanner'
 import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
@@ -85,6 +86,10 @@ const AI_ASSISTANT_ENABLED = import.meta.env.VITE_AI_ASSISTANT_ENABLED === 'true
 
 export function AppShell() {
   const { profile, isAdmin, signOut } = useAuth()
+  // Everything the app reads goes stale when the database says so, rather
+  // than when somebody thinks to refresh. Signed-in only, which is where
+  // the shell lives and the only place any of it is readable.
+  useLiveData()
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [comingSoon, setComingSoon] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
