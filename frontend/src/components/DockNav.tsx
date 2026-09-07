@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { MoreIcon } from './icons'
@@ -43,6 +43,20 @@ const PHONE_SLOTS = 3
  * nothing at all to the right of you, so the only way onwards was to open
  * a menu and read it — while the bar sat there with two thirds of the app
  * one step away and no way to take the step.
+ *
+ * ## The blue thing that moves
+ *
+ * The highlight behind the current destination is one element, not a
+ * background on each link. It measures where it has to be and travels
+ * there, stretching along the way — leading edge first, trailing edge
+ * catching up — so it reads as one thing flowing into the next rather
+ * than a colour being switched off here and on over there. The label
+ * fades in once it has arrived, which is what stops the pill sprinting
+ * and the word appearing mid-flight.
+ *
+ * It settles with a little overshoot. That is the whole trick: a pill
+ * that eases to a stop looks like a slider, and one that spills a few
+ * pixels past and comes back looks like liquid.
  */
 export function DockNav({
   items,
@@ -56,6 +70,12 @@ export function DockNav({
 }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const { pathname } = useLocation()
+  const barRef = useRef<HTMLDivElement>(null)
+  /** Where the highlight is, in pixels along the bar. */
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null)
+  const [travelling, setTravelling] = useState(false)
+  /** The last place we measured, so a re-render is not a journey. */
+  const measured = useRef<{ left: number; width: number } | null>(null)
 
   const isCurrent = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
   const activeIndex = items.findIndex((item) => isCurrent(item.to))
@@ -65,12 +85,78 @@ export function DockNav({
   const shown = new Set(dockWindow(items.length, activeIndex, PHONE_SLOTS))
   const onPhoneBar = (index: number) => shown.has(index)
 
+  /*
+   * Measure, then move.
+   *
+   * The link's own box is the truth — it changes width when it takes the
+   * label, and it moves when the window slides under it — so the pill
+   * follows the layout rather than a copy of the rules that made it.
+   * Layout effect, not effect: this runs before the browser paints, so
+   * the pill is never seen a frame behind the thing it is meant to be on.
+   */
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    const target = bar?.querySelector('[data-dock-active="true"]')
+    if (!bar || !(target instanceof HTMLElement)) {
+      setPill(null)
+      return
+    }
+    const next = { left: target.offsetLeft, width: target.offsetWidth }
+    const last = measured.current
+    if (last && last.left === next.left && last.width === next.width) return
+
+    // Only stretch when it is actually going somewhere: the first
+    // measurement should place the pill, not launch it across the bar.
+    // Held in a ref rather than read back out of state, so this decision
+    // is made once — a setState inside another one's updater is a side
+    // effect in a place React is allowed to run twice.
+    if (last) setTravelling(true)
+    measured.current = next
+    setPill(next)
+  }, [pathname, items.length, activeIndex])
+
+  useLayoutEffect(() => {
+    if (!travelling) return
+    const id = window.setTimeout(() => setTravelling(false), 520)
+    return () => window.clearTimeout(id)
+  }, [travelling, pill])
+
   return (
     <nav
       aria-label={label}
       className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
     >
-      <div className="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-surface-container)_88%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl">
+      <div
+        ref={barRef}
+        className="pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-surface-container)_88%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl"
+      >
+        {/*
+          The highlight, as one travelling object.
+          
+          `left` is animated rather than `transform` on purpose: the width
+          changes at the same time (a pill wearing a label is wider than
+          one that is not), and animating both as geometry keeps the two
+          edges honest — a translate plus a scale would smear the round
+          ends into ovals halfway across.
+          
+          The stretch is a scale applied only while it is in flight, from
+          the edge it is leaving, so the shape reaches ahead of itself and
+          gathers up behind. Cheap, and it is the whole illusion.
+        */}
+        {pill && (
+          <span
+            aria-hidden="true"
+            className="absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)]"
+            style={{
+              left: pill.left,
+              width: pill.width,
+              transform: travelling ? 'scaleX(1.08)' : 'scaleX(1)',
+              transition:
+                'left 520ms cubic-bezier(0.32, 1.42, 0.4, 1), width 520ms cubic-bezier(0.32, 1.42, 0.4, 1), transform 520ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          />
+        )}
+
         {items.map((item, index) => {
           const Icon = item.icon
           return (
@@ -79,12 +165,16 @@ export function DockNav({
               to={item.to}
               end={item.to === '/'}
               title={item.label}
+              // What the pill measures itself against.
+              data-dock-active={isCurrent(item.to) ? 'true' : undefined}
               className={({ isActive }) =>
                 [
-                  'group/dock relative h-11 items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)]',
-                  onPhoneBar(index) ? 'flex' : 'hidden md:flex',
+                  'group/dock relative z-10 h-11 items-center justify-center gap-2 rounded-full transition-[color,background-color,width] duration-500 ease-[var(--ease-glide)]',
+                  onPhoneBar(index) ? 'flex dock-slot' : 'hidden md:flex',
                   isActive
-                    ? 'min-w-0 bg-primary px-4 text-on-primary'
+                    ? // No background of its own — the travelling pill is
+                      // behind it, and two blues would fight.
+                      'min-w-0 px-4 text-on-primary'
                     : 'w-11 shrink-0 text-on-surface-variant hover:bg-raised-strong hover:text-on-surface',
                 ].join(' ')
               }
@@ -99,7 +189,14 @@ export function DockNav({
                     // phone loses a few letters of a label it can still read
                     // from the page rather than losing the More button off
                     // the edge entirely.
-                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-label-md">
+                    //
+                    // It arrives after the pill does. A word appearing
+                    // mid-flight reads as the highlight chasing the label;
+                    // this way the label lands in something already there.
+                    <span
+                      className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-label-md transition-opacity duration-300"
+                      style={{ opacity: travelling ? 0 : 1 }}
+                    >
                       {item.label}
                     </span>
                   )}

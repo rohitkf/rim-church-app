@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { countdownIsClockworthy, countdownParts } from '../lib/countdown'
+import { RollingDigits } from './RollingDigits'
 
 /**
  * Time remaining until a service starts, as a live clock.
@@ -8,6 +9,11 @@ import { countdownIsClockworthy, countdownParts } from '../lib/countdown'
  * services are over, the next one is what the week is pointing at, and a
  * clock that only appears in the last twenty-four hours leaves the page
  * saying nothing for six days out of seven.
+ *
+ * The digits roll rather than blink (see RollingDigits). A number that
+ * changes by being replaced says what the time is; one that turns says
+ * the clock is running, which on a page about a service that has not
+ * started yet is the more useful half of the message.
  */
 export function ServiceCountdown({
   startsAt,
@@ -54,15 +60,19 @@ export function ServiceCountdown({
             pushing the page sideways. Days ride in front at a smaller
             size: they are the part that changes once a week, and giving
             them the display size would push the clock off a phone. */}
-        <span className="font-mono text-[clamp(44px,15vw,76px)] font-medium leading-none tracking-[-0.04em] tabular">
+        <span className="flex items-baseline font-mono text-[clamp(44px,15vw,76px)] font-medium leading-none tracking-[-0.04em] tabular">
           {days > 0 && (
-            <span className="mr-2 text-[0.5em] text-on-surface-variant">{days}d</span>
+            <span className="mr-2 text-[0.5em] text-on-surface-variant">
+              <RollingDigits value={String(days)} />d
+            </span>
           )}
-          {hrs}
+          <RollingDigits value={hrs} tall />
           <span className="text-on-surface-faint/50">:</span>
-          {mins}
+          <RollingDigits value={mins} tall />
           <span className="text-on-surface-faint/50">:</span>
-          <span className="text-primary">{secs}</span>
+          <span className="text-primary">
+            <RollingDigits value={secs} tall />
+          </span>
         </span>
         <span className="pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
           {label ?? 'until doors'}
@@ -78,13 +88,19 @@ export function ServiceCountdown({
           Starts in
         </span>
       )}
-      <span className="font-mono text-body-md tabular-nums text-on-surface">
-        {days > 0 && <span className="mr-1 text-on-surface-variant">{days}d</span>}
-        {hrs}
+      <span className="flex items-baseline font-mono text-body-md tabular-nums text-on-surface">
+        {days > 0 && (
+          <span className="mr-1 text-on-surface-variant">
+            <RollingDigits value={String(days)} />d
+          </span>
+        )}
+        <RollingDigits value={hrs} />
         <span className="text-on-surface-variant">:</span>
-        {mins}
+        <RollingDigits value={mins} />
         <span className="text-on-surface-variant">:</span>
-        <span className="text-primary">{secs}</span>
+        <span className="text-primary">
+          <RollingDigits value={secs} />
+        </span>
       </span>
       {label && (
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
