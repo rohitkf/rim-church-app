@@ -44,12 +44,16 @@ import { WelcomeTour } from './WelcomeTour'
  *
  * Four runs, and the reason for each:
  *
- *   1. Dashboard — where am I, what wants me.
+ *   1. Where am I, and what is the morning: the dashboard, then the
+ *      running order it is all pointing at. The planner is second because
+ *      it is the thing most often opened on purpose — the shape of the
+ *      service is what everything else hangs off.
  *   2. Your Sunday, in the order it reaches you: say whether you can serve,
- *      see who was put on, tick what you have done on the day.
- *   3. The service itself: the running order, and the songs in it.
- *   4. Talking about it, then the reference pages you visit rarely and on
- *      purpose — the diary, the teams, the people, the cupboard.
+ *      see who was put on, tick what you have done on the day — and the
+ *      songs, which the worship team reaches for last of those.
+ *   3. Talking about it.
+ *   4. The reference pages you visit rarely and on purpose — the diary,
+ *      the teams, the people, the cupboard.
  *
  * The dock's phone window slides along this list (lib/dockWindow), so the
  * order is not only a menu but the path along it: from Availability the
@@ -58,14 +62,12 @@ import { WelcomeTour } from './WelcomeTour'
  */
 const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
+  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
 
-  // Your Sunday, in the order it happens to you.
+  // Your Sunday, in the order it happens to you, ending with the songs.
   { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true },
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
-
-  // The service itself, and what is in it.
-  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
 
   // Talking about it. Nothing in either belongs to somebody who is not on
