@@ -45,6 +45,7 @@ import { InventoryScanPage } from './pages/InventoryScanPage'
 import { MessageBoardPage } from './pages/MessageBoardPage'
 import { TeamChatPage } from './pages/TeamChatPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
 
 const queryClient = new QueryClient({
   // Every read in the app comes through here, which makes it the one place
@@ -151,6 +152,11 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RouterProvider router={router} />
+          {/* Above the router rather than inside the shell: a build that
+              has gone stale is stale on the sign-in page too, and this is
+              the one thing in the app that outranks whatever route you
+              are on. */}
+          <UpdateRequiredDialog />
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
