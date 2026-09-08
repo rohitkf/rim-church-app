@@ -28,6 +28,7 @@ import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
+import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import type { ChecklistItemStatus, RotaAssignment, RotaProgress } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
@@ -223,9 +224,31 @@ export function ChecklistsIndexPage() {
               ? 2
               : 3,
     }))
+    /*
+     * Whoever is coordinating leads their band of the list.
+     *
+     * The Team Coordinator gives the last of the three signatures on
+     * every row of their team's checklist, so on a page about getting
+     * those signatures they are the one row you look for first — the same
+     * reason the Teams page lifts the role above the groups. Sorted by
+     * name it landed under T, at the bottom of a team whose other roles
+     * start with C.
+     *
+     * Only when somebody holds it. An unassigned coordinator has no
+     * signature to give and is not a person to look for, so an empty row
+     * stays where its name puts it.
+     */
+    const held = (s: { assignment: RotaAssignment }) =>
+      isCoordinatorRole(s.assignment.role_label) && !!s.assignment.user_id
+
     return scored
       .filter((s) => s.rank < 3)
-      .sort((a, b) => a.rank - b.rank || a.assignment.role_label.localeCompare(b.assignment.role_label))
+      .sort(
+        (a, b) =>
+          a.rank - b.rank ||
+          Number(held(b)) - Number(held(a)) ||
+          a.assignment.role_label.localeCompare(b.assignment.role_label),
+      )
     // isServiceFlowSigner reads the same assignments and departments this
     // memo already depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
