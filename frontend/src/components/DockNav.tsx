@@ -51,8 +51,8 @@ const PHONE_SLOTS = 3
  * there, stretching along the way — leading edge first, trailing edge
  * catching up — so it reads as one thing flowing into the next rather
  * than a colour being switched off here and on over there. The label
- * fades in once it has arrived, which is what stops the pill sprinting
- * and the word appearing mid-flight.
+ * fades in a beat behind it, so the word does not appear to be dragging
+ * the highlight along after it.
  *
  * It settles with a little overshoot. That is the whole trick: a pill
  * that eases to a stop looks like a slider, and one that spills a few
@@ -190,13 +190,14 @@ export function DockNav({
                     // from the page rather than losing the More button off
                     // the edge entirely.
                     //
-                    // It arrives after the pill does. A word appearing
-                    // mid-flight reads as the highlight chasing the label;
-                    // this way the label lands in something already there.
-                    <span
-                      className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-label-md transition-opacity duration-300"
-                      style={{ opacity: travelling ? 0 : 1 }}
-                    >
+                    // It comes in just behind the pill's leading edge —
+                    // long enough not to read as the highlight chasing
+                    // the label, short enough that nobody is looking at
+                    // an empty blue pill wondering where they are. It
+                    // used to wait for the pill to land and then take
+                    // another 300ms to fade, which is most of a second
+                    // spent saying nothing; see .dock-label in index.css.
+                    <span className="dock-label min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-label-md">
                       {item.label}
                     </span>
                   )}

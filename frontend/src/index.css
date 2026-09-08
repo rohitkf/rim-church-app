@@ -581,6 +581,35 @@ body::after {
  * twitch each time you navigated. The reduced-motion rule above already
  * covers somebody who has asked for stillness.
  */
+/*
+ * The name of the destination you have just arrived at.
+ *
+ * Only the current destination in the dock spells its name, so the label
+ * is mounted fresh on every navigation and has to arrive somehow. It waits
+ * a moment — long enough that the highlight is visibly moving first, and
+ * the word reads as landing in the pill rather than dragging it along —
+ * and then fades up quickly.
+ *
+ * The wait used to be the pill's whole journey (520ms) plus a 300ms fade,
+ * which is most of a second in which the bar shows a blue pill with no
+ * word in it. That is the state somebody hits when they navigate and
+ * glance down to check where they are, and it said nothing.
+ */
+@keyframes rim-dock-label {
+  from {
+    opacity: 0;
+    transform: translate3d(-3px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.dock-label {
+  animation: rim-dock-label 160ms ease-out 90ms both;
+}
+
 @keyframes rim-dock-slot {
   from {
     opacity: 0;
