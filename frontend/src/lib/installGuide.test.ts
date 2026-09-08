@@ -4,8 +4,6 @@ import {
   GUIDE_ORDER,
   detectEnvironment,
   guideIdFor,
-  hasSeenInstallGuide,
-  markInstallGuideSeen,
 } from './installGuide'
 
 beforeEach(() => localStorage.clear())
@@ -189,31 +187,5 @@ describe('the directions themselves', () => {
       // every browser is Safari underneath.
       if (GUIDES[id].canPrompt) expect(GUIDES[id].platform).not.toBe('ios')
     }
-  })
-})
-
-describe('the glow', () => {
-  it('glows until somebody has opened the directions', () => {
-    expect(hasSeenInstallGuide()).toBe(false)
-    markInstallGuideSeen()
-    expect(hasSeenInstallGuide()).toBe(true)
-  })
-
-  it('glows when storage cannot be read at all', () => {
-    // A private window throws on getItem. Not knowing means nudging, which
-    // is the state the button exists for.
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    expect(hasSeenInstallGuide()).toBe(false)
-    vi.restoreAllMocks()
-  })
-
-  it('survives storage that cannot be written to', () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    expect(() => markInstallGuideSeen()).not.toThrow()
-    vi.restoreAllMocks()
   })
 })

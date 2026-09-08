@@ -146,7 +146,7 @@ export function DockNav({
         {pill && (
           <span
             aria-hidden="true"
-            className="absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)]"
+            className="pointer-events-none absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)]"
             style={{
               left: pill.left,
               width: pill.width,
@@ -227,7 +227,23 @@ export function DockNav({
         {trailing && (
           <>
             <span aria-hidden="true" className="mx-1 hidden h-7 w-px shrink-0 bg-outline-variant md:block" />
-            <span className="hidden md:contents">{trailing}</span>
+            {/*
+              An ordinary flex item, not `display: contents`.
+
+              Contents was the tidier way to hang the assistant off the end
+              of the bar — the wrapper vanishes and the button becomes a
+              child of the row directly. But a box that is not there is a
+              box that cannot be hit: WebKit has never reliably hit-tested
+              through one, so Ask took focus and answered the keyboard
+              while ignoring every click, which is precisely how it was
+              reported. A wrapper that is really there costs nothing —
+              it shrink-wraps the button and the row spaces it the same.
+
+              `relative z-10` for the same reason the links carry it: the
+              travelling pill is positioned, so anything unpositioned in
+              this bar paints beneath it.
+            */}
+            <span className="relative z-10 hidden shrink-0 items-center md:flex">{trailing}</span>
           </>
         )}
       </div>

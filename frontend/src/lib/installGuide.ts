@@ -547,36 +547,3 @@ export const GUIDE_ORDER: GuideId[] = [
   'desktop-safari',
   'desktop-firefox',
 ]
-
-/* ------------------------------------------------------------------ *
- * The glow
- * ------------------------------------------------------------------ */
-
-/**
- * Whether the glow has done its job.
- *
- * The button stays until the app is actually installed — that is what the
- * button is for — but the animation stops once somebody has opened the
- * directions, whether or not they went through with it. A thing that keeps
- * pulsing at you after you have looked at it is nagging, and nagging is how
- * people learn to ignore a corner of the screen.
- */
-const SEEN_KEY = 'rim-install-guide-seen'
-
-export function hasSeenInstallGuide(): boolean {
-  try {
-    return window.localStorage.getItem(SEEN_KEY) === 'yes'
-  } catch {
-    // Unreadable storage (a private window, blocked site data) means we
-    // cannot know — so glow, which is the state the button was written for.
-    return false
-  }
-}
-
-export function markInstallGuideSeen() {
-  try {
-    window.localStorage.setItem(SEEN_KEY, 'yes')
-  } catch {
-    // The glow stops for this session regardless; it is held in state too.
-  }
-}
