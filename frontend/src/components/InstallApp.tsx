@@ -13,8 +13,6 @@ import {
   GUIDES,
   GUIDE_ORDER,
   detectEnvironment,
-  hasSeenInstallGuide,
-  markInstallGuideSeen,
   type GuideId,
   type Platform,
 } from '../lib/installGuide'
@@ -29,10 +27,11 @@ import {
  * line inside the account menu, which is the last place somebody who does
  * not know the feature exists would go looking for it.
  *
- * So it sits in the header instead, beside the two toggles, and it glows
- * until it has been opened. It disappears the moment the app is running
- * from the home screen, because at that point it is advice somebody has
- * already taken.
+ * So it sits in the header instead, beside the two toggles, and it keeps
+ * catching the light for as long as the offer stands. It disappears the
+ * moment the app is running from the home screen, because at that point it
+ * is advice somebody has already taken — and that, rather than "you have
+ * looked at this once", is the thing worth switching the animation off.
  */
 
 const PLATFORM_ICONS: Record<Platform, typeof PhoneAddIcon> = {
@@ -48,28 +47,35 @@ const PLATFORM_ICONS: Record<Platform, typeof PhoneAddIcon> = {
 export function InstallAppBadge() {
   const { installed } = usePwa()
   const [open, setOpen] = useState(false)
-  // Read once, on mount: storage that changes underneath us is not worth a
-  // subscription, and the glow is a nudge rather than state.
-  const [glow, setGlow] = useState(() => !hasSeenInstallGuide())
-
-  const show = () => {
-    setOpen(true)
-    setGlow(false)
-    markInstallGuideSeen()
-  }
 
   if (installed) return null
 
   return (
     <>
+      {/*
+        Two animations, and neither of them stops.
+
+        The glow breathes around the outside on a four-second cycle; the
+        glisten is a narrow band of light that crosses the face of it in
+        the first half of one and waits out the rest. Two small movements
+        at different rates get noticed; one movement repeated at one rate
+        is a warning light. Both are the quietest version
+        of themselves that still reads as alive — see the keyframes in
+        index.css — and both end the moment the app is installed, which
+        is when this button stops existing.
+
+        This used to stop after the guide had been opened once, on the
+        grounds that a thing which keeps moving at you is nagging. But
+        opening the directions is not installing the app: whoever read
+        them and did not follow through is exactly the person the button
+        is still for, and for them it had gone quiet for good.
+      */}
       <button
         type="button"
-        onClick={show}
+        onClick={() => setOpen(true)}
         title="Add this app to your home screen"
         aria-label="Install app"
-        className={`tap flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] px-2.5 text-accent-blue-soft transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)] hover:text-on-surface sm:h-9 sm:px-3 ${
-          glow ? 'install-glow' : ''
-        }`}
+        className="glisten install-glow tap relative flex h-10 shrink-0 items-center gap-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] px-2.5 text-accent-blue-soft transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)] hover:text-on-surface sm:h-9 sm:px-3"
       >
         <PhoneAddIcon width={17} height={17} aria-hidden="true" />
         <span className="hidden text-label-sm font-medium sm:inline">Install app</span>

@@ -502,6 +502,56 @@ body::after {
   );
 }
 
+/*
+ * The install button's glisten.
+ *
+ * The dialog's sheen is a wide, soft band tuned for a card the size of a
+ * phone screen; run on a chip a hundred pixels across it crosses in a few
+ * frames and reads as nothing at all. This is the same idea sized for a
+ * button: a narrow highlight, tilted, that sweeps once and then waits out
+ * the rest of a four-second cycle, so the button catches the light rather
+ * than shimmering continuously. Paired with the glow above, which breathes
+ * around the outside on a different beat — two small movements at
+ * different rates are noticed; one repeated at one rate is a warning
+ * light. It needs `relative` and `overflow-hidden` on the host.
+ */
+@keyframes rim-glisten {
+  0% {
+    transform: translate3d(-180%, 0, 0) skewX(-18deg);
+  }
+  40%,
+  100% {
+    transform: translate3d(320%, 0, 0) skewX(-18deg);
+  }
+}
+
+.glisten::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, white 55%, transparent),
+    transparent
+  );
+  animation: rim-glisten 4s cubic-bezier(0.3, 0.05, 0.2, 1) infinite;
+}
+
+/* White on a pale blue chip is invisible. On light the light is blue. */
+:root[data-theme='light'] .glisten::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-accent-blue) 42%, transparent),
+    transparent
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

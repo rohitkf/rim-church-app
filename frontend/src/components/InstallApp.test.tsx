@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { InstallAppGuide } from './InstallApp'
+import { InstallAppBadge, InstallAppGuide } from './InstallApp'
 
 const env = vi.hoisted(() => ({
   ua: '',
@@ -90,5 +90,31 @@ describe('InstallAppGuide', () => {
     render(<InstallAppGuide onClose={onClose} />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Done' }))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('InstallAppBadge', () => {
+  /*
+   * The animations used to stop for good once somebody had opened the
+   * directions, on the grounds that a button which keeps moving is
+   * nagging. Reading the steps is not installing the app, though — and
+   * the person who read them and did not follow through is the one the
+   * button is still there for. It goes quiet by being installed.
+   */
+  it('keeps glowing and glistening for as long as the app is not installed', () => {
+    render(<InstallAppBadge />)
+    const badge = screen.getByRole('button', { name: 'Install app' })
+    expect(badge).toHaveClass('install-glow')
+    expect(badge).toHaveClass('glisten')
+  })
+
+  it('still does, once the directions have been read', async () => {
+    const user = userEvent.setup()
+    render(<InstallAppBadge />)
+    const badge = screen.getByRole('button', { name: 'Install app' })
+    await user.click(badge)
+    expect(screen.getByText(/Keep this on your home screen/)).toBeInTheDocument()
+    expect(badge).toHaveClass('install-glow')
+    expect(badge).toHaveClass('glisten')
   })
 })
