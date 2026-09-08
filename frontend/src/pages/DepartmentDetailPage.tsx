@@ -525,8 +525,6 @@ export function DepartmentDetailPage() {
             )}
           </section>
 
-          {id && <DepartmentRolesCard departmentId={id} canManage={canManage} />}
-
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <h2 className="text-headline-md">Guest List</h2>
             <p className="mt-1 text-body-sm text-on-surface-variant">
@@ -575,6 +573,25 @@ export function DepartmentDetailPage() {
             </QueryState>
           </section>
         </div>
+
+        {/*
+          Roles runs the width of the page rather than sitting in the
+          column beside the roster.
+
+          A role carries its whole checklist — two stages side by side,
+          each item a row with a drag handle, its label and a Remove — and
+          in a third of the page that left about ninety pixels for the
+          label. "Get the Service Planner" came out broken across five
+          lines, one syllable at a time. The roster is a table of short
+          columns and the guest list is a name and an address, so those
+          two are the pair that fits beside each other; this is the part of
+          the page that needed the room.
+        */}
+        {id && (
+          <div className="mt-6">
+            <DepartmentRolesCard departmentId={id} canManage={canManage} />
+          </div>
+        )}
 
         <InviteDialog
           open={inviting}
