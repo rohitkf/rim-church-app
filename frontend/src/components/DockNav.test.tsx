@@ -66,4 +66,21 @@ describe('DockNav', () => {
     expect(highlight).not.toBeNull()
     expect(highlight).toHaveClass('pointer-events-none')
   })
+
+  /*
+   * The label of the destination you have just landed on used to wait for
+   * the pill to finish travelling (520ms) and then fade for another 300ms,
+   * so most of a second after navigating the bar showed a blue pill with
+   * no word in it — which is exactly when somebody glances down to check
+   * where they are. It is a short CSS animation now, and nothing holds it
+   * at zero.
+   */
+  it('names where you are without waiting for the highlight to land', () => {
+    renderDock()
+    const label = screen.getByRole('link', { name: 'Dashboard' }).querySelector('.dock-label')
+    expect(label).not.toBeNull()
+    expect(label?.textContent).toBe('Dashboard')
+    // No JS-held opacity: the delay is 90ms of CSS, not a 520ms timer.
+    expect((label as HTMLElement).style.opacity).toBe('')
+  })
 })
