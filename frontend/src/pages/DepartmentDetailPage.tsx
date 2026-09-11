@@ -23,6 +23,7 @@ import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { ageFrom } from '../lib/celebrations'
 import {
   departmentSchema,
   departmentMemberRowSchema,
@@ -42,7 +43,7 @@ async function fetchDepartment(id: string): Promise<Department | null> {
 async function fetchMembers(id: string): Promise<DepartmentMemberRow[]> {
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
+    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url, dob)')
     .eq('department_id', id)
   if (error) throw error
   return z.array(departmentMemberRowSchema).parse(data)
@@ -93,6 +94,26 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
       {sensitive.has_dbs ? 'DBS ✓' : 'No DBS'}
     </span>
   )
+}
+
+/**
+ * How old somebody is, for everyone on the team to see.
+ *
+ * A roster where you know a name and an email and not whether you are
+ * talking to a sixteen-year-old is a roster that makes people careful in
+ * the wrong ways. The date itself is nobody's business here — the year is
+ * the thing that changes how you speak to somebody — so the page shows
+ * the number and not the birthday.
+ *
+ * It comes off `profiles`, which any signed-in person can already read;
+ * nothing was widened to put this on the page. Blank when the person has
+ * not filled their date in, because "—" invites a question and an empty
+ * cell does not.
+ */
+function Age({ dob }: { dob: string | null | undefined }) {
+  const age = ageFrom(dob)
+  if (age === null) return null
+  return <span className="tabular-nums">{age}</span>
 }
 
 export function DepartmentDetailPage() {
@@ -357,6 +378,11 @@ export function DepartmentDetailPage() {
                       <div className="mt-1 break-all text-body-sm text-on-surface-variant">
                         {m.profiles?.email}
                       </div>
+                      {ageFrom(m.profiles?.dob) !== null && (
+                        <div className="mt-0.5 text-body-sm text-on-surface-faint">
+                          <Age dob={m.profiles?.dob} /> years old
+                        </div>
+                      )}
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                         <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                         {canManage && (
@@ -389,6 +415,7 @@ export function DepartmentDetailPage() {
                   <thead>
                     <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                       <th className="py-2 pr-4">Member</th>
+                      <th className="py-2 pr-4">Age</th>
                       <th className="py-2 pr-4">On this team</th>
                       <th className="py-2 pr-4">Contact</th>
                       <th className="py-2 pr-4">Compliance</th>
@@ -400,6 +427,9 @@ export function DepartmentDetailPage() {
                         <tr key={m.id} className="border-b border-border-subtle last:border-0">
                           <td className="py-3 pr-4 font-medium text-on-surface">
                             {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                          </td>
+                          <td className="py-3 pr-4 text-on-surface-variant">
+                            <Age dob={m.profiles?.dob} />
                           </td>
                           <td className="py-3 pr-4 text-on-surface-variant">
                             {DESIGNATION_LABEL[designationOf(m.user_id)]}
@@ -544,6 +574,15 @@ export function DepartmentDetailPage() {
                         <div className="break-all text-body-sm text-on-surface-variant">
                           {m.profiles?.email}
                         </div>
+                        {/* Guests get their age shown too: the point of
+                            putting it on the page is that everybody on a
+                            team can see everybody, and a guest is on the
+                            team. */}
+                        {ageFrom(m.profiles?.dob) !== null && (
+                          <div className="mt-0.5 text-body-sm text-on-surface-faint">
+                            <Age dob={m.profiles?.dob} /> years old
+                          </div>
+                        )}
                       </div>
                       {canManage && (
                         <button

@@ -45,9 +45,24 @@ describe('SettingsPage', () => {
 
   it('gives the Owner every room, erasing included', () => {
     const nav = show({ isAdmin: true, isSuperAdmin: true })
-    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+    expect(within(nav).getAllByRole('link')).toHaveLength(6)
     expect(within(nav).getByRole('link', { name: /Erase data/ })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: /Send an alert/ })).toBeInTheDocument()
+  })
+
+  /*
+   * The mark at the top of every page is the church's face rather than
+   * one of its clocks, so it is the owner's room and not an Admin's —
+   * which the database enforces too, whatever this menu offers.
+   */
+  it('keeps the logo in the owner’s rooms', () => {
+    const nav = show({ isAdmin: true, isSuperAdmin: true })
+    expect(within(nav).getByRole('link', { name: /App logo/ })).toBeInTheDocument()
+  })
+
+  it('does not offer it to an Admin, who cannot change it anyway', () => {
+    const nav = show({ isAdmin: true })
+    expect(within(nav).queryByRole('link', { name: /App logo/ })).not.toBeInTheDocument()
   })
 
   it('renders the section that was asked for', () => {

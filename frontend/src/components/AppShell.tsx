@@ -18,11 +18,10 @@ import {
 } from './icons'
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
-import { ThemeToggle } from './ThemeToggle'
 import { InstallAppBadge } from './InstallApp'
+import { AppMark } from './AppMark'
 import { useNotificationRouting } from '../lib/useNotificationRouting'
 import { useScrolled } from '../lib/useScrolled'
-import { TeamStyleToggle } from './TeamStyleToggle'
 import { GlobalSearch } from './GlobalSearch'
 import { ComingSoonDialog } from './ComingSoonDialog'
 import { AiAssistantPanel } from './AiAssistantPanel'
@@ -173,12 +172,7 @@ export function AppShell() {
           to="/"
           className="tap flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
         >
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(160deg,var(--color-accent-blue),color-mix(in_oklab,var(--color-accent-blue)_55%,black))] font-mono text-[11px] text-white"
-          >
-            RIM
-          </span>
+          <AppMark />
           <span className="hidden max-w-[13rem] text-label-md leading-tight text-on-surface-variant xl:block">
             Rehoboth International Ministries
           </span>
@@ -187,8 +181,10 @@ export function AppShell() {
         <GlobalSearch />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <InstallAppBadge />
-          <TeamStyleToggle />
-          <ThemeToggle />
+          {/* Appearance and team colours are in the account menu, under
+              their own headings. They were here as well, which is two
+              homes for one switch and a header carrying controls most
+              people set once and never touch. */}
           <NotificationsBell />
           <AccountMenu initials={initials} onSignOut={() => setConfirmSignOut(true)} />
         </div>

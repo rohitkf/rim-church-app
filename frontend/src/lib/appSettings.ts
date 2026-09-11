@@ -23,6 +23,16 @@ export const appSettingsSchema = z.object({
   run_out_minutes: z.number().int().min(0).max(240),
   edit_grace_minutes: z.number().int().min(0).max(10080),
   board_clear_dow: z.number().int().min(0).max(6),
+  /*
+   * The mark at the top of every page, as a path in the `branding`
+   * bucket. Null means the app draws its own — see AppMark.
+   *
+   * It sits in this row with the clocks and windows because there is one
+   * of it and it belongs to the church, not because it is the same kind
+   * of setting: a trigger in the database keeps this column to the owner
+   * while the rest stays open to any Admin.
+   */
+  logo_url: z.string().nullable(),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -34,6 +44,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   run_out_minutes: 15,
   edit_grace_minutes: 60,
   board_clear_dow: 2,
+  logo_url: null,
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -42,7 +53,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, board_clear_dow',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, board_clear_dow, logo_url',
     )
     .maybeSingle()
   if (error) throw error

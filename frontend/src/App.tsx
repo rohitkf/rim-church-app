@@ -22,6 +22,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { ProfilePage } from './pages/ProfilePage'
 import {
   AccessSettingsPane,
+  AppLogoPane,
   ChurchSettingsPane,
   EraseDataPane,
   SendAlertPane,
@@ -105,6 +106,7 @@ const router = createBrowserRouter(
             <Route path="access" element={<AccessSettingsPane />} />
             <Route path="alerts" element={<SendAlertPane />} />
             <Route path="church" element={<ChurchSettingsPane />} />
+            <Route path="logo" element={<AppLogoPane />} />
             <Route path="data" element={<EraseDataPane />} />
           </Route>
           <Route path="/departments" element={<DepartmentsPage />} />
