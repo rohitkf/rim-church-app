@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { AppLogoCard } from './AppLogoCard'
+import { AppLogoCard, MAX_BYTES } from './AppLogoCard'
+
+// The canvas work has its own tests (lib/logoImage); JSDOM has no canvas
+// to run it in, so here it stands in as "the thing that hands back what
+// actually gets stored".
+const normalised = new Blob(['png'], { type: 'image/png' })
+vi.mock('../lib/logoImage', () => ({ normaliseLogo: () => Promise.resolve(normalised) }))
 
 const owner = vi.fn(() => true)
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isSuperAdmin: owner() }) }))
@@ -26,8 +32,8 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     storage: {
       from: () => ({
-        upload: (path: string, file: File) => {
-          uploaded(path, file.type)
+        upload: (path: string, body: Blob, options: { contentType: string }) => {
+          uploaded(path, options.contentType, body)
           return Promise.resolve({ error: null })
         },
         remove: (paths: string[]) => {
@@ -59,6 +65,13 @@ function show() {
 
 const png = (name = 'logo.png') => new File(['x'], name, { type: 'image/png' })
 
+/** A file that claims to be `size` bytes without being any. */
+const huge = (size: number) => {
+  const file = new File(['x'], 'poster-scan.png', { type: 'image/png' })
+  Object.defineProperty(file, 'size', { value: size })
+  return file
+}
+
 beforeEach(() => {
   owner.mockReturnValue(true)
   settings.mockReturnValue({ logo_url: null })
@@ -74,7 +87,8 @@ describe('the owner’s logo', () => {
     await user.upload(screen.getByLabelText('Logo image file'), png())
 
     await waitFor(() => expect(saved).toHaveBeenCalledWith({ logo_url: 'logo/fixed-id.png' }))
-    expect(uploaded).toHaveBeenCalledWith('logo/fixed-id.png', 'image/png')
+    // What is stored is the resized picture, not the file that was picked.
+    expect(uploaded).toHaveBeenCalledWith('logo/fixed-id.png', 'image/png', normalised)
   })
 
   /*
@@ -114,5 +128,32 @@ describe('the owner’s logo', () => {
     show()
     expect(screen.getByText(/owner’s to choose/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Upload/ })).toBeNull()
+  })
+
+  /*
+   * Thirty megabytes, said with a dialog. A line of red under the button
+   * is no good here: somebody who has just picked a file is watching the
+   * file picker close, not reading the page.
+   */
+  it('refuses a file over the limit, in a dialog, and uploads nothing', async () => {
+    const user = show()
+    await user.upload(screen.getByLabelText('Logo image file'), huge(MAX_BYTES + 1))
+
+    const said = await screen.findByRole('alertdialog', { name: /too big/i })
+    expect(within(said).getByText(/30/)).toBeInTheDocument()
+    expect(within(said).getByText(/poster-scan\.png/)).toBeInTheDocument()
+    expect(uploaded).not.toHaveBeenCalled()
+    expect(saved).not.toHaveBeenCalled()
+
+    await user.click(within(said).getByRole('button', { name: /Pick another/ }))
+    expect(screen.queryByRole('alertdialog', { name: /too big/i })).toBeNull()
+  })
+
+  it('takes one that is just inside it', async () => {
+    const user = show()
+    await user.upload(screen.getByLabelText('Logo image file'), huge(MAX_BYTES))
+
+    await waitFor(() => expect(saved).toHaveBeenCalled())
+    expect(screen.queryByRole('alertdialog', { name: /too big/i })).toBeNull()
   })
 })
