@@ -20,6 +20,23 @@ describe('the mark at the top of the page', () => {
   })
 
   /*
+   * The alignment bug this exists for. The mark used to be drawn into a
+   * 36-pixel *square*, so a wide wordmark fitted into it came out as an
+   * eight-pixel strip floating in the middle of the box — which is what
+   * "the logo doesn't line up with the rest of the nav" looked like.
+   * Height fixed and width free is the only measurement that holds for
+   * every shape somebody might upload.
+   */
+  it('stands the same height as everything else, whatever shape it is', () => {
+    logo.mockReturnValue({ path: 'logo/wide.png', url: 'https://signed/wide.png' })
+    render(<AppMark />)
+    const img = screen.getByRole('presentation', { hidden: true })
+    expect(img).toHaveClass('h-9')
+    expect(img).toHaveClass('w-auto')
+    expect(img.className).not.toMatch(/\bw-9\b/)
+  })
+
+  /*
    * The drawn tile is not a placeholder to be ashamed of — it is what
    * every church sees before it has thought about a logo, and what this
    * one goes back to the moment the owner takes theirs down.
