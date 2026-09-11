@@ -27,7 +27,7 @@ import { Select, selectPillClasses } from './Select'
  * its way back without asking anybody.
  */
 type NumberField = {
-  key: keyof Omit<AppSettings, 'always_show_my_services' | 'board_clear_dow'>
+  key: keyof Omit<AppSettings, 'always_show_my_services' | 'board_clear_dow' | 'logo_url'>
   label: string
   /** What the number means, in the words the pages themselves use. */
   help: string

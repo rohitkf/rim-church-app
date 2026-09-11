@@ -48,6 +48,16 @@ export const departmentMemberRowSchema = z.object({
       email: z.string(),
       phone: z.string().nullable(),
       avatar_url: z.string().nullable(),
+      /*
+       * Everyone on a team may see everyone's age — it is on profiles,
+       * which every signed-in person can already read, rather than in
+       * the sensitive row beside visas and DBS.
+       *
+       * Optional because this row is parsed from several selects and only
+       * the team page asks for the column; a page that does not need an
+       * age should not have to fetch one to satisfy a schema.
+       */
+      dob: z.string().nullable().optional(),
     })
     .nullable(),
 })

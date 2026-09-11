@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -24,6 +24,31 @@ vi.mock('../components/DepartmentRolesCard', () => ({
  * roles card render whatever the queries say — so one stub stands in for
  * all of them and resolves empty.
  */
+const MEMBER = {
+  id: 'm1',
+  department_id: 'd1',
+  user_id: 'u1',
+  member_type: 'core',
+  created_at: '2026-01-01T00:00:00Z',
+  profiles: {
+    id: 'u1',
+    first_name: 'Ada',
+    last_name: 'Grace',
+    email: 'ada@example.com',
+    phone: null,
+    avatar_url: null,
+    dob: '1990-03-14',
+  },
+}
+
+const GUEST = {
+  ...MEMBER,
+  id: 'm2',
+  user_id: 'u2',
+  member_type: 'guest',
+  profiles: { ...MEMBER.profiles, id: 'u2', first_name: 'Joel', last_name: 'Reji', dob: '2004-01-02' },
+}
+
 const DEPARTMENT = {
   id: 'd1',
   name: 'Media',
@@ -53,7 +78,14 @@ function stub(answer: unknown): unknown {
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
-    from: (table: string) => stub(table === 'departments' ? DEPARTMENT : []),
+    from: (table: string) =>
+      stub(
+        table === 'departments'
+          ? DEPARTMENT
+          : table === 'department_members'
+            ? [MEMBER, GUEST]
+            : [],
+      ),
     storage: { from: () => stub(null) },
   },
 }))
@@ -98,5 +130,36 @@ describe('where the Teams page puts its Roles', () => {
     // Node.compareDocumentPosition: FOLLOWING means the card comes after.
     expect(members.compareDocumentPosition(guests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(guests.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('what a team can see about each other', () => {
+  // An age is a moving number, so the day it is worked out from has to
+  // stand still or this test expires on somebody's birthday.
+  afterEach(() => vi.useRealTimers())
+
+
+  /*
+   * A roster that gives you a name and an email and not whether you are
+   * talking to a sixteen-year-old is a roster that makes people careful
+   * in the wrong ways. The date itself stays private — the age is the
+   * part that changes how you speak to somebody — and it comes off
+   * `profiles`, which every signed-in person could already read.
+   */
+  it('shows how old everybody is, core and guest alike', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-09-11T09:00:00Z'))
+
+    show()
+    // Two of each name: the roster is a table on a desk and a stack of
+    // cards on a phone, and both are in the document here.
+    await screen.findAllByText('Ada Grace')
+
+    // Ada was born in March 1990 and Joel in January 2004.
+    expect(screen.getAllByText('36').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('22').length).toBeGreaterThan(0)
+    // The guest gets one too — the point of putting ages on the page is
+    // that everybody on a team can see everybody.
+    expect(screen.getAllByText('Joel Reji').length).toBeGreaterThan(0)
   })
 })

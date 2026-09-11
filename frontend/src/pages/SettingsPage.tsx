@@ -5,6 +5,7 @@ import { AdminResetCard } from '../components/AdminResetCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { SendAlertCard } from '../components/SendAlertCard'
+import { AppLogoCard } from '../components/AppLogoCard'
 
 /**
  * Settings, in rooms rather than one long corridor.
@@ -52,6 +53,12 @@ const SECTIONS: SettingsSection[] = [
     label: 'App settings',
     blurb: 'The church’s own clocks and windows.',
     needs: 'admin',
+  },
+  {
+    to: '/settings/logo',
+    label: 'App logo',
+    blurb: 'The mark at the top of every page.',
+    needs: 'owner',
   },
   {
     to: '/settings/data',
@@ -137,6 +144,11 @@ export function SendAlertPane() {
 /** The church's clocks: rota window, lead-in, the day the board clears. */
 export function ChurchSettingsPane() {
   return <AppSettingsCard />
+}
+
+/** The church's own mark. Owner only, and the database agrees. */
+export function AppLogoPane() {
+  return <AppLogoCard />
 }
 
 /** The one that empties the diary. Owner only, and it says so itself. */
