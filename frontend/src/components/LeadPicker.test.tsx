@@ -83,10 +83,51 @@ describe('choosing who leads a session', () => {
     expect(control).toHaveTextContent('Guest')
   })
 
-  it('says where to go when nobody matches', async () => {
+  it('says where to go when nobody matches and this person cannot add one', async () => {
     render(<LeadPicker label="Who leads Message" options={options} value={null} onChange={vi.fn()} />)
     await open()
     await userEvent.type(screen.getByLabelText('Search people'), 'zzzz')
-    expect(screen.getByText(/Add a guest on the right/)).toBeInTheDocument()
+    expect(screen.getByText(/An Admin can add them/)).toBeInTheDocument()
+  })
+
+  /*
+   * The dead end this replaces: "Nobody by that name. Add a guest on the
+   * right if they don't have an account" asked somebody who was holding a
+   * name, mid-assignment, to go elsewhere, do a second job and come back.
+   */
+  it('offers to put the typed name on the guest list, and assigns them', async () => {
+    const onChange = vi.fn()
+    const onAddGuest = vi.fn().mockResolvedValue({ kind: 'guest', id: 'new-guest' })
+    render(
+      <LeadPicker
+        label="Who leads Message"
+        options={options}
+        value={null}
+        onChange={onChange}
+        onAddGuest={onAddGuest}
+      />,
+    )
+    await open()
+    await userEvent.type(screen.getByLabelText('Search people'), 'Xavier')
+
+    await userEvent.click(screen.getByRole('button', { name: /Add “Xavier” as a guest/ }))
+
+    expect(onAddGuest).toHaveBeenCalledWith('Xavier')
+    // Added and put on the session in one press, which is the whole point.
+    expect(onChange).toHaveBeenCalledWith({ kind: 'guest', id: 'new-guest' })
+  })
+
+  it('does not offer to add an empty name', async () => {
+    render(
+      <LeadPicker
+        label="Who leads Message"
+        options={[]}
+        value={null}
+        onChange={vi.fn()}
+        onAddGuest={vi.fn()}
+      />,
+    )
+    await open()
+    expect(screen.queryByRole('button', { name: /as a guest/ })).toBeNull()
   })
 })

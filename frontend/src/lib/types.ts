@@ -151,7 +151,17 @@ export const serviceSessionRowSchema = z.object({
   held_at: z.string().nullable().optional(),
   updated_at: z.string(),
   assignee: personSummarySchema.nullable(),
-  guest: z.object({ id: z.string(), name: z.string(), note: z.string().nullable() }).nullable().optional(),
+  // The guest taking this session, off the church's roll. The title is
+  // part of the name wherever it is printed — see lib/guests.
+  guest: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      title: z.string().nullable().optional(),
+      note: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
 })
 export type ServiceSessionRow = z.infer<typeof serviceSessionRowSchema>
 
