@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 export interface LeadOption {
-  /** 'member' ids are profile ids; 'guest' ids are service_guests ids. */
+  /** 'member' ids are profile ids; 'guest' ids are rows on the guest roll. */
   kind: 'member' | 'guest'
   id: string
   name: string
@@ -32,12 +32,23 @@ export function LeadPicker({
   options,
   onChange,
   label,
+  onAddGuest,
 }: {
   value: LeadValue | null
   options: LeadOption[]
   onChange: (next: LeadValue | null) => void
   label: string
+  /**
+   * Put the name that was just typed on the guest roll, and hand back who
+   * it became so this picker can assign them on the spot.
+   *
+   * Left out for anybody who may not add one, which is what makes the row
+   * appear only for the people it would work for. See the row itself for
+   * why it exists at all.
+   */
+  onAddGuest?: (name: string) => Promise<LeadValue | null>
 }) {
+  const [adding, setAdding] = useState(false)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlighted, setHighlighted] = useState(0)
@@ -71,6 +82,30 @@ export function LeadPicker({
     onChange(option ? { kind: option.kind, id: option.id } : null)
     setOpen(false)
     setQuery('')
+  }
+
+  /*
+   * The name in the box is a person nobody has heard of.
+   *
+   * Which used to be the end of the road: "Nobody by that name. Add a
+   * guest on the right if they don't have an account" — a sentence that
+   * asks somebody mid-assignment to go somewhere else, do a second job,
+   * and come back. They are already holding the name. This takes it.
+   */
+  async function addTypedName() {
+    const name = query.trim()
+    if (!onAddGuest || !name || adding) return
+    setAdding(true)
+    try {
+      const made = await onAddGuest(name)
+      if (made) {
+        onChange(made)
+        setOpen(false)
+        setQuery('')
+      }
+    } finally {
+      setAdding(false)
+    }
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -204,9 +239,28 @@ export function LeadPicker({
             )}
             {guests.map(row)}
 
-            {matches.length === 0 && (
+            {matches.length === 0 && onAddGuest && query.trim() && (
+              <li>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={addTypedName}
+                  disabled={adding}
+                  className="flex w-full flex-col items-start rounded-[var(--radius-row)] bg-secondary/10 px-3 py-2.5 text-left disabled:opacity-60"
+                >
+                  <span className="break-words text-body-sm text-on-surface">
+                    {adding ? 'Adding…' : `Add “${query.trim()}” as a guest`}
+                  </span>
+                  <span className="text-label-sm text-on-surface-faint">
+                    Goes on the guest list for next time too
+                  </span>
+                </button>
+              </li>
+            )}
+
+            {matches.length === 0 && !(onAddGuest && query.trim()) && (
               <li className="px-3 py-3 text-body-sm text-on-surface-variant">
-                Nobody by that name. Add a guest on the right if they don&rsquo;t have an account.
+                Nobody by that name. An Admin can add them to the guest list on Volunteers.
               </li>
             )}
           </ul>

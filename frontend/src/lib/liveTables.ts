@@ -58,7 +58,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'service',
     ],
   },
-  { table: 'service_guests', keys: ['service-guests'] },
+  { table: 'guests', keys: ['guests'] },
   { table: 'set_list_items', keys: ['set-list-items'] },
   { table: 'church_events', keys: ['church-events'] },
   { table: 'service_templates', keys: ['service-templates'] },

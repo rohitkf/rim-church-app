@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, PageHeader } from '../components/Surface'
+import { GuestRollCard } from '../components/GuestRollCard'
 import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
 import { InvitationHistory } from '../components/InvitationHistory'
 import { InviteDialog } from '../components/InviteDialog'
@@ -652,6 +653,13 @@ export function VolunteersPage() {
           is for, and a mostly-settled list of invitations should not stand
           between somebody and it. The counts show while it is closed, so a
           stale invitation still announces itself. */}
+      {/* The people who help without an account, kept once rather than
+          retyped into every service. Here because this is the page about
+          who helps — they are simply the ones who have not signed up. */}
+      <div className="mt-8">
+        <GuestRollCard />
+      </div>
+
       <div className="mt-8">
         <InvitationHistory />
       </div>

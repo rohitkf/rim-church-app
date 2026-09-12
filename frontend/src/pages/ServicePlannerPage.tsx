@@ -9,7 +9,7 @@ import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
 import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
 import { useAppSettings } from '../lib/appSettings'
-import { ServiceGuestsPanel, fetchServiceGuests } from '../components/ServiceGuestsPanel'
+import { GUESTS_KEY, addGuest, fetchGuests, guestLabel, pickable } from '../lib/guests'
 import { GrowingField } from '../components/GrowingField'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
@@ -60,7 +60,7 @@ async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
   const { data, error } = await supabase
     .from('service_sessions')
     .select(
-      '*, assignee:profiles!service_sessions_assigned_user_id_fkey(id, first_name, last_name), guest:service_guests(id, name, note)',
+      '*, assignee:profiles!service_sessions_assigned_user_id_fkey(id, first_name, last_name), guest:guests(id, name, title, note)',
     )
     .eq('service_id', serviceId)
     .order('order_index')
@@ -408,11 +408,9 @@ export function ServicePlannerPage() {
     (n, session) => n + (session.skipped_at ? 0 : runsForMinutes(session)),
     0,
   )
-  const guestsQuery = useQuery({
-    queryKey: ['service-guests', serviceId],
-    queryFn: () => fetchServiceGuests(serviceId!),
-    enabled: !!serviceId,
-  })
+  // The church's guest roll, not this service's: whoever came last month
+  // is who you are most likely to be naming now.
+  const guestsQuery = useQuery({ queryKey: GUESTS_KEY, queryFn: fetchGuests })
 
   // The clock, re-read on a timer so a service that ends while the page is
   // open locks itself rather than waiting for a reload.
@@ -474,10 +472,10 @@ export function ServicePlannerPage() {
         id: p.id,
         name: `${p.first_name} ${p.last_name}`,
       })),
-      ...(guestsQuery.data ?? []).map((g) => ({
+      ...pickable(guestsQuery.data ?? []).map((g) => ({
         kind: 'guest' as const,
         id: g.id,
-        name: g.name,
+        name: guestLabel(g),
         note: g.note,
       })),
     ],
@@ -522,7 +520,7 @@ export function ServicePlannerPage() {
         minutes: runsForMinutes(session),
         name: session.session_name,
         lead: session.guest
-          ? session.guest.name
+          ? guestLabel(session.guest)
           : session.assignee
             ? `${session.assignee.first_name} ${session.assignee.last_name}`
             : null,
@@ -1318,6 +1316,17 @@ export function ServicePlannerPage() {
                                           ? { kind: 'guest', id: session.guest_id }
                                           : null
                                     }
+                                    onAddGuest={
+                                      isAdmin
+                                        ? async (name) => {
+                                            const made = await addGuest({ name })
+                                            await queryClient.invalidateQueries({
+                                              queryKey: GUESTS_KEY,
+                                            })
+                                            return { kind: 'guest', id: made.id }
+                                          }
+                                        : undefined
+                                    }
                                     onChange={(next) =>
                                       updateField.mutate({
                                         id: session.id,
@@ -1335,7 +1344,7 @@ export function ServicePlannerPage() {
                                   />
                                 ) : session.guest ? (
                                   <AssigneePill
-                                    name={session.guest.name}
+                                    name={guestLabel(session.guest)}
                                     initials={session.guest.name
                                       .split(' ')
                                       .map((part) => part.slice(0, 1))
@@ -1512,9 +1521,6 @@ export function ServicePlannerPage() {
                 </Panel>
               )}
 
-              {/* Under Needs attention, because a missing guest is one of
-                  the things that puts a session there. */}
-              {serviceId && <ServiceGuestsPanel serviceId={serviceId} canManage={canEdit} />}
             </div>
           </div>
         </QueryState>
