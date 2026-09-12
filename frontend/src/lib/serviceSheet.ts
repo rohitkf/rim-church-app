@@ -165,6 +165,17 @@ const FOOTER_SIZE = 9.5
 const PILL_PAD = 12
 const PILL_GAP = 9
 const AVATAR = 13
+/*
+ * How far the initials disc sits from the edge of its pill.
+ *
+ * The same on the left as above and below, which is the whole point of
+ * it: the disc had the text's padding — twelve — while standing four from
+ * the top and four from the bottom, so it floated in from the rounded end
+ * with a gap in front of it and read as a spacing mistake, which it was.
+ * Four puts it concentric with the end of a one-line pill, which is how
+ * the app's own AssigneePill has always drawn it (`py-1.5 pl-1.5`).
+ */
+const AVATAR_INSET = 4
 
 /**
  * `page` keeps A4, which is what a printed PDF wants. `content` ends the
@@ -272,11 +283,16 @@ export function serviceSheetPage(
     const innerW = rowW - ROW_PAD_X * 2
     const nameLines = wrapText(session.name, NAME_SIZE, innerW)
 
-    const leadTextW = innerW - PILL_PAD * 2 - (lead ? AVATAR * 2 + PILL_GAP : 0)
+    // A pill with a disc in it starts at the disc's inset; one with only
+    // words in it starts at the text's own padding. Both end at the
+    // text's padding, so the words are never crowded against the edge.
+    const padLeft = lead ? AVATAR_INSET : PILL_PAD
+    const discW = lead ? AVATAR * 2 + PILL_GAP : 0
+    const leadTextW = innerW - padLeft - PILL_PAD - discW
     const leadLines = wrapText(leadText, LEAD_SIZE, Math.max(leadTextW, 60))
     const leadW = Math.max(...leadLines.map((line) => textWidth(line, LEAD_SIZE, false)))
-    const pillW = (lead ? AVATAR * 2 + PILL_GAP : 0) + PILL_PAD * 2 + leadW
-    const pillH = Math.max(AVATAR * 2 + 8, leadLines.length * LEAD_LINE + 12)
+    const pillW = padLeft + discW + leadW + PILL_PAD
+    const pillH = Math.max(AVATAR * 2 + AVATAR_INSET * 2, leadLines.length * LEAD_LINE + 12)
 
     // What the row hangs from: the first line of the name, so the clock
     // beside it and the dot on the rail line up with the words rather
@@ -338,10 +354,10 @@ export function serviceSheetPage(
     })
     const pillMid = pillTop + pillH / 2
     if (lead) {
-      circles.push({ cx: pillX + PILL_PAD + AVATAR, cy: pillMid, r: AVATAR, color: AVATAR_DISC })
+      circles.push({ cx: pillX + padLeft + AVATAR, cy: pillMid, r: AVATAR, color: AVATAR_DISC })
       const ini = initialsOf(lead)
       texts.push({
-        x: pillX + PILL_PAD + AVATAR - textWidth(ini, 9, false, true) / 2,
+        x: pillX + padLeft + AVATAR - textWidth(ini, 9, false, true) / 2,
         y: pillMid + 3.5,
         size: 9,
         text: ini,
@@ -352,7 +368,7 @@ export function serviceSheetPage(
     let leadY = pillMid - ((leadLines.length - 1) * LEAD_LINE) / 2 + 4.5
     for (const line of leadLines) {
       texts.push({
-        x: pillX + PILL_PAD + (lead ? AVATAR * 2 + PILL_GAP : 0),
+        x: pillX + padLeft + discW,
         y: leadY,
         size: LEAD_SIZE,
         text: line,

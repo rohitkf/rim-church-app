@@ -304,3 +304,63 @@ describe('serviceSheetPage', () => {
     })
   })
 })
+
+describe('the pill that names who is leading', () => {
+  /**
+   * The disc, and the pill it sits in, for the first session on a sheet.
+   *
+   * The pill is the smallest box the disc is inside: the card behind it
+   * and the page behind that both contain it too, and either of those
+   * would make this measure something other than what it is about.
+   */
+  function firstPill(page: ReturnType<typeof serviceSheetPage>) {
+    const disc = page.circles?.find((c) => c.r > 8)
+    const pill = page.rects
+      .filter(
+        (r) =>
+          disc &&
+          r.x <= disc.cx &&
+          r.x + r.w >= disc.cx &&
+          r.y <= disc.cy &&
+          r.y + r.h >= disc.cy,
+      )
+      .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+    return { disc, pill }
+  }
+
+  /*
+   * The reported fault: the initials disc carried the text's padding —
+   * twelve — while standing four from the top and four from the bottom,
+   * so it floated in from the rounded end of its pill with a gap in front
+   * of it. Even on all three sides is the only thing that reads as
+   * deliberate, and it is what the app's own AssigneePill does.
+   */
+  it('insets the disc from the left by what it insets it from the top', () => {
+    const page = serviceSheetPage(sheet())
+    const { disc, pill } = firstPill(page)
+    expect(disc).toBeDefined()
+    expect(pill).toBeDefined()
+    if (!disc || !pill) return
+
+    const left = disc.cx - disc.r - pill.x
+    const top = disc.cy - disc.r - pill.y
+    const bottom = pill.y + pill.h - (disc.cy + disc.r)
+
+    expect(top).toBeCloseTo(bottom, 5)
+    expect(left).toBeCloseTo(top, 5)
+  })
+
+  it('still leaves the name room to breathe on the right', () => {
+    // The disc moving left must not drag the words against the edge: the
+    // text keeps its own padding at the far end.
+    const page = serviceSheetPage(sheet())
+    const { disc, pill } = firstPill(page)
+    const name = page.texts.find((t) => t.text === 'Ama Serwaa')
+    expect(name).toBeDefined()
+    if (!disc || !pill || !name) return
+
+    expect(name.x).toBeGreaterThan(disc.cx + disc.r)
+    expect(pill.x + pill.w - name.x).toBeGreaterThan(textWidth(name.text, name.size, false))
+  })
+})
+
