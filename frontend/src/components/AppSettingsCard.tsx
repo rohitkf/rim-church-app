@@ -15,6 +15,27 @@ import {
 import { Select, selectPillClasses } from './Select'
 
 /**
+ * A few zones to pick from without typing. Free text underneath, because
+ * a list of the ones we thought of is a list somebody's church is missing
+ * from — and the database checks the name against its own tz database
+ * either way.
+ */
+const TIMEZONES = [
+  'Europe/London',
+  'Europe/Dublin',
+  'Europe/Berlin',
+  'America/New_York',
+  'America/Chicago',
+  'America/Los_Angeles',
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Africa/Lagos',
+  'Africa/Nairobi',
+  'Australia/Sydney',
+  'UTC',
+]
+
+/**
  * The windows the app works to, in one place an Admin can change.
  *
  * Every field here used to be a number in the source. They are grouped by
@@ -27,7 +48,10 @@ import { Select, selectPillClasses } from './Select'
  * its way back without asking anybody.
  */
 type NumberField = {
-  key: keyof Omit<AppSettings, 'always_show_my_services' | 'board_clear_dow' | 'logo_url'>
+  key: keyof Omit<
+    AppSettings,
+    'always_show_my_services' | 'board_clear_dow' | 'logo_url' | 'timezone' | 'availability_closes_time'
+  >
   label: string
   /** What the number means, in the words the pages themselves use. */
   help: string
@@ -229,6 +253,71 @@ export function AppSettingsCard() {
                 <span className="font-mono text-label-sm text-on-surface-faint">
                   Message board · Service Planner’s Finished list · default{' '}
                   {WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]}, two days after Sunday
+                </span>
+              </label>
+            </div>
+
+            {/*
+              When an answer is due, and on whose clock.
+              
+              These two belong together: "23:59" is not a moment until
+              somebody says where, and the database enforces the same pair
+              (0092) — so a church that moves its deadline and a church
+              that moves country change the same two fields.
+            */}
+            <div className="rounded-[var(--radius-chip)] bg-surface-container p-4">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <h3 className="text-body-md font-medium text-on-surface">Availability closes</h3>
+              </div>
+              <p className="mt-1 text-label-md text-on-surface-faint">
+                The last moment somebody can say whether they can serve.
+              </p>
+
+              <label className="mt-3 flex flex-col gap-1">
+                <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
+                  The night before, at
+                  <input
+                    type="time"
+                    value={draft.availability_closes_time.slice(0, 5)}
+                    onChange={(e) => set('availability_closes_time', `${e.target.value}:00`)}
+                    aria-label="Time availability closes"
+                    className="rounded-full bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
+                  />
+                </span>
+                <span className="text-label-md text-on-surface-variant">
+                  Answers for a Sunday service are due the Saturday night; a Saturday service
+                  closes on the Friday. After this only an Admin or the team&rsquo;s head can
+                  change an answer — and if somebody marks themselves unavailable before it, the
+                  role they were on goes back to unassigned and both heads are told.
+                </span>
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  Availability Tracker · default 23:59
+                </span>
+              </label>
+
+              <label className="mt-4 flex flex-col gap-1">
+                <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
+                  On the clock in
+                  <input
+                    type="text"
+                    value={draft.timezone}
+                    onChange={(e) => set('timezone', e.target.value)}
+                    aria-label="Church timezone"
+                    list="church-timezones"
+                    className="rounded-full bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
+                  />
+                  <datalist id="church-timezones">
+                    {TIMEZONES.map((zone) => (
+                      <option key={zone} value={zone} />
+                    ))}
+                  </datalist>
+                </span>
+                <span className="text-label-md text-on-surface-variant">
+                  An IANA name, so summer time looks after itself. The database refuses one it has
+                  never heard of rather than storing a typo that would break the deadline.
+                </span>
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  Availability Tracker · default Europe/London
                 </span>
               </label>
             </div>

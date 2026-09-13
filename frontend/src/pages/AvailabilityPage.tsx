@@ -18,6 +18,7 @@ import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
+import { availabilityClosesAt } from '../lib/availabilityDeadline'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import {
   availabilityWindowDays,
@@ -114,7 +115,7 @@ export function AvailabilityPage() {
   // A service that has happened can no longer be answered for, so it drops
   // below the ones that still need an answer rather than sitting at the top
   // of the page asking for something nobody can give.
-  const { isFinished, startsAt, hasStarted } = useFinishedServices(candidates.map((s) => s.id))
+  const { isFinished } = useFinishedServices(candidates.map((s) => s.id))
   /*
    * `isExpanded` here means "toggled away from what this service does on
    * its own", not "open": what opens by default depends on which group a
@@ -176,8 +177,9 @@ export function AvailabilityPage() {
   })
   const callTimes = useMemo(() => callTimesQuery.data ?? [], [callTimesQuery.data])
 
-  // Recomputed on a timer, so the buttons appear while somebody is
-  // looking at the page rather than on the next reload.
+  // Recomputed on a timer, so the present/no-show buttons appear — and a
+  // deadline that passes while somebody is looking at the page closes
+  // itself — rather than waiting for the next reload.
   const now = useNow()
 
   const { live, finished } = useMemo(
@@ -327,21 +329,25 @@ export function AvailabilityPage() {
   const renderService = (service: (typeof upcoming)[number], inNowGroup: boolean) => {
     const finished = isFinished(service.id)
     /*
-     * When a volunteer's own answer is due.
+     * When a volunteer's own answer is due: the night before, at the
+     * time the church has set.
      *
      * "Can you serve on Sunday?" is asked in advance so a rota can be
-     * built from the answers; it stops being a question the moment the
-     * doors open. Somebody changing their yes to a no from the car park
-     * is not answering — they are telling the head something, and the
-     * head has already built the morning around it.
+     * built out of the answers, and it used to stay open until the
+     * service itself began — so a no at 09:59 for a service at 10:00 was
+     * in time, which is not a deadline but the moment the head is already
+     * in the hall counting heads.
      *
-     * The database says the same (0088), so this is not the rule, only
+     * The database says the same (0092), so this is not the rule, only
      * the page's way of saying it before somebody taps a button that
-     * would bounce. A service with nothing planned has no start to have
-     * passed, and stays open.
+     * would bounce.
      */
-    const answersClose = startsAt(service.id)
-    const answersClosed = hasStarted(service.id)
+    const answersClose = availabilityClosesAt(
+      service.date,
+      settings.availability_closes_time,
+      settings.timezone,
+    )
+    const answersClosed = answersClose.getTime() <= now
     // What opens itself, and what somebody has since touched. A service
     // is open when those two disagree: the ones needing an answer now
     // start open and close on a touch; a finished one, or one three
@@ -554,9 +560,9 @@ export function AvailabilityPage() {
                 to know whether they still have twenty minutes, and the
                 answer changes while they read it.
               */}
-              {canAnswer && !finished && !answersClosed && answersClose && (
+              {canAnswer && !finished && !answersClosed && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
-                  <ServiceCountdown startsAt={answersClose} label="left to answer" />
+                  <ServiceCountdown startsAt={answersClose.toISOString()} label="left to answer" />
                 </p>
               )}
 
@@ -566,8 +572,8 @@ export function AvailabilityPage() {
               {canAnswer && answersClosed && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
                   {mine
-                    ? `Answers closed when the service started — you said ${statusLabel[mine].toLowerCase()}. `
-                    : 'Answers closed when the service started. '}
+                    ? `Answers closed the night before — you said ${statusLabel[mine].toLowerCase()}. `
+                    : 'Answers closed the night before. '}
                   Ask your team head or an Admin if this needs putting right.
                 </p>
               )}

@@ -33,6 +33,16 @@ export const appSettingsSchema = z.object({
    * while the rest stays open to any Admin.
    */
   logo_url: z.string().nullable(),
+  /*
+   * Where the church is, and when an answer is due.
+   *
+   * "23:59" is not a moment until somebody says where — and the database
+   * enforces the same deadline (0092), so the page and the policy have to
+   * read it off the same row or they will disagree by an hour twice a
+   * year.
+   */
+  timezone: z.string(),
+  availability_closes_time: z.string(),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -45,6 +55,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   edit_grace_minutes: 60,
   board_clear_dow: 2,
   logo_url: null,
+  timezone: 'Europe/London',
+  availability_closes_time: '23:59:00',
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -53,7 +65,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, board_clear_dow, logo_url',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, board_clear_dow, logo_url, timezone, availability_closes_time',
     )
     .maybeSingle()
   if (error) throw error
