@@ -46,6 +46,12 @@ export const LIVE_TABLES: LiveTable[] = [
     ],
   },
   {
+    // An ask to change an answer after the deadline, and the head's
+    // answer to it — two screens that have to agree.
+    table: 'availability_change_requests',
+    keys: ['availability-requests', 'availability', 'rota'],
+  },
+  {
     // Who is taking each session. Its own table since a session can be
     // shared, so a name going on one is a row here rather than a change
     // to the session itself.

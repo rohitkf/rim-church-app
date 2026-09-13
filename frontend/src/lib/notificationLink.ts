@@ -22,6 +22,8 @@ export const NOTIFICATION_TYPES = [
   'team_poll',
   'mention',
   'rota_dropout',
+  'availability_change_request',
+  'availability_change_decision',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -49,6 +51,14 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
+  availability_change_request: {
+    label: 'Somebody is asking to change their answer',
+    href: '/availability',
+  },
+  availability_change_decision: {
+    label: 'Your request to change your answer was answered',
+    href: '/availability',
+  },
 }
 
 function known(type: string): NotificationType | null {

@@ -24,6 +24,8 @@ const state = vi.hoisted(() => ({
   rows: {} as Record<string, unknown[]>,
   /** When each service begins, ISO — absent when nothing is planned. */
   starts: {} as Record<string, string>,
+  /** Everything the page wrote, in order. */
+  written: [] as { table: string; row: unknown; id?: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -65,8 +67,27 @@ vi.mock('../lib/queries', () => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
-      select: () => ({
-        in: () => Promise.resolve({ data: state.rows[table] ?? [], error: null }),
+      select: () => {
+        const rows = Promise.resolve({ data: state.rows[table] ?? [], error: null })
+        // `.in(...)` is where every read on this page ends, except the
+        // change requests, which also ask for an order.
+        return { in: () => Object.assign(rows, { order: () => rows }) }
+      },
+      insert: (row: unknown) => {
+        state.written.push({ table, row })
+        return Promise.resolve({ error: null })
+      },
+      update: (row: unknown) => ({
+        eq: (_column: string, id: string) => {
+          state.written.push({ table, row, id })
+          return Promise.resolve({ error: null })
+        },
+      }),
+      delete: () => ({
+        eq: (_column: string, id: string) => {
+          state.written.push({ table, row: null, id })
+          return Promise.resolve({ error: null })
+        },
       }),
     }),
   },
@@ -101,6 +122,7 @@ beforeEach(() => {
   state.leads = false
   state.rows = {}
   state.starts = {}
+  state.written = []
 })
 
 /*
@@ -305,15 +327,78 @@ describe('answering closes the night before', () => {
     expect(answerGroup(cardFor(/Today/))).toBeNull()
   })
 
-  it('says why, and who to ask', async () => {
+  it('says so, and offers the way through it', async () => {
     standAt(`${SUNDAY}T09:59:00`)
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
     const today = cardFor(/Today/) as HTMLElement
-    expect(within(today).getByText(/Answers closed the night before/)).toBeInTheDocument()
-    // A change of plan after this is a conversation, not a button.
-    expect(within(today).getByText(/team head or an Admin/)).toBeInTheDocument()
+    expect(within(today).getByText(/Answers have closed/)).toBeInTheDocument()
+    // The door is shut, not walled up: a late change is asked for.
+    expect(within(today).getByRole('button', { name: 'Ask to change it' })).toBeInTheDocument()
+  })
+
+  /*
+   * The whole shape of the late change: the member asks, and nothing about
+   * their answer moves until a head says yes. What is written here is a
+   * request — never the availability row, which by now the database
+   * refuses to take from them anyway.
+   */
+  it('sends a request rather than changing the answer', async () => {
+    standAt(`${SUNDAY}T09:59:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+    const today = cardFor(/Today/) as HTMLElement
+
+    await userEvent.click(within(today).getByRole('button', { name: 'Ask to change it' }))
+    await userEvent.click(within(today).getByRole('radio', { name: /No, I can't make it/ }))
+    await userEvent.type(
+      within(today).getByLabelText('Why you need to change your answer'),
+      'My daughter is ill',
+    )
+    await userEvent.click(within(today).getByRole('button', { name: 'Send the request' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].table).toBe('availability_change_requests')
+    expect(state.written[0].row).toMatchObject({
+      service_id: 's1',
+      department_id: 'd1',
+      requested_status: 'unavailable',
+      reason: 'My daughter is ill',
+    })
+  })
+
+  it('shows the head the asks waiting on them, and approves one', async () => {
+    state.leads = true
+    state.rows.availability_change_requests = [
+      {
+        id: 'r1',
+        user_id: 'u2',
+        service_id: 's1',
+        department_id: 'd1',
+        requested_status: 'unavailable',
+        reason: 'Car will not start',
+        status: 'pending',
+        decided_by: null,
+        decided_at: null,
+        decision_note: null,
+        created_at: `${SUNDAY}T07:00:00Z`,
+        asker: { id: 'u2', first_name: 'Blessy', last_name: 'Jijin' },
+      },
+    ]
+    standAt(`${SUNDAY}T09:59:00`)
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+    const today = cardFor(/Today/) as HTMLElement
+
+    expect(within(today).getByText(/Blessy Jijin/)).toBeInTheDocument()
+    expect(within(today).getByText(/Car will not start/)).toBeInTheDocument()
+
+    await userEvent.click(within(today).getAllByRole('button', { name: 'Approve' })[0])
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].id).toBe('r1')
+    expect(state.written[0].row).toMatchObject({ status: 'approved' })
   })
 
   it('counts down to it, because a deadline nobody can see surprises people', async () => {
