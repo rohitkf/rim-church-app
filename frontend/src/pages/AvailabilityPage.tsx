@@ -38,6 +38,17 @@ import {
   type DepartmentMemberRow,
 } from '../lib/types'
 import { Select } from '../components/Select'
+import { AskToChangeAnswer, LateAnswerQueue } from '../components/LateAnswerRequest'
+import {
+  AVAILABILITY_REQUESTS_KEY,
+  askToChangeAnswer,
+  decideAvailabilityRequest,
+  fetchAvailabilityRequests,
+  pendingFor,
+  pendingOn,
+  settledFor,
+  withdrawAvailabilityRequest,
+} from '../lib/availabilityRequests'
 
 /**
  * Three answers, one tap.
@@ -244,6 +255,71 @@ export function AvailabilityPage() {
   const canAnswer = !isAdmin
   const [overrideError, setOverrideError] = useState<string | null>(null)
 
+  /*
+   * The asks that are waiting on somebody, and the ones already answered.
+   *
+   * RLS decides what comes back: your own, plus everything on a team you
+   * lead. So the same query serves the member asking and the head
+   * answering, and neither sees anything that is not theirs.
+   */
+  const requestsQuery = useQuery({
+    queryKey: [...AVAILABILITY_REQUESTS_KEY, upcoming.map((s) => s.id).join(',')],
+    queryFn: () => fetchAvailabilityRequests(upcoming.map((s) => s.id)),
+    enabled: upcoming.length > 0,
+  })
+  const requests = requestsQuery.data ?? []
+  const refreshRequests = () =>
+    queryClient.invalidateQueries({ queryKey: AVAILABILITY_REQUESTS_KEY })
+
+  const askForChange = useMutation({
+    mutationFn: (fields: {
+      serviceId: string
+      departmentId: string
+      status: AvailabilityStatus
+      reason: string
+    }) =>
+      askToChangeAnswer({
+        userId: myId!,
+        serviceId: fields.serviceId,
+        departmentId: fields.departmentId,
+        status: fields.status,
+        reason: fields.reason,
+      }),
+    onSuccess: () => {
+      setOverrideError(null)
+      return refreshRequests()
+    },
+    onError: (err: unknown) => setOverrideError(errorText(err, 'Could not send that request.')),
+  })
+
+  const withdrawRequest = useMutation({
+    mutationFn: (id: string) => withdrawAvailabilityRequest(id),
+    onSuccess: refreshRequests,
+    onError: (err: unknown) => setOverrideError(errorText(err, 'Could not take that back.')),
+  })
+
+  /*
+   * A head's yes is what writes the answer — a trigger does it, because by
+   * now nobody may write that row by hand. So this invalidates the
+   * answers as well as the asks.
+   */
+  const decideRequest = useMutation({
+    mutationFn: (fields: { id: string; approve: boolean; note: string }) =>
+      decideAvailabilityRequest({
+        id: fields.id,
+        approve: fields.approve,
+        decidedBy: myId!,
+        note: fields.note,
+      }),
+    onSuccess: () => {
+      setOverrideError(null)
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
+      queryClient.invalidateQueries({ queryKey: ['rota'] })
+      return refreshRequests()
+    },
+    onError: (err: unknown) => setOverrideError(errorText(err, 'Could not answer that request.')),
+  })
+
   const setAvailability = useMutation({
     mutationFn: async ({
       serviceId,
@@ -362,6 +438,28 @@ export function AvailabilityPage() {
                 Finished · closed
               </span>
             )}
+            {/*
+              The deadline, on the card rather than inside a team.
+
+              It was written under each team's buttons, which is the one
+              place it cannot be read from: it only appears once the card
+              is open, once per team, and below the thing it is a deadline
+              for. A volunteer scanning the page wants one answer — how
+              long have I got — and it belongs beside the service's name.
+              It is a clock rather than a date on purpose: on the morning
+              itself, the question is whether there are twenty minutes
+              left, and that changes while you read it.
+            */}
+            {!finished &&
+              (answersClosed ? (
+                <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                  Answers closed
+                </span>
+              ) : (
+                <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">
+                  <ServiceCountdown startsAt={answersClose.toISOString()} label="to answer" />
+                </span>
+              ))}
             <Chevron open={open} />
           </span>
         </div>
@@ -566,16 +664,43 @@ export function AvailabilityPage() {
                 </p>
               )}
 
-              {/* And what it means once it has run out. Said plainly, with
-                  the way out named — a change of plan after this is a
-                  conversation, not a button. */}
-              {canAnswer && answersClosed && (
+              {/* And what happens once it has run out: the answer is no
+                  longer yours to change, but it is still yours to ask
+                  about. A head's yes is what moves it. */}
+              {canAnswer && answersClosed && !finished && (
+                <AskToChangeAnswer
+                  answered={mine}
+                  pending={pendingFor(requests, myId!, service.id, dept.id)}
+                  settled={settledFor(requests, myId!, service.id, dept.id)}
+                  busy={askForChange.isPending || withdrawRequest.isPending}
+                  onAsk={(status, reason) =>
+                    askForChange.mutate({
+                      serviceId: service.id,
+                      departmentId: dept.id,
+                      status,
+                      reason,
+                    })
+                  }
+                  onWithdraw={(id) => withdrawRequest.mutate(id)}
+                />
+              )}
+
+              {canAnswer && answersClosed && finished && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
                   {mine
-                    ? `Answers closed the night before — you said ${statusLabel[mine].toLowerCase()}. `
-                    : 'Answers closed the night before. '}
-                  Ask your team head or an Admin if this needs putting right.
+                    ? `Answers closed the night before — you said ${statusLabel[mine].toLowerCase()}.`
+                    : 'Answers closed the night before.'}
                 </p>
+              )}
+
+              {/* The asks waiting on whoever leads this team. Admins see
+                  them too, since they can already correct any answer. */}
+              {(leads || isAdmin) && (
+                <LateAnswerQueue
+                  requests={pendingOn(requests, service.id, dept.id)}
+                  busy={decideRequest.isPending}
+                  onDecide={(id, approve, note) => decideRequest.mutate({ id, approve, note })}
+                />
               )}
 
               {leads && teamMembers.length > 0 && (
