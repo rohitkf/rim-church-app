@@ -80,6 +80,51 @@ describe('InviteDialog', () => {
     expect(sentBody().department_id).toBe('d1')
   })
 
+  /*
+   * Core and guest are not a label: availability is counted against the
+   * core, and so is the readiness ring. A visiting sound engineer invited
+   * as core quietly tells Audio it is a person down every Sunday they are
+   * not there.
+   */
+  it('asks core or guest once there is a team to join, and not before', async () => {
+    const { user } = show({ departments: [team('d1', 'Media')] })
+    expect(screen.queryByRole('combobox', { name: 'On the team as' })).toBeNull()
+
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'Media' }))
+
+    expect(screen.getByRole('combobox', { name: 'On the team as' })).toBeInTheDocument()
+  })
+
+  it('carries guest when guest is chosen', async () => {
+    const { user } = show({ departments: [team('d1', 'Media')] })
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'Media' }))
+
+    await user.click(screen.getByRole('combobox', { name: 'On the team as' }))
+    await user.click(screen.getByRole('option', { name: 'Guest' }))
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+
+    expect(sentBody().member_type).toBe('guest')
+  })
+
+  // Core is what everybody invited before today became without being asked.
+  it('carries core when nobody says otherwise', async () => {
+    const { user } = show({ departments: [team('d1', 'Media')] })
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: 'Media' }))
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+
+    expect(sentBody().member_type).toBe('core')
+  })
+
+  it('asks on a team page too, where the team is already decided', () => {
+    show({ fixedDepartmentId: 'd1' })
+    expect(screen.getByRole('combobox', { name: 'On the team as' })).toBeInTheDocument()
+  })
+
   it('says what picking a team actually does, now that it does something', () => {
     show({ departments: [team('d1', 'Media')] })
     expect(screen.getByText(/join it the first time they sign in/i)).toBeInTheDocument()

@@ -37,6 +37,16 @@ export function InviteDialog({
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [departmentId, setDepartmentId] = useState(fixedDepartmentId ?? '')
+  /*
+   * Core, or guest.
+   *
+   * Not a label: availability is counted against the core, and so is the
+   * readiness ring, so a visiting sound engineer invited as core quietly
+   * tells Audio it is a person down every Sunday they are not there.
+   * Core stays the default, which is what everybody invited before today
+   * became without being asked.
+   */
+  const [memberType, setMemberType] = useState<'core' | 'guest'>('core')
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState<string | null>(null)
 
@@ -46,6 +56,7 @@ export function InviteDialog({
         body: {
           email: email.trim(),
           department_id: departmentId || null,
+          member_type: memberType,
           first_name: firstName.trim(),
           last_name: lastName.trim(),
         },
@@ -157,6 +168,25 @@ export function InviteDialog({
                 options={[
                   { value: '', label: 'No team yet' },
                   ...departments.map((d) => ({ value: d.id, label: d.name })),
+                ]}
+              />
+            </Field>
+          )}
+
+          {/* Asked only when there is a team to join, because it is a fact
+              about the membership rather than about the person. */}
+          {(fixedDepartmentId || departmentId) && (
+            <Field
+              label="On the team as"
+              hint="Core is somebody the team is short of when they cannot serve. A guest helps when they are about, and is not counted."
+            >
+              <Select
+                value={memberType}
+                onChange={(value) => setMemberType(value === 'guest' ? 'guest' : 'core')}
+                aria-label="On the team as"
+                options={[
+                  { value: 'core', label: 'Core member' },
+                  { value: 'guest', label: 'Guest' },
                 ]}
               />
             </Field>

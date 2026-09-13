@@ -56,3 +56,36 @@ export function formatCountdown(ms: number): string {
   if (mins > 0) return `${mins}m ${String(secs).padStart(2, '0')}s`
   return `${secs}s`
 }
+
+/**
+ * The moment a countdown runs out, in words.
+ *
+ * A clock says how long is left and never says when that is, so somebody
+ * reading "6d 00:00:28 to answer" has to do arithmetic to find out whether
+ * that is Saturday night or Sunday morning — and then trust it. The
+ * deadline itself is the thing people plan around: "closes 11:59pm Sat"
+ * can be acted on without counting.
+ *
+ * Today is said as a time alone, because the day is not in question. Inside
+ * the week ahead it takes a weekday. Beyond that it takes a date, since
+ * "Sat" a fortnight out is the wrong Saturday.
+ */
+export function momentLabel(iso: string, now: number = Date.now()): string | null {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return null
+
+  const time = at
+    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    .toLowerCase()
+    .replace(/\s/g, '')
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const daysOff = Math.round((startOfDay(at) - startOfDay(new Date(now))) / 86_400_000)
+
+  if (daysOff === 0) return time
+  if (daysOff === 1) return `${time} tomorrow`
+  if (daysOff > 1 && daysOff < 7) {
+    return `${time} ${at.toLocaleDateString(undefined, { weekday: 'short' })}`
+  }
+  return `${time}, ${at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+}

@@ -412,7 +412,21 @@ describe('answering closes the night before', () => {
     const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
     // A second or two passes while the page renders, so the minute is
     // what is worth pinning rather than the second.
-    expect(clock).toHaveAccessibleName(/^01:(29|30):\d{2} left to answer$/)
+    expect(clock).toHaveAccessibleName(/^01:(29|30):\d{2} left to answer/)
+  })
+
+  /*
+   * A clock says how long is left and never says when that is, so anybody
+   * planning their Saturday around it has to do the arithmetic themselves
+   * and then trust it.
+   */
+  it('names the moment it runs out, not only the time left', async () => {
+    standAt('2026-09-05T21:29:00Z')
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
+    expect(clock).toHaveAccessibleName(/closes 10:59pm/)
   })
 
   it('drops the countdown once the deadline has gone', async () => {
