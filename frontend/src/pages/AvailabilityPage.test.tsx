@@ -260,7 +260,7 @@ describe('present and no-show', () => {
  * they are telling the head something — and the head has already built
  * the morning around it.
  */
-describe('answering closes when the service starts', () => {
+describe('answering closes the night before', () => {
   /** The three answer buttons. `hidden` reaches into a folded card. */
   const answerGroup = (card: HTMLElement, hidden = false) =>
     within(card).queryByRole('group', { name: /Can you serve/, hidden })
@@ -272,18 +272,33 @@ describe('answering closes when the service starts', () => {
 
   afterEach(() => vi.useRealTimers())
 
-  it('takes answers right up to the start', async () => {
-    state.starts = { s1: `${SUNDAY}T10:00:00` }
-    standAt(`${SUNDAY}T09:59:00`)
+  /*
+   * SUNDAY is 2026-09-06, so answers for it are due by 23:59 on
+   * Saturday the 5th — 22:59Z, British Summer Time being in force.
+   */
+  it('takes answers right up to the night before', async () => {
+    standAt('2026-09-05T22:58:00Z')
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeInTheDocument()
   })
 
-  it('stops taking them once it has begun', async () => {
-    state.starts = { s1: `${SUNDAY}T10:00:00` }
-    standAt(`${SUNDAY}T10:01:00`)
+  it('stops taking them once that moment has gone', async () => {
+    standAt('2026-09-05T22:59:00Z')
+    show()
+    await screen.findByRole('heading', { name: /Today/ })
+
+    expect(answerGroup(cardFor(/Today/))).toBeNull()
+  })
+
+  /*
+   * The whole point of the change: a no at 09:59 for a service at 10:00
+   * used to be in time, which is not a deadline — it is the moment the
+   * head is already in the hall counting heads.
+   */
+  it('is long shut by the morning itself', async () => {
+    standAt(`${SUNDAY}T09:59:00`)
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
@@ -291,20 +306,19 @@ describe('answering closes when the service starts', () => {
   })
 
   it('says why, and who to ask', async () => {
-    state.starts = { s1: `${SUNDAY}T10:00:00` }
-    standAt(`${SUNDAY}T10:01:00`)
+    standAt(`${SUNDAY}T09:59:00`)
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
     const today = cardFor(/Today/) as HTMLElement
-    expect(within(today).getByText(/Answers closed when the service started/)).toBeInTheDocument()
+    expect(within(today).getByText(/Answers closed the night before/)).toBeInTheDocument()
     // A change of plan after this is a conversation, not a button.
     expect(within(today).getByText(/team head or an Admin/)).toBeInTheDocument()
   })
 
   it('counts down to it, because a deadline nobody can see surprises people', async () => {
-    state.starts = { s1: `${SUNDAY}T10:00:00` }
-    standAt(`${SUNDAY}T08:30:00`)
+    // Half past nine on the Saturday evening: an hour and a half left.
+    standAt('2026-09-05T21:29:00Z')
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
@@ -325,18 +339,22 @@ describe('answering closes when the service starts', () => {
     expect(within(cardFor(/Today/) as HTMLElement).queryByText(/left to answer/)).toBeNull()
   })
 
-  it('leaves a service nobody has planned open', async () => {
-    // No running order means no start to have passed. Guessing one from
-    // the date would close a service that does not exist yet.
+  /*
+   * The quiet half of the old bug. The deadline used to come off the
+   * running order, so a service nobody had planned had no start to have
+   * passed and took answers for ever. It comes off the service's date
+   * now, which every service has from the moment it exists.
+   */
+  it('closes a service nobody has planned yet, like any other', async () => {
     state.starts = {}
-    standAt(`${SUNDAY}T23:00:00`)
+    standAt(`${SUNDAY}T09:00:00`)
     show()
     await screen.findByRole('heading', { name: /Today/ })
 
-    expect(answerGroup(cardFor(/Today/))).toBeInTheDocument()
+    expect(answerGroup(cardFor(/Today/))).toBeNull()
   })
 
-  it('closes only the service that started, not the ones after it', async () => {
+  it('closes only the service whose night has gone, not the ones after it', async () => {
     state.starts = { s1: `${SUNDAY}T10:00:00`, s2: `${NEXT}T10:00:00` }
     standAt(`${SUNDAY}T10:01:00`)
     show()

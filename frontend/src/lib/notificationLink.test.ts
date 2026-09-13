@@ -67,3 +67,22 @@ describe('a poll', () => {
     expect(notificationHref('team_poll')).toBe('/team-chat')
   })
 })
+
+describe('somebody dropping off a rota', () => {
+  /*
+   * Raised by the database when a volunteer marks themselves unavailable
+   * for a service they had a role on (0092): the role goes back to
+   * unassigned and the head and assisting head are told.
+   */
+  it('takes the head to the rota, carrying the sentence the trigger wrote', () => {
+    expect(notificationHref('rota_dropout')).toBe('/rota')
+    expect(
+      notificationLabel('rota_dropout', 'Jesson Sunny can no longer serve at English Service on Sunday 11 Oct — their Audio role is unassigned again'),
+    ).toContain('can no longer serve')
+  })
+
+  it('has a sentence of its own if the body ever goes missing', () => {
+    expect(notificationLabel('rota_dropout')).toBe('Somebody has dropped off your rota')
+  })
+})
+
