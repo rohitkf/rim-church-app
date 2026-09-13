@@ -1,5 +1,6 @@
 import { upcomingCelebrations, type Person } from './celebrations'
 import { shiftIsoDays } from './rotaWindow'
+import { dayCount, daysBetween } from './dateRange'
 
 /**
  * One diary out of four separate things.
@@ -28,6 +29,16 @@ export interface DiaryEntry {
   href?: string | null
   /** The team's colour, when it belongs to one. */
   color?: string | null
+  /**
+   * For something that runs over several days: the whole span, carried on
+   * each day it covers.
+   *
+   * A week of prayer is one event and seven answers to "what is on today",
+   * so it is drawn on every one of those days — and each of them has to be
+   * able to say which day of it this is, or the diary reads as seven
+   * identical events somebody entered by mistake.
+   */
+  span?: { from: string; to: string; day: number; of: number } | null
 }
 
 export interface DiaryService {
@@ -40,6 +51,8 @@ export interface DiaryEvent {
   id: string
   title: string
   event_date: string
+  /** Last day of a run, inclusive. Null for the single-day majority. */
+  ends_on?: string | null
   start_time: string | null
   location: string | null
   details: string | null
@@ -119,21 +132,56 @@ export function buildDiary({
   }
 
   for (const event of events) {
-    if (event.event_date < today || event.event_date > horizon) continue
+    const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
+    // A run is in the diary if any part of it is: one that started
+    // yesterday and ends tomorrow is very much on today.
+    const lastDay = runsTo ?? event.event_date
+    if (lastDay < today || event.event_date > horizon) continue
+
     const time = diaryTime(event.start_time)
-    entries.push({
-      id: `event:${event.id}`,
-      kind: 'event',
-      date: event.event_date,
-      title: event.title,
-      detail: [time, event.location, event.department?.name].filter(Boolean).join(' · ') || null,
-      // Whose idea it was, said quietly. An event with no name on it invites
-      // "who put this here?" every time somebody sees it.
-      addedBy: event.creator
-        ? `${event.creator.first_name} ${event.creator.last_name}`.trim()
-        : null,
-      color: event.department?.color ?? null,
-    })
+    const of = runsTo ? dayCount(event.event_date, runsTo) : 1
+    // Every day it covers that is inside the window somebody is looking at.
+    const days = runsTo
+      ? daysBetween(event.event_date, runsTo).filter((d) => d >= today && d <= horizon)
+      : [event.event_date]
+
+    for (const date of days) {
+      entries.push({
+        // One entry per day, so each needs an id of its own — the page
+        // finds the row it came from by the id in the middle.
+        id: runsTo ? `event:${event.id}:${date}` : `event:${event.id}`,
+        kind: 'event',
+        date,
+        title: event.title,
+        detail:
+          [
+            // A start time belongs to the first day of a run, not to every
+            // day of it: "7pm" on days two and three is a time nobody said.
+            runsTo && date !== event.event_date ? null : time,
+            event.location,
+            event.department?.name,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+        // Whose idea it was, said quietly. An event with no name on it invites
+        // "who put this here?" every time somebody sees it.
+        addedBy: event.creator
+          ? `${event.creator.first_name} ${event.creator.last_name}`.trim()
+          : null,
+        color: event.department?.color ?? null,
+        span: runsTo
+          ? {
+              from: event.event_date,
+              to: runsTo,
+              // Which day of the run this is, counting from the start
+              // rather than from the window — day 3 of 5 stays day 3 even
+              // when the first two have already passed.
+              day: daysBetween(event.event_date, date).length,
+              of,
+            }
+          : null,
+      })
+    }
   }
 
   return entries.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))

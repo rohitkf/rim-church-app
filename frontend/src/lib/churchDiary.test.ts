@@ -138,3 +138,72 @@ describe('the year ahead, and no further', () => {
     expect(diary[0].date).toBe('2027-03-04')
   })
 })
+
+/*
+ * A week of prayer is one event and seven answers to "what is on today".
+ * It used to be either seven separate events with the same name, or one
+ * event on the Monday with the rest of it written into the details — a
+ * diary that cannot answer the question it exists for.
+ */
+describe('an event that runs over several days', () => {
+  const run = [
+    {
+      id: 'e9',
+      title: 'Week of prayer',
+      event_date: '2026-09-14',
+      ends_on: '2026-09-16',
+      start_time: '19:00:00',
+      location: 'Main hall',
+      details: null,
+      department_id: null,
+      created_by: 'p1',
+      creator: { first_name: 'Grace', last_name: 'Mensah' },
+      department: null,
+    },
+  ]
+
+  it('is in the diary on every day it covers', () => {
+    const diary = buildDiary({ people: [], services: [], events: run, today: TODAY })
+    expect(diary.map((e) => e.date)).toEqual(['2026-09-14', '2026-09-15', '2026-09-16'])
+  })
+
+  it('says which day of itself each one is', () => {
+    const diary = buildDiary({ people: [], services: [], events: run, today: TODAY })
+    expect(diary.map((e) => e.span?.day)).toEqual([1, 2, 3])
+    expect(diary.every((e) => e.span?.of === 3)).toBe(true)
+    expect(diary[0].span?.from).toBe('2026-09-14')
+    expect(diary[0].span?.to).toBe('2026-09-16')
+  })
+
+  // A start time belongs to the first day of a run. "7pm" on days two and
+  // three is a time nobody said.
+  it('carries the start time on the first day only', () => {
+    const diary = buildDiary({ people: [], services: [], events: run, today: TODAY })
+    expect(diary[0].detail).toContain('7:00pm')
+    expect(diary[1].detail).not.toContain('7:00pm')
+    expect(diary[1].detail).toContain('Main hall')
+  })
+
+  /*
+   * The case a single date could never answer: it began before today and
+   * has not finished, which is exactly when somebody asks.
+   */
+  it('is still on today when it started yesterday', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: run,
+      today: '2026-09-15',
+    })
+    expect(diary.map((e) => e.date)).toEqual(['2026-09-15', '2026-09-16'])
+    // And it still knows it is on its second day, not its first.
+    expect(diary[0].span?.day).toBe(2)
+  })
+
+  it('leaves a single-day event exactly as it was', () => {
+    const diary = buildDiary({ people: [], services: [], events, today: TODAY })
+    expect(diary).toHaveLength(1)
+    expect(diary[0].id).toBe('event:e1')
+    expect(diary[0].span ?? null).toBeNull()
+  })
+})

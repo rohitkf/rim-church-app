@@ -20,6 +20,8 @@ import {
   type DiaryKind,
 } from '../lib/churchDiary'
 import { Select } from '../components/Select'
+import { DateRangePicker } from '../components/DateRangePicker'
+import { formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -37,6 +39,7 @@ const eventSchema = z.object({
   title: z.string(),
   details: z.string().nullable(),
   event_date: z.string(),
+  ends_on: z.string().nullable(),
   start_time: z.string().nullable(),
   location: z.string().nullable(),
   department_id: z.string().nullable(),
@@ -57,7 +60,7 @@ async function fetchEvents(): Promise<DiaryEvent[]> {
   const { data, error } = await supabase
     .from('church_events')
     .select(
-      'id, title, details, event_date, start_time, location, department_id, created_by, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+      'id, title, details, event_date, ends_on, start_time, location, department_id, created_by, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
     )
     .order('event_date')
   if (error) throw error
@@ -105,6 +108,8 @@ export function EventsPage() {
 
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
+  /** The last day, when it runs on. Null is the single-day majority. */
+  const [endDate, setEndDate] = useState<string | null>(null)
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
   const [details, setDetails] = useState('')
@@ -149,6 +154,7 @@ export function EventsPage() {
       const { error: insertError } = await supabase.from('church_events').insert({
         title: title.trim(),
         event_date: date,
+        ends_on: endDate,
         start_time: startTime || null,
         location: location.trim() || null,
         details: details.trim() || null,
@@ -159,7 +165,7 @@ export function EventsPage() {
     },
     onSuccess: () => {
       setAdding(false)
-      setTitle(''); setDate(''); setStartTime(''); setLocation(''); setDetails(''); setDepartmentId('')
+      setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setLocation(''); setDetails(''); setDepartmentId('')
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['church-events'] })
     },
@@ -182,7 +188,8 @@ export function EventsPage() {
   // somebody saying which day they mean; asking again in the form is the
   // app not listening.
   function openAdd(on?: string) {
-    setDate(on ?? '')
+    setDate(on ?? today)
+    setEndDate(null)
     setAdding(true)
   }
 
@@ -192,9 +199,19 @@ export function EventsPage() {
     addEvent.mutate()
   }
 
+  /**
+   * The row an entry came from.
+   *
+   * An event that runs over several days is one row drawn on each of them,
+   * so its entry id carries the day as well: `event:<id>:<date>`. The id
+   * in the middle is the row.
+   */
+  const eventIdOf = (entry: DiaryEntry) =>
+    entry.kind === 'event' ? entry.id.split(':')[1] ?? null : null
+
   const mayEdit = (entry: DiaryEntry) => {
-    if (entry.kind !== 'event') return false
-    const row = (eventsQuery.data ?? []).find((ev) => `event:${ev.id}` === entry.id)
+    const id = eventIdOf(entry)
+    const row = id ? (eventsQuery.data ?? []).find((ev) => ev.id === id) : null
     if (!row) return false
     return isAdmin || (!!row.department_id && isDepartmentHead(row.department_id))
   }
@@ -353,6 +370,15 @@ export function EventsPage() {
                           >
                             {KIND_LABEL[entry.kind]}
                           </span>
+                          {/* A run says which day of itself this is, or
+                              the same name on five days reads as five
+                              events somebody entered by mistake. */}
+                          {entry.span && (
+                            <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
+                              Day {entry.span.day} of {entry.span.of} ·{' '}
+                              {formatRange(entry.span.from, entry.span.to, today)}
+                            </span>
+                          )}
                           {entry.detail && (
                             <span className="min-w-0 break-words text-body-sm text-on-surface-variant">
                               {entry.detail}
@@ -388,8 +414,10 @@ export function EventsPage() {
                                       title: `Remove ${entry.title} from the diary?`,
                                       body: 'It disappears from the calendar for everybody.',
                                       confirmLabel: 'Remove',
-                                      onConfirm: () =>
-                                        removeEvent.mutate(entry.id.replace('event:', '')),
+                                      onConfirm: () => {
+                                        const id = eventIdOf(entry)
+                                        if (id) removeEvent.mutate(id)
+                                      },
                                     })
                                   }
                                   className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
@@ -438,12 +466,19 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
-              <Field label="Date">
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={`${inputClasses} [color-scheme:dark]`}
+              {/* The app's own calendar rather than the browser's wheel:
+                  a church diary is full of things that run over several
+                  days, and the native field cannot say so. */}
+              <Field label="When" className="sm:col-span-2">
+                <DateRangePicker
+                  from={date || today}
+                  to={endDate}
+                  today={today}
+                  label="When the event runs"
+                  onChange={({ from, to }) => {
+                    setDate(from)
+                    setEndDate(to)
+                  }}
                 />
               </Field>
               <Field label="Start time (optional)">
