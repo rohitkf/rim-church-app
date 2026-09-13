@@ -27,5 +27,11 @@ export const profileSchema = z.object({
   avatar_url: z.string().nullable(),
   /** When the welcome was shown. Null means this is somebody's first time. */
   welcomed_at: z.string().nullable().optional(),
+  /**
+   * When they finished the joining form. Null means they have not, and
+   * until they do the app is that form — see ProtectedRoute.
+   */
+  onboarded_at: z.string().nullable().optional(),
+  marital_status: z.string().nullable().optional(),
 })
 export type Profile = z.infer<typeof profileSchema>

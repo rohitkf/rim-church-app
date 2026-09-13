@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
+import { Select } from '../components/Select'
+import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
 
 const inputClasses =
   'rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
@@ -15,6 +17,7 @@ export function ProfilePage() {
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')
   const [anniversary, setAnniversary] = useState('')
+  const [maritalStatus, setMaritalStatus] = useState('')
   const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -26,13 +29,14 @@ export function ProfilePage() {
     setPhone(profile.phone ?? '')
     setDob(profile.dob ?? '')
     setAnniversary(profile.anniversary ?? '')
+    setMaritalStatus(profile.marital_status ?? '')
   }, [profile])
 
   useEffect(() => {
     if (!profile) return
     supabase
       .from('profile_sensitive')
-      .select('visa_type, has_dbs, visa_expiry')
+      .select('visa_type, has_dbs, visa_expiry, visa_has_expiry')
       .eq('user_id', profile.id)
       .single()
       .then(({ data }) => {
@@ -62,6 +66,7 @@ export function ProfilePage() {
       last_name: lastName,
       phone: phone || null,
       dob: dob || null,
+      marital_status: maritalStatus || null,
     }
     const saveProfile = async () => {
       const withAnniversary = await supabase
@@ -80,7 +85,12 @@ export function ProfilePage() {
             .update({
               visa_type: sensitive.visa_type,
               has_dbs: sensitive.has_dbs,
-              visa_expiry: sensitive.visa_expiry,
+              // A status that does not run out cannot carry a date: a
+              // stale one from an older visa would outlive it.
+              visa_expiry: isSettledStatus(sensitive.visa_type) ? null : sensitive.visa_expiry,
+              visa_has_expiry: isSettledStatus(sensitive.visa_type)
+                ? false
+                : sensitive.visa_has_expiry ?? null,
             })
             .eq('user_id', profile!.id)
         : Promise.resolve({ error: null }),
@@ -126,6 +136,16 @@ export function ProfilePage() {
           <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputClasses} />
         </label>
         <label className={labelClasses}>
+          Marital status
+          <Select
+            value={maritalStatus}
+            onChange={setMaritalStatus}
+            placeholder="Choose one"
+            aria-label="Marital status"
+            options={MARITAL_STATUSES.map((m) => ({ value: m.value, label: m.label }))}
+          />
+        </label>
+        <label className={labelClasses}>
           Wedding anniversary
           <input
             type="date"
@@ -156,25 +176,52 @@ export function ProfilePage() {
             </p>
 
             <div className="mt-4 flex flex-col gap-4">
+              {/* The same list the joining form offers, so the two cannot
+                  drift into describing the same person differently. */}
               <label className={labelClasses}>
-                Visa type
-                <input
+                Your status in the UK
+                <Select
                   value={sensitive.visa_type ?? ''}
-                  onChange={(e) => setSensitive({ ...sensitive, visa_type: e.target.value || null })}
-                  className={`${inputClasses} bg-surface-lowest`}
+                  onChange={(value) => setSensitive({ ...sensitive, visa_type: value || null })}
+                  placeholder="Choose one"
+                  aria-label="Your status in the UK"
+                  options={VISA_TYPES.map((v) => ({ value: v.value, label: v.label }))}
                 />
               </label>
-              <label className={labelClasses}>
-                Visa expiry
-                <input
-                  type="date"
-                  value={sensitive.visa_expiry ?? ''}
-                  onChange={(e) =>
-                    setSensitive({ ...sensitive, visa_expiry: e.target.value || null })
-                  }
-                  className={`${inputClasses} bg-surface-lowest [color-scheme:dark]`}
-                />
-              </label>
+              {/* A citizen and somebody settled here are not asked for an
+                  expiry: their status does not run out. */}
+              {!isSettledStatus(sensitive.visa_type) && (
+                <>
+                  <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
+                    <input
+                      type="checkbox"
+                      checked={sensitive.visa_has_expiry ?? false}
+                      onChange={(e) =>
+                        setSensitive({
+                          ...sensitive,
+                          visa_has_expiry: e.target.checked,
+                          visa_expiry: e.target.checked ? sensitive.visa_expiry : null,
+                        })
+                      }
+                      className="mt-0.5 h-4 w-4 shrink-0"
+                    />
+                    <span className="min-w-0">It has an expiry date</span>
+                  </label>
+                  {sensitive.visa_has_expiry && (
+                    <label className={labelClasses}>
+                      Visa expiry
+                      <input
+                        type="date"
+                        value={sensitive.visa_expiry ?? ''}
+                        onChange={(e) =>
+                          setSensitive({ ...sensitive, visa_expiry: e.target.value || null })
+                        }
+                        className={`${inputClasses} bg-surface-lowest [color-scheme:dark]`}
+                      />
+                    </label>
+                  )}
+                </>
+              )}
               {/* `items-start` and a nudged box: with `items-center` a label
                   that wraps to two lines centres the tick against the middle
                   of the paragraph instead of the first line. */}

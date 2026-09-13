@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { resetApp } from '../lib/resetApp'
+import { JoiningPage } from '../pages/JoiningPage'
 
 /** How long "Loading…" may stand on its own before it owes an explanation. */
 const PATIENCE_MS = 5_000
@@ -24,7 +25,7 @@ function ResetButton({ children }: { children: React.ReactNode }) {
 }
 
 export function ProtectedRoute() {
-  const { session, loading, authError } = useAuth()
+  const { session, loading, authError, profile } = useAuth()
 
   // A spinner with no end is the worst thing a page can do: it looks like
   // progress, so people wait instead of acting. If the session could not be
@@ -57,6 +58,22 @@ export function ProtectedRoute() {
   if (loading) return <LoadingScreen />
 
   if (!session) return <Navigate to="/login" replace />
+
+  /*
+   * Somebody who has not finished joining gets the joining form, whichever
+   * page they asked for.
+   *
+   * It sits here rather than on a route of its own because it is not a
+   * destination: there is nothing to navigate to it from and no way past
+   * it, and a route could be typed around. Everybody already using the app
+   * was stamped as done by the migration that added it, so this is only
+   * ever the first few minutes of somebody's first day.
+   *
+   * `profile` is null for a moment while it loads, and a null profile is
+   * not a reason to demand anything — it would flash this form at
+   * everybody on every cold start.
+   */
+  if (profile && !profile.onboarded_at) return <JoiningPage />
 
   return <Outlet />
 }
