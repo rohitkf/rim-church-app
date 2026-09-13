@@ -457,7 +457,11 @@ export function AvailabilityPage() {
                 </span>
               ) : (
                 <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">
-                  <ServiceCountdown startsAt={answersClose.toISOString()} label="to answer" />
+                  <ServiceCountdown
+                    startsAt={answersClose.toISOString()}
+                    label="to answer"
+                    until="closes"
+                  />
                 </span>
               ))}
             <Chevron open={open} />
@@ -660,7 +664,11 @@ export function AvailabilityPage() {
               */}
               {canAnswer && !finished && !answersClosed && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
-                  <ServiceCountdown startsAt={answersClose.toISOString()} label="left to answer" />
+                  <ServiceCountdown
+                    startsAt={answersClose.toISOString()}
+                    label="left to answer"
+                    until="closes"
+                  />
                 </p>
               )}
 

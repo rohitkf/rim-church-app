@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { countdownIsClockworthy, countdownParts } from '../lib/countdown'
+import { countdownIsClockworthy, countdownParts, momentLabel } from '../lib/countdown'
 import { RollingDigits } from './RollingDigits'
 
 /**
@@ -20,6 +20,7 @@ export function ServiceCountdown({
   variant = 'inline',
   fallback,
   label,
+  until,
 }: {
   startsAt: string | null
   /** `hero` is the dashboard's headline clock; `inline` is a line of text. */
@@ -35,6 +36,15 @@ export function ServiceCountdown({
    * half an hour earlier than the doors for a reason.
    */
   label?: string
+  /**
+   * Also say the moment it runs out — "closes 11:59pm Sat".
+   *
+   * A clock says how long is left and never says when that is, so anybody
+   * planning around it has to do arithmetic and then trust it. Worth it
+   * wherever the deadline is a thing people arrange their week by; noise
+   * where the moment is already written beside the clock.
+   */
+  until?: string
 }) {
   const [now, setNow] = useState(() => Date.now())
 
@@ -49,7 +59,10 @@ export function ServiceCountdown({
 
   const { days, hrs, mins, secs } = countdownParts(remaining)
   const clock = `${days > 0 ? `${days} days ` : ''}${hrs}:${mins}:${secs}`
-  const spoken = label ? `${clock} ${label}` : `Starts in ${clock}`
+  const moment = until ? momentLabel(startsAt, now) : null
+  const spoken = [label ? `${clock} ${label}` : `Starts in ${clock}`, moment && `${until} ${moment}`]
+    .filter(Boolean)
+    .join(', ')
 
   if (variant === 'hero') {
     return (
@@ -74,8 +87,9 @@ export function ServiceCountdown({
             <RollingDigits value={secs} />
           </span>
         </span>
-        <span className="pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
+        <span className="flex flex-col pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
           {label ?? 'until doors'}
+          {moment && <span className="normal-case text-on-surface-variant">{until} {moment}</span>}
         </span>
       </div>
     )
@@ -105,6 +119,11 @@ export function ServiceCountdown({
       {label && (
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           {label}
+        </span>
+      )}
+      {moment && (
+        <span className="font-mono text-label-sm text-on-surface-faint">
+          · {until} {moment}
         </span>
       )}
     </span>

@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
   let payload: {
     email?: string
     department_id?: string | null
+    member_type?: string | null
     first_name?: string
     last_name?: string
   }
@@ -58,6 +59,11 @@ Deno.serve(async (req) => {
 
   const email = (payload.email ?? '').trim().toLowerCase()
   const departmentId = payload.department_id ?? null
+  // Core unless somebody says guest — which is what the column defaulted to
+  // before anybody was asked, and the safer way round: a guest wrongly
+  // recorded as core makes a team look short, a core member wrongly
+  // recorded as guest makes it look fuller than it is.
+  const memberType = payload.member_type === 'guest' ? 'guest' : 'core'
   // An invitation carries no name of its own, so a profile created from one
   // arrives blank and the invited person is a nameless row on the rota until
   // they fill it in. Whoever is inviting knows the name — this carries it.
@@ -126,6 +132,7 @@ Deno.serve(async (req) => {
     {
       email,
       department_id: departmentId,
+      member_type: memberType,
       invited_by: caller.id,
       created_at: new Date().toISOString(),
       accepted_at: null,

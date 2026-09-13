@@ -233,6 +233,62 @@ export function DepartmentDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['department-members', id] }),
   })
 
+  /*
+   * Moving somebody between core and guest.
+   *
+   * People move both ways over a year — a guest who keeps turning up
+   * becomes part of the team, a core member steps back to helping when
+   * they can — and until now the only way to record it was to remove them
+   * and add them again, which loses the date they joined and reads on the
+   * feed like they left.
+   *
+   * It is not cosmetic: availability is counted against the core, and so
+   * is the readiness ring. Moving somebody to guest stops the team being
+   * marked a person down every week they cannot serve.
+   */
+  const setMemberType = useMutation({
+    mutationFn: async ({ memberId, type }: { memberId: string; type: 'core' | 'guest' }) => {
+      const { error } = await supabase
+        .from('department_members')
+        .update({ member_type: type })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setAddError(null)
+      // The rota and availability count the core, so both are now stale.
+      queryClient.invalidateQueries({ queryKey: ['department-members', id] })
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
+    },
+    onError: (err: unknown) => setAddError(errorText(err, 'Could not change that membership.')),
+  })
+
+  /** The one control, wherever a member is drawn. */
+  const moveButton = (m: DepartmentMemberRow, className: string) => {
+    const toGuest = m.member_type === 'core'
+    const who = m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this person'
+    return (
+      <button
+        type="button"
+        disabled={setMemberType.isPending}
+        onClick={() =>
+          ask({
+            title: toGuest ? `Make ${who} a guest?` : `Make ${who} a core member?`,
+            body: toGuest
+              ? 'Guests are not counted when the team looks short, and are not chased for an answer on availability.'
+              : 'Core members are counted when the team looks short, and are asked whether they can serve.',
+            confirmLabel: toGuest ? 'Make a guest' : 'Make core',
+            onConfirm: () =>
+              setMemberType.mutate({ memberId: m.id, type: toGuest ? 'guest' : 'core' }),
+          })
+        }
+        className={className}
+      >
+        {toGuest ? 'Make a guest' : 'Make core'}
+      </button>
+    )
+  }
+
   // Uploading lives in its own modal; here we only take one away.
   const removeHandbook = useMutation({
     mutationFn: async () => {
@@ -386,23 +442,29 @@ export function DepartmentDetailPage() {
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                         <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                         {canManage && (
-                          <button
-                            onClick={() =>
-                            ask({
-                              title: `Remove ${
-                                m.profiles
-                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                  : 'this person'
-                              } from the team?`,
-                              body: 'They keep their account and can be added back at any time.',
-                              confirmLabel: 'Remove',
-                              onConfirm: () => removeMember.mutate(m.id),
-                            })
-                          }
-                            className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-                          >
-                            Remove
-                          </button>
+                          <span className="flex items-center gap-3">
+                            {moveButton(
+                              m,
+                              'tap text-label-md text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                            )}
+                            <button
+                              onClick={() =>
+                              ask({
+                                title: `Remove ${
+                                  m.profiles
+                                    ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                    : 'this person'
+                                } from the team?`,
+                                body: 'They keep their account and can be added back at any time.',
+                                confirmLabel: 'Remove',
+                                onConfirm: () => removeMember.mutate(m.id),
+                              })
+                            }
+                              className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </span>
                         )}
                       </div>
                     </li>
@@ -442,23 +504,29 @@ export function DepartmentDetailPage() {
                           </td>
                           {canManage && (
                             <td className="py-3 text-right">
-                              <button
-                                onClick={() =>
-                            ask({
-                              title: `Remove ${
-                                m.profiles
-                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                  : 'this person'
-                              } from the team?`,
-                              body: 'They keep their account and can be added back at any time.',
-                              confirmLabel: 'Remove',
-                              onConfirm: () => removeMember.mutate(m.id),
-                            })
-                          }
-                                className="tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-error hover:underline"
-                              >
-                                Remove
-                              </button>
+                              <span className="inline-flex items-center gap-3">
+                                {moveButton(
+                                  m,
+                                  'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                                )}
+                                <button
+                                  onClick={() =>
+                              ask({
+                                title: `Remove ${
+                                  m.profiles
+                                    ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                    : 'this person'
+                                } from the team?`,
+                                body: 'They keep their account and can be added back at any time.',
+                                confirmLabel: 'Remove',
+                                onConfirm: () => removeMember.mutate(m.id),
+                              })
+                            }
+                                  className="tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-error hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </span>
                             </td>
                           )}
                         </tr>
@@ -585,23 +653,29 @@ export function DepartmentDetailPage() {
                         )}
                       </div>
                       {canManage && (
-                        <button
-                          onClick={() =>
-                            ask({
-                              title: `Remove ${
-                                m.profiles
-                                  ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                  : 'this person'
-                              } from the team?`,
-                              body: 'They keep their account and can be added back at any time.',
-                              confirmLabel: 'Remove',
-                              onConfirm: () => removeMember.mutate(m.id),
-                            })
-                          }
-                          className="tap inline-flex items-center text-body-sm text-error hover:underline"
-                        >
-                          Remove
-                        </button>
+                        <span className="flex shrink-0 items-center gap-3">
+                          {moveButton(
+                            m,
+                            'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                          )}
+                          <button
+                            onClick={() =>
+                              ask({
+                                title: `Remove ${
+                                  m.profiles
+                                    ? `${m.profiles.first_name} ${m.profiles.last_name}`
+                                    : 'this person'
+                                } from the team?`,
+                                body: 'They keep their account and can be added back at any time.',
+                                confirmLabel: 'Remove',
+                                onConfirm: () => removeMember.mutate(m.id),
+                              })
+                            }
+                            className="tap inline-flex items-center text-body-sm text-error hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </span>
                       )}
                     </li>
                   ))}
