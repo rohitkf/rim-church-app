@@ -24,7 +24,7 @@ vi.mock('../lib/useTheme', () => ({ useTheme: () => themeState }))
 const sheet: ServiceSheet = {
   serviceType: 'Malayalam Service',
   date: '2026-09-06',
-  sessions: [{ time: '11:30 AM', minutes: 15, name: 'Worship 1', lead: 'Joel Skaria' }],
+  sessions: [{ time: '11:30 AM', minutes: 15, name: 'Worship 1', leads: ['Joel Skaria'] }],
   totalLabel: '3h 41m',
   windowLabel: 'Doors at 11:30, closing around 15:11.',
   printedOn: 'exported 06/09/2026',

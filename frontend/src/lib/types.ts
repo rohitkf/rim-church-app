@@ -115,6 +115,32 @@ export const checklistItemRowSchema = z.object({
 })
 export type ChecklistItemRow = z.infer<typeof checklistItemRowSchema>
 
+/**
+ * One person on one running-order session.
+ *
+ * Exactly one of `user_id` and `guest_id` is set, and the joined object
+ * beside it is that person — a profile for a member, a row off the guest
+ * roll for anyone else. The pair is what the database allows; the page
+ * reads whichever is there.
+ */
+export const sessionAssigneeSchema = z.object({
+  id: z.string(),
+  user_id: z.string().nullable(),
+  guest_id: z.string().nullable(),
+  order_index: z.number(),
+  profile: personSummarySchema.nullable().optional(),
+  guest: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      title: z.string().nullable().optional(),
+      note: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+})
+export type SessionAssignee = z.infer<typeof sessionAssigneeSchema>
+
 export const serviceSessionRowSchema = z.object({
   id: z.string(),
   service_id: z.string(),
@@ -122,9 +148,10 @@ export const serviceSessionRowSchema = z.object({
   start_time: z.string(),
   duration_minutes: z.number(),
   session_name: z.string(),
-  assigned_user_id: z.string().nullable(),
-  // A session is led by somebody with an account or by a guest on this
-  // service's list — never both; the database refuses the pair.
+  // The session's old single lead. Kept only so a row selected with `*`
+  // still parses while the columns are still there; nothing reads them —
+  // who is taking a session is `assignees`, below.
+  assigned_user_id: z.string().nullable().optional(),
   guest_id: z.string().nullable().optional(),
   department_id: z.string().nullable(),
   role_label: z.string().nullable(),
@@ -150,18 +177,19 @@ export const serviceSessionRowSchema = z.object({
   // Set when the clock reached this one and it had not begun.
   held_at: z.string().nullable().optional(),
   updated_at: z.string(),
-  assignee: personSummarySchema.nullable(),
-  // The guest taking this session, off the church's roll. The title is
-  // part of the name wherever it is printed — see lib/guests.
-  guest: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      title: z.string().nullable().optional(),
-      note: z.string().nullable(),
-    })
-    .nullable()
-    .optional(),
+  /*
+   * Everybody taking this session, in the order they were put on.
+   *
+   * A session used to hold one name and one only, which is true of almost
+   * nothing that happens in a service: worship is a team, communion is
+   * served by several people, and a guest speaker is introduced by
+   * somebody. Each row here is one person — a member or a guest, never
+   * both, which is the shape the database enforces.
+   *
+   * Optional so the planner still renders against a database that has not
+   * had the migration applied yet.
+   */
+  assignees: z.array(sessionAssigneeSchema).optional(),
 })
 export type ServiceSessionRow = z.infer<typeof serviceSessionRowSchema>
 

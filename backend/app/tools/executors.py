@@ -52,6 +52,26 @@ def _run(fn, *args, **kwargs):
         raise ToolError(exc.message or "That action was denied.") from exc
 
 
+def _session_people(row: dict) -> list[str]:
+    """Everybody taking one running-order session, in the planner's order.
+
+    A session holds a list rather than a single name: worship is a team,
+    and communion is served by several people. Each row is a member or a
+    guest, and a guest is named the way the church says it — the
+    designation in front, "Pastor Sam".
+    """
+    names: list[str] = []
+    for person in sorted(row.get("service_session_assignees") or [], key=lambda a: a.get("order_index", 0)):
+        profile = person.get("profiles")
+        guest = person.get("guests")
+        if profile:
+            names.append(f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip())
+        elif guest:
+            title = (guest.get("title") or "").strip()
+            names.append(f"{title} {guest.get('name', '')}".strip())
+    return names
+
+
 def list_departments(client: Client, user_id: str, **_: Any) -> dict:
     resp = _run(client.table("departments").select("id, name").order("name").execute)
     return {"departments": resp.data}
@@ -75,7 +95,10 @@ def get_team_for_service(client: Client, user_id: str, department_name: str, ser
         service_id = _resolve_service_id(client, service_date, service_type)
         sessions_resp = _run(
             client.table("service_sessions")
-            .select("session_name, role_label, profiles!service_sessions_assigned_user_id_fkey(first_name, last_name)")
+            .select(
+                "session_name, role_label, "
+                "service_session_assignees(order_index, profiles(first_name, last_name), guests(name, title))"
+            )
             .eq("department_id", dept_id)
             .eq("service_id", service_id)
             .execute
@@ -84,9 +107,10 @@ def get_team_for_service(client: Client, user_id: str, department_name: str, ser
             {
                 "session_name": row["session_name"],
                 "role_label": row.get("role_label"),
-                "assigned_to": (
-                    f"{row['profiles']['first_name']} {row['profiles']['last_name']}" if row.get("profiles") else None
-                ),
+                # A session is taken by as many people as it takes, so this
+                # is a list. `assigned_to` stays the name of the field: it
+                # is what the assistant's prompt and its callers ask for.
+                "assigned_to": _session_people(row),
             }
             for row in sessions_resp.data
         ]

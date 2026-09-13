@@ -8,8 +8,8 @@ const sheet = (over: Partial<ServiceSheet> = {}): ServiceSheet => ({
   serviceType: 'Sunday Morning Celebration',
   date: '2026-08-30',
   sessions: [
-    { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', lead: 'Ama Serwaa' },
-    { time: '09:35 AM', minutes: 25, name: 'Worship Set', lead: null },
+    { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', leads: ['Ama Serwaa'] },
+    { time: '09:35 AM', minutes: 25, name: 'Worship Set', leads: [] },
   ],
   totalLabel: '1h 20m end to end',
   windowLabel: 'Doors at 09:30 AM, closing around 10:50 AM.',
@@ -64,7 +64,7 @@ describe('serviceSheetPage', () => {
             time: '09:30 AM',
             minutes: 5,
             name: `Session ${i + 1}`,
-            lead: 'Someone',
+            leads: ['Someone'],
           })),
         }),
         'content',
@@ -101,9 +101,9 @@ describe('serviceSheetPage', () => {
           time: '12:18 PM',
           minutes: 10,
           name: 'Welcome | Introduction | Short Message | Announcements',
-          lead: 'Rohit Kochikkat Francis',
+          leads: ['Rohit Kochikkat Francis'],
         },
-        { time: '12:28 PM', minutes: 60, name: 'Worship 3', lead: 'Blessy Jijin' },
+        { time: '12:28 PM', minutes: 60, name: 'Worship 3', leads: ['Blessy Jijin'] },
       ],
     })
 
@@ -133,7 +133,7 @@ describe('serviceSheetPage', () => {
     it('grows the sheet to hold what it is now drawing', () => {
       const wrapped = serviceSheetPage(long, 'content').height
       const plain = serviceSheetPage(
-        sheet({ sessions: long.sessions.map((x) => ({ ...x, name: 'Short', lead: 'A B' })) }),
+        sheet({ sessions: long.sessions.map((x) => ({ ...x, name: 'Short', leads: ['A B'] })) }),
         'content',
       ).height
       expect(wrapped).toBeGreaterThan(plain)
@@ -150,7 +150,7 @@ describe('serviceSheetPage', () => {
     it('keeps the rows apart rather than letting a tall one overlap the next', () => {
       const page = serviceSheetPage(long, 'content')
       // The session cards, in the order they were drawn.
-      const cards = page.rects.filter((r) => r.radius === 14)
+      const cards = page.rects.filter((r) => r.radius === 16)
       for (let i = 1; i < cards.length; i++) {
         expect(cards[i].y).toBeGreaterThanOrEqual(cards[i - 1].y + cards[i - 1].h)
       }
@@ -163,7 +163,7 @@ describe('serviceSheetPage', () => {
         time: '09:30 AM',
         minutes: 5,
         name: `Session ${i + 1} with a name long enough to want a second line of its own`,
-        lead: 'Somebody With A Long Name',
+        leads: ['Somebody With A Long Name'],
       })),
     })
     const page = serviceSheetPage(many, 'page')
@@ -264,8 +264,8 @@ describe('serviceSheetPage', () => {
     const page = serviceSheetPage(
       sheet({
         sessions: [
-          { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', lead: 'Ama Serwaa' },
-          { time: '09:35 AM', minutes: 25, name: 'Worship Set', lead: null },
+          { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', leads: ['Ama Serwaa'] },
+          { time: '09:35 AM', minutes: 25, name: 'Worship Set', leads: [] },
         ],
       }),
       'content',
@@ -302,6 +302,61 @@ describe('serviceSheetPage', () => {
 
       expect(failures).toEqual([])
     })
+  })
+})
+
+describe('a session several people are taking', () => {
+  const sessionsOf = (leads: string[]) => [{ time: '09:30 AM', minutes: 5, name: 'Communion', leads }]
+
+  it('prints every name, not just the first', () => {
+    const page = serviceSheetPage(
+      sheet({ sessions: sessionsOf(['Ama Serwaa', 'Tunde Alabi', 'Pastor Sam Varghese']) }),
+      'content',
+    )
+    const said = page.texts.map((t) => t.text).join(' ')
+    for (const name of ['Ama Serwaa', 'Tunde Alabi', 'Pastor Sam Varghese']) {
+      expect(said).toContain(name)
+    }
+  })
+
+  it('gives each of them their own pill and their own disc', () => {
+    const page = serviceSheetPage(sheet({ sessions: sessionsOf(['Ama Serwaa', 'Tunde Alabi']) }), 'content')
+    // The discs are the only circles big enough to hold initials; the
+    // rail's dots are far smaller.
+    expect((page.circles ?? []).filter((c) => c.r > 8)).toHaveLength(2)
+    expect(page.texts.filter((t) => t.text === 'AS' || t.text === 'TA')).toHaveLength(2)
+  })
+
+  it('grows the row rather than overlapping the next when the names do not fit across', () => {
+    const many = sheet({
+      sessions: sessionsOf([
+        'Ama Serwaa',
+        'Tunde Alabi',
+        'Samuel Boateng',
+        'Pastor Sam Varghese',
+        'Blessy Jijin',
+        'Rohit Kochikkat Francis',
+      ]),
+    })
+    const one = serviceSheetPage(sheet({ sessions: sessionsOf(['Ama Serwaa']) }), 'content')
+    const page = serviceSheetPage(many, 'content')
+    expect(page.height).toBeGreaterThan(one.height)
+
+    // Nothing it drew has been pushed off the card it belongs to.
+    const card = page.rects.filter((r) => r.radius === 16)[0]
+    const pills = page.rects.filter(
+      (r) => r !== card && r.x > card.x && r.y >= card.y && r.y < card.y + card.h,
+    )
+    expect(pills.length).toBe(6)
+    for (const pill of pills) {
+      expect(pill.y + pill.h).toBeLessThanOrEqual(card.y + card.h + 0.01)
+      expect(pill.x + pill.w).toBeLessThanOrEqual(card.x + card.w + 0.01)
+    }
+  })
+
+  it('still says so when nobody is on it at all', () => {
+    const page = serviceSheetPage(sheet({ sessions: sessionsOf([]) }), 'content')
+    expect(page.texts.map((t) => t.text)).toContain('Nobody assigned')
   })
 })
 
