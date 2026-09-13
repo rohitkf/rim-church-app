@@ -348,7 +348,30 @@ export function AppSettingsCard() {
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-3">
+            {/*
+              * Save follows you down the page.
+              *
+              * Every control here edits a draft, and the only way to keep it
+              * was a button at the foot of a card that runs to several
+              * screens on a phone. So the honest way to move a dial was:
+              * drag it, scroll past four more settings, press Save. Anyone
+              * who dragged and left — which is everyone, because a dial that
+              * moves looks like a thing that happened — changed nothing, was
+              * told nothing, and found the old number waiting next time.
+              *
+              * The row sticks to the bottom of the screen instead, above the
+              * dock it would otherwise hide behind, and says out loud that
+              * there is something unsaved. It only grows its own background
+              * when there is: with nothing to save it is an ordinary row at
+              * the end of the card.
+              */}
+            <div
+              className={`sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 -mx-6 flex flex-wrap items-center gap-3 px-6 py-3 sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom))] ${
+                changed
+                  ? 'rounded-[var(--radius-card)] bg-surface-lowest/95 shadow-[inset_0_0_0_1px_var(--color-outline-variant)] backdrop-blur'
+                  : ''
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => draft && save.mutate(draft)}
@@ -367,6 +390,11 @@ export function AppSettingsCard() {
               >
                 Restore defaults
               </button>
+              {changed && (
+                <span className="text-body-sm text-accent-orange-soft">
+                  Not saved yet — nothing changes for anybody until you press Save.
+                </span>
+              )}
               {saved && !changed && (
                 <span className="text-body-sm text-accent-green">Saved.</span>
               )}
