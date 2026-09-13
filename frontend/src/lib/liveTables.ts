@@ -46,6 +46,13 @@ export const LIVE_TABLES: LiveTable[] = [
     ],
   },
   {
+    // Who is taking each session. Its own table since a session can be
+    // shared, so a name going on one is a row here rather than a change
+    // to the session itself.
+    table: 'service_session_assignees',
+    keys: ['service-sessions', 'rota-service-sessions', 'finished-service-sessions'],
+  },
+  {
     // The one that moves while people are watching: start it, skip it,
     // grant it ten minutes, and every following session shifts.
     table: 'service_sessions',

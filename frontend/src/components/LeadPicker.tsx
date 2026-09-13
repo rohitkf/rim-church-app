@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PersonRef } from '../lib/sessionAssignees'
 
 export interface LeadOption {
   /** 'member' ids are profile ids; 'guest' ids are rows on the guest roll. */
@@ -9,13 +10,11 @@ export interface LeadOption {
   note?: string | null
 }
 
-export interface LeadValue {
-  kind: 'member' | 'guest'
-  id: string
-}
+/** Who a row refers to. The same pair the assignee rows are written with. */
+export type LeadValue = PersonRef
 
 /**
- * Who is taking this session.
+ * Who is taking this session — as many people as it takes.
  *
  * A native select was fine for a church of twelve and useless at eighty:
  * finding one person meant scrolling a list in whatever order the database
@@ -24,19 +23,25 @@ export interface LeadValue {
  * in separate groups so a visiting speaker is never mistaken for someone
  * on the rota.
  *
+ * It takes a list rather than a name, because most of a running order is
+ * shared work: worship is a team, communion is served by several people,
+ * and a guest speaker is introduced by somebody. Picking does not close
+ * the list — naming four people should be four taps, not four trips — so
+ * it closes on Escape, on Done, or on a click anywhere else.
+ *
  * Filtering matches anywhere in the name rather than only the start,
  * because people search by surname at least as often as by first name.
  */
 export function LeadPicker({
-  value,
+  values,
   options,
   onChange,
   label,
   onAddGuest,
 }: {
-  value: LeadValue | null
+  values: LeadValue[]
   options: LeadOption[]
-  onChange: (next: LeadValue | null) => void
+  onChange: (next: LeadValue[]) => void
   label: string
   /**
    * Put the name that was just typed on the guest roll, and hand back who
@@ -55,9 +60,19 @@ export function LeadPicker({
   const boxRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const selected = value
-    ? options.find((o) => o.kind === value.kind && o.id === value.id) ?? null
-    : null
+  const keyOf = (value: { kind: string; id: string }) => `${value.kind}:${value.id}`
+  const chosenKeys = useMemo(() => new Set(values.map(keyOf)), [values])
+
+  // The people on this session, in the order they were put there, named
+  // from the options list — a name that has since gone (a guest removed
+  // from the roll) simply stops being offered and stops being shown.
+  const chosen = useMemo(
+    () =>
+      values
+        .map((value) => options.find((o) => o.kind === value.kind && o.id === value.id))
+        .filter((o): o is LeadOption => !!o),
+    [values, options],
+  )
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -65,7 +80,7 @@ export function LeadPicker({
     return options.filter((o) => o.name.toLowerCase().includes(needle))
   }, [options, query])
 
-  // Unassigned is always the first row, so clearing someone is one key away
+  // Nobody is always the first row, so clearing a session is one key away
   // rather than a hunt back to the top of the list.
   const rows: (LeadOption | null)[] = useMemo(() => [null, ...matches], [matches])
 
@@ -78,10 +93,23 @@ export function LeadPicker({
     return () => document.removeEventListener('mousedown', onClickAway)
   }, [open])
 
-  function commit(option: LeadOption | null) {
-    onChange(option ? { kind: option.kind, id: option.id } : null)
-    setOpen(false)
+  /** On if they were off, off if they were on. The list stays open either way. */
+  function toggle(option: LeadOption | null) {
+    if (!option) {
+      onChange([])
+      return
+    }
+    const value: LeadValue = { kind: option.kind, id: option.id }
+    onChange(
+      chosenKeys.has(keyOf(value))
+        ? values.filter((v) => keyOf(v) !== keyOf(value))
+        : [...values, value],
+    )
     setQuery('')
+  }
+
+  function remove(option: LeadOption) {
+    onChange(values.filter((v) => keyOf(v) !== keyOf(option)))
   }
 
   /*
@@ -98,9 +126,8 @@ export function LeadPicker({
     setAdding(true)
     try {
       const made = await onAddGuest(name)
-      if (made) {
-        onChange(made)
-        setOpen(false)
+      if (made && !chosenKeys.has(keyOf(made))) {
+        onChange([...values, made])
         setQuery('')
       }
     } finally {
@@ -124,7 +151,7 @@ export function LeadPicker({
       setHighlighted((i) => (i - 1 + rows.length) % rows.length)
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      commit(rows[Math.min(highlighted, rows.length - 1)] ?? null)
+      toggle(rows[Math.min(highlighted, rows.length - 1)] ?? null)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       setOpen(false)
@@ -138,28 +165,72 @@ export function LeadPicker({
 
   function row(option: LeadOption) {
     const index = indexOf(option)
+    const on = chosenKeys.has(keyOf(option))
     return (
       <li key={`${option.kind}-${option.id}`}>
         <button
           type="button"
+          aria-pressed={on}
           onMouseDown={(e) => e.preventDefault()}
           onMouseEnter={() => setHighlighted(index)}
-          onClick={() => commit(option)}
-          className={`flex w-full flex-col items-start rounded-[var(--radius-row)] px-3 py-2 text-left ${
+          onClick={() => toggle(option)}
+          className={`flex w-full items-center gap-2 rounded-[var(--radius-row)] px-3 py-2 text-left ${
             index === highlighted ? 'bg-raised-strong' : ''
           }`}
         >
-          <span className="text-body-sm text-on-surface">{option.name}</span>
-          {option.note && (
-            <span className="text-label-sm text-on-surface-faint">{option.note}</span>
-          )}
+          {/* A tick that is always there, lit or not, so a name does not
+              shift sideways the moment it is chosen. */}
+          <span
+            aria-hidden="true"
+            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] ${
+              on ? 'bg-secondary text-on-secondary' : 'hairline'
+            }`}
+          >
+            {on && (
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m5 13 4 4L19 7" />
+              </svg>
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-body-sm text-on-surface">{option.name}</span>
+            {option.note && (
+              <span className="block text-label-sm text-on-surface-faint">{option.note}</span>
+            )}
+          </span>
         </button>
       </li>
     )
   }
 
   return (
-    <div ref={boxRef} className="relative shrink-0">
+    <div ref={boxRef} className="relative flex flex-wrap items-center gap-1.5">
+      {/* Who is on it, each one removable where they are shown rather than
+          back inside a list that has to be opened to find them. */}
+      {chosen.map((option) => (
+        <span
+          key={`${option.kind}-${option.id}`}
+          className="inline-flex items-center gap-1.5 rounded-full bg-raised-strong py-1 pl-3 pr-1 text-label-md text-on-surface hairline"
+        >
+          <span className="break-words">{option.name}</span>
+          {option.kind === 'guest' && (
+            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-secondary">
+              Guest
+            </span>
+          )}
+          <button
+            type="button"
+            aria-label={`Remove ${option.name}`}
+            onClick={() => remove(option)}
+            className="tap flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-raised hover:text-on-surface"
+          >
+            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </span>
+      ))}
+
       <button
         type="button"
         aria-label={label}
@@ -171,16 +242,11 @@ export function LeadPicker({
           requestAnimationFrame(() => inputRef.current?.focus())
         }}
         onKeyDown={onKeyDown}
-        className="tap flex w-44 items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
+        className="tap flex items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
       >
-        <span className="min-w-0 flex-1 break-words text-left">
-          {selected ? selected.name : 'Unassigned'}
+        <span className="min-w-0 break-words text-left">
+          {chosen.length === 0 ? 'Unassigned' : 'Add someone'}
         </span>
-        {selected?.kind === 'guest' && (
-          <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-secondary">
-            Guest
-          </span>
-        )}
         <svg
           className="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
           viewBox="0 0 24 24"
@@ -196,7 +262,7 @@ export function LeadPicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-1.5 w-64 rounded-[var(--radius-card)] bg-surface-low p-1.5 shadow-[var(--shadow-lifted)] hairline-strong">
+        <div className="absolute left-0 top-full z-30 mt-1.5 w-64 rounded-[var(--radius-card)] bg-surface-low p-1.5 shadow-[var(--shadow-lifted)] hairline-strong">
           <input
             ref={inputRef}
             value={query}
@@ -216,7 +282,7 @@ export function LeadPicker({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setHighlighted(0)}
-                onClick={() => commit(null)}
+                onClick={() => toggle(null)}
                 className={`w-full rounded-[var(--radius-row)] px-3 py-2 text-left text-body-sm text-on-surface-variant ${
                   highlighted === 0 ? 'bg-raised-strong' : ''
                 }`}
@@ -264,6 +330,19 @@ export function LeadPicker({
               </li>
             )}
           </ul>
+
+          {/* The list stays open while people are being picked, so it needs
+              a way out that is not "click somewhere harmless". */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setQuery('')
+            }}
+            className="tap mt-1 w-full rounded-[var(--radius-row)] px-3 py-2 text-label-md text-on-surface-variant hover:bg-raised-strong"
+          >
+            Done
+          </button>
         </div>
       )}
     </div>

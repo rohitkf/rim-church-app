@@ -10,6 +10,15 @@ import type { SheetSession } from '../lib/serviceSheet'
 import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
 import { useAppSettings } from '../lib/appSettings'
 import { GUESTS_KEY, addGuest, fetchGuests, guestLabel, pickable } from '../lib/guests'
+import {
+  assigneeInitials,
+  assigneeName,
+  namesOn,
+  peopleOn,
+  refOf,
+  saveAssignees,
+  type PersonRef,
+} from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
@@ -19,7 +28,6 @@ import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
 import { useDragReorder } from '../lib/useDragReorder'
 import { orderWithInsert } from '../lib/sessionInsert'
-import { initialsOf } from '../lib/initials'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
 import { runVariance, serviceBounds, serviceProgress, startableSession } from '../lib/serviceProgress'
@@ -60,7 +68,7 @@ async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
   const { data, error } = await supabase
     .from('service_sessions')
     .select(
-      '*, assignee:profiles!service_sessions_assigned_user_id_fkey(id, first_name, last_name), guest:guests(id, name, title, note)',
+      '*, assignees:service_session_assignees(id, user_id, guest_id, order_index, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
     )
     .eq('service_id', serviceId)
     .order('order_index')
@@ -149,6 +157,22 @@ export function ServicePlannerPage() {
     },
     onError: (err: unknown) =>
       setServiceError(errorText(err, 'Could not save that change.')),
+  })
+
+  /*
+   * Who is on a session.
+   *
+   * Not part of `updateField`, because it is no longer a field: the people
+   * are rows of their own, and saving is a matter of which of them are new
+   * and which have gone. Undo does not offer to put a name back — the
+   * picker has the list in front of it, and a person removed by mistake is
+   * two taps rather than a stack entry.
+   */
+  const setPeople = useMutation({
+    mutationFn: ({ session, next }: { session: ServiceSessionRow; next: PersonRef[] }) =>
+      saveAssignees(session.id, peopleOn(session), next),
+    onSuccess: () => invalidate(),
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not save who is on that.')),
   })
 
   /*
@@ -485,7 +509,7 @@ export function ServicePlannerPage() {
   // A session that was dropped needs nobody on it, so it is not something
   // the page should still be asking anyone to fix.
   const unassignedSessions = sessions.filter(
-    (session) => !session.skipped_at && !session.assigned_user_id && !session.guest_id,
+    (session) => !session.skipped_at && peopleOn(session).length === 0,
   )
   /*
    * When the service actually ends, not when the plan's lengths add up to.
@@ -519,11 +543,7 @@ export function ServicePlannerPage() {
         time: formatTime(session.start_time),
         minutes: runsForMinutes(session),
         name: session.session_name,
-        lead: session.guest
-          ? guestLabel(session.guest)
-          : session.assignee
-            ? `${session.assignee.first_name} ${session.assignee.last_name}`
-            : null,
+        leads: namesOn(session),
       })),
       totalLabel: formatDuration(totalMinutes),
       windowLabel:
@@ -1051,8 +1071,7 @@ export function ServicePlannerPage() {
                     const skipped = !!session.skipped_at
                     // A dropped session needs nobody on it, so it is never
                     // the thing the page is nagging about.
-                    const unassigned =
-                      !skipped && !session.assigned_user_id && !session.guest_id
+                    const unassigned = !skipped && peopleOn(session).length === 0
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
                     const drift = variance.get(session.id)
@@ -1309,13 +1328,7 @@ export function ServicePlannerPage() {
                                   <LeadPicker
                                     label={`Who leads ${session.session_name}`}
                                     options={leadOptions}
-                                    value={
-                                      session.assigned_user_id
-                                        ? { kind: 'member', id: session.assigned_user_id }
-                                        : session.guest_id
-                                          ? { kind: 'guest', id: session.guest_id }
-                                          : null
-                                    }
+                                    values={peopleOn(session).map(refOf)}
                                     onAddGuest={
                                       isAdmin
                                         ? async (name) => {
@@ -1328,39 +1341,21 @@ export function ServicePlannerPage() {
                                         : undefined
                                     }
                                     onChange={(next) =>
-                                      updateField.mutate({
-                                        id: session.id,
-                                        // Both fields are written every
-                                        // time: a session has one lead, and
-                                        // setting one without clearing the
-                                        // other is the pair the database
-                                        // refuses.
-                                        patch: {
-                                          assigned_user_id: next?.kind === 'member' ? next.id : null,
-                                          guest_id: next?.kind === 'guest' ? next.id : null,
-                                        },
-                                      })
+                                      setPeople.mutate({ session, next })
                                     }
                                   />
-                                ) : session.guest ? (
-                                  <AssigneePill
-                                    name={guestLabel(session.guest)}
-                                    initials={session.guest.name
-                                      .split(' ')
-                                      .map((part) => part.slice(0, 1))
-                                      .join('')
-                                      .slice(0, 2)
-                                      .toUpperCase()}
-                                  />
-                                ) : session.assignee ? (
-                                  <AssigneePill
-                                    name={`${session.assignee.first_name} ${session.assignee.last_name}`}
-                                    initials={initialsOf(
-                                      session.assignee.first_name,
-                                      session.assignee.last_name,
-                                    )}
-                                  />
-                                ) : null}
+                                ) : (
+                                  peopleOn(session).map((person) => {
+                                    const name = assigneeName(person)
+                                    return name ? (
+                                      <AssigneePill
+                                        key={person.id}
+                                        name={name}
+                                        initials={assigneeInitials(person)}
+                                      />
+                                    ) : null
+                                  })
+                                )}
 
                                 {unassigned && (
                                   <span className="text-label-md text-accent-orange-soft">

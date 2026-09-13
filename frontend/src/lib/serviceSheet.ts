@@ -20,7 +20,8 @@ export interface SheetSession {
   time: string
   minutes: number
   name: string
-  lead: string | null
+  /** Everybody taking it, in the order the planner has them. */
+  leads: string[]
 }
 
 export interface ServiceSheet {
@@ -176,6 +177,41 @@ const AVATAR = 13
  * the app's own AssigneePill has always drawn it (`py-1.5 pl-1.5`).
  */
 const AVATAR_INSET = 4
+/** Between one line of pills and the next, when they do not all fit across. */
+const PILL_ROW_GAP = 6
+
+/** One name's pill, measured before anything is drawn. */
+interface Pill {
+  /** The name, or null for the one that says nobody is on this. */
+  lead: string | null
+  lines: string[]
+  w: number
+  h: number
+  padLeft: number
+  discW: number
+}
+
+/**
+ * How much room one pill needs.
+ *
+ * A pill with a disc in it starts at the disc's inset; one with only
+ * words in it starts at the text's own padding. Both end at the text's
+ * padding, so the words are never crowded against the edge.
+ */
+function measurePill(lead: string | null, innerW: number): Pill {
+  const padLeft = lead ? AVATAR_INSET : PILL_PAD
+  const discW = lead ? AVATAR * 2 + PILL_GAP : 0
+  const lines = wrapText(lead ?? 'Nobody assigned', LEAD_SIZE, Math.max(innerW - padLeft - PILL_PAD - discW, 60))
+  const textW = Math.max(...lines.map((line) => textWidth(line, LEAD_SIZE, false)))
+  return {
+    lead,
+    lines,
+    w: padLeft + discW + textW + PILL_PAD,
+    h: Math.max(AVATAR * 2 + AVATAR_INSET * 2, lines.length * LEAD_LINE + 12),
+    padLeft,
+    discW,
+  }
+}
 
 /**
  * `page` keeps A4, which is what a printed PDF wants. `content` ends the
@@ -278,21 +314,40 @@ export function serviceSheetPage(
      * who is doing it directly beneath, which is also the order somebody
      * reads them in.
      */
-    const lead = session.lead
-    const leadText = lead ?? 'Nobody assigned'
     const innerW = rowW - ROW_PAD_X * 2
     const nameLines = wrapText(session.name, NAME_SIZE, innerW)
 
-    // A pill with a disc in it starts at the disc's inset; one with only
-    // words in it starts at the text's own padding. Both end at the
-    // text's padding, so the words are never crowded against the edge.
-    const padLeft = lead ? AVATAR_INSET : PILL_PAD
-    const discW = lead ? AVATAR * 2 + PILL_GAP : 0
-    const leadTextW = innerW - padLeft - PILL_PAD - discW
-    const leadLines = wrapText(leadText, LEAD_SIZE, Math.max(leadTextW, 60))
-    const leadW = Math.max(...leadLines.map((line) => textWidth(line, LEAD_SIZE, false)))
-    const pillW = padLeft + discW + leadW + PILL_PAD
-    const pillH = Math.max(AVATAR * 2 + AVATAR_INSET * 2, leadLines.length * LEAD_LINE + 12)
+    /*
+     * One pill per person, and one saying nobody when there is nobody.
+     *
+     * A session holds as many names as it takes — worship is a team, and
+     * communion is served by several people — so the names are laid out
+     * the way the page lays them out: side by side while they fit, onto
+     * another line when they do not. A pill is never split across lines;
+     * a single very long name wraps inside its own pill instead.
+     */
+    const pills = (session.leads.length > 0 ? session.leads : [null]).map((lead) =>
+      measurePill(lead, innerW),
+    )
+    // Which pills share a line, in order.
+    const pillRows: Pill[][] = []
+    let line: Pill[] = []
+    let lineW = 0
+    for (const pill of pills) {
+      const widthWith = line.length > 0 ? lineW + PILL_GAP + pill.w : pill.w
+      if (line.length > 0 && widthWith > innerW) {
+        pillRows.push(line)
+        line = [pill]
+        lineW = pill.w
+      } else {
+        line.push(pill)
+        lineW = widthWith
+      }
+    }
+    if (line.length > 0) pillRows.push(line)
+    const pillRowHeights = pillRows.map((row) => Math.max(...row.map((pill) => pill.h)))
+    const pillsH =
+      pillRowHeights.reduce((sum, h) => sum + h, 0) + (pillRows.length - 1) * PILL_ROW_GAP
 
     // What the row hangs from: the first line of the name, so the clock
     // beside it and the dot on the rail line up with the words rather
@@ -302,7 +357,7 @@ export function serviceSheetPage(
     // padding below the pill and the row sits low in its own box.
     const anchor = top + ROW_PAD_Y + NAME_SIZE * 0.72
     const pillTop = anchor + (nameLines.length - 1) * NAME_LINE + 10
-    const rowH = Math.max(ROW_MIN_H, pillTop - top + pillH + ROW_PAD_Y)
+    const rowH = Math.max(ROW_MIN_H, pillTop - top + pillsH + ROW_PAD_Y)
     if (railTop === null) railTop = anchor
     railBottom = anchor
 
@@ -343,39 +398,51 @@ export function serviceSheetPage(
 
     // Who is doing it, on its own line beneath — or the gap, named,
     // because that is what a planner is scanning for.
-    const pillX = ROW_X + ROW_PAD_X
-    rects.push({
-      x: pillX,
-      y: pillTop,
-      w: pillW,
-      h: pillH,
-      color: lead ? PILL : PILL_EMPTY,
-      radius: Math.min(17, pillH / 2),
+    let pillY = pillTop
+    pillRows.forEach((row, rowIndex) => {
+      let pillX = ROW_X + ROW_PAD_X
+      for (const pill of row) {
+        rects.push({
+          x: pillX,
+          y: pillY,
+          w: pill.w,
+          h: pill.h,
+          color: pill.lead ? PILL : PILL_EMPTY,
+          radius: Math.min(17, pill.h / 2),
+        })
+        const pillMid = pillY + pill.h / 2
+        if (pill.lead) {
+          circles.push({
+            cx: pillX + pill.padLeft + AVATAR,
+            cy: pillMid,
+            r: AVATAR,
+            color: AVATAR_DISC,
+          })
+          const ini = initialsOf(pill.lead)
+          texts.push({
+            x: pillX + pill.padLeft + AVATAR - textWidth(ini, 9, false, true) / 2,
+            y: pillMid + 3.5,
+            size: 9,
+            text: ini,
+            mono: true,
+            color: AVATAR_INK,
+          })
+        }
+        let leadY = pillMid - ((pill.lines.length - 1) * LEAD_LINE) / 2 + 4.5
+        for (const textLine of pill.lines) {
+          texts.push({
+            x: pillX + pill.padLeft + pill.discW,
+            y: leadY,
+            size: LEAD_SIZE,
+            text: textLine,
+            color: pill.lead ? INK : WARN,
+          })
+          leadY += LEAD_LINE
+        }
+        pillX += pill.w + PILL_GAP
+      }
+      pillY += pillRowHeights[rowIndex] + PILL_ROW_GAP
     })
-    const pillMid = pillTop + pillH / 2
-    if (lead) {
-      circles.push({ cx: pillX + padLeft + AVATAR, cy: pillMid, r: AVATAR, color: AVATAR_DISC })
-      const ini = initialsOf(lead)
-      texts.push({
-        x: pillX + padLeft + AVATAR - textWidth(ini, 9, false, true) / 2,
-        y: pillMid + 3.5,
-        size: 9,
-        text: ini,
-        mono: true,
-        color: AVATAR_INK,
-      })
-    }
-    let leadY = pillMid - ((leadLines.length - 1) * LEAD_LINE) / 2 + 4.5
-    for (const line of leadLines) {
-      texts.push({
-        x: pillX + padLeft + discW,
-        y: leadY,
-        size: LEAD_SIZE,
-        text: line,
-        color: lead ? INK : WARN,
-      })
-      leadY += LEAD_LINE
-    }
 
     y = top + rowH + ROW_GAP
   })
