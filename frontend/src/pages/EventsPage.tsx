@@ -104,6 +104,13 @@ export function EventsPage() {
 
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
   const [adding, setAdding] = useState(false)
+  /**
+   * The event being changed, or null when the form is adding a new one.
+   *
+   * One form for both: an edit that looked different from an add would be
+   * a second place for the same eight fields to drift apart.
+   */
+  const [editing, setEditing] = useState<DiaryEvent | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
@@ -149,9 +156,9 @@ export function EventsPage() {
 
   const days = useMemo(() => byDay(diary), [diary])
 
-  const addEvent = useMutation({
+  const saveEvent = useMutation({
     mutationFn: async () => {
-      const { error: insertError } = await supabase.from('church_events').insert({
+      const fields = {
         title: title.trim(),
         event_date: date,
         ends_on: endDate,
@@ -159,17 +166,24 @@ export function EventsPage() {
         location: location.trim() || null,
         details: details.trim() || null,
         department_id: departmentId || null,
-        created_by: session!.user.id,
-      })
-      if (insertError) throw insertError
+      }
+      // `created_by` belongs to whoever put it in the diary and is not
+      // rewritten by whoever corrects it later: the name on the row is a
+      // fact about who decided, not about who last touched a field.
+      const { error: writeError } = editing
+        ? await supabase.from('church_events').update(fields).eq('id', editing.id)
+        : await supabase
+            .from('church_events')
+            .insert({ ...fields, created_by: session!.user.id })
+      if (writeError) throw writeError
     },
     onSuccess: () => {
-      setAdding(false)
-      setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setLocation(''); setDetails(''); setDepartmentId('')
+      closeForm()
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['church-events'] })
     },
-    onError: (err: unknown) => setError(errorText(err, 'Could not add that event.')),
+    onError: (err: unknown) =>
+      setError(errorText(err, editing ? 'Could not save that change.' : 'Could not add that event.')),
   })
 
   const removeEvent = useMutation({
@@ -184,19 +198,40 @@ export function EventsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that event.')),
   })
 
+  function closeForm() {
+    setAdding(false)
+    setEditing(null)
+    setTitle(''); setDate(''); setEndDate(null); setStartTime('')
+    setLocation(''); setDetails(''); setDepartmentId('')
+  }
+
   // Opening the form with a day already chosen. Tapping the 14th is
   // somebody saying which day they mean; asking again in the form is the
   // app not listening.
   function openAdd(on?: string) {
+    closeForm()
     setDate(on ?? today)
-    setEndDate(null)
+    setAdding(true)
+  }
+
+  /** The same form, holding what the event already says. */
+  function openEdit(row: DiaryEvent) {
+    setEditing(row)
+    setTitle(row.title)
+    setDate(row.event_date)
+    setEndDate(row.ends_on && row.ends_on > row.event_date ? row.ends_on : null)
+    // "19:30:00" in the database; the time field wants "19:30".
+    setStartTime(row.start_time ? row.start_time.slice(0, 5) : '')
+    setLocation(row.location ?? '')
+    setDetails(row.details ?? '')
+    setDepartmentId(row.department_id ?? '')
     setAdding(true)
   }
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!title.trim() || !date) return
-    addEvent.mutate()
+    saveEvent.mutate()
   }
 
   /**
@@ -407,6 +442,18 @@ export function EventsPage() {
                                 {entry.addedBy ? `Added by ${entry.addedBy}` : ''}
                               </span>
                               {mayEdit(entry) && (
+                                <span className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const id = eventIdOf(entry)
+                                      const row = (eventsQuery.data ?? []).find((ev) => ev.id === id)
+                                      if (row) openEdit(row)
+                                    }}
+                                    className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+                                  >
+                                    Edit
+                                  </button>
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -424,6 +471,7 @@ export function EventsPage() {
                                 >
                                   Remove
                                 </button>
+                                </span>
                               )}
                             </div>
                           )}
@@ -450,10 +498,12 @@ export function EventsPage() {
             className="max-h-full w-full max-w-lg overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
           >
             <h2 id="add-event-title" className="text-headline-md">
-              Add an event
+              {editing ? 'Edit this event' : 'Add an event'}
             </h2>
             <p className="mt-1 text-body-sm text-on-surface-variant">
-              It appears in everyone&rsquo;s diary, with your name on it.
+              {editing
+                ? 'Everyone sees the change, wherever it appears in the diary.'
+                : 'It appears in everyone’s diary, with your name on it.'}
             </p>
 
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -520,13 +570,23 @@ export function EventsPage() {
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setAdding(false)}
+                onClick={closeForm}
                 className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 hover:ring-black/20 dark:ring-white/10"
               >
                 Cancel
               </button>
-              <ActionButton type="submit" disabled={addEvent.isPending || !title.trim() || !date} glyph="+">
-                {addEvent.isPending ? 'Adding' : 'Add event'}
+              <ActionButton
+                type="submit"
+                disabled={saveEvent.isPending || !title.trim() || !date}
+                glyph={editing ? undefined : '+'}
+              >
+                {saveEvent.isPending
+                  ? editing
+                    ? 'Saving'
+                    : 'Adding'
+                  : editing
+                    ? 'Save changes'
+                    : 'Add event'}
               </ActionButton>
             </div>
           </form>
