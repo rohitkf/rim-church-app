@@ -37,6 +37,28 @@ describe('activitySentence', () => {
     )
   })
 
+  /*
+   * An answer can carry a sentence — "there, but not until 9.30" — and
+   * that changes a morning as much as the yes does.
+   */
+  it('says when the note beside an answer changes', () => {
+    expect(say('availability', 'Audio', 'note added')).toBe('added a note — Audio')
+    expect(say('availability', 'Audio', 'note changed')).toBe('changed their note — Audio')
+    expect(say('availability', 'Audio', 'note removed')).toBe('took their note off — Audio')
+  })
+
+  it('names whose note it was when an Admin corrected it', () => {
+    expect(say('availability', 'Audio', 'note added for Grace Mensah')).toBe(
+      'added a note for Grace Mensah — Audio',
+    )
+    expect(say('availability', 'Audio', 'note changed for Grace Mensah')).toBe(
+      "changed Grace Mensah's note — Audio",
+    )
+    expect(say('availability', 'Audio', 'note removed for Grace Mensah')).toBe(
+      "took Grace Mensah's note off — Audio",
+    )
+  })
+
   it('reads as a predicate, so the feed can put a name in front of it', () => {
     expect(say('attendance', 'Audio', 'turned up')).toBe('turned up — Audio')
     expect(say('checklist', 'Line check', 'signed off')).toBe('signed off Line check')

@@ -98,6 +98,105 @@ async function fetchMembers(departmentIds: string[]): Promise<DepartmentMemberRo
   return z.array(departmentMemberRowSchema).parse(data)
 }
 
+/**
+ * What the answer could not say on its own.
+ *
+ * "Yes" is true and still leaves the head guessing: somebody can serve
+ * and not be there until half nine, or serve but not lift. That sentence
+ * has been arriving by WhatsApp, which reaches whoever was looking at
+ * their phone — while the tracker, which is where the morning actually
+ * gets planned, said a confident "Yes".
+ *
+ * It is the volunteer's own words and it appears beside their name, so
+ * only they write it. A head reads it and plans around it.
+ */
+function AnswerNote({
+  note,
+  busy,
+  editable,
+  onSave,
+}: {
+  note: string | null
+  busy: boolean
+  editable: boolean
+  onSave: (note: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(note ?? '')
+
+  if (!editing) {
+    return (
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        {note && (
+          <span className="min-w-0 break-words text-label-md text-on-surface-variant">
+            <span aria-hidden="true">“</span>
+            {note}
+            <span aria-hidden="true">”</span>
+          </span>
+        )}
+        {editable && (
+          <button
+            type="button"
+            onClick={() => {
+              setText(note ?? '')
+              setEditing(true)
+            }}
+            className="tap shrink-0 text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+          >
+            {note ? 'Edit note' : 'Add a note'}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            onSave(text)
+            setEditing(false)
+          }
+        }}
+        maxLength={200}
+        autoFocus
+        aria-label="A note with your answer"
+        placeholder="Anything the team should know — “there, but not until 9.30”."
+        className="w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            onSave(text)
+            setEditing(false)
+          }}
+          className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+        >
+          Save note
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+        >
+          Cancel
+        </button>
+        {/* Clearing it is saving an empty one, which the database counts
+            as no note at all. */}
+        <span className="font-mono text-label-sm text-on-surface-faint">
+          {text.trim().length}/200
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function AvailabilityPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
   const { teamStyle } = useTeamStyle()
@@ -339,6 +438,29 @@ export function AvailabilityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
   })
 
+  /*
+   * The sentence that goes with the answer.
+   *
+   * Written onto the answer's own row rather than anywhere new: it is
+   * part of the answer, goes when the answer goes, and the head reads it
+   * in the same place they read the yes. Blank clears it — the database
+   * treats whitespace as nothing said.
+   */
+  const setNote = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const { error } = await supabase
+        .from('availability')
+        .update({ note: note.trim() || null })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setOverrideError(null)
+      return queryClient.invalidateQueries({ queryKey: ['availability'] })
+    },
+    onError: (err: unknown) => setOverrideError(errorText(err, 'Could not save that note.')),
+  })
+
   // Admins don't answer for themselves here, but they do sometimes have to
   // record an answer someone gave them another way — a phone call on the
   // day — or correct one. RLS and the availability guard already allow an
@@ -387,10 +509,13 @@ export function AvailabilityPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
   })
 
-  const myAnswer = (serviceId: string, departmentId: string) =>
+  const myRow = (serviceId: string, departmentId: string) =>
     (availabilityQuery.data ?? []).find(
       (a) => a.user_id === myId && a.service_id === serviceId && a.department_id === departmentId,
-    )?.status ?? null
+    ) ?? null
+
+  const myAnswer = (serviceId: string, departmentId: string) =>
+    myRow(serviceId, departmentId)?.status ?? null
 
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
   const error = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
@@ -653,6 +778,22 @@ export function AvailabilityPage() {
                 </div>
               )}
 
+              {/* A note only means something attached to an answer, so it
+                  appears once one has been given — and stays readable
+                  after the window shuts, when it is the head who needs
+                  it most. */}
+              {canAnswer && mine && !finished && (
+                <AnswerNote
+                  note={myRow(service.id, dept.id)?.note ?? null}
+                  busy={setNote.isPending}
+                  editable={!answersClosed}
+                  onSave={(note) => {
+                    const row = myRow(service.id, dept.id)
+                    if (row) setNote.mutate({ id: row.id, note })
+                  }}
+                />
+              )}
+
               {/*
                 How long is left to answer.
                 
@@ -789,6 +930,16 @@ export function AvailabilityPage() {
                               </span>
                             )}
                           </div>
+
+                          {/* The note, where the head is already looking
+                              to see who said what. */}
+                          {answer?.note && (
+                            <p className="mt-0.5 break-words text-label-md text-on-surface-variant">
+                              <span aria-hidden="true">“</span>
+                              {answer.note}
+                              <span aria-hidden="true">”</span>
+                            </p>
+                          )}
 
                           {answer?.status === 'available' && attendance.open && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
