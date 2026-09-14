@@ -15,13 +15,14 @@ import {
   KIND_LABEL,
   buildDiary,
   byDay,
+  diaryTime,
   type DiaryEntry,
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
-import { formatRange } from '../lib/dateRange'
+import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -111,6 +112,15 @@ export function EventsPage() {
    * a second place for the same eight fields to drift apart.
    */
   const [editing, setEditing] = useState<DiaryEvent | null>(null)
+  /*
+   * The event somebody has opened to read.
+   *
+   * A diary row is one line — a name, a chip, a time — because a list of
+   * twenty of them has to be scannable. Everything else an event carries
+   * (where it is, whose it is, what was written under "anything else") had
+   * nowhere to be read, so it was typed in and never seen again.
+   */
+  const [reading, setReading] = useState<DiaryEvent | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
@@ -430,6 +440,19 @@ export function EventsPage() {
                             <Link to={entry.href} className="block hover:opacity-90">
                               {body}
                             </Link>
+                          ) : eventIdOf(entry) ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const id = eventIdOf(entry)
+                                const row = (eventsQuery.data ?? []).find((ev) => ev.id === id)
+                                if (row) setReading(row)
+                              }}
+                              aria-label={`${entry.title} — see the details`}
+                              className="block w-full text-left hover:opacity-90"
+                            >
+                              {body}
+                            </button>
                           ) : (
                             body
                           )}
@@ -590,6 +613,124 @@ export function EventsPage() {
               </ActionButton>
             </div>
           </form>
+        </div>
+      )}
+
+      {/*
+        An event, read rather than scanned.
+
+        The row in the list is one line on purpose — twenty of them have to
+        be scannable — so everything else an event carries had nowhere to
+        be seen: where it is, whose it is, and whatever was typed under
+        "anything else", which is usually the part that matters.
+       */}
+      {reading && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="event-detail-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReading(null)
+          }}
+        >
+          <div className="max-h-full w-full max-w-md overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+            <div className="flex flex-wrap items-center gap-2">
+              {reading.department?.color && <TeamMark color={reading.department.color} />}
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE.event.chip}`}
+              >
+                {KIND_LABEL.event}
+              </span>
+            </div>
+            <h2 id="event-detail-title" className="mt-2 text-headline-md">
+              {reading.title}
+            </h2>
+
+            <dl className="mt-4 flex flex-col gap-3">
+              <div>
+                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                  When
+                </dt>
+                <dd className="mt-0.5 text-body-md text-on-surface">
+                  {formatRange(reading.event_date, reading.ends_on, today)}
+                  {reading.ends_on && reading.ends_on > reading.event_date && (
+                    <span className="text-on-surface-variant">
+                      {' '}
+                      · {dayCount(reading.event_date, reading.ends_on)} days
+                    </span>
+                  )}
+                  {diaryTime(reading.start_time) && (
+                    <span className="text-on-surface-variant">
+                      {' '}
+                      · from {diaryTime(reading.start_time)}
+                    </span>
+                  )}
+                </dd>
+              </div>
+
+              {reading.location && (
+                <div>
+                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                    Where
+                  </dt>
+                  <dd className="mt-0.5 break-words text-body-md text-on-surface">
+                    {reading.location}
+                  </dd>
+                </div>
+              )}
+
+              <div>
+                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                  Whose event
+                </dt>
+                <dd className="mt-0.5 text-body-md text-on-surface">
+                  {reading.department?.name ?? 'The whole church'}
+                </dd>
+              </div>
+
+              {reading.details && (
+                <div>
+                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                    Anything else
+                  </dt>
+                  {/* Kept as it was typed: people write these as a few
+                      lines, and running them together is a different note. */}
+                  <dd className="mt-0.5 whitespace-pre-wrap break-words text-body-md text-on-surface">
+                    {reading.details}
+                  </dd>
+                </div>
+              )}
+
+              {reading.creator && (
+                <div>
+                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                    Added by
+                  </dt>
+                  <dd className="mt-0.5 text-body-md text-on-surface-variant">
+                    {reading.creator.first_name} {reading.creator.last_name}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              {(isAdmin || (!!reading.department_id && isDepartmentHead(reading.department_id))) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const row = reading
+                    setReading(null)
+                    openEdit(row)
+                  }}
+                  className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 hover:ring-black/20 dark:ring-white/10"
+                >
+                  Edit
+                </button>
+              )}
+              <ActionButton onClick={() => setReading(null)}>Close</ActionButton>
+            </div>
+          </div>
         </div>
       )}
 

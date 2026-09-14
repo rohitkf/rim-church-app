@@ -190,7 +190,8 @@ describe('AppShell dock', () => {
       await standOn('/checklists', 'Checklists')
       expect(onBar('Team Rota')).toBe(true)
       expect(onBar('Checklists')).toBe(true)
-      expect(onBar('Set Lists')).toBe(true)
+      // The one after a checklist is the debrief that follows the service.
+      expect(onBar('Debriefs')).toBe(true)
       expect(onBar('Dashboard')).toBe(false)
     })
 
@@ -249,6 +250,7 @@ describe('AppShell dock', () => {
       'Availability',
       'Team Rota',
       'Checklists',
+      'Debriefs',
       'Set Lists',
       'Messages',
       'Team Chat',

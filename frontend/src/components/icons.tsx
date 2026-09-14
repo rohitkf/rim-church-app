@@ -249,6 +249,16 @@ export function MoreIcon(props: IconProps) {
   )
 }
 
+/** Minutes: a page with lines on it, and a spine. */
+export function NotebookIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <path d="M9 8h6M9 12h6M9 16h3" />
+    </svg>
+  )
+}
+
 export function ChatTeamIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
