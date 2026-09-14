@@ -34,6 +34,8 @@ export const debriefItemSchema = z.object({
   id: z.string(),
   debrief_id: z.string(),
   body: z.string(),
+  // Dormant. Kept in the shape because the column is still there, holding
+  // whatever the build that had a person picker wrote into it.
   assigned_to: z.string().nullable(),
   done_at: z.string().nullable(),
   done_by: z.string().nullable(),
@@ -41,7 +43,8 @@ export const debriefItemSchema = z.object({
   created_at: z.string(),
   created_by: z.string().nullable(),
   updated_at: z.string(),
-  assignee: personSchema.nullable().optional(),
+  /** Whoever said it. A debrief is minutes, and minutes name their speaker. */
+  author: personSchema.nullable().optional(),
 })
 export type DebriefItem = z.infer<typeof debriefItemSchema>
 
@@ -68,7 +71,7 @@ export async function fetchDebriefs(serviceIds: string[]): Promise<Debrief[]> {
     .from('service_debriefs')
     .select(
       '*, author:profiles!service_debriefs_written_by_fkey(id, first_name, last_name), ' +
-        'items:service_debrief_items(*, assignee:profiles!service_debrief_items_assigned_to_fkey(id, first_name, last_name))',
+        'items:service_debrief_items(*, author:profiles!service_debrief_items_created_by_fkey(id, first_name, last_name))',
     )
     .in('service_id', serviceIds)
   if (error) throw error
@@ -153,7 +156,6 @@ export async function addDebriefItem(fields: {
   serviceId: string
   departmentId: string
   body: string
-  assignedTo: string | null
   createdBy: string
   sortOrder: number
 }): Promise<void> {
@@ -164,22 +166,18 @@ export async function addDebriefItem(fields: {
   const { error } = await supabase.from('service_debrief_items').insert({
     debrief_id: debriefId,
     body,
-    assigned_to: fields.assignedTo,
     sort_order: fields.sortOrder,
     created_by: fields.createdBy,
   })
   if (error) throw error
 }
 
-export async function updateDebriefItem(
-  id: string,
-  fields: { body: string; assignedTo: string | null },
-): Promise<void> {
+export async function updateDebriefItem(id: string, fields: { body: string }): Promise<void> {
   const body = fields.body.trim()
   if (!body) return
   const { error } = await supabase
     .from('service_debrief_items')
-    .update({ body, assigned_to: fields.assignedTo })
+    .update({ body })
     .eq('id', id)
   if (error) throw error
 }
@@ -204,7 +202,16 @@ export async function setDebriefItemDone(
   if (error) throw error
 }
 
-export async function deleteDebriefItem(id: string): Promise<void> {
+/**
+ * Removing an item, and the empty row it would otherwise leave behind.
+ *
+ * The debrief row exists only to hold items. Taking the last one off used
+ * to leave a team card that said "nothing written up yet" and offered to
+ * remove minutes that were not there — so the last item takes the row with
+ * it, and the team is back to never having written up.
+ */
+export async function deleteDebriefItem(id: string, lastOne?: string | null): Promise<void> {
+  if (lastOne) return deleteDebrief(lastOne)
   const { error } = await supabase.from('service_debrief_items').delete().eq('id', id)
   if (error) throw error
 }
