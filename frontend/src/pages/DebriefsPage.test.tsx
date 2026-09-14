@@ -53,17 +53,6 @@ vi.mock('../lib/queries', () => ({
       { id: 'd1', name: 'Media', color: '#3b82f6' },
       { id: 'd2', name: 'Audio', color: '#ef4444' },
     ]),
-  fetchMembersForDepartments: () =>
-    Promise.resolve([
-      {
-        id: 'm1',
-        department_id: 'd1',
-        user_id: 'u9',
-        member_type: 'core',
-        created_at: TODAY,
-        profiles: { id: 'u9', first_name: 'Grace', last_name: 'Mensah' },
-      },
-    ]),
 }))
 
 vi.mock('../components/TeamMark', () => ({ TeamMark: () => null }))
@@ -133,7 +122,7 @@ const item = (over: Record<string, unknown> = {}) => ({
   created_at: '2026-09-13T20:00:00Z',
   created_by: 'u9',
   updated_at: '2026-09-13T20:00:00Z',
-  assignee: null,
+  author: { id: 'u9', first_name: 'Grace', last_name: 'Mensah' },
   ...over,
 })
 
@@ -178,13 +167,26 @@ describe('debriefs', () => {
     expect(screen.getByText(/on their last day/i)).toBeInTheDocument()
   })
 
-  it('shows each thing said, and who wrote them up', async () => {
-    state.debriefs = [debrief()]
+  // Minutes name their speaker: each line says who said it, rather than one
+  // name at the bottom standing for everything the team came up with.
+  it('shows each thing said, and who said it', async () => {
+    state.debriefs = [
+      debrief({
+        items: [
+          item(),
+          item({
+            id: 'it2',
+            body: 'Back door key needed',
+            created_by: 'u8',
+            author: { id: 'u8', first_name: 'Febin', last_name: 'Shaji' },
+          }),
+        ],
+      }),
+    ]
     show()
     expect(await screen.findByText('Radio mic died again')).toBeInTheDocument()
-    // Her name is also an option in the "who it is on" picker, so this
-    // pins the line that says who wrote the debrief up.
-    expect(within(mediaRow()).getByText(/Grace Mensah · written/)).toBeInTheDocument()
+    expect(within(mediaRow()).getByText('Grace Mensah')).toBeInTheDocument()
+    expect(within(mediaRow()).getByText('Febin Shaji')).toBeInTheDocument()
   })
 
   it('says plainly when a team has not written up', async () => {
@@ -242,21 +244,16 @@ describe('adding things to a debrief', () => {
     expect(state.written[0].row).toMatchObject({ debrief_id: 'db1', sort_order: 1 })
   })
 
-  it('can put the item on somebody', async () => {
+  /*
+   * Adding is a line and nothing else. Asking who each thing was on made
+   * every item a small form to fill in, when most of what gets said after
+   * a service is only worth writing down.
+   */
+  it('asks for nothing but the line itself', async () => {
     state.debriefs = [debrief()]
     show()
     await screen.findByText('Radio mic died again')
-
-    const row = mediaRow()
-    await userEvent.type(within(row).getByLabelText('Add a debrief item'), 'Order batteries')
-    await userEvent.selectOptions(
-      within(row).getAllByLabelText('Who it is on')[0],
-      'u9',
-    )
-    await userEvent.click(within(row).getByRole('button', { name: 'Add' }))
-
-    await waitFor(() => expect(state.written).toHaveLength(1))
-    expect(state.written[0].row).toMatchObject({ assigned_to: 'u9' })
+    expect(within(mediaRow()).queryByLabelText('Who it is on')).toBeNull()
   })
 
   // A debrief comes out in a rush; a box that has to be re-opened between
@@ -352,7 +349,7 @@ describe('working through the list', () => {
   })
 
   it('removes one item without touching the rest', async () => {
-    state.debriefs = [debrief()]
+    state.debriefs = [debrief({ items: [item(), item({ id: 'it2', body: 'Back door key needed' })] })]
     show()
     await screen.findByText('Radio mic died again')
 
@@ -364,6 +361,33 @@ describe('working through the list', () => {
       op: 'delete',
       id: 'it1',
     })
+  })
+
+  /*
+   * The debrief row exists only to hold items. Taking the last one off
+   * used to leave a card saying "nothing written up yet" that still
+   * offered to remove minutes which were not there.
+   */
+  it('takes the empty debrief with the last item', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.click(screen.getByLabelText('Remove: Radio mic died again'))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({
+      table: 'service_debriefs',
+      op: 'delete',
+      id: 'db1',
+    })
+  })
+
+  it('does not offer to remove a list that is not there', async () => {
+    state.debriefs = [debrief({ items: [] })]
+    show()
+    await screen.findByText('English Service')
+    expect(within(mediaRow()).queryByRole('button', { name: 'Remove all' })).toBeNull()
   })
 })
 

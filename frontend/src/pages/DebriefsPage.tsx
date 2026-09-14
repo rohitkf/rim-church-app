@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { TeamMark } from '../components/TeamMark'
-import { fetchDepartments, fetchMembersForDepartments, fetchServices } from '../lib/queries'
+import { fetchDepartments, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useAppSettings } from '../lib/appSettings'
@@ -25,7 +25,6 @@ import {
   nextSortOrder,
   setDebriefItemDone,
   updateDebriefItem,
-  type Debrief,
   type DebriefItem,
 } from '../lib/debriefs'
 import { formatRange } from '../lib/dateRange'
@@ -56,48 +55,7 @@ import { formatRange } from '../lib/dateRange'
  * the ones still outstanding sit at the top where they are awkward.
  */
 
-interface Person {
-  id: string
-  first_name: string
-  last_name: string
-}
-
 const fullName = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`
-
-/**
- * Putting a name against a thing, or leaving it against nobody.
- *
- * Most items are only worth remembering — "the new projector was much
- * better" needs no one's name — so "Nobody in particular" is the default
- * and not an afterthought at the bottom of the list.
- */
-function PersonPicker({
-  value,
-  people,
-  label,
-  onChange,
-}: {
-  value: string | null
-  people: Person[]
-  label: string
-  onChange: (id: string | null) => void
-}) {
-  return (
-    <select
-      value={value ?? ''}
-      aria-label={label}
-      onChange={(e) => onChange(e.target.value || null)}
-      className="min-w-0 flex-1 rounded-full bg-raised px-3 py-1.5 text-label-md text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary sm:flex-none"
-    >
-      <option value="">Nobody in particular</option>
-      {people.map((person) => (
-        <option key={person.id} value={person.id}>
-          {fullName(person)}
-        </option>
-      ))}
-    </select>
-  )
-}
 
 /**
  * One line of the debrief.
@@ -109,22 +67,19 @@ function PersonPicker({
  */
 function ItemRow({
   item,
-  people,
   mayWrite,
   onToggle,
   onSave,
   onRemove,
 }: {
   item: DebriefItem
-  people: Person[]
   mayWrite: boolean
   onToggle: (done: boolean) => void
-  onSave: (fields: { body: string; assignedTo: string | null }) => void
+  onSave: (fields: { body: string }) => void
   onRemove: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(item.body)
-  const [assignedTo, setAssignedTo] = useState<string | null>(item.assigned_to)
   const done = !!item.done_at
 
   if (editing) {
@@ -139,17 +94,11 @@ function ItemRow({
           className="w-full bg-transparent text-body-sm text-on-surface focus:outline-none"
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <PersonPicker
-            value={assignedTo}
-            people={people}
-            label="Who it is on"
-            onChange={setAssignedTo}
-          />
           <button
             type="button"
             disabled={!body.trim()}
             onClick={() => {
-              onSave({ body, assignedTo })
+              onSave({ body })
               setEditing(false)
             }}
             className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
@@ -160,7 +109,6 @@ function ItemRow({
             type="button"
             onClick={() => {
               setBody(item.body)
-              setAssignedTo(item.assigned_to)
               setEditing(false)
             }}
             className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
@@ -195,11 +143,11 @@ function ItemRow({
           {item.body}
         </span>
       </div>
-      {(item.assignee || mayWrite) && (
+      {(item.author || mayWrite) && (
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[26px]">
-          {item.assignee && (
+          {item.author && (
             <span className="rounded-full bg-raised px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
-              {fullName(item.assignee)}
+              {fullName(item.author)}
             </span>
           )}
           {mayWrite && (
@@ -235,31 +183,22 @@ function ItemRow({
  * the fourth and fifth things anybody said.
  */
 function ItemComposer({
-  people,
   adding,
   onAdd,
 }: {
-  people: Person[]
   adding: boolean
-  onAdd: (fields: { body: string; assignedTo: string | null }) => void
+  onAdd: (fields: { body: string }) => void
 }) {
   const [body, setBody] = useState('')
-  const [assignedTo, setAssignedTo] = useState<string | null>(null)
 
   const submit = () => {
     if (!body.trim()) return
-    onAdd({ body, assignedTo })
+    onAdd({ body })
     setBody('')
-    setAssignedTo(null)
   }
 
-  /*
-   * The box takes a whole line of its own until there is room for the
-   * picker beside it: sharing a row on a phone left it about four
-   * characters wide, which is not a box anybody can type a sentence into.
-   */
   return (
-    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="mt-3 flex items-center gap-2">
       <input
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -274,24 +213,16 @@ function ItemComposer({
         maxLength={1000}
         aria-label="Add a debrief item"
         placeholder="What went well, what did not, or what somebody has to do."
-        className="w-full min-w-0 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary sm:flex-1"
+        className="min-w-0 flex-1 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
       />
-      <div className="flex items-center gap-2">
-        <PersonPicker
-          value={assignedTo}
-          people={people}
-          label="Who it is on"
-          onChange={setAssignedTo}
-        />
-        <button
-          type="button"
-          disabled={adding || !body.trim()}
-          onClick={submit}
-          className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
-        >
-          {adding ? 'Adding…' : 'Add'}
-        </button>
-      </div>
+      <button
+        type="button"
+        disabled={adding || !body.trim()}
+        onClick={submit}
+        className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+      >
+        {adding ? 'Adding…' : 'Add'}
+      </button>
     </div>
   )
 }
@@ -326,31 +257,6 @@ export function DebriefsPage() {
     [servicesQuery.data, today, settings.debrief_retention_days],
   )
 
-  /*
-   * Who each team can put an item on. RLS narrows this to the teams the
-   * reader may see, so a head gets their own team and not the church.
-   */
-  const departmentIds = useMemo(
-    () => (departmentsQuery.data ?? []).map((d) => d.id),
-    [departmentsQuery.data],
-  )
-  const membersQuery = useQuery({
-    queryKey: ['debrief-people', departmentIds.join(',')],
-    queryFn: () => fetchMembersForDepartments(departmentIds),
-    enabled: departmentIds.length > 0,
-  })
-  const peopleByTeam = useMemo(() => {
-    const map = new Map<string, Person[]>()
-    for (const row of membersQuery.data ?? []) {
-      if (!row.profiles) continue
-      const list = map.get(row.department_id) ?? []
-      list.push(row.profiles)
-      map.set(row.department_id, list)
-    }
-    for (const list of map.values()) list.sort((a, b) => fullName(a).localeCompare(fullName(b)))
-    return map
-  }, [membersQuery.data])
-
   const debriefsQuery = useQuery({
     queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(',')],
     queryFn: () => fetchDebriefs(services.map((s) => s.id)),
@@ -370,7 +276,6 @@ export function DebriefsPage() {
       serviceId: string
       departmentId: string
       body: string
-      assignedTo: string | null
       sortOrder: number
     }) => addDebriefItem({ ...fields, createdBy: myId! }),
     onSuccess: refresh,
@@ -378,8 +283,7 @@ export function DebriefsPage() {
   })
 
   const edit = useMutation({
-    mutationFn: (fields: { id: string; body: string; assignedTo: string | null }) =>
-      updateDebriefItem(fields.id, fields),
+    mutationFn: (fields: { id: string; body: string }) => updateDebriefItem(fields.id, fields),
     onSuccess: refresh,
     onError: complain('Could not change that item.'),
   })
@@ -392,7 +296,10 @@ export function DebriefsPage() {
   })
 
   const removeItem = useMutation({
-    mutationFn: (id: string) => deleteDebriefItem(id),
+    // The debrief row exists only to hold items, so the last one out takes
+    // it along rather than leaving an empty card behind.
+    mutationFn: (fields: { id: string; lastOne: string | null }) =>
+      deleteDebriefItem(fields.id, fields.lastOne),
     onSuccess: refresh,
     onError: complain('Could not remove that item.'),
   })
@@ -404,18 +311,6 @@ export function DebriefsPage() {
   })
 
   const mayWriteFor = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
-
-  const authorLine = (debrief: Debrief) => {
-    const who = debrief.author
-      ? `${debrief.author.first_name} ${debrief.author.last_name}`
-      : 'Somebody'
-    const when = new Date(debrief.updated_at).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-    })
-    const edited = debrief.updated_at !== debrief.created_at
-    return `${who} · ${edited ? 'updated' : 'written'} ${when}`
-  }
 
   return (
     <div>
@@ -503,7 +398,6 @@ export function DebriefsPage() {
                     const items = debrief?.items ?? []
                     const { done, total } = itemProgress(items)
                     const mine = mayWriteFor(dept.id)
-                    const people = peopleByTeam.get(dept.id) ?? []
                     return (
                       <li
                         key={dept.id}
@@ -521,7 +415,7 @@ export function DebriefsPage() {
                               </span>
                             )}
                           </span>
-                          {mine && debrief && (
+                          {mine && debrief && items.length > 0 && (
                             <button
                               type="button"
                               onClick={() =>
@@ -545,11 +439,15 @@ export function DebriefsPage() {
                               <ItemRow
                                 key={item.id}
                                 item={item}
-                                people={people}
                                 mayWrite={mine}
                                 onToggle={(isDone) => tick.mutate({ id: item.id, done: isDone })}
                                 onSave={(fields) => edit.mutate({ id: item.id, ...fields })}
-                                onRemove={() => removeItem.mutate(item.id)}
+                                onRemove={() =>
+                                  removeItem.mutate({
+                                    id: item.id,
+                                    lastOne: items.length === 1 ? debrief!.id : null,
+                                  })
+                                }
                               />
                             ))}
                           </ul>
@@ -570,14 +468,8 @@ export function DebriefsPage() {
                           </p>
                         )}
 
-                        {debrief && items.length > 0 && (
-                          <p className="mt-1.5 font-mono text-label-sm text-on-surface-faint">
-                            {authorLine(debrief)}
-                          </p>
-                        )}
                         {mine && (
                           <ItemComposer
-                            people={people}
                             adding={add.isPending}
                             onAdd={(fields) =>
                               add.mutate({
