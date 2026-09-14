@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { TeamMark } from '../components/TeamMark'
-import { fetchDepartments, fetchServices } from '../lib/queries'
+import { fetchDepartments, fetchMembersForDepartments, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useAppSettings } from '../lib/appSettings'
@@ -13,14 +13,20 @@ import { useConfirmAction } from '../components/ConfirmAction'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import {
   DEBRIEFS_KEY,
+  addDebriefItem,
   daysLeft,
   debriefExpiresAt,
   debriefFor,
   deleteDebrief,
+  deleteDebriefItem,
   fetchDebriefs,
   isExpired,
-  saveDebrief,
+  itemProgress,
+  nextSortOrder,
+  setDebriefItemDone,
+  updateDebriefItem,
   type Debrief,
+  type DebriefItem,
 } from '../lib/debriefs'
 import { formatRange } from '../lib/dateRange'
 
@@ -42,51 +48,249 @@ import { formatRange } from '../lib/dateRange'
  * remembering. The window is a setting; the clock runs from the service,
  * so every team's minutes for one Sunday expire together. The page says so
  * out loud rather than letting the words vanish unannounced.
+ *
+ * Written as a list rather than a paragraph, because that is what a
+ * debrief is: six people remembering the morning out of order, each thing
+ * separate, some of them somebody's to deal with before next Sunday. A box
+ * of prose cannot say which of those got done; a list with ticks can, and
+ * the ones still outstanding sit at the top where they are awkward.
  */
 
-function MinutesForm({
-  initial,
-  saving,
-  onSave,
-  onCancel,
+interface Person {
+  id: string
+  first_name: string
+  last_name: string
+}
+
+const fullName = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`
+
+/**
+ * Putting a name against a thing, or leaving it against nobody.
+ *
+ * Most items are only worth remembering — "the new projector was much
+ * better" needs no one's name — so "Nobody in particular" is the default
+ * and not an afterthought at the bottom of the list.
+ */
+function PersonPicker({
+  value,
+  people,
+  label,
+  onChange,
 }: {
-  initial: string
-  saving: boolean
-  onSave: (minutes: string) => void
-  onCancel: () => void
+  value: string | null
+  people: Person[]
+  label: string
+  onChange: (id: string | null) => void
 }) {
-  const [text, setText] = useState(initial)
   return (
-    <div className="mt-2">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={6}
-        maxLength={8000}
-        autoFocus
-        aria-label="Debrief minutes"
-        placeholder="What went well, what did not, and what somebody has to do about it before next Sunday."
-        className="w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2.5 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
-      />
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={saving || !text.trim()}
-          onClick={() => onSave(text)}
-          className="rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+    <select
+      value={value ?? ''}
+      aria-label={label}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="min-w-0 flex-1 rounded-full bg-raised px-3 py-1.5 text-label-md text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary sm:flex-none"
+    >
+      <option value="">Nobody in particular</option>
+      {people.map((person) => (
+        <option key={person.id} value={person.id}>
+          {fullName(person)}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/**
+ * One line of the debrief.
+ *
+ * The tick is the whole point of the list, so it is the first thing on the
+ * row and a real checkbox rather than something that merely looks like
+ * one. A done item stays readable — struck through, not greyed to nothing
+ * — because "we already dealt with that" is information too.
+ */
+function ItemRow({
+  item,
+  people,
+  mayWrite,
+  onToggle,
+  onSave,
+  onRemove,
+}: {
+  item: DebriefItem
+  people: Person[]
+  mayWrite: boolean
+  onToggle: (done: boolean) => void
+  onSave: (fields: { body: string; assignedTo: string | null }) => void
+  onRemove: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [body, setBody] = useState(item.body)
+  const [assignedTo, setAssignedTo] = useState<string | null>(item.assigned_to)
+  const done = !!item.done_at
+
+  if (editing) {
+    return (
+      <li className="rounded-[var(--radius-chip)] bg-raised p-2.5 hairline">
+        <input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          maxLength={1000}
+          autoFocus
+          aria-label="Edit this item"
+          className="w-full bg-transparent text-body-sm text-on-surface focus:outline-none"
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <PersonPicker
+            value={assignedTo}
+            people={people}
+            label="Who it is on"
+            onChange={setAssignedTo}
+          />
+          <button
+            type="button"
+            disabled={!body.trim()}
+            onClick={() => {
+              onSave({ body, assignedTo })
+              setEditing(false)
+            }}
+            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setBody(item.body)
+              setAssignedTo(item.assigned_to)
+              setEditing(false)
+            }}
+            className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </li>
+    )
+  }
+
+  /*
+   * The thing said gets the whole width, and whose it is and what can be
+   * done to it go underneath. Kept on one line they squeeze the sentence
+   * into three words a line on a phone, which is where a debrief is
+   * actually read.
+   */
+  return (
+    <li className="py-2">
+      <div className="flex items-start gap-2.5">
+        <input
+          type="checkbox"
+          checked={done}
+          disabled={!mayWrite}
+          aria-label={done ? `Put back: ${item.body}` : `Tick off: ${item.body}`}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)] disabled:opacity-50"
+        />
+        <span
+          className={`min-w-0 flex-1 break-words text-body-sm ${done ? 'text-on-surface-faint line-through' : 'text-on-surface'}`}
         >
-          {saving ? 'Saving…' : 'Save minutes'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-full px-4 py-2 text-label-md text-on-surface hairline hover:border-secondary"
-        >
-          Cancel
-        </button>
-        <span className="font-mono text-label-sm text-on-surface-faint">
-          {text.trim().length}/8000
+          {item.body}
         </span>
+      </div>
+      {(item.assignee || mayWrite) && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[26px]">
+          {item.assignee && (
+            <span className="rounded-full bg-raised px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
+              {fullName(item.assignee)}
+            </span>
+          )}
+          {mayWrite && (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="tap text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={onRemove}
+                aria-label={`Remove: ${item.body}`}
+                className="tap text-label-sm text-on-surface-faint hover:text-error hover:underline"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+/**
+ * Adding the next thing.
+ *
+ * It stays open and empties itself after each one, because a debrief comes
+ * out in a rush and a form that has to be re-opened between items loses
+ * the fourth and fifth things anybody said.
+ */
+function ItemComposer({
+  people,
+  adding,
+  onAdd,
+}: {
+  people: Person[]
+  adding: boolean
+  onAdd: (fields: { body: string; assignedTo: string | null }) => void
+}) {
+  const [body, setBody] = useState('')
+  const [assignedTo, setAssignedTo] = useState<string | null>(null)
+
+  const submit = () => {
+    if (!body.trim()) return
+    onAdd({ body, assignedTo })
+    setBody('')
+    setAssignedTo(null)
+  }
+
+  /*
+   * The box takes a whole line of its own until there is room for the
+   * picker beside it: sharing a row on a phone left it about four
+   * characters wide, which is not a box anybody can type a sentence into.
+   */
+  return (
+    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter adds it: this is a list being typed at speed, not a form
+          // being filled in.
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            submit()
+          }
+        }}
+        maxLength={1000}
+        aria-label="Add a debrief item"
+        placeholder="What went well, what did not, or what somebody has to do."
+        className="w-full min-w-0 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary sm:flex-1"
+      />
+      <div className="flex items-center gap-2">
+        <PersonPicker
+          value={assignedTo}
+          people={people}
+          label="Who it is on"
+          onChange={setAssignedTo}
+        />
+        <button
+          type="button"
+          disabled={adding || !body.trim()}
+          onClick={submit}
+          className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+        >
+          {adding ? 'Adding…' : 'Add'}
+        </button>
       </div>
     </div>
   )
@@ -102,7 +306,6 @@ export function DebriefsPage() {
   const { ask, dialog } = useConfirmAction()
   const { isExpanded, toggle } = useExpanded()
 
-  const [editing, setEditing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
@@ -123,6 +326,31 @@ export function DebriefsPage() {
     [servicesQuery.data, today, settings.debrief_retention_days],
   )
 
+  /*
+   * Who each team can put an item on. RLS narrows this to the teams the
+   * reader may see, so a head gets their own team and not the church.
+   */
+  const departmentIds = useMemo(
+    () => (departmentsQuery.data ?? []).map((d) => d.id),
+    [departmentsQuery.data],
+  )
+  const membersQuery = useQuery({
+    queryKey: ['debrief-people', departmentIds.join(',')],
+    queryFn: () => fetchMembersForDepartments(departmentIds),
+    enabled: departmentIds.length > 0,
+  })
+  const peopleByTeam = useMemo(() => {
+    const map = new Map<string, Person[]>()
+    for (const row of membersQuery.data ?? []) {
+      if (!row.profiles) continue
+      const list = map.get(row.department_id) ?? []
+      list.push(row.profiles)
+      map.set(row.department_id, list)
+    }
+    for (const list of map.values()) list.sort((a, b) => fullName(a).localeCompare(fullName(b)))
+    return map
+  }, [membersQuery.data])
+
   const debriefsQuery = useQuery({
     queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(',')],
     queryFn: () => fetchDebriefs(services.map((s) => s.id)),
@@ -130,25 +358,49 @@ export function DebriefsPage() {
   })
   const debriefs = debriefsQuery.data ?? []
 
-  const save = useMutation({
+  const refresh = () => {
+    setError(null)
+    return queryClient.invalidateQueries({ queryKey: DEBRIEFS_KEY })
+  }
+  const complain = (fallback: string) => (err: unknown) => setError(errorText(err, fallback))
+
+  const add = useMutation({
     mutationFn: (fields: {
-      id: string | null
+      debriefId: string | null
       serviceId: string
       departmentId: string
-      minutes: string
-    }) => saveDebrief({ ...fields, writtenBy: myId! }),
-    onSuccess: () => {
-      setEditing(null)
-      setError(null)
-      return queryClient.invalidateQueries({ queryKey: DEBRIEFS_KEY })
-    },
-    onError: (err: unknown) => setError(errorText(err, 'Could not save those minutes.')),
+      body: string
+      assignedTo: string | null
+      sortOrder: number
+    }) => addDebriefItem({ ...fields, createdBy: myId! }),
+    onSuccess: refresh,
+    onError: complain('Could not add that item.'),
+  })
+
+  const edit = useMutation({
+    mutationFn: (fields: { id: string; body: string; assignedTo: string | null }) =>
+      updateDebriefItem(fields.id, fields),
+    onSuccess: refresh,
+    onError: complain('Could not change that item.'),
+  })
+
+  const tick = useMutation({
+    mutationFn: (fields: { id: string; done: boolean }) =>
+      setDebriefItemDone(fields.id, fields.done, myId!),
+    onSuccess: refresh,
+    onError: complain('Could not tick that item off.'),
+  })
+
+  const removeItem = useMutation({
+    mutationFn: (id: string) => deleteDebriefItem(id),
+    onSuccess: refresh,
+    onError: complain('Could not remove that item.'),
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteDebrief(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DEBRIEFS_KEY }),
-    onError: (err: unknown) => setError(errorText(err, 'Could not remove those minutes.')),
+    onSuccess: refresh,
+    onError: complain('Could not remove those minutes.'),
   })
 
   const mayWriteFor = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
@@ -190,7 +442,7 @@ export function DebriefsPage() {
             const left = daysLeft(service.date, settings.debrief_retention_days, today)
             const until = debriefExpiresAt(service.date, settings.debrief_retention_days)
             const written = (departmentsQuery.data ?? []).filter(
-              (d) => !!debriefFor(debriefs, service.id, d.id),
+              (d) => (debriefFor(debriefs, service.id, d.id)?.items ?? []).length > 0,
             ).length
             // Open by default while it is the most recent one: that is the
             // service anybody is here to write up.
@@ -248,8 +500,10 @@ export function DebriefsPage() {
                 <ul id={`debrief-teams-${service.id}`} hidden={!open} className="mt-4 flex flex-col gap-3">
                   {(departmentsQuery.data ?? []).map((dept) => {
                     const debrief = debriefFor(debriefs, service.id, dept.id)
-                    const key = `${service.id}:${dept.id}`
+                    const items = debrief?.items ?? []
+                    const { done, total } = itemProgress(items)
                     const mine = mayWriteFor(dept.id)
+                    const people = peopleByTeam.get(dept.id) ?? []
                     return (
                       <li
                         key={dept.id}
@@ -261,62 +515,44 @@ export function DebriefsPage() {
                             <span className="text-body-md font-medium text-on-surface">
                               {dept.name}
                             </span>
+                            {total > 0 && (
+                              <span className="font-mono text-label-sm text-on-surface-faint">
+                                {done}/{total} done
+                              </span>
+                            )}
                           </span>
-                          {mine && editing !== key && (
-                            <span className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setEditing(key)}
-                                className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
-                              >
-                                {debrief ? 'Edit' : 'Write them up'}
-                              </button>
-                              {debrief && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    ask({
-                                      title: `Remove ${dept.name}'s minutes?`,
-                                      body: 'They disappear for everybody. Nothing else about the service changes.',
-                                      confirmLabel: 'Remove',
-                                      onConfirm: () => remove.mutate(debrief.id),
-                                    })
-                                  }
-                                  className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </span>
+                          {mine && debrief && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                ask({
+                                  title: `Remove ${dept.name}'s debrief?`,
+                                  body: 'Every item on it goes, for everybody. Nothing else about the service changes.',
+                                  confirmLabel: 'Remove',
+                                  onConfirm: () => remove.mutate(debrief.id),
+                                })
+                              }
+                              className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+                            >
+                              Remove all
+                            </button>
                           )}
                         </div>
 
-                        {editing === key ? (
-                          <MinutesForm
-                            initial={debrief?.minutes ?? ''}
-                            saving={save.isPending}
-                            onCancel={() => setEditing(null)}
-                            onSave={(minutes) =>
-                              save.mutate({
-                                id: debrief?.id ?? null,
-                                serviceId: service.id,
-                                departmentId: dept.id,
-                                minutes,
-                              })
-                            }
-                          />
-                        ) : debrief ? (
-                          <>
-                            {/* Whitespace is kept: people write minutes as
-                                a list of lines, and a paragraph of them run
-                                together is not the same document. */}
-                            <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-on-surface">
-                              {debrief.minutes}
-                            </p>
-                            <p className="mt-1.5 font-mono text-label-sm text-on-surface-faint">
-                              {authorLine(debrief)}
-                            </p>
-                          </>
+                        {items.length > 0 ? (
+                          <ul className="mt-1.5 flex flex-col divide-y divide-[var(--color-hairline)]">
+                            {items.map((item) => (
+                              <ItemRow
+                                key={item.id}
+                                item={item}
+                                people={people}
+                                mayWrite={mine}
+                                onToggle={(isDone) => tick.mutate({ id: item.id, done: isDone })}
+                                onSave={(fields) => edit.mutate({ id: item.id, ...fields })}
+                                onRemove={() => removeItem.mutate(item.id)}
+                              />
+                            ))}
+                          </ul>
                         ) : (
                           <p className="mt-1.5 text-label-md text-on-surface-faint">
                             {mine
@@ -324,6 +560,37 @@ export function DebriefsPage() {
                               : 'Nothing written up yet — their head or assisting head can add it.'}
                           </p>
                         )}
+
+                        {/* Minutes typed by the previous build, before the
+                            list replaced the box. Shown so nobody's words
+                            vanish; nothing writes this any more. */}
+                        {debrief?.minutes && (
+                          <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-on-surface-variant">
+                            {debrief.minutes}
+                          </p>
+                        )}
+
+                        {debrief && items.length > 0 && (
+                          <p className="mt-1.5 font-mono text-label-sm text-on-surface-faint">
+                            {authorLine(debrief)}
+                          </p>
+                        )}
+                        {mine && (
+                          <ItemComposer
+                            people={people}
+                            adding={add.isPending}
+                            onAdd={(fields) =>
+                              add.mutate({
+                                debriefId: debrief?.id ?? null,
+                                serviceId: service.id,
+                                departmentId: dept.id,
+                                sortOrder: nextSortOrder(items),
+                                ...fields,
+                              })
+                            }
+                          />
+                        )}
+
                       </li>
                     )
                   })}
