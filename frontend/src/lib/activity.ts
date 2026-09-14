@@ -76,9 +76,15 @@ export function activitySentence(row: ActivityRowLike): string {
       if (!who) {
         // Taking an answer back used to leave no trace at all.
         if (said === 'removed') return `took their answer back — ${subject}`
+        if (said === 'note added') return `added a note — ${subject}`
+        if (said === 'note changed') return `changed their note — ${subject}`
+        if (said === 'note removed') return `took their note off — ${subject}`
         return `${AVAILABILITY_WORDS[said] ?? `marked ${said}`} — ${subject}`
       }
       if (said === 'removed') return `took ${who}'s answer off — ${subject}`
+      if (said === 'note added') return `added a note for ${who} — ${subject}`
+      if (said === 'note changed') return `changed ${who}'s note — ${subject}`
+      if (said === 'note removed') return `took ${who}'s note off — ${subject}`
       return `marked ${who} ${AVAILABILITY_FOR_WORDS[said] ?? said} — ${subject}`
     }
     case 'attendance': {

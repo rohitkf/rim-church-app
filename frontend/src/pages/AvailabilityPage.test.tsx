@@ -566,3 +566,150 @@ describe('the availability tracker over three weeks', () => {
     })
   })
 })
+
+/*
+ * A note with the answer.
+ *
+ * "Yes" is true and still leaves the head guessing: somebody can serve
+ * and not be there until half nine, or serve but not lift. That sentence
+ * has been arriving by WhatsApp — reaching whoever happened to be looking
+ * at their phone — while the tracker, which is where the morning actually
+ * gets planned, said a confident "Yes".
+ */
+describe('the note beside an answer', () => {
+  const standAt = (iso: string) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(iso))
+  }
+  afterEach(() => vi.useRealTimers())
+
+  const myAnswer = (over: Record<string, unknown> = {}) => ({
+    id: 'a1',
+    service_id: 's1',
+    department_id: 'd1',
+    user_id: 'u1',
+    status: 'available',
+    note: null,
+    attended: null,
+    updated_at: '2026-09-01T00:00:00Z',
+    ...over,
+  })
+
+  /*
+   * The card for today's service, which opens itself. Standing on the
+   * Friday keeps its answers open: they close at 23:59 on the Saturday.
+   */
+  const openCard = async () => {
+    await screen.findAllByRole('heading', { level: 2 })
+    return cardFor(/Today/, 'English Service') as HTMLElement
+  }
+  const BEFORE_DEADLINE = '2026-09-04T09:00:00Z'
+  const AFTER_DEADLINE = '2026-09-06T09:00:00Z'
+
+  it('offers a note once an answer has been given', async () => {
+    state.rows.availability = [myAnswer()]
+    standAt(BEFORE_DEADLINE)
+    show()
+    expect(within(await openCard()).getByRole('button', { name: 'Add a note' })).toBeInTheDocument()
+  })
+
+  /*
+   * A note is part of an answer, not a thing on its own: there is nothing
+   * for it to hang off until somebody has said yes or no.
+   */
+  it('offers nothing to annotate before an answer is given', async () => {
+    standAt(BEFORE_DEADLINE)
+    show()
+    expect(within(await openCard()).queryByRole('button', { name: 'Add a note' })).toBeNull()
+  })
+
+  it('writes the note onto the answer that is already there', async () => {
+    state.rows.availability = [myAnswer()]
+    standAt(BEFORE_DEADLINE)
+    const user = show()
+    const card = await openCard()
+
+    await user.click(within(card).getByRole('button', { name: 'Add a note' }))
+    await user.type(
+      screen.getByLabelText('A note with your answer'),
+      'There, but not until 9.30',
+    )
+    await user.click(screen.getByRole('button', { name: 'Save note' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ table: 'availability', id: 'a1' })
+    expect(state.written[0].row).toMatchObject({ note: 'There, but not until 9.30' })
+  })
+
+  it('shows a note that is already there, and offers to change it', async () => {
+    state.rows.availability = [myAnswer({ note: 'There, but not until 9.30' })]
+    standAt(BEFORE_DEADLINE)
+    show()
+    const card = await openCard()
+
+    expect(within(card).getByText(/There, but not until 9.30/)).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Edit note' })).toBeInTheDocument()
+  })
+
+  // Clearing it is saving an empty one; null is how the database spells
+  // "nothing said", and an empty string would read as a note of no words.
+  it('clears the note rather than storing an empty one', async () => {
+    state.rows.availability = [myAnswer({ note: 'There, but not until 9.30' })]
+    standAt(BEFORE_DEADLINE)
+    const user = show()
+    const card = await openCard()
+
+    await user.click(within(card).getByRole('button', { name: 'Edit note' }))
+    await user.clear(screen.getByLabelText('A note with your answer'))
+    await user.click(screen.getByRole('button', { name: 'Save note' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ note: null })
+  })
+
+  /*
+   * The window that closes on the answer closes on the note with it —
+   * but the note stays readable, because after the deadline the head is
+   * exactly who needs it.
+   */
+  it('stops being editable when answers close, and stays readable', async () => {
+    state.rows.availability = [myAnswer({ note: 'There, but not until 9.30' })]
+    standAt(AFTER_DEADLINE)
+    show()
+    const today = await openCard()
+
+    expect(within(today).getByText(/There, but not until 9.30/)).toBeInTheDocument()
+    expect(within(today).queryByRole('button', { name: 'Edit note' })).toBeNull()
+  })
+
+  // The whole point: the head plans the morning from this page.
+  it('shows the note to whoever runs the team', async () => {
+    state.leads = true
+    state.rows.availability = [
+      myAnswer({ id: 'a2', user_id: 'u2', note: 'There, but not until 9.30' }),
+    ]
+    state.rows.department_members = [
+      {
+        id: 'm2',
+        department_id: 'd1',
+        user_id: 'u2',
+        member_type: 'core',
+        created_at: '2026-01-01T00:00:00Z',
+        profiles: {
+          id: 'u2',
+          first_name: 'Grace',
+          last_name: 'Mensah',
+          email: 'grace@rehoboth.org',
+          phone: null,
+          avatar_url: null,
+        },
+      },
+    ]
+    standAt(BEFORE_DEADLINE)
+    show()
+    await screen.findAllByText('Grace Mensah')
+    const card = cardFor(/Today/, 'English Service') as HTMLElement
+
+    expect(within(card).getByText(/There, but not until 9.30/)).toBeInTheDocument()
+  })
+})
