@@ -31,6 +31,7 @@ import {
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { VolunteersPage } from './pages/VolunteersPage'
 import { EventsPage } from './pages/EventsPage'
+import { DebriefsPage } from './pages/DebriefsPage'
 import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
 import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
 import { AvailabilityPage } from './pages/AvailabilityPage'
@@ -112,6 +113,7 @@ const router = createBrowserRouter(
           <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/debriefs" element={<DebriefsPage />} />
           <Route path="/departments/:id" element={<DepartmentDetailPage />} />
           <Route path="/set-lists" element={<SetListsPage />} />
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />

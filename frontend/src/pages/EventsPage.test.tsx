@@ -100,6 +100,66 @@ function show() {
   )
 }
 
+/*
+ * A diary row is one line, because twenty of them have to be scannable.
+ * Everything else an event carries — where it is, whose it is, whatever
+ * was typed under "anything else" — had nowhere to be read.
+ */
+describe('reading an event', () => {
+  it('opens everything the event carries', async () => {
+    state.events = [
+      meeting({
+        details: 'Ps K K Renjith speaking.',
+        ends_on: '2026-09-20',
+        department: { name: 'Media', color: '#3b82f6' },
+        department_id: 'd1',
+      }),
+    ]
+    show()
+
+    // A run is drawn once per day it covers, so there are three of these;
+    // any of them opens the same event.
+    const rows = await screen.findAllByRole('button', {
+      name: /Members meeting — see the details/,
+    })
+    expect(rows).toHaveLength(3)
+    await userEvent.click(rows[2])
+
+    const detail = screen.getByRole('dialog')
+    expect(within(detail).getByText(/18–20 Sep/)).toBeInTheDocument()
+    expect(within(detail).getByText(/3 days/)).toBeInTheDocument()
+    expect(within(detail).getByText(/7:30pm/)).toBeInTheDocument()
+    expect(within(detail).getByText('Main hall')).toBeInTheDocument()
+    expect(within(detail).getByText('Media')).toBeInTheDocument()
+    expect(within(detail).getByText('Ps K K Renjith speaking.')).toBeInTheDocument()
+    expect(within(detail).getByText(/Grace Mensah/)).toBeInTheDocument()
+  })
+
+  it('says the event belongs to the church when no team owns it', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('The whole church')).toBeInTheDocument()
+  })
+
+  it('goes from reading to editing without a second trip', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByRole('heading', { name: 'Edit this event' })).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Members meeting')).toBeInTheDocument()
+  })
+
+  it('closes without changing anything', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(state.written).toHaveLength(0)
+  })
+})
+
 describe('editing an event', () => {
   it('opens the same form, holding what the event already says', async () => {
     show()

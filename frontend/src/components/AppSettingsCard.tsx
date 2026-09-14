@@ -115,6 +115,23 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
     ],
   },
   {
+    heading: 'After a service',
+    blurb: 'How long the debrief minutes each team writes up are kept.',
+    fields: [
+      {
+        key: 'debrief_retention_days',
+        label: 'Debrief minutes are kept for',
+        help: 'Minutes are working notes rather than an archive: they say what went wrong and often name whoever it went wrong for, which is fine for a fortnight and a file on somebody after a year. The clock runs from the service date, not from when they were typed, so every team’s minutes for one Sunday go together. A nightly job deletes them — deletes, not hides.',
+        affects: 'Debriefs',
+        min: 1,
+        max: 365,
+        dialMax: 120,
+        majorEvery: 7,
+        unit: 'days',
+      },
+    ],
+  },
+  {
     heading: 'While a service is on',
     blurb: 'When a service starts and stops reading as “on now”. Both ends are read from the running order, so a service with no running order planned is never “on now”.',
     fields: [

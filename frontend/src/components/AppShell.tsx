@@ -6,6 +6,7 @@ import {
   CakeIcon,
   CalendarIcon,
   ChecklistIcon,
+  NotebookIcon,
   ClipboardUserIcon,
   MusicIcon,
   GridIcon,
@@ -67,6 +68,9 @@ const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true },
   { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true },
   { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
+  // And what was said about it afterwards, which is the last step of a
+  // Sunday rather than a thing looked up.
+  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, teamOnly: true },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
 
   // Talking about it. Nothing in either belongs to somebody who is not on
