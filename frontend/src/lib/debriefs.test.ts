@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { daysLeft, debriefExpiresAt, debriefFor, isExpired, type Debrief } from './debriefs'
+import {
+  daysLeft,
+  debriefExpiresAt,
+  debriefFor,
+  isExpired,
+  itemProgress,
+  nextSortOrder,
+  sortItems,
+  type Debrief,
+  type DebriefItem,
+} from './debriefs'
 
 /*
  * Minutes are working notes, not an archive: they say the radio mic was
@@ -54,10 +64,10 @@ describe('finding a team’s minutes', () => {
     id: `${service}-${dept}`,
     service_id: service,
     department_id: dept,
-    minutes: 'Radio mic died again.',
     written_by: 'u1',
     created_at: '2026-09-13T20:00:00Z',
     updated_at: '2026-09-13T20:00:00Z',
+    items: [],
   })
 
   it('matches on the team and the service together', () => {
@@ -68,5 +78,79 @@ describe('finding a team’s minutes', () => {
 
   it('has nothing to show for a team that has not written up', () => {
     expect(debriefFor([minutes('s1', 'd1')], 's1', 'd9')).toBeNull()
+  })
+})
+
+/*
+ * A debrief is six people remembering the morning out of order, and each
+ * thing said is separate — some of it somebody's to deal with before next
+ * Sunday. The list has to survive being read back a week later.
+ */
+describe('the things said in a debrief', () => {
+  const item = (over: Partial<DebriefItem> = {}): DebriefItem => ({
+    id: 'i1',
+    debrief_id: 'db1',
+    body: 'Radio mic died again',
+    assigned_to: null,
+    done_at: null,
+    done_by: null,
+    sort_order: 0,
+    created_at: '2026-09-13T20:00:00Z',
+    created_by: 'u1',
+    updated_at: '2026-09-13T20:00:00Z',
+    ...over,
+  })
+
+  /*
+   * What is still outstanding is the reason anybody opens this page a week
+   * later, so it sits above what is already dealt with.
+   */
+  it('puts what is still outstanding above what is done', () => {
+    const order = sortItems([
+      item({ id: 'done', sort_order: 0, done_at: '2026-09-14T09:00:00Z' }),
+      item({ id: 'todo', sort_order: 1 }),
+    ]).map((i) => i.id)
+    expect(order).toEqual(['todo', 'done'])
+  })
+
+  it('keeps the order things were said in, within each half', () => {
+    const order = sortItems([
+      item({ id: 'third', sort_order: 2 }),
+      item({ id: 'first', sort_order: 0 }),
+      item({ id: 'second', sort_order: 1 }),
+    ]).map((i) => i.id)
+    expect(order).toEqual(['first', 'second', 'third'])
+  })
+
+  // Two items added in the same second must still not swap places on a
+  // re-render, or the list appears to shuffle itself while being read.
+  it('settles ties rather than leaving them to chance', () => {
+    const order = sortItems([
+      item({ id: 'b', sort_order: 0, created_at: '2026-09-13T20:00:02Z' }),
+      item({ id: 'a', sort_order: 0, created_at: '2026-09-13T20:00:01Z' }),
+    ]).map((i) => i.id)
+    expect(order).toEqual(['a', 'b'])
+  })
+
+  it('does not change the array it was given', () => {
+    const items = [item({ id: 'b', sort_order: 1 }), item({ id: 'a', sort_order: 0 })]
+    sortItems(items)
+    expect(items.map((i) => i.id)).toEqual(['b', 'a'])
+  })
+
+  it('counts how much of the list is dealt with', () => {
+    expect(itemProgress([])).toEqual({ done: 0, total: 0 })
+    expect(
+      itemProgress([item({ id: '1', done_at: '2026-09-14T09:00:00Z' }), item({ id: '2' })]),
+    ).toEqual({ done: 1, total: 2 })
+  })
+
+  /*
+   * A new item goes on the end. Counting the list would put it on top of
+   * the last one whenever something in the middle had been removed.
+   */
+  it('adds the next item after the last one, not after the count', () => {
+    expect(nextSortOrder([])).toBe(0)
+    expect(nextSortOrder([item({ sort_order: 0 }), item({ sort_order: 7 })])).toBe(8)
   })
 })

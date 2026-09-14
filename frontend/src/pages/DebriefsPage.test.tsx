@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DebriefsPage } from './DebriefsPage'
 
 /*
- * What each team said after the service. Written by whoever runs the team,
- * read by everybody, and kept for a month — the page has to be honest
- * about that last part, or the words vanish unannounced.
+ * What each team said after the service — as a list, because that is what
+ * a debrief is: separate things, remembered out of order, some of them
+ * somebody's to deal with before next Sunday. Read by everybody, written
+ * by whoever runs the team, and kept for a month.
  */
 
 const TODAY = '2026-09-14'
@@ -17,6 +18,7 @@ const state = vi.hoisted(() => ({
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
   leads: true,
   retention: 30,
+  newDebriefId: 'db-new',
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -40,7 +42,7 @@ vi.mock('../lib/queries', () => ({
   fetchServices: () =>
     Promise.resolve([
       { id: 's1', date: '2026-09-13', service_type: 'English Service' },
-      // Long past its window: its minutes are gone, so it is not a heading
+      // Long past its window: its items are gone, so it is not a heading
       // over an empty space.
       { id: 's0', date: '2026-06-01', service_type: 'Old Service' },
       // Still to come — there is nothing to debrief yet.
@@ -51,6 +53,17 @@ vi.mock('../lib/queries', () => ({
       { id: 'd1', name: 'Media', color: '#3b82f6' },
       { id: 'd2', name: 'Audio', color: '#ef4444' },
     ]),
+  fetchMembersForDepartments: () =>
+    Promise.resolve([
+      {
+        id: 'm1',
+        department_id: 'd1',
+        user_id: 'u9',
+        member_type: 'core',
+        created_at: TODAY,
+        profiles: { id: 'u9', first_name: 'Grace', last_name: 'Mensah' },
+      },
+    ]),
 }))
 
 vi.mock('../components/TeamMark', () => ({ TeamMark: () => null }))
@@ -58,12 +71,23 @@ vi.mock('../components/TeamMark', () => ({ TeamMark: () => null }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
-      select: () => ({
-        in: () => Promise.resolve({ data: state.debriefs, error: null }),
-      }),
+      select: (_cols?: string) => {
+        const rows = Promise.resolve({ data: state.debriefs, error: null })
+        return Object.assign(rows, {
+          in: () => Promise.resolve({ data: state.debriefs, error: null }),
+          // The container row is created on the way past, and its new id
+          // is what the item is then hung off.
+          single: () => Promise.resolve({ data: { id: state.newDebriefId }, error: null }),
+        })
+      },
       insert: (row: unknown) => {
         state.written.push({ table, op: 'insert', row })
-        return Promise.resolve({ error: null })
+        const result = Promise.resolve({ error: null })
+        return Object.assign(result, {
+          select: () => ({
+            single: () => Promise.resolve({ data: { id: state.newDebriefId }, error: null }),
+          }),
+        })
       },
       update: (row: unknown) => ({
         eq: (_c: string, id: string) => {
@@ -86,6 +110,7 @@ beforeEach(() => {
   state.written = []
   state.leads = true
   state.retention = 30
+  state.newDebriefId = 'db-new'
 })
 
 function show() {
@@ -97,23 +122,40 @@ function show() {
   )
 }
 
-const minutes = (over: Record<string, unknown> = {}) => ({
+const item = (over: Record<string, unknown> = {}) => ({
+  id: 'it1',
+  debrief_id: 'db1',
+  body: 'Radio mic died again',
+  assigned_to: null,
+  done_at: null,
+  done_by: null,
+  sort_order: 0,
+  created_at: '2026-09-13T20:00:00Z',
+  created_by: 'u9',
+  updated_at: '2026-09-13T20:00:00Z',
+  assignee: null,
+  ...over,
+})
+
+const debrief = (over: Record<string, unknown> = {}) => ({
   id: 'db1',
   service_id: 's1',
   department_id: 'd1',
-  minutes: 'Radio mic died again; batteries on the list.',
+  minutes: null,
   written_by: 'u9',
   created_at: '2026-09-13T20:00:00Z',
   updated_at: '2026-09-13T20:00:00Z',
   author: { id: 'u9', first_name: 'Grace', last_name: 'Mensah' },
+  items: [item()],
   ...over,
 })
+
+const mediaRow = () => screen.getByText('Media').closest('li') as HTMLElement
 
 describe('debriefs', () => {
   it('lists the services that have happened and still have minutes to keep', async () => {
     show()
     expect(await screen.findByText('English Service')).toBeInTheDocument()
-    // Not the one still to come, and not the one whose window has run out.
     expect(screen.queryByText('Next Sunday')).toBeNull()
     expect(screen.queryByText('Old Service')).toBeNull()
   })
@@ -136,58 +178,13 @@ describe('debriefs', () => {
     expect(screen.getByText(/on their last day/i)).toBeInTheDocument()
   })
 
-  it('shows what a team wrote, and who wrote it', async () => {
-    state.debriefs = [minutes()]
+  it('shows each thing said, and who wrote them up', async () => {
+    state.debriefs = [debrief()]
     show()
-    expect(await screen.findByText(/Radio mic died again/)).toBeInTheDocument()
-    expect(screen.getByText(/Grace Mensah/)).toBeInTheDocument()
-  })
-
-  it('writes the minutes against the team and the service', async () => {
-    show()
-    await screen.findByText('English Service')
-
-    const media = screen.getByText('Media').closest('li') as HTMLElement
-    await userEvent.click(within(media).getByRole('button', { name: 'Write them up' }))
-    await userEvent.type(
-      screen.getByLabelText('Debrief minutes'),
-      'Projector cable needs replacing.',
-    )
-    await userEvent.click(screen.getByRole('button', { name: /Save minutes/ }))
-
-    await waitFor(() => expect(state.written).toHaveLength(1))
-    expect(state.written[0]).toMatchObject({ table: 'service_debriefs', op: 'insert' })
-    expect(state.written[0].row).toMatchObject({
-      service_id: 's1',
-      department_id: 'd1',
-      minutes: 'Projector cable needs replacing.',
-      written_by: 'u1',
-    })
-  })
-
-  it('edits in place rather than writing a second set', async () => {
-    state.debriefs = [minutes()]
-    show()
-    await screen.findByText(/Radio mic died again/)
-
-    const media = screen.getByText('Media').closest('li') as HTMLElement
-    await userEvent.click(within(media).getByRole('button', { name: 'Edit' }))
-    await userEvent.type(screen.getByLabelText('Debrief minutes'), ' Ordered.')
-    await userEvent.click(screen.getByRole('button', { name: /Save minutes/ }))
-
-    await waitFor(() => expect(state.written).toHaveLength(1))
-    expect(state.written[0]).toMatchObject({ op: 'update', id: 'db1' })
-  })
-
-  // Everybody reads; only whoever runs the team writes.
-  it('lets somebody who runs no team read but not write', async () => {
-    state.leads = false
-    state.debriefs = [minutes()]
-    show()
-
-    expect(await screen.findByText(/Radio mic died again/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Write them up' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(await screen.findByText('Radio mic died again')).toBeInTheDocument()
+    // Her name is also an option in the "who it is on" picker, so this
+    // pins the line that says who wrote the debrief up.
+    expect(within(mediaRow()).getByText(/Grace Mensah · written/)).toBeInTheDocument()
   })
 
   it('says plainly when a team has not written up', async () => {
@@ -195,5 +192,204 @@ describe('debriefs', () => {
     await screen.findByText('English Service')
     const audio = screen.getByText('Audio').closest('li') as HTMLElement
     expect(within(audio).getByText(/Nothing written up yet/)).toBeInTheDocument()
+  })
+})
+
+describe('adding things to a debrief', () => {
+  /*
+   * The first item has to create the row that holds it: nobody sets out to
+   * "create a debrief", they type the thing that went wrong and press Add.
+   */
+  it('creates the debrief on the way past when it is the first item', async () => {
+    show()
+    await screen.findByText('English Service')
+
+    await userEvent.type(
+      within(mediaRow()).getByLabelText('Add a debrief item'),
+      'Projector cable needs replacing',
+    )
+    await userEvent.click(within(mediaRow()).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(2))
+    expect(state.written[0]).toMatchObject({ table: 'service_debriefs', op: 'insert' })
+    expect(state.written[0].row).toMatchObject({
+      service_id: 's1',
+      department_id: 'd1',
+      written_by: 'u1',
+    })
+    expect(state.written[1]).toMatchObject({ table: 'service_debrief_items', op: 'insert' })
+    expect(state.written[1].row).toMatchObject({
+      debrief_id: 'db-new',
+      body: 'Projector cable needs replacing',
+      created_by: 'u1',
+      sort_order: 0,
+    })
+  })
+
+  it('hangs later items off the debrief that already exists', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.type(
+      within(mediaRow()).getByLabelText('Add a debrief item'),
+      'Back door key needed',
+    )
+    await userEvent.click(within(mediaRow()).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ table: 'service_debrief_items', op: 'insert' })
+    expect(state.written[0].row).toMatchObject({ debrief_id: 'db1', sort_order: 1 })
+  })
+
+  it('can put the item on somebody', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    const row = mediaRow()
+    await userEvent.type(within(row).getByLabelText('Add a debrief item'), 'Order batteries')
+    await userEvent.selectOptions(
+      within(row).getAllByLabelText('Who it is on')[0],
+      'u9',
+    )
+    await userEvent.click(within(row).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ assigned_to: 'u9' })
+  })
+
+  // A debrief comes out in a rush; a box that has to be re-opened between
+  // items loses the fourth and fifth things anybody said.
+  it('empties itself and stays open for the next thing', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    const box = within(mediaRow()).getByLabelText('Add a debrief item')
+    await userEvent.type(box, 'Order batteries')
+    await userEvent.click(within(mediaRow()).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(box).toHaveValue(''))
+    expect(within(mediaRow()).getByLabelText('Add a debrief item')).toBeInTheDocument()
+  })
+
+  it('adds on Enter, without reaching for the button', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.type(
+      within(mediaRow()).getByLabelText('Add a debrief item'),
+      'Order batteries{Enter}',
+    )
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ body: 'Order batteries' })
+  })
+
+  it('will not add an empty item', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+    expect(within(mediaRow()).getByRole('button', { name: 'Add' })).toBeDisabled()
+  })
+})
+
+describe('working through the list', () => {
+  it('ticks an item off, naming who ticked it', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.click(screen.getByLabelText('Tick off: Radio mic died again'))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ table: 'service_debrief_items', op: 'update', id: 'it1' })
+    expect(state.written[0].row).toMatchObject({ done_by: 'u1' })
+    expect((state.written[0].row as { done_at: string }).done_at).toBeTruthy()
+  })
+
+  /*
+   * An item ticked by mistake that cannot be un-ticked teaches people not
+   * to tick anything.
+   */
+  it('puts a ticked item back', async () => {
+    state.debriefs = [debrief({ items: [item({ done_at: '2026-09-14T09:00:00Z', done_by: 'u9' })] })]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.click(screen.getByLabelText('Put back: Radio mic died again'))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ done_at: null, done_by: null })
+  })
+
+  it('says how much of the list is dealt with', async () => {
+    state.debriefs = [
+      debrief({
+        items: [item({ id: 'a', done_at: '2026-09-14T09:00:00Z' }), item({ id: 'b', body: 'Key' })],
+      }),
+    ]
+    show()
+    await screen.findByText('Radio mic died again')
+    expect(within(mediaRow()).getByText('1/2 done')).toBeInTheDocument()
+  })
+
+  it('rewords an item in place', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.click(within(mediaRow()).getByRole('button', { name: 'Edit' }))
+    const box = screen.getByLabelText('Edit this item')
+    await userEvent.clear(box)
+    await userEvent.type(box, 'Radio mic died again — batteries ordered')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ op: 'update', id: 'it1' })
+    expect(state.written[0].row).toMatchObject({ body: 'Radio mic died again — batteries ordered' })
+  })
+
+  it('removes one item without touching the rest', async () => {
+    state.debriefs = [debrief()]
+    show()
+    await screen.findByText('Radio mic died again')
+
+    await userEvent.click(screen.getByLabelText('Remove: Radio mic died again'))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({
+      table: 'service_debrief_items',
+      op: 'delete',
+      id: 'it1',
+    })
+  })
+})
+
+describe('who may write', () => {
+  // Everybody reads; only whoever runs the team writes.
+  it('lets somebody who runs no team read but not write', async () => {
+    state.leads = false
+    state.debriefs = [debrief()]
+    show()
+
+    expect(await screen.findByText('Radio mic died again')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Add a debrief item')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(screen.getByLabelText('Tick off: Radio mic died again')).toBeDisabled()
+  })
+})
+
+/*
+ * Minutes typed into the old box, before the list replaced it. Nothing
+ * writes them any more, but words somebody wrote must not vanish because
+ * the shape of the page changed underneath them.
+ */
+describe('minutes from the build before this one', () => {
+  it('still shows a paragraph somebody typed into the old box', async () => {
+    state.debriefs = [debrief({ items: [], minutes: 'Radio mic died again; batteries on the list.' })]
+    show()
+    expect(await screen.findByText(/batteries on the list/)).toBeInTheDocument()
   })
 })
