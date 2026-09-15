@@ -70,8 +70,16 @@ update public.department_role_checklist_items i set label = 'End the live stream
 
 
 
-create temp table wanted (role_name text, phase text, sort_order integer, label text)
-  on commit drop;
+/*
+ * The wanted list, as a scratch table rather than a repeated VALUES block.
+ *
+ * Not `on commit drop`: migrations are replayed a file at a time through
+ * psql, where every statement commits on its own, and a table that goes
+ * at the first commit is gone before the next line can fill it. Dropped
+ * explicitly at the end instead, which holds whether this runs statement
+ * by statement or all inside one transaction.
+ */
+create temp table wanted (role_name text, phase text, sort_order integer, label text);
 
 insert into wanted (role_name, phase, sort_order, label) values
     ('Team Coordinator', 'pre', 1, 'Get the service planner'),
@@ -203,3 +211,5 @@ update public.department_role_checklist_items i
   join public.department_roles r on r.department_id = d.id and r.name = w.role_name
  where i.role_id = r.id and i.label = w.label
    and (i.sort_order is distinct from w.sort_order or i.phase is distinct from w.phase);
+
+drop table wanted;
