@@ -48,6 +48,9 @@ function RoleChecklistEditor({
   const queryClient = useQueryClient()
   const [label, setLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The line being reworded, and what it is being reworded to.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
   const { ask, dialog } = useConfirmAction()
 
   const itemsQuery = useQuery({
@@ -95,6 +98,31 @@ function RoleChecklistEditor({
     onError: (err: unknown) => setError(errorText(err, 'Could not add that item.')),
   })
 
+  /*
+   * Rewording a line that is already there.
+   *
+   * A checklist gets written once and then corrected for years — a step
+   * turns out to mean something more specific, or the kit it names gets
+   * replaced. Without this the only way to fix a word was to delete the
+   * line and type it again, which loses the item's id and with it every
+   * tick recorded against it on past services.
+   */
+  const renameItem = useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const { error } = await supabase
+        .from('department_role_checklist_items')
+        .update({ label: text })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setEditingId(null)
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change that item.')),
+  })
+
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('department_role_checklist_items').delete().eq('id', id)
@@ -136,34 +164,115 @@ function RoleChecklistEditor({
           {ordered.map((id) => {
             const item = byId.get(id)
             if (!item) return null
+            const editing = editingId === item.id
+            const save = () => {
+              const text = draft.trim()
+              // Saving it unchanged, or emptied, is the same as not saving:
+              // an empty checklist line is not a line.
+              if (!text || text === item.label) return setEditingId(null)
+              renameItem.mutate({ id: item.id, text })
+            }
+
+            if (editing) {
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-[var(--radius-chip)] bg-surface-lowest px-2 py-1.5 hairline"
+                >
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        save()
+                      }
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    autoFocus
+                    aria-label={`Reword: ${item.label}`}
+                    className="w-full bg-transparent text-body-sm text-on-surface focus:outline-none"
+                  />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={renameItem.isPending || !draft.trim()}
+                      onClick={save}
+                      className="tap shrink-0 rounded-full bg-raised px-3 py-1 text-label-sm font-medium text-on-surface hairline transition-colors hover:bg-surface-container disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="shrink-0 text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </li>
+              )
+            }
+
+            /*
+             * The line gets the width; what can be done to it goes
+             * underneath until there is room beside it.
+             *
+             * Sharing one row, a drag handle on the left and two actions
+             * on the right left the sentence about half the column — so
+             * "Adjust the confidence monitor brightness so it does not
+             * show on the main TV" came out five words tall. Sixteen of
+             * those is a wall. Stacked, most lines fit in one or two, and
+             * the list is shorter overall despite the extra row.
+             */
             return (
               <li
                 key={item.id}
                 {...rowProps(item.id)}
-                className="flex items-center justify-between gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-2 py-1.5 text-body-sm hairline"
+                /* A grid, so the second row starts exactly where the
+                   sentence does without anybody having to guess the width
+                   of a drag handle. Three columns throughout: on a phone
+                   the third is empty and collapses, and the actions drop
+                   to a row of their own under the words. */
+                className="grid grid-cols-[auto_1fr_auto] items-start gap-x-1.5 gap-y-1 rounded-[var(--radius-chip)] bg-surface-lowest px-2.5 py-2 text-body-sm hairline sm:items-center sm:gap-x-3"
               >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
-                  <span className="min-w-0 break-words text-on-surface">{item.label}</span>
-                </span>
+                {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
+                <span className="min-w-0 break-words text-on-surface">{item.label}</span>
                 {canManage && (
-                  <button
-                    onClick={() =>
-                      ask({
-                        title: 'Remove this checklist line?',
-                        body: (
-                          <>
-                            <strong>{item.label}</strong> comes off this role for every service.
-                          </>
-                        ),
-                        confirmLabel: 'Remove',
-                        onConfirm: () => deleteItem.mutate(item.id),
-                      })
-                    }
-                    className="shrink-0 text-label-sm text-on-surface-faint hover:text-error hover:underline"
-                  >
-                    Remove
-                  </button>
+                  <span className="col-start-2 flex shrink-0 items-center gap-3 sm:col-start-3 sm:row-start-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft(item.label)
+                        setEditingId(item.id)
+                      }}
+                      /* The role itself has an Edit button too. Naming the
+                         line keeps the two apart for anybody who cannot
+                         see which of them they are on. */
+                      aria-label={`Edit: ${item.label}`}
+                      className="text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      aria-label={`Remove: ${item.label}`}
+                      onClick={() =>
+                        ask({
+                          title: 'Remove this checklist line?',
+                          body: (
+                            <>
+                              <strong>{item.label}</strong> comes off this role for every service.
+                            </>
+                          ),
+                          confirmLabel: 'Remove',
+                          onConfirm: () => deleteItem.mutate(item.id),
+                        })
+                      }
+                      className="text-label-sm text-on-surface-faint hover:text-error hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </span>
                 )}
               </li>
             )
@@ -177,7 +286,7 @@ function RoleChecklistEditor({
             e.preventDefault()
             if (label.trim()) addItem.mutate(label.trim())
           }}
-          className="mt-2.5 flex items-center gap-2"
+          className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center"
         >
           <input
             value={label}
@@ -185,12 +294,14 @@ function RoleChecklistEditor({
             placeholder={
               phase === 'pre' ? 'Check batteries, test focus…' : 'Batteries on charge, cards filed…'
             }
-            className="min-w-0 flex-1 rounded-full bg-surface-lowest px-3 py-1.5 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
+            /* Its own line until there is room beside the button: sharing
+               one left the placeholder cut off mid-word. */
+            className="w-full min-w-0 rounded-full bg-surface-lowest px-3 py-1.5 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] sm:flex-1"
           />
           <button
             type="submit"
             disabled={addItem.isPending || !label.trim()}
-            className="tap shrink-0 rounded-full bg-raised px-3 py-1.5 text-label-sm font-medium text-on-surface hairline transition-colors hover:bg-surface-container disabled:opacity-40"
+            className="tap shrink-0 self-start rounded-full bg-raised px-3 py-1.5 text-label-sm font-medium text-on-surface hairline transition-colors hover:bg-surface-container disabled:opacity-40 sm:self-auto"
           >
             Add
           </button>
