@@ -35,6 +35,7 @@ import { useMyTeams } from '../lib/useMyTeams'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
+import { TeamTurnoutRow } from '../components/TeamTurnoutRow'
 import { focusSundayIso, formatServiceDay, shiftSundayIso, shortServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { orderServices, serviceStanding, type ServiceStanding } from '../lib/serviceState'
@@ -67,43 +68,6 @@ function untilLabel(date: string, from = new Date()): string {
 }
 
 /**
- * A team's availability as a small ring — the same shape as the readiness
- * ring so the two read as one family, at the size a row can carry.
- */
-function TeamRing({ pct, color }: { pct: number; color: string }) {
-  const size = 44
-  const stroke = 6
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const filled = (Math.min(Math.max(pct, 0), 100) / 100) * circumference
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
-      <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          strokeWidth={stroke}
-          className="stroke-raised-strong"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${filled} ${circumference - filled}`}
-        />
-      </g>
-    </svg>
-  )
-}
-
-/**
  * What the team rings mean.
  *
  * Four states, and the difference between two of them is the whole point:
@@ -115,7 +79,9 @@ function TurnoutLegend({ className = '' }: { className?: string }) {
     { label: 'All who said yes are in', color: 'var(--color-accent-green)' },
     { label: 'Some still missing', color: 'var(--color-accent-orange)' },
     { label: 'Nobody available', color: 'var(--color-accent-red)' },
-    { label: 'Not checked in yet', color: 'var(--color-status-pending, var(--color-on-surface-faint))' },
+    // Grey is the figure that has not happened yet: what the team said it
+    // would do, rather than what it did.
+    { label: 'Expected, not yet counted', color: 'var(--color-status-pending, var(--color-on-surface-faint))' },
   ]
 
   return (
@@ -896,8 +862,9 @@ export function DashboardPage() {
                         All teams
                       </Link>
                     </div>
-                    {/* The ring counts who turned up against who said they
-                        would, so what the colours mean has to be said. */}
+                    {/* Grey rings are predictions and coloured ones are
+                        facts, which is not a thing a ring can say for
+                        itself. */}
                     <TurnoutLegend className="mt-3" />
                     {availabilityTeams.length === 0 ? (
                       <p className="mt-5 text-body-sm text-on-surface-variant">
@@ -905,26 +872,13 @@ export function DashboardPage() {
                       </p>
                     ) : (
                       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {availabilityTeams.map(({ dept, summary, turnout }) => {
-                          const ring = turnoutRing(summary, turnout)
-                          return (
-                            <Link
-                              key={dept.id}
-                              to="/availability"
-                              className="flex items-center gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
-                            >
-                              <TeamRing pct={ring.pct} color={ring.color} />
-                              <span className="min-w-0">
-                                <span className="block break-words text-body-sm font-medium text-on-surface">
-                                  {dept.name}
-                                </span>
-                                <span className="block font-mono text-label-sm text-on-surface-faint">
-                                  {ring.caption}
-                                </span>
-                              </span>
-                            </Link>
-                          )
-                        })}
+                        {availabilityTeams.map(({ dept, summary, turnout }) => (
+                          <TeamTurnoutRow
+                            key={dept.id}
+                            name={dept.name}
+                            ring={turnoutRing(summary, turnout)}
+                          />
+                        ))}
                       </div>
                     )}
                     {teamsNeedingAnswers.length > 0 && (
