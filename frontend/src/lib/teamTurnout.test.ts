@@ -22,19 +22,26 @@ const team = ({ yes, came = 0, noShow = 0 }: { yes: number; came?: number; noSho
 
 /*
  * A team is two questions a week apart: how much of it is coming, and how
- * much of it is here. The tile used to answer only the second, and only
- * once somebody had started marking people in — so all week it showed an
- * empty ring and a count, and whoever was planning on Saturday night had
- * no number at all.
+ * much of it is here. They are more useful together than in sequence, so
+ * both figures sit in the row all week — the tile used to carry neither
+ * until somebody started marking people in.
  */
 describe('before anybody is marked', () => {
   it('shows what the team said it would do', () => {
     const r = team({ yes: 7 })
     expect(r.state).toBe('predicted')
     expect(r.predictedPct).toBe(70)
-    expect(r.pct).toBe(70)
-    expect(r.caption).toBe('70% expected')
-    expect(r.detail).toBe('7 of 10 said yes · 3 unanswered')
+    expect(r.expectedSub).toBe('7 of 10')
+    expect(r.toAnswer).toBe(3)
+  })
+
+  // A turnout figure of 0% would read as "nobody came"; nobody has been
+  // asked yet, which is a different thing.
+  it('says nothing rather than zero about a turnout nobody has recorded', () => {
+    const r = team({ yes: 7 })
+    expect(r.actualPct).toBeNull()
+    expect(r.actualValue).toBe('—')
+    expect(r.actualSub).toBe('not yet')
   })
 
   // A prediction is not a fact and should not wear the colour of one.
@@ -42,7 +49,6 @@ describe('before anybody is marked', () => {
     const r = team({ yes: 7 })
     expect(r.color).not.toContain('green')
     expect(r.color).not.toContain('orange')
-    expect(r.actualPct).toBeNull()
   })
 
   it('counts silence against the team rather than shrinking the denominator', () => {
@@ -53,15 +59,15 @@ describe('before anybody is marked', () => {
   it('is red and empty when nobody said they could serve', () => {
     const r = team({ yes: 0 })
     expect(r.state).toBe('none-available')
-    expect(r.pct).toBe(0)
+    expect(r.predictedPct).toBe(0)
     expect(r.color).toContain('red')
-    expect(r.caption).toBe('Nobody available yet')
+    expect(r.actualSub).toBe('nobody due')
   })
 
   it('counts a team that answered no as nobody available, not as no data', () => {
     const r = ring(['a'], [{ user_id: 'a', status: 'unavailable', attended: null }])
     expect(r.state).toBe('none-available')
-    expect(r.detail).toBe('0 of 1 said yes')
+    expect(r.expectedSub).toBe('0 of 1')
   })
 })
 
@@ -71,18 +77,20 @@ describe('before anybody is marked', () => {
  * in the morning is telling the truth in a way that misleads.
  */
 describe('while the register is being filled in', () => {
-  it('keeps the prediction as the headline and counts arrivals beside it', () => {
+  it('keeps both figures live, and says the turnout is still climbing', () => {
     const r = team({ yes: 7, came: 3 })
     expect(r.state).toBe('counting')
-    expect(r.caption).toBe('70% expected')
-    expect(r.detail).toBe('3 of 7 in so far')
-    expect(r.pct).toBe(70)
+    expect(r.predictedPct).toBe(70)
+    expect(r.actualPct).toBe(30)
+    expect(r.actualValue).toBe('30%')
+    expect(r.actualSub).toBe('3 of 7 so far')
   })
 
-  it('still reports the real figure for anybody who wants it', () => {
-    expect(team({ yes: 7, came: 3 }).actualPct).toBe(30)
-  })
-
+  /*
+   * Grey until the last person is accounted for. A team reading 20%
+   * because one of five has been marked is true in a way that misleads,
+   * and a colour would make it look settled.
+   */
   it('stays grey until the last person is accounted for', () => {
     expect(team({ yes: 7, came: 6 }).color).not.toContain('green')
     expect(team({ yes: 7, came: 6 }).state).toBe('counting')
@@ -90,12 +98,11 @@ describe('while the register is being filled in', () => {
 })
 
 describe('once everyone who said yes has been marked', () => {
-  it('hands the headline to what actually happened', () => {
+  it('reports what actually happened, and who was missing', () => {
     const r = team({ yes: 7, came: 5, noShow: 2 })
     expect(r.state).toBe('settled')
-    expect(r.caption).toBe('50% turned up')
-    expect(r.detail).toBe('5 of 10 in · 2 no-show')
-    expect(r.pct).toBe(50)
+    expect(r.actualValue).toBe('50%')
+    expect(r.actualSub).toBe('5 of 10 · 2 no-show')
   })
 
   /*
@@ -120,8 +127,9 @@ describe('once everyone who said yes has been marked', () => {
     const r = team({ yes: 7, came: 7 })
     expect(r.state).toBe('settled')
     expect(r.actualPct).toBe(70)
+    expect(r.predictedPct).toBe(70)
     expect(r.color).toContain('green')
-    expect(r.detail).toBe('7 of 10 in · expected 70%')
+    expect(r.actualSub).toBe('7 of 10')
   })
 
   it('goes orange when some of those who promised did not come', () => {
