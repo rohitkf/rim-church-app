@@ -86,6 +86,11 @@ function TurnoutLegend({ className = '' }: { className?: string }) {
 
   return (
     <ul className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 ${className}`}>
+      {/* The ring carries two arcs now, and which is which is not a thing
+          a ring can say for itself. */}
+      <li className="w-full text-label-md text-on-surface-faint">
+        The faint arc is what the team expects; the solid one is who has turned up.
+      </li>
       {entries.map((entry) => (
         <li
           key={entry.label}
