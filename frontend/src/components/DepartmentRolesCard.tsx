@@ -86,7 +86,18 @@ function RoleChecklistEditor({
         department_id: departmentId,
         label: text,
         phase,
-        sort_order: items.length,
+        /*
+         * After the last one, by the number it carries rather than by how
+         * many there are.
+         *
+         * Those are the same only while a list is numbered from zero with
+         * no gaps. A list numbered from one, or one with a gap left by a
+         * deleted line, makes the count land on top of the last item — and
+         * two rows holding the same number sort wherever the database
+         * feels like putting them, which is how a new line ended up
+         * second from bottom.
+         */
+        sort_order: items.reduce((highest, i) => Math.max(highest, i.sort_order), -1) + 1,
       })
       if (error) throw error
     },
