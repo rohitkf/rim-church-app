@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
-import { Chevron, useExpanded } from '../components/Collapsible'
+import { Chevron } from '../components/Collapsible'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import {
   fetchAvailabilityFor,
@@ -36,9 +36,11 @@ import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { TeamTurnoutRow } from '../components/TeamTurnoutRow'
-import { focusSundayIso, formatServiceDay, shiftSundayIso, shortServiceDay } from '../lib/sunday'
-import { nearestServiceDate } from '../lib/nearestService'
-import { orderServices, serviceStanding, type ServiceStanding } from '../lib/serviceState'
+import { formatServiceDay, shiftSundayIso } from '../lib/sunday'
+import { serviceStanding, type ServiceStanding } from '../lib/serviceState'
+import { inStartOrder, opensOnItsOwn, upcomingServices } from '../lib/upcomingServices'
+import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
+import { TodayEvents } from '../components/TodayEvents'
 import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
 import { formatTime } from '../lib/time'
@@ -121,84 +123,65 @@ export function DashboardPage() {
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
 
-  // Everyone opens on the Sunday in question (today if it is Sunday,
-  // otherwise the one coming up). Admins alone can step back through
-  // previous weeks to review past stats.
+  // Today is what the page is anchored to: what is on, and what is still
+  // coming. Admins alone can step off it to a particular day, which is how
+  // a service that has already happened gets looked at again.
   const today = todayIso()
   const [adminDate, setAdminDate] = useState<string | null>(null)
+  const focusDate = adminDate ?? today
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  // The diary, for the one part of it that is today. Same query key as the
+  // Events page, so the two share a cache and a realtime invalidation.
+  const eventsQuery = useQuery({ queryKey: ['church-events'], queryFn: fetchEvents })
+  const eventsToday = useMemo(
+    () => eventsOnDay(eventsQuery.data ?? [], today),
+    [eventsQuery.data, today],
+  )
 
-  // Every distinct day that has services, so the dashboard can land on
-  // the one that matters and step between them.
+  // Every distinct day that has services, so the steppers can land on
+  // one that has something on it.
   const serviceDates = useMemo(
     () => [...new Set((servicesQuery.data ?? []).map((s) => s.date))].sort(),
     [servicesQuery.data],
   )
-  // Today when something is on today, otherwise the next day with
-  // services — services aren't always on a Sunday, and pinning this to
-  // the coming Sunday hid a midweek service entirely. Falls back to the
-  // coming Sunday when nothing is scheduled at all.
-  const defaultDate = useMemo(
-    () => nearestServiceDate(serviceDates, today) ?? focusSundayIso(new Date()),
-    [serviceDates, today],
-  )
-  const viewedDate = (isAdmin ? adminDate : null) ?? defaultDate
 
   // Step to the neighbouring service day rather than a fixed week, so
   // Previous/Next always lands on something worth looking at.
   function stepDay(delta: 1 | -1) {
     const ahead = delta === 1
     const candidates = ahead
-      ? serviceDates.filter((d) => d > viewedDate)
-      : serviceDates.filter((d) => d < viewedDate).reverse()
-    setAdminDate(candidates[0] ?? shiftSundayIso(viewedDate, delta))
+      ? serviceDates.filter((d) => d > focusDate)
+      : serviceDates.filter((d) => d < focusDate).reverse()
+    setAdminDate(candidates[0] ?? shiftSundayIso(focusDate, delta))
   }
 
+  // Two lists, one page: the day an Admin stepped to, or everything still
+  // ahead. The second is the normal one — a dashboard that could only ever
+  // show one day made a midweek service and the Sunday after it two
+  // separate visits.
   const dayServices = useMemo(
-    () => (servicesQuery.data ?? []).filter((s) => s.date === viewedDate),
-    [servicesQuery.data, viewedDate],
+    () => (servicesQuery.data ?? []).filter((s) => s.date === focusDate),
+    [servicesQuery.data, focusDate],
   )
-  const dayServiceIds = useMemo(() => dayServices.map((s) => s.id), [dayServices])
-
-  // Checklist readiness comes from the rota: whoever it puts on the service
-  // owes the checklist of the role they were given, and every item passes
-  // through member -> head -> coordinator. Same source as the Checklists page.
-  const rotaQuery = useQuery({
-    queryKey: ['dashboard-rota', dayServiceIds],
-    queryFn: () => fetchRotaAssignments(dayServiceIds),
-    enabled: dayServiceIds.length > 0,
-  })
-  const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
-
-  // The first service after the viewed day, so that once everything here
-  // has finished the page still has something to count down to rather
-  // than just saying the day is over.
-  // Every service on that next day, because which of them is actually
-  // first is a question about start times, and those are fetched below.
-  const servicesAfterDay = useMemo(() => {
-    const later = (servicesQuery.data ?? [])
-      .filter((s) => s.date > viewedDate)
-      .sort((a, b) => a.date.localeCompare(b.date))
-    const nextDate = later[0]?.date
-    return nextDate ? later.filter((s) => s.date === nextDate) : []
-  }, [servicesQuery.data, viewedDate])
+  const listedServices = useMemo(
+    () => (adminDate ? dayServices : upcomingServices(servicesQuery.data ?? [], today)),
+    [adminDate, dayServices, servicesQuery.data, today],
+  )
+  const listedIds = useMemo(() => listedServices.map((s) => s.id), [listedServices])
 
   // The running orders themselves, not just their starts: a session's
   // length is what says when a service ends, and therefore whether it is
-  // still on, still to come, or over.
-  const timedIds = useMemo(
-    () => [...dayServiceIds, ...servicesAfterDay.map((s) => s.id)],
-    [dayServiceIds, servicesAfterDay],
-  )
+  // still on, still to come, or over. Fetched for every service in the
+  // list, open or shut, because a shut row still carries a countdown.
   const startsQuery = useQuery({
-    queryKey: ['dashboard-service-starts', timedIds],
+    queryKey: ['dashboard-service-starts', listedIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('service_sessions')
         .select('id, service_id, start_time, duration_minutes')
-        .in('service_id', timedIds)
+        .in('service_id', listedIds)
         .order('start_time')
       if (error) throw error
       return z
@@ -212,7 +195,7 @@ export function DashboardPage() {
         )
         .parse(data)
     },
-    enabled: timedIds.length > 0,
+    enabled: listedIds.length > 0,
   })
   const sessionsByService = useMemo(() => {
     const map = new Map<string, { id: string; start_time: string; duration_minutes: number | null }[]>()
@@ -229,34 +212,13 @@ export function DashboardPage() {
     return first
   }, [startsQuery.data])
 
-  // The one to count down to: earliest on the day, by the clock rather
-  // than by name. Two services that morning are not interchangeable — the
-  // 8:30 is what the church is getting ready for, not the 10:30.
-  const serviceAfterDay = useMemo(
-    () =>
-      [...servicesAfterDay].sort((a, b) => {
-        const at = startsAt.get(a.id)
-        const bt = startsAt.get(b.id)
-        return (
-          (at ? Date.parse(at) : Infinity) - (bt ? Date.parse(bt) : Infinity) ||
-          a.service_type.localeCompare(b.service_type)
-        )
-      })[0] ?? null,
-    [servicesAfterDay, startsAt],
-  )
-
   // Re-read the clock on a timer: a service crossing its own end time has
-  // to move down the page on its own, without anyone reloading.
+  // to move on its own, without anyone reloading.
   const [clock, setClock] = useState(() => Date.now())
   useEffect(() => {
     const id = window.setInterval(() => setClock(Date.now()), 30_000)
     return () => window.clearInterval(id)
   }, [])
-
-  // A service that is over folds down to one line. Its rings and its
-  // countdown are answers to questions nobody can still act on, and on a
-  // phone they push the service that hasn't happened yet off the screen.
-  const { isExpanded, toggle: toggleService } = useExpanded()
 
   const standingOf = useMemo(() => {
     const cache = new Map<string, ServiceStanding>()
@@ -269,22 +231,43 @@ export function DashboardPage() {
     }
   }, [sessionsByService, clock])
 
-  // On right now first, then what is still to come, then anything with no
-  // running order, and finished services last.
-  const orderedServices = useMemo(
-    () => orderServices(dayServices, (s) => standingOf(s.id)),
-    [dayServices, standingOf],
+  // In the order they happen, which on a day with two services is a fact
+  // about the running order rather than about the names.
+  const services = useMemo(
+    () => inStartOrder(listedServices, (s) => startsAt.get(s.id) ?? null),
+    [listedServices, startsAt],
   )
-  // "Over" means nothing here can still happen. A service with no running
-  // order has no end time to have passed, so it only counts as over once
-  // its whole day is behind us — otherwise one unplanned service would
-  // keep a finished Sunday looking like it was still to come.
-  const dayIsOver =
-    dayServices.length > 0 &&
-    dayServices.every((s) => {
-      const state = standingOf(s.id).state
-      return state === 'done' || (state === 'unplanned' && viewedDate < today)
-    })
+
+  /*
+   * What is unfolded, and what is merely listed.
+   *
+   * Every service is a line with a countdown on it; the rings, the bars and
+   * the feed are behind that line. They open by themselves on the day —
+   * the one morning the detail is worth the room — and by touch on any
+   * other. A finished service stays shut whatever day it is: it is a
+   * record, and a record that unfolds itself pushes the service still to
+   * come off the screen.
+   */
+  const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({})
+  const isOpen = (service: { id: string; date: string }) =>
+    openOverrides[service.id] ?? opensOnItsOwn(service.date, focusDate, standingOf(service.id).state)
+  const toggleService = (service: { id: string; date: string }) =>
+    setOpenOverrides((open) => ({ ...open, [service.id]: !isOpen(service) }))
+
+  // Everything heavy hangs off this: a service nobody has opened costs one
+  // row and no queries at all.
+  const openIds = services.filter(isOpen).map((s) => s.id)
+
+  // Checklist readiness comes from the rota: whoever it puts on the service
+  // owes the checklist of the role they were given, and every item passes
+  // through member -> head -> coordinator. Same source as the Checklists page.
+  const rotaQuery = useQuery({
+    queryKey: ['dashboard-rota', openIds],
+    queryFn: () => fetchRotaAssignments(openIds),
+    enabled: openIds.length > 0,
+  })
+  const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
+
   const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
   const roleItemsQuery = useQuery({
     queryKey: ['role-checklist-items', rotaDeptIds],
@@ -323,9 +306,9 @@ export function DashboardPage() {
 
   const allDeptIds = useMemo(() => visibleDepartments.map((d) => d.id), [visibleDepartments])
   const availabilityQuery = useQuery({
-    queryKey: ['availability', 'dashboard', dayServiceIds],
-    queryFn: () => fetchAvailabilityFor(dayServiceIds),
-    enabled: dayServiceIds.length > 0,
+    queryKey: ['availability', 'dashboard', openIds],
+    queryFn: () => fetchAvailabilityFor(openIds),
+    enabled: openIds.length > 0,
   })
   const rostersQuery = useQuery({
     queryKey: ['dashboard-rosters', allDeptIds],
@@ -344,15 +327,6 @@ export function DashboardPage() {
   const departmentName = (id: string) =>
     departmentsQuery.data?.find((d) => d.id === id)?.name ?? 'Unknown department'
 
-  /**
-   * "on Sun 6 Sep @ 09:30" — the two facts a diary needs.
-   *
-   * The time comes from the running order's first session, so a service
-   * nobody has planned yet says only the day rather than inventing an hour.
-   */
-  const whenLabel = (date: string, startTime: string | null) =>
-    `on ${shortServiceDay(date)}${startTime ? ` @ ${formatTime(startTime)}` : ''}`
-
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading
   const error = servicesQuery.error || departmentsQuery.error
 
@@ -360,9 +334,15 @@ export function DashboardPage() {
     <div>
       <PageHeader
         live
-        eyebrow={`${formatServiceDay(viewedDate)} · ${
-          dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
-        }`}
+        eyebrow={
+          adminDate
+            ? `${formatServiceDay(adminDate)} · ${
+                dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
+              }`
+            : `${formatServiceDay(today)} · ${
+                services.length === 1 ? '1 service ahead' : `${services.length} services ahead`
+              }`
+        }
         title={`${greeting(new Date(clock))}${profile ? `, ${profile.first_name}` : ''}.`}
         description={
           roles.length > 0 ? (
@@ -398,7 +378,7 @@ export function DashboardPage() {
               </ActionButton>
               <input
                 type="date"
-                value={viewedDate}
+                value={focusDate}
                 onChange={(e) => e.target.value && setAdminDate(e.target.value)}
                 aria-label="Service day"
                 className="min-w-0 flex-1 rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong [color-scheme:dark] sm:flex-none"
@@ -406,9 +386,9 @@ export function DashboardPage() {
               <ActionButton tone="quiet" size="sm" onClick={() => stepDay(1)} aria-label="Next day">
                 <span className="hidden sm:inline">Next&nbsp;</span>&rsaquo;
               </ActionButton>
-              {viewedDate !== defaultDate && (
+              {adminDate && (
                 <ActionButton tone="ghost" size="sm" onClick={() => setAdminDate(null)}>
-                  Next service
+                  What&rsquo;s coming
                 </ActionButton>
               )}
             </div>
@@ -416,10 +396,15 @@ export function DashboardPage() {
         }
       />
 
+      {/* What is on today, before anything about a service: an event
+          happens once, and the morning of it is the last useful moment to
+          be told. Nothing at all on the days there is nothing on. */}
+      <TodayEvents events={eventsToday} className="mt-6" />
+
       <QueryState isLoading={isLoading} error={error}>
-        {dayServices.length === 0 ? (
+        {services.length === 0 ? (
           <p className="mt-8 text-body-sm text-on-surface-variant">
-            No services scheduled for this day.{' '}
+            {adminDate ? 'No services scheduled for this day.' : 'Nothing scheduled yet.'}{' '}
             {isAdmin && (
               <>
                 Add one from the{' '}
@@ -431,52 +416,23 @@ export function DashboardPage() {
             )}
           </p>
         ) : (
-          <div className="flex flex-col gap-5">
-            {/* Everything today is over. Rather than leaving the page
-                describing finished services as though they were pending,
-                point at the next one and count towards it. */}
-            {dayIsOver && (
-              <Tile tone="accent" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-                <div>
-                  <Eyebrow>
-                    {serviceAfterDay
-                      ? `Next service ${whenLabel(
-                          serviceAfterDay.date,
-                          startsAt.get(serviceAfterDay.id) ?? null,
-                        )}`
-                      : 'Nothing scheduled next'}
-                  </Eyebrow>
-                  <h2 className="mt-2.5 text-headline-lg">
-                    {serviceAfterDay ? serviceAfterDay.service_type : 'That’s the day done'}
-                  </h2>
-                  <p className="mt-1.5 text-body-md text-on-surface-variant">
-                    {serviceAfterDay
-                      ? `Every service on ${formatServiceDay(viewedDate)} has finished.`
-                      : 'Every service has finished, and nothing else is on the calendar yet.'}
-                  </p>
-                </div>
-                {serviceAfterDay && (
-                  <ServiceCountdown
-                    startsAt={startsAt.get(serviceAfterDay.id) ?? null}
-                    variant="hero"
-                    fallback={
-                      <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-                        <span className="text-headline-xl">{untilLabel(serviceAfterDay.date)}</span>
-                        <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
-                          {formatServiceDay(serviceAfterDay.date)}
-                        </span>
-                      </div>
-                    }
-                  />
-                )}
-              </Tile>
-            )}
-            {orderedServices.map((service, serviceIndex) => {
+          <div className="mt-7 flex flex-col gap-5">
+            <Eyebrow className="block">
+              {adminDate ? 'Services that day' : 'Upcoming services'}
+            </Eyebrow>
+            {services.map((service) => {
               const standing = standingOf(service.id)
               const done = standing.state === 'done'
-              const open = !done || isExpanded(service.id)
-              // The next service after this one, on the same day.
-              const laterToday = orderedServices
+              const open = isOpen(service)
+              const startTime = startsAt.get(service.id) ?? null
+              // Of everything listed, the one actually coming next — which
+              // is not always the first row, since a service that finished
+              // this morning keeps its place in the day.
+              const isNextUp =
+                services.find((other) => standingOf(other.id).state !== 'done')?.id === service.id
+              // The next service after this one, later the same day.
+              const laterToday = services
+                .filter((other) => other.date === service.date)
                 .map((other) => ({ service: other, ...standingOf(other.id) }))
                 .filter(
                   (other) =>
@@ -533,35 +489,65 @@ export function DashboardPage() {
                  * and every tile is the same object — only its span changes.
                  */
                 <div key={service.id} className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-                  {/* Over, and folded: the row still says which service and
-                      when it ended, and opens on a touch. */}
-                  {done && (
-                    <Tile tone="success" className="lg:col-span-12">
-                      <button
-                        type="button"
-                        onClick={() => toggleService(service.id)}
-                        aria-expanded={open}
-                        aria-controls={`dashboard-service-${service.id}`}
-                        className="flex w-full text-left"
-                      >
-                        {/* One wrapping run, chevron included: on a phone a
-                            chevron pushed to the far edge drops onto a line
-                            of its own and reads as a stray character. */}
+                  {/*
+                   * The line, and everything a week can be planned around
+                   * without opening it: which service, which day, what time
+                   * and how long to go. On a Tuesday it is the whole of the
+                   * dashboard; on the morning itself it opens by itself.
+                   */}
+                  <Tile
+                    tone={standing.state === 'running' ? 'accent' : done ? 'success' : 'plain'}
+                    padded={false}
+                    className="lg:col-span-12"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleService(service)}
+                      aria-expanded={open}
+                      aria-controls={`dashboard-service-${service.id}`}
+                      className="flex w-full items-start gap-4 p-5 text-left sm:p-6"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                           <span className="text-headline-md">{service.service_type}</span>
-                          <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
-                            Finished
-                          </span>
-                          {standing.to !== null && (
-                            <span className="font-mono text-label-sm text-on-surface-faint">
-                              ended {formatTime(new Date(standing.to).toISOString())}
+                          {standing.state === 'running' ? (
+                            <span className="font-mono text-label-sm uppercase tracking-wide text-primary">
+                              On now
                             </span>
-                          )}
-                          <Chevron open={open} />
+                          ) : done ? (
+                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                              Finished
+                            </span>
+                          ) : null}
                         </span>
-                      </button>
-                    </Tile>
-                  )}
+                        {/* Day, hour and how long to go, on one wrapping
+                            run. The clock sat out on the right until a
+                            phone wrapped the row and left the chevron
+                            stranded on a line of its own, reading as a
+                            stray character. Kept with the words it belongs
+                            to, it wraps like words do. */}
+                        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-label-sm text-on-surface-faint">
+                          <span>{formatServiceDay(service.date)}</span>
+                          {startTime && <span>{formatTime(startTime)}</span>}
+                          {done && standing.to !== null && (
+                            <span>ended {formatTime(new Date(standing.to).toISOString())}</span>
+                          )}
+                          {/* Opened, the hero below carries the clock, and
+                              the same countdown twice on one card reads as
+                              two different numbers until you check. */}
+                          {!open && !done && standing.state !== 'running' && (
+                            <ServiceCountdown
+                              startsAt={startTime}
+                              fallback={<span className="text-on-surface">{untilLabel(service.date, new Date(clock))}</span>}
+                            />
+                          )}
+                        </span>
+                      </span>
+                      <span className="shrink-0 pt-1">
+                        <Chevron open={open} />
+                      </span>
+                    </button>
+                  </Tile>
 
                   {open && (
                   <div id={`dashboard-service-${service.id}`} className="contents">
@@ -575,18 +561,20 @@ export function DashboardPage() {
                         {/* When it is, not just that it is next. The
                             countdown underneath says how long; a date and a
                             time say what to put in a diary. */}
+                        {/* The row above already gave the name, the day and
+                            the hour, so this says only which service of the
+                            week it is — repeating the date here wrapped it
+                            onto two lines of a phone to say nothing new. */}
                         <Eyebrow>
                           {standing.state === 'running'
                             ? 'Current service'
                             : standing.state === 'done'
                               ? 'Finished'
-                              : `${serviceIndex === 0 ? 'Next service' : 'Also on'} ${whenLabel(
-                                  service.date,
-                                  startsAt.get(service.id) ?? null,
-                                )}`}
+                              : isNextUp
+                                ? 'Next service'
+                                : 'Later service'}
                         </Eyebrow>
-                        <h2 className="mt-2.5 text-headline-lg">{service.service_type}</h2>
-                        <p className="mt-1.5 text-body-md text-on-surface-variant">
+                        <p className="mt-2.5 text-body-md text-on-surface-variant">
                           {availabilityTeams.length}{' '}
                           {availabilityTeams.length === 1 ? 'team' : 'teams'} on duty
                         </p>
@@ -643,7 +631,7 @@ export function DashboardPage() {
                         </div>
                       ) : (
                         <ServiceCountdown
-                          startsAt={startsAt.get(service.id) ?? null}
+                          startsAt={startTime}
                           variant="hero"
                           fallback={
                             <div className="flex flex-wrap items-end gap-x-4 gap-y-1">

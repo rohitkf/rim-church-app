@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { focusSundayIso, formatServiceDay, isSundayIso, shiftSundayIso } from './sunday'
-
-describe('focusSundayIso', () => {
-  it('returns today when today is Sunday', () => {
-    // 2026-08-30 is a Sunday.
-    expect(focusSundayIso(new Date(2026, 7, 30, 14, 0))).toBe('2026-08-30')
-  })
-
-  it('returns the coming Sunday on any other day', () => {
-    expect(focusSundayIso(new Date(2026, 7, 27))).toBe('2026-08-30') // Thursday
-    expect(focusSundayIso(new Date(2026, 7, 31))).toBe('2026-09-06') // Monday
-    expect(focusSundayIso(new Date(2026, 8, 5))).toBe('2026-09-06') // Saturday
-  })
-})
+import { formatServiceDay, isSundayIso, shiftSundayIso } from './sunday'
 
 describe('isSundayIso', () => {
   it('recognises Sundays regardless of the viewer’s clock time', () => {

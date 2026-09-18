@@ -626,3 +626,144 @@ body::after {
     animation: rim-dock-slot 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   }
 }
+
+/*
+ * The galaxy behind what is on today.
+ *
+ * An event is the one thing on the dashboard that is not a service, and it
+ * happens once — so on the morning it lands it has to be impossible to
+ * scroll past, on a page whose every other tile is deliberately quiet. A
+ * border or a brighter blue would only be one more card in a column of
+ * cards; deep space is a different substance, and the eye stops at it.
+ *
+ * Four layers, none of which touches the pointer:
+ *   1. the base, a wash of indigo and blue under near-black;
+ *   2. `.galaxy-glow`, two soft clouds that breathe on a nine-second cycle;
+ *   3. `.galaxy-stars`, a tiled field that drifts sideways forever;
+ *   4. `.sheen` (above), the glisten that crosses the card.
+ *
+ * Each runs at its own rate, which is what keeps it looking like a sky
+ * rather than a loading spinner: nothing in it repeats with anything else.
+ * The card is dark in both themes on purpose — it is a night sky in a light
+ * room too — so everything drawn on it carries its own light colour rather
+ * than the theme's ink.
+ */
+.galaxy {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      120% 150% at 8% 0%,
+      color-mix(in oklab, var(--color-accent-indigo) 62%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      110% 140% at 92% 8%,
+      color-mix(in oklab, var(--color-accent-blue) 45%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(90% 120% at 50% 110%, #1a1350, transparent 70%),
+    linear-gradient(160deg, #070a1f 0%, #0b0722 55%, #05060f 100%);
+}
+
+/* The clouds. Big, slow and low-contrast: a nebula that announced itself
+   would be a gradient, and a gradient is what this is trying not to be. */
+.galaxy-glow {
+  position: absolute;
+  inset: -30%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      36% 46% at 24% 34%,
+      color-mix(in oklab, var(--color-accent-indigo-soft) 38%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 40% at 76% 62%,
+      color-mix(in oklab, var(--color-accent-blue-soft) 30%, transparent),
+      transparent 72%
+    );
+  filter: blur(18px);
+  animation: rim-galaxy-breathe 9s ease-in-out infinite;
+}
+
+@keyframes rim-galaxy-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.06);
+  }
+}
+
+/*
+ * The stars themselves: one tile of dots, repeated, sliding by exactly its
+ * own width so the loop has no seam. Two elements rather than one, at
+ * different tile sizes and speeds, because a single field all moving at
+ * one rate reads as a texture being dragged — the near ones have to
+ * outrun the far ones for it to read as depth.
+ */
+.galaxy-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 24px 30px, #ffffff, transparent),
+    radial-gradient(1.3px 1.3px at 108px 66px, #d8e6ff, transparent),
+    radial-gradient(1.6px 1.6px at 186px 22px, #ffffff, transparent),
+    radial-gradient(1.2px 1.2px at 58px 128px, #cbd8ff, transparent),
+    radial-gradient(1.4px 1.4px at 214px 148px, #ffffff, transparent),
+    radial-gradient(1.1px 1.1px at 150px 104px, #e7d9ff, transparent);
+  background-size: 260px 180px;
+  background-repeat: repeat;
+  opacity: 0.85;
+  animation: rim-star-drift 120s linear infinite;
+}
+
+.galaxy-stars-far {
+  background-image:
+    radial-gradient(1px 1px at 16px 18px, #ffffff, transparent),
+    radial-gradient(1px 1px at 74px 92px, #bcd0ff, transparent),
+    radial-gradient(0.9px 0.9px at 132px 46px, #ffffff, transparent),
+    radial-gradient(1px 1px at 40px 122px, #e4d7ff, transparent),
+    radial-gradient(0.8px 0.8px at 164px 132px, #ffffff, transparent);
+  background-size: 190px 150px;
+  animation:
+    rim-star-drift-far 260s linear infinite,
+    rim-star-twinkle 5.5s ease-in-out infinite;
+}
+
+/* Exactly four tiles of the near field (260px) and five of the far one
+   (190px): a drift that stops on anything else leaves a seam where the
+   pattern restarts, which is the one thing a sky must not do. */
+@keyframes rim-star-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -1040px 0;
+  }
+}
+
+@keyframes rim-star-drift-far {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -950px 0;
+  }
+}
+
+@keyframes rim-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
