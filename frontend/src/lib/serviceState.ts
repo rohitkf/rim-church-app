@@ -55,32 +55,6 @@ export function serviceStanding(
   return { state: 'upcoming', from: bounds.from, to: bounds.to }
 }
 
-/** Where a service belongs in the day's running list. Lower comes first. */
-const RANK: Record<ServiceState, number> = {
-  running: 0,
-  upcoming: 1,
-  unplanned: 2,
-  done: 3,
-}
-
-/**
- * The day's services in the order they deserve attention: whatever is on
- * right now, then what is still to come, then anything with no running
- * order, and finished services last. Within a group the earlier one leads,
- * so two services still ahead stay in the order they will happen.
- */
-export function orderServices<T>(
-  services: T[],
-  standingOf: (service: T) => ServiceStanding,
-): T[] {
-  return [...services].sort((a, b) => {
-    const sa = standingOf(a)
-    const sb = standingOf(b)
-    if (RANK[sa.state] !== RANK[sb.state]) return RANK[sa.state] - RANK[sb.state]
-    return (sa.from ?? Infinity) - (sb.from ?? Infinity)
-  })
-}
-
 /**
  * How long after a service ends an Admin can still correct the record.
  *

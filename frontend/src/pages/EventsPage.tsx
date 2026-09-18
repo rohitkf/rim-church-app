@@ -20,6 +20,7 @@ import {
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
+import { fetchEvents } from '../lib/churchEvents'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { dayCount, formatRange } from '../lib/dateRange'
@@ -35,37 +36,12 @@ const personSchema = z.object({
   anniversary: z.string().nullable(),
 })
 
-const eventSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  details: z.string().nullable(),
-  event_date: z.string(),
-  ends_on: z.string().nullable(),
-  start_time: z.string().nullable(),
-  location: z.string().nullable(),
-  department_id: z.string().nullable(),
-  created_by: z.string().nullable(),
-  creator: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
-  department: z.object({ name: z.string(), color: z.string().nullable() }).nullable(),
-})
-
 async function fetchPeople() {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, first_name, last_name, dob, anniversary')
   if (error) throw error
   return z.array(personSchema).parse(data)
-}
-
-async function fetchEvents(): Promise<DiaryEvent[]> {
-  const { data, error } = await supabase
-    .from('church_events')
-    .select(
-      'id, title, details, event_date, ends_on, start_time, location, department_id, created_by, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
-    )
-    .order('event_date')
-  if (error) throw error
-  return z.array(eventSchema).parse(data)
 }
 
 /**

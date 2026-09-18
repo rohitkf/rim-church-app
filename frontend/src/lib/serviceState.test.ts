@@ -3,7 +3,6 @@ import {
   EDIT_GRACE_MS,
   editingLocked,
   editingLocksAt,
-  orderServices,
   serviceStanding,
 } from './serviceState'
 
@@ -35,28 +34,6 @@ describe('where a service stands against the clock', () => {
   it('says so rather than guessing when no running order exists', () => {
     const standing = serviceStanding([], clock('09:00'))
     expect(standing).toEqual({ state: 'unplanned', from: null, to: null })
-  })
-})
-
-describe('the order the day is shown in', () => {
-  it('puts what is on now first, then what is coming, and finished last', () => {
-    const services = [
-      { id: 'done', sessions: [at('08:00', 30)] },
-      { id: 'later', sessions: [at('14:00', 60)] },
-      { id: 'now', sessions: [at('09:00', 90)] },
-      { id: 'unplanned', sessions: [] },
-    ]
-    const ordered = orderServices(services, (s) => serviceStanding(s.sessions, clock('09:30')))
-    expect(ordered.map((s) => s.id)).toEqual(['now', 'later', 'unplanned', 'done'])
-  })
-
-  it('keeps two services in the same state in the order they happen', () => {
-    const services = [
-      { id: 'second', sessions: [at('14:00')] },
-      { id: 'first', sessions: [at('11:00')] },
-    ]
-    const ordered = orderServices(services, (s) => serviceStanding(s.sessions, clock('09:00')))
-    expect(ordered.map((s) => s.id)).toEqual(['first', 'second'])
   })
 })
 
