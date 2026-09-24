@@ -27,7 +27,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // It has already drifted once — `team_poll` was added to the app and not to
 // this list, so a poll would have buzzed a phone and then dropped whoever
 // tapped it on the dashboard rather than in the room the question was asked
-// in. Anything added to the app's list belongs here too.
+// in. Anything added to the app's list belongs here too. It drifted a
+// second time (rota_dropout and the two availability-change types), so
+// frontend/src/lib/notificationLink.test.ts now reads this file and fails
+// the build when the two disagree.
 const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   message: { label: 'New message board post', href: '/messages' },
   rota_release_request: { label: 'A team has asked to borrow one of your volunteers', href: '/rota' },
@@ -42,6 +45,15 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   announcement: { label: 'A message from the church', href: '/' },
   team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
+  rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
+  availability_change_request: {
+    label: 'Somebody is asking to change their answer',
+    href: '/availability',
+  },
+  availability_change_decision: {
+    label: 'Your request to change your answer was answered',
+    href: '/availability',
+  },
 }
 
 /**

@@ -11,6 +11,11 @@ const buildId = resolveBuildId()
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId)],
   define: { __RIM_BUILD_ID__: JSON.stringify(buildId) },
+  // The project root and the push sender, and nothing more of the repo:
+  // a test reads push-notify's copy of the notification map to hold it to
+  // the app's (src/lib/notificationLink.test.ts). The dev server serves
+  // what this allows, so it names the one folder rather than the parent.
+  server: { fs: { allow: ['.', '../supabase/functions/push-notify'] } },
   test: {
     environment: 'jsdom',
     globals: true,

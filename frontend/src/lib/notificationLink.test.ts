@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NOTIFICATION_TYPES, notificationHref, notificationLabel } from './notificationLink'
+import pushSource from '../../../supabase/functions/push-notify/index.ts?raw'
 
 describe('notificationLabel', () => {
   it('says what happened in a sentence', () => {
@@ -86,3 +87,34 @@ describe('somebody dropping off a rota', () => {
   })
 })
 
+
+/*
+ * The push sender keeps its own copy of this map, because it runs in Deno
+ * and the app runs in the browser. It has drifted twice — team_poll, then
+ * rota_dropout and both availability-change types — and a drifted type
+ * still pushes, it just says the generic line on the lock screen and a
+ * tap lands on the dashboard. Nobody notices that by reading a diff.
+ */
+describe('the push sender’s copy of the map', () => {
+  const sender = pushSource.slice(
+    pushSource.indexOf('const NOTIFICATIONS'),
+    pushSource.indexOf('\n}\n', pushSource.indexOf('const NOTIFICATIONS')),
+  )
+  const entries = new Map(
+    [...sender.matchAll(/^\s+(\w+): \{\s*label: '([^']*)',\s*href: '([^']*)'/gm)].map((m) => [
+      m[1],
+      { label: m[2], href: m[3] },
+    ]),
+  )
+
+  it('knows every type the app knows, and no others', () => {
+    expect([...entries.keys()].sort()).toEqual([...NOTIFICATION_TYPES].sort())
+  })
+
+  it.each(NOTIFICATION_TYPES.map((t) => [t]))('says and links %s the same way', (type) => {
+    expect(entries.get(type)).toEqual({
+      label: notificationLabel(type),
+      href: notificationHref(type),
+    })
+  })
+})

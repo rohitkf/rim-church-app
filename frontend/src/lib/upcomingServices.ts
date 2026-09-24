@@ -1,5 +1,4 @@
 import type { ServiceState } from './serviceState'
-import { addDays } from './dateRange'
 
 /**
  * Which services the dashboard lists, and which of them open on their own.
@@ -10,9 +9,13 @@ import { addDays } from './dateRange'
  * answer for one day, so a midweek service and the Sunday after it were
  * two different visits to the same page.
  *
- * So it is a list now: everything still to come, each one a line, and the
- * detail behind it for whoever asks. The asking is done for you on the day
- * itself, which is the day the detail is worth the room.
+ * So it became a list: everything in the next four weeks, each one a line.
+ * That was too much the other way — on a Sunday with two services the page
+ * led with today's pair and then next week's pair, and the church asked for
+ * only the ones coming up. So it lists the next day that has services on
+ * it, all of them, and nothing after; Previous/Next still step to any other
+ * day. The detail behind each line opens on its own on the day itself,
+ * which is the day the detail is worth the room.
  */
 
 export interface ListedService {
@@ -22,34 +25,24 @@ export interface ListedService {
 }
 
 /**
- * How far ahead the dashboard looks. Four weeks is about as far as a rota
- * is real — beyond it the names change, so counting down to it is counting
- * down to a plan rather than to a service.
- */
-export const UPCOMING_WINDOW_DAYS = 28
-
-/**
- * Everything from today onwards that is worth listing.
+ * The services on the nearest day that has any, from today onwards.
  *
  * Today counts even once it is over: a service that finished this morning
  * is still what somebody is asking the dashboard about this afternoon, and
  * a day that empties itself at noon reads as a day with nothing on it.
  *
- * When the window is empty but something is scheduled beyond it, the next
- * one comes anyway. A church that plans a quarter ahead should not get a
- * page that says nothing is coming.
+ * However far off that day is, it comes: a church that plans a quarter
+ * ahead should not get a page that says nothing is coming.
  */
-export function upcomingServices<T extends ListedService>(
-  services: T[],
-  today: string,
-  { windowDays = UPCOMING_WINDOW_DAYS, max = 8 }: { windowDays?: number; max?: number } = {},
-): T[] {
-  const ahead = services
-    .filter((service) => service.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
-  const horizon = addDays(today, windowDays)
-  const within = ahead.filter((service) => service.date <= horizon)
-  return (within.length > 0 ? within : ahead.slice(0, 1)).slice(0, max)
+export function upcomingServices<T extends ListedService>(services: T[], today: string): T[] {
+  const next = services.reduce<string | null>(
+    (nearest, service) =>
+      service.date >= today && (nearest === null || service.date < nearest) ? service.date : nearest,
+    null,
+  )
+  return services
+    .filter((service) => service.date === next)
+    .sort((a, b) => a.service_type.localeCompare(b.service_type))
 }
 
 /**
