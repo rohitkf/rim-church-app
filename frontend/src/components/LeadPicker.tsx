@@ -13,6 +13,11 @@ export interface LeadOption {
 /** Who a row refers to. The same pair the assignee rows are written with. */
 export type LeadValue = PersonRef
 
+/** A name as it is compared: case and stray spaces make nobody different. */
+function sameName(name: string) {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 /**
  * Who is taking this session — as many people as it takes.
  *
@@ -75,14 +80,33 @@ export function LeadPicker({
   )
 
   const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase()
+    const needle = sameName(query)
     if (!needle) return options
-    return options.filter((o) => o.name.toLowerCase().includes(needle))
+    return options.filter((o) => sameName(o.name).includes(needle))
   }, [options, query])
 
+  /*
+   * Whether what is typed is somebody new.
+   *
+   * It used to be "nothing matched", and matching is by any part of the
+   * name — so typing Reji with Sumi Reji on the guest list found her, and
+   * the offer to add Reji as a person in his own right never appeared.
+   * Two people can share a word of a name; they cannot share all of it.
+   * So the offer stands unless somebody is already called exactly this.
+   */
+  const typed = query.trim()
+  const canAdd = useMemo(() => {
+    if (!onAddGuest || !typed) return false
+    return !options.some((o) => sameName(o.name) === sameName(typed))
+  }, [onAddGuest, typed, options])
+
   // Nobody is always the first row, so clearing a session is one key away
-  // rather than a hunt back to the top of the list.
-  const rows: (LeadOption | null)[] = useMemo(() => [null, ...matches], [matches])
+  // rather than a hunt back to the top of the list. Adding the typed name,
+  // when it is on offer, is the last — after everybody it might have meant.
+  const rows: (LeadOption | null | 'add')[] = useMemo(
+    () => [null, ...matches, ...(canAdd ? (['add'] as const) : [])],
+    [matches, canAdd],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -151,7 +175,17 @@ export function LeadPicker({
       setHighlighted((i) => (i - 1 + rows.length) % rows.length)
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      toggle(rows[Math.min(highlighted, rows.length - 1)] ?? null)
+      const picked = rows[Math.min(highlighted, rows.length - 1)] ?? null
+      if (picked === 'add') {
+        void addTypedName()
+        return
+      }
+      // Typing puts the highlight back on the first row, which is
+      // Unassigned — so Enter after a name nobody matched used to clear
+      // everybody already on the session. With a name in the box, Enter
+      // is never a request for nobody.
+      if (picked === null && typed) return
+      toggle(picked)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       setOpen(false)
@@ -162,6 +196,7 @@ export function LeadPicker({
   const members = matches.filter((o) => o.kind === 'member')
   const guests = matches.filter((o) => o.kind === 'guest')
   const indexOf = (option: LeadOption) => rows.findIndex((r) => r === option)
+  const addIndex = rows.indexOf('add')
 
   function row(option: LeadOption) {
     const index = indexOf(option)
@@ -268,7 +303,9 @@ export function LeadPicker({
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
-              setHighlighted(0)
+              // With something typed, the first thing it could mean — not
+              // Unassigned, which is never what a name is looking for.
+              setHighlighted(e.target.value.trim() ? 1 : 0)
             }}
             onKeyDown={onKeyDown}
             placeholder="Search people…"
@@ -305,26 +342,37 @@ export function LeadPicker({
             )}
             {guests.map(row)}
 
-            {matches.length === 0 && onAddGuest && query.trim() && (
-              <li>
+            {canAdd && (
+              <li className={matches.length > 0 ? 'mt-1.5' : ''}>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHighlighted(addIndex)}
                   onClick={addTypedName}
                   disabled={adding}
-                  className="flex w-full flex-col items-start rounded-[var(--radius-row)] bg-secondary/10 px-3 py-2.5 text-left disabled:opacity-60"
+                  className={`flex w-full flex-col items-start rounded-[var(--radius-row)] px-3 py-2.5 text-left disabled:opacity-60 ${
+                    highlighted === addIndex ? 'bg-raised-strong' : 'bg-secondary/10'
+                  }`}
                 >
                   <span className="break-words text-body-sm text-on-surface">
-                    {adding ? 'Adding…' : `Add “${query.trim()}” as a guest`}
+                    {adding
+                      ? 'Adding…'
+                      : matches.length > 0
+                        ? `Add “${typed}” as a new guest`
+                        : `Add “${typed}” as a guest`}
                   </span>
                   <span className="text-label-sm text-on-surface-faint">
-                    Goes on the guest list for next time too
+                    {/* Said when there are matches above, because the
+                        question then is whether this is one of them. */}
+                    {matches.length > 0
+                      ? 'Someone else — not anyone listed above'
+                      : 'Goes on the guest list for next time too'}
                   </span>
                 </button>
               </li>
             )}
 
-            {matches.length === 0 && !(onAddGuest && query.trim()) && (
+            {matches.length === 0 && !canAdd && (
               <li className="px-3 py-3 text-body-sm text-on-surface-variant">
                 Nobody by that name. An Admin can add them to the guest list on Volunteers.
               </li>

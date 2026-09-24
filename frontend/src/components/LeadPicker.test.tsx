@@ -199,4 +199,91 @@ describe('choosing who is on a session', () => {
     await open()
     expect(screen.queryByRole('button', { name: /as a guest/ })).toBeNull()
   })
+
+  /*
+   * Reported from the church: typing Reji with Sumi Reji already on the
+   * guest list found her, and the offer to add Reji — a different person —
+   * never appeared, because it only showed when nothing matched at all.
+   */
+  describe('a new name that is part of somebody else’s', () => {
+    const withSumi: LeadOption[] = [
+      ...options,
+      { kind: 'guest', id: 'g2', name: 'Sumi Reji' },
+    ]
+
+    function renderPicker(values: { kind: 'member' | 'guest'; id: string }[] = []) {
+      const onChange = vi.fn()
+      const onAddGuest = vi.fn().mockResolvedValue({ kind: 'guest', id: 'reji' })
+      render(
+        <LeadPicker
+          label="Who leads Message"
+          options={withSumi}
+          values={values}
+          onChange={onChange}
+          onAddGuest={onAddGuest}
+        />,
+      )
+      return { onChange, onAddGuest }
+    }
+
+    it('still offers to add them, below the person it might have meant', async () => {
+      const { onAddGuest, onChange } = renderPicker()
+      await open()
+      await userEvent.type(screen.getByLabelText('Search people'), 'Reji')
+
+      // Sumi is still found — she may be who was meant.
+      expect(screen.getByRole('button', { name: /Sumi Reji/ })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Add “Reji” as a new guest/ }))
+
+      expect(onAddGuest).toHaveBeenCalledWith('Reji')
+      expect(onChange).toHaveBeenCalledWith([{ kind: 'guest', id: 'reji' }])
+    })
+
+    it('does not offer a second copy of somebody already called exactly that', async () => {
+      renderPicker()
+      await open()
+      // Case and stray spaces do not make a different person.
+      await userEvent.type(screen.getByLabelText('Search people'), '  sumi   reji ')
+
+      expect(screen.getByRole('button', { name: /Sumi Reji/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /as a (new )?guest/ })).toBeNull()
+    })
+
+    it('Enter picks the first person found, not Unassigned', async () => {
+      const { onChange, onAddGuest } = renderPicker()
+      await open()
+      await userEvent.type(screen.getByLabelText('Search people'), 'Reji{Enter}')
+
+      expect(onChange).toHaveBeenCalledWith([{ kind: 'guest', id: 'g2' }])
+      expect(onAddGuest).not.toHaveBeenCalled()
+    })
+
+    it('Enter adds the typed name when that is the only thing on offer', async () => {
+      const { onAddGuest } = renderPicker()
+      await open()
+      await userEvent.type(screen.getByLabelText('Search people'), 'Xavier{Enter}')
+
+      expect(onAddGuest).toHaveBeenCalledWith('Xavier')
+    })
+
+    /*
+     * The highlight used to go back to Unassigned on every keystroke, so
+     * Enter on a name nobody matched took everybody off the session.
+     */
+    it('Enter with a name typed never clears who is already on', async () => {
+      const onChange = vi.fn()
+      render(
+        <LeadPicker
+          label="Who leads Message"
+          options={options}
+          values={[{ kind: 'member', id: 'u1' }]}
+          onChange={onChange}
+        />,
+      )
+      await open()
+      await userEvent.type(screen.getByLabelText('Search people'), 'zzzz{Enter}')
+
+      expect(onChange).not.toHaveBeenCalledWith([])
+    })
+  })
 })
