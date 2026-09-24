@@ -157,10 +157,9 @@ export function DashboardPage() {
     setAdminDate(candidates[0] ?? shiftSundayIso(focusDate, delta))
   }
 
-  // Two lists, one page: the day an Admin stepped to, or everything still
-  // ahead. The second is the normal one — a dashboard that could only ever
-  // show one day made a midweek service and the Sunday after it two
-  // separate visits.
+  // Two lists, one page: the day an Admin stepped to, or the next day with
+  // services on it. The second is the normal one — just what is coming up,
+  // not the fortnight after it; Previous/Next reach any other day.
   const dayServices = useMemo(
     () => (servicesQuery.data ?? []).filter((s) => s.date === focusDate),
     [servicesQuery.data, focusDate],

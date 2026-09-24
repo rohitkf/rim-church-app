@@ -28,27 +28,36 @@ describe('what the dashboard lists', () => {
     expect(listed.map((s) => s.id)).toEqual(['this-morning'])
   })
 
-  it('reads in the order the weeks happen', () => {
+  /*
+   * Asked for by the church: on a Sunday with two services the page led
+   * with today's pair and then next week's pair. Only the ones coming up.
+   */
+  it('lists every service on the nearest day and nothing after it', () => {
+    const listed = upcomingServices(
+      [
+        service('next-first', '2026-09-27', 'First Service'),
+        service('today-second', TODAY, 'Second Service'),
+        service('today-first', TODAY, 'First Service'),
+        service('next-second', '2026-09-27', 'Second Service'),
+      ],
+      TODAY,
+    )
+    expect(listed.map((s) => s.id)).toEqual(['today-first', 'today-second'])
+  })
+
+  it('is the next day with something on it when today has nothing', () => {
     const listed = upcomingServices(
       [service('c', '2026-10-04'), service('a', '2026-09-20'), service('b', '2026-09-27')],
       TODAY,
     )
-    expect(listed.map((s) => s.id)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('stops at the horizon, because a rota that far out is a guess', () => {
-    const listed = upcomingServices(
-      [service('soon', '2026-09-20'), service('miles-away', '2026-12-25')],
-      TODAY,
-    )
-    expect(listed.map((s) => s.id)).toEqual(['soon'])
+    expect(listed.map((s) => s.id)).toEqual(['a'])
   })
 
   /*
    * A church that plans a quarter ahead and nothing in between should not
    * be told nothing is coming.
    */
-  it('shows the next one anyway when the window is empty', () => {
+  it('comes however far off that day is', () => {
     const listed = upcomingServices(
       [service('carols', '2026-12-25'), service('later-still', '2027-01-03')],
       TODAY,
@@ -56,9 +65,8 @@ describe('what the dashboard lists', () => {
     expect(listed.map((s) => s.id)).toEqual(['carols'])
   })
 
-  it('does not run past the end of a page', () => {
-    const many = Array.from({ length: 20 }, (_, i) => service(`s${i}`, '2026-09-20'))
-    expect(upcomingServices(many, TODAY)).toHaveLength(8)
+  it('is empty when nothing is scheduled from today on', () => {
+    expect(upcomingServices([service('old', '2026-09-13')], TODAY)).toEqual([])
   })
 })
 
