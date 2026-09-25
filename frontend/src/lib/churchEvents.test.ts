@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eventsOnDay } from './churchEvents'
+import { eventsOnDay, pastDiaryEntries } from './churchEvents'
 import type { DiaryEvent } from './churchDiary'
 
 const TODAY = '2026-09-16'
@@ -150,5 +150,91 @@ describe('the order the day reads in', () => {
       TODAY,
     )
     expect(on.map((e) => e.id)).toEqual(['a', 'b'])
+  })
+})
+
+/*
+ * The events that are over.
+ *
+ * One row apiece, whatever they ran for: a week of prayer is seven answers
+ * to "what is on today" while it is on, and one thing that happened once
+ * it is not.
+ */
+describe('what has already happened', () => {
+  it('takes what is over and leaves today and the rest alone', () => {
+    const past = pastDiaryEntries(
+      [
+        event({ id: 'last-week', event_date: '2026-09-09', title: 'Workday' }),
+        event({ id: 'today', event_date: TODAY }),
+        event({ id: 'next-week', event_date: '2026-09-23' }),
+      ],
+      TODAY,
+    )
+    expect(past.map((e) => e.id)).toEqual(['event:last-week'])
+  })
+
+  it('leaves a run that has not finished out of it', () => {
+    expect(
+      pastDiaryEntries(
+        [event({ id: 'week', event_date: '2026-09-14', ends_on: '2026-09-20' })],
+        TODAY,
+      ),
+    ).toEqual([])
+  })
+
+  it('reads newest first, because history is read backwards', () => {
+    const past = pastDiaryEntries(
+      [
+        event({ id: 'older', event_date: '2026-01-04' }),
+        event({ id: 'newer', event_date: '2026-09-13' }),
+        event({ id: 'middle', event_date: '2026-06-01' }),
+      ],
+      TODAY,
+    )
+    expect(past.map((e) => e.id)).toEqual(['event:newer', 'event:middle', 'event:older'])
+  })
+
+  it('is one row for a run, not one for each of its days', () => {
+    const past = pastDiaryEntries(
+      [event({ id: 'week', event_date: '2026-09-07', ends_on: '2026-09-13', title: 'Week of Prayer' })],
+      TODAY,
+    )
+    expect(past).toHaveLength(1)
+    expect(past[0].span).toEqual({ from: '2026-09-07', to: '2026-09-13', day: 0, of: 7 })
+  })
+
+  /*
+   * The id is what the page splits to find the row an entry came from, so
+   * a past row has to be editable and removable by the same reach as a
+   * future one.
+   */
+  it('carries the id the page edits and removes by', () => {
+    const [past] = pastDiaryEntries([event({ id: 'abc', event_date: '2026-09-01' })], TODAY)
+    expect(past.id.split(':')[1]).toBe('abc')
+    expect(past.kind).toBe('event')
+  })
+
+  it('says the hour, the place, the team and who added it', () => {
+    const [past] = pastDiaryEntries(
+      [
+        event({
+          id: 'e1',
+          event_date: '2026-09-01',
+          start_time: '19:30:00',
+          location: 'Main hall',
+          department: { name: 'Youth', color: '#30d158' },
+          creator: { first_name: 'Grace', last_name: 'Mensah' },
+        }),
+      ],
+      TODAY,
+    )
+    expect(past.detail).toBe('7:30pm · Main hall · Youth')
+    expect(past.addedBy).toBe('Grace Mensah')
+    expect(past.color).toBe('#30d158')
+  })
+
+  it('leaves the detail empty rather than saying nothing in three dots', () => {
+    const [past] = pastDiaryEntries([event({ id: 'e1', event_date: '2026-09-01' })], TODAY)
+    expect(past.detail).toBeNull()
   })
 })

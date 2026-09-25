@@ -41,6 +41,20 @@ export interface DiaryEntry {
   span?: { from: string; to: string; day: number; of: number } | null
 }
 
+/**
+ * The last day an event covers, which for the single-day majority is the
+ * only day it has. `ends_on` before the start is nonsense somebody typed;
+ * it is read as no run rather than as a negative one.
+ */
+export function lastDayOf(event: DiaryEvent): string {
+  return event.ends_on && event.ends_on > event.event_date ? event.ends_on : event.event_date
+}
+
+/** Whether an event is over: every day of it behind us. */
+export function eventIsOver(event: DiaryEvent, today: string): boolean {
+  return lastDayOf(event) < today
+}
+
 export interface DiaryService {
   id: string
   date: string
@@ -90,12 +104,24 @@ export function buildDiary({
   events,
   today,
   windowDays = DIARY_WINDOW_DAYS,
+  includePast = false,
 }: {
   people: Person[]
   services: DiaryService[]
   events: DiaryEvent[]
   today: string
   windowDays?: number
+  /**
+   * Whether events that are over come too.
+   *
+   * A diary is for what is coming, so by default what has happened drops
+   * out of it. But an event is the one kind here that happened once and
+   * leaves no other record — the page that lists them was also the only
+   * place they had ever been written down, so a members' meeting stopped
+   * existing the morning after it. Birthdays recur and services have the
+   * planner; only events needed keeping.
+   */
+  includePast?: boolean
 }): DiaryEntry[] {
   const entries: DiaryEntry[] = []
   const horizon = shiftIsoDays(today, windowDays)
@@ -135,14 +161,15 @@ export function buildDiary({
     const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
     // A run is in the diary if any part of it is: one that started
     // yesterday and ends tomorrow is very much on today.
-    const lastDay = runsTo ?? event.event_date
-    if (lastDay < today || event.event_date > horizon) continue
+    if (event.event_date > horizon) continue
+    if (!includePast && eventIsOver(event, today)) continue
 
     const time = diaryTime(event.start_time)
     const of = runsTo ? dayCount(event.event_date, runsTo) : 1
     // Every day it covers that is inside the window somebody is looking at.
+    const floor = includePast ? event.event_date : today
     const days = runsTo
-      ? daysBetween(event.event_date, runsTo).filter((d) => d >= today && d <= horizon)
+      ? daysBetween(event.event_date, runsTo).filter((d) => d >= floor && d <= horizon)
       : [event.event_date]
 
     for (const date of days) {
