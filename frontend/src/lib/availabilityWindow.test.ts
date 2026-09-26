@@ -44,24 +44,39 @@ describe('splitAvailabilityGroups', () => {
     service('c', '2026-09-20'),
   ]
 
-  it('opens the soonest day and files the rest under upcoming', () => {
+  it('opens the next service and files the rest under upcoming', () => {
     const { now, later } = splitAvailabilityGroups(THREE_SUNDAYS, none)
     expect(ids(now)).toEqual(['a'])
     expect(ids(later)).toEqual(['b', 'c'])
   })
 
-  it('keeps a day together, however many services are on it', () => {
-    // An English service and a Malayalam service on one Sunday are one
-    // occasion to answer for; opening one and folding the other is a
-    // distinction the person answering does not have.
+  /*
+   * One service on top, not one day. Two services on one Sunday opened
+   * together were two long cards of teams before anybody could see there
+   * was another Sunday to answer for, so the second one that morning folds
+   * under Upcoming with everything else.
+   */
+  it('puts only the first service of a day on top, not the whole day', () => {
     const twoOnOneDay = [
       service('a', '2026-09-06', 'English Service'),
       service('b', '2026-09-06', 'Malayalam Service'),
       service('c', '2026-09-13'),
     ]
     const { now, later } = splitAvailabilityGroups(twoOnOneDay, none)
-    expect(ids(now)).toEqual(['a', 'b'])
-    expect(ids(later)).toEqual(['c'])
+    expect(ids(now)).toEqual(['a'])
+    expect(ids(later)).toEqual(['b', 'c'])
+  })
+
+  // "The first" is whatever the caller put first: the order is the
+  // running order's to decide, and this does not second-guess it by name.
+  it('takes the first in the order it is given, not the first by name', () => {
+    const malayalamFirst = [
+      service('m', '2026-09-06', 'Malayalam Service'),
+      service('e', '2026-09-06', 'English Service'),
+    ]
+    const { now, later } = splitAvailabilityGroups(malayalamFirst, none)
+    expect(ids(now)).toEqual(['m'])
+    expect(ids(later)).toEqual(['e'])
   })
 
   it('does not let a finished service decide where the line falls', () => {

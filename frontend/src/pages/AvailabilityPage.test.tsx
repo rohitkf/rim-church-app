@@ -108,12 +108,23 @@ function show() {
  * The date is rendered through `toLocaleDateString`, so it is matched
  * loosely rather than pinned to whichever locale the runner is in.
  */
-const dayFor = (day: string | RegExp) =>
-  screen.getByRole('heading', { name: day, level: 2 }).closest('section')!
+/*
+ * A date can head two sections now: the next service sits alone on top,
+ * and a second service that same morning is filed under Upcoming with its
+ * own copy of the date. So a day is every section that date heads, and a
+ * card is looked for across all of them.
+ */
+const daysFor = (day: string | RegExp) =>
+  screen.getAllByRole('heading', { name: day, level: 2 }).map((h) => h.closest('section')!)
 
-/** One service inside a day, by the name on its own heading. */
-const cardFor = (day: string | RegExp, service = 'English Service') =>
-  within(dayFor(day)).getByRole('heading', { name: service, level: 2 }).closest('section')!
+/** One service on a day, by the name on its own heading. */
+const cardFor = (day: string | RegExp, service = 'English Service') => {
+  for (const section of daysFor(day)) {
+    const heading = within(section).queryByRole('heading', { name: service, level: 2 })
+    if (heading) return heading.closest('section')!
+  }
+  throw new Error(`No ${service} card on ${String(day)}`)
+}
 
 const teamsOf = (card: HTMLElement) => card.querySelector('ul[id^="availability-teams-"]')!
 
@@ -301,7 +312,7 @@ describe('answering closes the night before', () => {
   it('takes answers right up to the night before', async () => {
     standAt('2026-09-05T22:58:00Z')
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeInTheDocument()
   })
@@ -309,7 +320,7 @@ describe('answering closes the night before', () => {
   it('stops taking them once that moment has gone', async () => {
     standAt('2026-09-05T22:59:00Z')
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeNull()
   })
@@ -322,7 +333,7 @@ describe('answering closes the night before', () => {
   it('is long shut by the morning itself', async () => {
     standAt(`${SUNDAY}T09:59:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeNull()
   })
@@ -330,7 +341,7 @@ describe('answering closes the night before', () => {
   it('says so, and offers the way through it', async () => {
     standAt(`${SUNDAY}T09:59:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     const today = cardFor(/Today/) as HTMLElement
     expect(within(today).getByText(/Answers have closed/)).toBeInTheDocument()
@@ -347,7 +358,7 @@ describe('answering closes the night before', () => {
   it('sends a request rather than changing the answer', async () => {
     standAt(`${SUNDAY}T09:59:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     const today = cardFor(/Today/) as HTMLElement
 
     await userEvent.click(within(today).getByRole('button', { name: 'Ask to change it' }))
@@ -388,7 +399,7 @@ describe('answering closes the night before', () => {
     ]
     standAt(`${SUNDAY}T09:59:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     const today = cardFor(/Today/) as HTMLElement
 
     expect(within(today).getByText(/Blessy Jijin/)).toBeInTheDocument()
@@ -405,7 +416,7 @@ describe('answering closes the night before', () => {
     // Half past nine on the Saturday evening: an hour and a half left.
     standAt('2026-09-05T21:29:00Z')
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     // The clock is drawn as separate elements — hours, colon, minutes —
     // so the sentence it reads out is what to check.
@@ -423,7 +434,7 @@ describe('answering closes the night before', () => {
   it('names the moment it runs out, not only the time left', async () => {
     standAt('2026-09-05T21:29:00Z')
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
     expect(clock).toHaveAccessibleName(/closes 10:59pm/)
@@ -433,7 +444,7 @@ describe('answering closes the night before', () => {
     state.starts = { s1: `${SUNDAY}T10:00:00` }
     standAt(`${SUNDAY}T10:01:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(within(cardFor(/Today/) as HTMLElement).queryByText(/left to answer/)).toBeNull()
   })
@@ -448,7 +459,7 @@ describe('answering closes the night before', () => {
     state.starts = {}
     standAt(`${SUNDAY}T09:00:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeNull()
   })
@@ -457,7 +468,7 @@ describe('answering closes the night before', () => {
     state.starts = { s1: `${SUNDAY}T10:00:00`, s2: `${NEXT}T10:00:00` }
     standAt(`${SUNDAY}T10:01:00`)
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
 
     expect(answerGroup(cardFor(/Today/))).toBeNull()
     // Folded, being further out — but the buttons are still in it.
@@ -470,51 +481,86 @@ describe('the availability tracker over three weeks', () => {
     // The window used to be the rota's seven days, so the answer somebody
     // already knew about the third Sunday had nowhere to go.
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     expect(screen.getByText(/September 13/)).toBeInTheDocument()
     expect(screen.getByText(/September 20/)).toBeInTheDocument()
   })
 
   it('still stops at three weeks — a Carol service in December is not this', async () => {
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     expect(screen.queryByText(/December/)).not.toBeInTheDocument()
   })
 
   it('opens the soonest service and folds the rest', async () => {
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     expect(teamsOf(cardFor(/Today/))).not.toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 13/))).toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 20/))).toHaveAttribute('hidden')
   })
 
-  it('files everything past the next occasion under its own heading', async () => {
+  it('files everything past the next service under its own heading', async () => {
     show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     const heading = screen.getByRole('heading', { name: 'Upcoming services availability' })
     const section = heading.closest('section')!
     expect(within(section).getByText(/September 13/)).toBeInTheDocument()
     expect(within(section).getByText(/September 20/)).toBeInTheDocument()
     // The one in front of you is not filed under "upcoming".
-    expect(within(section).queryByText(/Today/)).not.toBeInTheDocument()
+    expect(section).not.toContainElement(cardFor(/Today/, 'English Service'))
   })
 
-  it('gathers a morning’s services under one date, said once', async () => {
+  /*
+   * One service on top, not one morning. Two services on a Sunday used to
+   * open together, which on a phone is two long cards of teams before
+   * anybody can see there is a third Sunday to answer for at all. The
+   * second one that morning is real and answerable — it is just filed with
+   * everything else, folded, under its own copy of the date.
+   */
+  it('puts only the next service on top, and files the rest of that morning under Upcoming', async () => {
     show()
-    const today = await screen.findByRole('heading', { name: /Today/ })
-    const day = today.closest('section')!
-    // Both services on the morning, under the one heading…
-    expect(within(day).getByRole('heading', { name: 'English Service' })).toBeInTheDocument()
-    expect(within(day).getByRole('heading', { name: 'Malayalam Service' })).toBeInTheDocument()
-    expect(within(day).getByText('2 services')).toBeInTheDocument()
-    // …and the date is not repeated on the cards underneath it.
-    expect(within(day).getAllByText(/September 6/)).toHaveLength(1)
+    await screen.findAllByRole('heading', { name: /Today/ })
+    const upcoming = screen
+      .getByRole('heading', { name: 'Upcoming services availability' })
+      .closest('section')!
+
+    // English on top, open, and not repeated under Upcoming…
+    const english = cardFor(/Today/, 'English Service')
+    expect(teamsOf(english)).not.toHaveAttribute('hidden')
+    expect(upcoming).not.toContainElement(english)
+
+    // …and Malayalam, the same morning, folded under Upcoming.
+    const malayalam = cardFor(/Today/, 'Malayalam Service')
+    expect(upcoming).toContainElement(malayalam)
+    expect(teamsOf(malayalam)).toHaveAttribute('hidden')
+  })
+
+  /*
+   * Which of two services on one morning is "next" is the running order's
+   * to say. By name, English would always win, however early the
+   * Malayalam service starts.
+   */
+  it('lets the start times decide which service that morning is next', async () => {
+    state.rows.service_sessions = [
+      { service_id: 's1b', start_time: `${SUNDAY}T08:00:00` },
+      { service_id: 's1', start_time: `${SUNDAY}T10:30:00` },
+    ]
+    show()
+    await screen.findAllByRole('heading', { name: /Today/ })
+    const upcoming = screen
+      .getByRole('heading', { name: 'Upcoming services availability' })
+      .closest('section')!
+
+    await waitFor(() => expect(upcoming).toContainElement(cardFor(/Today/, 'English Service')))
+    const malayalam = cardFor(/Today/, 'Malayalam Service')
+    expect(upcoming).not.toContainElement(malayalam)
+    expect(teamsOf(malayalam)).not.toHaveAttribute('hidden')
   })
 
   it('opens a folded service on a touch', async () => {
     const user = show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     const later = cardFor(/September 13/)
     expect(teamsOf(later)).toHaveAttribute('hidden')
     await user.click(within(later).getByRole('button', { expanded: false }))
@@ -523,7 +569,7 @@ describe('the availability tracker over three weeks', () => {
 
   it('closes the open one on a touch, for somebody who wants it out of the way', async () => {
     const user = show()
-    await screen.findByRole('heading', { name: /Today/ })
+    await screen.findAllByRole('heading', { name: /Today/ })
     const soonest = cardFor(/Today/)
     expect(teamsOf(soonest)).not.toHaveAttribute('hidden')
     await user.click(within(soonest).getByRole('button', { expanded: true }))
@@ -555,7 +601,7 @@ describe('the availability tracker over three weeks', () => {
       state.finished = new Set(['s1', 's1b'])
       const user = show()
       await user.click(await screen.findByRole('button', { name: /Finished/ }))
-      await waitFor(() => expect(screen.getByRole('heading', { name: /Today/ })).toBeInTheDocument())
+      await waitFor(() => expect(screen.getAllByRole('heading', { name: /Today/ })[0]).toBeInTheDocument())
       expect(screen.getByRole('heading', { name: 'Malayalam Service' })).toBeInTheDocument()
     })
 

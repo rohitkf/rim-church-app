@@ -11,8 +11,8 @@
  * being useful for planning.
  *
  * So it looks three weeks out, and stops the page being a wall by opening
- * only the services that need an answer now. The rest are there, under
- * their own heading, one touch away.
+ * only the next service. The rest are there, under their own heading, one
+ * touch away.
  */
 import { shiftIsoDays, type WindowedService } from './rotaWindow'
 
@@ -31,7 +31,7 @@ export function availabilityWindowDays(rotaWindowDays: number): number {
 }
 
 export interface AvailabilityGroups<T> {
-  /** The soonest day still needing an answer, and anything already on it. */
+  /** The next service still needing an answer, and anything already over before it. */
   now: T[]
   /** Everything after that — real, answerable, and folded away. */
   later: T[]
@@ -40,28 +40,32 @@ export interface AvailabilityGroups<T> {
 /**
  * Split what is on the page into "the one in front of you" and "the rest".
  *
- * The line is drawn at a day rather than a count: a Sunday with an English
- * service and a Malayalam service is one occasion to answer for, and
- * opening the first while folding the second would be a distinction the
- * person answering does not have.
+ * The line is drawn after one service: the next one that can still be
+ * answered for. It used to be drawn at a day, so an English service and a
+ * Malayalam service on the same Sunday both opened at the top — which on a
+ * phone is two long cards of teams before anybody can see there is a third
+ * Sunday to answer for at all. The church asked for the next service alone
+ * on top, open, and everything else in the window folded under Upcoming,
+ * the second service that morning included.
+ *
+ * `services` must already be in the order they happen — by date, and on a
+ * day with two, by start time — because "the next one" is whichever comes
+ * first, and that is a fact about the running order, not the name.
  *
  * A service that has already finished cannot be answered for, so it never
- * decides where the line falls — but it stays above it, because it belongs
- * to a day that has already come.
+ * decides where the line falls — but it stays above it, because it came
+ * before the one that does.
  */
 export function splitAvailabilityGroups<T extends WindowedService>(
   services: T[],
   isFinished: (serviceId: string) => boolean,
 ): AvailabilityGroups<T> {
-  const soonestOpen = services.find((s) => !isFinished(s.id))
+  const next = services.findIndex((s) => !isFinished(s.id))
   // Nothing left to answer: it is all a record, and all of it reads as
   // what is in front of you rather than being filed under "upcoming".
-  if (!soonestOpen) return { now: [...services], later: [] }
+  if (next === -1) return { now: [...services], later: [] }
 
-  return {
-    now: services.filter((s) => s.date <= soonestOpen.date),
-    later: services.filter((s) => s.date > soonestOpen.date),
-  }
+  return { now: services.slice(0, next + 1), later: services.slice(next + 1) }
 }
 
 /**
