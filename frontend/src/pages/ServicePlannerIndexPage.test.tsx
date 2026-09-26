@@ -4,14 +4,29 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { ServicePlannerIndexPage } from './ServicePlannerIndexPage'
+import { chooseOption } from '../test/select'
 
 const auth = { isAdmin: true }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+const db = vi.hoisted(() => ({
+  rpc: [] as { fn: string; args: unknown }[],
+  inserted: [] as unknown[],
+}))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: () => ({
       select: () => ({ order: () => Promise.resolve({ data: [], error: null }) }),
+      insert: (row: unknown) => {
+        db.inserted.push(row)
+        return {
+          select: () => ({ single: () => Promise.resolve({ data: { id: 'one-off' }, error: null }) }),
+        }
+      },
     }),
+    rpc: (fn: string, args: unknown) => {
+      db.rpc.push({ fn, args })
+      return Promise.resolve({ data: 'first-of-series', error: null })
+    },
   },
 }))
 vi.mock('../lib/queries', () => ({
@@ -25,7 +40,10 @@ function renderPage() {
   // A data router, because the page's unsaved-changes guard uses
   // useBlocker, which only exists on one.
   const router = createMemoryRouter(
-    [{ path: '/service-planner', element: <ServicePlannerIndexPage /> }],
+    [
+      { path: '/service-planner', element: <ServicePlannerIndexPage /> },
+      { path: '/service-planner/:id', element: <p>Opened service</p> },
+    ],
     { initialEntries: ['/service-planner'] },
   )
   render(
@@ -91,5 +109,77 @@ describe('ServicePlannerIndexPage', () => {
     auth.isAdmin = false
     renderPage()
     expect(screen.queryByRole('button', { name: /new service/i })).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * A service that comes round again.
+ *
+ * Typed in by hand every week, a Sunday somebody forgot on the Saturday had
+ * no availability, no rota and no running order. Now it can repeat — and
+ * what it makes are ordinary services, made in the database all at once.
+ */
+describe('a service that repeats', () => {
+  async function openForm() {
+    auth.isAdmin = true
+    db.rpc = []
+    db.inserted = []
+    const user = renderPage()
+    await user.click(await screen.findByRole('button', { name: /new service/i }))
+    const dialog = await screen.findByRole('dialog')
+    return { user, dialog }
+  }
+
+  it('makes one service when it is left not repeating, as it always did', async () => {
+    const { user, dialog } = await openForm()
+    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await user.type(within(dialog).getByLabelText(/service type/i), 'English Service')
+    await user.click(within(dialog).getByRole('button', { name: /^\W*Create service$/ }))
+
+    await screen.findByText('Opened service')
+    expect(db.inserted).toEqual([{ date: '2026-10-04', service_type: 'English Service' }])
+    expect(db.rpc).toEqual([])
+  })
+
+  it('words the choices for the day that was picked', async () => {
+    const { user, dialog } = await openForm()
+    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Monthly on the first Sunday')
+    expect(within(dialog).getByRole('combobox', { name: 'Repeats' })).toHaveTextContent('Monthly on the first Sunday')
+  })
+
+  /*
+   * The dates are shown before anything is made: a date picked on the
+   * wrong day is eight services to delete by hand once it has repeated.
+   */
+  it('shows the dates it will land on, and that each one stands alone', async () => {
+    const { user, dialog } = await openForm()
+    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Every two weeks on Sunday')
+    expect(within(dialog).getByText(/4 Oct, 18 Oct, 1 Nov, 15 Nov/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/delete one and the others stay/)).toBeInTheDocument()
+  })
+
+  it('starts a repeat in the database and opens its first service', async () => {
+    const { user, dialog } = await openForm()
+    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await user.type(within(dialog).getByLabelText(/service type/i), 'English Service')
+    await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Every week on Sunday')
+    await user.click(within(dialog).getByRole('button', { name: /Create repeating service/ }))
+
+    await screen.findByText('Opened service')
+    expect(db.rpc).toEqual([
+      {
+        fn: 'create_service_series',
+        args: {
+          first_date: '2026-10-04',
+          service_name: 'English Service',
+          how_often: 'weekly',
+          template: null,
+        },
+      },
+    ])
+    // Not also made one at a time from here: the repeat is the database's.
+    expect(db.inserted).toEqual([])
   })
 })

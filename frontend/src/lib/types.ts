@@ -80,6 +80,9 @@ export const serviceSchema = z.object({
   // When somebody called the end of it. Optional so the planner still
   // renders against a database that hasn't had the migration applied.
   ended_at: z.string().nullable().optional(),
+  /** The repeat it was made by, if any. Where it came from and nothing
+   *  more — see 0105. Optional for the same reason as `ended_at`. */
+  series_id: z.string().nullable().optional(),
 })
 export type Service = z.infer<typeof serviceSchema>
 

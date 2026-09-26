@@ -49,6 +49,7 @@ import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
+import { fetchServiceSeries, repeatSummary, stopServiceSeries } from '../lib/serviceRepeat'
 import {
   serviceSchema,
   serviceSessionRowSchema,
@@ -612,6 +613,26 @@ export function ServicePlannerPage() {
       setServiceError(errorText(err, 'Could not delete the service.')),
   })
 
+  /*
+   * The repeat this service came from, if it came from one.
+   *
+   * Read-only as far as this service goes: it is here to say where the
+   * service came from and to offer "Stop repeating". Nothing on this page
+   * changes the other services a repeat made — each is its own.
+   */
+  const seriesId = serviceQuery.data?.series_id ?? null
+  const seriesQuery = useQuery({
+    queryKey: ['service-series', seriesId],
+    queryFn: () => fetchServiceSeries(seriesId!),
+    enabled: !!seriesId,
+  })
+  const series = seriesQuery.data ?? null
+  const stopSeries = useMutation({
+    mutationFn: () => stopServiceSeries(series!.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['service-series', seriesId] }),
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not stop the repeat.')),
+  })
+
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [templateMessage, setTemplateMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -697,6 +718,21 @@ export function ServicePlannerPage() {
                 },
               ] as MenuAction[])
             : []),
+          ...(series && !series.stopped_at
+            ? ([
+                {
+                  label: 'Stop repeating',
+                  hint: 'No new ones are made. The ones already made stay.',
+                  onSelect: () =>
+                    ask({
+                      title: `Stop repeating ${series.service_type}?`,
+                      body: 'No more will be made from now on. Every one already in the planner stays exactly as it is — delete any you no longer want one at a time.',
+                      confirmLabel: 'Stop repeating',
+                      onConfirm: () => stopSeries.mutate(),
+                    }),
+                },
+              ] as MenuAction[])
+            : []),
           {
             label: 'Delete service',
             tone: 'danger',
@@ -761,6 +797,15 @@ export function ServicePlannerPage() {
                   {serviceQuery.data?.date}
                 </p>
               </>
+            )}
+            {/* Where it came from, said quietly. Stopped repeats say so,
+                rather than looking like one still running. */}
+            {series && (
+              <p className="mt-1.5 font-mono text-label-sm text-on-surface-faint">
+                {series.stopped_at
+                  ? 'Made by a repeat that has been stopped'
+                  : repeatSummary(series.frequency, series.anchor_date)}
+              </p>
             )}
           </div>
           {/* One primary action and a menu.
@@ -990,6 +1035,8 @@ export function ServicePlannerPage() {
             <p className="mt-1 text-body-sm text-on-error-container">
               Its running order, checklists, and attendance records go with it. This can't be
               undone.
+              {series &&
+                ' Only this one goes — the other services in the repeat stay as they are, and this date is not made again.'}
             </p>
             <div className="mt-3 flex items-center gap-3">
               <button
