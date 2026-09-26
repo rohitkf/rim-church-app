@@ -620,6 +620,13 @@ export function TeamRotaPage() {
                                 const renderRow = (a: (typeof deptAssignments)[number]) => {
                                   const pending = pendingFor(a.id)
                                   const mine = a.user_id === myId
+                                  // The Coordinator's row is the night sky
+                                  // the dashboard uses for today's events,
+                                  // with the install button's glisten across
+                                  // it: the one person the team looks to.
+                                  // Dark in both themes, so its words carry
+                                  // their own light colour.
+                                  const sky = isCoordinatorRole(a.role_label)
                                   return (
                                       <li
                                         key={a.id}
@@ -628,28 +635,52 @@ export function TeamRotaPage() {
                                            were sharing one line and running into
                                            each other. One line again from `sm`. */
                                         className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
-                                          pending
+                                          sky
+                                            ? `galaxy glisten ${
+                                                pending
+                                                  ? 'shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_45%,transparent)]'
+                                                  : mine
+                                                    ? 'shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_55%,transparent)]'
+                                                    : ''
+                                              }`
+                                            : pending
                                             ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)]'
                                             : mine
                                               ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)]'
                                               : 'bg-inset'
                                         }`}
                                       >
-                                        <span className="min-w-0 break-words text-on-surface-variant sm:shrink-0">
+                                        {sky && (
+                                          <>
+                                            <span aria-hidden="true" className="galaxy-glow" />
+                                            <span aria-hidden="true" className="galaxy-stars" />
+                                            <span aria-hidden="true" className="galaxy-stars galaxy-stars-far" />
+                                          </>
+                                        )}
+                                        <span
+                                          className={`relative min-w-0 break-words sm:shrink-0 ${
+                                            sky ? 'text-white/70' : 'text-on-surface-variant'
+                                          }`}
+                                        >
                                           {a.role_label}
+                                          {/* Teal, which nothing else on the
+                                              rota uses: orange is a release
+                                              asked for, blue is you. A
+                                              trainee should be spotted at a
+                                              glance, not read for. */}
                                           {a.is_shadow && (
-                                            <span className="ml-2 rounded-full bg-surface-container px-2 py-0.5 align-middle font-mono text-label-sm uppercase text-on-surface-variant">
+                                            <span className="ml-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-teal)_24%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-medium uppercase text-accent-teal-soft shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-teal)_45%,transparent)]">
                                               Shadow
                                             </span>
                                           )}
                                         </span>
-                                        <span className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
+                                        <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
                                           {pending ? (
                                             <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
                                               Release requested
                                             </span>
                                           ) : (
-                                            <span className="break-words text-on-surface">
+                                            <span className={`break-words ${sky ? 'text-white' : 'text-on-surface'}`}>
                                               {mine
                                                 ? 'You'
                                                 : a.profile
@@ -674,7 +705,7 @@ export function TeamRotaPage() {
                                               aria-label={`Remove ${a.role_label}`}
                                               /* Visible on a phone, where there
                                                  is no hover to reveal it with. */
-                                              className="ml-auto shrink-0 font-mono text-label-sm text-on-surface-faint transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0"
+                                              className={`ml-auto shrink-0 font-mono text-label-sm ${sky ? 'text-white/60' : 'text-on-surface-faint'} transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0`}
                                             >
                                               ✕
                                             </button>
