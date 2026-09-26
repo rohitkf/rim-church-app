@@ -34,3 +34,13 @@ export function rotaConflict<T extends Held>(
   }
   return theirs.find((a) => !isCoordinatorRole(a.role_label)) ?? null
 }
+
+/**
+ * The people who can take the role first, then the ones greyed out.
+ *
+ * On a team where most people already have a job, the one name still free
+ * was buried among the greyed ones. Each half keeps the order it came in.
+ */
+export function availableFirst<T extends { disabled?: boolean }>(options: T[]): T[] {
+  return [...options.filter((o) => !o.disabled), ...options.filter((o) => o.disabled)]
+}
