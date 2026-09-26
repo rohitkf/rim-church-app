@@ -233,6 +233,23 @@ describe('what has already happened', () => {
     expect(past.color).toBe('#30d158')
   })
 
+  /*
+   * A year back, the same distance the diary looks ahead: what this church
+   * has done lately, not everything it ever did.
+   */
+  it('keeps the last year and no further', () => {
+    const past = pastDiaryEntries(
+      [
+        event({ id: 'recent', event_date: '2025-09-17' }),
+        event({ id: 'too-old', event_date: '2025-09-15' }),
+        // Began over a year ago, ended within it: still part of the year.
+        event({ id: 'long-run', event_date: '2025-09-01', ends_on: '2025-09-30' }),
+      ],
+      TODAY,
+    )
+    expect(past.map((e) => e.id).sort()).toEqual(['event:long-run', 'event:recent'])
+  })
+
   it('leaves the detail empty rather than saying nothing in three dots', () => {
     const [past] = pastDiaryEntries([event({ id: 'e1', event_date: '2026-09-01' })], TODAY)
     expect(past.detail).toBeNull()

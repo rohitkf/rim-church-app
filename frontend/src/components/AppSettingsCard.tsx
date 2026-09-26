@@ -86,17 +86,8 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
   },
   {
     heading: 'Service Planner',
-    blurb: 'The agenda under the month calendar, and how long a finished service stays open.',
+    blurb: 'How long a finished service stays open for correction. The agenda under the calendar lists the year ahead.',
     fields: [
-      {
-        key: 'planner_upcoming_limit',
-        label: 'Upcoming services listed',
-        help: 'How many services the “Upcoming services” list shows. A count rather than a window, because the calendar above it already shows the month — this list is what you are working on next. Finished services are removed before the count, so six always means six you can still act on.',
-        affects: 'Service Planner agenda only — not the calendar',
-        min: 1,
-        max: 50,
-        unit: 'services',
-      },
       {
         key: 'edit_grace_minutes',
         label: 'Editing stays open for',

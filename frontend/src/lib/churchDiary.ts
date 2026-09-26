@@ -112,7 +112,8 @@ export function buildDiary({
   today: string
   windowDays?: number
   /**
-   * Whether events that are over come too.
+   * Whether events that are over come too — the last year of them, the
+   * same distance back as the diary looks ahead.
    *
    * A diary is for what is coming, so by default what has happened drops
    * out of it. But an event is the one kind here that happened once and
@@ -125,6 +126,7 @@ export function buildDiary({
 }): DiaryEntry[] {
   const entries: DiaryEntry[] = []
   const horizon = shiftIsoDays(today, windowDays)
+  const pastFloor = shiftIsoDays(today, -windowDays)
 
   for (const occasion of upcomingCelebrations(people, today, windowDays)) {
     entries.push({
@@ -163,11 +165,16 @@ export function buildDiary({
     // yesterday and ends tomorrow is very much on today.
     if (event.event_date > horizon) continue
     if (!includePast && eventIsOver(event, today)) continue
+    // A year back and no further: the diary is for this year's church,
+    // and a list that grew for ever would bury last month under 2019.
+    if (includePast && lastDayOf(event) < pastFloor) continue
 
     const time = diaryTime(event.start_time)
     const of = runsTo ? dayCount(event.event_date, runsTo) : 1
     // Every day it covers that is inside the window somebody is looking at.
-    const floor = includePast ? event.event_date : today
+    const floor = includePast
+      ? (event.event_date > pastFloor ? event.event_date : pastFloor)
+      : today
     const days = runsTo
       ? daysBetween(event.event_date, runsTo).filter((d) => d >= floor && d <= horizon)
       : [event.event_date]

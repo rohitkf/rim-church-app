@@ -29,8 +29,13 @@ vi.mock('../lib/supabaseClient', () => ({
     },
   },
 }))
+const planner = vi.hoisted(() => ({ services: [] as Record<string, unknown>[] }))
+vi.mock('../lib/monthGrid', async () => {
+  const actual = await vi.importActual<typeof import('../lib/monthGrid')>('../lib/monthGrid')
+  return { ...actual, todayIso: () => '2026-09-26' }
+})
 vi.mock('../lib/queries', () => ({
-  fetchServices: () => Promise.resolve([]),
+  fetchServices: () => Promise.resolve(planner.services),
   fetchServiceTemplates: () => Promise.resolve([]),
   fetchTemplateSessions: () => Promise.resolve([]),
 }))
@@ -181,5 +186,46 @@ describe('a service that repeats', () => {
     ])
     // Not also made one at a time from here: the repeat is the database's.
     expect(db.inserted).toEqual([])
+  })
+})
+
+/*
+ * The agenda under the calendar used to stop at a count — six by default —
+ * which a few weeks of repeating Sunday services filled, leaving the
+ * Christmas service somebody had already planned off the page. It is the
+ * year ahead now, the same distance the diary looks.
+ */
+describe('the services listed under the calendar', () => {
+  const svc = (id: string, date: string) => ({
+    id,
+    date,
+    service_type: `Service ${id}`,
+    created_at: '2026-09-01T00:00:00Z',
+    ended_at: null,
+  })
+
+  it('lists every service in the next year, not just the next six', async () => {
+    auth.isAdmin = true
+    // Twelve Sundays from 27 Sep, then Christmas.
+    planner.services = [
+      ...Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(Date.UTC(2026, 8, 27 + 7 * i))
+        return svc(`w${i}`, d.toISOString().slice(0, 10))
+      }),
+      svc('xmas', '2026-12-25'),
+    ]
+    renderPage()
+    const list = (await screen.findByText('Upcoming services')).closest('section') as HTMLElement
+    await waitFor(() => expect(within(list).getAllByText(/^Service /)).toHaveLength(13))
+    expect(within(list).getByText('Service xmas')).toBeInTheDocument()
+  })
+
+  it('stops at a year from today', async () => {
+    auth.isAdmin = true
+    planner.services = [svc('near', '2027-09-25'), svc('far', '2027-09-27')]
+    renderPage()
+    const list = (await screen.findByText('Upcoming services')).closest('section') as HTMLElement
+    expect(within(list).getByText('Service near')).toBeInTheDocument()
+    expect(within(list).queryByText('Service far')).toBeNull()
   })
 })

@@ -25,6 +25,7 @@ import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { FinishedServices } from '../components/FinishedServices'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -571,13 +572,21 @@ export function EventsPage() {
               church had no way to say what it had done.
             */}
             {pastDays.length > 0 && (
-              <section className="mt-10">
-                <h2 className="text-headline-md">Past events</h2>
-                <p className="mt-1 text-body-sm text-on-surface-variant">
-                  Most recent first. They can still be read, corrected and removed.
-                </p>
+              /* Folded, like every page's finished services: the record
+                 is a real question — "when was the last workday?" — but
+                 never the one this page is opened for. */
+              <FinishedServices
+                label="Past events"
+                count={pastDays.reduce((n, [, entries]) => n + entries.length, 0)}
+                id="past-events"
+                aside={
+                  <span className="text-label-md text-on-surface-faint">
+                    The last 12 months, most recent first
+                  </span>
+                }
+              >
                 <DiaryDays days={pastDays} today={today} past {...rowActions} />
-              </section>
+              </FinishedServices>
             )}
           </>
         )}
