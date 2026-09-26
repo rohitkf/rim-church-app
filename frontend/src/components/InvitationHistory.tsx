@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabaseClient";
+import { invokeEdgeFunction } from "../lib/edgeFunction";
 import { fetchInvitations } from "../lib/queries";
 import { formatRelativeTime } from "../lib/relativeTime";
 import { useErrorText } from "../lib/useErrorText";
@@ -72,17 +73,10 @@ export function InvitationHistory() {
       // The same edge function the dialog calls. Its upsert lands on this
       // row rather than adding another, so the list stays one line per
       // address and the date becomes the date of the latest attempt.
-      const { data, error: callError } = await supabase.functions.invoke(
-        "invite",
-        {
-          body: {
-            email: invitation.email,
-            department_id: invitation.department_id,
-          },
-        },
-      );
-      if (callError) throw callError;
-      if (data?.error) throw new Error(data.error);
+      await invokeEdgeFunction("invite", {
+        email: invitation.email,
+        department_id: invitation.department_id,
+      });
     },
     onSuccess: () => {
       setError(null);
