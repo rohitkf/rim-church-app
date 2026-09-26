@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDiary, byDay, diaryTime } from './churchDiary'
+import { buildDiary, byDay, diaryTime, eventIsOver, lastDayOf } from './churchDiary'
 
 const TODAY = '2026-09-01'
 const people = [
@@ -205,5 +205,107 @@ describe('an event that runs over several days', () => {
     expect(diary).toHaveLength(1)
     expect(diary[0].id).toBe('event:e1')
     expect(diary[0].span ?? null).toBeNull()
+  })
+})
+
+/*
+ * What has already happened.
+ *
+ * A diary is for what is coming, so by default it drops what is over. But
+ * an event is the only kind here that leaves no other record — a birthday
+ * comes round again, a service has the planner — so the page that lists
+ * them is also the only place they were ever written down, and dropping
+ * them at midnight meant a members' meeting stopped existing the morning
+ * after it.
+ */
+describe('events that are over', () => {
+  const over = [
+    {
+      id: 'e5',
+      title: 'Church workday',
+      event_date: '2026-08-22',
+      ends_on: null,
+      start_time: '09:00:00',
+      location: 'Car park',
+      details: null,
+      department_id: null,
+      created_by: 'p1',
+      creator: { first_name: 'Grace', last_name: 'Mensah' },
+      department: null,
+    },
+  ]
+
+  it('are left out unless they are asked for', () => {
+    const diary = buildDiary({ people: [], services: [], events: over, today: TODAY })
+    expect(diary).toEqual([])
+  })
+
+  it('come back when they are', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: over,
+      today: TODAY,
+      includePast: true,
+    })
+    expect(diary.map((e) => e.title)).toEqual(['Church workday'])
+    expect(diary[0].date).toBe('2026-08-22')
+  })
+
+  // The calendar dots days, so a finished run has to be on all of its own.
+  it('bring every day of a finished run with them', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: [{ ...over[0], ends_on: '2026-08-24' }],
+      today: TODAY,
+      includePast: true,
+    })
+    expect(diary.map((e) => e.date)).toEqual(['2026-08-22', '2026-08-23', '2026-08-24'])
+    expect(diary.map((e) => e.span?.day)).toEqual([1, 2, 3])
+  })
+
+  /*
+   * A run that began before today and has not finished is on today, and
+   * asking for the past must not also hand back the days of it that have
+   * gone — the same event would then be both coming up and over.
+   */
+  it('do not drag a run still going into the past with them', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: [{ ...over[0], event_date: '2026-08-30', ends_on: '2026-09-03' }],
+      today: TODAY,
+      includePast: true,
+    })
+    // Every day of it, including the two behind us — but the event itself
+    // is not over, so `eventIsOver` keeps it out of the past list.
+    expect(eventIsOver({ ...over[0], event_date: '2026-08-30', ends_on: '2026-09-03' }, TODAY)).toBe(
+      false,
+    )
+    expect(diary.some((e) => e.date === TODAY)).toBe(true)
+  })
+
+  it('knows the last day of a run is the day it is judged by', () => {
+    expect(lastDayOf({ ...over[0], ends_on: '2026-08-24' })).toBe('2026-08-24')
+    expect(lastDayOf(over[0])).toBe('2026-08-22')
+    // An end before the start is nonsense somebody typed, not a run.
+    expect(lastDayOf({ ...over[0], ends_on: '2026-08-01' })).toBe('2026-08-22')
+  })
+
+  it('counts today as not yet over', () => {
+    expect(eventIsOver({ ...over[0], event_date: TODAY }, TODAY)).toBe(false)
+    expect(eventIsOver(over[0], TODAY)).toBe(true)
+  })
+
+  it('still stops at the horizon ahead, whatever it does behind', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: [{ ...over[0], event_date: '2027-10-01' }],
+      today: TODAY,
+      includePast: true,
+    })
+    expect(diary).toEqual([])
   })
 })

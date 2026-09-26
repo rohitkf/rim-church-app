@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { dayCount, daysBetween } from './dateRange'
-import { diaryTime, type DiaryEvent } from './churchDiary'
+import { diaryTime, eventIsOver, lastDayOf, type DiaryEntry, type DiaryEvent } from './churchDiary'
 
 export const eventSchema = z.object({
   id: z.string(),
@@ -57,10 +57,7 @@ export interface EventToday {
  */
 export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
   return events
-    .filter((event) => {
-      const lastDay = event.ends_on && event.ends_on > event.event_date ? event.ends_on : event.event_date
-      return event.event_date <= today && today <= lastDay
-    })
+    .filter((event) => event.event_date <= today && today <= lastDayOf(event))
     .map((event) => {
       const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
       // Ordered on "09:00:00" rather than on "9:00am", which sorts as text
@@ -89,4 +86,50 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
         a.title.localeCompare(b.title),
     )
     .map(({ at: _at, ...event }) => event)
+}
+
+/**
+ * The events that are over, most recent first.
+ *
+ * One row apiece, whatever they ran for: a week of prayer is seven answers
+ * to "what is on today" while it is on, and one thing that happened once
+ * it is not. The range says the rest.
+ *
+ * Kept rather than dropped because this page is the only place an event is
+ * ever written down. Everything else in the diary survives its own date —
+ * a birthday comes round again, a service has the planner and the finished
+ * list — so the morning after a members' meeting it was the one kind that
+ * simply stopped existing.
+ */
+export function pastDiaryEntries(events: DiaryEvent[], today: string): DiaryEntry[] {
+  return events
+    .filter((event) => eventIsOver(event, today))
+    .map((event) => {
+      const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
+      return {
+        // No day on the end: a past event is one entry, so the id is the
+        // row's own. `event:<id>` is what the page splits to find it.
+        id: `event:${event.id}`,
+        kind: 'event' as const,
+        date: event.event_date,
+        title: event.title,
+        detail:
+          [diaryTime(event.start_time), event.location, event.department?.name]
+            .filter(Boolean)
+            .join(' · ') || null,
+        addedBy: event.creator
+          ? `${event.creator.first_name} ${event.creator.last_name}`.trim()
+          : null,
+        color: event.department?.color ?? null,
+        // The whole run, and no "day 3 of 7" — there is no day of it to be
+        // on any more.
+        span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
+      }
+    })
+    .sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) ||
+        (a.detail ?? '').localeCompare(b.detail ?? '') ||
+        a.title.localeCompare(b.title),
+    )
 }

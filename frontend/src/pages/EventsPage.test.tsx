@@ -250,3 +250,65 @@ describe('editing an event', () => {
     expect(state.written[0].row).toMatchObject({ title: 'Workday', created_by: 'u1' })
   })
 })
+
+/*
+ * An event used to leave the diary at midnight on the day it ended, which
+ * made this page the only record of a thing and then lost it. It is kept
+ * now, under its own heading, out of the way of what is still coming.
+ */
+describe('events that are over', () => {
+  const sectionFor = async (name: RegExp) =>
+    (await screen.findByRole('heading', { name })).closest('section') as HTMLElement
+
+  it('are kept, under Past events rather than among what is coming', async () => {
+    state.events = [
+      meeting(),
+      meeting({ id: 'e2', title: 'Church workday', event_date: '2026-08-22' }),
+    ]
+    show()
+
+    await screen.findByText('Members meeting')
+    const past = await sectionFor(/Past events/)
+    expect(within(past).getByText('Church workday')).toBeInTheDocument()
+    expect(within(past).queryByText('Members meeting')).toBeNull()
+
+    const coming = await sectionFor(/Coming up/)
+    expect(within(coming).getByText('Members meeting')).toBeInTheDocument()
+    expect(within(coming).queryByText('Church workday')).toBeNull()
+  })
+
+  it('says how long a finished run was, not which day of it you are on', async () => {
+    state.events = [meeting({ id: 'e2', title: 'Week of Prayer', event_date: '2026-08-22', ends_on: '2026-08-28' })]
+    show()
+
+    const past = await sectionFor(/Past events/)
+    expect(within(past).getByText(/7 days/)).toBeInTheDocument()
+    expect(within(past).queryByText(/Day 1 of 7/)).toBeNull()
+    // One row for the whole run, not seven.
+    expect(within(past).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('can still be corrected, because a record is worth being right', async () => {
+    state.events = [meeting({ event_date: '2026-08-22' })]
+    show()
+
+    const past = await sectionFor(/Past events/)
+    await userEvent.click(within(past).getByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('heading', { name: 'Edit this event' })).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Members meeting')).toBeInTheDocument()
+  })
+
+  it('opens what it carried, same as any other row', async () => {
+    state.events = [meeting({ event_date: '2026-08-22', details: 'Twelve of us came.' })]
+    show()
+
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('Twelve of us came.')).toBeInTheDocument()
+  })
+
+  it('is not there at all for a church with nothing behind it', async () => {
+    show()
+    await screen.findByText('Members meeting')
+    expect(screen.queryByRole('heading', { name: /Past events/ })).toBeNull()
+  })
+})

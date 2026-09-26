@@ -26,6 +26,7 @@ import {
   splitAvailabilityGroups,
 } from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { inStartOrder } from '../lib/upcomingServices'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { availabilitySummary } from '../lib/availabilitySummary'
@@ -292,9 +293,38 @@ export function AvailabilityPage() {
   // itself — rather than waiting for the next reload.
   const now = useNow()
 
+  /*
+   * When each service starts, for the order of a day with two.
+   *
+   * "The next service" is the one on top, open, and on a Sunday with an
+   * English and a Malayalam service which of them is next is a fact about
+   * the running order — sorting by name would open whichever comes first
+   * in the alphabet. One row per service: the first session's start.
+   */
+  const startsQuery = useQuery({
+    queryKey: ['availability-service-starts', upcomingIds],
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('service_sessions')
+        .select('service_id, start_time')
+        .in('service_id', upcomingIds)
+        .order('start_time')
+      if (err) throw err
+      return z.array(z.object({ service_id: z.string(), start_time: z.string() })).parse(data)
+    },
+    enabled: upcomingIds.length > 0,
+  })
+  const startOf = useMemo(() => {
+    const first = new Map<string, string>()
+    for (const row of startsQuery.data ?? []) {
+      if (!first.has(row.service_id)) first.set(row.service_id, row.start_time)
+    }
+    return (service: { id: string }) => first.get(service.id) ?? null
+  }, [startsQuery.data])
+
   const { live, finished } = useMemo(
-    () => splitFinished(upcoming, (s) => isFinished(s.id)),
-    [upcoming, isFinished],
+    () => splitFinished(inStartOrder(upcoming, startOf), (s) => isFinished(s.id)),
+    [upcoming, startOf, isFinished],
   )
   const groups = useMemo(() => splitAvailabilityGroups(live, isFinished), [live, isFinished])
 
@@ -1040,9 +1070,10 @@ export function AvailabilityPage() {
             )}
 
             {groups.later.length > 0 && (
-              /* Everything past the next occasion. Real services with real
-                 questions on them — folded, because answering the one in
-                 front of you should not mean scrolling past a month first. */
+              /* Everything after the next service, the second one that
+                 morning included. Real services with real questions on
+                 them — folded, because answering the one in front of you
+                 should not mean scrolling past three weeks first. */
               <section aria-labelledby="upcoming-availability">
                 <h2
                   id="upcoming-availability"

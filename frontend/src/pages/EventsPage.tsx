@@ -20,7 +20,7 @@ import {
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
-import { fetchEvents } from '../lib/churchEvents'
+import { fetchEvents, pastDiaryEntries } from '../lib/churchEvents'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { dayCount, formatRange } from '../lib/dateRange'
@@ -61,6 +61,142 @@ const KIND_TONE: Record<DiaryKind, { dot: string; chip: string }> = {
   },
   service: { dot: 'bg-primary', chip: 'bg-primary/15 text-primary' },
   event: { dot: 'bg-accent-green', chip: 'bg-accent-green/15 text-accent-green' },
+}
+
+/**
+ * One line of the diary.
+ *
+ * The same row draws what is coming and what has been: a past event is
+ * still an event somebody added, can still be corrected, and still has to
+ * say whose it was. Two renderings of it would have drifted the first time
+ * one of them gained a chip.
+ */
+function DiaryRow({
+  entry,
+  today,
+  past = false,
+  canEdit,
+  onRead,
+  onEdit,
+  onRemove,
+}: {
+  entry: DiaryEntry
+  today: string
+  /** Over, rather than coming: changes what the run chip can truthfully say. */
+  past?: boolean
+  canEdit: (entry: DiaryEntry) => boolean
+  onRead: (entry: DiaryEntry) => void
+  onEdit: (entry: DiaryEntry) => void
+  onRemove: (entry: DiaryEntry) => void
+}) {
+  const body = (
+    <div className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1">
+      {entry.color && <TeamMark color={entry.color} />}
+      <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
+        {entry.title}
+      </span>
+      <span
+        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[entry.kind].chip}`}
+      >
+        {KIND_LABEL[entry.kind]}
+      </span>
+      {/* A run says which day of itself this is, or the same name on five
+          days reads as five events somebody entered by mistake. Once it is
+          over there is no day of it to be on, so it says how long it ran. */}
+      {entry.span && (
+        <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
+          {past ? `${entry.span.of} days` : `Day ${entry.span.day} of ${entry.span.of}`} ·{' '}
+          {formatRange(entry.span.from, entry.span.to, today)}
+        </span>
+      )}
+      {entry.detail && (
+        <span className="min-w-0 break-words text-body-sm text-on-surface-variant">
+          {entry.detail}
+        </span>
+      )}
+    </div>
+  )
+
+  return (
+    <li className="rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline">
+      {entry.href ? (
+        <Link to={entry.href} className="block hover:opacity-90">
+          {body}
+        </Link>
+      ) : entry.kind === 'event' ? (
+        <button
+          type="button"
+          onClick={() => onRead(entry)}
+          aria-label={`${entry.title} — see the details`}
+          className="block w-full text-left hover:opacity-90"
+        >
+          {body}
+        </button>
+      ) : (
+        body
+      )}
+      {/* Whose idea it was, said quietly — an event with no name on it
+          invites "who put this here?" every time somebody reads it. */}
+      {(entry.addedBy || canEdit(entry)) && (
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+          <span className="font-mono text-label-sm text-on-surface-faint">
+            {entry.addedBy ? `Added by ${entry.addedBy}` : ''}
+          </span>
+          {canEdit(entry) && (
+            <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onEdit(entry)}
+                className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(entry)}
+                className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+              >
+                Remove
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+/** Days of the diary, each saying its date once and then what is on it. */
+function DiaryDays({
+  days,
+  today,
+  past = false,
+  ...row
+}: {
+  days: [string, DiaryEntry[]][]
+  today: string
+  past?: boolean
+  canEdit: (entry: DiaryEntry) => boolean
+  onRead: (entry: DiaryEntry) => void
+  onEdit: (entry: DiaryEntry) => void
+  onRemove: (entry: DiaryEntry) => void
+}) {
+  return (
+    <div className="mt-3 flex flex-col gap-5">
+      {days.map(([date, entries]) => (
+        <div key={date}>
+          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            {date === today ? 'Today' : formatServiceDay(date)}
+          </div>
+          <ul className="mt-2 flex flex-col gap-2">
+            {entries.map((entry) => (
+              <DiaryRow key={entry.id} entry={entry} today={today} past={past} {...row} />
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /**
@@ -130,6 +266,10 @@ export function EventsPage() {
         services: servicesQuery.data ?? [],
         events: eventsQuery.data ?? [],
         today,
+        // The calendar dots the days something was on as well as the days
+        // something is on: a month you can page back into that shows
+        // nothing ever happened in it is a calendar lying by omission.
+        includePast: true,
       }),
     [peopleQuery.data, servicesQuery.data, eventsQuery.data, today],
   )
@@ -140,7 +280,20 @@ export function EventsPage() {
     return map
   }, [diary])
 
-  const days = useMemo(() => byDay(diary), [diary])
+  const days = useMemo(() => byDay(diary.filter((entry) => entry.date >= today)), [diary, today])
+
+  /*
+   * What has been, newest first.
+   *
+   * Drawn from the rows rather than from the diary above, because a run
+   * that is over is one thing that happened and not seven: the diary
+   * spreads it across every day it covered so the calendar can dot them,
+   * and a list that did the same would read as seven identical events.
+   */
+  const pastDays = useMemo(
+    () => byDay(pastDiaryEntries(eventsQuery.data ?? [], today)).reverse(),
+    [eventsQuery.data, today],
+  )
 
   const saveEvent = useMutation({
     mutationFn: async () => {
@@ -237,6 +390,35 @@ export function EventsPage() {
     return isAdmin || (!!row.department_id && isDepartmentHead(row.department_id))
   }
 
+  /** The event row an entry was drawn from, when it was drawn from one. */
+  const rowOf = (entry: DiaryEntry) => {
+    const id = eventIdOf(entry)
+    return id ? ((eventsQuery.data ?? []).find((ev) => ev.id === id) ?? null) : null
+  }
+
+  // What a row can do, in one object: the same four wherever it is drawn.
+  const rowActions = {
+    canEdit: mayEdit,
+    onRead: (entry: DiaryEntry) => {
+      const row = rowOf(entry)
+      if (row) setReading(row)
+    },
+    onEdit: (entry: DiaryEntry) => {
+      const row = rowOf(entry)
+      if (row) openEdit(row)
+    },
+    onRemove: (entry: DiaryEntry) =>
+      ask({
+        title: `Remove ${entry.title} from the diary?`,
+        body: 'It disappears from the calendar for everybody.',
+        confirmLabel: 'Remove',
+        onConfirm: () => {
+          const id = eventIdOf(entry)
+          if (id) removeEvent.mutate(id)
+        },
+      }),
+  }
+
   const weeks = monthGrid(cursor.year, cursor.month)
   const shiftMonth = (delta: number) =>
     setCursor(({ year, month }) => {
@@ -250,8 +432,11 @@ export function EventsPage() {
 
   return (
     <div>
+      {/* Not "what is coming up" any more: the page keeps what has been as
+          well, and an eyebrow that said otherwise would be the page
+          describing a version of itself that no longer exists. */}
       <PageHeader
-        eyebrow="What is coming up"
+        eyebrow="The church diary"
         title="Events"
         description="Birthdays, anniversaries, services and everything else the church has a date for — in one diary."
         action={
@@ -365,123 +550,36 @@ export function EventsPage() {
           </ul>
         </section>
 
-        {days.length === 0 ? (
+        {days.length === 0 && pastDays.length === 0 ? (
           <p className="mt-6 text-body-sm text-on-surface-variant">
             Nothing in the diary yet.
           </p>
         ) : (
-          <section className="mt-8">
-            <div className="text-headline-md">Coming up</div>
-            <div className="mt-3 flex flex-col gap-5">
-              {days.map(([date, entries]) => (
-                <div key={date}>
-                  <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                    {date === today ? 'Today' : formatServiceDay(date)}
-                  </div>
-                  <ul className="mt-2 flex flex-col gap-2">
-                    {entries.map((entry) => {
-                      const body = (
-                        <div className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1">
-                          {entry.color && <TeamMark color={entry.color} />}
-                          <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
-                            {entry.title}
-                          </span>
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[entry.kind].chip}`}
-                          >
-                            {KIND_LABEL[entry.kind]}
-                          </span>
-                          {/* A run says which day of itself this is, or
-                              the same name on five days reads as five
-                              events somebody entered by mistake. */}
-                          {entry.span && (
-                            <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
-                              Day {entry.span.day} of {entry.span.of} ·{' '}
-                              {formatRange(entry.span.from, entry.span.to, today)}
-                            </span>
-                          )}
-                          {entry.detail && (
-                            <span className="min-w-0 break-words text-body-sm text-on-surface-variant">
-                              {entry.detail}
-                            </span>
-                          )}
-                        </div>
-                      )
-                      return (
-                        <li
-                          key={entry.id}
-                          className="rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline"
-                        >
-                          {entry.href ? (
-                            <Link to={entry.href} className="block hover:opacity-90">
-                              {body}
-                            </Link>
-                          ) : eventIdOf(entry) ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const id = eventIdOf(entry)
-                                const row = (eventsQuery.data ?? []).find((ev) => ev.id === id)
-                                if (row) setReading(row)
-                              }}
-                              aria-label={`${entry.title} — see the details`}
-                              className="block w-full text-left hover:opacity-90"
-                            >
-                              {body}
-                            </button>
-                          ) : (
-                            body
-                          )}
-                          {/* Whose idea it was, said quietly — an event with
-                              no name on it invites "who put this here?"
-                              every time somebody reads it. */}
-                          {(entry.addedBy || mayEdit(entry)) && (
-                            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-mono text-label-sm text-on-surface-faint">
-                                {entry.addedBy ? `Added by ${entry.addedBy}` : ''}
-                              </span>
-                              {mayEdit(entry) && (
-                                <span className="flex items-center gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const id = eventIdOf(entry)
-                                      const row = (eventsQuery.data ?? []).find((ev) => ev.id === id)
-                                      if (row) openEdit(row)
-                                    }}
-                                    className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
-                                  >
-                                    Edit
-                                  </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    ask({
-                                      title: `Remove ${entry.title} from the diary?`,
-                                      body: 'It disappears from the calendar for everybody.',
-                                      confirmLabel: 'Remove',
-                                      onConfirm: () => {
-                                        const id = eventIdOf(entry)
-                                        if (id) removeEvent.mutate(id)
-                                      },
-                                    })
-                                  }
-                                  className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-                                >
-                                  Remove
-                                </button>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </section>
+          <>
+            {days.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-headline-md">Coming up</h2>
+                <DiaryDays days={days} today={today} {...rowActions} />
+              </section>
+            )}
+
+            {/*
+              What has already happened, newest first.
+              An event is the only thing in this diary that leaves no other
+              record — a birthday comes round again and a service has the
+              planner — so dropping it on the stroke of midnight meant the
+              church had no way to say what it had done.
+            */}
+            {pastDays.length > 0 && (
+              <section className="mt-10">
+                <h2 className="text-headline-md">Past events</h2>
+                <p className="mt-1 text-body-sm text-on-surface-variant">
+                  Most recent first. They can still be read, corrected and removed.
+                </p>
+                <DiaryDays days={pastDays} today={today} past {...rowActions} />
+              </section>
+            )}
+          </>
         )}
       </QueryState>
 

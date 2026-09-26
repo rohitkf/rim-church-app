@@ -68,6 +68,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'planner-index-sessions',
       'finished-service-sessions',
       'dashboard-service-starts',
+      'availability-service-starts',
       'service',
     ],
   },
