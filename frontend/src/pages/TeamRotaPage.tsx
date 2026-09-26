@@ -537,6 +537,17 @@ export function TeamRotaPage() {
                         ? serviceAssignments.find((a) => a.user_id === chosenPerson && a.department_id !== dept.id)
                         : undefined
                       const clashRequest = clash ? pendingFor(clash.id) : undefined
+                      // What each of this team's own people already holds
+                      // here, for the role being picked. Greyed out in the
+                      // list with the reason beside the name, rather than
+                      // left out: a name that has vanished reads as a bug.
+                      // Other teams' people stay pickable — choosing one is
+                      // how a release gets asked for, below.
+                      const heldInTeam = (userId: string, roleLabel: string) =>
+                        rotaConflict(
+                          serviceAssignments.filter((a) => a.department_id === dept.id),
+                          { serviceId: service.id, departmentId: dept.id, userId, roleLabel },
+                        )
 
                       return (
                         <li
@@ -763,7 +774,14 @@ export function TeamRotaPage() {
                                 Role
                                 <Select
                                   value={draftRole[key] ?? ''}
-                                  onChange={(role) => setDraftRole((s) => ({ ...s, [key]: role }))}
+                                  onChange={(role) => {
+                                    setDraftRole((s) => ({ ...s, [key]: role }))
+                                    // A person picked first can't be left
+                                    // holding a role they're not allowed.
+                                    if (chosenPerson && heldInTeam(chosenPerson, role)) {
+                                      setDraftPerson((s) => ({ ...s, [key]: '' }))
+                                    }
+                                  }}
                                   className={selectPillClasses}
                                   aria-label="Role"
                                   placeholder="Select…"
@@ -814,12 +832,19 @@ export function TeamRotaPage() {
                                   className={selectPillClasses}
                                   aria-label="Person"
                                   placeholder="Select…"
-                                  options={roster.map((m) => ({
-                                    value: m.user_id,
-                                    label: m.profiles
+                                  options={roster.map((m) => {
+                                    const name = m.profiles
                                       ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                      : m.user_id,
-                                  }))}
+                                      : m.user_id
+                                    const held = heldInTeam(m.user_id, draftRole[key] ?? '')
+                                    return held
+                                      ? {
+                                          value: m.user_id,
+                                          label: `${name} — ${held.is_shadow ? 'shadowing ' : ''}${held.role_label}`,
+                                          disabled: true,
+                                        }
+                                      : { value: m.user_id, label: name }
+                                  })}
                                 />
                               </label>
                               {/* Learning the role beside whoever does it,

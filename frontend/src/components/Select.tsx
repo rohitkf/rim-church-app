@@ -355,7 +355,7 @@ export function Select({
           grouped ? 'pl-5' : 'pl-3'
         } ${
           option.disabled
-            ? 'cursor-not-allowed text-on-surface-faint'
+            ? 'cursor-not-allowed text-on-surface-faint opacity-50'
             : at === active
               ? 'bg-secondary-container text-on-surface'
               : 'text-on-surface-variant'
