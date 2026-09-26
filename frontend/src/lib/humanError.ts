@@ -65,6 +65,21 @@ function translate(err: unknown): string | null {
 }
 
 /**
+ * Whether this is the rota refusing a second role at one service — the
+ * one mistake worth stopping somebody for, rather than a line at the top
+ * of a long page they have scrolled away from.
+ */
+export function isRotaClash(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const { message, details } = err as Record<string, unknown>
+  const haystack = `${typeof message === 'string' ? message : ''} ${typeof details === 'string' ? details : ''}`
+  return (
+    haystack.includes('rota_assignments_one_role_per_service') ||
+    haystack.includes('rota_assignments_one_coordinator_per_team')
+  )
+}
+
+/**
  * What to put on screen.
  *
  * Admins get the raw message — they are the ones who fix the database, and
