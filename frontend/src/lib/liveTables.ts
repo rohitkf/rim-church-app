@@ -76,6 +76,7 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'set_list_items', keys: ['set-list-items'] },
   { table: 'church_events', keys: ['church-events'] },
   { table: 'service_templates', keys: ['service-templates'] },
+  { table: 'service_series', keys: ['service-series'] },
   { table: 'service_template_sessions', keys: ['service-templates'] },
 
   /* ---- who is on, and whether they have done it ------------------- */

@@ -20,6 +20,13 @@ import { ActionButton, Field, Overlay, PageHeader, inputClasses } from '../compo
 import type { Service } from '../lib/types'
 import { useErrorText } from '../lib/useErrorText'
 import { Select } from '../components/Select'
+import {
+  createServiceSeries,
+  repeatOptions,
+  upcomingRepeats,
+  type RepeatChoice,
+} from '../lib/serviceRepeat'
+import { formatRange } from '../lib/dateRange'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -38,6 +45,12 @@ export function ServicePlannerIndexPage() {
   const [newDate, setNewDate] = useState('')
   const [newType, setNewType] = useState('')
   const [templateId, setTemplateId] = useState('')
+  /**
+   * How often it comes round. "Doesn't repeat" is the default and makes the
+   * one service it always made; anything else starts a repeat, which the
+   * database fills eight weeks ahead and keeps filling nightly.
+   */
+  const [repeat, setRepeat] = useState<RepeatChoice>('none')
 
   // The modal lives in the URL: the button needs no shared state, and the
   // form stays linkable — /service-planner?new=1 opens it directly.
@@ -92,6 +105,17 @@ export function ServicePlannerIndexPage() {
 
   const createService = useMutation({
     mutationFn: async () => {
+      // A repeat is made in the database, all of it at once — the first
+      // service, the next eight weeks, and each one's running order — so a
+      // half-made series can never be left behind by a dropped connection.
+      if (repeat !== 'none') {
+        return createServiceSeries({
+          date: newDate,
+          serviceType: newType.trim(),
+          frequency: repeat,
+          templateId: templateId || null,
+        })
+      }
       const { data, error } = await supabase
         .from('services')
         .insert({ date: newDate, service_type: newType.trim() })
@@ -131,6 +155,7 @@ export function ServicePlannerIndexPage() {
       allowNavigation()
       setNewDate('')
       setNewType('')
+      setRepeat('none')
       setCreateError(null)
       queryClient.invalidateQueries({ queryKey: ['services'] })
       navigate(`/service-planner/${id}`)
@@ -464,7 +489,38 @@ export function ServicePlannerIndexPage() {
                     ]}
                   />
                 </Field>
+                <Field label="Repeats" className="sm:col-span-2">
+                  <Select
+                    value={repeat}
+                    onChange={(value) => setRepeat(value as RepeatChoice)}
+                    options={repeatOptions(newDate)}
+                  />
+                </Field>
               </div>
+
+              {/* Said before anything is made: which dates, how far ahead,
+                  and that each one stands on its own. A repeat somebody
+                  misread is eight services to delete by hand. */}
+              {repeat !== 'none' && (
+                <div className="mt-4 rounded-[var(--radius-chip)] bg-raised px-3.5 py-3 text-body-sm text-on-surface-variant">
+                  {newDate ? (
+                    <p>
+                      <span className="text-on-surface">
+                        {upcomingRepeats(newDate, repeat)
+                          .map((d) => formatRange(d, null, today))
+                          .join(', ')}
+                        …
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-on-surface">Pick the first date to see when it repeats.</p>
+                  )}
+                  <p className="mt-1">
+                    Keeps the next eight weeks filled, until you stop it. Each one is its own
+                    service — change or delete one and the others stay as they are.
+                  </p>
+                </div>
+              )}
 
               {createError && (
                 <p className="mt-4 rounded-xl bg-error-container px-3.5 py-2.5 text-body-sm text-on-error-container">
@@ -485,7 +541,11 @@ export function ServicePlannerIndexPage() {
                   disabled={createService.isPending || !newDate || !newType.trim()}
                   glyph="+"
                 >
-                  {createService.isPending ? 'Creating' : 'Create service'}
+                  {createService.isPending
+                    ? 'Creating'
+                    : repeat === 'none'
+                      ? 'Create service'
+                      : 'Create repeating service'}
                 </ActionButton>
               </div>
             </form>
