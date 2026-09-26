@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rotaConflict } from './rotaConflict'
+import { availableFirst, rotaConflict } from './rotaConflict'
 import { isRotaClash } from './humanError'
 
 const held = (over: Partial<{ id: string; department_id: string; role_label: string; user_id: string; service_id: string }>) => ({
@@ -62,5 +62,18 @@ describe('recognising the database saying the same', () => {
     expect(isRotaClash({ code: '42501', message: 'new row violates row-level security policy' })).toBe(false)
     expect(isRotaClash(new Error('offline'))).toBe(false)
     expect(isRotaClash(null)).toBe(false)
+  })
+})
+
+describe('the order of the person list', () => {
+  it('puts whoever can take the role first, each half in its own order', () => {
+    const list = [
+      { value: 'joel', disabled: true },
+      { value: 'santhi', disabled: true },
+      { value: 'alfin' },
+      { value: 'aswin', disabled: true },
+      { value: 'bhanu' },
+    ]
+    expect(availableFirst(list).map((o) => o.value)).toEqual(['alfin', 'bhanu', 'joel', 'santhi', 'aswin'])
   })
 })

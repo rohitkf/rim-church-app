@@ -31,7 +31,7 @@ import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
 import { humanError, isRotaClash } from '../lib/humanError'
-import { rotaConflict } from '../lib/rotaConflict'
+import { availableFirst, rotaConflict } from '../lib/rotaConflict'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -832,7 +832,7 @@ export function TeamRotaPage() {
                                   className={selectPillClasses}
                                   aria-label="Person"
                                   placeholder="Select…"
-                                  options={roster.map((m) => {
+                                  options={availableFirst(roster.map((m) => {
                                     const name = m.profiles
                                       ? `${m.profiles.first_name} ${m.profiles.last_name}`
                                       : m.user_id
@@ -844,7 +844,7 @@ export function TeamRotaPage() {
                                           disabled: true,
                                         }
                                       : { value: m.user_id, label: name }
-                                  })}
+                                  }))}
                                 />
                               </label>
                               {/* Learning the role beside whoever does it,
