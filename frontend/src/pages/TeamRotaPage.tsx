@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { Chevron, useExpanded } from '../components/Collapsible'
-import { ActionButton, Eyebrow, LiveDot, PageHeader, Tile } from '../components/Surface'
+import { ActionButton, Eyebrow, LiveDot, Overlay, PageHeader, Tile } from '../components/Surface'
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
@@ -30,6 +30,9 @@ import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
+import { humanError, isRotaClash } from '../lib/humanError'
+import { rotaConflict } from '../lib/rotaConflict'
+import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { splitFinished } from '../lib/finishedSection'
@@ -46,7 +49,7 @@ async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, is_shadow, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -76,7 +79,11 @@ export function TeamRotaPage() {
 
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
+  const [draftShadow, setDraftShadow] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
+  // A second role at one service, said where it can't be missed: the
+  // banner above sits at the top of a page the form is a long way down.
+  const [clashNotice, setClashNotice] = useState<{ title: string; body: string } | null>(null)
   // Which team's assign form is open, keyed `${serviceId}:${departmentId}`.
   // Collapsed by default: a form under every team on every service was the
   // bulk of what made this page a wall of dropdowns.
@@ -271,12 +278,14 @@ export function TeamRotaPage() {
       userId,
       roleLabel,
       roleId,
+      isShadow,
     }: {
       serviceId: string
       departmentId: string
       userId: string
       roleLabel: string
       roleId: string | null
+      isShadow: boolean
     }) => {
       const { error } = await supabase.from('rota_assignments').insert({
         service_id: serviceId,
@@ -284,19 +293,32 @@ export function TeamRotaPage() {
         user_id: userId,
         role_label: roleLabel,
         role_id: roleId,
+        is_shadow: isShadow,
       })
       if (error) throw error
     },
     onSuccess: (_d, vars) => {
       setDraftRole((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftPerson((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
+      setDraftShadow((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
       // The role is filled, so the form has done its job — fold it away
       // rather than leaving an empty pair of dropdowns behind.
       setOpenForm((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
       setError(null)
       refresh()
     },
-    onError: (err: unknown) => setError(errorText(err, 'Could not assign that role.')),
+    onError: (err: unknown) => {
+      // The check before sending catches this from what the page already
+      // knows; this is the same answer when the page was out of date.
+      if (isRotaClash(err)) {
+        setClashNotice({
+          title: 'Can’t assign that role',
+          body: humanError(err, 'Could not assign that role.', false),
+        })
+        return
+      }
+      setError(errorText(err, 'Could not assign that role.'))
+    },
   })
 
   const removeAssignment = useMutation({
@@ -515,6 +537,17 @@ export function TeamRotaPage() {
                         ? serviceAssignments.find((a) => a.user_id === chosenPerson && a.department_id !== dept.id)
                         : undefined
                       const clashRequest = clash ? pendingFor(clash.id) : undefined
+                      // What each of this team's own people already holds
+                      // here, for the role being picked. Greyed out in the
+                      // list with the reason beside the name, rather than
+                      // left out: a name that has vanished reads as a bug.
+                      // Other teams' people stay pickable — choosing one is
+                      // how a release gets asked for, below.
+                      const heldInTeam = (userId: string, roleLabel: string) =>
+                        rotaConflict(
+                          serviceAssignments.filter((a) => a.department_id === dept.id),
+                          { serviceId: service.id, departmentId: dept.id, userId, roleLabel },
+                        )
 
                       return (
                         <li
@@ -604,6 +637,11 @@ export function TeamRotaPage() {
                                       >
                                         <span className="min-w-0 break-words text-on-surface-variant sm:shrink-0">
                                           {a.role_label}
+                                          {a.is_shadow && (
+                                            <span className="ml-2 rounded-full bg-surface-container px-2 py-0.5 align-middle font-mono text-label-sm uppercase text-on-surface-variant">
+                                              Shadow
+                                            </span>
+                                          )}
                                         </span>
                                         <span className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
                                           {pending ? (
@@ -697,12 +735,37 @@ export function TeamRotaPage() {
                                 e.preventDefault()
                                 const role = (draftRole[key] ?? '').trim()
                                 if (!role || !chosenPerson || clash) return
+                                const held = rotaConflict(serviceAssignments, {
+                                  serviceId: service.id,
+                                  departmentId: dept.id,
+                                  userId: chosenPerson,
+                                  roleLabel: role,
+                                })
+                                if (held) {
+                                  const who = held.profile
+                                    ? `${held.profile.first_name} ${held.profile.last_name}`.trim()
+                                    : 'They'
+                                  const as = `${held.is_shadow ? 'shadowing ' : ''}${held.role_label}`
+                                  setClashNotice(
+                                    isCoordinatorRole(role)
+                                      ? {
+                                          title: `${who} is already ${held.department?.name ?? 'this team'}’s ${held.role_label}`,
+                                          body: 'Someone can coordinate a team only once per service.',
+                                        }
+                                      : {
+                                          title: `${who} already has a role in this service`,
+                                          body: `They are ${as} for ${held.department?.name ?? 'this team'}. Apart from Team Coordinator, someone can hold only one role per service. Take them off that one first, or pick someone else.`,
+                                        },
+                                  )
+                                  return
+                                }
                                 addAssignment.mutate({
                                   serviceId: service.id,
                                   departmentId: dept.id,
                                   userId: chosenPerson,
                                   roleLabel: role,
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
+                                  isShadow: !!draftShadow[key],
                                 })
                               }}
                               className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-chip)] bg-surface-low p-3"
@@ -711,7 +774,14 @@ export function TeamRotaPage() {
                                 Role
                                 <Select
                                   value={draftRole[key] ?? ''}
-                                  onChange={(role) => setDraftRole((s) => ({ ...s, [key]: role }))}
+                                  onChange={(role) => {
+                                    setDraftRole((s) => ({ ...s, [key]: role }))
+                                    // A person picked first can't be left
+                                    // holding a role they're not allowed.
+                                    if (chosenPerson && heldInTeam(chosenPerson, role)) {
+                                      setDraftPerson((s) => ({ ...s, [key]: '' }))
+                                    }
+                                  }}
                                   className={selectPillClasses}
                                   aria-label="Role"
                                   placeholder="Select…"
@@ -762,13 +832,33 @@ export function TeamRotaPage() {
                                   className={selectPillClasses}
                                   aria-label="Person"
                                   placeholder="Select…"
-                                  options={roster.map((m) => ({
-                                    value: m.user_id,
-                                    label: m.profiles
+                                  options={roster.map((m) => {
+                                    const name = m.profiles
                                       ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                      : m.user_id,
-                                  }))}
+                                      : m.user_id
+                                    const held = heldInTeam(m.user_id, draftRole[key] ?? '')
+                                    return held
+                                      ? {
+                                          value: m.user_id,
+                                          label: `${name} — ${held.is_shadow ? 'shadowing ' : ''}${held.role_label}`,
+                                          disabled: true,
+                                        }
+                                      : { value: m.user_id, label: name }
+                                  })}
                                 />
+                              </label>
+                              {/* Learning the role beside whoever does it,
+                                  rather than doing it. */}
+                              <label className="flex items-center gap-2 self-center py-2 text-body-sm text-on-surface">
+                                <input
+                                  type="checkbox"
+                                  checked={!!draftShadow[key]}
+                                  onChange={(e) =>
+                                    setDraftShadow((s) => ({ ...s, [key]: e.target.checked }))
+                                  }
+                                  className="h-4 w-4 accent-[var(--color-primary)]"
+                                />
+                                Shadow
                               </label>
                               <button
                                 type="submit"
@@ -948,6 +1038,28 @@ export function TeamRotaPage() {
       </QueryState>
 
       {dialog}
+      {clashNotice && (
+        <Overlay onDismiss={() => setClashNotice(null)} label={clashNotice.title} closable={false}>
+          <div
+            role="alertdialog"
+            aria-label={clashNotice.title}
+            className="w-full max-w-sm rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
+          >
+            <h2 className="text-headline-sm text-on-surface">{clashNotice.title}</h2>
+            <p className="mt-2 text-body-sm text-on-surface-variant">{clashNotice.body}</p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setClashNotice(null)}
+                autoFocus
+                className="tap rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   )
 }

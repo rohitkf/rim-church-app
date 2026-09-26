@@ -272,6 +272,8 @@ export const rotaAssignmentSchema = z.object({
   user_id: z.string(),
   role_label: z.string(),
   role_id: z.string().nullable(),
+  /** Learning the role alongside whoever is doing it (0106). */
+  is_shadow: z.boolean().default(false),
   profile: personSummarySchema.nullable(),
   department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
 })

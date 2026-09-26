@@ -1,4 +1,5 @@
 import { errorMessage } from './errorMessage'
+import { EdgeFunctionRefusal } from './edgeFunctionRefusal'
 
 /**
  * Turn a database rejection into something a volunteer can act on.
@@ -50,6 +51,7 @@ function isOurOwnMessage(code: unknown): boolean {
 }
 
 function translate(err: unknown): string | null {
+  if (err instanceof EdgeFunctionRefusal) return err.message
   if (typeof err !== 'object' || err === null) return null
   const { code, message, details } = err as Record<string, unknown>
   if (isOurOwnMessage(code)) return typeof message === 'string' ? message : null
@@ -62,6 +64,21 @@ function translate(err: unknown): string | null {
   if (haystack.includes('row-level security')) return BY_CODE['42501']
   if (typeof code === 'string' && BY_CODE[code]) return BY_CODE[code]
   return null
+}
+
+/**
+ * Whether this is the rota refusing a second role at one service — the
+ * one mistake worth stopping somebody for, rather than a line at the top
+ * of a long page they have scrolled away from.
+ */
+export function isRotaClash(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const { message, details } = err as Record<string, unknown>
+  const haystack = `${typeof message === 'string' ? message : ''} ${typeof details === 'string' ? details : ''}`
+  return (
+    haystack.includes('rota_assignments_one_role_per_service') ||
+    haystack.includes('rota_assignments_one_coordinator_per_team')
+  )
 }
 
 /**

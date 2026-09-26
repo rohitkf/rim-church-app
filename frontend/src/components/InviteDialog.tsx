@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
+import { invokeEdgeFunction } from '../lib/edgeFunction'
 import { ActionButton, Field, inputClasses } from './Surface'
 import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
@@ -52,19 +52,15 @@ export function InviteDialog({
 
   const invite = useMutation({
     mutationFn: async () => {
-      const { data, error: callError } = await supabase.functions.invoke('invite', {
-        body: {
-          email: email.trim(),
-          department_id: departmentId || null,
-          member_type: memberType,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-        },
+      // The function's own reason when it says no — "That address already
+      // has an account" — rather than supabase-js's "non-2xx status code".
+      await invokeEdgeFunction('invite', {
+        email: email.trim(),
+        department_id: departmentId || null,
+        member_type: memberType,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
       })
-      // An edge function reports a refusal in the body, not by throwing, so a
-      // "success" carrying an error is still a failure.
-      if (callError) throw callError
-      if (data?.error) throw new Error(data.error)
       return email.trim()
     },
     onSuccess: (address) => {

@@ -7,8 +7,9 @@ import { InviteDialog } from './InviteDialog'
 const invoke = vi.fn()
 
 // The dialog reads the viewer's standing only to decide how bluntly to word
-// an error; an Admin is the case where the function's own message shows.
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }))
+// an error. Admin by default; a Head is the case that used to get a shrug.
+let viewerIsAdmin = true
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: viewerIsAdmin }) }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { functions: { invoke: (...args: unknown[]) => invoke(...(args as [])) } },
@@ -43,6 +44,7 @@ describe('InviteDialog', () => {
   beforeEach(() => {
     invoke.mockReset()
     invoke.mockResolvedValue({ data: { ok: true }, error: null })
+    viewerIsAdmin = true
   })
 
   it('sends the address', async () => {
@@ -143,6 +145,51 @@ describe('InviteDialog', () => {
     await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
     await user.click(screen.getByRole('button', { name: /Send invite/ }))
     expect(await screen.findByText('That address already has an account.')).toBeInTheDocument()
+  })
+
+  /*
+   * What the function really does: a 409 with the reason in the body. The
+   * client library reports any non-2xx as "Edge Function returned a non-2xx
+   * status code" and leaves the body unread on `error.context` — which is
+   * the sentence the form was showing for an address already signed up.
+   */
+  const refusedWith = (status: number, error: string) => ({
+    data: null,
+    error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      name: 'FunctionsHttpError',
+      context: new Response(JSON.stringify({ error }), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }),
+  })
+
+  it.each([
+    ['an Admin', true],
+    ['a team Head', false],
+  ])('reads the reason out of a refusal for %s', async (_who, admin) => {
+    viewerIsAdmin = admin
+    invoke.mockResolvedValue(refusedWith(409, 'That address already has an account.'))
+    const { user } = show()
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(await screen.findByText('That address already has an account.')).toBeInTheDocument()
+    expect(screen.queryByText(/non-2xx/)).not.toBeInTheDocument()
+  })
+
+  it('falls back to the plain sentence when a failure carries no reason', async () => {
+    viewerIsAdmin = false
+    invoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error('Failed to send a request to the Edge Function'), {
+        name: 'FunctionsFetchError',
+        context: new TypeError('offline'),
+      }),
+    })
+    const { user } = show()
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(await screen.findByText('Could not send that invitation.')).toBeInTheDocument()
   })
 
   it('will not send something that is not an address', async () => {
