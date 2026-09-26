@@ -260,6 +260,13 @@ describe('events that are over', () => {
   const sectionFor = async (name: RegExp) =>
     (await screen.findByRole('heading', { name })).closest('section') as HTMLElement
 
+  /** Past events sit folded under their own heading; open it first. */
+  const openPast = async () => {
+    const toggle = await screen.findByRole('button', { name: /Past events/ })
+    if (toggle.getAttribute('aria-expanded') !== 'true') await userEvent.click(toggle)
+    return toggle.closest('section') as HTMLElement
+  }
+
   it('are kept, under Past events rather than among what is coming', async () => {
     state.events = [
       meeting(),
@@ -268,7 +275,7 @@ describe('events that are over', () => {
     show()
 
     await screen.findByText('Members meeting')
-    const past = await sectionFor(/Past events/)
+    const past = await openPast()
     expect(within(past).getByText('Church workday')).toBeInTheDocument()
     expect(within(past).queryByText('Members meeting')).toBeNull()
 
@@ -281,7 +288,7 @@ describe('events that are over', () => {
     state.events = [meeting({ id: 'e2', title: 'Week of Prayer', event_date: '2026-08-22', ends_on: '2026-08-28' })]
     show()
 
-    const past = await sectionFor(/Past events/)
+    const past = await openPast()
     expect(within(past).getByText(/7 days/)).toBeInTheDocument()
     expect(within(past).queryByText(/Day 1 of 7/)).toBeNull()
     // One row for the whole run, not seven.
@@ -292,7 +299,7 @@ describe('events that are over', () => {
     state.events = [meeting({ event_date: '2026-08-22' })]
     show()
 
-    const past = await sectionFor(/Past events/)
+    const past = await openPast()
     await userEvent.click(within(past).getByRole('button', { name: 'Edit' }))
     expect(screen.getByRole('heading', { name: 'Edit this event' })).toBeInTheDocument()
     expect(screen.getByDisplayValue('Members meeting')).toBeInTheDocument()
@@ -302,6 +309,7 @@ describe('events that are over', () => {
     state.events = [meeting({ event_date: '2026-08-22', details: 'Twelve of us came.' })]
     show()
 
+    await openPast()
     await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
     expect(within(screen.getByRole('dialog')).getByText('Twelve of us came.')).toBeInTheDocument()
   })
@@ -309,6 +317,39 @@ describe('events that are over', () => {
   it('is not there at all for a church with nothing behind it', async () => {
     show()
     await screen.findByText('Members meeting')
-    expect(screen.queryByRole('heading', { name: /Past events/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Past events/ })).toBeNull()
+  })
+
+  /*
+   * Folded, like every page's finished services: the record is a real
+   * question, but never the one this page is opened for. The count says
+   * whether it is worth opening.
+   */
+  it('arrives folded, saying how many are inside', async () => {
+    state.events = [
+      meeting({ id: 'e2', title: 'Church workday', event_date: '2026-08-22' }),
+      meeting({ id: 'e3', title: 'Harvest supper', event_date: '2026-07-04' }),
+    ]
+    show()
+
+    const toggle = await screen.findByRole('button', { name: /Past events/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveTextContent('2')
+    expect(screen.queryByRole('button', { name: /Church workday — see the details/ })).toBeNull()
+
+    await userEvent.click(toggle)
+    expect(screen.getByRole('button', { name: /Church workday — see the details/ })).toBeInTheDocument()
+  })
+
+  it('keeps the last year, and lets anything older go', async () => {
+    state.events = [
+      meeting({ id: 'e2', title: 'Last spring', event_date: '2026-03-01' }),
+      meeting({ id: 'e3', title: 'Two summers ago', event_date: '2025-06-01' }),
+    ]
+    show()
+
+    const past = await openPast()
+    expect(within(past).getByText('Last spring')).toBeInTheDocument()
+    expect(within(past).queryByText('Two summers ago')).toBeNull()
   })
 })

@@ -26,7 +26,7 @@ import {
   upcomingRepeats,
   type RepeatChoice,
 } from '../lib/serviceRepeat'
-import { formatRange } from '../lib/dateRange'
+import { addDays, formatRange } from '../lib/dateRange'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -253,10 +253,20 @@ export function ServicePlannerIndexPage() {
     return done
   }, [windowFor, clock])
 
+  /*
+   * Everything still to come in the next year.
+   *
+   * This used to stop at a count (six, by default) on the grounds that the
+   * calendar above already showed the month. With services that repeat,
+   * a count is the wrong unit: six weeks of Sunday services filled it and
+   * the Christmas service somebody had already planned was nowhere on the
+   * page. A year is how far the diary looks ahead too.
+   */
+  const upcomingHorizon = addDays(today, 365)
   const upcoming = useMemo(
     () =>
       visibleServices
-        .filter((s) => s.date >= today && !finishedIds.has(s.id))
+        .filter((s) => s.date >= today && s.date <= upcomingHorizon && !finishedIds.has(s.id))
         // By day, then by when it actually starts — two services on one
         // Sunday should read morning before evening, which alphabetical
         // order by name does not promise.
@@ -265,9 +275,8 @@ export function ServicePlannerIndexPage() {
             a.date.localeCompare(b.date) ||
             (windowFor.get(a.id)?.from ?? Infinity) - (windowFor.get(b.id)?.from ?? Infinity) ||
             a.service_type.localeCompare(b.service_type),
-        )
-        .slice(0, settings.planner_upcoming_limit),
-    [visibleServices, today, windowFor, finishedIds, settings],
+        ),
+    [visibleServices, today, upcomingHorizon, windowFor, finishedIds],
   )
 
   // What has already happened this week, most recent first. Anything that

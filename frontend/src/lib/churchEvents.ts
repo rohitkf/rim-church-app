@@ -1,7 +1,14 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
-import { dayCount, daysBetween } from './dateRange'
-import { diaryTime, eventIsOver, lastDayOf, type DiaryEntry, type DiaryEvent } from './churchDiary'
+import { addDays, dayCount, daysBetween } from './dateRange'
+import {
+  DIARY_WINDOW_DAYS,
+  diaryTime,
+  eventIsOver,
+  lastDayOf,
+  type DiaryEntry,
+  type DiaryEvent,
+} from './churchDiary'
 
 export const eventSchema = z.object({
   id: z.string(),
@@ -102,8 +109,11 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
  * simply stopped existing.
  */
 export function pastDiaryEntries(events: DiaryEvent[], today: string): DiaryEntry[] {
+  // The last year, the same distance back as the diary looks forward: a
+  // record of what this church has done lately, not everything it ever did.
+  const floor = addDays(today, -DIARY_WINDOW_DAYS)
   return events
-    .filter((event) => eventIsOver(event, today))
+    .filter((event) => eventIsOver(event, today) && lastDayOf(event) >= floor)
     .map((event) => {
       const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
       return {

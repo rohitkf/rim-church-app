@@ -298,6 +298,20 @@ describe('events that are over', () => {
     expect(eventIsOver(over[0], TODAY)).toBe(true)
   })
 
+  it('reaches a year back and no further', () => {
+    const diary = buildDiary({
+      people: [],
+      services: [],
+      events: [
+        { ...over[0], id: 'within', event_date: '2025-09-02' },
+        { ...over[0], id: 'beyond', event_date: '2025-08-31' },
+      ],
+      today: TODAY,
+      includePast: true,
+    })
+    expect(diary.map((e) => e.date)).toEqual(['2025-09-02'])
+  })
+
   it('still stops at the horizon ahead, whatever it does behind', () => {
     const diary = buildDiary({
       people: [],

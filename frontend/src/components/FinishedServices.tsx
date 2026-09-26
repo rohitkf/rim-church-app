@@ -17,9 +17,12 @@ export function FinishedServices({
   count,
   id,
   aside,
+  label = 'Finished',
   children,
 }: {
   count: number
+  /** What the heading says. "Finished" for services; the diary says "Past events". */
+  label?: ReactNode
   /** The panel's own id, for `aria-controls`. */
   id: string
   /** A note on the right of the heading — when the list clears, say. */
@@ -38,7 +41,7 @@ export function FinishedServices({
         className="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left"
       >
         <span className="flex items-baseline gap-2 text-headline-md text-on-surface-variant">
-          Finished
+          {label}
           <span className="font-mono text-label-sm text-on-surface-faint">{count}</span>
           <Chevron open={open} />
         </span>
