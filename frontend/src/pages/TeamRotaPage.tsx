@@ -547,6 +547,15 @@ export function TeamRotaPage() {
                           )
                           .map((a) => a.user_id),
                       )
+                      // What each of them said with their yes — "only there by
+                      // 8.30" — so it is read while choosing, not after.
+                      const noteOf = (userId: string) =>
+                        (availabilityQuery.data ?? []).find(
+                          (a) =>
+                            a.service_id === service.id &&
+                            a.department_id === dept.id &&
+                            a.user_id === userId,
+                        )?.note ?? null
                       const roster = (membersQuery.data ?? []).filter(
                         (m) =>
                           m.department_id === dept.id &&
@@ -770,6 +779,13 @@ export function TeamRotaPage() {
                                                 : a.profile
                                                   ? `${a.profile.first_name} ${a.profile.last_name}`
                                                   : 'Unknown'}
+                                              {noteOf(a.user_id) && (
+                                                <span
+                                                  className={`block text-label-sm ${sky ? 'text-white/75' : 'text-on-surface-variant'}`}
+                                                >
+                                                  “{noteOf(a.user_id)}”
+                                                </span>
+                                              )}
                                             </span>
                                           )}
                                           {manage && (
@@ -959,7 +975,12 @@ export function TeamRotaPage() {
                                           label: `${name} — ${held.role_label}${tagNote(held.tags)}`,
                                           disabled: true,
                                         }
-                                      : { value: m.user_id, label: name }
+                                      : {
+                                          value: m.user_id,
+                                          label: noteOf(m.user_id)
+                                            ? `${name} · “${noteOf(m.user_id)}”`
+                                            : name,
+                                        }
                                   }))}
                                 />
                               </label>
