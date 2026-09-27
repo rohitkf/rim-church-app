@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextSongOrder, safeSongLink, songLeaders, songsFor } from './setList'
+import { SONG_KEYS, groupSetListServices, nextSongOrder, safeSongLink, songLeaders, songsFor } from './setList'
 import type { RotaAssignment, SetListItem } from './types'
 
 const assignment = (over: Partial<RotaAssignment>): RotaAssignment =>
@@ -112,3 +112,33 @@ describe('songsFor and nextSongOrder', () => {
     expect(nextSongOrder([], 's1')).toBe(0)
   })
 })
+
+describe('grouping the set lists page', () => {
+  const svc = (id: string, date: string) => ({ id, date })
+  const services = [
+    svc('lastweek', '2026-09-20'),
+    svc('amdone', '2026-09-27'),
+    svc('pm', '2026-09-27'),
+    svc('next', '2026-10-04'),
+    svc('three', '2026-10-18'),
+    svc('toofar', '2026-10-25'),
+    svc('ancient', '2026-08-01'),
+  ]
+  const g = groupSetListServices(services, '2026-09-27', (id) => id === 'amdone')
+
+  it('puts today’s services still to happen in Today', () => {
+    expect(g.today.map((s) => s.id)).toEqual(['pm'])
+  })
+  it('takes upcoming services out to three weeks, and no further', () => {
+    expect(g.upcoming.map((s) => s.id)).toEqual(['next', 'three'])
+  })
+  it('keeps three weeks of finished services, latest first', () => {
+    expect(g.finished.map((s) => s.id)).toEqual(['amdone', 'lastweek'])
+  })
+  it('offers all twenty-four keys', () => {
+    expect(SONG_KEYS).toHaveLength(24)
+    expect(SONG_KEYS).toContain('G major')
+    expect(SONG_KEYS).toContain('F♯ / G♭ minor')
+  })
+})
+

@@ -1,4 +1,5 @@
 import type { RotaAssignment, SetListItem } from './types'
+import { shiftIsoDays } from './rotaWindow'
 
 export interface SongLeader {
   id: string
@@ -72,3 +73,44 @@ export function songsFor(items: SetListItem[], serviceId: string): SetListItem[]
 export function nextSongOrder(items: SetListItem[], serviceId: string): number {
   return songsFor(items, serviceId).reduce((max, i) => Math.max(max, i.sort_order + 1), 0)
 }
+
+/**
+ * The keys a song can be in, as the picker offers them: round the circle
+ * from C, majors then minors. Sharps and flats both named where a band
+ * says either, so nobody has to translate.
+ */
+const TONICS = ['C', 'C♯ / D♭', 'D', 'E♭', 'E', 'F', 'F♯ / G♭', 'G', 'A♭', 'A', 'B♭', 'B']
+export const SONG_KEYS: string[] = [
+  ...TONICS.map((t) => `${t} major`),
+  ...TONICS.map((t) => `${t} minor`),
+]
+
+/** How far ahead set lists can be written, and how far back they are kept. */
+export const SET_LIST_DAYS = 21
+
+/**
+ * The set lists page in three groups: today's services still to happen,
+ * everything else up to three weeks ahead, and what has finished in the
+ * last three weeks — the latest first, since last Sunday's set is the one
+ * somebody looks back for.
+ */
+export function groupSetListServices<T extends { id: string; date: string }>(
+  services: T[],
+  today: string,
+  isFinished: (id: string) => boolean,
+  days = SET_LIST_DAYS,
+): { today: T[]; upcoming: T[]; finished: T[] } {
+  const from = shiftIsoDays(today, -days)
+  const to = shiftIsoDays(today, days)
+  const inWindow = services
+    .filter((s) => s.date >= from && s.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  // A day that has gone is over whether or not anybody gave it times.
+  const over = (s: T) => s.date < today || isFinished(s.id)
+  return {
+    today: inWindow.filter((s) => s.date === today && !over(s)),
+    upcoming: inWindow.filter((s) => s.date > today && !over(s)),
+    finished: inWindow.filter(over).reverse(),
+  }
+}
+

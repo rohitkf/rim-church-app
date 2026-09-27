@@ -66,7 +66,7 @@ export async function fetchSetListItems(serviceIds: string[]): Promise<SetListIt
   const { data, error } = await supabase
     .from('set_list_items')
     .select(
-      'id, service_id, title, led_by, link, lyrics, sort_order, leader:profiles!set_list_items_led_by_fkey(id, first_name, last_name)',
+      'id, service_id, title, led_by, link, lyrics, song_key, sort_order, leader:profiles!set_list_items_led_by_fkey(id, first_name, last_name)',
     )
     .in('service_id', serviceIds)
     .order('sort_order')

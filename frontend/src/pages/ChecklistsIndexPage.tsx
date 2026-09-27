@@ -470,9 +470,29 @@ export function ChecklistsIndexPage() {
                                    drawn at all — an empty heading is worse
                                    than no heading. */
                                 PHASES.filter((phase) => byPhase(items, phase.value).length > 0).map((phase) => (
-                                <div key={phase.value} className="mt-3">
-                                  <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                                    {phase.label}
+                                <div
+                                  key={phase.value}
+                                  className={`mt-4 rounded-[var(--radius-chip)] border-l-4 py-2 pl-3 pr-1 ${
+                                    phase.value === 'pre'
+                                      ? 'border-accent-blue bg-[color-mix(in_oklab,var(--color-accent-blue)_7%,transparent)]'
+                                      : 'border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)]'
+                                  }`}
+                                >
+                                  {/* Two groups that have to read as two:
+                                      a coloured rule down the side, a tint,
+                                      and a heading in the group's colour —
+                                      blue before, indigo after — rather than
+                                      a faint label that looked like another
+                                      row. */}
+                                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                    <span
+                                      className={`font-mono text-label-md font-semibold uppercase tracking-[0.12em] ${
+                                        phase.value === 'pre' ? 'text-accent-blue' : 'text-accent-indigo-soft'
+                                      }`}
+                                    >
+                                      {phase.label}
+                                    </span>
+                                    <span className="text-label-sm text-on-surface-faint">{phase.blurb}</span>
                                   </div>
                                   <ul className="mt-1 divide-y divide-border-subtle">
                                   {byPhase(items, phase.value).map((item) => {

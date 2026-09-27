@@ -1137,8 +1137,11 @@ function DayHeading({
   count: number
 }) {
   return (
+    // Wraps rather than holding its width: "TODAY · SUNDAY, SEPTEMBER 27,
+    // 2026" in spaced capitals is wider than a 360px phone, and held on one
+    // line it pushed the whole page sideways.
     <div className="flex items-baseline gap-3">
-      <h2 className="shrink-0 font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
+      <h2 className="min-w-0 break-words font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
         {date === today ? `Today · ${formatServiceDay(date)}` : formatServiceDay(date)}
       </h2>
       <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border-subtle" />

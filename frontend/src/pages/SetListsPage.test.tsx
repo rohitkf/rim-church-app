@@ -10,6 +10,9 @@ const insert = vi.fn()
 const canEdit = vi.fn()
 const setListItems = vi.fn()
 const rotaAssignments = vi.fn()
+let servicesList: { id: string; date: string; service_type: string }[] = [
+  { id: 's1', date: '2026-09-06', service_type: 'Sunday Morning' },
+]
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: false }),
@@ -24,8 +27,7 @@ vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ rota_window_days
 vi.mock('../lib/monthGrid', () => ({ todayIso: () => '2026-09-01' }))
 
 vi.mock('../lib/queries', () => ({
-  fetchServices: () =>
-    Promise.resolve([{ id: 's1', date: '2026-09-06', service_type: 'Sunday Morning' }]),
+  fetchServices: () => Promise.resolve(servicesList),
   fetchDepartments: () =>
     Promise.resolve([{ id: 'worship', name: 'Worship', is_worship: true, is_service_flow: false }]),
   fetchCanEditSetList: () => canEdit(),
@@ -59,6 +61,7 @@ const song = {
   link: null,
   lyrics: null,
   sort_order: 0,
+  song_key: null,
   leader: null,
 }
 
@@ -194,3 +197,65 @@ describe('SetListsPage', () => {
     })
   })
 })
+
+describe('set lists, three weeks at a time', () => {
+  beforeEach(() => {
+    servicesList = [
+      { id: 's1', date: '2026-09-06', service_type: 'Sunday Morning' },
+      { id: 's3', date: '2026-09-20', service_type: 'Three weeks out' },
+      { id: 'far', date: '2026-10-11', service_type: 'Too far ahead' },
+      { id: 'past', date: '2026-08-30', service_type: 'Last Sunday' },
+    ]
+    canEdit.mockResolvedValue(true)
+    rotaAssignments.mockResolvedValue([])
+    setListItems.mockResolvedValue([])
+    insert.mockClear()
+    update.mockClear()
+  })
+
+  it('lists services up to three weeks ahead under Upcoming, and what has finished under Finished', async () => {
+    show()
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByText('Sunday Morning')).toBeInTheDocument()
+    expect(within(upcoming).getByText('Three weeks out')).toBeInTheDocument()
+    expect(screen.queryByText('Too far ahead')).toBeNull()
+    expect(screen.getByRole('button', { name: /Finished services/ })).toBeInTheDocument()
+  })
+
+  it('saves the key a song is in', async () => {
+    const user = userEvent.setup()
+    show()
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    await user.click(within(upcoming).getAllByRole('button', { name: /Add a song/ })[0])
+    await user.type(screen.getByPlaceholderText('Goodness of God'), 'Way Maker')
+    await chooseOption(user, screen.getByRole('combobox', { name: 'Key' }), 'G major')
+    await user.click(screen.getByRole('button', { name: 'Add song' }))
+    await waitFor(() =>
+      expect(insert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Way Maker', song_key: 'G major' })),
+    )
+  })
+
+  it('shows the key beside the song', async () => {
+    setListItems.mockResolvedValue([{ ...song, song_key: 'B♭ major' }])
+    show()
+    expect(await screen.findByText('B♭ major')).toBeInTheDocument()
+  })
+
+  it('reorders songs, and writes the new order once the song is let go', async () => {
+    setListItems.mockResolvedValue([
+      { ...song, id: 'a', title: 'First', sort_order: 0 },
+      { ...song, id: 'b', title: 'Second', sort_order: 1 },
+    ])
+    const user = userEvent.setup()
+    show()
+    const list = await screen.findByRole('list', { name: 'Songs in order' })
+    const grips = within(list).getAllByRole('button', { name: /Move|Reorder|Drag/i })
+    grips[0].focus()
+    await user.keyboard('{ArrowDown}')
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledWith({ sort_order: 0 }, 'b')
+      expect(update).toHaveBeenCalledWith({ sort_order: 1 }, 'a')
+    })
+  })
+})
+

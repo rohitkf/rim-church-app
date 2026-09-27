@@ -252,6 +252,8 @@ export const setListItemSchema = z.object({
   led_by: z.string().nullable(),
   link: z.string().nullable(),
   lyrics: z.string().nullable(),
+  /** "G major", "B♭ minor" — which key it is played in (0111). */
+  song_key: z.string().nullable().default(null),
   sort_order: z.number(),
   leader: personSummarySchema.nullable(),
 })

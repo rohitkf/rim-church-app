@@ -21,12 +21,21 @@ import {
   fetchSetListItems,
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
-import { servicesToShow } from '../lib/rotaWindow'
-import { useAppSettings } from '../lib/appSettings'
 import { formatServiceDay } from '../lib/sunday'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useErrorText } from '../lib/useErrorText'
-import { nextSongOrder, safeSongLink, songLeaders, songsFor } from '../lib/setList'
+import {
+  SET_LIST_DAYS,
+  SONG_KEYS,
+  groupSetListServices,
+  nextSongOrder,
+  safeSongLink,
+  songLeaders,
+  songsFor,
+} from '../lib/setList'
+import { useDragReorder } from '../lib/useDragReorder'
+import { DragHandle } from '../components/DragHandle'
+import { FinishedServices } from '../components/FinishedServices'
 import type { SetListItem } from '../lib/types'
 import { Select } from '../components/Select'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -48,7 +57,6 @@ export function SetListsPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
-  const settings = useAppSettings()
   const [error, setError] = useState<string | null>(null)
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
@@ -67,14 +75,16 @@ export function SetListsPage() {
     [servicesQuery.data],
   )
   const { isFinished } = useFinishedServices(allServiceIds)
-  // The same window every other page works to, and set in the same place.
+  // Three weeks ahead, so a set can be written well before its Sunday —
+  // the same horizon people answer availability over — and the last three
+  // weeks behind, under Finished.
+  const groups = useMemo(
+    () => groupSetListServices(servicesQuery.data ?? [], today, isFinished),
+    [servicesQuery.data, today, isFinished],
+  )
   const services = useMemo(
-    () =>
-      servicesToShow(servicesQuery.data ?? [], today, {
-        days: settings.rota_window_days,
-        isFinished,
-      }),
-    [servicesQuery.data, today, settings.rota_window_days, isFinished],
+    () => [...groups.today, ...groups.upcoming, ...groups.finished],
+    [groups],
   )
   const serviceIds = useMemo(() => services.map((s) => s.id), [services])
 
@@ -109,6 +119,7 @@ export function SetListsPage() {
       led_by: string | null
       link: string | null
       lyrics: string | null
+      song_key: string | null
     }) => {
       const { error: insertError } = await supabase.from('set_list_items').insert({
         ...song,
@@ -134,6 +145,7 @@ export function SetListsPage() {
       led_by: string | null
       link: string | null
       lyrics: string | null
+      song_key: string | null
     }) => {
       const { error: updateError } = await supabase
         .from('set_list_items')
@@ -148,6 +160,28 @@ export function SetListsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not save that song.')),
   })
 
+  // The order the songs come in, as dragged. Renumbered 0, 1, 2… so two
+  // songs added at the same moment, sharing a number, can still be moved.
+  const reorderSongs = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const [i, id] of ids.entries()) {
+        const { error: orderError } = await supabase
+          .from('set_list_items')
+          .update({ sort_order: i })
+          .eq('id', id)
+        if (orderError) throw orderError
+      }
+    },
+    onSuccess: () => {
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => {
+      setError(errorText(err, 'Could not move that song.'))
+      invalidate()
+    },
+  })
+
   const removeSong = useMutation({
     mutationFn: async (id: string) => {
       const { error: deleteError } = await supabase.from('set_list_items').delete().eq('id', id)
@@ -160,28 +194,7 @@ export function SetListsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that song.')),
   })
 
-  return (
-    <div>
-      <PageHeader
-        eyebrow="What we are singing"
-        title="Set Lists"
-        description="One list per service, in the order the songs come. The worship team keeps it, and everybody can read it."
-      />
-
-      {error && (
-        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-          {error}
-        </p>
-      )}
-
-      <QueryState
-        isLoading={servicesQuery.isLoading}
-        error={servicesQuery.error}
-        isEmpty={services.length === 0}
-        emptyMessage="No services in the next week or so."
-      >
-        <ul className="mt-6 flex flex-col gap-4">
-          {services.map((service) => {
+  const renderService = (service: (typeof services)[number]) => {
             const songs = songsFor(items, service.id)
             const leaders = songLeaders(assignments, service.id, worshipId)
             const open = isExpanded(service.id)
@@ -242,20 +255,15 @@ export function SetListsPage() {
                       {!canEdit && ' The worship team will add the songs before the service.'}
                     </Row>
                   ) : (
-                    <ol className="flex flex-col gap-2">
-                      {songs.map((song, index) => (
-                        <SongRow
-                          key={song.id}
-                          song={song}
-                          index={index}
-                          canEdit={canEdit}
-                          leaders={leaders}
-                          onSave={(fields) => editSong.mutateAsync({ id: song.id, ...fields })}
-                          onRemove={() => removeSong.mutate(song.id)}
-                          removing={removeSong.isPending}
-                        />
-                      ))}
-                    </ol>
+                    <SongList
+                      songs={songs}
+                      canEdit={canEdit && !finished}
+                      leaders={leaders}
+                      onReorder={(ids) => reorderSongs.mutate(ids)}
+                      onSave={(id, fields) => editSong.mutateAsync({ id, ...fields })}
+                      onRemove={(id) => removeSong.mutate(id)}
+                      removing={removeSong.isPending}
+                    />
                   )}
 
                   {canEdit && (
@@ -268,8 +276,55 @@ export function SetListsPage() {
                 </div>
               </Tile>
             )
-          })}
-        </ul>
+  }
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow="What we are singing"
+        title="Set Lists"
+        description="One list per service, in the order the songs come. The worship team keeps it, and everybody can read it."
+      />
+
+      {error && (
+        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          {error}
+        </p>
+      )}
+
+      <QueryState
+        isLoading={servicesQuery.isLoading}
+        error={servicesQuery.error}
+        isEmpty={services.length === 0}
+        emptyMessage="No services in the three weeks either side of today."
+      >
+        <div className="mt-6 flex flex-col gap-8">
+          {groups.today.length > 0 && (
+            <section aria-label="Today's services">
+              <h2 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
+                Today&rsquo;s services
+              </h2>
+              <ul className="mt-3 flex flex-col gap-4">{groups.today.map(renderService)}</ul>
+            </section>
+          )}
+          <section aria-label="Upcoming services">
+            <h2 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
+              Upcoming services
+            </h2>
+            {groups.upcoming.length === 0 ? (
+              <p className="mt-3 text-body-sm text-on-surface-variant">
+                Nothing else in the next {SET_LIST_DAYS / 7} weeks.
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-4">{groups.upcoming.map(renderService)}</ul>
+            )}
+          </section>
+          {groups.finished.length > 0 && (
+            <FinishedServices count={groups.finished.length} id="finished-set-lists" label="Finished services">
+              <ul className="flex flex-col gap-4">{groups.finished.map(renderService)}</ul>
+            </FinishedServices>
+          )}
+        </div>
       </QueryState>
     </div>
   )
@@ -281,6 +336,7 @@ export interface SongFields {
   led_by: string | null
   link: string | null
   lyrics: string | null
+  song_key: string | null
 }
 
 /**
@@ -320,6 +376,23 @@ function SongInputs({
             onChange={(e) => onChange({ ...value, title: e.target.value })}
             placeholder={titlePlaceholder}
             className={inputClasses}
+          />
+        </Field>
+
+        <Field label="Key" className="min-w-36">
+          <Select
+            value={value.song_key ?? ''}
+            onChange={(k) => onChange({ ...value, song_key: k || null })}
+            aria-label="Key"
+            options={[
+              { value: '', label: 'Not set' },
+              // A key typed in before this list existed stays choosable.
+              ...(value.song_key && !SONG_KEYS.includes(value.song_key)
+                ? [{ value: value.song_key, label: value.song_key }]
+                : []),
+              { label: 'Major', options: SONG_KEYS.filter((k) => k.endsWith('major')).map((k) => ({ value: k, label: k })) },
+              { label: 'Minor', options: SONG_KEYS.filter((k) => k.endsWith('minor')).map((k) => ({ value: k, label: k })) },
+            ]}
           />
         </Field>
 
@@ -389,7 +462,60 @@ function tidy(fields: SongFields): SongFields {
     led_by: fields.led_by || null,
     link: fields.link?.trim() || null,
     lyrics: fields.lyrics?.trim() || null,
+    song_key: fields.song_key?.trim() || null,
   }
+}
+
+/**
+ * The songs in their order, draggable by whoever keeps the set list. The
+ * grip works by finger, by mouse, and by arrow keys once focused; the new
+ * order is written when the song is let go.
+ */
+function SongList({
+  songs,
+  canEdit,
+  leaders,
+  onReorder,
+  onSave,
+  onRemove,
+  removing,
+}: {
+  songs: SetListItem[]
+  canEdit: boolean
+  leaders: ReturnType<typeof songLeaders>
+  onReorder: (ids: string[]) => void
+  onSave: (id: string, fields: SongFields) => Promise<unknown>
+  onRemove: (id: string) => void
+  removing: boolean
+}) {
+  const byId = new Map(songs.map((s) => [s.id, s]))
+  const { ordered, handleProps, rowProps } = useDragReorder(
+    songs.map((s) => s.id),
+    onReorder,
+    { enabled: canEdit },
+  )
+  return (
+    <ol className="flex flex-col gap-2" aria-label="Songs in order">
+      {ordered.map((id, index) => {
+        const song = byId.get(id)
+        if (!song) return null
+        return (
+          <li key={id} {...rowProps(id)}>
+            <SongRow
+              song={song}
+              index={index}
+              canEdit={canEdit}
+              leaders={leaders}
+              onSave={(fields) => onSave(id, fields)}
+              onRemove={() => onRemove(id)}
+              removing={removing}
+              grip={canEdit && songs.length > 1 ? <DragHandle label={song.title} {...handleProps(id)} /> : undefined}
+            />
+          </li>
+        )
+      })}
+    </ol>
+  )
 }
 
 /** One song: its place in the order, who leads it, and what is attached. */
@@ -401,6 +527,7 @@ function SongRow({
   onSave,
   onRemove,
   removing,
+  grip,
 }: {
   song: SetListItem
   index: number
@@ -409,6 +536,8 @@ function SongRow({
   onSave: (fields: SongFields) => Promise<unknown>
   onRemove: () => void
   removing: boolean
+  /** The drag handle, when the list can be reordered. */
+  grip?: React.ReactNode
 }) {
   const [showLyrics, setShowLyrics] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -417,6 +546,7 @@ function SongRow({
     led_by: song.led_by,
     link: song.link,
     lyrics: song.lyrics,
+    song_key: song.song_key,
   }))
   // Open on whichever of them already has something in it, so correcting a
   // link does not begin with hunting for where the link went.
@@ -426,7 +556,7 @@ function SongRow({
   const { ask, dialog } = useConfirmAction()
 
   const startEditing = () => {
-    setDraft({ title: song.title, led_by: song.led_by, link: song.link, lyrics: song.lyrics })
+    setDraft({ title: song.title, led_by: song.led_by, link: song.link, lyrics: song.lyrics, song_key: song.song_key })
     setShowExtras(!!song.link || !!song.lyrics)
     setEditing(true)
   }
@@ -446,7 +576,7 @@ function SongRow({
 
   if (editing) {
     return (
-      <Row as="li" variant="raised" stack>
+      <Row variant="raised" stack>
         <form onSubmit={save}>
           <SongInputs
             value={draft}
@@ -469,13 +599,19 @@ function SongRow({
   }
 
   return (
-    <Row as="li" variant="raised" stack>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <Row variant="raised" stack>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {grip}
         <span className="shrink-0 font-mono text-label-sm tabular text-on-surface-faint">
           {index + 1}
         </span>
         <span className="min-w-0 flex-1 break-words text-body-md font-medium text-on-surface">
           {song.title}
+          {song.song_key && (
+            <span className="ml-2 inline-block rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_16%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-normal text-accent-indigo-soft">
+              {song.song_key}
+            </span>
+          )}
         </span>
         {song.leader ? (
           <span className="shrink-0 text-body-sm text-on-surface-variant">
@@ -567,7 +703,7 @@ function AddSongForm({
   busy: boolean
   onAdd: (song: SongFields) => void
 }) {
-  const empty: SongFields = { title: '', led_by: null, link: null, lyrics: null }
+  const empty: SongFields = { title: '', led_by: null, link: null, lyrics: null, song_key: null }
   const [draft, setDraft] = useState<SongFields>(empty)
   const [showExtras, setShowExtras] = useState(false)
   // Shut until asked for. Open, it made a page of set lists read as a page
