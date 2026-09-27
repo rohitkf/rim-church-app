@@ -243,11 +243,14 @@ export function DashboardPage() {
     return (serviceId: string) => {
       const hit = cache.get(serviceId)
       if (hit) return hit
-      const standing = serviceStanding(sessionsByService.get(serviceId) ?? [], clock)
+      // End service, when it was pressed, ends it here too — not only on
+      // the planner.
+      const endedAt = (servicesQuery.data ?? []).find((s) => s.id === serviceId)?.ended_at
+      const standing = serviceStanding(sessionsByService.get(serviceId) ?? [], clock, endedAt)
       cache.set(serviceId, standing)
       return standing
     }
-  }, [sessionsByService, clock])
+  }, [sessionsByService, clock, servicesQuery.data])
 
   // In the order they happen, which on a day with two services is a fact
   // about the running order rather than about the names.
@@ -988,8 +991,14 @@ export function DashboardPage() {
               )
               }
               const live = services.filter((s) => standingOf(s.id).state !== 'done')
-              // Latest first: the one that has just ended is the one asked about.
-              const finished = services.filter((s) => standingOf(s.id).state === 'done').reverse()
+              // Latest day first — the one that has just ended is the one
+              // asked about — but a day still reads in its running order,
+              // English before Malayalam, rather than backwards.
+              const done = services.filter((s) => standingOf(s.id).state === 'done')
+              const finished = [...new Set(done.map((s) => s.date))]
+                .sort()
+                .reverse()
+                .flatMap((date) => done.filter((s) => s.date === date))
               return (
                 <>
                   {live.map(renderService)}

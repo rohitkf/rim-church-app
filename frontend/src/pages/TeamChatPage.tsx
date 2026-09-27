@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -65,6 +66,7 @@ export function TeamChatPage() {
         title="Team Chat"
         description="The room for your team — what is said here stays with the people on it."
       />
+      <Lifespan page="team-chat" className="mb-4" />
 
       <QueryState
         isLoading={departmentsQuery.isLoading || membershipsQuery.isLoading}

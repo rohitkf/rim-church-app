@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
@@ -304,6 +305,7 @@ export function SetListsPage() {
         title="Set Lists"
         description="One list per service, in the order the songs come. The worship team keeps it, and everybody can read it."
       />
+      <Lifespan page="set-lists" className="mb-4" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">

@@ -49,7 +49,7 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 vi.mock('../lib/useFinishedServices', () => ({
-  useFinishedServices: () => ({ isFinished: () => false, afterServiceOpenUntil: () => null }),
+  useFinishedServices: () => ({ isFinished: () => false, afterServiceOpenUntil: () => null, startsAt: () => null }),
 }))
 vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ rota_window_days: 14 }) }))
 

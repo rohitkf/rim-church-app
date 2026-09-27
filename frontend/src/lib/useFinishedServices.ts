@@ -28,21 +28,37 @@ export function useFinishedServices(serviceIds: string[]) {
   const sessionsQuery = useQuery({
     queryKey: ['finished-service-sessions', ids],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('service_sessions')
-        .select('id, service_id, start_time, duration_minutes')
-        .in('service_id', ids)
-      if (error) throw error
-      return z
-        .array(
-          z.object({
-            id: z.string(),
-            service_id: z.string(),
-            start_time: z.string(),
-            duration_minutes: z.number().nullable(),
-          }),
-        )
-        .parse(data)
+      // The running order says when a service is due to end; End service,
+      // when somebody pressed it, says when it did. Both are read here so
+      // every page closes a service at the same moment the planner does
+      // and the database starts locking it — not at the planned end.
+      const [sessions, ended] = await Promise.all([
+        supabase
+          .from('service_sessions')
+          .select('id, service_id, start_time, duration_minutes')
+          .in('service_id', ids),
+        supabase.from('services').select('id, ended_at').in('id', ids),
+      ])
+      if (sessions.error) throw sessions.error
+      if (ended.error) throw ended.error
+      return {
+        sessions: z
+          .array(
+            z.object({
+              id: z.string(),
+              service_id: z.string(),
+              start_time: z.string(),
+              duration_minutes: z.number().nullable(),
+            }),
+          )
+          .parse(sessions.data),
+        endedAt: new Map(
+          z
+            .array(z.object({ id: z.string(), ended_at: z.string().nullable().optional() }))
+            .parse(ended.data ?? [])
+            .map((s) => [s.id, s.ended_at ?? null] as const),
+        ),
+      }
     },
     enabled: ids.length > 0,
   })
@@ -60,15 +76,18 @@ export function useFinishedServices(serviceIds: string[]) {
       string,
       { id: string; start_time: string; duration_minutes: number | null }[]
     >()
-    for (const row of sessionsQuery.data ?? []) {
+    for (const row of sessionsQuery.data?.sessions ?? []) {
       byService.set(row.service_id, [...(byService.get(row.service_id) ?? []), row])
     }
 
     const finished = new Set<string>()
     const startsAt = new Map<string, string>()
     const endedAt = new Map<string, number>()
-    for (const [serviceId, sessions] of byService) {
-      const standing = serviceStanding(sessions, clock)
+    // Every service asked about, not only those with sessions: one that was
+    // ended by hand without a running order is still over.
+    for (const serviceId of ids) {
+      const sessions = byService.get(serviceId) ?? []
+      const standing = serviceStanding(sessions, clock, sessionsQuery.data?.endedAt.get(serviceId))
       if (standing.state === 'done') {
         finished.add(serviceId)
         if (standing.to !== null) endedAt.set(serviceId, standing.to)
@@ -101,5 +120,5 @@ export function useFinishedServices(serviceIds: string[]) {
       },
       isLoading: sessionsQuery.isLoading,
     }
-  }, [sessionsQuery.data, sessionsQuery.isLoading, clock])
+  }, [sessionsQuery.data, sessionsQuery.isLoading, clock, ids])
 }

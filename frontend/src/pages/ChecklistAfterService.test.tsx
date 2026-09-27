@@ -87,6 +87,7 @@ vi.mock('../lib/useFinishedServices', () => ({
   useFinishedServices: () => ({
     isFinished: () => true,
     afterServiceOpenUntil: () => clock.openUntil,
+    startsAt: () => null,
   }),
 }))
 

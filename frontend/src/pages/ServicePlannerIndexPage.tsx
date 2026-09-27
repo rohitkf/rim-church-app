@@ -1,4 +1,5 @@
 import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -245,13 +246,19 @@ export function ServicePlannerIndexPage() {
   // A service is finished when its last session's end has passed — the
   // running order already says so, and nothing has to be marked or
   // remembered for it to be true.
+  //
+  // Or when End service was pressed: that is the moment the service page and
+  // the database treat it as over, so this list must not keep it upcoming.
   const finishedIds = useMemo(() => {
     const done = new Set<string>()
     for (const [serviceId, window] of windowFor) {
       if (clock >= window.to) done.add(serviceId)
     }
+    for (const service of visibleServices) {
+      if (service.ended_at && clock >= Date.parse(service.ended_at)) done.add(service.id)
+    }
     return done
-  }, [windowFor, clock])
+  }, [windowFor, clock, visibleServices])
 
   /*
    * Everything still to come in the next year.
@@ -285,8 +292,18 @@ export function ServicePlannerIndexPage() {
   const finished = useMemo(() => {
     const since = lastWeeklyClear(new Date(), settings.board_clear_dow)
     return visibleServices
-      .filter((s) => finishedIds.has(s.id) && (windowFor.get(s.id)?.to ?? 0) >= since)
-      .sort((a, b) => (windowFor.get(b.id)?.to ?? 0) - (windowFor.get(a.id)?.to ?? 0))
+      .filter(
+        (s) =>
+          finishedIds.has(s.id) &&
+          (s.ended_at ? Date.parse(s.ended_at) : (windowFor.get(s.id)?.to ?? 0)) >= since,
+      )
+      // Latest day first, but each day in its running order — English
+      // before Malayalam, not the one that ended last first.
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(a.date) ||
+          (windowFor.get(a.id)?.from ?? Infinity) - (windowFor.get(b.id)?.from ?? Infinity),
+      )
   }, [visibleServices, finishedIds, windowFor, settings])
 
   // Two services on one Sunday are one day with two services in it, not
@@ -326,6 +343,7 @@ export function ServicePlannerIndexPage() {
           )
         }
       />
+      <Lifespan page="planner" className="mb-4" />
 
       <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
         <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">
@@ -672,8 +690,9 @@ function DayGroup({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-          <span className="text-body-md font-medium text-on-surface">{d.weekday}</span>
-          <span className="font-mono text-label-sm text-on-surface-faint">{date}</span>
+          {/* The date in words, as every other page writes it — not
+              "Sun 2026-10-04". */}
+          <span className="text-body-md font-medium text-on-surface">{formatServiceDay(date)}</span>
           {services.length > 1 && (
             <span className="font-mono text-label-sm text-on-surface-faint">
               · {services.length} services

@@ -1,10 +1,10 @@
-// Mirrors the pg_cron job in migration 0010: the message board is wiped
-// every Tuesday at 00:00 UTC. If that schedule ever changes, change it in
-// both places.
-export function nextBoardClearTime(from: Date): Date {
+// Mirrors the pg_cron job that clears the message board (0010, 0061, 0116):
+// at 00:00 UTC on the weekday App settings names — Tuesday unless changed.
+// The activity feed clears in the same job.
+export function nextBoardClearTime(from: Date, dow = 2): Date {
   const next = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
-  const daysUntilTuesday = (2 - next.getUTCDay() + 7) % 7
-  next.setUTCDate(next.getUTCDate() + daysUntilTuesday)
+  const daysUntil = (dow - next.getUTCDay() + 7) % 7
+  next.setUTCDate(next.getUTCDate() + daysUntil)
   if (next.getTime() <= from.getTime()) next.setUTCDate(next.getUTCDate() + 7)
   return next
 }

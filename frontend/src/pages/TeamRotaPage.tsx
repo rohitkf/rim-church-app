@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { arrangeRoles, arrangeRotaRows } from '../lib/roleGroups'
@@ -1105,6 +1106,7 @@ export function TeamRotaPage() {
         title="Team Rota"
         description="One role per person per service — except Team Coordinator, which sits alongside a job rather than replacing it. Borrowing someone needs their head's approval."
       />
+      <Lifespan page="rota" className="mb-4" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>

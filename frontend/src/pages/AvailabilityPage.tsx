@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -1051,6 +1052,7 @@ export function AvailabilityPage() {
             : 'One tap per service. Your team sees the answer straight away.'
         }
       />
+      <Lifespan page="availability" className="mb-4" />
 
       {overrideError && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">

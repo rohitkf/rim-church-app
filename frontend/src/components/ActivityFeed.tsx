@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Lifespan } from './Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -38,7 +39,8 @@ async function fetchActivity(serviceId: string): Promise<ActivityRow[]> {
  *
  * One service at a time on purpose: during a Sunday the only activity that
  * matters is this Sunday's, and a feed mixing three of them is a log rather
- * than a dashboard. It clears itself every Tuesday with the message board,
+ * than a dashboard. It clears itself with the message board, on the day
+ * App settings names (0116),
  * and an Admin can clear it by hand for everyone.
  */
 export function ActivityFeed({ serviceId, className = '' }: { serviceId: string; className?: string }) {
@@ -146,6 +148,8 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
           })}
         </ul>
       </QueryState>
+
+      <Lifespan page="activity" className="mt-4" />
 
       {dialog}
     </Panel>
