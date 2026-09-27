@@ -31,6 +31,7 @@ import {
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { ActivityFeed } from '../components/ActivityFeed'
+import { FinishedServices } from '../components/FinishedServices'
 import { useMyTeams } from '../lib/useMyTeams'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
@@ -47,6 +48,8 @@ import { formatTime } from '../lib/time'
 import { greeting } from '../lib/greeting'
 import { memberStanding, memberStandingLabel } from '../lib/memberStanding'
 import type { RoleType } from '../auth/types'
+import { READINESS_KEY, fetchTeamReadiness, servingTeams, teamLights } from '../lib/teamReadiness'
+import { ReadyForService, ReadyLight } from '../components/ReadyLight'
 
 
 const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green'> = {
@@ -267,6 +270,13 @@ export function DashboardPage() {
   })
   const rota = useMemo(() => rotaQuery.data ?? [], [rotaQuery.data])
 
+  // Each serving team's ready light (0110), turned on the Checklists page.
+  const teamReadinessQuery = useQuery({
+    queryKey: [...READINESS_KEY, openIds],
+    queryFn: () => fetchTeamReadiness(openIds),
+    enabled: openIds.length > 0,
+  })
+
   const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
   const roleItemsQuery = useQuery({
     queryKey: ['role-checklist-items', rotaDeptIds],
@@ -419,7 +429,15 @@ export function DashboardPage() {
             <Eyebrow className="block">
               {adminDate ? 'Services that day' : 'Upcoming services'}
             </Eyebrow>
-            {services.map((service) => {
+            {(() => {
+              /*
+               * Still to come first, most imminent at the top; whatever has
+               * finished goes to the foot of the page, shut, under
+               * Finished — the same section the planner, the rota and the
+               * checklists use. A service that finished this morning used
+               * to keep its place in the day, above the one still coming.
+               */
+              const renderService = (service: (typeof services)[number]) => {
               const standing = standingOf(service.id)
               const done = standing.state === 'done'
               const open = isOpen(service)
@@ -672,6 +690,41 @@ export function DashboardPage() {
                   */}
                   {onATeam && (
                     <>
+                  {/* Is every team ready to start? One light per team the
+                      rota has put on this service: green and blinking once
+                      its Coordinator, Head or an Admin says so, red until
+                      then — and the words once they all are. */}
+                  {(() => {
+                    const teams = servingTeams(service.id, rota)
+                    if (teams.length === 0) return null
+                    const { lights, allReady } = teamLights(service.id, teams, teamReadinessQuery.data ?? [])
+                    const names = new Map((departmentsQuery.data ?? []).map((d) => [d.id, d.name]))
+                    return (
+                      <Tile className="lg:col-span-12" >
+                        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                          <Eyebrow>Teams ready</Eyebrow>
+                          <Link to="/checklists" className="text-label-md text-secondary">
+                            Checklists <span aria-hidden="true">&rarr;</span>
+                          </Link>
+                        </div>
+                        {allReady && (
+                          <div className="mt-3">
+                            <ReadyForService />
+                          </div>
+                        )}
+                        <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-3" aria-label="Team readiness">
+                          {lights.map((light) => (
+                            <li key={light.departmentId} className="flex items-center gap-2.5">
+                              <ReadyLight ready={light.ready} size={14} />
+                              <span className="text-body-sm text-on-surface">
+                                {names.get(light.departmentId) ?? 'A team'}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Tile>
+                    )
+                  })()}
                   {/* Readiness, as the one big ring the screen is allowed. */}
                   <Tile className="lg:col-span-5">
                     <div className="flex items-baseline justify-between gap-4">
@@ -908,7 +961,26 @@ export function DashboardPage() {
 
                 </div>
               )
-            })}
+              }
+              const live = services.filter((s) => standingOf(s.id).state !== 'done')
+              // Latest first: the one that has just ended is the one asked about.
+              const finished = services.filter((s) => standingOf(s.id).state === 'done').reverse()
+              return (
+                <>
+                  {live.map(renderService)}
+                  {live.length === 0 && (
+                    <p className="text-body-sm text-on-surface-variant">
+                      Nothing still to come in this window. What has finished is below.
+                    </p>
+                  )}
+                  {finished.length > 0 && (
+                    <FinishedServices count={finished.length} id="dashboard-finished" label="Finished services">
+                      <div className="flex flex-col gap-5">{finished.map(renderService)}</div>
+                    </FinishedServices>
+                  )}
+                </>
+              )
+            })()}
 
 
           </div>
