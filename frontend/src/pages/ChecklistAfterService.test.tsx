@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ChecklistsIndexPage } from './ChecklistsIndexPage'
 
 /*
- * The whole point of the window: a box that cannot be ticked from an
+ * After the service, the packing-up half stays open for a while (0115)
+ * and the setting-up half does not.
+ *
+ * Adapted from ChecklistWindow.test: the whole point of the window: a box that cannot be ticked from an
  * armchair, and a page that says when it can be.
  *
  * The clock is frozen on the morning of the service and moved across the
@@ -50,6 +53,14 @@ vi.mock('../lib/queries', () => ({
         sort_order: 0,
         phase: 'pre',
       },
+      {
+        id: 'i2',
+        role_id: 'cam1',
+        department_id: MEDIA,
+        label: 'Pack the camera away',
+        sort_order: 0,
+        phase: 'post',
+      },
     ]),
   fetchRotaProgress: () => Promise.resolve([]),
   fetchOwnDepartmentIds: () => Promise.resolve([MEDIA]),
@@ -71,12 +82,16 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 
+const clock = vi.hoisted(() => ({ openUntil: null as number | null }))
 vi.mock('../lib/useFinishedServices', () => ({
-  useFinishedServices: () => ({ isFinished: () => false, afterServiceOpenUntil: () => null }),
+  useFinishedServices: () => ({
+    isFinished: () => true,
+    afterServiceOpenUntil: () => clock.openUntil,
+  }),
 }))
 
 vi.mock('../lib/appSettings', () => ({
-  useAppSettings: () => ({ rota_window_days: 14 }),
+  useAppSettings: () => ({ rota_window_days: 14, after_service_checklist_minutes: 120 }),
 }))
 
 function show() {
@@ -90,42 +105,30 @@ function show() {
   )
 }
 
-function freezeAt(iso: string) {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  vi.setSystemTime(new Date(iso))
-}
-
 afterEach(() => vi.useRealTimers())
 
-describe('a checklist that opens at the call time', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('will not be ticked before the team is called in, and says when it will', async () => {
-    freezeAt(`${SUNDAY}T05:00:00`)
-    show()
-
-    expect(await screen.findByText('Check batteries')).toBeInTheDocument()
-    await waitFor(() =>
-      expect(
-        screen.getByText(/opens at 06:30 on .*when your team is called in/i),
-      ).toBeInTheDocument(),
-    )
-    for (const box of screen.getAllByRole('checkbox')) {
-      expect(box).toBeDisabled()
-    }
+describe('the after-the-service checklist', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(`${SUNDAY}T13:30:00`))
   })
 
-  it('opens once the call time has come', async () => {
-    freezeAt(`${SUNDAY}T06:31:00`)
+  it('stays open after the service has ended, while the before half is closed', async () => {
+    clock.openUntil = new Date(`${SUNDAY}T15:00:00`).getTime()
     show()
+    expect(await screen.findByText('Pack the camera away')).toBeInTheDocument()
+    expect(screen.getByText(/checklist stays\s+open until/)).toBeInTheDocument()
 
-    expect(await screen.findByText('Check batteries')).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.queryByText(/when your team is called in/i)).not.toBeInTheDocument(),
-    )
-    // The volunteer's own box is live; the two verification stages are not
-    // theirs to give.
-    const boxes = screen.getAllByRole('checkbox')
-    expect(boxes[0]).toBeEnabled()
+    const pack = screen.getByText('Pack the camera away').closest('li')!
+    const batteries = screen.getByText('Check batteries').closest('li')!
+    expect(within(pack).getByRole('checkbox', { name: /Done/ })).toBeEnabled()
+    expect(within(batteries).getByRole('checkbox', { name: /Done/ })).toBeDisabled()
+  })
+
+  it('folds the service away once that window has closed too', async () => {
+    clock.openUntil = null
+    show()
+    await waitFor(() => expect(screen.getByText(/Finished · closed/)).toBeInTheDocument())
+    expect(screen.queryByText(/stays\s+open until/)).not.toBeInTheDocument()
   })
 })

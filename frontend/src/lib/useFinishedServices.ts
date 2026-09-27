@@ -66,9 +66,13 @@ export function useFinishedServices(serviceIds: string[]) {
 
     const finished = new Set<string>()
     const startsAt = new Map<string, string>()
+    const endedAt = new Map<string, number>()
     for (const [serviceId, sessions] of byService) {
       const standing = serviceStanding(sessions, clock)
-      if (standing.state === 'done') finished.add(serviceId)
+      if (standing.state === 'done') {
+        finished.add(serviceId)
+        if (standing.to !== null) endedAt.set(serviceId, standing.to)
+      }
       if (standing.from !== null) startsAt.set(serviceId, new Date(standing.from).toISOString())
     }
     return {
@@ -79,6 +83,17 @@ export function useFinishedServices(serviceIds: string[]) {
        * caller can tell "not yet started" from "no start to speak of".
        */
       startsAt: (serviceId: string) => startsAt.get(serviceId) ?? null,
+      /**
+       * When a finished service's "After the service" checklist closes —
+       * `minutes` past its end — while that is still to come, else null.
+       * The same clock as `isFinished`, so the two cannot disagree.
+       */
+      afterServiceOpenUntil: (serviceId: string, minutes: number): number | null => {
+        const ended = endedAt.get(serviceId)
+        if (ended === undefined) return null
+        const until = ended + minutes * 60_000
+        return clock < until ? until : null
+      },
       /** Whether the first session's start has passed. */
       hasStarted: (serviceId: string) => {
         const at = startsAt.get(serviceId)

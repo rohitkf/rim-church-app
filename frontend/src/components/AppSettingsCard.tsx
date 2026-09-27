@@ -107,8 +107,20 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
   },
   {
     heading: 'After a service',
-    blurb: 'How long the debrief minutes each team writes up are kept.',
+    blurb: 'How long the packing-up checklist stays open, and how long the debrief minutes each team writes up are kept.',
     fields: [
+      {
+        key: 'after_service_checklist_minutes',
+        label: 'After-the-service checklist stays open for',
+        help: 'The “After the service” half of every checklist is work done once the service is over — packing away, locking up — so it stays open this long after the service ends, then closes. The clock starts when End service was pressed, or, if nobody pressed it, at the planned end of the last session. The “Before the service” half closes when the service does. The database enforces it, so it is a real lock.',
+        affects: 'Checklists',
+        min: 0,
+        max: 1440,
+        dialMax: 360,
+        dialStep: 15,
+        majorEvery: 4,
+        unit: 'minutes',
+      },
       {
         key: 'debrief_retention_days',
         label: 'Debrief minutes are kept for',

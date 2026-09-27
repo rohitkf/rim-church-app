@@ -605,7 +605,9 @@ function SongRow({
         <span className="shrink-0 font-mono text-label-sm tabular text-on-surface-faint">
           {index + 1}
         </span>
-        <span className="min-w-0 flex-1 break-words text-body-md font-medium text-on-surface">
+        {/* A floor under the title, so on a phone the leader button wraps
+            to the next line instead of squeezing the song to a word a line. */}
+        <span className="min-w-[9rem] flex-1 break-words text-body-md font-medium text-on-surface">
           {song.title}
           {song.song_key && (
             <span className="ml-2 inline-block rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_16%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-normal text-accent-indigo-soft">

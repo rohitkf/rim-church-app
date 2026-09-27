@@ -169,7 +169,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See your own checklist and tick it off',
         can: all({ head: 'own', coordinator: 'own', member: 'own' }),
-        note: 'From your team’s call time on the day of the service until the service finishes — not before, not after. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
+        note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless App settings say otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
       },
       {
         action: 'Verify a team’s checklist as done',
