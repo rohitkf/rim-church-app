@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth, type ViewAs } from '../auth/AuthContext'
+import { fetchDepartments } from '../lib/queries'
+import { viewAsLabel } from '../lib/viewAs'
 import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import type { ThemePreference } from '../lib/theme'
@@ -38,7 +41,12 @@ interface AccountMenuProps {
  * landing, so this must not assume the list is there — an avatar menu is
  * not worth a crash.
  */
-function primaryRoleLabel(isAdmin: boolean, roles?: { role_type: string }[]): string {
+function primaryRoleLabel(
+  isAdmin: boolean,
+  roles?: { role_type: string }[],
+  viewAs?: ViewAs | null,
+): string {
+  if (viewAs?.as === 'church') return 'Church Member'
   if (isAdmin) return 'Admin'
   if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
   if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
@@ -46,7 +54,7 @@ function primaryRoleLabel(isAdmin: boolean, roles?: { role_type: string }[]): st
 }
 
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
-  const { profile, roles, isAdmin } = useAuth()
+  const { profile, roles, isAdmin, canPreview, viewAs } = useAuth()
   const age = ageFrom(profile?.dob)
   const { preference, choose } = useTheme()
   const { teamStyle, choose: chooseTeamStyle } = useTeamStyle()
@@ -97,7 +105,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               {/* What you are allowed to do here. The sidebar used to say it
                   under the church's name; this is where it lives now. */}
               <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
-                {primaryRoleLabel(isAdmin, roles)}
+                {primaryRoleLabel(isAdmin, roles, viewAs)}
               </span>
             </div>
             {profile?.email && (
@@ -158,6 +166,8 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             </div>
           </div>
 
+          {canPreview && <ViewAsSection onChosen={() => setOpen(false)} />}
+
           <Link to="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />
             Settings
@@ -173,6 +183,101 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
           >
             <LogOutIcon />
             Log out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Seeing the app as somebody else sees it — an Admin checking what a
+ * Church Member is offered, or what a Head of Media can press, without
+ * borrowing their phone. Admins and the owner only; the preview is of the
+ * pages and buttons, and the banner it raises says the data is not.
+ */
+function ViewAsSection({ onChosen }: { onChosen: () => void }) {
+  const { viewAs, setViewAs } = useAuth()
+  const navigate = useNavigate()
+  const [picking, setPicking] = useState<'member' | 'head' | null>(null)
+  const departmentsQuery = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+    enabled: picking !== null,
+  })
+
+  function choose(next: ViewAs | null) {
+    setViewAs(next)
+    setPicking(null)
+    onChosen()
+    // Wherever the Admin was may be a page the preview cannot open.
+    navigate('/')
+  }
+
+  const chip =
+    'tap rounded-full hairline px-2.5 py-1 text-label-sm text-on-surface hover:bg-surface-container'
+
+  return (
+    <div className="border-b border-border-subtle px-3 py-2.5">
+      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        View as
+      </div>
+      {viewAs ? (
+        <div className="mt-2">
+          <p className="text-label-sm text-on-surface-variant">
+            Previewing as {viewAsLabel(viewAs)}.
+          </p>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(null)}
+            className="tap mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary"
+          >
+            Exit preview
+          </button>
+        </div>
+      ) : picking ? (
+        <div className="mt-2">
+          <p className="text-label-sm text-on-surface-variant">
+            {picking === 'head' ? 'Head of which team?' : 'Member of which team?'}
+          </p>
+          <ul className="mt-1.5 flex max-h-40 flex-col gap-1 overflow-y-auto">
+            {(departmentsQuery.data ?? []).map((d) => (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() =>
+                    choose({ as: picking, departmentId: d.id, departmentName: d.name })
+                  }
+                  className="w-full rounded-sm px-2 py-1 text-left text-label-md text-on-surface hover:bg-surface-container"
+                >
+                  {d.name}
+                </button>
+              </li>
+            ))}
+            {departmentsQuery.isLoading && (
+              <li className="px-2 text-label-sm text-on-surface-faint">Loading…</li>
+            )}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setPicking(null)}
+            className="tap mt-1 text-label-sm text-on-surface-faint hover:text-on-surface"
+          >
+            Back
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button type="button" role="menuitem" onClick={() => choose({ as: 'church' })} className={chip}>
+            Church Member
+          </button>
+          <button type="button" role="menuitem" onClick={() => setPicking('member')} className={chip}>
+            Team Member…
+          </button>
+          <button type="button" role="menuitem" onClick={() => setPicking('head')} className={chip}>
+            Team Head…
           </button>
         </div>
       )}

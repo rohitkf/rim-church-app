@@ -165,6 +165,11 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'giving_links', keys: ['giving'] },
   { table: 'giving_bank_accounts', keys: ['giving'] },
   { table: 'announcements', keys: ['announcements-sent', 'pending-alerts'] },
+  { table: 'church_updates', keys: ['church-updates'] },
+  // A poll, its options and every answer: the bars move as people vote.
+  { table: 'team_polls', keys: ['polls'] },
+  { table: 'team_poll_options', keys: ['polls'] },
+  { table: 'team_poll_votes', keys: ['polls'] },
 ]
 
 /** Every key a change to `table` makes stale. Empty for one we don't watch. */

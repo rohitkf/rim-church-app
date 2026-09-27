@@ -375,7 +375,7 @@ export function GlobalSearch() {
         onClick={() => setOpen(true)}
         aria-label={`Search — ${shortcutSpoken(platform)}`}
         aria-keyshortcuts={platform.platform && /mac|iphone|ipad/i.test(platform.platform) ? 'Meta+K' : 'Control+K'}
-        className="tap flex w-full max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] hover:ring-secondary/50 dark:bg-surface-container dark:ring-white/10"
+        className="tap flex w-full min-w-0 max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] hover:ring-secondary/50 dark:bg-surface-container dark:ring-white/10"
       >
         <SearchIcon width={16} height={16} className="shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left">Search anything…</span>

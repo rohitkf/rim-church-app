@@ -22,6 +22,8 @@ export const appSettingsSchema = z.object({
   lead_in_minutes: z.number().int().min(0).max(240),
   run_out_minutes: z.number().int().min(0).max(240),
   edit_grace_minutes: z.number().int().min(0).max(10080),
+  /** How long the "After the service" checklist stays open once it has ended (0115). */
+  after_service_checklist_minutes: z.number().int().min(0).max(1440).default(120),
   /** Days a service's debrief minutes are kept, counted from the service. */
   debrief_retention_days: z.number().int().min(1).max(365),
   board_clear_dow: z.number().int().min(0).max(6),
@@ -57,6 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lead_in_minutes: 30,
   run_out_minutes: 15,
   edit_grace_minutes: 60,
+  after_service_checklist_minutes: 120,
   debrief_retention_days: 30,
   board_clear_dow: 2,
   logo_url: null,
@@ -71,7 +74,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
     )
     .maybeSingle()
   if (error) throw error

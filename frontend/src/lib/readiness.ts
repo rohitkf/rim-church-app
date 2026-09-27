@@ -40,10 +40,14 @@ interface AssignmentLike {
   service_id: string
   department_id: string
   role_id: string | null
+  /** Which halves it carries; both when not said (0112). */
+  include_pre?: boolean
+  include_post?: boolean
 }
 interface RoleItemLike {
   id: string
   role_id: string
+  phase?: string
 }
 interface ProgressLike {
   assignment_id: string
@@ -95,6 +99,7 @@ export function serviceReadiness(input: {
     perDept.set(assignment.department_id, counts)
 
     for (const item of itemsByRole.get(assignment.role_id) ?? []) {
+      if (!carriesPhase(assignment, item.phase)) continue
       const status = statusOf.get(`${assignment.id}:${item.id}`) ?? 'pending'
       add(counts, status)
       add(overall, status)
@@ -106,3 +111,18 @@ export function serviceReadiness(input: {
 
   return { overall: readinessOf(overall), byDepartment }
 }
+
+/**
+ * Whether an assignment carries this half of its role's checklist. An
+ * assignment that has not said carries both, which is what every one did
+ * before 0112.
+ */
+export function carriesPhase(
+  assignment: { include_pre?: boolean; include_post?: boolean },
+  phase: string | undefined,
+): boolean {
+  if (phase === 'pre') return assignment.include_pre !== false
+  if (phase === 'post') return assignment.include_post !== false
+  return true
+}
+

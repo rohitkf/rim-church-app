@@ -214,3 +214,82 @@ describe('the auth state callback', () => {
     await waitFor(() => expect(screen.getByTestId('name')).toBeEmptyDOMElement())
   })
 })
+
+describe('an Admin previewing the app as somebody else', () => {
+  function PreviewProbe() {
+    const { loading, isAdmin, canPreview, viewAs, setViewAs, isDepartmentHead, ledDepartmentIds } =
+      useAuth()
+    if (loading) return <div>loading</div>
+    return (
+      <div>
+        <div data-testid="is-admin">{String(isAdmin)}</div>
+        <div data-testid="can-preview">{String(canPreview)}</div>
+        <div data-testid="view-as">{viewAs?.as ?? 'none'}</div>
+        <div data-testid="led">{ledDepartmentIds.join(',')}</div>
+        <div data-testid="head-of-audio">{String(isDepartmentHead('dept-audio'))}</div>
+        <button onClick={() => setViewAs({ as: 'church' })}>church</button>
+        <button
+          onClick={() =>
+            setViewAs({ as: 'head', departmentId: 'dept-audio', departmentName: 'Audio' })
+          }
+        >
+          head
+        </button>
+        <button onClick={() => setViewAs(null)}>exit</button>
+      </div>
+    )
+  }
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    mockRoles.push({ id: 'r9', role_type: 'admin', department_id: null, service_id: null } as never)
+    return () => {
+      mockRoles.pop()
+    }
+  })
+
+  it('narrows what the pages are told, and puts it back on exit', async () => {
+    render(
+      <AuthProvider>
+        <PreviewProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('is-admin')).toHaveTextContent('true'))
+    expect(screen.getByTestId('can-preview')).toHaveTextContent('true')
+
+    act(() => screen.getByText('church').click())
+    expect(screen.getByTestId('is-admin')).toHaveTextContent('false')
+    expect(screen.getByTestId('led')).toHaveTextContent('')
+    // Still allowed to leave the preview it is in.
+    expect(screen.getByTestId('can-preview')).toHaveTextContent('true')
+
+    act(() => screen.getByText('head').click())
+    expect(screen.getByTestId('is-admin')).toHaveTextContent('false')
+    expect(screen.getByTestId('led')).toHaveTextContent('dept-audio')
+    expect(screen.getByTestId('head-of-audio')).toHaveTextContent('true')
+
+    act(() => screen.getByText('exit').click())
+    expect(screen.getByTestId('is-admin')).toHaveTextContent('true')
+    expect(screen.getByTestId('view-as')).toHaveTextContent('none')
+  })
+})
+
+describe('somebody who is not an Admin', () => {
+  it('cannot be put into a preview, even by a stored one', async () => {
+    sessionStorage.setItem('rim-view-as', JSON.stringify({ as: 'church' }))
+    function Probe2() {
+      const { loading, canPreview, viewAs, ledDepartmentIds } = useAuth()
+      if (loading) return <div>loading</div>
+      return (
+        <div data-testid="out">{`${canPreview}|${viewAs?.as ?? 'none'}|${ledDepartmentIds.length}`}</div>
+      )
+    }
+    render(
+      <AuthProvider>
+        <Probe2 />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent('false|none|2'))
+    sessionStorage.clear()
+  })
+})

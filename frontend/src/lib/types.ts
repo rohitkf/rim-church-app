@@ -252,6 +252,8 @@ export const setListItemSchema = z.object({
   led_by: z.string().nullable(),
   link: z.string().nullable(),
   lyrics: z.string().nullable(),
+  /** "G major", "B♭ minor" — which key it is played in (0111). */
+  song_key: z.string().nullable().default(null),
   sort_order: z.number(),
   leader: personSummarySchema.nullable(),
 })
@@ -293,6 +295,9 @@ export const rotaAssignmentSchema = z.preprocess(flattenTags, z.object({
   user_id: z.string(),
   role_label: z.string(),
   role_id: z.string().nullable(),
+  /** Which halves of the role's checklist this assignment carries (0112). */
+  include_pre: z.boolean().default(true),
+  include_post: z.boolean().default(true),
   /** "Shadow", "First time"… — the church's own words (0107). */
   tags: z.array(rotaTagRowSchema).default([]),
   profile: personSummarySchema.nullable(),

@@ -22,6 +22,9 @@ function renderStuck() {
     ledDepartmentIds: [],
     refreshProfile: async () => {},
     signOut: async () => {},
+    canPreview: false,
+    viewAs: null,
+    setViewAs: () => {},
   }
 
   return render(

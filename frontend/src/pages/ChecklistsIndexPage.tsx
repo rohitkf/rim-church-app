@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
@@ -28,6 +28,7 @@ import { splitFinished } from '../lib/finishedSection'
 import { FinishedServices } from '../components/FinishedServices'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
+import { carriesPhase } from '../lib/readiness'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
@@ -263,7 +264,19 @@ export function ChecklistsIndexPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
 
-  const { isFinished } = useFinishedServices(dayServices.map((s) => s.id))
+  const { isFinished: hasEnded, afterServiceOpenUntil } = useFinishedServices(
+    dayServices.map((s) => s.id),
+  )
+  // The packing-up half stays open for a while after the end (0115), so a
+  // service only folds away once that has closed too.
+  const afterOpenUntil = useCallback(
+    (id: string) => afterServiceOpenUntil(id, settings.after_service_checklist_minutes),
+    [afterServiceOpenUntil, settings.after_service_checklist_minutes],
+  )
+  const isFinished = useCallback(
+    (id: string) => hasEnded(id) && afterOpenUntil(id) === null,
+    [hasEnded, afterOpenUntil],
+  )
   // Nothing in a finished service can be ticked or chased, so it folds
   // away and opens on a touch when somebody wants the record.
   const { isExpanded, toggle: toggleService } = useExpanded()
@@ -291,6 +304,9 @@ export function ChecklistsIndexPage() {
                   // sinks below the ones still to prepare for, and nothing
                   // in it can be ticked, un-ticked or chased.
                   const finished = isFinished(service.id)
+                  // Ended, with only the "After the service" half still open.
+                  const packingUpUntil = afterOpenUntil(service.id)
+                  const ended = hasEnded(service.id)
                   const forService = mineFirst.filter((m) => m.assignment.service_id === service.id)
                   if (forService.length === 0) return null
 
@@ -364,12 +380,27 @@ export function ChecklistsIndexPage() {
                         )}
                       </div>
 
+                      {packingUpUntil !== null && (
+                        <p className="mt-3 rounded-[var(--radius-chip)] border-l-4 border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_10%,transparent)] px-3 py-2 text-body-sm text-on-surface">
+                          The service has ended. The{' '}
+                          <span className="font-medium">After the service</span> checklist stays
+                          open until{' '}
+                          <span className="font-mono tabular">
+                            {new Date(packingUpUntil).toLocaleTimeString(undefined, {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          .
+                        </p>
+                      )}
+
                       {/* First thing under the service's name: is every
                           team ready to start? */}
                       {open && (
                         <TeamReadinessPanel
                           serviceId={service.id}
-                          finished={finished}
+                          finished={ended}
                           assignments={assignments}
                           departments={departmentsQuery.data ?? []}
                           rows={readinessQuery.data ?? []}
@@ -381,7 +412,11 @@ export function ChecklistsIndexPage() {
                         hidden={!open}
                         className="mt-4 flex flex-col gap-4">
                         {forService.map(({ assignment, rank }) => {
-                          const items = (itemsQuery.data ?? []).filter((i) => i.role_id === assignment.role_id)
+                          // Only the halves the rota gave this person: somebody
+                          // down for setting up does not owe the packing-up list.
+                          const items = (itemsQuery.data ?? []).filter(
+                            (i) => i.role_id === assignment.role_id && carriesPhase(assignment, i.phase),
+                          )
                           const progress = progressQuery.data ?? []
                           // Shut until the team is called in. Nobody's
                           // signature is exempt: a Head cannot verify what
@@ -470,9 +505,29 @@ export function ChecklistsIndexPage() {
                                    drawn at all — an empty heading is worse
                                    than no heading. */
                                 PHASES.filter((phase) => byPhase(items, phase.value).length > 0).map((phase) => (
-                                <div key={phase.value} className="mt-3">
-                                  <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                                    {phase.label}
+                                <div
+                                  key={phase.value}
+                                  className={`mt-4 rounded-[var(--radius-chip)] border-l-4 py-2 pl-3 pr-1 ${
+                                    phase.value === 'pre'
+                                      ? 'border-accent-blue bg-[color-mix(in_oklab,var(--color-accent-blue)_7%,transparent)]'
+                                      : 'border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)]'
+                                  }`}
+                                >
+                                  {/* Two groups that have to read as two:
+                                      a coloured rule down the side, a tint,
+                                      and a heading in the group's colour —
+                                      blue before, indigo after — rather than
+                                      a faint label that looked like another
+                                      row. */}
+                                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                    <span
+                                      className={`font-mono text-label-md font-semibold uppercase tracking-[0.12em] ${
+                                        phase.value === 'pre' ? 'text-accent-blue' : 'text-accent-indigo-soft'
+                                      }`}
+                                    >
+                                      {phase.label}
+                                    </span>
+                                    <span className="text-label-sm text-on-surface-faint">{phase.blurb}</span>
                                   </div>
                                   <ul className="mt-1 divide-y divide-border-subtle">
                                   {byPhase(items, phase.value).map((item) => {
@@ -488,9 +543,11 @@ export function ChecklistsIndexPage() {
                                         <StatusBadge status={status} />
                                         <ChecklistStageBoxes
                                           status={status}
-                                          // A finished service signs nothing more.
+                                          // An ended service signs nothing more
+                                          // before the service; the packing-up
+                                          // half stays open a while longer.
                                           may={
-                                            finished
+                                            (phase.value === 'post' ? finished : ended)
                                               ? { member: false, head: false, sign: false }
                                               : may
                                           }

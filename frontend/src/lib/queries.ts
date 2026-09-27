@@ -66,7 +66,7 @@ export async function fetchSetListItems(serviceIds: string[]): Promise<SetListIt
   const { data, error } = await supabase
     .from('set_list_items')
     .select(
-      'id, service_id, title, led_by, link, lyrics, sort_order, leader:profiles!set_list_items_led_by_fkey(id, first_name, last_name)',
+      'id, service_id, title, led_by, link, lyrics, song_key, sort_order, leader:profiles!set_list_items_led_by_fkey(id, first_name, last_name)',
     )
     .in('service_id', serviceIds)
     .order('sort_order')
@@ -136,7 +136,7 @@ export async function fetchRotaAssignments(serviceIds: string[]): Promise<RotaAs
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_post, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')

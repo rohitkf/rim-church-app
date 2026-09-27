@@ -57,7 +57,7 @@ async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_post, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -88,6 +88,8 @@ export function TeamRotaPage() {
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
   const [draftTags, setDraftTags] = useState<Record<string, string[]>>({})
+  // Which halves of the checklist a new assignment carries; both unless unticked.
+  const [draftHalves, setDraftHalves] = useState<Record<string, { pre: boolean; post: boolean }>>({})
   const tagsQuery = useRotaTags()
   const offeredTags = shownTags(tagsQuery.data ?? [])
   const [error, setError] = useState<string | null>(null)
@@ -289,6 +291,7 @@ export function TeamRotaPage() {
       roleLabel,
       roleId,
       tagIds,
+      halves,
     }: {
       serviceId: string
       departmentId: string
@@ -296,6 +299,7 @@ export function TeamRotaPage() {
       roleLabel: string
       roleId: string | null
       tagIds: string[]
+      halves: { pre: boolean; post: boolean }
     }) => {
       // One call, so a role is never left assigned without its tags.
       const { error } = await supabase.rpc('assign_to_rota', {
@@ -305,6 +309,8 @@ export function TeamRotaPage() {
         role_label: roleLabel,
         role: roleId,
         tags: tagIds,
+        before_service: halves.pre,
+        after_service: halves.post,
       })
       if (error) throw error
     },
@@ -312,6 +318,7 @@ export function TeamRotaPage() {
       setDraftRole((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftPerson((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftTags((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: [] }))
+      setDraftHalves((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: { pre: true, post: true } }))
       // The role is filled, so the form has done its job — fold it away
       // rather than leaving an empty pair of dropdowns behind.
       setOpenForm((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
@@ -330,6 +337,20 @@ export function TeamRotaPage() {
       }
       setError(errorText(err, 'Could not assign that role.'))
     },
+  })
+
+  // Which halves of the checklist an assignment carries, changed after the
+  // fact. Never both off: the database refuses that too (0112).
+  const setHalves = useMutation({
+    mutationFn: async (v: { id: string; include_pre: boolean; include_post: boolean }) => {
+      const { error } = await supabase
+        .from('rota_assignments')
+        .update({ include_pre: v.include_pre, include_post: v.include_post })
+        .eq('id', v.id)
+      if (error) throw error
+    },
+    onSuccess: refresh,
+    onError: (err: unknown) => setError(errorText(err, 'Could not change which checklists that role carries.')),
   })
 
   const removeAssignment = useMutation({
@@ -689,6 +710,54 @@ export function TeamRotaPage() {
                                             </span>
                                           ))}
                                         </span>
+                                        {/* The checklist halves this person carries. Shown
+                                            to everyone when only one is, so the
+                                            row says "Before only"; a manager can
+                                            switch either, never both off. */}
+                                        {(manage || !a.include_pre || !a.include_post) && (
+                                          <span className="relative flex items-center gap-1.5" role="group" aria-label={`Checklists for ${a.role_label}`}>
+                                            {(['pre', 'post'] as const).map((half) => {
+                                              const on = half === 'pre' ? a.include_pre : a.include_post
+                                              const other = half === 'pre' ? a.include_post : a.include_pre
+                                              const label = half === 'pre' ? 'Before' : 'After'
+                                              if (!manage && !on) return null
+                                              return manage ? (
+                                                <button
+                                                  key={half}
+                                                  type="button"
+                                                  aria-pressed={on}
+                                                  aria-label={`${label} the service checklist for ${a.role_label}`}
+                                                  disabled={setHalves.isPending || (on && !other)}
+                                                  onClick={() =>
+                                                    setHalves.mutate({
+                                                      id: a.id,
+                                                      include_pre: half === 'pre' ? !on : a.include_pre,
+                                                      include_post: half === 'post' ? !on : a.include_post,
+                                                    })
+                                                  }
+                                                  className={`tap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase transition-opacity disabled:cursor-not-allowed ${
+                                                    on
+                                                      ? half === 'pre'
+                                                        ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_22%,transparent)] text-accent-blue-soft'
+                                                        : 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft'
+                                                      : `${sky ? 'text-white/50' : 'text-on-surface-faint'} opacity-70 line-through`
+                                                  }`}
+                                                >
+                                                  {label}
+                                                </button>
+                                              ) : (
+                                                <span
+                                                  key={half}
+                                                  className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase ${
+                                                    sky ? 'text-white/80' : 'text-on-surface-variant'
+                                                  }`}
+                                                >
+                                                  {label} only
+                                                </span>
+                                              )
+                                            })}
+                                          </span>
+                                        )}
                                         <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
                                           {pending ? (
                                             <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
@@ -812,6 +881,7 @@ export function TeamRotaPage() {
                                   roleLabel: role,
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
                                   tagIds: draftTags[key] ?? [],
+                                  halves: draftHalves[key] ?? { pre: true, post: true },
                                 })
                               }}
                               className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-chip)] bg-surface-low p-3"
@@ -893,6 +963,32 @@ export function TeamRotaPage() {
                                   }))}
                                 />
                               </label>
+                              {/* Which halves of the role's checklist this person
+                                  carries at this service. Both unless one is
+                                  unticked — and never neither. */}
+                              <fieldset className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5">
+                                <legend className="sr-only">Checklists for this role</legend>
+                                <span className="text-label-sm text-on-surface-variant">Checklists:</span>
+                                {(['pre', 'post'] as const).map((half) => {
+                                  const now = draftHalves[key] ?? { pre: true, post: true }
+                                  const other = half === 'pre' ? now.post : now.pre
+                                  return (
+                                    <label key={half} className="flex items-center gap-2 text-body-sm text-on-surface">
+                                      <input
+                                        type="checkbox"
+                                        checked={now[half]}
+                                        // The last one ticked cannot be unticked.
+                                        disabled={now[half] && !other}
+                                        onChange={(e) =>
+                                          setDraftHalves((s) => ({ ...s, [key]: { ...now, [half]: e.target.checked } }))
+                                        }
+                                        className="h-4 w-4 accent-[var(--color-primary)]"
+                                      />
+                                      {half === 'pre' ? 'Before the service' : 'After the service'}
+                                    </label>
+                                  )
+                                })}
+                              </fieldset>
                               {/* The church's own tags, from App
                                   settings — as many as apply. */}
                               {offeredTags.length > 0 && (

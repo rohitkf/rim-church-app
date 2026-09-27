@@ -43,7 +43,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },
   announcement: { label: 'A message from the church', href: '/' },
-  team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
+  team_poll: { label: 'There is a poll for you', href: '/polls' },
+  church_update: { label: 'News from the church', href: '/updates' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {
@@ -223,13 +224,14 @@ function jwtRole(token: string): string | null {
 
 /**
  * Where a notification of this kind actually goes, when the row carries
- * enough to be specific about it. Same two exceptions the app makes.
+ * enough to be specific about it. The same exceptions the app makes.
  */
 function deepLink(type: string, referenceId: string | null | undefined): string | null {
   if (!referenceId) return null
   if (type === 'team_join_approved') return `/departments/${referenceId}`
-  // A poll's reference is the team it was asked of, so the link opens that
-  // room rather than whichever one the page would have picked.
-  if (type === 'team_poll') return `/team-chat?team=${referenceId}`
+  // A poll's and an update's reference is the thing itself, so the link
+  // opens the page at it.
+  if (type === 'team_poll') return `/polls?poll=${referenceId}`
+  if (type === 'church_update') return `/updates?update=${referenceId}`
   return null
 }

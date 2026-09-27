@@ -22,7 +22,7 @@ import { fetchOwnDepartmentIds } from './queries'
  * Callers wait for it before deciding anything that would flicker.
  */
 export function useMyTeams() {
-  const { session, isAdmin, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, ledDepartmentIds, viewAs } = useAuth()
   const myId = session?.user.id
 
   const query = useQuery({
@@ -30,6 +30,13 @@ export function useMyTeams() {
     queryFn: () => fetchOwnDepartmentIds(myId!),
     enabled: !!myId,
   })
+
+  // An Admin previewing the app is on exactly the team they picked, or on
+  // none — whatever their own roster says.
+  if (viewAs) {
+    const previewed = viewAs.as === 'church' ? [] : [viewAs.departmentId]
+    return { teamIds: previewed, onATeam: previewed.length > 0, settled: true }
+  }
 
   const teamIds = query.data ?? []
   // An Admin and a head are attached without a roster row, and neither

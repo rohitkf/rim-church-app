@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { PageHeader } from '../components/Surface'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamAlertPanel } from '../components/TeamAlertPanel'
-import { TeamPolls } from '../components/TeamPolls'
 import { QueryState } from '../components/QueryState'
 
 /**
@@ -18,8 +17,10 @@ import { QueryState } from '../components/QueryState'
  * conversations behind a pair of tabs and neither had room. They are two
  * different audiences, so they are two different pages.
  *
- * The team is chosen once, here, and the room, the alert composer and the
- * polls all follow it, rather than each asking which team separately.
+ * The team is chosen once, here, and the room and the alert composer
+ * follow it, rather than each asking which team separately. Polls moved
+ * to a page of their own, since a question can now be put to more than
+ * one team's room.
  */
 export function TeamChatPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
@@ -104,7 +105,13 @@ export function TeamChatPage() {
           <div className="flex flex-col gap-5">
             {/* Renders nothing for anyone who cannot send one. */}
             <TeamAlertPanel />
-            <TeamPolls departmentId={departmentId} />
+            <p className="rounded-[var(--radius-tile)] bg-surface-lowest hairline p-5 text-body-sm text-on-surface-variant">
+              Team polls have moved to the{' '}
+              <Link to="/polls" className="font-medium text-secondary hover:underline">
+                Polls page
+              </Link>
+              , where a question can go to one team, a service, or the whole church.
+            </p>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readinessOf, serviceReadiness } from './readiness'
+import { carriesPhase, readinessOf, serviceReadiness } from './readiness'
 
 describe('readinessOf', () => {
   it('gives each stage a third of the item', () => {
@@ -76,5 +76,38 @@ describe('serviceReadiness', () => {
     })
     expect(overall.total).toBe(4)
     expect(overall.pct).toBe(50)
+  })
+})
+
+/*
+ * An assignment carries the halves of its checklist the rota gave it
+ * (0112). Somebody down for setting up only does not hold the team's
+ * readiness down with a packing-up list they were never asked for.
+ */
+describe('an assignment that carries only one half', () => {
+  const items = [
+    { id: 'setup', role_id: 'r', phase: 'pre' },
+    { id: 'packup', role_id: 'r', phase: 'post' },
+  ]
+  const base = { id: 'a', service_id: 's', department_id: 'd', role_id: 'r' }
+
+  it('counts both halves when nothing is said', () => {
+    expect(serviceReadiness({ assignments: [base], roleItems: items, progress: [] }).overall.total).toBe(2)
+  })
+
+  it('counts only the half it carries', () => {
+    const r = serviceReadiness({
+      assignments: [{ ...base, include_pre: true, include_post: false }],
+      roleItems: items,
+      progress: [{ assignment_id: 'a', item_id: 'setup', status: 'coordinator_verified' }],
+    })
+    expect(r.overall.total).toBe(1)
+    expect(r.overall.pct).toBe(100)
+  })
+
+  it('reads carriesPhase the same way', () => {
+    expect(carriesPhase({ include_pre: false, include_post: true }, 'pre')).toBe(false)
+    expect(carriesPhase({ include_pre: false, include_post: true }, 'post')).toBe(true)
+    expect(carriesPhase({}, 'pre')).toBe(true)
   })
 })

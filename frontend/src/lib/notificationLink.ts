@@ -20,6 +20,7 @@ export const NOTIFICATION_TYPES = [
   'team_alert',
   'announcement',
   'team_poll',
+  'church_update',
   'mention',
   'rota_dropout',
   'availability_change_request',
@@ -46,7 +47,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // it, and they are already in the bell and in the banner. The dashboard
   // is where somebody who taps it should land.
   announcement: { label: 'A message from the church', href: '/' },
-  team_poll: { label: 'Your team has a question for you', href: '/team-chat' },
+  team_poll: { label: 'There is a poll for you', href: '/polls' },
+  church_update: { label: 'News from the church', href: '/updates' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.
@@ -86,8 +88,9 @@ export function notificationHref(type: string, referenceId?: string | null): str
   const t = known(type)
   if (!t) return '/'
   if (t === 'team_join_approved' && referenceId) return `/departments/${referenceId}`
-  // A poll's reference is the team it was asked of, so the link opens that
-  // room rather than whichever one the page would have picked.
-  if (t === 'team_poll' && referenceId) return `/team-chat?team=${referenceId}`
+  // A poll's and an update's reference is the thing itself, so the link
+  // opens the page at it.
+  if (t === 'team_poll' && referenceId) return `/polls?poll=${referenceId}`
+  if (t === 'church_update' && referenceId) return `/updates?update=${referenceId}`
   return NOTIFICATIONS[t].href
 }

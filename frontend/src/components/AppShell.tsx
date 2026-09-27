@@ -13,6 +13,8 @@ import {
   GridIcon,
   IdCardIcon,
   ChatTeamIcon,
+  MegaphoneIcon,
+  PollIcon,
   MessageIcon,
   SparklesIcon,
   UserCheckIcon,
@@ -34,6 +36,7 @@ import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
 import { useMyTeams } from '../lib/useMyTeams'
 import { WelcomeTour } from './WelcomeTour'
+import { ViewAsBanner } from './ViewAsBanner'
 
 /*
  * The destinations, in the order a Sunday actually happens.
@@ -78,6 +81,10 @@ const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   // a team yet, so neither is offered until they are.
   { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
   { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
+  // For everybody, Church Members included: what the church is saying,
+  // and what it is asking.
+  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon },
+  { to: '/polls', label: 'Polls', icon: PollIcon },
 
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
@@ -110,6 +117,8 @@ const WASH: Record<string, string> = {
   '/inventory': 'var(--color-accent-orange)',
   '/messages': 'var(--color-accent-indigo)',
   '/team-chat': 'var(--color-accent-indigo)',
+  '/updates': 'var(--color-accent-blue)',
+  '/polls': 'var(--color-accent-indigo)',
   '/settings': 'var(--color-accent-indigo)',
 }
 
@@ -161,6 +170,7 @@ export function AppShell() {
         edge. It appears rather than being there all along, because the
         cleaner strip is the one worth having whenever it can be had.
       */}
+      <ViewAsBanner />
       <header
         className={`sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-[var(--ease-glide)] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5 ${
           scrolled
