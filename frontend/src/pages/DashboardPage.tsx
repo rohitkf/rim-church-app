@@ -31,6 +31,7 @@ import {
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { ActivityFeed } from '../components/ActivityFeed'
+import { FinishedServices } from '../components/FinishedServices'
 import { useMyTeams } from '../lib/useMyTeams'
 import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
@@ -428,7 +429,15 @@ export function DashboardPage() {
             <Eyebrow className="block">
               {adminDate ? 'Services that day' : 'Upcoming services'}
             </Eyebrow>
-            {services.map((service) => {
+            {(() => {
+              /*
+               * Still to come first, most imminent at the top; whatever has
+               * finished goes to the foot of the page, shut, under
+               * Finished — the same section the planner, the rota and the
+               * checklists use. A service that finished this morning used
+               * to keep its place in the day, above the one still coming.
+               */
+              const renderService = (service: (typeof services)[number]) => {
               const standing = standingOf(service.id)
               const done = standing.state === 'done'
               const open = isOpen(service)
@@ -952,7 +961,26 @@ export function DashboardPage() {
 
                 </div>
               )
-            })}
+              }
+              const live = services.filter((s) => standingOf(s.id).state !== 'done')
+              // Latest first: the one that has just ended is the one asked about.
+              const finished = services.filter((s) => standingOf(s.id).state === 'done').reverse()
+              return (
+                <>
+                  {live.map(renderService)}
+                  {live.length === 0 && (
+                    <p className="text-body-sm text-on-surface-variant">
+                      Nothing still to come in this window. What has finished is below.
+                    </p>
+                  )}
+                  {finished.length > 0 && (
+                    <FinishedServices count={finished.length} id="dashboard-finished" label="Finished services">
+                      <div className="flex flex-col gap-5">{finished.map(renderService)}</div>
+                    </FinishedServices>
+                  )}
+                </>
+              )
+            })()}
 
 
           </div>
