@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
-import { QueryState } from '../components/QueryState'
-import { PageHeader } from '../components/Surface'
-import { TeamMark } from '../components/TeamMark'
-import { fetchDepartments, fetchServices } from '../lib/queries'
-import { todayIso } from '../lib/monthGrid'
-import { formatServiceDay } from '../lib/sunday'
-import { useAppSettings } from '../lib/appSettings'
-import { useErrorText } from '../lib/useErrorText'
-import { useConfirmAction } from '../components/ConfirmAction'
-import { Chevron, useExpanded } from '../components/Collapsible'
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../auth/AuthContext";
+import { QueryState } from "../components/QueryState";
+import { PageHeader } from "../components/Surface";
+import { TeamMark } from "../components/TeamMark";
+import { fetchDepartments, fetchServices } from "../lib/queries";
+import { todayIso } from "../lib/monthGrid";
+import { DayHeading } from "../components/DayHeading";
+import { serviceDays } from "../lib/callTimes";
+import { formatServiceDay } from "../lib/sunday";
+import { useAppSettings } from "../lib/appSettings";
+import { useErrorText } from "../lib/useErrorText";
+import { useConfirmAction } from "../components/ConfirmAction";
+import { Chevron, useExpanded } from "../components/Collapsible";
 import {
   DEBRIEFS_KEY,
   addDebriefItem,
@@ -26,8 +28,8 @@ import {
   setDebriefItemDone,
   updateDebriefItem,
   type DebriefItem,
-} from '../lib/debriefs'
-import { formatRange } from '../lib/dateRange'
+} from "../lib/debriefs";
+import { formatRange } from "../lib/dateRange";
 
 /**
  * What each team said after the service.
@@ -55,7 +57,8 @@ import { formatRange } from '../lib/dateRange'
  * the ones still outstanding sit at the top where they are awkward.
  */
 
-const fullName = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`
+const fullName = (p: { first_name: string; last_name: string }) =>
+  `${p.first_name} ${p.last_name}`;
 
 /**
  * One line of the debrief.
@@ -72,15 +75,15 @@ function ItemRow({
   onSave,
   onRemove,
 }: {
-  item: DebriefItem
-  mayWrite: boolean
-  onToggle: (done: boolean) => void
-  onSave: (fields: { body: string }) => void
-  onRemove: () => void
+  item: DebriefItem;
+  mayWrite: boolean;
+  onToggle: (done: boolean) => void;
+  onSave: (fields: { body: string }) => void;
+  onRemove: () => void;
 }) {
-  const [editing, setEditing] = useState(false)
-  const [body, setBody] = useState(item.body)
-  const done = !!item.done_at
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(item.body);
+  const done = !!item.done_at;
 
   if (editing) {
     return (
@@ -98,8 +101,8 @@ function ItemRow({
             type="button"
             disabled={!body.trim()}
             onClick={() => {
-              onSave({ body })
-              setEditing(false)
+              onSave({ body });
+              setEditing(false);
             }}
             className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
           >
@@ -108,8 +111,8 @@ function ItemRow({
           <button
             type="button"
             onClick={() => {
-              setBody(item.body)
-              setEditing(false)
+              setBody(item.body);
+              setEditing(false);
             }}
             className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
           >
@@ -117,7 +120,7 @@ function ItemRow({
           </button>
         </div>
       </li>
-    )
+    );
   }
 
   /*
@@ -133,12 +136,14 @@ function ItemRow({
           type="checkbox"
           checked={done}
           disabled={!mayWrite}
-          aria-label={done ? `Put back: ${item.body}` : `Tick off: ${item.body}`}
+          aria-label={
+            done ? `Put back: ${item.body}` : `Tick off: ${item.body}`
+          }
           onChange={(e) => onToggle(e.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)] disabled:opacity-50"
         />
         <span
-          className={`min-w-0 flex-1 break-words text-body-sm ${done ? 'text-on-surface-faint line-through' : 'text-on-surface'}`}
+          className={`min-w-0 flex-1 break-words text-body-sm ${done ? "text-on-surface-faint line-through" : "text-on-surface"}`}
         >
           {item.body}
         </span>
@@ -172,7 +177,7 @@ function ItemRow({
         </div>
       )}
     </li>
-  )
+  );
 }
 
 /**
@@ -186,16 +191,16 @@ function ItemComposer({
   adding,
   onAdd,
 }: {
-  adding: boolean
-  onAdd: (fields: { body: string }) => void
+  adding: boolean;
+  onAdd: (fields: { body: string }) => void;
 }) {
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState("");
 
   const submit = () => {
-    if (!body.trim()) return
-    onAdd({ body })
-    setBody('')
-  }
+    if (!body.trim()) return;
+    onAdd({ body });
+    setBody("");
+  };
 
   return (
     <div className="mt-3 flex items-center gap-2">
@@ -205,9 +210,9 @@ function ItemComposer({
         onKeyDown={(e) => {
           // Enter adds it: this is a list being typed at speed, not a form
           // being filled in.
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            submit()
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
           }
         }}
         maxLength={1000}
@@ -221,26 +226,32 @@ function ItemComposer({
         onClick={submit}
         className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
       >
-        {adding ? 'Adding…' : 'Add'}
+        {adding ? "Adding…" : "Add"}
       </button>
     </div>
-  )
+  );
 }
 
 export function DebriefsPage() {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
-  const settings = useAppSettings()
-  const errorText = useErrorText()
-  const queryClient = useQueryClient()
-  const today = todayIso()
-  const myId = session?.user.id
-  const { ask, dialog } = useConfirmAction()
-  const { isExpanded, toggle } = useExpanded()
+  const { session, isAdmin, isDepartmentHead } = useAuth();
+  const settings = useAppSettings();
+  const errorText = useErrorText();
+  const queryClient = useQueryClient();
+  const today = todayIso();
+  const myId = session?.user.id;
+  const { ask, dialog } = useConfirmAction();
+  const { isExpanded, toggle } = useExpanded();
 
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null);
 
-  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  const servicesQuery = useQuery({
+    queryKey: ["services"],
+    queryFn: fetchServices,
+  });
+  const departmentsQuery = useQuery({
+    queryKey: ["departments"],
+    queryFn: fetchDepartments,
+  });
 
   /*
    * The services worth showing: the ones that have happened and whose
@@ -251,49 +262,53 @@ export function DebriefsPage() {
     () =>
       (servicesQuery.data ?? [])
         .filter(
-          (s) => s.date <= today && !isExpired(s.date, settings.debrief_retention_days, today),
+          (s) =>
+            s.date <= today &&
+            !isExpired(s.date, settings.debrief_retention_days, today),
         )
         .sort((a, b) => b.date.localeCompare(a.date)),
     [servicesQuery.data, today, settings.debrief_retention_days],
-  )
+  );
 
   const debriefsQuery = useQuery({
-    queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(',')],
+    queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(",")],
     queryFn: () => fetchDebriefs(services.map((s) => s.id)),
     enabled: services.length > 0,
-  })
-  const debriefs = debriefsQuery.data ?? []
+  });
+  const debriefs = debriefsQuery.data ?? [];
 
   const refresh = () => {
-    setError(null)
-    return queryClient.invalidateQueries({ queryKey: DEBRIEFS_KEY })
-  }
-  const complain = (fallback: string) => (err: unknown) => setError(errorText(err, fallback))
+    setError(null);
+    return queryClient.invalidateQueries({ queryKey: DEBRIEFS_KEY });
+  };
+  const complain = (fallback: string) => (err: unknown) =>
+    setError(errorText(err, fallback));
 
   const add = useMutation({
     mutationFn: (fields: {
-      debriefId: string | null
-      serviceId: string
-      departmentId: string
-      body: string
-      sortOrder: number
+      debriefId: string | null;
+      serviceId: string;
+      departmentId: string;
+      body: string;
+      sortOrder: number;
     }) => addDebriefItem({ ...fields, createdBy: myId! }),
     onSuccess: refresh,
-    onError: complain('Could not add that item.'),
-  })
+    onError: complain("Could not add that item."),
+  });
 
   const edit = useMutation({
-    mutationFn: (fields: { id: string; body: string }) => updateDebriefItem(fields.id, fields),
+    mutationFn: (fields: { id: string; body: string }) =>
+      updateDebriefItem(fields.id, fields),
     onSuccess: refresh,
-    onError: complain('Could not change that item.'),
-  })
+    onError: complain("Could not change that item."),
+  });
 
   const tick = useMutation({
     mutationFn: (fields: { id: string; done: boolean }) =>
       setDebriefItemDone(fields.id, fields.done, myId!),
     onSuccess: refresh,
-    onError: complain('Could not tick that item off.'),
-  })
+    onError: complain("Could not tick that item off."),
+  });
 
   const removeItem = useMutation({
     // The debrief row exists only to hold items, so the last one out takes
@@ -301,16 +316,17 @@ export function DebriefsPage() {
     mutationFn: (fields: { id: string; lastOne: string | null }) =>
       deleteDebriefItem(fields.id, fields.lastOne),
     onSuccess: refresh,
-    onError: complain('Could not remove that item.'),
-  })
+    onError: complain("Could not remove that item."),
+  });
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteDebrief(id),
     onSuccess: refresh,
-    onError: complain('Could not remove those minutes.'),
-  })
+    onError: complain("Could not remove those minutes."),
+  });
 
-  const mayWriteFor = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
+  const mayWriteFor = (departmentId: string) =>
+    isAdmin || isDepartmentHead(departmentId);
 
   return (
     <div>
@@ -332,168 +348,217 @@ export function DebriefsPage() {
         isEmpty={services.length === 0}
         emptyMessage="Nothing to debrief yet — minutes appear here once a service has happened."
       >
-        <div className="mt-6 flex flex-col gap-4">
-          {services.map((service) => {
-            const left = daysLeft(service.date, settings.debrief_retention_days, today)
-            const until = debriefExpiresAt(service.date, settings.debrief_retention_days)
-            const written = (departmentsQuery.data ?? []).filter(
-              (d) => (debriefFor(debriefs, service.id, d.id)?.items ?? []).length > 0,
-            ).length
-            // Open by default while it is the most recent one: that is the
-            // service anybody is here to write up.
-            const open = (service === services[0]) !== isExpanded(service.id)
-
-            return (
-              <section
-                key={service.id}
-                className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(service.id)}
-                  aria-expanded={open}
-                  aria-controls={`debrief-teams-${service.id}`}
-                  className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
-                >
-                  <span className="min-w-0">
-                    <span className="text-headline-md">{service.service_type}</span>
-                    <span className="ml-2 font-mono text-label-sm text-on-surface-variant">
-                      {formatServiceDay(service.date)}
-                    </span>
-                  </span>
-                  <span className="flex items-baseline gap-2.5">
-                    <span className="font-mono text-label-sm text-on-surface-faint">
-                      {written}/{(departmentsQuery.data ?? []).length} written
-                    </span>
-                    <Chevron open={open} />
-                  </span>
-                </button>
-
-                {/*
+        <div className="mt-6 flex flex-col gap-8">
+          {/* By day, newest first: two services on one Sunday are one
+              morning to write up, under one date, not two headings. */}
+          {serviceDays(services)
+            .reverse()
+            .map((day) => {
+              const left = daysLeft(
+                day.date,
+                settings.debrief_retention_days,
+                today,
+              );
+              const until = debriefExpiresAt(
+                day.date,
+                settings.debrief_retention_days,
+              );
+              return (
+                <section key={day.date} aria-label={formatServiceDay(day.date)}>
+                  <DayHeading
+                    date={day.date}
+                    today={today}
+                    count={day.services.length}
+                  />
+                  {/*
                   How long these have left, said as a number of days rather
                   than a ticking clock: a month is not something anybody
                   watches by the second, and "27 days left" is what somebody
                   deciding whether to write it up now actually needs.
                 */}
-                <p className="mt-1.5 text-label-md text-on-surface-faint">
-                  {left <= 1 ? (
-                    <span className="text-accent-orange-soft">
-                      Deleted after today — {formatRange(service.date, null, today)} minutes are on
-                      their last day.
-                    </span>
-                  ) : (
-                    <>
-                      Kept until{' '}
-                      <span className="font-mono">
-                        {until.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                      </span>{' '}
-                      · {left} days left
-                    </>
-                  )}
-                </p>
+                  <p className="mt-1.5 text-label-md text-on-surface-faint">
+                    {left <= 1 ? (
+                      <span className="text-accent-orange-soft">
+                        Deleted after today —{" "}
+                        {formatRange(day.date, null, today)} minutes are on
+                        their last day.
+                      </span>
+                    ) : (
+                      <>
+                        Kept until{" "}
+                        <span className="font-mono">
+                          {until.toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>{" "}
+                        · {left} days left
+                      </>
+                    )}
+                  </p>
+                  <div className="mt-3 flex flex-col gap-4">
+                    {day.services.map((service) => {
+                      const written = (departmentsQuery.data ?? []).filter(
+                        (d) =>
+                          (debriefFor(debriefs, service.id, d.id)?.items ?? [])
+                            .length > 0,
+                      ).length;
+                      // Open by default while it is the most recent one: that is the
+                      // service anybody is here to write up.
+                      const open =
+                        (service === services[0]) !== isExpanded(service.id);
 
-                <ul id={`debrief-teams-${service.id}`} hidden={!open} className="mt-4 flex flex-col gap-3">
-                  {(departmentsQuery.data ?? []).map((dept) => {
-                    const debrief = debriefFor(debriefs, service.id, dept.id)
-                    const items = debrief?.items ?? []
-                    const { done, total } = itemProgress(items)
-                    const mine = mayWriteFor(dept.id)
-                    return (
-                      <li
-                        key={dept.id}
-                        className="rounded-[var(--radius-row)] bg-surface-muted p-3.5 hairline"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <TeamMark color={dept.color} />
-                            <span className="text-body-md font-medium text-on-surface">
-                              {dept.name}
+                      return (
+                        <section
+                          key={service.id}
+                          className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggle(service.id)}
+                            aria-expanded={open}
+                            aria-controls={`debrief-teams-${service.id}`}
+                            className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
+                          >
+                            <span className="min-w-0 text-headline-md">
+                              {service.service_type}
                             </span>
-                            {total > 0 && (
+                            <span className="flex items-baseline gap-2.5">
                               <span className="font-mono text-label-sm text-on-surface-faint">
-                                {done}/{total} done
+                                {written}/{(departmentsQuery.data ?? []).length}{" "}
+                                written
                               </span>
-                            )}
-                          </span>
-                          {mine && debrief && items.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                ask({
-                                  title: `Remove ${dept.name}'s debrief?`,
-                                  body: 'Every item on it goes, for everybody. Nothing else about the service changes.',
-                                  confirmLabel: 'Remove',
-                                  onConfirm: () => remove.mutate(debrief.id),
-                                })
-                              }
-                              className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-                            >
-                              Remove all
-                            </button>
-                          )}
-                        </div>
+                              <Chevron open={open} />
+                            </span>
+                          </button>
 
-                        {items.length > 0 ? (
-                          <ul className="mt-1.5 flex flex-col divide-y divide-[var(--color-hairline)]">
-                            {items.map((item) => (
-                              <ItemRow
-                                key={item.id}
-                                item={item}
-                                mayWrite={mine}
-                                onToggle={(isDone) => tick.mutate({ id: item.id, done: isDone })}
-                                onSave={(fields) => edit.mutate({ id: item.id, ...fields })}
-                                onRemove={() =>
-                                  removeItem.mutate({
-                                    id: item.id,
-                                    lastOne: items.length === 1 ? debrief!.id : null,
-                                  })
-                                }
-                              />
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="mt-1.5 text-label-md text-on-surface-faint">
-                            {mine
-                              ? 'Nothing written up yet.'
-                              : 'Nothing written up yet — their head or assisting head can add it.'}
-                          </p>
-                        )}
+                          <ul
+                            id={`debrief-teams-${service.id}`}
+                            hidden={!open}
+                            className="mt-4 flex flex-col gap-3"
+                          >
+                            {(departmentsQuery.data ?? []).map((dept) => {
+                              const debrief = debriefFor(
+                                debriefs,
+                                service.id,
+                                dept.id,
+                              );
+                              const items = debrief?.items ?? [];
+                              const { done, total } = itemProgress(items);
+                              const mine = mayWriteFor(dept.id);
+                              return (
+                                <li
+                                  key={dept.id}
+                                  className="rounded-[var(--radius-row)] bg-surface-muted p-3.5 hairline"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <TeamMark color={dept.color} />
+                                      <span className="text-body-md font-medium text-on-surface">
+                                        {dept.name}
+                                      </span>
+                                      {total > 0 && (
+                                        <span className="font-mono text-label-sm text-on-surface-faint">
+                                          {done}/{total} done
+                                        </span>
+                                      )}
+                                    </span>
+                                    {mine && debrief && items.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          ask({
+                                            title: `Remove ${dept.name}'s debrief?`,
+                                            body: "Every item on it goes, for everybody. Nothing else about the service changes.",
+                                            confirmLabel: "Remove",
+                                            onConfirm: () =>
+                                              remove.mutate(debrief.id),
+                                          })
+                                        }
+                                        className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+                                      >
+                                        Remove all
+                                      </button>
+                                    )}
+                                  </div>
 
-                        {/* Minutes typed by the previous build, before the
+                                  {items.length > 0 ? (
+                                    <ul className="mt-1.5 flex flex-col divide-y divide-[var(--color-hairline)]">
+                                      {items.map((item) => (
+                                        <ItemRow
+                                          key={item.id}
+                                          item={item}
+                                          mayWrite={mine}
+                                          onToggle={(isDone) =>
+                                            tick.mutate({
+                                              id: item.id,
+                                              done: isDone,
+                                            })
+                                          }
+                                          onSave={(fields) =>
+                                            edit.mutate({
+                                              id: item.id,
+                                              ...fields,
+                                            })
+                                          }
+                                          onRemove={() =>
+                                            removeItem.mutate({
+                                              id: item.id,
+                                              lastOne:
+                                                items.length === 1
+                                                  ? debrief!.id
+                                                  : null,
+                                            })
+                                          }
+                                        />
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p className="mt-1.5 text-label-md text-on-surface-faint">
+                                      {mine
+                                        ? "Nothing written up yet."
+                                        : "Nothing written up yet — their head or assisting head can add it."}
+                                    </p>
+                                  )}
+
+                                  {/* Minutes typed by the previous build, before the
                             list replaced the box. Shown so nobody's words
                             vanish; nothing writes this any more. */}
-                        {debrief?.minutes && (
-                          <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-on-surface-variant">
-                            {debrief.minutes}
-                          </p>
-                        )}
+                                  {debrief?.minutes && (
+                                    <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-on-surface-variant">
+                                      {debrief.minutes}
+                                    </p>
+                                  )}
 
-                        {mine && (
-                          <ItemComposer
-                            adding={add.isPending}
-                            onAdd={(fields) =>
-                              add.mutate({
-                                debriefId: debrief?.id ?? null,
-                                serviceId: service.id,
-                                departmentId: dept.id,
-                                sortOrder: nextSortOrder(items),
-                                ...fields,
-                              })
-                            }
-                          />
-                        )}
-
-                      </li>
-                    )
-                  })}
-                </ul>
-              </section>
-            )
-          })}
+                                  {mine && (
+                                    <ItemComposer
+                                      adding={add.isPending}
+                                      onAdd={(fields) =>
+                                        add.mutate({
+                                          debriefId: debrief?.id ?? null,
+                                          serviceId: service.id,
+                                          departmentId: dept.id,
+                                          sortOrder: nextSortOrder(items),
+                                          ...fields,
+                                        })
+                                      }
+                                    />
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </section>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
         </div>
       </QueryState>
 
       {dialog}
     </div>
-  )
+  );
 }

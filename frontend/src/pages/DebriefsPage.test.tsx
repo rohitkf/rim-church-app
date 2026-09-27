@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   leads: true,
   retention: 30,
   newDebriefId: 'db-new',
+  extraServices: [] as { id: string; date: string; service_type: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -47,6 +48,7 @@ vi.mock('../lib/queries', () => ({
       { id: 's0', date: '2026-06-01', service_type: 'Old Service' },
       // Still to come — there is nothing to debrief yet.
       { id: 's2', date: '2026-09-20', service_type: 'Next Sunday' },
+      ...state.extraServices,
     ]),
   fetchDepartments: () =>
     Promise.resolve([
@@ -95,6 +97,7 @@ vi.mock('../lib/supabaseClient', () => ({
 }))
 
 beforeEach(() => {
+  state.extraServices = []
   state.debriefs = []
   state.written = []
   state.leads = true
@@ -147,6 +150,29 @@ describe('debriefs', () => {
     expect(await screen.findByText('English Service')).toBeInTheDocument()
     expect(screen.queryByText('Next Sunday')).toBeNull()
     expect(screen.queryByText('Old Service')).toBeNull()
+  })
+
+  /*
+   * Two services on one Sunday are one morning to write up: one date
+   * heading over both, newest day first, and only the newest open.
+   */
+  it('groups the services of a day under one date heading, newest day first', async () => {
+    state.extraServices = [
+      { id: 's1b', date: '2026-09-13', service_type: 'Malayalam Service' },
+      { id: 's-1', date: '2026-09-06', service_type: 'Earlier Service' },
+    ]
+    show()
+    await screen.findByText('Malayalam Service')
+    const days = screen.getAllByRole('region').filter((r) => /September/.test(r.getAttribute('aria-label') ?? ''))
+    expect(days.map((d) => d.getAttribute('aria-label'))).toEqual([
+      expect.stringMatching(/13/),
+      expect.stringMatching(/6/),
+    ])
+    expect(within(days[0]).getByText('English Service')).toBeInTheDocument()
+    expect(within(days[0]).getByText('Malayalam Service')).toBeInTheDocument()
+    expect(within(days[0]).getByText('2 services')).toBeInTheDocument()
+    // How long they are kept is said once per day, not once per service.
+    expect(within(days[0]).getAllByText(/Kept until/)).toHaveLength(1)
   })
 
   /*
