@@ -39,7 +39,13 @@ import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { TeamTurnoutRow } from '../components/TeamTurnoutRow'
 import { formatServiceDay, shiftSundayIso } from '../lib/sunday'
 import { serviceStanding, type ServiceStanding } from '../lib/serviceState'
-import { inStartOrder, opensOnItsOwn, upcomingServices } from '../lib/upcomingServices'
+import {
+  inStartOrder,
+  nextServiceDayAfter,
+  opensOnItsOwn,
+  upcomingServices,
+  withNextDayOnceOver,
+} from '../lib/upcomingServices'
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { turnoutRing } from '../lib/teamTurnout'
@@ -168,7 +174,17 @@ export function DashboardPage() {
     [servicesQuery.data, focusDate],
   )
   const listedServices = useMemo(
-    () => (adminDate ? dayServices : upcomingServices(servicesQuery.data ?? [], today)),
+    () => {
+      if (adminDate) return dayServices
+      const all = servicesQuery.data ?? []
+      const upcoming = upcomingServices(all, today)
+      // Next service day too, when the nearest is today — shown only once
+      // today is over (withNextDayOnceOver, below), but fetched now so its
+      // countdown is ready the moment it is.
+      return upcoming.some((s) => s.date === today)
+        ? [...upcoming, ...nextServiceDayAfter(all, today)]
+        : upcoming
+    },
     [adminDate, dayServices, servicesQuery.data, today],
   )
   const listedIds = useMemo(() => listedServices.map((s) => s.id), [listedServices])
@@ -236,9 +252,17 @@ export function DashboardPage() {
   // In the order they happen, which on a day with two services is a fact
   // about the running order rather than about the names.
   const services = useMemo(
-    () => inStartOrder(listedServices, (s) => startsAt.get(s.id) ?? null),
-    [listedServices, startsAt],
+    () =>
+      inStartOrder(
+        adminDate
+          ? listedServices
+          : withNextDayOnceOver(listedServices, today, (s) => standingOf(s.id).state === 'done'),
+        (s) => startsAt.get(s.id) ?? null,
+      ),
+    [listedServices, startsAt, adminDate, today, standingOf],
   )
+
+  const aheadCount = services.filter((s) => standingOf(s.id).state !== 'done').length
 
   /*
    * What is unfolded, and what is merely listed.
@@ -349,7 +373,8 @@ export function DashboardPage() {
                 dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
               }`
             : `${formatServiceDay(today)} · ${
-                services.length === 1 ? '1 service ahead' : `${services.length} services ahead`
+                // Ahead means not over: two finished this morning are not "ahead".
+                aheadCount === 1 ? '1 service ahead' : `${aheadCount} services ahead`
               }`
         }
         title={`${greeting(new Date(clock))}${profile ? `, ${profile.first_name}` : ''}.`}

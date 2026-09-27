@@ -80,3 +80,37 @@ export function inStartOrder<T extends ListedService>(
 export function opensOnItsOwn(date: string, focusDate: string, state: ServiceState): boolean {
   return date === focusDate && state !== 'done'
 }
+
+/**
+ * The services on the first service day after `day`, or none.
+ *
+ * The dashboard fetches these alongside today's so that, once today is
+ * over, next week is already there to show.
+ */
+export function nextServiceDayAfter<T extends ListedService>(services: T[], day: string): T[] {
+  return upcomingServices(
+    services.filter((s) => s.date > day),
+    day,
+  )
+}
+
+/**
+ * What the dashboard shows, once it knows which services are over.
+ *
+ * Today's services stay listed all day (the finished ones fold under
+ * Finished services) — but once every one of them is over, "Upcoming"
+ * was left saying nothing was coming while next Sunday sat there planned.
+ * So the next service day joins the list the moment today is done, and
+ * not before: while anything today is still to come, today is the page.
+ */
+export function withNextDayOnceOver<T extends ListedService>(
+  listed: T[],
+  today: string,
+  isOver: (service: T) => boolean,
+): T[] {
+  const todays = listed.filter((s) => s.date === today)
+  if (todays.length === 0 || todays.some((s) => !isOver(s))) {
+    return listed.filter((s) => s.date <= today || todays.length === 0)
+  }
+  return listed
+}
