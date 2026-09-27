@@ -1,32 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Overlay } from './Surface'
 import { qrModules } from '../lib/qrMatrix'
+import { QrSvg } from './QrCode'
 import { itemScanUrl } from '../lib/qrLink'
 import { LabelSheetDialog } from './LabelSheetDialog'
 import type { InventoryItem } from '../lib/types'
-
-/** The QR drawn as one path of squares — sharp at any size, no image to load. */
-function QrSvg({ modules, className = '' }: { modules: boolean[][]; className?: string }) {
-  const count = modules.length
-  const squares: string[] = []
-  for (let row = 0; row < count; row += 1) {
-    for (let col = 0; col < count; col += 1) {
-      if (modules[row][col]) squares.push(`M${col} ${row}h1v1h-1z`)
-    }
-  }
-  return (
-    <svg
-      viewBox={`-2 -2 ${count + 4} ${count + 4}`}
-      className={className}
-      role="img"
-      aria-label="QR code for this item"
-    >
-      {/* The quiet zone has to be white too, or a reader loses the edge. */}
-      <rect x={-2} y={-2} width={count + 4} height={count + 4} fill="#ffffff" />
-      <path d={squares.join('')} fill="#000000" />
-    </svg>
-  )
-}
 
 /**
  * One item's QR code, on screen and on paper.
@@ -62,7 +40,7 @@ export function ItemQrDialog({ item, onClose }: { item: InventoryItem; onClose: 
 
         <div className="mt-5 flex justify-center">
           {modules ? (
-            <QrSvg modules={modules} className="h-56 w-56 rounded-[var(--radius-chip)]" />
+            <QrSvg modules={modules} className="h-56 w-56 rounded-[var(--radius-chip)]" label="QR code for this item" />
           ) : (
             <div className="h-56 w-56 animate-pulse rounded-[var(--radius-chip)] bg-raised" />
           )}

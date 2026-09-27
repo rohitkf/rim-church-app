@@ -35,7 +35,7 @@ export function RotaLookCard() {
   const { isAdmin } = useAuth()
   if (!isAdmin) return null
   return (
-    <section className="w-full rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
+    <section id="rota" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <h2 className="text-headline-md">Team Rota</h2>
       <p className="mt-1 text-body-sm text-on-surface-variant">
         The tags a role can carry, and how the Team Coordinator stands out. Everyone sees these on
