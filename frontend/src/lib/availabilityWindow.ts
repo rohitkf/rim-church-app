@@ -31,22 +31,25 @@ export function availabilityWindowDays(rotaWindowDays: number): number {
 }
 
 export interface AvailabilityGroups<T> {
-  /** The next service still needing an answer, and anything already over before it. */
+  /** The day of the next service still needing an answer, and anything already over before it. */
   now: T[]
+  /** That next service itself — the one card that opens on its own. */
+  nextId: string | null
   /** Everything after that — real, answerable, and folded away. */
   later: T[]
 }
 
 /**
- * Split what is on the page into "the one in front of you" and "the rest".
+ * Split what is on the page into "the day in front of you" and "the rest".
  *
- * The line is drawn after one service: the next one that can still be
- * answered for. It used to be drawn at a day, so an English service and a
- * Malayalam service on the same Sunday both opened at the top — which on a
- * phone is two long cards of teams before anybody can see there is a third
- * Sunday to answer for at all. The church asked for the next service alone
- * on top, open, and everything else in the window folded under Upcoming,
- * the second service that morning included.
+ * The line is drawn after the day of the next service that can still be
+ * answered for. It was once drawn at a day with every card open, which on
+ * a phone was two long cards of teams before anybody could see there was
+ * a third Sunday; then after one service, which kept one card open but
+ * split a Sunday in two — its English service on top and its Malayalam
+ * service under Upcoming, the same date heading twice. Now the day stays
+ * whole and only its first service opens (`nextId`); the second sits
+ * folded beneath it, under the same heading.
  *
  * `services` must already be in the order they happen — by date, and on a
  * day with two, by start time — because "the next one" is whichever comes
@@ -63,9 +66,12 @@ export function splitAvailabilityGroups<T extends WindowedService>(
   const next = services.findIndex((s) => !isFinished(s.id))
   // Nothing left to answer: it is all a record, and all of it reads as
   // what is in front of you rather than being filed under "upcoming".
-  if (next === -1) return { now: [...services], later: [] }
+  if (next === -1) return { now: [...services], nextId: null, later: [] }
 
-  return { now: services.slice(0, next + 1), later: services.slice(next + 1) }
+  const day = services[next].date
+  const now = services.filter((s, i) => i <= next || s.date === day)
+  const later = services.filter((s, i) => i > next && s.date !== day)
+  return { now, nextId: services[next].id, later }
 }
 
 /**

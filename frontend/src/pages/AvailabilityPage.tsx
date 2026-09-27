@@ -1068,11 +1068,17 @@ export function AvailabilityPage() {
           </p>
         ) : (
           <div className="mt-6 flex flex-col gap-6">
+            {groups.now.length > 0 && (
+              <h2 className="-mb-2 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
+                Next up
+              </h2>
+            )}
             {daysOf(groups.now).map((day) => (
               <section key={day.date} aria-label={formatServiceDay(day.date)}>
                 <DayHeading date={day.date} today={today} count={day.services.length} />
                 <div className="mt-3 flex flex-col gap-4">
-                  {day.services.map((service) => renderService(service, true))}
+                  {/* The whole day together; only its first service opens. */}
+                  {day.services.map((service) => renderService(service, service.id === groups.nextId))}
                 </div>
               </section>
             ))}
@@ -1084,8 +1090,7 @@ export function AvailabilityPage() {
             )}
 
             {groups.later.length > 0 && (
-              /* Everything after the next service, the second one that
-                 morning included. Real services with real questions on
+              /* Everything after the next service's day. Real services with real questions on
                  them — folded, because answering the one in front of you
                  should not mean scrolling past three weeks first. */
               <section aria-labelledby="upcoming-availability">
@@ -1093,10 +1098,10 @@ export function AvailabilityPage() {
                   id="upcoming-availability"
                   className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
                 >
-                  Upcoming services availability
+                  Later services
                 </h2>
                 <p className="mt-1 text-label-sm text-on-surface-faint">
-                  The next three weeks. Answer early if you already know.
+                  The rest of the next three weeks. Answer early if you already know.
                 </p>
                 <div className="mt-4 flex flex-col gap-6">
                   {daysOf(groups.later).map((day) => (
