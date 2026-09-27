@@ -265,7 +265,28 @@ export const departmentRoleGroupSchema = z.object({
 })
 export type DepartmentRoleGroup = z.infer<typeof departmentRoleGroupSchema>
 
-export const rotaAssignmentSchema = z.object({
+const rotaTagRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string(),
+  sort_order: z.number(),
+  shown: z.boolean(),
+})
+
+/*
+ * Tags arrive through the join table — `rota_assignment_tags(tag:rota_tags(…))`,
+ * each hop a plain foreign key — and are flattened here into `tags`, so the
+ * rest of the app never sees the join. (A direct many-to-many embed would
+ * lean on PostgREST detecting the join table, which nothing here can check
+ * before it ships.)
+ */
+const flattenTags = (row: unknown) => {
+  if (!row || typeof row !== 'object' || !('assignment_tags' in row)) return row
+  const { assignment_tags, ...rest } = row as { assignment_tags?: { tag: unknown }[] | null }
+  return { ...rest, tags: (assignment_tags ?? []).map((t) => t.tag).filter(Boolean) }
+}
+
+export const rotaAssignmentSchema = z.preprocess(flattenTags, z.object({
   id: z.string(),
   service_id: z.string(),
   department_id: z.string(),
@@ -273,12 +294,10 @@ export const rotaAssignmentSchema = z.object({
   role_label: z.string(),
   role_id: z.string().nullable(),
   /** "Shadow", "First time"… — the church's own words (0107). */
-  tags: z
-    .array(z.object({ id: z.string(), name: z.string(), color: z.string(), sort_order: z.number(), shown: z.boolean() }))
-    .default([]),
+  tags: z.array(rotaTagRowSchema).default([]),
   profile: personSummarySchema.nullable(),
   department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
-})
+}))
 export type RotaAssignment = z.infer<typeof rotaAssignmentSchema>
 
 export const rotaRequestStatusSchema = z.enum(['pending', 'approved', 'denied'])
