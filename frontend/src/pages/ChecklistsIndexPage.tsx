@@ -28,6 +28,7 @@ import { splitFinished } from '../lib/finishedSection'
 import { FinishedServices } from '../components/FinishedServices'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
+import { carriesPhase } from '../lib/readiness'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
@@ -381,7 +382,11 @@ export function ChecklistsIndexPage() {
                         hidden={!open}
                         className="mt-4 flex flex-col gap-4">
                         {forService.map(({ assignment, rank }) => {
-                          const items = (itemsQuery.data ?? []).filter((i) => i.role_id === assignment.role_id)
+                          // Only the halves the rota gave this person: somebody
+                          // down for setting up does not owe the packing-up list.
+                          const items = (itemsQuery.data ?? []).filter(
+                            (i) => i.role_id === assignment.role_id && carriesPhase(assignment, i.phase),
+                          )
                           const progress = progressQuery.data ?? []
                           // Shut until the team is called in. Nobody's
                           // signature is exempt: a Head cannot verify what

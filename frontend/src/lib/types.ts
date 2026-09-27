@@ -295,6 +295,9 @@ export const rotaAssignmentSchema = z.preprocess(flattenTags, z.object({
   user_id: z.string(),
   role_label: z.string(),
   role_id: z.string().nullable(),
+  /** Which halves of the role's checklist this assignment carries (0112). */
+  include_pre: z.boolean().default(true),
+  include_post: z.boolean().default(true),
   /** "Shadow", "First time"… — the church's own words (0107). */
   tags: z.array(rotaTagRowSchema).default([]),
   profile: personSummarySchema.nullable(),
