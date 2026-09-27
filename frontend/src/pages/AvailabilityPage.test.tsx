@@ -652,11 +652,16 @@ describe('the note beside an answer', () => {
   const BEFORE_DEADLINE = '2026-09-04T09:00:00Z'
   const AFTER_DEADLINE = '2026-09-06T09:00:00Z'
 
-  it('offers a note once an answer has been given', async () => {
+  it('offers a note box, marked optional, once an answer has been given', async () => {
     state.rows.availability = [myAnswer()]
     standAt(BEFORE_DEADLINE)
     show()
-    expect(within(await openCard()).getByRole('button', { name: 'Add a note' })).toBeInTheDocument()
+    const card = await openCard()
+    const box = within(card).getByLabelText('A note with your answer')
+    expect(box).toHaveAttribute('placeholder', expect.stringContaining('8.30am'))
+    expect(within(card).getByText('(optional)')).toBeInTheDocument()
+    // Nothing to save until something is typed.
+    expect(within(card).queryByRole('button', { name: 'Save note' })).toBeNull()
   })
 
   /*
@@ -666,7 +671,7 @@ describe('the note beside an answer', () => {
   it('offers nothing to annotate before an answer is given', async () => {
     standAt(BEFORE_DEADLINE)
     show()
-    expect(within(await openCard()).queryByRole('button', { name: 'Add a note' })).toBeNull()
+    expect(within(await openCard()).queryByLabelText('A note with your answer')).toBeNull()
   })
 
   it('writes the note onto the answer that is already there', async () => {
@@ -675,9 +680,8 @@ describe('the note beside an answer', () => {
     const user = show()
     const card = await openCard()
 
-    await user.click(within(card).getByRole('button', { name: 'Add a note' }))
     await user.type(
-      screen.getByLabelText('A note with your answer'),
+      within(card).getByLabelText('A note with your answer'),
       'There, but not until 9.30',
     )
     await user.click(screen.getByRole('button', { name: 'Save note' }))

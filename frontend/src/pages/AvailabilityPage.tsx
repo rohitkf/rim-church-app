@@ -122,78 +122,92 @@ function AnswerNote({
   editable: boolean
   onSave: (note: string) => void
 }) {
+  // With no note yet the box is simply there, under the answer just given:
+  // a faint "Add a note" link was a feature nobody found. Once a note is
+  // written it reads as a quote, and editing it is a tap away.
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(note ?? '')
+  const open = editable && (editing || !note)
 
-  if (!editing) {
+  if (!open) {
+    if (!note) return null
     return (
       <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        {note && (
-          <span className="min-w-0 break-words text-label-md text-on-surface-variant">
-            <span aria-hidden="true">“</span>
-            {note}
-            <span aria-hidden="true">”</span>
-          </span>
-        )}
+        <span className="min-w-0 break-words text-label-md text-on-surface-variant">
+          <span aria-hidden="true">“</span>
+          {note}
+          <span aria-hidden="true">”</span>
+        </span>
         {editable && (
           <button
             type="button"
             onClick={() => {
-              setText(note ?? '')
+              setText(note)
               setEditing(true)
             }}
             className="tap shrink-0 text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
           >
-            {note ? 'Edit note' : 'Add a note'}
+            Edit note
           </button>
         )}
       </div>
     )
   }
 
+  const changed = text.trim() !== (note ?? '')
+  const save = () => {
+    if (!changed) return
+    onSave(text)
+    setEditing(false)
+  }
+
   return (
-    <div className="mt-2">
+    <div className="mt-3">
+      <label className="flex items-baseline justify-between gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <span>
+          Note <span className="normal-case tracking-normal text-on-surface-faint">(optional)</span>
+        </span>
+        <span className="tabular text-on-surface-faint">{text.trim().length}/200</span>
+      </label>
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
-            onSave(text)
-            setEditing(false)
+            save()
           }
         }}
         maxLength={200}
-        autoFocus
+        autoFocus={editing}
         aria-label="A note with your answer"
-        placeholder="Anything the team should know — “there, but not until 9.30”."
-        className="w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
+        placeholder="e.g. “Only there by 8.30am”"
+        className="mt-1.5 w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
       />
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            onSave(text)
-            setEditing(false)
-          }}
-          className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
-        >
-          Save note
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
-        >
-          Cancel
-        </button>
-        {/* Clearing it is saving an empty one, which the database counts
-            as no note at all. */}
-        <span className="font-mono text-label-sm text-on-surface-faint">
-          {text.trim().length}/200
-        </span>
-      </div>
+      {(changed || editing) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy || !changed}
+            onClick={save}
+            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+          >
+            Save note
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setText(note ?? '')
+              setEditing(false)
+            }}
+            className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+          >
+            Cancel
+          </button>
+          {/* Clearing it is saving an empty one, which the database counts
+              as no note at all. */}
+        </div>
+      )}
     </div>
   )
 }
