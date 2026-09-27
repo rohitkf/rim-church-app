@@ -774,3 +774,38 @@ body::after {
     opacity: 0.75;
   }
 }
+
+/*
+ * A team's "ready for service" light (0110). Green blinks — slowly, a
+ * beacon rather than an alarm — so a screen of teams can be read from the
+ * back of the hall; red holds still, because nothing about it is news.
+ * Reduced motion stops the blink (the rule above), and the colour and the
+ * words beside it still say which.
+ */
+@keyframes rim-ready-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent-green) 55%, transparent),
+      0 0 10px 2px color-mix(in oklab, var(--color-accent-green) 70%, transparent);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-accent-green) 0%, transparent),
+      0 0 4px 0 color-mix(in oklab, var(--color-accent-green) 30%, transparent);
+  }
+}
+
+.ready-light {
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--color-accent-red);
+  box-shadow: 0 0 6px 0 color-mix(in oklab, var(--color-accent-red) 55%, transparent);
+}
+
+.ready-light[data-ready='true'] {
+  background: var(--color-accent-green);
+  animation: rim-ready-blink 1.6s ease-in-out infinite;
+}
+

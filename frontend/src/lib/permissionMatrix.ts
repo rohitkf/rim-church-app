@@ -176,6 +176,11 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'team', coordinator: 'team' }),
         note: 'The Coordinator is why a Sunday does not stall on whoever happens to be in the building. The same window applies: nobody verifies before the call time.',
       },
+      {
+        action: 'Mark a team ready for the service (the green light)',
+        can: all({ head: 'team', coordinator: 'team' }),
+        note: 'The team’s Head or Assisting Head, or whoever the rota puts in Team Coordinator for it at that service. Anybody on a team sees the lights; they stop moving once the service has finished.',
+      },
       { action: 'Record attendance for a team', can: all({ head: 'team' }) },
       { action: 'Nudge somebody who has not finished', can: all({ head: 'team' }) },
     ],

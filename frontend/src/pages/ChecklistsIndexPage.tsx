@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { StatusBadge } from '../components/ChecklistStatus'
+import { TeamReadinessPanel } from '../components/TeamReadinessPanel'
+import { READINESS_KEY, fetchTeamReadiness } from '../lib/teamReadiness'
 import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
 import {
   fetchDepartments,
@@ -72,6 +74,13 @@ export function ChecklistsIndexPage() {
     enabled: dayServiceIds.length > 0,
   })
   const assignments = useMemo(() => assignmentsQuery.data ?? [], [assignmentsQuery.data])
+
+  // Each serving team's ready light, at the top of each service.
+  const readinessQuery = useQuery({
+    queryKey: [...READINESS_KEY, dayServiceIds],
+    queryFn: () => fetchTeamReadiness(dayServiceIds),
+    enabled: dayServiceIds.length > 0,
+  })
 
   const deptIds = useMemo(
     () => [...new Set(assignments.map((a) => a.department_id))],
@@ -354,6 +363,18 @@ export function ChecklistsIndexPage() {
                           )
                         )}
                       </div>
+
+                      {/* First thing under the service's name: is every
+                          team ready to start? */}
+                      {open && (
+                        <TeamReadinessPanel
+                          serviceId={service.id}
+                          finished={finished}
+                          assignments={assignments}
+                          departments={departmentsQuery.data ?? []}
+                          rows={readinessQuery.data ?? []}
+                        />
+                      )}
 
                       <ul
                         id={`checklist-roles-${service.id}`}
