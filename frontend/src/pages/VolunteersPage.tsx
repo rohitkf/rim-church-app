@@ -19,6 +19,7 @@ import { userRoleSchema, type RoleType, type UserRole } from '../auth/types'
 import { useErrorText } from '../lib/useErrorText'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { Select, selectPillClasses } from '../components/Select'
 
 /**
  * The one section that is open when the page loads.
@@ -158,6 +159,26 @@ export function VolunteersPage() {
       refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that role.')),
+  })
+
+  // Putting somebody on a team from here, so a Church Member waiting under
+  // "Not on a team yet" can be placed without hunting for their email on
+  // the team's own page. Once they are on it, Make head appears.
+  const [placeIn, setPlaceIn] = useState<Record<string, string>>({})
+  const addToTeam = useMutation({
+    mutationFn: async ({ userId, departmentId }: { userId: string; departmentId: string }) => {
+      const { error } = await supabase
+        .from('department_members')
+        .insert({ user_id: userId, department_id: departmentId, member_type: 'core' })
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      setError(null)
+      setPlaceIn((s) => ({ ...s, [vars.userId]: '' }))
+      queryClient.invalidateQueries({ queryKey: ['volunteer-memberships'] })
+      queryClient.invalidateQueries({ queryKey: ['department-members'] })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not add them to that team.')),
   })
 
   const removeVolunteer = useMutation({
@@ -441,6 +462,33 @@ export function VolunteersPage() {
             of decisions and not as part of the heading. */}
         {(canManageAdmin || canRemove) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
+            {(() => {
+              const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
+              const open = (departmentsQuery.data ?? []).filter((d) => !onTeams.has(d.id))
+              if (open.length === 0) return null
+              const chosen = placeIn[v.id] ?? ''
+              return (
+                <span className="mr-auto flex flex-wrap items-center gap-2">
+                  <Select
+                    value={chosen}
+                    onChange={(id) => setPlaceIn((s) => ({ ...s, [v.id]: id }))}
+                    aria-label={`Team to add ${v.first_name} to`}
+                    placeholder="Add to a team…"
+                    className={selectPillClasses}
+                    options={open.map((d) => ({ value: d.id, label: d.name }))}
+                  />
+                  {chosen && (
+                    <button
+                      onClick={() => addToTeam.mutate({ userId: v.id, departmentId: chosen })}
+                      disabled={addToTeam.isPending}
+                      className={cardActionClasses}
+                    >
+                      Add
+                    </button>
+                  )}
+                </span>
+              )
+            })()}
             {!holdsAdmin && (
               <button
                 onClick={() =>
@@ -625,7 +673,10 @@ export function VolunteersPage() {
                 aria-controls="volunteers-unattached"
                 className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-2 text-left"
               >
-                <h2 className="text-headline-md">Not on a team yet</h2>
+                {/* Church Members: signed in, on no team. They see the church's
+                    shape, not its teams' working — and wait here to be put on
+                    a team, or made a Head or an Admin. */}
+                <h2 className="text-headline-md">Church Members · Not on a team yet</h2>
                 <span className="font-mono text-label-sm text-on-surface-variant">
                   {onNoTeam.length}
                 </span>

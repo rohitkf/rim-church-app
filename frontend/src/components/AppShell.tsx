@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import {
   BoxIcon,
   CakeIcon,
+  GiftHeartIcon,
   CalendarIcon,
   ChecklistIcon,
   NotebookIcon,
@@ -81,6 +82,7 @@ const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
   { to: '/events', label: 'Events', icon: CakeIcon },
+  { to: '/giving', label: 'Giving', icon: GiftHeartIcon },
   { to: '/departments', label: 'Teams', icon: UsersIcon },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true },
@@ -102,6 +104,7 @@ const WASH: Record<string, string> = {
   // Set Lists belongs to the same Sunday as the rota it reads its leaders
   // from, so it is lit the same.
   '/set-lists': 'var(--color-accent-blue)',
+  '/giving': 'var(--color-accent-green)',
   '/departments': 'var(--color-accent-indigo)',
   '/volunteers': 'var(--color-accent-indigo)',
   '/inventory': 'var(--color-accent-orange)',

@@ -33,6 +33,8 @@ import { useErrorText } from '../lib/useErrorText'
 import { humanError, isRotaClash } from '../lib/humanError'
 import { availableFirst, rotaConflict } from '../lib/rotaConflict'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
+import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
+import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { splitFinished } from '../lib/finishedSection'
@@ -44,12 +46,18 @@ import {
   type RotaReleaseRequest,
 } from '../lib/types'
 
+/** " (Shadow)" — the tags someone's existing assignment carries, for a greyed name. */
+function tagNote(tags: { name: string; shown: boolean; sort_order: number }[]): string {
+  const names = shownTags(tags).map((t) => t.name)
+  return names.length ? ` (${names.join(', ')})` : ''
+}
+
 async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   if (serviceIds.length === 0) return []
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, is_shadow, profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -79,7 +87,9 @@ export function TeamRotaPage() {
 
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
-  const [draftShadow, setDraftShadow] = useState<Record<string, boolean>>({})
+  const [draftTags, setDraftTags] = useState<Record<string, string[]>>({})
+  const tagsQuery = useRotaTags()
+  const offeredTags = shownTags(tagsQuery.data ?? [])
   const [error, setError] = useState<string | null>(null)
   // A second role at one service, said where it can't be missed: the
   // banner above sits at the top of a page the form is a long way down.
@@ -278,29 +288,30 @@ export function TeamRotaPage() {
       userId,
       roleLabel,
       roleId,
-      isShadow,
+      tagIds,
     }: {
       serviceId: string
       departmentId: string
       userId: string
       roleLabel: string
       roleId: string | null
-      isShadow: boolean
+      tagIds: string[]
     }) => {
-      const { error } = await supabase.from('rota_assignments').insert({
-        service_id: serviceId,
-        department_id: departmentId,
-        user_id: userId,
+      // One call, so a role is never left assigned without its tags.
+      const { error } = await supabase.rpc('assign_to_rota', {
+        service: serviceId,
+        department: departmentId,
+        person: userId,
         role_label: roleLabel,
-        role_id: roleId,
-        is_shadow: isShadow,
+        role: roleId,
+        tags: tagIds,
       })
       if (error) throw error
     },
     onSuccess: (_d, vars) => {
       setDraftRole((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftPerson((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
-      setDraftShadow((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
+      setDraftTags((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: [] }))
       // The role is filled, so the form has done its job — fold it away
       // rather than leaving an empty pair of dropdowns behind.
       setOpenForm((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
@@ -634,6 +645,7 @@ export function TeamRotaPage() {
                                            "Camera Operator 1" and a full name
                                            were sharing one line and running into
                                            each other. One line again from `sm`. */
+                                        style={sky ? skyStyle(settings.coordinator_color) : undefined}
                                         className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
                                           sky
                                             ? `galaxy glisten ${
@@ -663,16 +675,19 @@ export function TeamRotaPage() {
                                           }`}
                                         >
                                           {a.role_label}
-                                          {/* Teal, which nothing else on the
-                                              rota uses: orange is a release
-                                              asked for, blue is you. A
-                                              trainee should be spotted at a
-                                              glance, not read for. */}
-                                          {a.is_shadow && (
-                                            <span className="ml-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-teal)_24%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-medium uppercase text-accent-teal-soft shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-teal)_45%,transparent)]">
-                                              Shadow
+                                          {/* Each in the colour the church
+                                              gave it in App settings, so a
+                                              trainee is spotted at a glance
+                                              rather than read for. */}
+                                          {shownTags(a.tags).map((tag) => (
+                                            <span
+                                              key={tag.id}
+                                              className="ml-2 inline-block rounded-full px-2 py-0.5 align-middle font-mono text-label-sm font-medium uppercase"
+                                              style={tagStyle(tag.color)}
+                                            >
+                                              {tag.name}
                                             </span>
-                                          )}
+                                          ))}
                                         </span>
                                         <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
                                           {pending ? (
@@ -776,7 +791,7 @@ export function TeamRotaPage() {
                                   const who = held.profile
                                     ? `${held.profile.first_name} ${held.profile.last_name}`.trim()
                                     : 'They'
-                                  const as = `${held.is_shadow ? 'shadowing ' : ''}${held.role_label}`
+                                  const as = `${held.role_label}${tagNote(held.tags)}`
                                   setClashNotice(
                                     isCoordinatorRole(role)
                                       ? {
@@ -796,7 +811,7 @@ export function TeamRotaPage() {
                                   userId: chosenPerson,
                                   roleLabel: role,
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
-                                  isShadow: !!draftShadow[key],
+                                  tagIds: draftTags[key] ?? [],
                                 })
                               }}
                               className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-chip)] bg-surface-low p-3"
@@ -871,26 +886,45 @@ export function TeamRotaPage() {
                                     return held
                                       ? {
                                           value: m.user_id,
-                                          label: `${name} — ${held.is_shadow ? 'shadowing ' : ''}${held.role_label}`,
+                                          label: `${name} — ${held.role_label}${tagNote(held.tags)}`,
                                           disabled: true,
                                         }
                                       : { value: m.user_id, label: name }
                                   }))}
                                 />
                               </label>
-                              {/* Learning the role beside whoever does it,
-                                  rather than doing it. */}
-                              <label className="flex items-center gap-2 self-center py-2 text-body-sm text-on-surface">
-                                <input
-                                  type="checkbox"
-                                  checked={!!draftShadow[key]}
-                                  onChange={(e) =>
-                                    setDraftShadow((s) => ({ ...s, [key]: e.target.checked }))
-                                  }
-                                  className="h-4 w-4 accent-[var(--color-primary)]"
-                                />
-                                Shadow
-                              </label>
+                              {/* The church's own tags, from App
+                                  settings — as many as apply. */}
+                              {offeredTags.length > 0 && (
+                                <div className="flex w-full flex-wrap items-center gap-1.5" role="group" aria-label="Tags">
+                                  {offeredTags.map((tag) => {
+                                    const on = (draftTags[key] ?? []).includes(tag.id)
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        aria-pressed={on}
+                                        onClick={() =>
+                                          setDraftTags((s) => {
+                                            const now = s[key] ?? []
+                                            return {
+                                              ...s,
+                                              [key]: on ? now.filter((t) => t !== tag.id) : [...now, tag.id],
+                                            }
+                                          })
+                                        }
+                                        className={`tap rounded-full px-3 py-1.5 font-mono text-label-sm font-medium uppercase transition-opacity ${
+                                          on ? '' : 'opacity-55 hover:opacity-80'
+                                        }`}
+                                        style={on ? tagStyle(tag.color) : { boxShadow: 'inset 0 0 0 1px var(--color-outline-variant)' }}
+                                      >
+                                        {on ? '✓ ' : '+ '}
+                                        {tag.name}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
                               <button
                                 type="submit"
                                 disabled={addAssignment.isPending || !!clash}

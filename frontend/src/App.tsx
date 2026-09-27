@@ -31,6 +31,7 @@ import {
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { VolunteersPage } from './pages/VolunteersPage'
 import { EventsPage } from './pages/EventsPage'
+import { GivingPage } from './pages/GivingPage'
 import { DebriefsPage } from './pages/DebriefsPage'
 import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
 import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
@@ -113,7 +114,8 @@ const router = createBrowserRouter(
           <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/volunteers" element={<VolunteersPage />} />
           <Route path="/events" element={<EventsPage />} />
-          <Route path="/debriefs" element={<DebriefsPage />} />
+          {/* For every member, a team or not: it is how anybody gives. */}
+          <Route path="/giving" element={<GivingPage />} />
           <Route path="/departments/:id" element={<DepartmentDetailPage />} />
           <Route path="/set-lists" element={<SetListsPage />} />
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
@@ -136,6 +138,8 @@ const router = createBrowserRouter(
             <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
             <Route path="/messages" element={<MessageBoardPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
+            {/* A team's notes on its own Sunday (0109 closes the rows too). */}
+            <Route path="/debriefs" element={<DebriefsPage />} />
           </Route>
         </Route>
       </Route>

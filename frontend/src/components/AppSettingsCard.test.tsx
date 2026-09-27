@@ -89,6 +89,9 @@ describe('the App settings card', () => {
 
     await waitFor(() => expect(saved).toHaveBeenCalledTimes(1))
     expect(saved.mock.calls[0][0]).toMatchObject({ edit_grace_minutes: 720 })
+    // The Coordinator's colour has its own Save in the Team Rota card; this
+    // one sending its stale copy would undo a colour chosen there.
+    expect(saved.mock.calls[0][0]).not.toHaveProperty('coordinator_color')
   })
 
   it('offers nothing to save until something has changed', async () => {

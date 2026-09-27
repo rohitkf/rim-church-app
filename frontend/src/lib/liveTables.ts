@@ -158,6 +158,11 @@ export const LIVE_TABLES: LiveTable[] = [
 
   /* ---- settings everyone reads ------------------------------------ */
   { table: 'app_settings', keys: ['app-settings'] },
+  { table: 'rota_tags', keys: ['rota-tags', 'rota'] },
+  { table: 'rota_assignment_tags', keys: ['rota', 'rota-assignments', 'checklist-assignments'] },
+  { table: 'giving_page', keys: ['giving'] },
+  { table: 'giving_links', keys: ['giving'] },
+  { table: 'giving_bank_accounts', keys: ['giving'] },
   { table: 'announcements', keys: ['announcements-sent', 'pending-alerts'] },
 ]
 

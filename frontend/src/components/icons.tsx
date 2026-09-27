@@ -104,6 +104,17 @@ export function CakeIcon(props: IconProps) {
   )
 }
 
+/** A hand offering a heart: giving, not paying. */
+export function GiftHeartIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 12.5c-2.2-1.5-4-3-4-5a2.2 2.2 0 0 1 4-1.3A2.2 2.2 0 0 1 16 7.5c0 2-1.8 3.5-4 5Z" />
+      <path d="M3 15h3.5l3 1.8h3.2a1.3 1.3 0 0 1 0 2.6H10" />
+      <path d="M13.5 19.4l4.9-2.4a1.4 1.4 0 0 1 1.6 2.2L15.5 22H3" />
+    </svg>
+  )
+}
+
 export function ClipboardUserIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

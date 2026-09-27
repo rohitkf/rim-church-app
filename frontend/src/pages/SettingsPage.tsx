@@ -2,6 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { PageHeader } from '../components/Surface'
 import { AdminResetCard } from '../components/AdminResetCard'
+import { RotaLookCard } from '../components/RotaLookCard'
+import { GivingSettingsCard } from '../components/GivingSettingsCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { SendAlertCard } from '../components/SendAlertCard'
@@ -51,7 +53,7 @@ const SECTIONS: SettingsSection[] = [
   {
     to: '/settings/church',
     label: 'App settings',
-    blurb: 'The church’s own clocks and windows.',
+    blurb: 'Clocks and windows, rota tags and colours, and the Giving page.',
     needs: 'admin',
   },
   {
@@ -143,7 +145,29 @@ export function SendAlertPane() {
 
 /** The church's clocks: rota window, lead-in, the day the board clears. */
 export function ChurchSettingsPane() {
-  return <AppSettingsCard />
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Three long cards: say what is here, and go straight to it. */}
+      <nav aria-label="App settings sections" className="flex flex-wrap gap-2">
+        {[
+          ['#timings', 'Timings'],
+          ['#rota', 'Team Rota'],
+          ['#giving', 'Giving'],
+        ].map(([href, label]) => (
+          <a
+            key={href}
+            href={href}
+            className="tap rounded-full bg-surface-container px-4 py-2 text-label-md text-on-surface hairline hover:bg-surface-low"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      <AppSettingsCard />
+      <RotaLookCard />
+      <GivingSettingsCard />
+    </div>
+  )
 }
 
 /** The church's own mark. Owner only, and the database agrees. */
