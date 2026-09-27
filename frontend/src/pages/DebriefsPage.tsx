@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { QueryState } from "../components/QueryState";
@@ -335,6 +336,7 @@ export function DebriefsPage() {
         title="Debriefs"
         description="What each team said afterwards — written by whoever runs the team, read by everybody, and kept for a while."
       />
+      <Lifespan page="debriefs" className="mb-4" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">

@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -19,38 +20,27 @@ import { SignupPage } from './pages/SignupPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { ProfilePage } from './pages/ProfilePage'
-import {
-  AccessSettingsPane,
-  AppLogoPane,
-  ChurchSettingsPane,
-  EraseDataPane,
-  SendAlertPane,
-  SettingsPage,
-} from './pages/SettingsPage'
-import { DepartmentsPage } from './pages/DepartmentsPage'
-import { VolunteersPage } from './pages/VolunteersPage'
-import { EventsPage } from './pages/EventsPage'
-import { GivingPage } from './pages/GivingPage'
-import { ChurchUpdatesPage } from './pages/ChurchUpdatesPage'
-import { PollsPage } from './pages/PollsPage'
-import { DebriefsPage } from './pages/DebriefsPage'
-import { DepartmentDetailPage } from './pages/DepartmentDetailPage'
-import { ChecklistsIndexPage } from './pages/ChecklistsIndexPage'
-import { AvailabilityPage } from './pages/AvailabilityPage'
-import { TeamRotaPage } from './pages/TeamRotaPage'
-import { SetListsPage } from './pages/SetListsPage'
-import { DepartmentPrepPage } from './pages/DepartmentPrepPage'
-import { ServicePlannerIndexPage } from './pages/ServicePlannerIndexPage'
-import { ServicePlannerPage } from './pages/ServicePlannerPage'
-import { ServiceTemplatesPage } from './pages/ServiceTemplatesPage'
-import { InventoryIndexPage } from './pages/InventoryIndexPage'
-import { InventoryPage } from './pages/InventoryPage'
-import { InventoryScanPage } from './pages/InventoryScanPage'
-import { MessageBoardPage } from './pages/MessageBoardPage'
-import { TeamChatPage } from './pages/TeamChatPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
+
+/*
+ * Each page's code arrives when the page is first opened, not with the
+ * app. Everything used to ship as one 1.4 MB file before the first screen
+ * could draw — the inventory's QR scanner included, for somebody who only
+ * ever opens Availability on a phone. Sign-in and the Dashboard stay in
+ * the first download, because they are where everybody lands.
+ */
+function PageLoading() {
+  return (
+    <div className="flex min-h-[100svh] items-center justify-center bg-background text-body-sm text-on-surface-variant">
+      Loading…
+    </div>
+  )
+}
+
+function page<M>(load: () => Promise<M>, name: keyof M) {
+  return async () => ({ Component: (await load())[name] as ComponentType })
+}
 
 const queryClient = new QueryClient({
   // Every read in the app comes through here, which makes it the one place
@@ -91,7 +81,8 @@ if (typeof window !== 'undefined') {
 // forms relies on to intercept an in-app navigation.
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route>
+    // Shown while a page opened straight from a link fetches its code.
+    <Route hydrateFallbackElement={<PageLoading />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -104,27 +95,27 @@ const router = createBrowserRouter(
               /profile kept working: it is in the account menu, the search
               and whatever anybody has bookmarked. */}
           <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
-          <Route path="/settings" element={<SettingsPage />}>
+          <Route path="/settings" lazy={page(() => import('./pages/SettingsPage'), 'SettingsPage')}>
             <Route index element={<Navigate to="/settings/profile" replace />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="access" element={<AccessSettingsPane />} />
-            <Route path="alerts" element={<SendAlertPane />} />
-            <Route path="church" element={<ChurchSettingsPane />} />
-            <Route path="logo" element={<AppLogoPane />} />
-            <Route path="data" element={<EraseDataPane />} />
+            <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
+            <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
+            <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
+            <Route path="church" lazy={page(() => import('./pages/SettingsPage'), 'ChurchSettingsPane')} />
+            <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
+            <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
           </Route>
-          <Route path="/departments" element={<DepartmentsPage />} />
-          <Route path="/volunteers" element={<VolunteersPage />} />
-          <Route path="/events" element={<EventsPage />} />
+          <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
+          <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
+          <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
           {/* For every member, a team or not: it is how anybody gives. */}
-          <Route path="/giving" element={<GivingPage />} />
-          <Route path="/updates" element={<ChurchUpdatesPage />} />
-          <Route path="/polls" element={<PollsPage />} />
-          <Route path="/departments/:id" element={<DepartmentDetailPage />} />
-          <Route path="/set-lists" element={<SetListsPage />} />
-          <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
-          <Route path="/service-planner/templates" element={<ServiceTemplatesPage />} />
-          <Route path="/service-planner/:serviceId" element={<ServicePlannerPage />} />
+          <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
+          <Route path="/updates" lazy={page(() => import('./pages/ChurchUpdatesPage'), 'ChurchUpdatesPage')} />
+          <Route path="/polls" lazy={page(() => import('./pages/PollsPage'), 'PollsPage')} />
+          <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
+          <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
+          <Route path="/service-planner" lazy={page(() => import('./pages/ServicePlannerIndexPage'), 'ServicePlannerIndexPage')} />
+          <Route path="/service-planner/templates" lazy={page(() => import('./pages/ServiceTemplatesPage'), 'ServiceTemplatesPage')} />
+          <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
           {/* The teams' own pages. Somebody who has signed up but has not
               been put on a team yet has nothing in any of them, so they go
               back to the dashboard rather than meeting three empty rooms —
@@ -132,18 +123,18 @@ const router = createBrowserRouter(
           <Route element={<TeamOnlyRoute />}>
             {/* A rota, an availability answer and a checklist are all
                 somebody's team's. On no team they are three empty pages. */}
-            <Route path="/checklists" element={<ChecklistsIndexPage />} />
-            <Route path="/checklists/:departmentId/:serviceId" element={<DepartmentPrepPage />} />
-            <Route path="/availability" element={<AvailabilityPage />} />
-            <Route path="/rota" element={<TeamRotaPage />} />
-            <Route path="/inventory" element={<InventoryIndexPage />} />
-            <Route path="/inventory/:id" element={<InventoryPage />} />
+            <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
+            <Route path="/checklists/:departmentId/:serviceId" lazy={page(() => import('./pages/DepartmentPrepPage'), 'DepartmentPrepPage')} />
+            <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
+            <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
+            <Route path="/inventory" lazy={page(() => import('./pages/InventoryIndexPage'), 'InventoryIndexPage')} />
+            <Route path="/inventory/:id" lazy={page(() => import('./pages/InventoryPage'), 'InventoryPage')} />
             {/* Where a scanned label lands; it forwards to the item's own team. */}
-            <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
-            <Route path="/messages" element={<MessageBoardPage />} />
-            <Route path="/team-chat" element={<TeamChatPage />} />
+            <Route path="/inventory/scan/:itemId" lazy={page(() => import('./pages/InventoryScanPage'), 'InventoryScanPage')} />
+            <Route path="/messages" lazy={page(() => import('./pages/MessageBoardPage'), 'MessageBoardPage')} />
+            <Route path="/team-chat" lazy={page(() => import('./pages/TeamChatPage'), 'TeamChatPage')} />
             {/* A team's notes on its own Sunday (0109 closes the rows too). */}
-            <Route path="/debriefs" element={<DebriefsPage />} />
+            <Route path="/debriefs" lazy={page(() => import('./pages/DebriefsPage'), 'DebriefsPage')} />
           </Route>
         </Route>
       </Route>

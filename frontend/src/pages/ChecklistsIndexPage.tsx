@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
@@ -24,6 +25,9 @@ import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { inStartOrder } from '../lib/upcomingServices'
+import { serviceDays } from '../lib/callTimes'
+import { DayHeading } from '../components/DayHeading'
 import { splitFinished } from '../lib/finishedSection'
 import { FinishedServices } from '../components/FinishedServices'
 import { Chevron, useExpanded } from '../components/Collapsible'
@@ -264,7 +268,7 @@ export function ChecklistsIndexPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
 
-  const { isFinished: hasEnded, afterServiceOpenUntil } = useFinishedServices(
+  const { isFinished: hasEnded, afterServiceOpenUntil, startsAt } = useFinishedServices(
     dayServices.map((s) => s.id),
   )
   // The packing-up half stays open for a while after the end (0115), so a
@@ -280,12 +284,11 @@ export function ChecklistsIndexPage() {
   // Nothing in a finished service can be ticked or chased, so it folds
   // away and opens on a touch when somebody wants the record.
   const { isExpanded, toggle: toggleService } = useExpanded()
+  // In the order they happen — by date, then by start time — which is the
+  // order every other page reads a Sunday in.
   const orderedServices = useMemo(
-    () =>
-      [...dayServices].sort(
-        (a, b) => Number(isFinished(a.id)) - Number(isFinished(b.id)),
-      ),
-    [dayServices, isFinished],
+    () => inStartOrder(dayServices, (s) => startsAt(s.id)),
+    [dayServices, startsAt],
   )
 
   // Off the page proper, not merely sorted last: a Sunday evening opened
@@ -294,6 +297,14 @@ export function ChecklistsIndexPage() {
     () => splitFinished(orderedServices, (s) => isFinished(s.id)),
     [orderedServices, isFinished],
   )
+
+  // Only the services this person has something on: a card that would be
+  // empty is not drawn, so it must not be counted either — or the page
+  // says nothing while believing it has shown something.
+  const hasMine = (serviceId: string) =>
+    mineFirst.some((m) => m.assignment.service_id === serviceId)
+  const liveMine = liveServices.filter((s) => hasMine(s.id))
+  const finishedMine = finishedServices.filter((s) => hasMine(s.id))
 
   const daysShown = new Set(dayServices.map((s) => s.date)).size
   const firstDayShown = dayServices.map((s) => s.date).sort()[0]
@@ -324,10 +335,8 @@ export function ChecklistsIndexPage() {
                   const open = !finished || isExpanded(service.id)
                   const heading = (
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h2 className="text-headline-lg">{service.service_type}</h2>
-                      <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        {service.date}
-                      </span>
+                      {/* The date is the day's heading above. */}
+                      <h3 className="text-headline-lg">{service.service_type}</h3>
                       {finished && (
                         <>
                           <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
@@ -578,6 +587,19 @@ export function ChecklistsIndexPage() {
   const isLoading = servicesQuery.isLoading || assignmentsQuery.isLoading || departmentsQuery.isLoading
   const loadError = servicesQuery.error || assignmentsQuery.error || departmentsQuery.error
 
+
+  /* A day at a time, under one date heading. Finished days newest first,
+     each still in its running order. */
+  const renderDays = (list: typeof orderedServices, newestFirst = false) => {
+    const days = serviceDays(list)
+    return (newestFirst ? days.reverse() : days).map((day) => (
+      <section key={day.date} aria-label={formatServiceDay(day.date)} className="flex flex-col gap-6">
+        <DayHeading date={day.date} today={today} count={day.services.length} />
+        {day.services.map(renderService)}
+      </section>
+    ))
+  }
+
   return (
     <div>
       <PageHeader
@@ -594,6 +616,7 @@ export function ChecklistsIndexPage() {
         title="Checklists"
         description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."
       />
+      <Lifespan page="checklists" className="mb-4" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
@@ -619,17 +642,21 @@ export function ChecklistsIndexPage() {
                     been and gone is a record — it waits under Finished
                     at the foot of the page rather than above the one
                     still to prepare for. */}
-                {liveServices.map(renderService)}
+                {renderDays(liveMine)}
 
-                {liveServices.length === 0 && (
+                {liveMine.length === 0 && (
                   <p className="text-body-sm text-on-surface-variant">
-                    Nothing left to prepare for. What was ticked is under Finished.
+                    {liveServices.length > 0
+                      ? `You have no role on the rota for ${liveServices.length === 1 ? 'the service' : 'the services'} coming up (${[
+                          ...new Set(liveServices.map((s) => formatServiceDay(s.date))),
+                        ].join(', ')}). Your team head assigns roles under Team Rota.`
+                      : 'Nothing left to prepare for. What was ticked is under Finished.'}
                   </p>
                 )}
 
-                {finishedServices.length > 0 && (
-                  <FinishedServices count={finishedServices.length} id="finished-checklists">
-                    {finishedServices.map(renderService)}
+                {finishedMine.length > 0 && (
+                  <FinishedServices count={finishedMine.length} id="finished-checklists">
+                    {renderDays(finishedMine, true)}
                   </FinishedServices>
                 )}
               </div>

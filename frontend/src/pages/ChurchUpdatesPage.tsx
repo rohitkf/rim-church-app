@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -109,6 +110,7 @@ export function ChurchUpdatesPage() {
         title="Church Updates"
         description="News from the church — what has changed, what is coming, and who to thank."
       />
+      <Lifespan page="updates" className="mb-4" />
 
       {isAdmin && <UpdateComposer onPosted={invalidate} onError={setError} />}
 

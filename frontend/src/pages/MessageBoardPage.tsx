@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -7,7 +7,9 @@ import { QueryState } from '../components/QueryState'
 import { ActionButton, PageHeader, inputClasses } from '../components/Surface'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
-import { formatCountdown, nextBoardClearTime } from '../lib/boardClear'
+import { nextBoardClearTime } from '../lib/boardClear'
+import { useAppSettings } from '../lib/appSettings'
+import { Lifespan } from '../components/Lifespan'
 import { teamChipStyle } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
@@ -20,39 +22,23 @@ import { useErrorText } from '../lib/useErrorText'
 import { Link } from 'react-router-dom'
 import { Select, selectPillClasses } from '../components/Select'
 
+/**
+ * The board's own countdown: to the next clear, on the day App settings
+ * names — the same day the database job reads, not a Tuesday written in.
+ */
 function BoardClearCountdown() {
-  const [now, setNow] = useState(() => Date.now())
-
+  const settings = useAppSettings()
+  // Recomputed once a minute; the strip ticks the seconds itself.
+  const [minute, setMinute] = useState(() => Math.floor(Date.now() / 60_000))
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setMinute(Math.floor(Date.now() / 60_000)), 60_000)
     return () => clearInterval(id)
   }, [])
-
-  const remaining = nextBoardClearTime(new Date(now)).getTime() - now
-
-  return (
-    <div className="mt-4 flex items-center gap-2 rounded-[var(--radius-card)] bg-surface-lowest hairline px-4 py-3">
-      <svg
-        className="h-4 w-4 shrink-0 text-on-surface-variant"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="13" r="8" />
-        <path d="M12 9v4l2 2" />
-        <path d="M9 2h6" />
-      </svg>
-      <span className="text-body-sm text-on-surface-variant">
-        Board clears in{' '}
-        <span className="font-mono font-medium text-on-surface">{formatCountdown(remaining)}</span>
-        <span className="hidden sm:inline"> — every Tuesday, after Sunday service</span>
-      </span>
-    </div>
+  const until = useMemo(
+    () => nextBoardClearTime(new Date(minute * 60_000), settings.board_clear_dow),
+    [minute, settings.board_clear_dow],
   )
+  return <Lifespan page="messages" until={until} className="mt-4" />
 }
 
 async function fetchMessages(): Promise<MessageRow[]> {

@@ -94,6 +94,18 @@ Other things that are true and not guessable:
   account menu (`viewAs` in `AuthContext`); it narrows `isAdmin`, `roles`
   and `useMyTeams`, but every query still runs with the Admin's own
   access. Never treat it as a permission test — dry-run a policy instead.
+- **Whether a service is over is one rule** — `useFinishedServices` (and
+  `serviceStanding` with `ended_at`): the planned end of its last session,
+  or End service if pressed earlier. Never re-derive it from sessions alone
+  on a page; that is how pages disagreed with the planner.
+- **What clears, and when, is said on the page** by `<Lifespan page=…>`,
+  worded once in `lib/lifespan.ts` from App settings. A new clock (a cron
+  job, a lock, a retention period) needs its sentence there too.
+- **A day with several services is one date heading** (`DayHeading`,
+  `serviceDays`), services in start-time order (`inStartOrder`); a
+  Finished list is newest day first but each day still in running order.
+- **Before pushing a change that touches several pages**, run the
+  whole-app sweep: `frontend/.claude/skills/verify/sweep.mjs`.
 - **Pages show a window of days, not "the next N services"**
   (`app_settings.rota_window_days`, `lib/rotaWindow.ts`).
 

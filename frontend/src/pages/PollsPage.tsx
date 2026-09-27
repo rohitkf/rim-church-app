@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Lifespan } from '../components/Lifespan'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -196,6 +197,7 @@ export function PollsPage() {
           )
         }
       />
+      <Lifespan page="polls" className="mb-4" />
 
       {error && (
         <p className="mb-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
