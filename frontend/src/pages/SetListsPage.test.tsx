@@ -222,6 +222,23 @@ describe('set lists, three weeks at a time', () => {
     expect(screen.getByRole('button', { name: /Finished services/ })).toBeInTheDocument()
   })
 
+  // A Sunday's two lists sit under one date heading, not the date twice.
+  it('groups the services of a day under one date heading', async () => {
+    servicesList = [
+      { id: 's1', date: '2026-09-06', service_type: 'English Service' },
+      { id: 's1b', date: '2026-09-06', service_type: 'Malayalam Service' },
+      { id: 's3', date: '2026-09-13', service_type: 'The week after' },
+    ]
+    show()
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    const days = within(upcoming).getAllByRole('region')
+    expect(days).toHaveLength(2)
+    expect(within(days[0]).getByText('English Service')).toBeInTheDocument()
+    expect(within(days[0]).getByText('Malayalam Service')).toBeInTheDocument()
+    expect(within(days[0]).getByText('2 services')).toBeInTheDocument()
+    expect(within(days[1]).getByText('The week after')).toBeInTheDocument()
+  })
+
   it('saves the key a song is in', async () => {
     const user = userEvent.setup()
     show()

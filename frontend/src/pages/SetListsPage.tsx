@@ -35,6 +35,8 @@ import {
 } from '../lib/setList'
 import { useDragReorder } from '../lib/useDragReorder'
 import { DragHandle } from '../components/DragHandle'
+import { DayHeading } from '../components/DayHeading'
+import { serviceDays } from '../lib/callTimes'
 import { FinishedServices } from '../components/FinishedServices'
 import type { SetListItem } from '../lib/types'
 import { Select } from '../components/Select'
@@ -226,13 +228,8 @@ export function SetListsPage() {
                         </h2>
                         {finished && <Pill tone="green">Finished</Pill>}
                       </span>
+                      {/* The date is the heading above, said once for the day. */}
                       <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-label-sm text-on-surface-variant">
-                        <span>
-                          {service.date === today ? 'Today' : formatServiceDay(service.date)}
-                        </span>
-                        <span aria-hidden="true" className="text-on-surface-faint">
-                          ·
-                        </span>
                         <span>
                           {songs.length === 0
                             ? 'no songs yet'
@@ -278,6 +275,28 @@ export function SetListsPage() {
             )
   }
 
+  /*
+   * A run of services, a day at a time: one date heading over a Sunday's
+   * English and Malayalam lists rather than the date on every card.
+   */
+  const renderDays = (list: (typeof services)[number][], newestFirst = false) => {
+    const days = serviceDays(list)
+    return (
+      <div className="mt-3 flex flex-col gap-6">
+        {(newestFirst ? days.reverse() : days).map((day) => (
+          <section key={day.date} aria-label={formatServiceDay(day.date)}>
+            <DayHeading date={day.date} today={today} count={day.services.length} />
+            {/* Newest day first, but a day still reads in its own order —
+                the list arrives newest first, so each day is put back. */}
+            <ul className="mt-3 flex flex-col gap-4">
+              {(newestFirst ? [...day.services].reverse() : day.services).map(renderService)}
+            </ul>
+          </section>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div>
       <PageHeader
@@ -304,7 +323,7 @@ export function SetListsPage() {
               <h2 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
                 Today&rsquo;s services
               </h2>
-              <ul className="mt-3 flex flex-col gap-4">{groups.today.map(renderService)}</ul>
+              {renderDays(groups.today)}
             </section>
           )}
           <section aria-label="Upcoming services">
@@ -316,12 +335,12 @@ export function SetListsPage() {
                 Nothing else in the next {SET_LIST_DAYS / 7} weeks.
               </p>
             ) : (
-              <ul className="mt-3 flex flex-col gap-4">{groups.upcoming.map(renderService)}</ul>
+              renderDays(groups.upcoming)
             )}
           </section>
           {groups.finished.length > 0 && (
             <FinishedServices count={groups.finished.length} id="finished-set-lists" label="Finished services">
-              <ul className="flex flex-col gap-4">{groups.finished.map(renderService)}</ul>
+              {renderDays(groups.finished, true)}
             </FinishedServices>
           )}
         </div>
