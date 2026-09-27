@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
@@ -6,6 +6,7 @@ import { useErrorText } from '../lib/useErrorText'
 import {
   GIVING_BUCKET,
   GIVING_KEY,
+  accountRow,
   bankAccountProblem,
   isSafeLink,
   useGiving,
@@ -141,12 +142,15 @@ function TextField({
 /* ---- the welcome line -------------------------------------------- */
 
 function IntroSection({ intro }: { intro: string | null }) {
-  const [text, setText] = useState(intro ?? '')
-  useEffect(() => setText(intro ?? ''), [intro])
+  // Null until typed in, so the saved line shows through without an
+  // effect copying it into the field.
+  const [typed, setText] = useState<string | null>(null)
+  const text = typed ?? intro ?? ''
   const { mutation, error } = useGivingWrite(
     (value: string) =>
       check(supabase.from('giving_page').update({ intro: value.trim() || null }).eq('id', true)),
     'Could not save the welcome line.',
+    () => setText(null),
   )
   const changed = (text.trim() || null) !== (intro ?? null)
   return (
@@ -308,8 +312,8 @@ function LinkEditor({
 const QR_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
 function QrImageSection({ path, caption }: { path: string | null; caption: string | null }) {
-  const [text, setText] = useState(caption ?? '')
-  useEffect(() => setText(caption ?? ''), [caption])
+  const [typed, setText] = useState<string | null>(null)
+  const text = typed ?? caption ?? ''
   const [problem, setProblem] = useState<string | null>(null)
   const { ask, dialog } = useConfirmAction()
 
@@ -332,6 +336,7 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
   const saveCaption = useGivingWrite(
     (value: string) => check(supabase.from('giving_page').update({ qr_image_caption: value.trim() || null }).eq('id', true)),
     'Could not save the caption.',
+    () => setText(null),
   )
   const remove = useGivingWrite(
     async () => {
@@ -399,7 +404,7 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
 
 /* ---- bank accounts ------------------------------------------------ */
 
-type AccountDraft = {
+export type AccountDraft = {
   id?: string
   label: string
   account_name: string
@@ -439,24 +444,6 @@ const draftOf = (a: BankAccount): AccountDraft => ({
   notes: a.notes ?? '',
   sort_order: a.sort_order,
 })
-
-/** What goes to the database: blanks as nulls, digits as digits. */
-export function accountRow(d: AccountDraft) {
-  const digits = (v: string) => v.replace(/\D/g, '') || null
-  const sort = digits(d.sort_code)
-  return {
-    label: d.label.trim(),
-    account_name: d.account_name.trim(),
-    bank_name: d.bank_name.trim() || null,
-    sort_code: sort ? `${sort.slice(0, 2)}-${sort.slice(2, 4)}-${sort.slice(4)}` : null,
-    account_number: digits(d.account_number),
-    iban: d.iban.replace(/\s+/g, '').toUpperCase() || null,
-    bic: d.bic.trim().toUpperCase() || null,
-    reference: d.reference.trim() || null,
-    notes: d.notes.trim() || null,
-    sort_order: d.sort_order,
-  }
-}
 
 function AccountsSection({ accounts }: { accounts: BankAccount[] }) {
   const [draft, setDraft] = useState<AccountDraft | null>(null)

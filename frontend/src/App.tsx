@@ -116,7 +116,6 @@ const router = createBrowserRouter(
           <Route path="/events" element={<EventsPage />} />
           {/* For every member, a team or not: it is how anybody gives. */}
           <Route path="/giving" element={<GivingPage />} />
-          <Route path="/debriefs" element={<DebriefsPage />} />
           <Route path="/departments/:id" element={<DepartmentDetailPage />} />
           <Route path="/set-lists" element={<SetListsPage />} />
           <Route path="/service-planner" element={<ServicePlannerIndexPage />} />
@@ -139,6 +138,8 @@ const router = createBrowserRouter(
             <Route path="/inventory/scan/:itemId" element={<InventoryScanPage />} />
             <Route path="/messages" element={<MessageBoardPage />} />
             <Route path="/team-chat" element={<TeamChatPage />} />
+            {/* A team's notes on its own Sunday (0109 closes the rows too). */}
+            <Route path="/debriefs" element={<DebriefsPage />} />
           </Route>
         </Route>
       </Route>

@@ -17,7 +17,7 @@
  * rather than implying an accuracy it cannot promise.
  */
 
-export const CHECKED_ON = '5 September 2026'
+export const CHECKED_ON = '27 September 2026'
 
 /** The standings a person can hold. Columns, left to right. */
 export const ROLES = [
@@ -37,12 +37,16 @@ export const ROLES = [
     label: 'Coordinator',
     blurb: 'Whoever the rota puts in Team Coordinator, for that service only. Not a standing rank.',
   },
-  { key: 'member', label: 'Team Member', blurb: 'On at least one team. Most of the church.' },
+  {
+    key: 'member',
+    label: 'Team Member',
+    blurb: 'On at least one team — and a Church Member too, as everybody signed in is.',
+  },
   {
     key: 'newcomer',
-    label: 'New',
+    label: 'Church Member',
     blurb:
-      'Signed in, and not on a team yet. They see the church’s shape — the services, the teams, the countdown — and none of the teams’ own working: no rota, no register, no boards, no call times.',
+      'Signed in and on no team. They see the church’s shape — the services and the countdown, the diary, the set lists, the teams (to ask to join one) and the Giving page — and none of the teams’ own working: no rota, no register, no boards, no call times, no debriefs. Joining a team makes them a Team Member; an Admin can also make them a Head or an Admin from Volunteers.',
   },
 ] as const
 
@@ -93,8 +97,18 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Guests are visible to everyone once added.',
       },
       {
-        action: 'Add an event to the church diary',
-        can: all({ head: 'yes' }),
+        action: 'Set a service to repeat, or stop it repeating',
+        can: all(),
+        note: 'Each service a repeat makes is its own from then on: deleting one Sunday never touches the others.',
+      },
+      {
+        action: 'See the church diary',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+      },
+      {
+        action: 'Add, edit or remove an event in the church diary',
+        can: all({ head: 'team' }),
+        note: 'A Head, for their own team’s events. A church-wide event, belonging to no team, is an Admin’s.',
       },
       {
         action: 'Set a team’s call time',
@@ -112,6 +126,16 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
       { action: 'Assign somebody to a role', can: all({ head: 'team' }) },
+      {
+        action: 'Tag an assignment — Shadow, and the church’s other tags',
+        can: all({ head: 'team' }),
+        note: 'A tag is a label, not an exemption: a shadow is still that person’s one role at the service.',
+      },
+      {
+        action: 'Choose the rota’s tags and the Coordinator’s colour',
+        can: all(),
+        note: 'In App settings.',
+      },
       { action: 'Ask another team to release a volunteer', can: all({ head: 'team' }) },
       { action: 'Approve or refuse a release request', can: all({ head: 'team' }) },
       { action: 'Delete a release request outright', can: all() },
@@ -172,6 +196,15 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Change somebody else’s answer',
         can: all({ head: 'team' }),
         note: 'For the phone call that says “put me down, I forgot”.',
+      },
+      {
+        action: 'Ask to change your answer after it has closed',
+        can: all({ owner: 'own', admin: 'own', head: 'own', coordinator: 'own', member: 'own' }),
+        note: 'Your own team’s Head approves or refuses it.',
+      },
+      {
+        action: 'Approve or refuse a late change',
+        can: all({ head: 'team' }),
       },
     ],
   },
@@ -235,12 +268,53 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Set lists',
+    capabilities: [
+      {
+        action: 'See the set lists',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+      },
+      {
+        action: 'Write and change a set list',
+        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
+        note: 'Anybody on the worship team, whatever their rank on it.',
+      },
+    ],
+  },
+  {
+    area: 'After the service',
+    capabilities: [
+      {
+        action: 'Read a team’s debrief',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'Anybody on a team. It was readable by anybody signed in until 27 September 2026 (0109).',
+      },
+      { action: 'Write a team’s debrief', can: all({ head: 'team' }) },
+      {
+        action: 'See the activity feed',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'Who was assigned and taken off, as it happens — the rota a line at a time, so it is closed to the same people the rota is (0109).',
+      },
+    ],
+  },
+  {
+    area: 'Giving',
+    capabilities: [
+      {
+        action: 'See how to give — bank details and giving links',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+        note: 'Every member. No payment passes through the app: a link opens the provider’s own page.',
+      },
+      { action: 'Change the Giving page', can: all(), note: 'In App settings.' },
+    ],
+  },
+  {
     area: 'People',
     capabilities: [
       {
         action: 'See the roster and contact details',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
-        note: 'Names, emails and phone numbers are readable by anybody signed in, a new account included. Worth knowing, and worth a decision one day.',
+        note: 'Names, emails, phone numbers, birthdays and anniversaries are readable by anybody signed in — a Church Member included — through the app’s data connection, even where no page shows them. Only DBS and safeguarding details are closed. Worth a decision.',
       },
       {
         action: 'Edit your own profile',

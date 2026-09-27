@@ -106,6 +106,8 @@ describe('PermissionsCard', () => {
         'Read the message board',
         'Read and post in a team’s chat',
         'See what a team has answered',
+        'Read a team’s debrief',
+        'See the activity feed',
       ]
       const rows = PERMISSIONS.flatMap((a) => a.capabilities)
       for (const action of teamsOwn) {

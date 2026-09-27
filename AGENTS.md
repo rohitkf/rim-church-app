@@ -55,6 +55,9 @@ the thing most likely to waste your time:
 | `service_session_assignees` | who is taking a session — a list, one row per person |
 | `announcements` | the alert an Admin sends from Settings |
 | `team_messages` (`kind='alert'`) | a team alert |
+| signed in, on no team (`is_on_a_team` false) | a **Church Member** |
+| `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
+| `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
 
 Other things that are true and not guessable:
 
@@ -70,6 +73,15 @@ Other things that are true and not guessable:
   policy that distinguishes them.
 - **The Team Coordinator is a rota role, not a rank.** Whoever holds it for
   a service can sign that service's checklists off, and only then.
+- **A Church Member sees the church's shape, not its teams' working**:
+  Dashboard, Service Planner, Events, Set Lists, Giving and Teams (to
+  ask to join one). Team pages sit behind `TeamOnlyRoute`, and their
+  tables read `is_on_a_team` — both, always (0080, 0109). A new team-only
+  table that reads `auth.uid() is not null` leaks to Church Members.
+- **Rota tags are labels, never exemptions.** A tagged assignment is
+  still that person's one role at the service.
+- **No payment passes through the app.** Giving links open the provider's
+  page; links must be `https://` in the database as well as the form.
 - **Pages show a window of days, not "the next N services"**
   (`app_settings.rota_window_days`, `lib/rotaWindow.ts`).
 
@@ -188,6 +200,12 @@ capability missing from it is the page starting to lie.
 
 **A new app-wide setting**: `app_settings` column in a migration →
 `lib/appSettings.ts` → a control in `components/AppSettingsCard.tsx`.
+Everything an Admin configures lives in the **App settings** pane
+(`/settings/church`), as cards with a jump list: Timings
+(`AppSettingsCard`), Team Rota (`RotaLookCard`), Giving
+(`GivingSettingsCard`). `AppSettingsCard` saves its whole draft row, so a
+column another card owns must be left out of its update (see
+`coordinator_color`) — or live in its own table, as Giving does.
 
 ---
 

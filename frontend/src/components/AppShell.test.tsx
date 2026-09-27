@@ -255,6 +255,7 @@ describe('AppShell dock', () => {
       'Messages',
       'Team Chat',
       'Events',
+      'Giving',
       'Teams',
       'Inventory',
     ])

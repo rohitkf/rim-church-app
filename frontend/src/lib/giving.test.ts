@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bankAccountProblem, formatIban, formatSortCode, isSafeLink } from './giving'
-import { accountRow } from '../components/GivingSettingsCard'
+import { accountRow, bankAccountProblem, formatIban, formatSortCode, isSafeLink } from './giving'
 
 const account = (over: Partial<Parameters<typeof bankAccountProblem>[0]> = {}) => ({
   label: 'Tithes and offerings',

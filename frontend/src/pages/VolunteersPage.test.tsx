@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { chooseOption } from '../test/select'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -45,9 +46,14 @@ const profile = (id: string, first: string, last: string) => ({
   anniversary: null,
 })
 
+const inserted: { table: string; row: unknown }[] = []
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
+      insert: (row: unknown) => {
+        inserted.push({ table, row })
+        return Promise.resolve({ error: null })
+      },
       select: () => {
         if (table === 'profiles') {
           return {
@@ -132,5 +138,29 @@ describe('the volunteers page', () => {
     show()
     const media = await screen.findByRole('button', { name: /Media/ })
     expect(media).toHaveTextContent('1 person')
+  })
+
+  /*
+   * A Church Member — signed in, on no team — waits here to be placed. An
+   * Admin puts them on a team from their card rather than hunting for
+   * their email on the team's own page.
+   */
+  it('puts a Church Member on a team from their card', async () => {
+    const user = show()
+    const list = await waitFor(() => listUnder(/Not on a team yet/))
+    const picker = within(list).getByRole('combobox', { name: 'Team to add Nimmy to' })
+    await chooseOption(user, picker, 'Audio')
+    await user.click(within(list).getByRole('button', { name: 'Add' }))
+    await waitFor(() =>
+      expect(inserted).toContainEqual({
+        table: 'department_members',
+        row: { user_id: 'newbie', department_id: 'audio', member_type: 'core' },
+      }),
+    )
+  })
+
+  it('files them under Church Members', async () => {
+    show()
+    expect(await screen.findByRole('heading', { name: /Church Members · Not on a team yet/ })).toBeInTheDocument()
   })
 })

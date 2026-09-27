@@ -149,3 +149,32 @@ export function bankAccountProblem(a: {
   if (!((sort && number) || iban)) return 'Give a sort code and account number, or an IBAN.'
   return null
 }
+
+/** What goes to the database: blanks as nulls, digits as digits. */
+export function accountRow(d: {
+  label: string
+  account_name: string
+  bank_name: string
+  sort_code: string
+  account_number: string
+  iban: string
+  bic: string
+  reference: string
+  notes: string
+  sort_order: number
+}) {
+  const digits = (v: string) => v.replace(/\D/g, '') || null
+  const sort = digits(d.sort_code)
+  return {
+    label: d.label.trim(),
+    account_name: d.account_name.trim(),
+    bank_name: d.bank_name.trim() || null,
+    sort_code: sort ? `${sort.slice(0, 2)}-${sort.slice(2, 4)}-${sort.slice(4)}` : null,
+    account_number: digits(d.account_number),
+    iban: d.iban.replace(/\s+/g, '').toUpperCase() || null,
+    bic: d.bic.trim().toUpperCase() || null,
+    reference: d.reference.trim() || null,
+    notes: d.notes.trim() || null,
+    sort_order: d.sort_order,
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
@@ -319,13 +319,13 @@ function CoordinatorSection() {
   const errorText = useErrorText()
   const settingsQuery = useQuery({ queryKey: SETTINGS_KEY, queryFn: fetchAppSettings })
   const saved = settingsQuery.data?.coordinator_color ?? null
-  const [chosen, setChosen] = useState<string | null>(saved)
+  // Undefined until somebody picks: the saved colour shows through, and
+  // a colour saved elsewhere arrives without an effect copying it in.
+  const [picked, setPicked] = useState<string | null | undefined>(undefined)
+  const chosen = picked === undefined ? saved : picked
+  const setChosen = (color: string | null | undefined) => setPicked(color)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-
-  useEffect(() => {
-    setChosen(saved)
-  }, [saved])
 
   const save = useMutation({
     mutationFn: async (color: string | null) => {
@@ -338,6 +338,7 @@ function CoordinatorSection() {
     onSuccess: () => {
       setError(null)
       setDone(true)
+      setPicked(undefined)
       queryClient.invalidateQueries({ queryKey: SETTINGS_KEY })
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save that colour.')),
@@ -379,7 +380,7 @@ function CoordinatorSection() {
           <ActionButton
             size="sm"
             tone="quiet"
-            onClick={() => setChosen(saved)}
+            onClick={() => setChosen(undefined)}
             disabled={!changed || save.isPending}
           >
             Undo
