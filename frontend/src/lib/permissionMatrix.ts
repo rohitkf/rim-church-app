@@ -237,7 +237,7 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
-    area: 'Messages & polls',
+    area: 'Messages, polls & updates',
     capabilities: [
       {
         action: 'Read the message board',
@@ -255,10 +255,31 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'team', coordinator: 'team', member: 'team' }),
         note: 'Your own teams only.',
       },
-      { action: 'Ask a team a poll question', can: all({ head: 'team' }) },
       {
-        action: 'Vote in a poll',
-        can: all({ owner: 'own', admin: 'own', head: 'own', coordinator: 'own', member: 'own' }),
+        action: 'Ask a poll question',
+        can: all({ head: 'team' }),
+        note: 'A Head asks their own team, whole or only its people at one service. Asking everyone, or people by name, is an Admin’s.',
+      },
+      {
+        action: 'See and answer a poll',
+        can: all({
+          owner: 'own',
+          admin: 'own',
+          head: 'own',
+          coordinator: 'own',
+          member: 'own',
+          newcomer: 'own',
+        }),
+        note: 'Only the polls addressed to you — everyone, a team you are on, you by name, or a service the rota has you on. An Admin can see every poll.',
+      },
+      {
+        action: 'Read the church updates',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+      },
+      {
+        action: 'Post, pin, edit or delete a church update',
+        can: all(),
+        note: 'Posting tells everybody, in the app and on their phone. Never by email.',
       },
       {
         action: 'Send an alert that reaches phones',

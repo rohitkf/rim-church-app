@@ -57,15 +57,28 @@ describe('a poll', () => {
   })
 
   it('falls back to a sentence when it did not', () => {
-    expect(notificationLabel('team_poll')).toBe('Your team has a question for you')
+    expect(notificationLabel('team_poll')).toBe('There is a poll for you')
   })
 
-  it('opens the room it was asked in', () => {
-    expect(notificationHref('team_poll', 'dept-1')).toBe('/team-chat?team=dept-1')
+  it('opens the Polls page at the poll it was about', () => {
+    expect(notificationHref('team_poll', 'poll-1')).toBe('/polls?poll=poll-1')
   })
 
-  it('still opens Team Chat without one', () => {
-    expect(notificationHref('team_poll')).toBe('/team-chat')
+  it('still opens the Polls page without one', () => {
+    expect(notificationHref('team_poll')).toBe('/polls')
+  })
+})
+
+describe('a church update', () => {
+  it('says its title when it came with one', () => {
+    expect(notificationLabel('church_update', 'The hall now opens at 9')).toBe(
+      'The hall now opens at 9',
+    )
+  })
+
+  it('opens the update it was about', () => {
+    expect(notificationHref('church_update', 'u-1')).toBe('/updates?update=u-1')
+    expect(notificationHref('church_update')).toBe('/updates')
   })
 })
 

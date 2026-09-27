@@ -13,6 +13,8 @@ import {
   GridIcon,
   IdCardIcon,
   ChatTeamIcon,
+  MegaphoneIcon,
+  PollIcon,
   MessageIcon,
   SparklesIcon,
   UserCheckIcon,
@@ -78,6 +80,10 @@ const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   // a team yet, so neither is offered until they are.
   { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
   { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
+  // For everybody, Church Members included: what the church is saying,
+  // and what it is asking.
+  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon },
+  { to: '/polls', label: 'Polls', icon: PollIcon },
 
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
@@ -110,6 +116,8 @@ const WASH: Record<string, string> = {
   '/inventory': 'var(--color-accent-orange)',
   '/messages': 'var(--color-accent-indigo)',
   '/team-chat': 'var(--color-accent-indigo)',
+  '/updates': 'var(--color-accent-blue)',
+  '/polls': 'var(--color-accent-indigo)',
   '/settings': 'var(--color-accent-indigo)',
 }
 

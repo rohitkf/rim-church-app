@@ -330,3 +330,23 @@ export function CloseIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function MegaphoneIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z" />
+      <path d="M17 9a4 4 0 0 1 0 6" />
+      <path d="M8 14l1.5 5h2L10 14" />
+    </svg>
+  )
+}
+
+export function PollIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <rect x="3" y="10" width="12" height="4" rx="1" />
+      <rect x="3" y="16" width="7" height="4" rx="1" />
+    </svg>
+  )
+}

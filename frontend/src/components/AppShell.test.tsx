@@ -88,6 +88,9 @@ describe('AppShell dock', () => {
       ]) {
         expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument()
       }
+      // What the church says and asks is for everybody.
+      expect(screen.getByRole('link', { name: 'Church Updates' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Polls' })).toBeInTheDocument()
     })
   })
 
@@ -254,6 +257,8 @@ describe('AppShell dock', () => {
       'Set Lists',
       'Messages',
       'Team Chat',
+      'Church Updates',
+      'Polls',
       'Events',
       'Giving',
       'Teams',
