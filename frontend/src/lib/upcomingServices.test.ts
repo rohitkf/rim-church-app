@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { inStartOrder, opensOnItsOwn, upcomingServices } from './upcomingServices'
+import {
+  inStartOrder,
+  nextServiceDayAfter,
+  opensOnItsOwn,
+  upcomingServices,
+  withNextDayOnceOver,
+} from './upcomingServices'
 
 const service = (id: string, date: string, service_type = 'Sunday Service') => ({
   id,
@@ -120,5 +126,33 @@ describe('which services arrive already open', () => {
 
   it('follows the day an Admin has stepped to rather than today', () => {
     expect(opensOnItsOwn('2026-09-20', '2026-09-20', 'upcoming')).toBe(true)
+  })
+})
+
+describe('once today is over', () => {
+  const todayFirst = service('today-first', TODAY, 'First Service')
+  const todaySecond = service('today-second', TODAY, 'Second Service')
+  const nextWeek = service('next-week', '2026-09-23')
+  const listed = [todayFirst, todaySecond, ...nextServiceDayAfter([nextWeek, service('later', '2026-09-30')], TODAY)]
+
+  it('finds the next service day after today, and only that one', () => {
+    expect(listed.map((s) => s.id)).toEqual(['today-first', 'today-second', 'next-week'])
+  })
+
+  it('keeps to today while anything today is still to come', () => {
+    const shown = withNextDayOnceOver(listed, TODAY, (s) => s.id === 'today-first')
+    expect(shown.map((s) => s.id)).toEqual(['today-first', 'today-second'])
+  })
+
+  // The bug: both services finished by lunchtime, and Upcoming said
+  // nothing was coming for the rest of the day while next Sunday was planned.
+  it('brings the next service day in once every service today is over', () => {
+    const shown = withNextDayOnceOver(listed, TODAY, (s) => s.date === TODAY)
+    expect(shown.map((s) => s.id)).toEqual(['today-first', 'today-second', 'next-week'])
+  })
+
+  it('changes nothing when today has no services', () => {
+    const ahead = [service('a', '2026-09-20')]
+    expect(withNextDayOnceOver(ahead, TODAY, () => false)).toEqual(ahead)
   })
 })

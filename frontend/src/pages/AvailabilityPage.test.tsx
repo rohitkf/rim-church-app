@@ -500,40 +500,36 @@ describe('the availability tracker over three weeks', () => {
     expect(teamsOf(cardFor(/September 20/))).toHaveAttribute('hidden')
   })
 
-  it('files everything past the next service under its own heading', async () => {
+  it('files everything past the next service day under its own heading', async () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
-    const heading = screen.getByRole('heading', { name: 'Upcoming services availability' })
+    const heading = screen.getByRole('heading', { name: 'Later services' })
     const section = heading.closest('section')!
     expect(within(section).getByText(/September 13/)).toBeInTheDocument()
     expect(within(section).getByText(/September 20/)).toBeInTheDocument()
-    // The one in front of you is not filed under "upcoming".
+    // The day in front of you is not filed under "later".
     expect(section).not.toContainElement(cardFor(/Today/, 'English Service'))
   })
 
   /*
-   * One service on top, not one morning. Two services on a Sunday used to
-   * open together, which on a phone is two long cards of teams before
-   * anybody can see there is a third Sunday to answer for at all. The
-   * second one that morning is real and answerable — it is just filed with
-   * everything else, folded, under its own copy of the date.
+   * One card open, one day together. The second service that morning was
+   * once filed under Upcoming with its own copy of the date, so a Sunday
+   * appeared twice. It stays under the day's one heading now — folded, so
+   * only one long card of teams is open at the top.
    */
-  it('puts only the next service on top, and files the rest of that morning under Upcoming', async () => {
+  it('keeps the whole next morning together, with only its first service open', async () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
-    const upcoming = screen
-      .getByRole('heading', { name: 'Upcoming services availability' })
-      .closest('section')!
+    const later = screen.getByRole('heading', { name: 'Later services' }).closest('section')!
 
-    // English on top, open, and not repeated under Upcoming…
     const english = cardFor(/Today/, 'English Service')
-    expect(teamsOf(english)).not.toHaveAttribute('hidden')
-    expect(upcoming).not.toContainElement(english)
-
-    // …and Malayalam, the same morning, folded under Upcoming.
     const malayalam = cardFor(/Today/, 'Malayalam Service')
-    expect(upcoming).toContainElement(malayalam)
+    expect(teamsOf(english)).not.toHaveAttribute('hidden')
     expect(teamsOf(malayalam)).toHaveAttribute('hidden')
+    expect(later).not.toContainElement(english)
+    expect(later).not.toContainElement(malayalam)
+    // One heading for the day, not two.
+    expect(screen.getAllByRole('heading', { name: /Today/ })).toHaveLength(1)
   })
 
   /*
@@ -541,21 +537,17 @@ describe('the availability tracker over three weeks', () => {
    * to say. By name, English would always win, however early the
    * Malayalam service starts.
    */
-  it('lets the start times decide which service that morning is next', async () => {
+  it('lets the start times decide which service that morning opens', async () => {
     state.rows.service_sessions = [
       { service_id: 's1b', start_time: `${SUNDAY}T08:00:00` },
       { service_id: 's1', start_time: `${SUNDAY}T10:30:00` },
     ]
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
-    const upcoming = screen
-      .getByRole('heading', { name: 'Upcoming services availability' })
-      .closest('section')!
-
-    await waitFor(() => expect(upcoming).toContainElement(cardFor(/Today/, 'English Service')))
-    const malayalam = cardFor(/Today/, 'Malayalam Service')
-    expect(upcoming).not.toContainElement(malayalam)
-    expect(teamsOf(malayalam)).not.toHaveAttribute('hidden')
+    await waitFor(() =>
+      expect(teamsOf(cardFor(/Today/, 'Malayalam Service'))).not.toHaveAttribute('hidden'),
+    )
+    expect(teamsOf(cardFor(/Today/, 'English Service'))).toHaveAttribute('hidden')
   })
 
   it('opens a folded service on a touch', async () => {

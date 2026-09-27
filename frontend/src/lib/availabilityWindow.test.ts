@@ -51,20 +51,20 @@ describe('splitAvailabilityGroups', () => {
   })
 
   /*
-   * One service on top, not one day. Two services on one Sunday opened
-   * together were two long cards of teams before anybody could see there
-   * was another Sunday to answer for, so the second one that morning folds
-   * under Upcoming with everything else.
+   * One card open, one day together. Splitting a Sunday put its English
+   * service on top and its Malayalam service under Upcoming — the same
+   * date heading twice. The day stays whole; only its first service opens.
    */
-  it('puts only the first service of a day on top, not the whole day', () => {
+  it('keeps the whole next day together, with only its first service as the one to open', () => {
     const twoOnOneDay = [
       service('a', '2026-09-06', 'English Service'),
       service('b', '2026-09-06', 'Malayalam Service'),
       service('c', '2026-09-13'),
     ]
-    const { now, later } = splitAvailabilityGroups(twoOnOneDay, none)
-    expect(ids(now)).toEqual(['a'])
-    expect(ids(later)).toEqual(['b', 'c'])
+    const { now, nextId, later } = splitAvailabilityGroups(twoOnOneDay, none)
+    expect(ids(now)).toEqual(['a', 'b'])
+    expect(nextId).toBe('a')
+    expect(ids(later)).toEqual(['c'])
   })
 
   // "The first" is whatever the caller put first: the order is the
@@ -74,9 +74,10 @@ describe('splitAvailabilityGroups', () => {
       service('m', '2026-09-06', 'Malayalam Service'),
       service('e', '2026-09-06', 'English Service'),
     ]
-    const { now, later } = splitAvailabilityGroups(malayalamFirst, none)
-    expect(ids(now)).toEqual(['m'])
-    expect(ids(later)).toEqual(['e'])
+    const { now, nextId, later } = splitAvailabilityGroups(malayalamFirst, none)
+    expect(ids(now)).toEqual(['m', 'e'])
+    expect(nextId).toBe('m')
+    expect(later).toEqual([])
   })
 
   it('does not let a finished service decide where the line falls', () => {
@@ -103,7 +104,7 @@ describe('splitAvailabilityGroups', () => {
   })
 
   it('copes with nothing at all', () => {
-    expect(splitAvailabilityGroups([], none)).toEqual({ now: [], later: [] })
+    expect(splitAvailabilityGroups([], none)).toEqual({ now: [], nextId: null, later: [] })
   })
 })
 
