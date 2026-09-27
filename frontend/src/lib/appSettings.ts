@@ -45,6 +45,8 @@ export const appSettingsSchema = z.object({
    */
   timezone: z.string(),
   availability_closes_time: z.string(),
+  /** The Team Coordinator's row on the rota. Null is the night sky. */
+  coordinator_color: z.string().nullable().default(null),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logo_url: null,
   timezone: 'Europe/London',
   availability_closes_time: '23:59:00',
+  coordinator_color: null,
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -68,7 +71,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
     )
     .maybeSingle()
   if (error) throw error

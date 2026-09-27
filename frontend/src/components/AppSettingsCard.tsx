@@ -50,7 +50,7 @@ const TIMEZONES = [
 type NumberField = {
   key: keyof Omit<
     AppSettings,
-    'always_show_my_services' | 'board_clear_dow' | 'logo_url' | 'timezone' | 'availability_closes_time'
+    'always_show_my_services' | 'board_clear_dow' | 'logo_url' | 'timezone' | 'availability_closes_time' | 'coordinator_color'
   >
   label: string
   /** What the number means, in the words the pages themselves use. */
@@ -163,7 +163,11 @@ export function AppSettingsCard() {
 
   const save = useMutation({
     mutationFn: async (next: AppSettings) => {
-      const { error } = await supabase.from('app_settings').update(next).eq('id', true)
+      // The Coordinator's colour has its own card and its own Save; sending
+      // this draft's copy of it would quietly undo a colour chosen there
+      // since this page loaded.
+      const { coordinator_color: _theirs, ...mine } = next
+      const { error } = await supabase.from('app_settings').update(mine).eq('id', true)
       if (error) throw error
     },
     onSuccess: () => {

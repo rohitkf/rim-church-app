@@ -648,6 +648,13 @@ body::after {
  * room too — so everything drawn on it carries its own light colour rather
  * than the theme's ink.
  */
+/*
+ * The sky's colours are variables, defaulting to the indigo and blue it
+ * has always been. The Coordinator's row on the rota sets `--sky` (and its
+ * deep and cloud tones) from the colour an Admin picked in App settings —
+ * `lib/coordinatorSky.ts` — and the same stars and clouds then come out in
+ * that colour. Unset, nothing here changes.
+ */
 .galaxy {
   position: relative;
   isolation: isolate;
@@ -655,16 +662,16 @@ body::after {
   background:
     radial-gradient(
       120% 150% at 8% 0%,
-      color-mix(in oklab, var(--color-accent-indigo) 62%, transparent),
+      color-mix(in oklab, var(--sky, var(--color-accent-indigo)) 62%, transparent),
       transparent 58%
     ),
     radial-gradient(
       110% 140% at 92% 8%,
-      color-mix(in oklab, var(--color-accent-blue) 45%, transparent),
+      color-mix(in oklab, var(--sky, var(--color-accent-blue)) 45%, transparent),
       transparent 62%
     ),
-    radial-gradient(90% 120% at 50% 110%, #1a1350, transparent 70%),
-    linear-gradient(160deg, #070a1f 0%, #0b0722 55%, #05060f 100%);
+    radial-gradient(90% 120% at 50% 110%, var(--sky-deep, #1a1350), transparent 70%),
+    linear-gradient(160deg, var(--sky-night, #070a1f) 0%, var(--sky-night-2, #0b0722) 55%, #05060f 100%);
 }
 
 /* The clouds. Big, slow and low-contrast: a nebula that announced itself
@@ -676,12 +683,12 @@ body::after {
   background:
     radial-gradient(
       36% 46% at 24% 34%,
-      color-mix(in oklab, var(--color-accent-indigo-soft) 38%, transparent),
+      color-mix(in oklab, var(--sky, var(--color-accent-indigo-soft)) 38%, transparent),
       transparent 70%
     ),
     radial-gradient(
       30% 40% at 76% 62%,
-      color-mix(in oklab, var(--color-accent-blue-soft) 30%, transparent),
+      color-mix(in oklab, var(--sky, var(--color-accent-blue-soft)) 30%, transparent),
       transparent 72%
     );
   filter: blur(18px);

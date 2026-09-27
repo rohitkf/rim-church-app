@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { PageHeader } from '../components/Surface'
 import { AdminResetCard } from '../components/AdminResetCard'
+import { RotaLookCard } from '../components/RotaLookCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { SendAlertCard } from '../components/SendAlertCard'
@@ -143,7 +144,12 @@ export function SendAlertPane() {
 
 /** The church's clocks: rota window, lead-in, the day the board clears. */
 export function ChurchSettingsPane() {
-  return <AppSettingsCard />
+  return (
+    <div className="flex flex-col gap-6">
+      <AppSettingsCard />
+      <RotaLookCard />
+    </div>
+  )
 }
 
 /** The church's own mark. Owner only, and the database agrees. */
