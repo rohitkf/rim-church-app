@@ -58,6 +58,8 @@ the thing most likely to waste your time:
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
+| `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
+| `church_updates` | the **Church Updates** page |
 
 Other things that are true and not guessable:
 
@@ -74,14 +76,19 @@ Other things that are true and not guessable:
 - **The Team Coordinator is a rota role, not a rank.** Whoever holds it for
   a service can sign that service's checklists off, and only then.
 - **A Church Member sees the church's shape, not its teams' working**:
-  Dashboard, Service Planner, Events, Set Lists, Giving and Teams (to
-  ask to join one). Team pages sit behind `TeamOnlyRoute`, and their
+  Dashboard, Service Planner, Events, Set Lists, Giving, Church Updates,
+  Polls (the ones addressed to them) and Teams (to ask to join one). Team pages sit behind `TeamOnlyRoute`, and their
   tables read `is_on_a_team` — both, always (0080, 0109). A new team-only
   table that reads `auth.uid() is not null` leaks to Church Members.
 - **Rota tags are labels, never exemptions.** A tagged assignment is
   still that person's one role at the service.
 - **No payment passes through the app.** Giving links open the provider's
   page; links must be `https://` in the database as well as the form.
+- **"View as" is a preview of the screens, not of the data.** An Admin can
+  preview the app as a Church Member, Team Member or Team Head from the
+  account menu (`viewAs` in `AuthContext`); it narrows `isAdmin`, `roles`
+  and `useMyTeams`, but every query still runs with the Admin's own
+  access. Never treat it as a permission test — dry-run a policy instead.
 - **Pages show a window of days, not "the next N services"**
   (`app_settings.rota_window_days`, `lib/rotaWindow.ts`).
 
@@ -97,7 +104,8 @@ frontend/src/
   lib/notificationLink.ts    every notification type: its label and its link
   lib/pwa.ts                 install, offline, and the update banner
   auth/AuthContext.tsx       useAuth(): isAdmin, isSuperAdmin, ownerId,
-                             isDepartmentHead(), ledDepartmentIds
+                             isDepartmentHead(), ledDepartmentIds,
+                             viewAs / setViewAs (an Admin's preview)
   test/select.ts             helper for driving the custom Select in tests
   public/sw.js               service worker (hand-written, not generated)
 supabase/migrations/         numbered, immutable once shipped

@@ -8,16 +8,12 @@ import { useErrorText } from '../lib/useErrorText'
 import { fetchDepartments } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
+import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../lib/pollAudience'
 import { QueryState } from '../components/QueryState'
 import { Eyebrow, Field, PageHeader, Pill, Tile, inputClasses, type PillTone } from '../components/Surface'
 import { Select } from '../components/Select'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { optionShare, pollIsOpen, tallyVotes, timeLeft, type ChoiceMode } from '../lib/polls'
-
-export const POLLS_KEY = ['polls']
-
-export const POLL_AUDIENCES = ['everyone', 'team', 'people', 'service'] as const
-export type PollAudience = (typeof POLL_AUDIENCES)[number]
 
 const pollSchema = z.object({
   id: z.string(),
@@ -74,24 +70,6 @@ async function fetchUpcomingServices(from: string) {
     .limit(20)
   if (error) throw error
   return z.array(upcomingSchema).parse(data)
-}
-
-/** Who a poll is for, in the words the card says it in. */
-export function audienceLabel(poll: Pick<Poll, 'audience' | 'department' | 'service' | 'recipient_ids'>): string {
-  switch (poll.audience) {
-    case 'everyone':
-      return 'Everyone'
-    case 'team':
-      return poll.department?.name ?? 'One team'
-    case 'people':
-      return `${poll.recipient_ids.length} ${poll.recipient_ids.length === 1 ? 'person' : 'people'}`
-    case 'service': {
-      const at = poll.service
-        ? `${poll.service.service_type} · ${formatServiceDay(poll.service.date)}`
-        : 'A service'
-      return poll.department ? `${poll.department.name} at ${at}` : `Serving at ${at}`
-    }
-  }
 }
 
 const AUDIENCE_TONE: Record<PollAudience, PillTone> = {
@@ -409,7 +387,7 @@ function PollComposer({
   const teams = (departmentsQuery.data ?? []).filter(
     (d) => isAdmin || ledDepartmentIds.includes(d.id),
   )
-  const people = peopleQuery.data ?? []
+  const people = useMemo(() => peopleQuery.data ?? [], [peopleQuery.data])
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return people

@@ -36,6 +36,7 @@ import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
 import { useMyTeams } from '../lib/useMyTeams'
 import { WelcomeTour } from './WelcomeTour'
+import { ViewAsBanner } from './ViewAsBanner'
 
 /*
  * The destinations, in the order a Sunday actually happens.
@@ -169,6 +170,7 @@ export function AppShell() {
         edge. It appears rather than being there all along, because the
         cleaner strip is the one worth having whenever it can be had.
       */}
+      <ViewAsBanner />
       <header
         className={`sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-[var(--ease-glide)] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5 ${
           scrolled

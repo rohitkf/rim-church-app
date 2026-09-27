@@ -5,6 +5,31 @@ import { errorMessage } from '../lib/errorMessage'
 import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
 import { z } from 'zod'
 
+/**
+ * Who an Admin is previewing the app as. The pages, the dock and the
+ * buttons follow it; the database does not — every read still carries the
+ * Admin's own access, which the banner says out loud.
+ */
+export type ViewAs =
+  | { as: 'church' }
+  | { as: 'member'; departmentId: string; departmentName: string }
+  | { as: 'head'; departmentId: string; departmentName: string }
+
+const VIEW_AS_KEY = 'rim-view-as'
+
+function readViewAs(): ViewAs | null {
+  try {
+    const raw = sessionStorage.getItem(VIEW_AS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ViewAs
+    if (parsed?.as === 'church') return parsed
+    if ((parsed?.as === 'member' || parsed?.as === 'head') && parsed.departmentId) return parsed
+    return null
+  } catch {
+    return null
+  }
+}
+
 interface AuthContextValue {
   session: Session | null
   profile: Profile | null
@@ -23,6 +48,11 @@ interface AuthContextValue {
   ledDepartmentIds: string[]
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
+  /** Whether this person may preview the app as somebody else: an Admin. */
+  canPreview: boolean
+  /** The preview in force, if any. */
+  viewAs: ViewAs | null
+  setViewAs: (next: ViewAs | null) => void
 }
 
 /** How long the app may sit on "Loading…" before it has to say something. */
@@ -33,7 +63,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [roles, setRoles] = useState<UserRole[]>([])
+  const [realRoles, setRoles] = useState<UserRole[]>([])
   // Who owns the app. One account holds it; it decides who may take Admin
   // away, and it can only move by being offered and accepted.
   const [ownerId, setOwnerId] = useState<string | null>(null)
@@ -41,6 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Set when the session couldn't be established at all, so the shell can
   // say so rather than sitting on a spinner.
   const [authError, setAuthError] = useState<string | null>(null)
+  // For this tab only: a preview left on should not greet the Admin again
+  // tomorrow as a Church Member.
+  const [viewAsState, setViewAsState] = useState<ViewAs | null>(readViewAs)
 
   async function loadProfileAndRoles(userId: string) {
     const [{ data: profileData }, { data: roleData }, { data: ownerData }] = await Promise.all([
@@ -134,6 +167,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const realIsAdmin = realRoles.some((r) => r.role_type === 'admin')
+  const realIsSuperAdmin = !!ownerId && ownerId === session?.user.id
+  const canPreview = realIsAdmin || realIsSuperAdmin
+  // A preview only ever narrows, and only for somebody allowed to take one.
+  const viewAs = canPreview ? viewAsState : null
+
+  function setViewAs(next: ViewAs | null) {
+    setViewAsState(next)
+    try {
+      if (next) sessionStorage.setItem(VIEW_AS_KEY, JSON.stringify(next))
+      else sessionStorage.removeItem(VIEW_AS_KEY)
+    } catch {
+      // Storage refused: the preview still works, it just will not survive a reload.
+    }
+  }
+
+  // The roles the pages are shown. A Church Member and a Team Member hold
+  // none; a Team Head holds the one team being previewed.
+  const roles: UserRole[] = !viewAs
+    ? realRoles
+    : viewAs.as === 'head'
+      ? [
+          {
+            id: 'preview',
+            role_type: 'department_head',
+            department_id: viewAs.departmentId,
+            service_id: null,
+          },
+        ]
+      : []
+
   function hasRole(role: RoleType, opts?: { departmentId?: string; serviceId?: string }) {
     return roles.some((r) => {
       if (r.role_type !== role) return false
@@ -144,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isAdmin = hasRole('admin')
-  const isSuperAdmin = !!ownerId && ownerId === session?.user.id
+  const isSuperAdmin = realIsSuperAdmin && !viewAs
 
   const ledDepartmentIds = roles
     .filter((r) => r.role_type === 'department_head' || r.role_type === 'assisting_head')
@@ -181,6 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ledDepartmentIds,
         refreshProfile,
         signOut,
+        canPreview,
+        viewAs,
+        setViewAs,
       }}
     >
       {children}

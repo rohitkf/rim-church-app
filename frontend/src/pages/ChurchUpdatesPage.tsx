@@ -6,11 +6,10 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { CHURCH_UPDATES_KEY } from '../lib/churchUpdates'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionButton, Field, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
-
-export const CHURCH_UPDATES_KEY = ['church-updates']
 
 const TITLE_MAX = 120
 const BODY_MAX = 5000
@@ -27,7 +26,7 @@ const updateSchema = z.object({
     .nullable()
     .default(null),
 })
-export type ChurchUpdate = z.infer<typeof updateSchema>
+type ChurchUpdate = z.infer<typeof updateSchema>
 
 async function fetchChurchUpdates(): Promise<ChurchUpdate[]> {
   const { data, error } = await supabase
