@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CallTimesPanel } from './CallTimesPanel'
 import { DEFAULT_CALL_TIME } from '../lib/callTimes'
+import { pickTime } from '../test/pickers'
 
 const SUNDAY = '2026-09-06'
 
@@ -181,9 +182,7 @@ describe('the call times panel', () => {
     const user = show({ manages: ['media'] })
     await openPanel(user)
     await waitFor(() => tileFor('Media'))
-    const field = screen.getByLabelText('Call time for Media')
-    await user.clear(field)
-    await user.type(field, '09:15')
+    await pickTime(user, screen.getByLabelText('Call time for Media'), '09:15')
     expect(state.writes).toHaveLength(0)
 
     await user.click(within(tileFor('Media')).getByRole('button', { name: 'Save' }))
@@ -230,9 +229,7 @@ describe('the call times panel', () => {
     const user = show({ manages: ['media'] })
     await openPanel(user)
     await waitFor(() => tileFor('Media'))
-    const field = screen.getByLabelText('Call time for Media')
-    await user.clear(field)
-    await user.type(field, '09:15')
+    await pickTime(user, screen.getByLabelText('Call time for Media'), '09:15')
     await user.click(within(tileFor('Media')).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(state.writes).toHaveLength(1))
     expect(state.writes[0].payload).toMatchObject({

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
 import { Select } from './Select'
+import { FileButton } from './FileButton'
 import { useConfirmAction } from './ConfirmAction'
 
 export const DOC_BUCKET = 'inventory-docs'
@@ -269,11 +270,14 @@ export function ItemDocuments({
             />
           </Field>
           <Field label="…or upload the file" hint="PDF, image or spreadsheet, up to 20MB.">
-            <input
-              type="file"
+            <FileButton
               accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx"
-              onChange={(e) => { setFile(e.target.files?.[0] ?? null); if (e.target.files?.[0]) setLink('') }}
-              className="block w-full text-body-sm text-on-surface-variant file:mr-3 file:rounded-full file:border-0 file:bg-raised-strong file:px-3 file:py-1.5 file:text-body-sm file:text-on-surface"
+              label="Choose a file"
+              chosen={file?.name ?? null}
+              onFile={(f) => {
+                setFile(f)
+                if (f) setLink('')
+              }}
             />
           </Field>
           <div className="flex flex-wrap justify-end gap-2">

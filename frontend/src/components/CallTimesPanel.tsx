@@ -6,6 +6,7 @@ import { Eyebrow, Tile } from './Surface'
 import { Select, selectPillClasses, type SelectItem } from './Select'
 import { ServiceCountdown } from './ServiceCountdown'
 import { TeamMark } from './TeamMark'
+import { TimeField } from './DateTimeFields'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
@@ -293,12 +294,12 @@ function CallTimeField({
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
-      <input
-        type="time"
+      <TimeField
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={setDraft}
+        label={`Call time for ${teamName}`}
         aria-label={`Call time for ${teamName}`}
-        className="min-w-0 rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
+        className="inline-flex min-w-0 items-center gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
       />
       <button
         type="button"

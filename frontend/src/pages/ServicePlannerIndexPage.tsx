@@ -15,6 +15,7 @@ import { FinishedServices } from '../components/FinishedServices'
 import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
 import { formatTime } from '../lib/time'
 import { formatServiceDay } from '../lib/sunday'
+import { DateField } from '../components/DateTimeFields'
 import { isNewServiceFormDirty } from '../lib/formDirty'
 import { UnsavedChangesDialog, useUnsavedChangesGuard } from '../components/UnsavedChangesGuard'
 import { ActionButton, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
@@ -490,13 +491,7 @@ export function ServicePlannerIndexPage() {
 
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Date">
-                  <input
-                    type="date"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    autoFocus
-                    className={inputClasses}
-                  />
+                  <DateField value={newDate} onChange={setNewDate} label="Date of the service" />
                 </Field>
                 <Field label="Service type">
                   <input

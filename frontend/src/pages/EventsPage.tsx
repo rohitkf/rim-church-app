@@ -23,6 +23,7 @@ import {
 import { fetchEvents, pastDiaryEntries } from '../lib/churchEvents'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { TimeField } from '../components/DateTimeFields'
 import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
@@ -638,12 +639,7 @@ export function EventsPage() {
                 />
               </Field>
               <Field label="Start time (optional)">
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className={`${inputClasses} [color-scheme:dark]`}
-                />
+                <TimeField value={startTime} onChange={setStartTime} label="Start time" clearable />
               </Field>
               <Field label="Where (optional)" className="sm:col-span-2">
                 <input

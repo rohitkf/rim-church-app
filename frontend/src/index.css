@@ -809,3 +809,101 @@ body::after {
   animation: rim-ready-blink 1.6s ease-in-out infinite;
 }
 
+/*
+ * Tick boxes, radio buttons and number fields, drawn by the app.
+ *
+ * Left to the browser they were the system's own: a grey Android square
+ * on one phone, a blue iOS pill on another, a spinner arrow on a laptop —
+ * three different looks on one form, none of them this app's. They stay
+ * real inputs (the keyboard, the label, the screen reader and every test
+ * still see a checkbox), and only the drawing is ours. In the base layer,
+ * so a component's own h-4 / w-4 still sets the size.
+ */
+@layer base {
+  input[type='checkbox'],
+  input[type='radio'] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin: 0;
+    display: inline-grid;
+    place-content: center;
+    border: 1.5px solid var(--color-outline);
+    background-color: transparent;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+  input[type='checkbox'] {
+    border-radius: 0.35rem;
+  }
+  input[type='radio'] {
+    border-radius: 9999px;
+  }
+  input[type='checkbox']::before {
+    content: '';
+    width: 0.7rem;
+    height: 0.7rem;
+    transform: scale(0);
+    transition: transform 120ms ease;
+    background-color: var(--color-on-primary);
+    /* A tick, as a mask, so it takes whatever colour the box asks for. */
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  input[type='radio']::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    transform: scale(0);
+    transition: transform 120ms ease;
+    background-color: var(--color-on-primary);
+  }
+  input[type='checkbox']:checked,
+  input[type='radio']:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  input[type='checkbox']:checked::before,
+  input[type='radio']:checked::before {
+    transform: scale(1);
+  }
+  input[type='checkbox']:focus-visible,
+  input[type='radio']:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 40%, transparent);
+  }
+  input[type='checkbox']:disabled,
+  input[type='radio']:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+  /* A box sitting on a coloured chip (the checklist stages) is white. */
+  input[type='checkbox'].accent-white {
+    border-color: rgb(255 255 255 / 0.75);
+  }
+  input[type='checkbox'].accent-white:checked {
+    background-color: #fff;
+    border-color: #fff;
+  }
+  input[type='checkbox'].accent-white:checked::before {
+    background-color: rgb(0 0 0 / 0.8);
+  }
+
+  /* Numbers: no browser spinner arrows; the keyboard still brings up digits. */
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+

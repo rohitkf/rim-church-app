@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { Select } from '../components/Select'
+import { DateField } from '../components/DateTimeFields'
+import { todayIso } from '../lib/monthGrid'
 import { AppMark } from '../components/AppMark'
 import { useErrorText } from '../lib/useErrorText'
 import {
@@ -38,6 +40,8 @@ import {
 const inputClasses =
   'w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2.5 text-body-md text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary'
 const labelClasses = 'flex flex-col gap-1.5 text-body-sm text-on-surface-variant'
+/** The app's own date field, dressed like the other boxes on this form. */
+const fieldTriggerClasses = `${inputClasses} flex items-center justify-between gap-3 text-left`
 
 /** A yes/no that has no default, so an unanswered one is visibly unanswered. */
 function YesNo({
@@ -195,11 +199,12 @@ export function JoiningPage() {
             </label>
             <label className={labelClasses}>
               Date of birth
-              <input
-                type="date"
+              <DateField
                 value={answers.dob}
-                onChange={(e) => set('dob', e.target.value)}
-                className={`${inputClasses} [color-scheme:dark] ${wants('dob') ? 'ring-1 ring-error' : ''}`}
+                onChange={(d) => set('dob', d)}
+                label="Date of birth"
+                max={todayIso()}
+                className={`${fieldTriggerClasses} ${wants('dob') ? 'ring-1 ring-error' : ''}`}
               />
             </label>
           </div>
@@ -225,13 +230,12 @@ export function JoiningPage() {
             {answers.maritalStatus === 'married' && (
               <label className={labelClasses}>
                 Wedding anniversary
-                <input
-                  type="date"
+                <DateField
                   value={answers.anniversary}
-                  onChange={(e) => set('anniversary', e.target.value)}
-                  className={`${inputClasses} [color-scheme:dark] ${
-                    wants('anniversary') ? 'ring-1 ring-error' : ''
-                  }`}
+                  onChange={(d) => set('anniversary', d)}
+                  label="Wedding anniversary"
+                  max={todayIso()}
+                  className={`${fieldTriggerClasses} ${wants('anniversary') ? 'ring-1 ring-error' : ''}`}
                 />
                 <span className="text-label-sm text-on-surface-faint">
                   Shown on the Celebrations page, like your birthday.
@@ -276,13 +280,11 @@ export function JoiningPage() {
             {answers.visaType && !settled && answers.visaHasExpiry === true && (
               <label className={labelClasses}>
                 Expiry date
-                <input
-                  type="date"
+                <DateField
                   value={answers.visaExpiry}
-                  onChange={(e) => set('visaExpiry', e.target.value)}
-                  className={`${inputClasses} [color-scheme:dark] ${
-                    wants('visaExpiry') ? 'ring-1 ring-error' : ''
-                  }`}
+                  onChange={(d) => set('visaExpiry', d)}
+                  label="Visa expiry date"
+                  className={`${fieldTriggerClasses} ${wants('visaExpiry') ? 'ring-1 ring-error' : ''}`}
                 />
               </label>
             )}

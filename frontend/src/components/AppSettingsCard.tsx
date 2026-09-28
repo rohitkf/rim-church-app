@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { QueryState } from './QueryState'
 import { NumberDial } from './NumberDial'
+import { TimeField } from './DateTimeFields'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
@@ -300,12 +301,13 @@ export function AppSettingsCard() {
               <label className="mt-3 flex flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
                   The night before, at
-                  <input
-                    type="time"
+                  <TimeField
                     value={draft.availability_closes_time.slice(0, 5)}
-                    onChange={(e) => set('availability_closes_time', `${e.target.value}:00`)}
+                    onChange={(t) => t && set('availability_closes_time', `${t}:00`)}
+                    label="Time availability closes"
                     aria-label="Time availability closes"
-                    className="rounded-full bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
+                    minuteStep={1}
+                    className="inline-flex items-center gap-2 rounded-full bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus:ring-1 focus:ring-secondary"
                   />
                 </span>
                 <span className="text-label-md text-on-surface-variant">

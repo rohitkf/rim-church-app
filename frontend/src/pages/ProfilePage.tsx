@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
 import { isMissingColumnError } from '../lib/missingColumn'
 import { Select } from '../components/Select'
+import { DateField } from '../components/DateTimeFields'
+import { todayIso } from '../lib/monthGrid'
 import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
 
 const inputClasses =
@@ -133,7 +135,7 @@ export function ProfilePage() {
         </label>
         <label className={labelClasses}>
           Date of birth
-          <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputClasses} />
+          <DateField value={dob} onChange={setDob} label="Date of birth" max={todayIso()} clearable />
         </label>
         <label className={labelClasses}>
           Marital status
@@ -147,11 +149,12 @@ export function ProfilePage() {
         </label>
         <label className={labelClasses}>
           Wedding anniversary
-          <input
-            type="date"
+          <DateField
             value={anniversary}
-            onChange={(e) => setAnniversary(e.target.value)}
-            className={inputClasses}
+            onChange={setAnniversary}
+            label="Wedding anniversary"
+            max={todayIso()}
+            clearable
           />
           <span className="font-mono text-label-sm text-on-surface-variant">
             Optional — leave it blank if it doesn't apply. Shown to everyone on the Celebrations
@@ -210,13 +213,11 @@ export function ProfilePage() {
                   {sensitive.visa_has_expiry && (
                     <label className={labelClasses}>
                       Visa expiry
-                      <input
-                        type="date"
+                      <DateField
                         value={sensitive.visa_expiry ?? ''}
-                        onChange={(e) =>
-                          setSensitive({ ...sensitive, visa_expiry: e.target.value || null })
-                        }
-                        className={`${inputClasses} bg-surface-lowest [color-scheme:dark]`}
+                        onChange={(d) => setSensitive({ ...sensitive, visa_expiry: d || null })}
+                        label="Visa expiry"
+                        clearable
                       />
                     </label>
                   )}

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { ServicePlannerIndexPage } from './ServicePlannerIndexPage'
 import { chooseOption } from '../test/select'
+import { pickDate } from '../test/pickers'
 
 const auth = { isAdmin: true }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
@@ -107,7 +108,7 @@ describe('ServicePlannerIndexPage', () => {
     await user.click(await screen.findByRole('button', { name: 'New service' }))
     const reopened = await screen.findByRole('dialog')
     expect(within(reopened).getByLabelText(/service type/i)).toHaveValue('')
-    expect(within(reopened).getByLabelText(/^date$/i)).toHaveValue('')
+    expect(within(reopened).getByRole('button', { name: 'Date of the service' })).toHaveTextContent('Choose a date')
   })
 
   it('does not offer it to someone who cannot schedule services', async () => {
@@ -137,7 +138,7 @@ describe('a service that repeats', () => {
 
   it('makes one service when it is left not repeating, as it always did', async () => {
     const { user, dialog } = await openForm()
-    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await pickDate(user, within(dialog).getByRole('button', { name: 'Date of the service' }), '2026-10-04')
     await user.type(within(dialog).getByLabelText(/service type/i), 'English Service')
     await user.click(within(dialog).getByRole('button', { name: /^\W*Create service$/ }))
 
@@ -148,7 +149,7 @@ describe('a service that repeats', () => {
 
   it('words the choices for the day that was picked', async () => {
     const { user, dialog } = await openForm()
-    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await pickDate(user, within(dialog).getByRole('button', { name: 'Date of the service' }), '2026-10-04')
     await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Monthly on the first Sunday')
     expect(within(dialog).getByRole('combobox', { name: 'Repeats' })).toHaveTextContent('Monthly on the first Sunday')
   })
@@ -159,7 +160,7 @@ describe('a service that repeats', () => {
    */
   it('shows the dates it will land on, and that each one stands alone', async () => {
     const { user, dialog } = await openForm()
-    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await pickDate(user, within(dialog).getByRole('button', { name: 'Date of the service' }), '2026-10-04')
     await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Every two weeks on Sunday')
     expect(within(dialog).getByText(/4 Oct, 18 Oct, 1 Nov, 15 Nov/)).toBeInTheDocument()
     expect(within(dialog).getByText(/delete one and the others stay/)).toBeInTheDocument()
@@ -167,7 +168,7 @@ describe('a service that repeats', () => {
 
   it('starts a repeat in the database and opens its first service', async () => {
     const { user, dialog } = await openForm()
-    await user.type(within(dialog).getByLabelText('Date'), '2026-10-04')
+    await pickDate(user, within(dialog).getByRole('button', { name: 'Date of the service' }), '2026-10-04')
     await user.type(within(dialog).getByLabelText(/service type/i), 'English Service')
     await chooseOption(user, within(dialog).getByRole('combobox', { name: 'Repeats' }), 'Every week on Sunday')
     await user.click(within(dialog).getByRole('button', { name: /Create repeating service/ }))
