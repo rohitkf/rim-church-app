@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { NumberDialField } from '../components/NumberDial'
+import { TimeField } from '../components/DateTimeFields'
 import { PageHeader } from '../components/Surface'
 import { fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { isTemplateFormDirty, type TemplateFormState } from '../lib/formDirty'
@@ -163,11 +164,11 @@ export function ServiceTemplatesPage() {
           </label>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
             First session starts
-            <input
-              type="time"
+            <TimeField
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="tap rounded-full hairline px-3 py-2 text-body-md text-on-surface"
+              onChange={setStartTime}
+              label="First session starts"
+              className="tap inline-flex items-center gap-2 rounded-full hairline px-3 py-2 text-body-md text-on-surface"
             />
           </label>
         </div>

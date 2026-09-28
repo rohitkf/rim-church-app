@@ -13,6 +13,7 @@ import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../
 import { QueryState } from '../components/QueryState'
 import { Eyebrow, Field, PageHeader, Pill, Tile, inputClasses, type PillTone } from '../components/Surface'
 import { Select } from '../components/Select'
+import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { optionShare, pollIsOpen, tallyVotes, timeLeft, type ChoiceMode } from '../lib/polls'
 
@@ -638,15 +639,15 @@ function PollComposer({
             </div>
           </div>
 
-          <label className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
+          <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
             Deadline (optional)
-            <input
-              type="datetime-local"
+            <DateTimeField
               value={closesAt}
-              onChange={(e) => setClosesAt(e.target.value)}
-              className="min-w-0 rounded-full hairline bg-transparent px-3 py-2 font-mono text-label-md text-on-surface [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-primary/50"
+              onChange={setClosesAt}
+              label="Poll deadline"
+              min={todayIso()}
             />
-          </label>
+          </div>
         </div>
 
         <p className="mt-2 text-label-sm text-on-surface-faint">

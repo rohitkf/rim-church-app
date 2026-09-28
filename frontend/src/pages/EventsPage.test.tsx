@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventsPage } from './EventsPage'
+import { formatTimeValue } from '../lib/dateTimeFormat'
 
 /*
  * The diary, and putting something right in it.
@@ -169,7 +170,7 @@ describe('editing an event', () => {
     expect(screen.getByDisplayValue('Members meeting')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Main hall')).toBeInTheDocument()
     // "19:30:00" in the database is "19:30" to a time field, or it shows blank.
-    expect(screen.getByDisplayValue('19:30')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start time' })).toHaveTextContent(formatTimeValue('19:30'))
     expect(screen.getByText(/18 Sep/)).toBeInTheDocument()
   })
 

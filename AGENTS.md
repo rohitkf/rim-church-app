@@ -115,6 +115,13 @@ Other things that are true and not guessable:
 frontend/src/
   components/Surface.tsx     the design system's primitives — start here
   components/Select.tsx      the app's dropdown (never use a native <select>)
+  components/DateTimeFields  DateField / TimeField / DateTimeField — never
+                             <input type="date|time|datetime-local">; tests
+                             pick through them with test/pickers.ts
+  components/FileButton.tsx  choosing a file (the input itself stays hidden)
+                             Checkboxes, radios and number boxes are drawn
+                             by index.css — keep them real <input>s, no
+                             accent-* or custom spinners needed
   components/AppShell.tsx    header, dock, routes' wash colour, alert banner
   lib/queries.ts             shared Supabase reads
   lib/permissionMatrix.ts    the Access & privileges table, hand-maintained

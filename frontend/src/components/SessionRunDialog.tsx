@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Overlay, ActionButton, inputClasses } from './Surface'
+import { TimeField } from './DateTimeFields'
 import { formatTime, timeInputValue, withClockTime } from '../lib/time'
 import type { RunSession } from '../lib/sessionRunPlan'
 
@@ -110,13 +111,13 @@ export function SessionRunDialog({
         {starting && (
           <label className="mt-4 flex flex-wrap items-center gap-3">
             <span className="text-label-md text-on-surface-variant">Started at</span>
-            <input
-              type="time"
+            <TimeField
               value={clock}
-              onChange={(e) => setClock(e.target.value)}
-              min={earliest === null ? undefined : timeInputValue(new Date(earliest).toISOString())}
+              onChange={setClock}
+              minuteStep={1}
+              label={`Time ${session.session_name} started`}
               aria-label={`Time ${session.session_name} started`}
-              className={`rounded-[var(--radius-chip)] bg-raised px-3 py-2 font-mono text-body-md text-on-surface [color-scheme:dark] focus:outline-none focus:ring-1 ${
+              className={`inline-flex items-center gap-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 font-mono text-body-md text-on-surface focus:outline-none focus:ring-1 ${
                 tooEarly ? 'ring-1 ring-error' : 'hairline focus:ring-secondary'
               }`}
             />

@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionRunDialog } from './SessionRunDialog'
 import type { RunSession } from '../lib/sessionRunPlan'
+import { pickTime } from '../test/pickers'
+import { formatTimeValue } from '../lib/dateTimeFormat'
 
 const session: RunSession = {
   id: 'c',
@@ -71,9 +73,11 @@ describe('SessionRunDialog', () => {
 describe('correcting when a session actually started', () => {
   it('offers the current minute, and confirms with it untouched', async () => {
     const { onConfirm, user } = show()
-    const field = screen.getByLabelText('Time Worship 2 started')
-    expect((field as HTMLInputElement).value).toBe(
-      `${String(new Date(AT).getHours()).padStart(2, '0')}:${String(new Date(AT).getMinutes()).padStart(2, '0')}`,
+    const field = screen.getByRole('button', { name: 'Time Worship 2 started' })
+    expect(field).toHaveTextContent(
+      formatTimeValue(
+        `${String(new Date(AT).getHours()).padStart(2, '0')}:${String(new Date(AT).getMinutes()).padStart(2, '0')}`,
+      ),
     )
     await user.click(screen.getByRole('button', { name: /yes, start it now/i }))
     expect(onConfirm).toHaveBeenCalledWith('', AT)
@@ -81,9 +85,7 @@ describe('correcting when a session actually started', () => {
 
   it('confirms with a back-dated time when one is typed in', async () => {
     const { onConfirm, user } = show()
-    const field = screen.getByLabelText('Time Worship 2 started')
-    await user.clear(field)
-    await user.type(field, '11:40')
+    await pickTime(user, screen.getByRole('button', { name: 'Time Worship 2 started' }), '11:40')
     await user.click(screen.getByRole('button', { name: /yes, start it now/i }))
     const [, at] = onConfirm.mock.calls[0]
     expect(new Date(at).getHours()).toBe(11)
@@ -102,10 +104,9 @@ describe('correcting when a session actually started', () => {
       jumpedAt: (at: number) => (minutesOfDay(at) < cutoff ? earlier : []),
     })
     expect(screen.queryByText('Intercessory')).not.toBeInTheDocument()
-    await user.clear(screen.getByLabelText('Time Worship 2 started'))
-    await user.type(screen.getByLabelText('Time Worship 2 started'), '11:20')
+    await pickTime(user, screen.getByRole('button', { name: 'Time Worship 2 started' }), '11:20')
     // The sentence follows the box, not the clock...
-    expect(screen.getByText(/11:20/)).toBeInTheDocument()
+    expect(screen.getByText(/recorded as starting at/)).toHaveTextContent('11:20')
     // ...and so does the list of what the change would drop.
     expect(screen.getByText('Intercessory')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Ran out of time')).toBeInTheDocument()
@@ -122,8 +123,7 @@ describe('a start that could not have happened', () => {
 
   it('refuses a time before the session in front of it began', async () => {
     const { onConfirm, user } = show({ earliest: PREV })
-    await user.clear(screen.getByLabelText('Time Worship 2 started'))
-    await user.type(screen.getByLabelText('Time Worship 2 started'), '11:30')
+    await pickTime(user, screen.getByRole('button', { name: 'Time Worship 2 started' }), '11:30')
     expect(screen.getByText(/cannot have started before/i)).toBeInTheDocument()
     const confirm = screen.getByRole('button', { name: /yes, start it now/i })
     expect(confirm).toBeDisabled()
@@ -138,15 +138,13 @@ describe('a start that could not have happened', () => {
       { id: 'b', session_name: 'Intercessory', start_time: '2026-09-06T11:45:00.000Z', duration_minutes: 8 },
     ]
     const { user } = show({ earliest: PREV, jumpedAt: () => prev })
-    await user.clear(screen.getByLabelText('Time Worship 2 started'))
-    await user.type(screen.getByLabelText('Time Worship 2 started'), '11:30')
+    await pickTime(user, screen.getByRole('button', { name: 'Time Worship 2 started' }), '11:30')
     expect(screen.queryByText('Intercessory')).not.toBeInTheDocument()
   })
 
   it('accepts the moment the previous session started', async () => {
     const { onConfirm, user } = show({ earliest: PREV })
-    await user.clear(screen.getByLabelText('Time Worship 2 started'))
-    await user.type(screen.getByLabelText('Time Worship 2 started'), '11:45')
+    await pickTime(user, screen.getByRole('button', { name: 'Time Worship 2 started' }), '11:45')
     expect(screen.queryByText(/cannot have started before/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /yes, start it now/i }))
     expect(onConfirm).toHaveBeenCalled()

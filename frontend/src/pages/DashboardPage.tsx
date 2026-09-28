@@ -48,6 +48,7 @@ import {
 } from '../lib/upcomingServices'
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
+import { DateField } from '../components/DateTimeFields'
 import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
 import { formatTime } from '../lib/time'
@@ -413,12 +414,12 @@ export function DashboardPage() {
               >
                 &lsaquo;<span className="hidden sm:inline">&nbsp;Previous</span>
               </ActionButton>
-              <input
-                type="date"
+              <DateField
                 value={focusDate}
-                onChange={(e) => e.target.value && setAdminDate(e.target.value)}
+                onChange={(d) => d && setAdminDate(d)}
+                label="Service day"
                 aria-label="Service day"
-                className="min-w-0 flex-1 rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong [color-scheme:dark] sm:flex-none"
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-raised-strong px-3.5 py-1.5 font-mono text-label-md text-on-surface hairline-strong sm:flex-none"
               />
               <ActionButton tone="quiet" size="sm" onClick={() => stepDay(1)} aria-label="Next day">
                 <span className="hidden sm:inline">Next&nbsp;</span>&rsaquo;

@@ -20,6 +20,7 @@ import {
   type PersonRef,
 } from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
+import { DateField, TimeField } from '../components/DateTimeFields'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
@@ -776,17 +777,18 @@ export function ServicePlannerPage() {
                      the name ran straight into the date. */
                   className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
                 />
-                <input
-                  key={`date-${serviceQuery.data?.date}`}
-                  type="date"
-                  defaultValue={serviceQuery.data?.date}
-                  aria-label="Service date"
-                  onBlur={(e) => {
-                    if (!e.target.value || e.target.value === serviceQuery.data?.date) return
-                    updateService.mutate({ date: e.target.value })
-                  }}
-                  className="mt-1.5 block rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none [color-scheme:dark]"
-                />
+                <div className="mt-1.5">
+                  <DateField
+                    value={serviceQuery.data?.date ?? ''}
+                    label="Service date"
+                    aria-label="Service date"
+                    onChange={(d) => {
+                      if (!d || d === serviceQuery.data?.date) return
+                      updateService.mutate({ date: d })
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none"
+                  />
+                </div>
               </>
             ) : (
               <>
@@ -1141,23 +1143,20 @@ export function ServicePlannerPage() {
                        in the rail on a desktop and inside the card on a
                        phone — only ever one of the two at a time. */
                     const startTimeEditor = (
-                      <input
-                        type="time"
+                      <TimeField
                         aria-label="Service start time"
-                        defaultValue={timeInputValue(session.start_time)}
-                        onBlur={(e) => {
-                          if (!e.target.value) return
+                        label="Service start time"
+                        value={timeInputValue(session.start_time)}
+                        onChange={(t) => {
+                          if (!t || t === timeInputValue(session.start_time)) return
                           updateField.mutate({
                             id: session.id,
                             patch: {
-                              start_time: combineDateAndTime(
-                                serviceQuery.data!.date,
-                                e.target.value,
-                              ),
+                              start_time: combineDateAndTime(serviceQuery.data!.date, t),
                             },
                           })
                         }}
-                        className="w-full min-w-0 rounded-full bg-raised-strong px-2 py-1 text-right font-mono text-label-md text-on-surface hairline [color-scheme:dark]"
+                        className="flex w-full min-w-0 items-center justify-end gap-1.5 rounded-full bg-raised-strong px-2 py-1 font-mono text-label-md text-on-surface hairline"
                       />
                     )
 

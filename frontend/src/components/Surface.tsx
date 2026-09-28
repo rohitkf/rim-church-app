@@ -580,3 +580,6 @@ export function Field({
 
 export const inputClasses =
   'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-300 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
+
+/** A field that opens a sheet (a date, a time): an input's look, laid out as a button. */
+export const fieldTriggerClasses = `${inputClasses} flex items-center justify-between gap-3 text-left disabled:opacity-60`

@@ -16,6 +16,7 @@ import {
 import { AccountCard, LinkCard, UploadedQr } from '../pages/GivingPage'
 import { useConfirmAction } from './ConfirmAction'
 import { QueryState } from './QueryState'
+import { FileButton } from './FileButton'
 import { ActionButton, inputClasses } from './Surface'
 
 /**
@@ -353,25 +354,21 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
         blurb="For a code your bank or provider gave you as an image. If you have the link itself, add it above instead — the app draws its QR code for you, and it stays sharp."
       />
       <div className="mt-3 flex flex-col gap-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-body-sm font-medium text-on-surface">{path ? 'Replace the picture' : 'Upload a picture'}</span>
-          <input
-            type="file"
+        <div className="flex flex-col gap-1.5">
+          <FileButton
             accept={QR_TYPES.join(',')}
             aria-label="QR picture"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ''
+            label={path ? 'Replace the picture' : 'Upload a picture'}
+            onFile={(file) => {
               if (!file) return
               if (!QR_TYPES.includes(file.type)) return setProblem('A PNG, JPEG or WebP picture, please.')
               if (file.size > 2 * 1024 * 1024) return setProblem('That picture is over 2 MB.')
               setProblem(null)
               upload.mutation.mutate(file)
             }}
-            className="text-body-sm text-on-surface-variant file:mr-3 file:rounded-full file:border-0 file:bg-raised-strong file:px-4 file:py-2 file:text-label-md file:text-on-surface"
           />
           <span className="text-label-sm text-on-surface-faint">PNG, JPEG or WebP, up to 2 MB.</span>
-        </label>
+        </div>
         {path && (
           <>
             <TextField label="Caption" value={text} onChange={setText} placeholder="Scan to give" maxLength={120} />

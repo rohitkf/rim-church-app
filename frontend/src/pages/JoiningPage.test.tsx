@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { pickDate } from '../test/pickers'
 import { JoiningPage } from './JoiningPage'
 
 /*
@@ -64,7 +65,7 @@ async function choose(label: string, option: string) {
 
 async function fillTheBasics() {
   await userEvent.type(screen.getByLabelText('Phone'), '07700900123')
-  await userEvent.type(screen.getByLabelText('Date of birth'), '1990-04-02')
+  await pickDate(userEvent.setup(), screen.getByLabelText('Date of birth'), '1990-04-02')
   await choose('Marital status', 'Single')
 }
 
@@ -117,7 +118,7 @@ describe('joining', () => {
 
     const expiryQuestion = screen.getByRole('group', { name: /expiry date/i })
     await userEvent.click(within(expiryQuestion).getByRole('button', { name: 'Yes' }))
-    await userEvent.type(screen.getByLabelText('Expiry date'), '2027-08-19')
+    await pickDate(userEvent.setup(), screen.getByLabelText('Visa expiry date'), '2027-08-19')
 
     const dbs = screen.getByRole('group', { name: /DBS/i })
     await userEvent.click(within(dbs).getByRole('button', { name: 'Yes' }))
