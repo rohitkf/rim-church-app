@@ -409,6 +409,11 @@ export const PERMISSIONS: PermissionArea[] = [
       { action: 'Make somebody a team Head', can: all() },
       { action: 'Change church settings and timings', can: all() },
       {
+        action: 'Arrange the menu — its groups, their names, and the order of pages',
+        can: all(),
+        note: 'In App settings, for everybody at once. It only moves pages; who can open each one is unchanged.',
+      },
+      {
         action: 'Hand over ownership',
         can: all({ admin: 'no' }),
         note: 'The Owner alone, and the person receiving it has to accept.',

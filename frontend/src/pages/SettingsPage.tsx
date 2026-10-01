@@ -4,6 +4,7 @@ import { PageHeader } from '../components/Surface'
 import { AdminResetCard } from '../components/AdminResetCard'
 import { RotaLookCard } from '../components/RotaLookCard'
 import { GivingSettingsCard } from '../components/GivingSettingsCard'
+import { NavLayoutCard } from '../components/NavLayoutCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { SendAlertCard } from '../components/SendAlertCard'
@@ -153,6 +154,7 @@ export function ChurchSettingsPane() {
           ['#timings', 'Timings'],
           ['#rota', 'Team Rota'],
           ['#giving', 'Giving'],
+          ['#menu', 'Menu'],
         ].map(([href, label]) => (
           <a
             key={href}
@@ -166,6 +168,7 @@ export function ChurchSettingsPane() {
       <AppSettingsCard />
       <RotaLookCard />
       <GivingSettingsCard />
+      <NavLayoutCard />
     </div>
   )
 }

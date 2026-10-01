@@ -225,9 +225,11 @@ Each of these has already cost real time. None of them show up in review.
 
 ## 9. Recipes
 
-**A new page**: route in `App.tsx` → nav entry in `AppShell.tsx` `navItems`,
-with the `group` it sits under in the More sheet (Sunday, After the service,
-Talk, Church life, People & things), placed beside the rest of its group →
+**A new page**: route in `App.tsx` → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
+with the default `group` it sits under in the More sheet (Sunday, After the service,
+Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
+settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
+never seen lands in its default group, or at the top →
 a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
 every other page.
 
