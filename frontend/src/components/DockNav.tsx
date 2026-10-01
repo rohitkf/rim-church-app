@@ -4,6 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { MoreIcon } from './icons'
 import { Overlay } from './Surface'
 import { dockWindow } from '../lib/dockWindow'
+import { groupItems } from '../lib/navGroups'
 
 export interface DockItem {
   to: string
@@ -11,7 +12,14 @@ export interface DockItem {
   icon: ComponentType<SVGProps<SVGSVGElement>>
   /** A small dot on the icon: something here wants attention. */
   badge?: boolean
+  /**
+   * The heading it sits under in the More sheet. Consecutive items with
+   * the same group share one heading; an item with none (Dashboard) sits
+   * above them all.
+   */
+  group?: string
 }
+
 
 /**
  * How many destinations the bar itself carries on a phone.
@@ -251,44 +259,58 @@ export function DockNav({
 
       {moreOpen && (
         <Overlay label="All destinations" align="sheet" onDismiss={() => setMoreOpen(false)}>
-          <div className="pointer-events-auto w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-sm sm:rounded-[var(--radius-card)] sm:pb-5">
+          <div className="pointer-events-auto max-h-[88svh] w-full overflow-y-auto overscroll-contain rounded-t-[var(--radius-card)] bg-surface-lowest p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-sm sm:rounded-[var(--radius-card)] sm:pb-5">
             <div
               aria-hidden="true"
               className="mx-auto mb-4 h-1 w-9 rounded-full bg-outline-variant sm:hidden"
             />
-            <ul className="flex flex-col gap-1">
-              {items.map((item) => {
+            {/* Grouped under headings rather than folders: every page is
+                still one tap away, and a heading costs nothing to pass. A
+                group nobody here can open has no items, so no heading. */}
+            <div className="flex flex-col gap-4">
+              {groupItems(items).map((run) => (
+                <section key={run.group ?? 'top'} aria-label={run.group ?? undefined}>
+                  {run.group && (
+                    <h2 className="mb-1 px-3 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+                      {run.group}
+                    </h2>
+                  )}
+                  <ul className="flex flex-col gap-0.5">
+                    {run.items.map((item) => {
                 const Icon = item.icon
-                return (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      end={item.to === '/'}
-                      // The sheet has done its job once you have picked
-                      // something out of it.
-                      onClick={() => setMoreOpen(false)}
-                      className={({ isActive }) =>
-                        [
-                          'flex min-h-12 items-center gap-3 rounded-[var(--radius-chip)] px-3 text-body-md transition-colors duration-300 ease-[var(--ease-glide)]',
-                          isActive
-                            ? 'bg-primary text-on-primary'
-                            : 'text-on-surface hover:bg-raised-strong',
-                        ].join(' ')
-                      }
-                    >
-                      <Icon className="shrink-0" width={19} height={19} />
-                      {item.label}
-                      {item.badge && (
-                        <span
-                          aria-hidden="true"
-                          className="ml-auto h-2 w-2 rounded-full bg-accent-orange"
-                        />
-                      )}
-                    </NavLink>
-                  </li>
-                )
-              })}
-            </ul>
+                      return (
+                        <li key={item.to}>
+                          <NavLink
+                            to={item.to}
+                            end={item.to === '/'}
+                            // The sheet has done its job once you have picked
+                            // something out of it.
+                            onClick={() => setMoreOpen(false)}
+                            className={({ isActive }) =>
+                              [
+                                'flex min-h-11 items-center gap-3 rounded-[var(--radius-chip)] px-3 text-body-md transition-colors duration-300 ease-[var(--ease-glide)]',
+                                isActive
+                                  ? 'bg-primary text-on-primary'
+                                  : 'text-on-surface hover:bg-raised-strong',
+                              ].join(' ')
+                            }
+                          >
+                            <Icon className="shrink-0" width={19} height={19} />
+                            {item.label}
+                            {item.badge && (
+                              <span
+                                aria-hidden="true"
+                                className="ml-auto h-2 w-2 rounded-full bg-accent-orange"
+                              />
+                            )}
+                          </NavLink>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
             {trailing && <div className="mt-3 flex justify-center border-t border-outline-variant pt-3">{trailing}</div>}
           </div>
         </Overlay>

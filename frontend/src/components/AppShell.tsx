@@ -68,36 +68,36 @@ import { ViewAsBanner } from './ViewAsBanner'
  */
 const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean; issues?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
-  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
+  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday' },
 
   // Your Sunday, in the order it happens to you, ending with the songs.
-  { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true },
-  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true },
+  { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true, group: 'Sunday' },
+  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true, group: 'Sunday' },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true, group: 'Sunday' },
+  { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
-  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, teamOnly: true },
+  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, teamOnly: true, group: 'After the service' },
   // What somebody noticed that a team has to put right. Teams always see
   // it; everybody does once App settings let everybody raise one.
-  { to: '/issues', label: 'Issues', icon: WarningIcon, issues: true },
-  { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
+  { to: '/issues', label: 'Issues', icon: WarningIcon, issues: true, group: 'After the service' },
 
   // Talking about it. Nothing in either belongs to somebody who is not on
   // a team yet, so neither is offered until they are.
-  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true },
-  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true },
+  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true, group: 'Talk' },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true, group: 'Talk' },
   // For everybody, Church Members included: what the church is saying,
   // and what it is asking.
-  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon },
-  { to: '/polls', label: 'Polls', icon: PollIcon },
+  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon, group: 'Talk' },
+  { to: '/polls', label: 'Polls', icon: PollIcon, group: 'Talk' },
 
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
-  { to: '/events', label: 'Events', icon: CakeIcon },
-  { to: '/giving', label: 'Giving', icon: GiftHeartIcon },
-  { to: '/departments', label: 'Teams', icon: UsersIcon },
-  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true },
-  { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true },
+  { to: '/events', label: 'Events', icon: CakeIcon, group: 'Church life' },
+  { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
+  { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & things' },
+  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true, group: 'People & things' },
+  { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true, group: 'People & things' },
 ]
 
 /**

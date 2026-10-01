@@ -143,6 +143,27 @@ describe('AppShell dock', () => {
     }
   })
 
+  it('groups the More sheet under headings, each page under the one it belongs to', async () => {
+    const user = renderShell()
+    await screen.findByRole('link', { name: 'Messages' })
+    await user.click(screen.getByRole('button', { name: 'More' }))
+
+    const sheet = screen.getByRole('dialog', { name: 'All destinations' })
+    const under = (group: string) =>
+      within(within(sheet).getByRole('region', { name: group }))
+        .getAllByRole('link')
+        .map((l) => l.textContent)
+    expect(within(sheet).getAllByRole('heading').map((h) => h.textContent)).toEqual([
+      'Sunday',
+      'After the service',
+      'Talk',
+      'Church life',
+      'People & things',
+    ])
+    expect(under('After the service')).toEqual(['Debriefs', 'Issues'])
+    expect(under('Sunday')).toContain('Set Lists')
+  })
+
   it('keeps wherever you are on the bar itself, so the dock still says where you are', async () => {
     // The bar shows a fixed number of destinations on a phone and hides
     // the rest with `hidden`. Messages is well past that cut, so this is
@@ -193,14 +214,14 @@ describe('AppShell dock', () => {
       await standOn('/checklists', 'Checklists')
       expect(onBar('Team Rota')).toBe(true)
       expect(onBar('Checklists')).toBe(true)
-      // The one after a checklist is the debrief that follows the service.
-      expect(onBar('Debriefs')).toBe(true)
+      // The one after a checklist is the songs, the last of the Sunday.
+      expect(onBar('Set Lists')).toBe(true)
       expect(onBar('Dashboard')).toBe(false)
     })
 
     it('keeps a neighbour on each side, wherever you are', async () => {
       await standOn('/messages', 'Messages')
-      expect(onBar('Set Lists')).toBe(true)
+      expect(onBar('Issues')).toBe(true)
       expect(onBar('Messages')).toBe(true)
       expect(onBar('Team Chat')).toBe(true)
     })
@@ -253,9 +274,9 @@ describe('AppShell dock', () => {
       'Availability',
       'Team Rota',
       'Checklists',
+      'Set Lists',
       'Debriefs',
       'Issues',
-      'Set Lists',
       'Messages',
       'Team Chat',
       'Church Updates',
