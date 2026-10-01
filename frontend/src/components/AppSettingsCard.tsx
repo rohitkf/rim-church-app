@@ -129,6 +129,18 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
         unit: 'minutes',
       },
       {
+        key: 'debrief_open_minutes_after',
+        label: 'Teams can write their debrief for',
+        help: 'How long after a service ends anybody on a team can add to their own team’s debrief — while the morning is still fresh. The clock starts when End service was pressed, or, if nobody pressed it, at the planned end of the last session. Before the service ends and after this runs out, only the team’s Head or Assisting Head, and Admins, can write in it. The database enforces it.',
+        affects: 'Debriefs',
+        min: 0,
+        max: 10080,
+        dialMax: 1440,
+        dialStep: 30,
+        majorEvery: 4,
+        unit: 'minutes',
+      },
+      {
         key: 'debrief_retention_days',
         label: 'Debrief minutes are kept for',
         help: 'Minutes are working notes rather than an archive: they say what went wrong and often name whoever it went wrong for, which is fine for a fortnight and a file on somebody after a year. The clock runs from the service date, not from when they were typed, so every team’s minutes for one Sunday go together. A nightly job deletes them — deletes, not hides.',

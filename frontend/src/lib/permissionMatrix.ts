@@ -340,7 +340,16 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team. It was readable by anybody signed in until 27 September 2026 (0109).',
       },
-      { action: 'Write a team’s debrief', can: all({ head: 'team' }) },
+      {
+        action: 'Write a team’s debrief, tick its points, and change any of them',
+        can: all({ head: 'team' }),
+        note: 'Whoever runs the team, at any time.',
+      },
+      {
+        action: 'Add to their own team’s debrief, and edit or remove their own points',
+        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
+        note: 'Anybody on the team, from when the service ends until 12 hours after (App settings). A point a Head has ticked or assigned is the Head’s to change.',
+      },
       {
         action: 'See the activity feed',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),

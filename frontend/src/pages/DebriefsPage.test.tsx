@@ -20,6 +20,26 @@ const state = vi.hoisted(() => ({
   retention: 30,
   newDebriefId: 'db-new',
   extraServices: [] as { id: string; date: string; service_type: string }[],
+  // Which teams I am on, and when each service ended (epoch ms).
+  teamIds: [] as string[],
+  endsAt: {} as Record<string, number>,
+  now: Date.parse('2026-09-14T09:00:00Z'),
+}))
+
+vi.mock('../lib/useMyTeams', () => ({
+  useMyTeams: () => ({ teamIds: state.teamIds, onATeam: state.teamIds.length > 0, settled: true }),
+}))
+vi.mock('../lib/useFinishedServices', () => ({
+  useFinishedServices: () => ({
+    endsAt: (id: string) => state.endsAt[id] ?? null,
+    startsAt: () => null,
+    now: state.now,
+  }),
+}))
+vi.mock('../lib/useNow', () => ({ useNow: () => state.now }))
+// The real clock runs on the wall clock, and these dates are in the past.
+vi.mock('../components/ServiceCountdown', () => ({
+  ServiceCountdown: ({ label }: { label: string }) => <span aria-label={label}>clock</span>,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -36,7 +56,7 @@ vi.mock('../lib/monthGrid', async () => {
 })
 
 vi.mock('../lib/appSettings', () => ({
-  useAppSettings: () => ({ debrief_retention_days: state.retention }),
+  useAppSettings: () => ({ debrief_retention_days: state.retention, debrief_open_minutes_after: 720 }),
 }))
 
 vi.mock('../lib/queries', () => ({
@@ -103,6 +123,10 @@ beforeEach(() => {
   state.leads = true
   state.retention = 30
   state.newDebriefId = 'db-new'
+  state.teamIds = []
+  // Yesterday's English service ended at noon: long past the team's 12 hours.
+  state.endsAt = { s1: Date.parse('2026-09-13T12:00:00Z') }
+  state.now = Date.parse('2026-09-14T09:00:00Z')
 })
 
 function show() {
@@ -428,6 +452,94 @@ describe('who may write', () => {
     expect(screen.queryByLabelText('Add a debrief item')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
     expect(screen.getByLabelText('Tick off: Radio mic died again')).toBeDisabled()
+  })
+})
+
+/*
+ * Anybody on the team writes in their own team's debrief, from when the
+ * service ends until twelve hours after (0120). Heads and Admins are not
+ * held to that, and keep the tick and everybody else's points.
+ */
+describe('a team writing its own debrief', () => {
+  const ENDED = Date.parse('2026-09-13T12:00:00Z')
+  beforeEach(() => {
+    state.leads = false
+    state.teamIds = ['d1']
+  })
+
+  it('opens to the team when the service ends, and lets them add a point', async () => {
+    state.now = ENDED + 3 * 3_600_000
+    const user = userEvent.setup()
+    show()
+    await screen.findByText('English Service')
+    expect(screen.getByLabelText(/left for the team to write/)).toBeInTheDocument()
+    const box = within(mediaRow()).getByLabelText('Add a debrief item')
+    expect(box).toBeEnabled()
+    await user.type(box, 'Monitor 3 too loud{Enter}')
+    await waitFor(() =>
+      expect(state.written).toContainEqual(
+        expect.objectContaining({ table: 'service_debriefs', op: 'insert' }),
+      ),
+    )
+  })
+
+  it('gives another team no box at all', async () => {
+    state.now = ENDED + 3 * 3_600_000
+    show()
+    await screen.findByText('English Service')
+    const audio = screen.getByText('Audio').closest('li') as HTMLElement
+    expect(within(audio).queryByLabelText('Add a debrief item')).toBeNull()
+  })
+
+  it('shows the box shut until the service ends', async () => {
+    state.now = ENDED - 3_600_000
+    show()
+    await screen.findByText('English Service')
+    expect(screen.getByLabelText(/until the team can write/)).toBeInTheDocument()
+    expect(within(mediaRow()).getByLabelText('Add a debrief item')).toBeDisabled()
+    expect(within(mediaRow()).getByText('You can add to this once the service ends.')).toBeInTheDocument()
+  })
+
+  it('shuts the box to the team twelve hours after the service ends', async () => {
+    state.now = ENDED + 13 * 3_600_000
+    show()
+    await screen.findByText('English Service')
+    expect(screen.getByText(/^Closed to the team (?!—)/)).toBeInTheDocument()
+    expect(within(mediaRow()).getByText(/their Head can still add to it/)).toBeInTheDocument()
+    expect(within(mediaRow()).getByLabelText('Add a debrief item')).toBeDisabled()
+  })
+
+  it('lets a member change their own point, not anybody else’s, and never tick', async () => {
+    state.now = ENDED + 3 * 3_600_000
+    state.debriefs = [
+      debrief({
+        items: [
+          item({ id: 'mine', body: 'My point', created_by: 'u1' }),
+          item({ id: 'theirs', body: 'Their point', created_by: 'u9', sort_order: 1 }),
+        ],
+      }),
+    ]
+    show()
+    await screen.findByText('My point')
+    expect(screen.getByRole('button', { name: 'Remove: My point' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove: Their point' })).toBeNull()
+    expect(screen.getByLabelText('Tick off: My point')).toBeDisabled()
+  })
+
+  it('stops a member changing their point once a Head has ticked it', async () => {
+    state.now = ENDED + 3 * 3_600_000
+    state.debriefs = [debrief({ items: [item({ body: 'My point', created_by: 'u1', done_at: '2026-09-13T13:00:00Z' })] })]
+    show()
+    await screen.findByText('My point')
+    expect(screen.queryByRole('button', { name: 'Remove: My point' })).toBeNull()
+  })
+
+  it('does not hold a Head to the window', async () => {
+    state.leads = true
+    state.now = ENDED + 30 * 3_600_000
+    show()
+    await screen.findByText('English Service')
+    expect(within(mediaRow()).getByLabelText('Add a debrief item')).toBeEnabled()
   })
 })
 

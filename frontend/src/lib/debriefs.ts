@@ -236,3 +236,34 @@ export function debriefFor(
     debriefs.find((d) => d.service_id === serviceId && d.department_id === departmentId) ?? null
   )
 }
+
+export type DebriefWindowState = 'unplanned' | 'before' | 'open' | 'closed'
+
+/**
+ * When a team's members can write in its debrief: from the moment the
+ * service ends until `minutes` after — the database's debrief_window_open
+ * (0120), on the same end as useFinishedServices. Heads and Admins are not
+ * held to it.
+ */
+export function debriefWindow(
+  endsAt: number | null,
+  minutes: number,
+  now: number,
+): { state: DebriefWindowState; opensAt: number | null; closesAt: number | null } {
+  if (endsAt === null) return { state: 'unplanned', opensAt: null, closesAt: null }
+  const closesAt = endsAt + minutes * 60_000
+  const state = now < endsAt ? 'before' : now > closesAt ? 'closed' : 'open'
+  return { state, opensAt: endsAt, closesAt }
+}
+
+/**
+ * Whether a member may change this point: their own, while the window is
+ * open and before a Head has ticked or assigned it (0120). A Head or
+ * Admin may change any.
+ */
+export function memberMayChangeItem(
+  item: Pick<DebriefItem, 'created_by' | 'done_at' | 'assigned_to'>,
+  myId: string | null | undefined,
+): boolean {
+  return !!myId && item.created_by === myId && !item.done_at && !item.assigned_to
+}

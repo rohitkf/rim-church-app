@@ -22,6 +22,7 @@ type Settings = Pick<
   | 'issue_retention_days'
   | 'issue_open_minutes_before'
   | 'issue_close_minutes_after'
+  | 'debrief_open_minutes_after'
   | 'edit_grace_minutes'
   | 'after_service_checklist_minutes'
   | 'availability_closes_time'
@@ -40,6 +41,7 @@ const FALLBACK: Settings = {
   issue_retention_days: 30,
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
+  debrief_open_minutes_after: 720,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   availability_closes_time: '23:59:00',
@@ -90,7 +92,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'activity':
       return `The activity feed clears each ${clearDay}, with the message board.`
     case 'debriefs':
-      return `Minutes are deleted ${s.debrief_retention_days} ${s.debrief_retention_days === 1 ? 'day' : 'days'} after their service.`
+      return `A team can write its debrief for ${formatMinutes(s.debrief_open_minutes_after)} after the service ends (Heads and Admins, any time). Minutes are deleted ${s.debrief_retention_days} ${s.debrief_retention_days === 1 ? 'day' : 'days'} after their service.`
     case 'checklists':
       return `“Before the service” closes when the service ends; “After the service” stays open ${formatMinutes(s.after_service_checklist_minutes)} longer. Ticks are kept as a record.`
     case 'availability':
