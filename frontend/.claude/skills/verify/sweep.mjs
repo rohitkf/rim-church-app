@@ -50,9 +50,22 @@ const T = {
   rota_assignments: [{ id: 'a1', service_id: 'n1', department_id: 'd1', user_id: 'u1', role_label: 'Camera',
     role_id: null, include_pre: true, include_post: true, assignment_tags: [],
     profile: { id: 'u1', first_name: 'Rohit', last_name: 'Test' }, department: { id: 'd1', name: 'Media', color: '#a855f7' } }],
+  // One open for another team, one resolved by me — both halves of the page.
+  service_issues: [
+    { id: 'i1', service_id: 't1', department_id: 'd2', title: 'The foldback wedge on the left of the stage keeps cutting out mid-song',
+      details: 'Happened twice during the second song.', raised_by: 'u1', raised_by_department_id: 'd1', created_at: at(0, -3),
+      resolved_at: null, resolved_by: null, service: { date: day(0), service_type: 'English Service' },
+      team: { id: 'd2', name: 'Worship', color: '#ef4444' }, raiser_team: { id: 'd1', name: 'Media', color: '#a855f7' },
+      raiser: { first_name: 'Rohit', last_name: 'Test' }, resolver: null },
+    { id: 'i2', service_id: 'p1', department_id: 'd1', title: 'Projector slow to wake', details: null, raised_by: 'u9',
+      raised_by_department_id: 'd2', created_at: at(-7, -4), resolved_at: at(-6, 0), resolved_by: 'u1',
+      service: { date: day(-7), service_type: 'English Service' }, team: { id: 'd1', name: 'Media', color: '#a855f7' },
+      raiser_team: { id: 'd2', name: 'Worship', color: '#ef4444' }, raiser: { first_name: 'Grace', last_name: 'Mensah' },
+      resolver: { first_name: 'Rohit', last_name: 'Test' } },
+  ],
 }
 
-const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists', '/debriefs', '/set-lists',
+const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists', '/debriefs', '/issues', '/set-lists',
   '/messages', '/team-chat', '/updates', '/polls', '/events', '/giving', '/departments', '/departments/d1',
   '/volunteers', '/inventory', '/settings/profile', '/settings/access', '/settings/church', '/settings/alerts',
   '/settings/data']

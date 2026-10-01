@@ -294,6 +294,31 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Issues',
+    capabilities: [
+      {
+        action: 'Raise an issue seen at a service',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'For any team. Your name and the team you raise it as go on it, and the team it is for is told. App settings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
+      },
+      {
+        action: 'See the issues',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'Every team’s. Church Members see them only when App settings let everyone raise one.',
+      },
+      {
+        action: 'Mark an issue done, or reopen it',
+        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
+        note: 'Anybody on the team it is for. Their name shows on it.',
+      },
+      {
+        action: 'Delete an issue',
+        can: all({ head: 'own', coordinator: 'own', member: 'own' }),
+        note: 'Whoever raised it, or an Admin. Resolved issues are deleted on their own after the number of days in App settings.',
+      },
+    ],
+  },
+  {
     area: 'Set lists',
     capabilities: [
       {

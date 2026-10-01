@@ -19,6 +19,7 @@ type Settings = Pick<
   AppSettings,
   | 'board_clear_dow'
   | 'debrief_retention_days'
+  | 'issue_retention_days'
   | 'edit_grace_minutes'
   | 'after_service_checklist_minutes'
   | 'availability_closes_time'
@@ -34,6 +35,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const FALLBACK: Settings = {
   board_clear_dow: 2,
   debrief_retention_days: 30,
+  issue_retention_days: 30,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   availability_closes_time: '23:59:00',
@@ -69,6 +71,7 @@ export type LifespanPage =
   | 'polls'
   | 'updates'
   | 'team-chat'
+  | 'issues'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -100,5 +103,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
       return 'Updates stay until an Admin deletes them.'
     case 'team-chat':
       return 'Nothing here clears on its own — messages stay until they are deleted.'
+    case 'issues':
+      return `Open issues stay until they are resolved. A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after it was marked done.`
   }
 }

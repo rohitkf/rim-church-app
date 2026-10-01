@@ -51,7 +51,13 @@ const TIMEZONES = [
 type NumberField = {
   key: keyof Omit<
     AppSettings,
-    'always_show_my_services' | 'board_clear_dow' | 'logo_url' | 'timezone' | 'availability_closes_time' | 'coordinator_color'
+    | 'always_show_my_services'
+    | 'board_clear_dow'
+    | 'logo_url'
+    | 'timezone'
+    | 'availability_closes_time'
+    | 'coordinator_color'
+    | 'issues_raise_scope'
   >
   label: string
   /** What the number means, in the words the pages themselves use. */
@@ -127,6 +133,17 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
         label: 'Debrief minutes are kept for',
         help: 'Minutes are working notes rather than an archive: they say what went wrong and often name whoever it went wrong for, which is fine for a fortnight and a file on somebody after a year. The clock runs from the service date, not from when they were typed, so every team’s minutes for one Sunday go together. A nightly job deletes them — deletes, not hides.',
         affects: 'Debriefs',
+        min: 1,
+        max: 365,
+        dialMax: 120,
+        majorEvery: 7,
+        unit: 'days',
+      },
+      {
+        key: 'issue_retention_days',
+        label: 'Resolved issues are kept for',
+        help: 'Once somebody on the team marks an issue done, it stays on the Issues page this many days so everyone can see it was dealt with and by whom, then a nightly job deletes it. Open issues are never deleted on a clock — they stay until somebody acts.',
+        affects: 'Issues',
         min: 1,
         max: 365,
         dialMax: 120,
@@ -271,13 +288,48 @@ export function AppSettingsCard() {
                 <span className="text-label-md text-on-surface-variant">
                   At 00:00 UTC on this day, the message board empties — every post, plus the
                   bell notifications pointing at them, so the bell never points at something
-                  that is gone. The planner’s Finished list resets on the same clock, so nobody
+                  that is gone — and the dashboard’s activity feed clears with it. The planner’s Finished list resets on the same clock, so nobody
                   has to learn two different weeks. The clear-out is a deletion and cannot be
                   undone.
                 </span>
                 <span className="font-mono text-label-sm text-on-surface-faint">
                   Message board · Service Planner’s Finished list · default{' '}
                   {WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]}, two days after Sunday
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                Issues
+              </div>
+              <p className="mt-1 text-label-md text-on-surface-faint">
+                Who may raise an issue they notice at a service. Anybody on a team can always see
+                them, and the team an issue is for marks it done.
+              </p>
+              <label className="mt-3 flex flex-col gap-1">
+                <span className="flex flex-wrap items-center gap-x-2 text-body-sm font-medium text-on-surface">
+                  Who can raise one
+                  <Select
+                    value={draft.issues_raise_scope}
+                    onChange={(scope) =>
+                      set('issues_raise_scope', scope as AppSettings['issues_raise_scope'])
+                    }
+                    aria-label="Who can raise an issue"
+                    className={selectPillClasses}
+                    options={[
+                      { value: 'team', label: 'Anyone on a team' },
+                      { value: 'everyone', label: 'Everyone signed in' },
+                      { value: 'leads', label: 'Heads and Admins only' },
+                    ]}
+                  />
+                </span>
+                <span className="text-label-md text-on-surface-variant">
+                  “Everyone signed in” lets Church Members raise one too, and see the page. The
+                  database enforces the choice, so it is a real rule.
+                </span>
+                <span className="font-mono text-label-sm text-on-surface-faint">
+                  Issues · default Anyone on a team
                 </span>
               </label>
             </div>

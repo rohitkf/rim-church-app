@@ -21,6 +21,7 @@ export const NOTIFICATION_TYPES = [
   'announcement',
   'team_poll',
   'church_update',
+  'service_issue',
   'mention',
   'rota_dropout',
   'availability_change_request',
@@ -49,6 +50,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   announcement: { label: 'A message from the church', href: '/' },
   team_poll: { label: 'There is a poll for you', href: '/polls' },
   church_update: { label: 'News from the church', href: '/updates' },
+  service_issue: { label: 'An issue has been raised for your team', href: '/issues' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.
@@ -92,5 +94,6 @@ export function notificationHref(type: string, referenceId?: string | null): str
   // opens the page at it.
   if (t === 'team_poll' && referenceId) return `/polls?poll=${referenceId}`
   if (t === 'church_update' && referenceId) return `/updates?update=${referenceId}`
+  if (t === 'service_issue' && referenceId) return `/issues?issue=${referenceId}`
   return NOTIFICATIONS[t].href
 }

@@ -30,6 +30,7 @@ describe('how long things last', () => {
     expect(lifespanOf('checklists', settings)).toContain('2 hours longer')
     expect(lifespanOf('rota', settings)).toContain('12 hours')
     expect(lifespanOf('availability', settings)).toContain('23:59')
+    expect(lifespanOf('issues', { ...settings, issue_retention_days: 14 })).toContain('14 days after it was marked done')
   })
 
   it('counts down to the configured day', () => {

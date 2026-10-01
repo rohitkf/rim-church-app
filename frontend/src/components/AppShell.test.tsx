@@ -254,6 +254,7 @@ describe('AppShell dock', () => {
       'Team Rota',
       'Checklists',
       'Debriefs',
+      'Issues',
       'Set Lists',
       'Messages',
       'Team Chat',
