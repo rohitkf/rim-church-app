@@ -20,6 +20,8 @@ type Settings = Pick<
   | 'board_clear_dow'
   | 'debrief_retention_days'
   | 'issue_retention_days'
+  | 'issue_open_minutes_before'
+  | 'issue_close_minutes_after'
   | 'edit_grace_minutes'
   | 'after_service_checklist_minutes'
   | 'availability_closes_time'
@@ -36,6 +38,8 @@ const FALLBACK: Settings = {
   board_clear_dow: 2,
   debrief_retention_days: 30,
   issue_retention_days: 30,
+  issue_open_minutes_before: 60,
+  issue_close_minutes_after: 120,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   availability_closes_time: '23:59:00',
@@ -104,6 +108,6 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'team-chat':
       return 'Nothing here clears on its own — messages stay until they are deleted.'
     case 'issues':
-      return `Open issues stay until they are resolved. A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after it was marked done.`
+      return `Issues can be raised from ${formatMinutes(s.issue_open_minutes_before)} before a service starts until ${formatMinutes(s.issue_close_minutes_after)} after it ends. A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after a Head marks it; not resolved and persistent ones stay until they are resolved.`
   }
 }

@@ -83,6 +83,7 @@ export function useFinishedServices(serviceIds: string[]) {
     const finished = new Set<string>()
     const startsAt = new Map<string, string>()
     const endedAt = new Map<string, number>()
+    const endsAt = new Map<string, number>()
     // Every service asked about, not only those with sessions: one that was
     // ended by hand without a running order is still over.
     for (const serviceId of ids) {
@@ -93,6 +94,7 @@ export function useFinishedServices(serviceIds: string[]) {
         if (standing.to !== null) endedAt.set(serviceId, standing.to)
       }
       if (standing.from !== null) startsAt.set(serviceId, new Date(standing.from).toISOString())
+      if (standing.to !== null) endsAt.set(serviceId, standing.to)
     }
     return {
       finished,
@@ -102,6 +104,14 @@ export function useFinishedServices(serviceIds: string[]) {
        * caller can tell "not yet started" from "no start to speak of".
        */
       startsAt: (serviceId: string) => startsAt.get(serviceId) ?? null,
+      /**
+       * When it ends or is due to, epoch ms: End service if it was
+       * pressed, otherwise the planned end of the last session — the same
+       * moment as the database's service_ended_at. Null when unplanned.
+       */
+      endsAt: (serviceId: string) => endsAt.get(serviceId) ?? null,
+      /** The clock these answers were worked out against, epoch ms. */
+      now: clock,
       /**
        * When a finished service's "After the service" checklist closes —
        * `minutes` past its end — while that is still to come, else null.
