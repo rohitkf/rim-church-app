@@ -124,9 +124,10 @@ beforeEach(() => {
   state.retention = 30
   state.newDebriefId = 'db-new'
   state.teamIds = []
-  // Yesterday's English service ended at noon: long past the team's 12 hours.
-  state.endsAt = { s1: Date.parse('2026-09-13T12:00:00Z') }
-  state.now = Date.parse('2026-09-14T09:00:00Z')
+  // Yesterday's English service ended late, so its team still has a few
+  // hours to write it up: it is under Today's services, open.
+  state.endsAt = { s1: Date.parse('2026-09-13T22:00:00Z') }
+  state.now = Date.parse('2026-09-14T06:00:00Z')
 })
 
 function show() {
@@ -185,8 +186,12 @@ describe('debriefs', () => {
       { id: 's1b', date: '2026-09-13', service_type: 'Malayalam Service' },
       { id: 's-1', date: '2026-09-06', service_type: 'Earlier Service' },
     ]
+    state.endsAt = { ...state.endsAt, s1b: state.endsAt.s1 }
+    const user = userEvent.setup()
     show()
     await screen.findByText('Malayalam Service')
+    // The week before is a record, under Finished services.
+    await user.click(screen.getByRole('button', { name: /Finished services/ }))
     const days = screen.getAllByRole('region').filter((r) => /September/.test(r.getAttribute('aria-label') ?? ''))
     expect(days.map((d) => d.getAttribute('aria-label'))).toEqual([
       expect.stringMatching(/13/),
@@ -465,6 +470,7 @@ describe('a team writing its own debrief', () => {
   beforeEach(() => {
     state.leads = false
     state.teamIds = ['d1']
+    state.endsAt = { s1: ENDED }
   })
 
   it('opens to the team when the service ends, and lets them add a point', async () => {
@@ -500,10 +506,11 @@ describe('a team writing its own debrief', () => {
     expect(within(mediaRow()).getByText('You can add to this once the service ends.')).toBeInTheDocument()
   })
 
-  it('shuts the box to the team twelve hours after the service ends', async () => {
+  it('shuts the box to the team twelve hours after the service ends, and files it under Finished', async () => {
     state.now = ENDED + 13 * 3_600_000
+    const user = userEvent.setup()
     show()
-    await screen.findByText('English Service')
+    await user.click(await screen.findByRole('button', { name: /Finished services/ }))
     expect(screen.getByText(/^Closed to the team (?!—)/)).toBeInTheDocument()
     expect(within(mediaRow()).getByText(/their Head can still add to it/)).toBeInTheDocument()
     expect(within(mediaRow()).getByLabelText('Add a debrief item')).toBeDisabled()

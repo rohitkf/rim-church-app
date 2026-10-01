@@ -28,8 +28,8 @@ import { useFinishedServices } from '../lib/useFinishedServices'
 import { inStartOrder } from '../lib/upcomingServices'
 import { serviceDays } from '../lib/callTimes'
 import { DayHeading } from '../components/DayHeading'
-import { splitFinished } from '../lib/finishedSection'
-import { FinishedServices } from '../components/FinishedServices'
+import { sectionServices } from '../lib/serviceSections'
+import { ServiceSections } from '../components/ServiceSections'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
 import { carriesPhase } from '../lib/readiness'
@@ -293,18 +293,24 @@ export function ChecklistsIndexPage() {
 
   // Off the page proper, not merely sorted last: a Sunday evening opened
   // on three cards of things that can no longer be ticked.
-  const { live: liveServices, finished: finishedServices } = useMemo(
-    () => splitFinished(orderedServices, (s) => isFinished(s.id)),
-    [orderedServices, isFinished],
+  const sections = useMemo(
+    () => sectionServices(orderedServices, today, (s) => isFinished(s.id)),
+    [orderedServices, today, isFinished],
   )
+  const liveServices = [...sections.today, ...sections.next, ...sections.upcoming]
 
   // Only the services this person has something on: a card that would be
   // empty is not drawn, so it must not be counted either — or the page
   // says nothing while believing it has shown something.
   const hasMine = (serviceId: string) =>
     mineFirst.some((m) => m.assignment.service_id === serviceId)
-  const liveMine = liveServices.filter((s) => hasMine(s.id))
-  const finishedMine = finishedServices.filter((s) => hasMine(s.id))
+  // The four sections, keeping only the services I have something on.
+  const mine = {
+    today: sections.today.filter((s) => hasMine(s.id)),
+    next: sections.next.filter((s) => hasMine(s.id)),
+    upcoming: sections.upcoming.filter((s) => hasMine(s.id)),
+    finished: sections.finished.filter((s) => hasMine(s.id)),
+  }
 
   const daysShown = new Set(dayServices.map((s) => s.date)).size
   const firstDayShown = dayServices.map((s) => s.date).sort()[0]
@@ -637,29 +643,20 @@ export function ChecklistsIndexPage() {
                 Rota.
               </p>
             ) : (
-              <div className="mt-6 flex flex-col gap-10">
-                {/* What can still be prepared for. A service that has
-                    been and gone is a record — it waits under Finished
-                    at the foot of the page rather than above the one
-                    still to prepare for. */}
-                {renderDays(liveMine)}
-
-                {liveMine.length === 0 && (
-                  <p className="text-body-sm text-on-surface-variant">
-                    {liveServices.length > 0
-                      ? `You have no role on the rota for ${liveServices.length === 1 ? 'the service' : 'the services'} coming up (${[
-                          ...new Set(liveServices.map((s) => formatServiceDay(s.date))),
-                        ].join(', ')}). Your team head assigns roles under Team Rota.`
-                      : 'Nothing left to prepare for. What was ticked is under Finished.'}
-                  </p>
+              <ServiceSections
+                sections={mine}
+                finishedId="finished-checklists"
+                empty={
+                  liveServices.length > 0
+                    ? `You have no role on the rota for ${liveServices.length === 1 ? 'the service' : 'the services'} coming up (${[
+                        ...new Set(liveServices.map((s) => formatServiceDay(s.date))),
+                      ].join(', ')}). Your team head assigns roles under Team Rota.`
+                    : 'Nothing left to prepare for. What was ticked is under Finished services.'
+                }
+                render={(list, finished) => (
+                  <div className="flex flex-col gap-10">{renderDays(list, finished)}</div>
                 )}
-
-                {finishedMine.length > 0 && (
-                  <FinishedServices count={finishedMine.length} id="finished-checklists">
-                    {renderDays(finishedMine, true)}
-                  </FinishedServices>
-                )}
-              </div>
+              />
             )}
           </>
         )}

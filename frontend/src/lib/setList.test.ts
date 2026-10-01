@@ -129,8 +129,9 @@ describe('grouping the set lists page', () => {
   it('puts today’s services still to happen in Today', () => {
     expect(g.today.map((s) => s.id)).toEqual(['pm'])
   })
-  it('takes upcoming services out to three weeks, and no further', () => {
-    expect(g.upcoming.map((s) => s.id)).toEqual(['next', 'three'])
+  it('puts the next service day under Next, and the rest out to three weeks under Upcoming', () => {
+    expect(g.next.map((s) => s.id)).toEqual(['next'])
+    expect(g.upcoming.map((s) => s.id)).toEqual(['three'])
   })
   it('keeps three weeks of finished services, latest first', () => {
     expect(g.finished.map((s) => s.id)).toEqual(['amdone', 'lastweek'])

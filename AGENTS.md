@@ -102,6 +102,13 @@ Other things that are true and not guessable:
 - **What clears, and when, is said on the page** by `<Lifespan page=…>`,
   worded once in `lib/lifespan.ts` from App settings. A new clock (a cron
   job, a lock, a retention period) needs its sentence there too.
+- **Every page that lists services uses the same four sections** —
+  Today's services, Next service (the whole next service day), Upcoming
+  services, and Finished services folded at the foot — from
+  `lib/serviceSections` and `components/ServiceSections`. A service moves
+  to Finished when it is done *on that page* (rota: when it ends; Issues:
+  when entry closes; Checklists: when the after-half closes). Don't build
+  a page's own grouping.
 - **A day with several services is one date heading** (`DayHeading`,
   `serviceDays`), services in start-time order (`inStartOrder`); a
   Finished list is newest day first but each day still in running order.

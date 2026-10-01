@@ -38,8 +38,8 @@ import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { splitFinished } from '../lib/finishedSection'
-import { FinishedServices } from '../components/FinishedServices'
+import { sectionServices } from '../lib/serviceSections'
+import { ServiceSections } from '../components/ServiceSections'
 import {
   rotaAssignmentSchema,
   rotaReleaseRequestSchema,
@@ -205,9 +205,10 @@ export function TeamRotaPage() {
   // And then taken off the page proper altogether. Sorting a record last
   // still leaves it in the list; a Sunday evening's rota is three cards
   // of "who served", above the Sunday that has not been planned yet.
-  const { live, finished: finishedServices } = useMemo(
-    () => splitFinished(listed, (s) => isFinished(s.id)),
-    [listed, isFinished],
+  // The four sections every page with services uses (lib/serviceSections).
+  const sections = useMemo(
+    () => sectionServices(upcoming, today, (s) => isFinished(s.id)),
+    [upcoming, today, isFinished],
   )
 
   const myDepartments = useMemo(() => {
@@ -1200,24 +1201,12 @@ export function TeamRotaPage() {
             You're not on a team yet — an Admin can add you to one.
           </p>
         ) : (
-          <div className="mt-6 flex flex-col gap-8">
-            {/* Everything still ahead. What has happened is below, in
-                its own section: the rota is read to find out who is on
-                next, and a service that is over answers nothing. */}
-            {live.map(renderService)}
-
-            {live.length === 0 && (
-              <p className="text-body-sm text-on-surface-variant">
-                Every service in the window is over. What was rostered is under Finished.
-              </p>
-            )}
-
-            {finishedServices.length > 0 && (
-              <FinishedServices count={finishedServices.length} id="finished-rota">
-                {finishedServices.map(renderService)}
-              </FinishedServices>
-            )}
-          </div>
+          <ServiceSections
+            sections={sections}
+            finishedId="finished-rota"
+            empty="Every service in the window is over. What was rostered is under Finished services."
+            render={(list) => <div className="flex flex-col gap-8">{list.map(renderService)}</div>}
+          />
         )}
       </QueryState>
 

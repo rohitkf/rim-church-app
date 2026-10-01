@@ -38,7 +38,7 @@ import { useDragReorder } from '../lib/useDragReorder'
 import { DragHandle } from '../components/DragHandle'
 import { DayHeading } from '../components/DayHeading'
 import { serviceDays } from '../lib/callTimes'
-import { FinishedServices } from '../components/FinishedServices'
+import { ServiceSections } from '../components/ServiceSections'
 import type { SetListItem } from '../lib/types'
 import { Select } from '../components/Select'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -86,7 +86,7 @@ export function SetListsPage() {
     [servicesQuery.data, today, isFinished],
   )
   const services = useMemo(
-    () => [...groups.today, ...groups.upcoming, ...groups.finished],
+    () => [...groups.today, ...groups.next, ...groups.upcoming, ...groups.finished],
     [groups],
   )
   const serviceIds = useMemo(() => services.map((s) => s.id), [services])
@@ -287,10 +287,10 @@ export function SetListsPage() {
         {(newestFirst ? days.reverse() : days).map((day) => (
           <section key={day.date} aria-label={formatServiceDay(day.date)}>
             <DayHeading date={day.date} today={today} count={day.services.length} />
-            {/* Newest day first, but a day still reads in its own order —
-                the list arrives newest first, so each day is put back. */}
+            {/* Each day reads in its own running order, even in Finished,
+                where the days themselves go newest first. */}
             <ul className="mt-3 flex flex-col gap-4">
-              {(newestFirst ? [...day.services].reverse() : day.services).map(renderService)}
+              {day.services.map(renderService)}
             </ul>
           </section>
         ))}
@@ -319,33 +319,12 @@ export function SetListsPage() {
         isEmpty={services.length === 0}
         emptyMessage="No services in the three weeks either side of today."
       >
-        <div className="mt-6 flex flex-col gap-8">
-          {groups.today.length > 0 && (
-            <section aria-label="Today's services">
-              <h2 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
-                Today&rsquo;s services
-              </h2>
-              {renderDays(groups.today)}
-            </section>
-          )}
-          <section aria-label="Upcoming services">
-            <h2 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
-              Upcoming services
-            </h2>
-            {groups.upcoming.length === 0 ? (
-              <p className="mt-3 text-body-sm text-on-surface-variant">
-                Nothing else in the next {SET_LIST_DAYS / 7} weeks.
-              </p>
-            ) : (
-              renderDays(groups.upcoming)
-            )}
-          </section>
-          {groups.finished.length > 0 && (
-            <FinishedServices count={groups.finished.length} id="finished-set-lists" label="Finished services">
-              {renderDays(groups.finished, true)}
-            </FinishedServices>
-          )}
-        </div>
+        <ServiceSections
+          sections={groups}
+          finishedId="finished-set-lists"
+          render={(list, finished) => renderDays(list, finished)}
+          empty={`Nothing ahead in the next ${SET_LIST_DAYS / 7} weeks.`}
+        />
       </QueryState>
     </div>
   )

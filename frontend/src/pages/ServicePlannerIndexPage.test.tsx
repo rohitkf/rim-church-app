@@ -216,17 +216,23 @@ describe('the services listed under the calendar', () => {
       svc('xmas', '2026-12-25'),
     ]
     renderPage()
-    const list = (await screen.findByText('Upcoming services')).closest('section') as HTMLElement
-    await waitFor(() => expect(within(list).getAllByText(/^Service /)).toHaveLength(13))
-    expect(within(list).getByText('Service xmas')).toBeInTheDocument()
+    // Today's, the next service day, and the rest — thirteen in all.
+    await screen.findByRole('region', { name: 'Upcoming services' })
+    const inList = () =>
+      ['Today’s services', 'Next service', 'Upcoming services']
+        .map((name) => screen.queryByRole('region', { name }))
+        .flatMap((r) => (r ? within(r).queryAllByText(/^Service /) : []))
+    await waitFor(() => expect(inList()).toHaveLength(13))
+    const upcoming = screen.getByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByText('Service xmas')).toBeInTheDocument()
   })
 
   it('stops at a year from today', async () => {
     auth.isAdmin = true
     planner.services = [svc('near', '2027-09-25'), svc('far', '2027-09-27')]
     renderPage()
-    const list = (await screen.findByText('Upcoming services')).closest('section') as HTMLElement
-    expect(within(list).getByText('Service near')).toBeInTheDocument()
-    expect(within(list).queryByText('Service far')).toBeNull()
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    expect(within(next).getByText('Service near')).toBeInTheDocument()
+    expect(screen.queryByText('Service far')).toBeNull()
   })
 })

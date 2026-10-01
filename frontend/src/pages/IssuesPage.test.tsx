@@ -231,11 +231,11 @@ describe('the Issues page', () => {
     expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeEnabled()
   })
 
-  it('keeps today’s services upcoming while they take issues, with a clock to the close', async () => {
+  it('keeps today’s services under Today while they take issues, with a clock to the close', async () => {
     const user = show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    expect(within(upcoming).getByRole('region', { name: 'English Service' })).toBeInTheDocument()
-    expect(within(upcoming).getByRole('region', { name: 'Evening Service' })).toBeInTheDocument()
+    const todays = await screen.findByRole('region', { name: 'Today’s services' })
+    expect(within(todays).getByRole('region', { name: 'English Service' })).toBeInTheDocument()
+    expect(within(todays).getByRole('region', { name: 'Evening Service' })).toBeInTheDocument()
     const c = await openCard(user, 'English Service')
     expect(within(c).getByLabelText(/until issues close/)).toBeInTheDocument()
   })
@@ -244,12 +244,12 @@ describe('the Issues page', () => {
     const over = { from: NOW - 9 * HOUR, to: NOW - 8 * HOUR }
     clock.bounds = { s1: over, s2: over, s3: over }
     const user = show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    expect(within(upcoming).getByRole('region', { name: 'Next Week Service' })).toBeInTheDocument()
-    expect(within(upcoming).queryByRole('region', { name: 'English Service' })).not.toBeInTheDocument()
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    expect(within(next).getByRole('region', { name: 'Next Week Service' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Today’s services' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Fortnight Service' })).not.toBeInTheDocument()
     // Today's three, all closed, are under Finished.
-    expect(screen.getByRole('button', { name: /Finished\s*3/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Finished services\s*3/ })).toBeInTheDocument()
     const c = await openCard(user, 'Next Week Service')
     const form = within(c).getByRole('form', { name: 'Raise an issue' })
     expect(within(form).getByText(/once the service has a running order/)).toBeInTheDocument()
@@ -259,8 +259,8 @@ describe('the Issues page', () => {
   it('closes a service to new issues two hours after it ends, and files it under Finished', async () => {
     state.issues = [issue({ service_id: 's3' })]
     const user = show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    expect(within(upcoming).queryByRole('region', { name: 'Early Service' })).not.toBeInTheDocument()
+    const todays = await screen.findByRole('region', { name: 'Today’s services' })
+    expect(within(todays).queryByRole('region', { name: 'Early Service' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Finished/ }))
     const c = await openCard(user, 'Early Service')
     expect(within(c).getByText(/^Closed for issues/)).toBeInTheDocument()

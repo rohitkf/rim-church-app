@@ -14,7 +14,7 @@
  * only the next service. The rest are there, under their own heading, one
  * touch away.
  */
-import { shiftIsoDays, type WindowedService } from './rotaWindow'
+import { shiftIsoDays } from './rotaWindow'
 
 /** Three weeks, because that is how far the services are created ahead. */
 export const AVAILABILITY_WINDOW_DAYS = 21
@@ -30,49 +30,7 @@ export function availabilityWindowDays(rotaWindowDays: number): number {
   return Math.max(AVAILABILITY_WINDOW_DAYS, rotaWindowDays)
 }
 
-export interface AvailabilityGroups<T> {
-  /** The day of the next service still needing an answer, and anything already over before it. */
-  now: T[]
-  /** That next service itself — the one card that opens on its own. */
-  nextId: string | null
-  /** Everything after that — real, answerable, and folded away. */
-  later: T[]
-}
 
-/**
- * Split what is on the page into "the day in front of you" and "the rest".
- *
- * The line is drawn after the day of the next service that can still be
- * answered for. It was once drawn at a day with every card open, which on
- * a phone was two long cards of teams before anybody could see there was
- * a third Sunday; then after one service, which kept one card open but
- * split a Sunday in two — its English service on top and its Malayalam
- * service under Upcoming, the same date heading twice. Now the day stays
- * whole and only its first service opens (`nextId`); the second sits
- * folded beneath it, under the same heading.
- *
- * `services` must already be in the order they happen — by date, and on a
- * day with two, by start time — because "the next one" is whichever comes
- * first, and that is a fact about the running order, not the name.
- *
- * A service that has already finished cannot be answered for, so it never
- * decides where the line falls — but it stays above it, because it came
- * before the one that does.
- */
-export function splitAvailabilityGroups<T extends WindowedService>(
-  services: T[],
-  isFinished: (serviceId: string) => boolean,
-): AvailabilityGroups<T> {
-  const next = services.findIndex((s) => !isFinished(s.id))
-  // Nothing left to answer: it is all a record, and all of it reads as
-  // what is in front of you rather than being filed under "upcoming".
-  if (next === -1) return { now: [...services], nextId: null, later: [] }
-
-  const day = services[next].date
-  const now = services.filter((s, i) => i <= next || s.date === day)
-  const later = services.filter((s, i) => i > next && s.date !== day)
-  return { now, nextId: services[next].id, later }
-}
 
 /**
  * Whether this service is open when the page is first drawn.

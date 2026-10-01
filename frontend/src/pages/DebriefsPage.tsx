@@ -15,6 +15,8 @@ import { useErrorText } from "../lib/useErrorText";
 import { useConfirmAction } from "../components/ConfirmAction";
 import { Chevron, useExpanded } from "../components/Collapsible";
 import { ServiceCountdown } from "../components/ServiceCountdown";
+import { ServiceSections } from "../components/ServiceSections";
+import { sectionServices } from "../lib/serviceSections";
 import { useMyTeams } from "../lib/useMyTeams";
 import { useFinishedServices } from "../lib/useFinishedServices";
 import { useNow } from "../lib/useNow";
@@ -337,6 +339,32 @@ export function DebriefsPage() {
       now,
     );
 
+  /*
+   * Today's services while their teams can still write in them, and
+   * Finished below — the two of the four sections a debrief can have,
+   * since nothing is written about a service that has not happened.
+   */
+  const debriefSections = useMemo(() => {
+    // Still open to its team — including last night's, whose twelve hours
+    // run on into today — or today's and not yet over.
+    const current = (id: string, date: string) => {
+      const state = windowOf(id).state;
+      return state === "open" || (date === today && state !== "closed");
+    };
+    const sectioned = sectionServices(services, today, (s) => !current(s.id, s.date));
+    return {
+      ...sectioned,
+      today: services.filter((s) => current(s.id, s.date)),
+      finished: sectioned.finished.filter((s) => !current(s.id, s.date)),
+    };
+    // windowOf reads timing, settings and the clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, today, timing, settings.debrief_open_minutes_after, now]);
+  // Open by default: the most recent service, which is the one anybody is
+  // here to write up.
+  const firstOpenId =
+    (debriefSections.today[0] ?? debriefSections.finished[0])?.id ?? null;
+
   const debriefsQuery = useQuery({
     queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(",")],
     queryFn: () => fetchDebriefs(services.map((s) => s.id)),
@@ -420,10 +448,15 @@ export function DebriefsPage() {
         isEmpty={services.length === 0}
         emptyMessage="Nothing to debrief yet — minutes appear here once a service has happened."
       >
-        <div className="mt-6 flex flex-col gap-8">
+        <ServiceSections
+          sections={debriefSections}
+          has={{ next: false, upcoming: false }}
+          finishedId="finished-debriefs"
+          render={(list) => (
+        <div className="flex flex-col gap-8">
           {/* By day, newest first: two services on one Sunday are one
               morning to write up, under one date, not two headings. */}
-          {serviceDays(services)
+          {serviceDays(list)
             .reverse()
             .map((day) => {
               const left = daysLeft(
@@ -478,7 +511,7 @@ export function DebriefsPage() {
                       // Open by default while it is the most recent one: that is the
                       // service anybody is here to write up.
                       const open =
-                        (service === services[0]) !== isExpanded(service.id);
+                        (service.id === firstOpenId) !== isExpanded(service.id);
 
                       return (
                         <section
@@ -653,6 +686,8 @@ export function DebriefsPage() {
               );
             })}
         </div>
+          )}
+        />
       </QueryState>
 
       {dialog}

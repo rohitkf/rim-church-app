@@ -213,10 +213,11 @@ describe('set lists, three weeks at a time', () => {
     update.mockClear()
   })
 
-  it('lists services up to three weeks ahead under Upcoming, and what has finished under Finished', async () => {
+  it('puts the next service day under Next, the rest to three weeks under Upcoming, and the past under Finished', async () => {
     show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    expect(within(upcoming).getByText('Sunday Morning')).toBeInTheDocument()
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    expect(within(next).getByText('Sunday Morning')).toBeInTheDocument()
+    const upcoming = screen.getByRole('region', { name: 'Upcoming services' })
     expect(within(upcoming).getByText('Three weeks out')).toBeInTheDocument()
     expect(screen.queryByText('Too far ahead')).toBeNull()
     expect(screen.getByRole('button', { name: /Finished services/ })).toBeInTheDocument()
@@ -230,13 +231,14 @@ describe('set lists, three weeks at a time', () => {
       { id: 's3', date: '2026-09-13', service_type: 'The week after' },
     ]
     show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    const days = within(upcoming).getAllByRole('region')
-    expect(days).toHaveLength(2)
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    const days = within(next).getAllByRole('region')
+    expect(days).toHaveLength(1)
     expect(within(days[0]).getByText('English Service')).toBeInTheDocument()
     expect(within(days[0]).getByText('Malayalam Service')).toBeInTheDocument()
     expect(within(days[0]).getByText('2 services')).toBeInTheDocument()
-    expect(within(days[1]).getByText('The week after')).toBeInTheDocument()
+    const upcoming = screen.getByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByText('The week after')).toBeInTheDocument()
   })
 
   it('saves the key a song is in', async () => {
