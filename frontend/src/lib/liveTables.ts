@@ -166,6 +166,8 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'giving_bank_accounts', keys: ['giving'] },
   { table: 'announcements', keys: ['announcements-sent', 'pending-alerts'] },
   { table: 'church_updates', keys: ['church-updates'] },
+  // Raised, marked done, reopened: the list moves on every phone at once.
+  { table: 'service_issues', keys: ['issues'] },
   // A poll, its options and every answer: the bars move as people vote.
   { table: 'team_polls', keys: ['polls'] },
   { table: 'team_poll_options', keys: ['polls'] },

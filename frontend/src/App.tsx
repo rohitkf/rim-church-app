@@ -111,6 +111,9 @@ const router = createBrowserRouter(
           <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
           <Route path="/updates" lazy={page(() => import('./pages/ChurchUpdatesPage'), 'ChurchUpdatesPage')} />
           <Route path="/polls" lazy={page(() => import('./pages/PollsPage'), 'PollsPage')} />
+          {/* Teams always; everybody when App settings let everybody raise
+              one — so the page decides, not TeamOnlyRoute. */}
+          <Route path="/issues" lazy={page(() => import('./pages/IssuesPage'), 'IssuesPage')} />
           <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
           <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
           <Route path="/service-planner" lazy={page(() => import('./pages/ServicePlannerIndexPage'), 'ServicePlannerIndexPage')} />

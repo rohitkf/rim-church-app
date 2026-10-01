@@ -15,6 +15,7 @@ import {
   ChatTeamIcon,
   MegaphoneIcon,
   PollIcon,
+  WarningIcon,
   MessageIcon,
   SparklesIcon,
   UserCheckIcon,
@@ -35,6 +36,7 @@ import { AlertBanner } from './AlertBanner'
 import { DockNav, type DockItem } from './DockNav'
 import { ActionButton } from './Surface'
 import { useMyTeams } from '../lib/useMyTeams'
+import { useAppSettings } from '../lib/appSettings'
 import { WelcomeTour } from './WelcomeTour'
 import { ViewAsBanner } from './ViewAsBanner'
 
@@ -64,7 +66,7 @@ import { ViewAsBanner } from './ViewAsBanner'
  * next step right is the rota built from it, and the one after is the
  * checklist for the morning. Getting it wrong costs a tap every time.
  */
-const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
+const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean; issues?: boolean })[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon },
 
@@ -75,6 +77,9 @@ const navItems: (DockItem & { adminOnly?: boolean; teamOnly?: boolean })[] = [
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
   { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, teamOnly: true },
+  // What somebody noticed that a team has to put right. Teams always see
+  // it; everybody does once App settings let everybody raise one.
+  { to: '/issues', label: 'Issues', icon: WarningIcon, issues: true },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon },
 
   // Talking about it. Nothing in either belongs to somebody who is not on
@@ -119,6 +124,7 @@ const WASH: Record<string, string> = {
   '/team-chat': 'var(--color-accent-indigo)',
   '/updates': 'var(--color-accent-blue)',
   '/polls': 'var(--color-accent-indigo)',
+  '/issues': 'var(--color-accent-orange)',
   '/settings': 'var(--color-accent-indigo)',
 }
 
@@ -149,8 +155,12 @@ export function AppShell() {
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
     : ''
 
+  const settings = useAppSettings()
   const items = navItems.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.teamOnly || onATeam),
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.teamOnly || onATeam) &&
+      (!item.issues || onATeam || settings.issues_raise_scope === 'everyone'),
   )
 
   return (
