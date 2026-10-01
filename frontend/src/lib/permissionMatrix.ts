@@ -179,7 +179,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Mark a team ready for the service (the green light)',
         can: all({ head: 'team', coordinator: 'team' }),
-        note: 'The team’s Head or Assisting Head, or whoever the rota puts in Team Coordinator for it at that service. Anybody on a team sees the lights; they stop moving once the service has finished.',
+        note: 'The team’s Head or Assisting Head, or whoever the rota puts in Team Coordinator for it at that service. From the team’s call time on the day of the service — before then the switch is shown but held — until the service finishes. An Admin can change it at any time. Anybody on a team sees the lights.',
       },
       { action: 'Record attendance for a team', can: all({ head: 'team' }) },
       { action: 'Nudge somebody who has not finished', can: all({ head: 'team' }) },

@@ -244,8 +244,8 @@ describe('set lists, three weeks at a time', () => {
   it('saves the key a song is in', async () => {
     const user = userEvent.setup()
     show()
-    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
-    await user.click(within(upcoming).getAllByRole('button', { name: /Add a song/ })[0])
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    await user.click(within(next).getAllByRole('button', { name: /Add a song/ })[0])
     await user.type(screen.getByPlaceholderText('Goodness of God'), 'Way Maker')
     await chooseOption(user, screen.getByRole('combobox', { name: 'Key' }), 'G major')
     await user.click(screen.getByRole('button', { name: 'Add song' }))

@@ -240,6 +240,14 @@ describe('the Issues page', () => {
     expect(within(c).getByLabelText(/until issues close/)).toBeInTheDocument()
   })
 
+  it('shows the next service day under Next even while today has services', async () => {
+    show()
+    await screen.findByRole('region', { name: 'Today’s services' })
+    const next = screen.getByRole('region', { name: 'Next service' })
+    expect(within(next).getByRole('region', { name: 'Next Week Service' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Fortnight Service' })).not.toBeInTheDocument()
+  })
+
   it('moves to the next service day once today’s have all closed, and not the one after', async () => {
     const over = { from: NOW - 9 * HOUR, to: NOW - 8 * HOUR }
     clock.bounds = { s1: over, s2: over, s3: over }

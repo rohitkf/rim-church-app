@@ -293,9 +293,12 @@ export function ChecklistsIndexPage() {
 
   // Off the page proper, not merely sorted last: a Sunday evening opened
   // on three cards of things that can no longer be ticked.
+  // Under Finished the moment the service ends, like every other page —
+  // the next service is the one worth having on top. Its "After the
+  // service" half stays tickable down there until that closes.
   const sections = useMemo(
-    () => sectionServices(orderedServices, today, (s) => isFinished(s.id)),
-    [orderedServices, today, isFinished],
+    () => sectionServices(orderedServices, today, (s) => hasEnded(s.id)),
+    [orderedServices, today, hasEnded],
   )
   const liveServices = [...sections.today, ...sections.next, ...sections.upcoming]
 
@@ -419,6 +422,7 @@ export function ChecklistsIndexPage() {
                           assignments={assignments}
                           departments={departmentsQuery.data ?? []}
                           rows={readinessQuery.data ?? []}
+                          windowFor={(departmentId) => windowFor(departmentId, service.date)}
                         />
                       )}
 
@@ -646,6 +650,9 @@ export function ChecklistsIndexPage() {
               <ServiceSections
                 sections={mine}
                 finishedId="finished-checklists"
+                // Open while something down there can still be ticked: the
+                // packing-up half of a service that has just ended.
+                finishedOpen={mine.finished.some((s) => afterOpenUntil(s.id) !== null)}
                 empty={
                   liveServices.length > 0
                     ? `You have no role on the rota for ${liveServices.length === 1 ? 'the service' : 'the services'} coming up (${[

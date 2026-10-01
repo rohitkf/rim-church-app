@@ -66,8 +66,8 @@ vi.mock('../lib/queries', () => ({
       // Long past its window: its items are gone, so it is not a heading
       // over an empty space.
       { id: 's0', date: '2026-06-01', service_type: 'Old Service' },
-      // Still to come — there is nothing to debrief yet.
-      { id: 's2', date: '2026-09-20', service_type: 'Next Sunday' },
+      // Beyond the three weeks the page looks ahead.
+      { id: 's2', date: '2026-10-20', service_type: 'Far Sunday' },
       ...state.extraServices,
     ]),
   fetchDepartments: () =>
@@ -173,8 +173,33 @@ describe('debriefs', () => {
   it('lists the services that have happened and still have minutes to keep', async () => {
     show()
     expect(await screen.findByText('English Service')).toBeInTheDocument()
-    expect(screen.queryByText('Next Sunday')).toBeNull()
+    expect(screen.queryByText('Far Sunday')).toBeNull()
     expect(screen.queryByText('Old Service')).toBeNull()
+  })
+
+  it('puts the coming Sunday under Next service, and the ones after under Upcoming', async () => {
+    state.extraServices = [
+      { id: 'n1', date: '2026-09-20', service_type: 'Coming Sunday' },
+      { id: 'n2', date: '2026-09-27', service_type: 'Sunday After' },
+    ]
+    show()
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    expect(within(next).getByText('Coming Sunday')).toBeInTheDocument()
+    const upcoming = screen.getByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByText('Sunday After')).not.toBeVisible()
+    // Nothing on the day, so no Today's services.
+    expect(screen.queryByRole('region', { name: 'Today’s services' })).toBeNull()
+  })
+
+  it('shows a team member the box for the coming Sunday, shut until it ends', async () => {
+    state.leads = false
+    state.teamIds = ['d1']
+    state.extraServices = [{ id: 'n1', date: '2026-09-20', service_type: 'Coming Sunday' }]
+    show()
+    const next = await screen.findByRole('region', { name: 'Next service' })
+    const media = within(next).getByText('Media').closest('li') as HTMLElement
+    expect(within(media).getByLabelText('Add a debrief item')).toBeDisabled()
+    expect(within(media).getByText('You can add to this once the service ends.')).toBeInTheDocument()
   })
 
   /*
@@ -187,11 +212,10 @@ describe('debriefs', () => {
       { id: 's-1', date: '2026-09-06', service_type: 'Earlier Service' },
     ]
     state.endsAt = { ...state.endsAt, s1b: state.endsAt.s1 }
-    const user = userEvent.setup()
     show()
     await screen.findByText('Malayalam Service')
-    // The week before is a record, under Finished services.
-    await user.click(screen.getByRole('button', { name: /Finished services/ }))
+    // Last night's is still open to its team, so Finished arrives open.
+    expect(screen.getByRole('button', { name: /Finished services/ })).toHaveAttribute('aria-expanded', 'true')
     const days = screen.getAllByRole('region').filter((r) => /September/.test(r.getAttribute('aria-label') ?? ''))
     expect(days.map((d) => d.getAttribute('aria-label'))).toEqual([
       expect.stringMatching(/13/),

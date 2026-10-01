@@ -493,8 +493,11 @@ describe('the availability tracker over three weeks', () => {
   })
 
   it('opens the soonest service and folds the rest', async () => {
+    const user = userEvent.setup()
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
+    // Upcoming is folded too; opened, its cards are still shut.
+    await user.click(screen.getByRole('button', { name: /Upcoming services/ }))
     expect(teamsOf(cardFor(/Today/))).not.toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 13/))).toHaveAttribute('hidden')
     expect(teamsOf(cardFor(/September 20/))).toHaveAttribute('hidden')
