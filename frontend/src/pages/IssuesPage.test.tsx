@@ -50,6 +50,8 @@ vi.mock('../lib/useFinishedServices', () => ({
   }),
 }))
 
+vi.mock('../lib/useNow', () => ({ useNow: () => NOW }))
+
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () =>
     Promise.resolve([
@@ -212,7 +214,7 @@ describe('the Issues page', () => {
   it('shows the fields before a service opens, shut until it does', async () => {
     const user = show()
     const c = await openCard(user, 'Evening Service')
-    expect(within(c).getByText(/^Taking issues from/)).toBeInTheDocument()
+    expect(within(c).getByLabelText(/until issues open/)).toBeInTheDocument()
     const form = within(c).getByRole('form', { name: 'Raise an issue' })
     expect(within(form).getByText(/^You can raise an issue here from/)).toBeInTheDocument()
     expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeDisabled()
@@ -229,23 +231,39 @@ describe('the Issues page', () => {
     expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeEnabled()
   })
 
-  it('shows the next service day once today’s are over, and not the one after', async () => {
+  it('keeps today’s services upcoming while they take issues, with a clock to the close', async () => {
+    const user = show()
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByRole('region', { name: 'English Service' })).toBeInTheDocument()
+    expect(within(upcoming).getByRole('region', { name: 'Evening Service' })).toBeInTheDocument()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).getByLabelText(/until issues close/)).toBeInTheDocument()
+  })
+
+  it('moves to the next service day once today’s have all closed, and not the one after', async () => {
     const over = { from: NOW - 9 * HOUR, to: NOW - 8 * HOUR }
     clock.bounds = { s1: over, s2: over, s3: over }
     const user = show()
-    const c = await openCard(user, 'Next Week Service')
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).getByRole('region', { name: 'Next Week Service' })).toBeInTheDocument()
+    expect(within(upcoming).queryByRole('region', { name: 'English Service' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Fortnight Service' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'English Service' })).not.toBeInTheDocument()
+    // Today's three, all closed, are under Finished.
+    expect(screen.getByRole('button', { name: /Finished\s*3/ })).toBeInTheDocument()
+    const c = await openCard(user, 'Next Week Service')
     const form = within(c).getByRole('form', { name: 'Raise an issue' })
     expect(within(form).getByText(/once the service has a running order/)).toBeInTheDocument()
     expect(within(form).getByRole('button', { name: 'Raise issue' })).toBeDisabled()
   })
 
-  it('closes a service to new issues two hours after it ends', async () => {
+  it('closes a service to new issues two hours after it ends, and files it under Finished', async () => {
     state.issues = [issue({ service_id: 's3' })]
     const user = show()
+    const upcoming = await screen.findByRole('region', { name: 'Upcoming services' })
+    expect(within(upcoming).queryByRole('region', { name: 'Early Service' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Finished/ }))
     const c = await openCard(user, 'Early Service')
-    expect(within(c).getByText('Closed for new issues')).toBeInTheDocument()
+    expect(within(c).getByText(/^Closed for issues/)).toBeInTheDocument()
     expect(within(c).queryByRole('form', { name: 'Raise an issue' })).not.toBeInTheDocument()
   })
 
@@ -253,6 +271,7 @@ describe('the Issues page', () => {
     auth.isAdmin = true
     state.issues = [issue({ service_id: 's3' })]
     const user = show()
+    await user.click(await screen.findByRole('button', { name: /Finished/ }))
     const c = await openCard(user, 'Early Service')
     const form = within(c).getByRole('form', { name: 'Raise an issue' })
     expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeEnabled()
@@ -314,6 +333,12 @@ describe('the Issues page', () => {
     const user = show()
     const c = await openCard(user, 'English Service')
     expect(within(c).getByRole('button', { name: /Delete issue/ })).toBeInTheDocument()
+  })
+
+  it('opens Finished, and the service in it, when a notification points there', async () => {
+    state.issues = [issue({ service_id: 's3' })]
+    show('/issues?issue=i1')
+    expect(await screen.findByText('Mic 2 crackles')).toBeVisible()
   })
 
   it('opens the service a notification points at', async () => {

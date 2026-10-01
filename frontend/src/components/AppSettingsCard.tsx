@@ -142,7 +142,7 @@ const GROUPS: { heading: string; blurb: string; fields: NumberField[] }[] = [
       {
         key: 'issue_retention_days',
         label: 'Resolved issues are kept for',
-        help: 'Once a Head of the team marks an issue resolved, it stays on the Issues page this many days so everyone can see it was dealt with and by whom, then a nightly job deletes it. Open, not resolved and persistent issues are never deleted on a clock — they stay until a Head marks them resolved.',
+        help: 'Once a Head of the team marks an issue resolved, it stays on the Issues page this many days so everyone can see it was dealt with and by whom, then a nightly job deletes it. Open, not resolved and persistent issues are never deleted on a clock — they stay until a Head marks them resolved. The same number of days is how far back the Issues page’s Finished list goes.',
         affects: 'Issues',
         min: 1,
         max: 365,

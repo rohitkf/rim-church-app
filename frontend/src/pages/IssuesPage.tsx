@@ -7,6 +7,7 @@ import { useAppSettings } from '../lib/appSettings'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useErrorText } from '../lib/useErrorText'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { useNow } from '../lib/useNow'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { formatTime } from '../lib/time'
@@ -37,6 +38,8 @@ import { TeamMark } from '../components/TeamMark'
 import { Lifespan } from '../components/Lifespan'
 import { DayHeading } from '../components/DayHeading'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { FinishedServices } from '../components/FinishedServices'
+import { ServiceCountdown } from '../components/ServiceCountdown'
 import { useConfirmAction } from '../components/ConfirmAction'
 
 const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
@@ -98,28 +101,31 @@ export function IssuesPage() {
   const allIssues = useMemo(() => issuesQuery.data ?? [], [issuesQuery.data])
 
   /*
-   * The services worth a card: every one that has issues, yesterday's and
-   * today's (an evening service's window can run past midnight), and the
-   * next day after today that has any — so the coming Sunday is on the
-   * page all week, ready to open, rather than appearing an hour before.
+   * The services worth a card: every one that has issues, the last
+   * `issue_retention_days` of them (the Finished list), and the next day
+   * after today that has any — so the coming Sunday is on the page all
+   * week, ready to open, rather than appearing an hour before.
    */
   const candidates = useMemo(() => {
     const withIssues = new Set(allIssues.map((i) => i.service_id))
-    const yesterday = shiftIsoDays(today, -1)
+    const since = shiftIsoDays(today, -settings.issue_retention_days)
     const all = servicesQuery.data ?? []
     const nextLater = all.reduce<string | null>(
       (nearest, s) => (s.date > today && (nearest === null || s.date < nearest) ? s.date : nearest),
       null,
     )
     return all.filter(
-      (s) => withIssues.has(s.id) || (s.date >= yesterday && s.date <= today) || s.date === nextLater,
+      (s) => withIssues.has(s.id) || (s.date >= since && s.date <= today) || s.date === nextLater,
     )
-  }, [servicesQuery.data, allIssues, today])
+  }, [servicesQuery.data, allIssues, today, settings.issue_retention_days])
   const timing = useFinishedServices(useMemo(() => candidates.map((s) => s.id), [candidates]))
+  // Five seconds, not the hook's thirty: a countdown that reaches zero
+  // should unlock its form while the person is still looking at it.
+  const now = useNow(5_000)
 
   const windowOf = (serviceId: string): IssueWindow => {
     const starts = timing.startsAt(serviceId)
-    return issueWindow(starts ? Date.parse(starts) : null, timing.endsAt(serviceId), settings, timing.now)
+    return issueWindow(starts ? Date.parse(starts) : null, timing.endsAt(serviceId), settings, now)
   }
 
   const issuesFor = (serviceId: string) =>
@@ -130,25 +136,43 @@ export function IssuesPage() {
     )
 
   /*
-   * The next service day: the first, from today, with a service whose
-   * window has not yet closed. Today's, while any of today's is still to
-   * come or on; once they are all done, the next one along.
+   * Finished: its window has closed — or it is from before today and never
+   * had a running order, so it never will.
+   */
+  const isFinished = (s: { id: string; date: string }) => {
+    const state = windowOf(s.id).state
+    return state === 'closed' || (state === 'unplanned' && s.date < today)
+  }
+
+  /*
+   * The next service day: the first, from today, with a service not yet
+   * finished. Today's, while any of today's is still to come, on, or
+   * taking issues; once they have all closed, the next one along.
    */
   const nextDay = candidates
-    .filter((s) => s.date >= today && windowOf(s.id).state !== 'closed')
+    .filter((s) => s.date >= today && !isFinished(s))
     .reduce<string | null>((nearest, s) => (nearest === null || s.date < nearest ? s.date : nearest), null)
 
-  const shown = inStartOrder(
-    candidates.filter((s) => {
-      if (allIssues.some((i) => i.service_id === s.id)) return true
-      return s.date === nextDay || windowOf(s.id).state === 'open'
-    }),
-    (s) => timing.startsAt(s.id),
+  const startOf = (s: { id: string }) => timing.startsAt(s.id)
+  // A service stays upcoming until entry for it closes, then moves down.
+  const upcoming = inStartOrder(
+    candidates.filter((s) => !isFinished(s) && (s.date === nextDay || windowOf(s.id).state === 'open')),
+    startOf,
   )
-  const days = serviceDays(shown).reverse()
+  const since = shiftIsoDays(today, -settings.issue_retention_days)
+  const finished = inStartOrder(
+    candidates.filter(
+      (s) => isFinished(s) && (s.date >= since || allIssues.some((i) => i.service_id === s.id)),
+    ),
+    startOf,
+  )
+  const upcomingDays = serviceDays(upcoming)
+  // Newest day first; each day still in running order.
+  const finishedDays = serviceDays(finished).reverse()
 
   // A tap on the notification opens its service and lands on the issue.
   const linkedService = openedId ? allIssues.find((i) => i.id === openedId)?.service_id : undefined
+  const linkedIsFinished = !!linkedService && finished.some((s) => s.id === linkedService)
   useEffect(() => {
     if (!openedId || !linkedService) return
     document.getElementById(`issue-${openedId}`)?.scrollIntoView?.({ block: 'center' })
@@ -177,6 +201,96 @@ export function IssuesPage() {
     onSuccess: done,
     onError: (err: unknown) => setError(errorText(err, 'Could not delete that issue.')),
   })
+
+  const renderService = (service: { id: string; date: string; service_type: string }) => {
+    const issues = issuesFor(service.id)
+    const w = windowOf(service.id)
+    const openCount = issues.filter((i) => i.outcome === null).length
+    // Shut until opened — except the service a notification pointed at,
+    // which arrives open on the issue.
+    const open = (service.id === linkedService) !== isExpanded(service.id)
+    return (
+      <section
+        key={service.id}
+        aria-label={service.service_type}
+        className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
+      >
+        <button
+          type="button"
+          onClick={() => toggle(service.id)}
+          aria-expanded={open}
+          aria-controls={`issues-${service.id}`}
+          className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
+        >
+          <span className="min-w-0 text-headline-md">{service.service_type}</span>
+          <span className="flex items-baseline gap-2.5">
+            <span className="font-mono text-label-sm text-on-surface-faint">
+              {openCount} open · {issues.length - openCount} marked
+            </span>
+            <Chevron open={open} />
+          </span>
+        </button>
+        <div className="mt-1.5 text-label-md text-on-surface-faint">
+          <WindowLine w={w} past={service.date < today} />
+        </div>
+
+        <div id={`issues-${service.id}`} hidden={!open} className="mt-4 flex flex-col gap-3">
+          {issues.length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant">
+              {mineOnly ? 'Nothing for your teams at this service.' : 'Nothing raised at this service.'}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {issues.map((issue) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  highlighted={issue.id === openedId}
+                  canMark={mayMarkIssue(issue, { isAdmin, ledTeamIds: ledDepartmentIds })}
+                  canDelete={mayDeleteIssue(issue, { isAdmin, myId })}
+                  busy={mark.isPending}
+                  onMark={(outcome, remarks) => mark.mutate({ id: issue.id, outcome, remarks })}
+                  onDelete={() =>
+                    ask({
+                      title: 'Delete this issue?',
+                      body: (
+                        <>
+                          <strong>{issue.title}</strong> goes for everybody.
+                        </>
+                      ),
+                      onConfirm: () => remove.mutate(issue.id),
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          )}
+          {canRaise && (anyTime || w.state !== 'closed') && (
+            <RaiseIssue
+              serviceId={service.id}
+              opensNote={anyTime || w.state === 'open' ? null : opensNote(w)}
+              aside={
+                anyTime && w.state !== 'open'
+                  ? 'Outside the window — as a Head or Admin you can still raise one.'
+                  : null
+              }
+              departments={departments}
+              myTeamIds={myTeamIds}
+              onRaised={invalidate}
+              onError={setError}
+            />
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  const renderDay = (day: { date: string; services: { id: string; date: string; service_type: string }[] }) => (
+    <section key={day.date} aria-label={day.date}>
+      <DayHeading date={day.date} today={today} count={day.services.length} />
+      <div className="mt-3 flex flex-col gap-4">{day.services.map(renderService)}</div>
+    </section>
+  )
 
   if (settled && !mayView) return <Navigate to="/" replace />
 
@@ -219,98 +333,33 @@ export function IssuesPage() {
       <QueryState
         isLoading={issuesQuery.isLoading || servicesQuery.isLoading}
         error={issuesQuery.error || servicesQuery.error}
-        isEmpty={days.length === 0}
-        emptyMessage={`No services coming up. The next service day appears here as soon as it is planned, and takes issues from ${formatMinutes(settings.issue_open_minutes_before)} before each service until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
+        isEmpty={false}
       >
-        <div className="mt-6 flex flex-col gap-8">
-          {days.map((day) => (
-            <section key={day.date} aria-label={day.date}>
-              <DayHeading date={day.date} today={today} count={day.services.length} />
-              <div className="mt-3 flex flex-col gap-4">
-                {day.services.map((service) => {
-                  const issues = issuesFor(service.id)
-                  const w = windowOf(service.id)
-                  const openCount = issues.filter((i) => i.outcome === null).length
-                  // Shut until opened — except the service a notification
-                  // pointed at, which arrives open on the issue.
-                  const open = (service.id === linkedService) !== isExpanded(service.id)
-                  return (
-                    <section
-                      key={service.id}
-                      aria-label={service.service_type}
-                      className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggle(service.id)}
-                        aria-expanded={open}
-                        aria-controls={`issues-${service.id}`}
-                        className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
-                      >
-                        <span className="min-w-0 text-headline-md">{service.service_type}</span>
-                        <span className="flex items-baseline gap-2.5">
-                          <span className="font-mono text-label-sm text-on-surface-faint">
-                            {openCount} open · {issues.length - openCount} marked
-                          </span>
-                          <Chevron open={open} />
-                        </span>
-                      </button>
-                      <p className="mt-1 text-label-md text-on-surface-faint">{windowText(w)}</p>
+        <section aria-label="Upcoming services" className="mt-6">
+          <h2 className="text-headline-md text-on-surface">Upcoming services</h2>
+          {upcomingDays.length === 0 ? (
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              {`Nothing planned yet. The next service day appears here as soon as it is, and takes issues from ${formatMinutes(settings.issue_open_minutes_before)} before each service until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-col gap-8">{upcomingDays.map(renderDay)}</div>
+          )}
+        </section>
 
-                      <div id={`issues-${service.id}`} hidden={!open} className="mt-4 flex flex-col gap-3">
-                        {issues.length === 0 ? (
-                          <p className="text-body-sm text-on-surface-variant">
-                            {mineOnly ? 'Nothing for your teams at this service.' : 'Nothing raised at this service.'}
-                          </p>
-                        ) : (
-                          <ul className="flex flex-col gap-3">
-                            {issues.map((issue) => (
-                              <IssueRow
-                                key={issue.id}
-                                issue={issue}
-                                highlighted={issue.id === openedId}
-                                canMark={mayMarkIssue(issue, { isAdmin, ledTeamIds: ledDepartmentIds })}
-                                canDelete={mayDeleteIssue(issue, { isAdmin, myId })}
-                                busy={mark.isPending}
-                                onMark={(outcome, remarks) => mark.mutate({ id: issue.id, outcome, remarks })}
-                                onDelete={() =>
-                                  ask({
-                                    title: 'Delete this issue?',
-                                    body: (
-                                      <>
-                                        <strong>{issue.title}</strong> goes for everybody.
-                                      </>
-                                    ),
-                                    onConfirm: () => remove.mutate(issue.id),
-                                  })
-                                }
-                              />
-                            ))}
-                          </ul>
-                        )}
-                        {canRaise && (anyTime || w.state !== 'closed') && (
-                          <RaiseIssue
-                            serviceId={service.id}
-                            opensNote={anyTime || w.state === 'open' ? null : opensNote(w)}
-                            aside={
-                              anyTime && w.state !== 'open'
-                                ? 'Outside the window — as a Head or Admin you can still raise one.'
-                                : null
-                            }
-                            departments={departments}
-                            myTeamIds={myTeamIds}
-                            onRaised={invalidate}
-                            onError={setError}
-                          />
-                        )}
-                      </div>
-                    </section>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+        {finishedDays.length > 0 && (
+          <FinishedServices
+            count={finished.length}
+            id="finished-issue-services"
+            defaultOpen={linkedIsFinished}
+            aside={
+              <span className="font-mono text-label-sm text-on-surface-faint">
+                last {settings.issue_retention_days} days
+              </span>
+            }
+          >
+            {finishedDays.map(renderDay)}
+          </FinishedServices>
+        )}
       </QueryState>
 
       {dialog}
@@ -330,12 +379,21 @@ function opensNote(w: IssueWindow): string {
   return 'This opens once the service has a running order.'
 }
 
-/** Whether a service is taking issues, said with the times it changes. */
-function windowText(w: IssueWindow): string {
-  if (w.state === 'unplanned') return 'No running order yet, so it is not taking issues.'
-  if (w.state === 'before') return `Taking issues from ${formatTime(new Date(w.opensAt!).toISOString())}`
-  if (w.state === 'open') return `Taking issues until ${formatTime(new Date(w.closesAt!).toISOString())}`
-  return 'Closed for new issues'
+/**
+ * Where a service stands for issues, with a live clock either side of the
+ * window: counting down to when entry opens, then to when it closes.
+ */
+function WindowLine({ w, past }: { w: IssueWindow; past: boolean }) {
+  if (w.state === 'unplanned') {
+    return past ? <>Closed — it never had a running order.</> : <>No running order yet, so it is not taking issues.</>
+  }
+  if (w.state === 'before') {
+    return <ServiceCountdown startsAt={new Date(w.opensAt!).toISOString()} label="until issues open" until="opens" />
+  }
+  if (w.state === 'open') {
+    return <ServiceCountdown startsAt={new Date(w.closesAt!).toISOString()} label="until issues close" until="closes" />
+  }
+  return <>Closed for issues {formatRelativeTime(new Date(w.closesAt!).toISOString())}</>
 }
 
 function fullName(p: { first_name: string; last_name: string } | null, fallback: string) {

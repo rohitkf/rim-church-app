@@ -18,6 +18,7 @@ export function FinishedServices({
   id,
   aside,
   label = 'Finished',
+  defaultOpen = false,
   children,
 }: {
   count: number
@@ -27,9 +28,11 @@ export function FinishedServices({
   id: string
   /** A note on the right of the heading — when the list clears, say. */
   aside?: ReactNode
+  /** Arrive open — for a link that points at something inside. */
+  defaultOpen?: boolean
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
     <section className="mt-8">
