@@ -218,8 +218,10 @@ Each of these has already cost real time. None of them show up in review.
 
 ## 9. Recipes
 
-**A new page**: route in `App.tsx` → nav entry in `AppShell.tsx` `navItems`
-→ a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
+**A new page**: route in `App.tsx` → nav entry in `AppShell.tsx` `navItems`,
+with the `group` it sits under in the More sheet (Sunday, After the service,
+Talk, Church life, People & things), placed beside the rest of its group →
+a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
 every other page.
 
 **A new notification type**: add it to `NOTIFICATION_TYPES` *and* the map in
