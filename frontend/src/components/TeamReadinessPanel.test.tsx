@@ -37,11 +37,22 @@ const green = (department_id: string): ReadinessRow => ({
   marker: { first_name: 'Santhi', last_name: 'Chennamsetti' },
 })
 
-function show(rows: ReadinessRow[] = [], finished = false) {
+function show(
+  rows: ReadinessRow[] = [],
+  finished = false,
+  windowFor?: (departmentId: string) => { open: boolean; clock: string },
+) {
   const client = new QueryClient()
   render(
     <QueryClientProvider client={client}>
-      <TeamReadinessPanel serviceId="s1" finished={finished} assignments={rota} departments={departments} rows={rows} />
+      <TeamReadinessPanel
+        serviceId="s1"
+        finished={finished}
+        assignments={rota}
+        departments={departments}
+        rows={rows}
+        windowFor={windowFor}
+      />
     </QueryClientProvider>,
   )
   return userEvent.setup()
@@ -103,6 +114,21 @@ describe('the ready-for-service panel on the Checklists page', () => {
     show([green('media'), green('audio')])
     expect(screen.getByRole('status')).toHaveTextContent('Ready for service')
     expect(screen.getAllByRole('img', { name: 'Ready' })).toHaveLength(2)
+  })
+
+  it('holds a switch until the team’s call time, and says when it opens', () => {
+    admin = true
+    show([], false, () => ({ open: false, clock: '07:30' }))
+    const switches = screen.getAllByRole('switch')
+    expect(switches.length).toBeGreaterThan(0)
+    for (const s of switches) expect(s).toBeDisabled()
+    expect(screen.getAllByText('Opens at 07:30, the team’s call time').length).toBe(switches.length)
+  })
+
+  it('lets go of the switch once the call time has come', () => {
+    admin = true
+    show([], false, () => ({ open: true, clock: '07:30' }))
+    for (const s of screen.getAllByRole('switch')) expect(s).toBeEnabled()
   })
 
   it('stops the switches once the service has finished', () => {

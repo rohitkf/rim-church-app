@@ -144,19 +144,18 @@ export function IssuesPage() {
     return state === 'closed' || (state === 'unplanned' && s.date < today)
   }
 
-  /*
-   * The next service day: the first, from today, with a service not yet
-   * finished. Today's, while any of today's is still to come, on, or
-   * taking issues; once they have all closed, the next one along.
-   */
+  // The nearest service day after today — under Next service, whether or
+  // not today has services of its own.
   const nextDay = candidates
-    .filter((s) => s.date >= today && !isFinished(s))
+    .filter((s) => s.date > today && !isFinished(s))
     .reduce<string | null>((nearest, s) => (nearest === null || s.date < nearest ? s.date : nearest), null)
 
   const startOf = (s: { id: string }) => timing.startsAt(s.id)
   // A service stays upcoming until entry for it closes, then moves down.
   const upcoming = inStartOrder(
-    candidates.filter((s) => !isFinished(s) && (s.date === nextDay || windowOf(s.id).state === 'open')),
+    candidates.filter(
+      (s) => !isFinished(s) && (s.date === today || s.date === nextDay || windowOf(s.id).state === 'open'),
+    ),
     startOf,
   )
   const since = shiftIsoDays(today, -settings.issue_retention_days)
@@ -168,16 +167,18 @@ export function IssuesPage() {
   )
   /*
    * The four sections every page with services uses, less Upcoming: a
-   * service further out cannot take an issue yet. Today's holds anything
-   * still taking issues from today or before — an evening service's window
-   * can run past midnight — and the next service day sits under Next.
+   * service further out cannot take an issue yet. Today's is only ever
+   * today's; the next service day sits under Next.
    */
   const sections = {
-    today: upcoming.filter((s) => s.date <= today),
+    today: upcoming.filter((s) => s.date === today),
     next: upcoming.filter((s) => s.date > today),
     upcoming: [],
-    finished,
+    // Last night's service still taking issues sits here, and opens the
+    // section, rather than calling itself one of today's.
+    finished: [...upcoming.filter((s) => s.date < today), ...finished],
   }
+  const finishedStillOpen = sections.finished.some((s) => windowOf(s.id).state === 'open')
 
   // A tap on the notification opens its service and lands on the issue.
   const linkedService = openedId ? allIssues.find((i) => i.id === openedId)?.service_id : undefined
@@ -348,7 +349,7 @@ export function IssuesPage() {
           sections={sections}
           has={{ next: true, upcoming: false }}
           finishedId="finished-issue-services"
-          finishedOpen={linkedIsFinished}
+          finishedOpen={linkedIsFinished || finishedStillOpen}
           finishedAside={
             <span className="font-mono text-label-sm text-on-surface-faint">
               last {settings.issue_retention_days} days

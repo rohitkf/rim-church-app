@@ -17,6 +17,7 @@ import { Chevron, useExpanded } from "../components/Collapsible";
 import { ServiceCountdown } from "../components/ServiceCountdown";
 import { ServiceSections } from "../components/ServiceSections";
 import { sectionServices } from "../lib/serviceSections";
+import { shiftIsoDays } from "../lib/rotaWindow";
 import { useMyTeams } from "../lib/useMyTeams";
 import { useFinishedServices } from "../lib/useFinishedServices";
 import { useNow } from "../lib/useNow";
@@ -67,6 +68,9 @@ import { formatRange } from "../lib/dateRange";
  * of prose cannot say which of those got done; a list with ticks can, and
  * the ones still outstanding sit at the top where they are awkward.
  */
+
+/** How far ahead the page lists services: three weeks, like the set lists. */
+const DEBRIEF_AHEAD_DAYS = 21;
 
 const fullName = (p: { first_name: string; last_name: string }) =>
   `${p.first_name} ${p.last_name}`;
@@ -319,7 +323,10 @@ export function DebriefsPage() {
       (servicesQuery.data ?? [])
         .filter(
           (s) =>
-            s.date <= today &&
+            // Three weeks ahead, like the set lists, so the coming Sunday
+            // is on the page before it happens; behind, as long as the
+            // minutes are kept.
+            s.date <= shiftIsoDays(today, DEBRIEF_AHEAD_DAYS) &&
             !isExpired(s.date, settings.debrief_retention_days, today),
         )
         .sort((a, b) => b.date.localeCompare(a.date)),
@@ -344,26 +351,31 @@ export function DebriefsPage() {
    * Finished below — the two of the four sections a debrief can have,
    * since nothing is written about a service that has not happened.
    */
-  const debriefSections = useMemo(() => {
-    // Still open to its team — including last night's, whose twelve hours
-    // run on into today — or today's and not yet over.
-    const current = (id: string, date: string) => {
-      const state = windowOf(id).state;
-      return state === "open" || (date === today && state !== "closed");
-    };
-    const sectioned = sectionServices(services, today, (s) => !current(s.id, s.date));
-    return {
-      ...sectioned,
-      today: services.filter((s) => current(s.id, s.date)),
-      finished: sectioned.finished.filter((s) => !current(s.id, s.date)),
-    };
+  // Today's services only on the day; anything earlier is under Finished,
+  // which arrives open while a team can still write there — last night's
+  // service, whose twelve hours run on past midnight.
+  const debriefSections = useMemo(
+    () =>
+      sectionServices(
+        services,
+        today,
+        (s) => s.date < today || windowOf(s.id).state === "closed",
+      ),
     // windowOf reads timing, settings and the clock.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services, today, timing, settings.debrief_open_minutes_after, now]);
-  // Open by default: the most recent service, which is the one anybody is
-  // here to write up.
+    [services, today, timing, settings.debrief_open_minutes_after, now],
+  );
+  const finishedStillOpen = debriefSections.finished.some(
+    (s) => windowOf(s.id).state === "open",
+  );
+  // Open by default: today's; else one its team can still write in; else
+  // the next one.
   const firstOpenId =
-    (debriefSections.today[0] ?? debriefSections.finished[0])?.id ?? null;
+    (
+      debriefSections.today[0] ??
+      debriefSections.finished.find((s) => windowOf(s.id).state === "open") ??
+      debriefSections.next[0]
+    )?.id ?? null;
 
   const debriefsQuery = useQuery({
     queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(",")],
@@ -450,8 +462,8 @@ export function DebriefsPage() {
       >
         <ServiceSections
           sections={debriefSections}
-          has={{ next: false, upcoming: false }}
           finishedId="finished-debriefs"
+          finishedOpen={finishedStillOpen}
           render={(list) => (
         <div className="flex flex-col gap-8">
           {/* By day, newest first: two services on one Sunday are one

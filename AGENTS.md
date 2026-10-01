@@ -103,12 +103,15 @@ Other things that are true and not guessable:
   worded once in `lib/lifespan.ts` from App settings. A new clock (a cron
   job, a lock, a retention period) needs its sentence there too.
 - **Every page that lists services uses the same four sections** —
-  Today's services, Next service (the whole next service day), Upcoming
-  services, and Finished services folded at the foot — from
+  Today's services (only services dated today, only on the day), Next
+  service (the whole nearest service day after today), Upcoming services
+  and Finished services (both folded until opened) — from
   `lib/serviceSections` and `components/ServiceSections`. A service moves
-  to Finished when it is done *on that page* (rota: when it ends; Issues:
-  when entry closes; Checklists: when the after-half closes). Don't build
-  a page's own grouping.
+  to Finished when it is done *on that page* (most pages: when it ends;
+  Issues: when entry closes; Debriefs: when the team's window closes).
+  Finished arrives open while something in it can still be written to (a
+  checklist's after-half, last night's debrief). Don't build a page's own
+  grouping.
 - **A day with several services is one date heading** (`DayHeading`,
   `serviceDays`), services in start-time order (`inStartOrder`); a
   Finished list is newest day first but each day still in running order.

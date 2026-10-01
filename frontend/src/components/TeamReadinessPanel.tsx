@@ -35,12 +35,18 @@ export function TeamReadinessPanel({
   assignments,
   departments,
   rows,
+  windowFor,
 }: {
   serviceId: string
   finished: boolean
   assignments: Assignment[]
   departments: { id: string; name: string; color: string | null }[]
   rows: ReadinessRow[]
+  /**
+   * When each team may say it is ready: its call time on the day (0122),
+   * the same window as its checklist. Left out, the switch is never held.
+   */
+  windowFor?: (departmentId: string) => { open: boolean; clock: string }
 }) {
   const { session, isAdmin, isDepartmentHead } = useAuth()
   const myId = session?.user.id
@@ -97,6 +103,11 @@ export function TeamReadinessPanel({
               departmentId: light.departmentId,
               assignments,
             })
+          // Shown but held until the team's call time — the switch is there
+          // to see, and says when it will answer.
+          const gate = windowFor?.(light.departmentId)
+          // A finished service's lights are a record; nothing is opening.
+          const held = !finished && !!gate && !gate.open
           return (
             <li
               key={light.departmentId}
@@ -111,7 +122,9 @@ export function TeamReadinessPanel({
                     ? `Ready${light.by ? ` · marked by ${light.by}` : ''}${light.at ? `, ${clock(light.at)}` : ''}`
                     : light.by
                       ? `Not ready · ${light.by} turned it back${light.at ? `, ${clock(light.at)}` : ''}`
-                      : 'Not ready yet'}
+                      : held
+                        ? `Opens at ${gate!.clock}, the team’s call time`
+                        : 'Not ready yet'}
                 </span>
               </span>
               {may && (
@@ -120,7 +133,7 @@ export function TeamReadinessPanel({
                   role="switch"
                   aria-checked={light.ready}
                   aria-label={`${name} ready for service`}
-                  disabled={toggle.isPending}
+                  disabled={held || toggle.isPending}
                   onClick={() => toggle.mutate({ departmentId: light.departmentId, ready: !light.ready })}
                   className={`tap relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors duration-300 disabled:opacity-60 ${
                     light.ready ? 'bg-accent-green' : 'bg-accent-red'

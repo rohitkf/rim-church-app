@@ -35,7 +35,7 @@ export function FinishedServices({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" aria-label={typeof label === 'string' ? label : undefined}>
       <button
         type="button"
         onClick={() => setOpen((was) => !was)}

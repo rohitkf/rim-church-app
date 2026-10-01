@@ -4,8 +4,9 @@ import type { SectionedServices } from '../lib/serviceSections'
 
 /**
  * The four sections, drawn the same way on every page that lists
- * services: Today's services, Next service, Upcoming services, and
- * Finished services folded away at the foot.
+ * services: Today's services (only on the day), Next service (the nearest
+ * service day after today), then Upcoming services and Finished services,
+ * both folded until opened.
  *
  * The page says how to draw a run of services (`render`), and which
  * sections it has at all — Debriefs has no Next or Upcoming, since
@@ -43,10 +44,19 @@ export function ServiceSections<T>({
         <Section label="Today’s services">{render(sections.today, false)}</Section>
       )}
       {next.length > 0 && <Section label="Next service">{render(next, false)}</Section>}
-      {upcoming.length > 0 && <Section label="Upcoming services">{render(upcoming, false)}</Section>}
+      {/* Folded like Finished: the next service is the one in front of
+          you, and everything after it is a tap away rather than a scroll. */}
+      {upcoming.length > 0 && (
+        <FinishedServices count={upcoming.length} id={`${finishedId}-upcoming`} label="Upcoming services">
+          {render(upcoming, false)}
+        </FinishedServices>
+      )}
       {nothingCurrent && empty && <div className="text-body-sm text-on-surface-variant">{empty}</div>}
       {sections.finished.length > 0 && (
         <FinishedServices
+          // Re-made when it should start open, which can only be known
+          // once the services' times have loaded.
+          key={finishedOpen ? 'open' : 'shut'}
           count={sections.finished.length}
           id={finishedId}
           label="Finished services"
