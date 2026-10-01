@@ -87,6 +87,15 @@ export function mayDeleteIssue(
   return who.isAdmin || (issue.outcome === null && who.myId !== null && issue.raised_by === who.myId)
 }
 
+/**
+ * Whether this person raises issues free of the window: an Admin, or a
+ * Head or Assisting Head of any team — the database's
+ * raises_issues_any_time (0119).
+ */
+export function raisesIssuesAnyTime(who: { isAdmin: boolean; leadsATeam: boolean }): boolean {
+  return who.isAdmin || who.leadsATeam
+}
+
 export type IssueWindowState = 'unplanned' | 'before' | 'open' | 'closed'
 
 export interface IssueWindow {

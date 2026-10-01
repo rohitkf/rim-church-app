@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { IssuesPage } from './IssuesPage'
-import { issueWindow, mayDeleteIssue, mayMarkIssue, mayRaiseIssue } from '../lib/issues'
+import { issueWindow, mayDeleteIssue, mayMarkIssue, mayRaiseIssue, raisesIssuesAnyTime } from '../lib/issues'
 import { chooseOption } from '../test/select'
 
 const auth = vi.hoisted(() => ({
@@ -27,7 +27,12 @@ vi.mock('../lib/appSettings', () => ({ useAppSettings: () => settings }))
 
 const HOUR = 3_600_000
 const NOW = Date.parse('2026-10-04T11:00:00Z')
-const today = new Date().toISOString().slice(0, 10)
+const dayFromNow = (n: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const today = dayFromNow(0)
 
 /*
  * When each service runs, relative to NOW: s1 is on, s2 starts in three
@@ -56,6 +61,8 @@ vi.mock('../lib/queries', () => ({
       { id: 's1', date: today, service_type: 'English Service', created_at: '' },
       { id: 's2', date: today, service_type: 'Evening Service', created_at: '' },
       { id: 's3', date: today, service_type: 'Early Service', created_at: '' },
+      { id: 's4', date: dayFromNow(7), service_type: 'Next Week Service', created_at: '' },
+      { id: 's5', date: dayFromNow(14), service_type: 'Fortnight Service', created_at: '' },
     ]),
 }))
 
@@ -156,6 +163,12 @@ describe('the rules', () => {
     expect(issueWindow(null, null, s, NOW).state).toBe('unplanned')
   })
 
+  it('frees an Admin or a Head of any team from the window', () => {
+    expect(raisesIssuesAnyTime({ isAdmin: false, leadsATeam: false })).toBe(false)
+    expect(raisesIssuesAnyTime({ isAdmin: false, leadsATeam: true })).toBe(true)
+    expect(raisesIssuesAnyTime({ isAdmin: true, leadsATeam: false })).toBe(true)
+  })
+
   it('lets only a Head of the team, or an Admin, give the verdict', () => {
     expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['media'] })).toBe(false)
     expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['sound'] })).toBe(true)
@@ -186,7 +199,6 @@ describe('the Issues page', () => {
   it('raises one under the service it was seen at, as your own team', async () => {
     const user = show()
     const c = await openCard(user, 'English Service')
-    await user.click(within(c).getByRole('button', { name: 'Raise an issue' }))
     await chooseOption(user, within(c).getByRole('combobox', { name: 'Team it is for' }), 'Sound')
     await user.type(within(c).getByPlaceholderText('Mic 2 crackles when it moves'), 'Projector will not wake')
     await user.click(within(c).getByRole('button', { name: 'Raise issue' }))
@@ -197,11 +209,36 @@ describe('the Issues page', () => {
     })
   })
 
-  it('does not take issues before a service opens for them', async () => {
+  it('shows the fields before a service opens, shut until it does', async () => {
     const user = show()
     const c = await openCard(user, 'Evening Service')
     expect(within(c).getByText(/^Taking issues from/)).toBeInTheDocument()
-    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
+    const form = within(c).getByRole('form', { name: 'Raise an issue' })
+    expect(within(form).getByText(/^You can raise an issue here from/)).toBeInTheDocument()
+    expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeDisabled()
+    expect(within(form).getByRole('combobox', { name: 'Team it is for' })).toBeDisabled()
+    expect(within(form).getByRole('button', { name: 'Raise issue' })).toBeDisabled()
+  })
+
+  it('lets a Head raise one before the window opens', async () => {
+    auth.ledDepartmentIds = ['media']
+    const user = show()
+    const c = await openCard(user, 'Evening Service')
+    const form = within(c).getByRole('form', { name: 'Raise an issue' })
+    expect(within(form).getByText(/as a Head or Admin you can still raise one/)).toBeInTheDocument()
+    expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeEnabled()
+  })
+
+  it('shows the next service day once today’s are over, and not the one after', async () => {
+    const over = { from: NOW - 9 * HOUR, to: NOW - 8 * HOUR }
+    clock.bounds = { s1: over, s2: over, s3: over }
+    const user = show()
+    const c = await openCard(user, 'Next Week Service')
+    expect(screen.queryByRole('region', { name: 'Fortnight Service' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'English Service' })).not.toBeInTheDocument()
+    const form = within(c).getByRole('form', { name: 'Raise an issue' })
+    expect(within(form).getByText(/once the service has a running order/)).toBeInTheDocument()
+    expect(within(form).getByRole('button', { name: 'Raise issue' })).toBeDisabled()
   })
 
   it('closes a service to new issues two hours after it ends', async () => {
@@ -209,7 +246,16 @@ describe('the Issues page', () => {
     const user = show()
     const c = await openCard(user, 'Early Service')
     expect(within(c).getByText('Closed for new issues')).toBeInTheDocument()
-    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
+    expect(within(c).queryByRole('form', { name: 'Raise an issue' })).not.toBeInTheDocument()
+  })
+
+  it('lets an Admin raise one after a service has closed', async () => {
+    auth.isAdmin = true
+    state.issues = [issue({ service_id: 's3' })]
+    const user = show()
+    const c = await openCard(user, 'Early Service')
+    const form = within(c).getByRole('form', { name: 'Raise an issue' })
+    expect(within(form).getByPlaceholderText('Mic 2 crackles when it moves')).toBeEnabled()
   })
 
   it('offers no verdict to somebody on the team who is not its Head', async () => {
@@ -281,6 +327,6 @@ describe('the Issues page', () => {
     settings.issues_raise_scope = 'leads'
     const user = show()
     const c = await openCard(user, 'English Service')
-    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
+    expect(within(c).queryByRole('form', { name: 'Raise an issue' })).not.toBeInTheDocument()
   })
 })
