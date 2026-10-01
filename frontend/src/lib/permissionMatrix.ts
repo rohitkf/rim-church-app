@@ -299,7 +299,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Raise an issue seen at a service',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in App settings). Your name and the team you raise it as go on it, and the team it is for is told. App settings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
+        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in App settings). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. App settings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
       },
       {
         action: 'See the issues',

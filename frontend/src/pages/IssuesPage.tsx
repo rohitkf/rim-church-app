@@ -25,6 +25,7 @@ import {
   mayMarkIssue,
   mayRaiseIssue,
   orderIssues,
+  raisesIssuesAnyTime,
   type Issue,
   type IssueOutcome,
   type IssueWindow,
@@ -50,8 +51,10 @@ const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
  * What somebody noticed at a service that a team needs to fix — the mic
  * that crackled, the slide that would not advance — kept under the
  * service it happened at, like the debriefs, each service shut until it
- * is opened. One can be raised only while its service is on: from a while
- * before it starts until a while after it ends (App settings). A Head of
+ * is opened. The next service day is always on the page, its fields shut
+ * until its window opens; one can be raised only while its service is on,
+ * from a while before it starts until a while after it ends (App
+ * settings) — except by a Head or an Admin, who can at any time (0119). A Head of
  * the team it is for, or an Admin, gives the verdict — resolved, not
  * resolved, persistent — with remarks, and after that only an Admin can
  * delete it.
@@ -80,6 +83,9 @@ export function IssuesPage() {
     onATeam,
     leadsATeam: ledDepartmentIds.length > 0,
   })
+  // The window is for the people in the room; an Admin or a Head can
+  // write one up whenever they get to it (0119).
+  const anyTime = raisesIssuesAnyTime({ isAdmin, leadsATeam: ledDepartmentIds.length > 0 })
 
   // Seen by anybody on a team, and by everybody once App settings let
   // everybody raise them; anybody else is sent back to the dashboard.
@@ -92,15 +98,21 @@ export function IssuesPage() {
   const allIssues = useMemo(() => issuesQuery.data ?? [], [issuesQuery.data])
 
   /*
-   * The services worth a card: every one that has issues, and the ones
-   * that could take one now or later today. Yesterday is in the running
-   * because an evening service's window can run past midnight.
+   * The services worth a card: every one that has issues, yesterday's and
+   * today's (an evening service's window can run past midnight), and the
+   * next day after today that has any — so the coming Sunday is on the
+   * page all week, ready to open, rather than appearing an hour before.
    */
   const candidates = useMemo(() => {
     const withIssues = new Set(allIssues.map((i) => i.service_id))
     const yesterday = shiftIsoDays(today, -1)
-    return (servicesQuery.data ?? []).filter(
-      (s) => withIssues.has(s.id) || (s.date >= yesterday && s.date <= today),
+    const all = servicesQuery.data ?? []
+    const nextLater = all.reduce<string | null>(
+      (nearest, s) => (s.date > today && (nearest === null || s.date < nearest) ? s.date : nearest),
+      null,
+    )
+    return all.filter(
+      (s) => withIssues.has(s.id) || (s.date >= yesterday && s.date <= today) || s.date === nextLater,
     )
   }, [servicesQuery.data, allIssues, today])
   const timing = useFinishedServices(useMemo(() => candidates.map((s) => s.id), [candidates]))
@@ -117,11 +129,19 @@ export function IssuesPage() {
       ),
     )
 
+  /*
+   * The next service day: the first, from today, with a service whose
+   * window has not yet closed. Today's, while any of today's is still to
+   * come or on; once they are all done, the next one along.
+   */
+  const nextDay = candidates
+    .filter((s) => s.date >= today && windowOf(s.id).state !== 'closed')
+    .reduce<string | null>((nearest, s) => (nearest === null || s.date < nearest ? s.date : nearest), null)
+
   const shown = inStartOrder(
     candidates.filter((s) => {
       if (allIssues.some((i) => i.service_id === s.id)) return true
-      const w = windowOf(s.id)
-      return w.state === 'open' || (s.date === today && w.state === 'before')
+      return s.date === nextDay || windowOf(s.id).state === 'open'
     }),
     (s) => timing.startsAt(s.id),
   )
@@ -200,7 +220,7 @@ export function IssuesPage() {
         isLoading={issuesQuery.isLoading || servicesQuery.isLoading}
         error={issuesQuery.error || servicesQuery.error}
         isEmpty={days.length === 0}
-        emptyMessage={`No issues raised. A service appears here ${formatMinutes(settings.issue_open_minutes_before)} before it starts, and takes issues until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
+        emptyMessage={`No services coming up. The next service day appears here as soon as it is planned, and takes issues from ${formatMinutes(settings.issue_open_minutes_before)} before each service until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
       >
         <div className="mt-6 flex flex-col gap-8">
           {days.map((day) => (
@@ -268,9 +288,15 @@ export function IssuesPage() {
                             ))}
                           </ul>
                         )}
-                        {canRaise && w.state === 'open' && (
+                        {canRaise && (anyTime || w.state !== 'closed') && (
                           <RaiseIssue
                             serviceId={service.id}
+                            opensNote={anyTime || w.state === 'open' ? null : opensNote(w)}
+                            aside={
+                              anyTime && w.state !== 'open'
+                                ? 'Outside the window — as a Head or Admin you can still raise one.'
+                                : null
+                            }
                             departments={departments}
                             myTeamIds={myTeamIds}
                             onRaised={invalidate}
@@ -290,6 +316,18 @@ export function IssuesPage() {
       {dialog}
     </div>
   )
+}
+
+/** Why the form is shut, for somebody held to the window. */
+function opensNote(w: IssueWindow): string {
+  if (w.state === 'before') {
+    const at = new Date(w.opensAt!)
+    const sameDay = at.toDateString() === new Date().toDateString()
+    return `You can raise an issue here from ${formatTime(at.toISOString())}${
+      sameDay ? '' : ` on ${at.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`
+    }.`
+  }
+  return 'This opens once the service has a running order.'
 }
 
 /** Whether a service is taking issues, said with the times it changes. */
@@ -443,19 +481,25 @@ function IssueRow({
 /** Raising one at this service: which team it is for, and what is wrong. */
 function RaiseIssue({
   serviceId,
+  opensNote,
+  aside,
   departments,
   myTeamIds,
   onRaised,
   onError,
 }: {
   serviceId: string
+  /** Set while the window is still to open: the fields show, shut, with this said. */
+  opensNote: string | null
+  /** Said to an Admin or Head raising one outside the window. */
+  aside: string | null
   departments: { id: string; name: string }[]
   myTeamIds: string[]
   onRaised: () => void
   onError: (message: string | null) => void
 }) {
   const errorText = useErrorText()
-  const [writing, setWriting] = useState(false)
+  const shut = opensNote !== null
   const myTeams = departments.filter((d) => myTeamIds.includes(d.id))
   const [teamId, setTeamId] = useState('')
   const [asTeam, setAsTeam] = useState('')
@@ -480,7 +524,7 @@ function RaiseIssue({
     onSuccess: () => {
       setTitle('')
       setDetails('')
-      setWriting(false)
+      setTeamId('')
       onError(null)
       const team = departments.find((d) => d.id === teamId)?.name ?? 'the team'
       setNote(`Raised — ${team} has been told.`)
@@ -492,30 +536,23 @@ function RaiseIssue({
     },
   })
 
-  const ready = !!teamId && title.trim().length > 0 && !raise.isPending
+  const ready = !shut && !!teamId && title.trim().length > 0 && !raise.isPending
 
   function submit(e: FormEvent) {
     e.preventDefault()
     if (ready) raise.mutate()
   }
 
-  if (!writing) {
-    return (
-      <div className="flex flex-wrap items-center gap-3">
-        <ActionButton size="sm" tone="ghost" onClick={() => setWriting(true)}>
-          Raise an issue
-        </ActionButton>
-        {note && <p className="text-body-sm text-accent-green">{note}</p>}
-      </div>
-    )
-  }
-
   return (
     <form onSubmit={submit} aria-label="Raise an issue" className="flex min-w-0 flex-col gap-4 rounded-[var(--radius-row)] bg-surface-muted p-3.5 hairline">
+      <h3 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">Raise an issue</h3>
+      {(opensNote ?? aside) && <p className="-mt-2 text-body-sm text-on-surface-variant">{opensNote ?? aside}</p>}
+      <fieldset disabled={shut} className="flex min-w-0 flex-col gap-4 disabled:opacity-60">
       <div className="flex min-w-0 flex-col gap-2">
         <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Which team it is for</span>
         <Select
           aria-label="Team it is for"
+          disabled={shut}
           value={teamId}
           onChange={setTeamId}
           placeholder="Choose a team…"
@@ -544,6 +581,7 @@ function RaiseIssue({
           <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Raised as</span>
           <Select
             aria-label="Raised as"
+            disabled={shut}
             value={chosenAsTeam}
             onChange={setAsTeam}
             placeholder="Which of your teams?"
@@ -554,13 +592,12 @@ function RaiseIssue({
       <p className="text-label-sm text-on-surface-faint">
         Your name{chosenAsTeam ? ' and team' : ''} go on it, and the team it is for is told — bell and phone.
       </p>
-      <div className="flex flex-wrap gap-2">
+      </fieldset>
+      <div className="flex flex-wrap items-center gap-3">
         <ActionButton type="submit" size="sm" disabled={!ready}>
           {raise.isPending ? 'Raising…' : 'Raise issue'}
         </ActionButton>
-        <ActionButton size="sm" tone="ghost" onClick={() => setWriting(false)}>
-          Cancel
-        </ActionButton>
+        {note && <p className="text-body-sm text-accent-green">{note}</p>}
       </div>
     </form>
   )

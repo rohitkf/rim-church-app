@@ -60,7 +60,7 @@ the thing most likely to waste your time:
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
 | `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
 | `church_updates` | the **Church Updates** page |
-| `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window`, a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117, 0118) |
+| `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:
 
