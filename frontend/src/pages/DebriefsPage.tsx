@@ -14,12 +14,22 @@ import { useAppSettings } from "../lib/appSettings";
 import { useErrorText } from "../lib/useErrorText";
 import { useConfirmAction } from "../components/ConfirmAction";
 import { Chevron, useExpanded } from "../components/Collapsible";
+import { ServiceCountdown } from "../components/ServiceCountdown";
+import { ServiceSections } from "../components/ServiceSections";
+import { sectionServices } from "../lib/serviceSections";
+import { useMyTeams } from "../lib/useMyTeams";
+import { useFinishedServices } from "../lib/useFinishedServices";
+import { useNow } from "../lib/useNow";
+import { formatMinutes } from "../lib/lifespan";
+import { formatRelativeTime } from "../lib/relativeTime";
 import {
   DEBRIEFS_KEY,
   addDebriefItem,
   daysLeft,
   debriefExpiresAt,
   debriefFor,
+  debriefWindow,
+  memberMayChangeItem,
   deleteDebrief,
   deleteDebriefItem,
   fetchDebriefs,
@@ -71,13 +81,17 @@ const fullName = (p: { first_name: string; last_name: string }) =>
  */
 function ItemRow({
   item,
-  mayWrite,
+  mayTick,
+  mayChange,
   onToggle,
   onSave,
   onRemove,
 }: {
   item: DebriefItem;
-  mayWrite: boolean;
+  /** Ticking is the Head's: whoever runs the team decides it is dealt with. */
+  mayTick: boolean;
+  /** Editing and removing: a Head, or the member who wrote it (0120). */
+  mayChange: boolean;
   onToggle: (done: boolean) => void;
   onSave: (fields: { body: string }) => void;
   onRemove: () => void;
@@ -136,7 +150,7 @@ function ItemRow({
         <input
           type="checkbox"
           checked={done}
-          disabled={!mayWrite}
+          disabled={!mayTick}
           aria-label={
             done ? `Put back: ${item.body}` : `Tick off: ${item.body}`
           }
@@ -149,14 +163,14 @@ function ItemRow({
           {item.body}
         </span>
       </div>
-      {(item.author || mayWrite) && (
+      {(item.author || mayChange) && (
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-[26px]">
           {item.author && (
             <span className="rounded-full bg-raised px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
               {fullName(item.author)}
             </span>
           )}
-          {mayWrite && (
+          {mayChange && (
             <>
               <button
                 type="button"
@@ -191,22 +205,29 @@ function ItemRow({
 function ItemComposer({
   adding,
   onAdd,
+  shutNote,
 }: {
   adding: boolean;
   onAdd: (fields: { body: string }) => void;
+  /** Set while the team's window is shut: the box shows, greyed, with this said. */
+  shutNote?: string | null;
 }) {
+  const shut = !!shutNote;
   const [body, setBody] = useState("");
 
   const submit = () => {
-    if (!body.trim()) return;
+    if (shut || !body.trim()) return;
     onAdd({ body });
     setBody("");
   };
 
   return (
-    <div className="mt-3 flex items-center gap-2">
+    <div className="mt-3">
+    {shutNote && <p className="mb-1.5 text-label-md text-on-surface-variant">{shutNote}</p>}
+    <div className="flex items-center gap-2">
       <input
         value={body}
+        disabled={shut}
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {
           // Enter adds it: this is a list being typed at speed, not a form
@@ -219,22 +240,56 @@ function ItemComposer({
         maxLength={1000}
         aria-label="Add a debrief item"
         placeholder="What went well, what did not, or what somebody has to do."
-        className="min-w-0 flex-1 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
+        className="min-w-0 flex-1 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary disabled:opacity-60"
       />
       <button
         type="button"
-        disabled={adding || !body.trim()}
+        disabled={shut || adding || !body.trim()}
         onClick={submit}
         className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
       >
         {adding ? "Adding…" : "Add"}
       </button>
     </div>
+    </div>
   );
+}
+
+/**
+ * When the team can write, with a clock either side: counting down to the
+ * service ending, then to the team's window closing.
+ */
+function TeamWindowLine({
+  w,
+  minutes,
+}: {
+  w: ReturnType<typeof debriefWindow>;
+  minutes: number;
+}) {
+  if (w.state === "unplanned")
+    return <>Open to the team for {formatMinutes(minutes)} once the service has ended.</>;
+  if (w.state === "before")
+    return (
+      <ServiceCountdown
+        startsAt={new Date(w.opensAt!).toISOString()}
+        label="until the team can write"
+        until="opens"
+      />
+    );
+  if (w.state === "open")
+    return (
+      <ServiceCountdown
+        startsAt={new Date(w.closesAt!).toISOString()}
+        label="left for the team to write"
+        until="closes"
+      />
+    );
+  return <>Closed to the team {formatRelativeTime(new Date(w.closesAt!).toISOString())}</>;
 }
 
 export function DebriefsPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth();
+  const { teamIds } = useMyTeams();
   const settings = useAppSettings();
   const errorText = useErrorText();
   const queryClient = useQueryClient();
@@ -270,6 +325,45 @@ export function DebriefsPage() {
         .sort((a, b) => b.date.localeCompare(a.date)),
     [servicesQuery.data, today, settings.debrief_retention_days],
   );
+
+  // When each service ended, on the same clock as every other page; the
+  // five-second tick is for the box that unlocks as the service ends.
+  const timing = useFinishedServices(
+    useMemo(() => services.map((s) => s.id), [services]),
+  );
+  const now = useNow(5_000);
+  const windowOf = (serviceId: string) =>
+    debriefWindow(
+      timing.endsAt(serviceId),
+      settings.debrief_open_minutes_after,
+      now,
+    );
+
+  /*
+   * Today's services while their teams can still write in them, and
+   * Finished below — the two of the four sections a debrief can have,
+   * since nothing is written about a service that has not happened.
+   */
+  const debriefSections = useMemo(() => {
+    // Still open to its team — including last night's, whose twelve hours
+    // run on into today — or today's and not yet over.
+    const current = (id: string, date: string) => {
+      const state = windowOf(id).state;
+      return state === "open" || (date === today && state !== "closed");
+    };
+    const sectioned = sectionServices(services, today, (s) => !current(s.id, s.date));
+    return {
+      ...sectioned,
+      today: services.filter((s) => current(s.id, s.date)),
+      finished: sectioned.finished.filter((s) => !current(s.id, s.date)),
+    };
+    // windowOf reads timing, settings and the clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, today, timing, settings.debrief_open_minutes_after, now]);
+  // Open by default: the most recent service, which is the one anybody is
+  // here to write up.
+  const firstOpenId =
+    (debriefSections.today[0] ?? debriefSections.finished[0])?.id ?? null;
 
   const debriefsQuery = useQuery({
     queryKey: [...DEBRIEFS_KEY, services.map((s) => s.id).join(",")],
@@ -326,8 +420,12 @@ export function DebriefsPage() {
     onError: complain("Could not remove those minutes."),
   });
 
-  const mayWriteFor = (departmentId: string) =>
+  /** Whoever runs the team, or an Admin: any time, anything. */
+  const leads = (departmentId: string) =>
     isAdmin || isDepartmentHead(departmentId);
+  /** Somebody on the team who does not run it: their own points, in the window. */
+  const onTeam = (departmentId: string) =>
+    !leads(departmentId) && teamIds.includes(departmentId);
 
   return (
     <div>
@@ -350,10 +448,15 @@ export function DebriefsPage() {
         isEmpty={services.length === 0}
         emptyMessage="Nothing to debrief yet — minutes appear here once a service has happened."
       >
-        <div className="mt-6 flex flex-col gap-8">
+        <ServiceSections
+          sections={debriefSections}
+          has={{ next: false, upcoming: false }}
+          finishedId="finished-debriefs"
+          render={(list) => (
+        <div className="flex flex-col gap-8">
           {/* By day, newest first: two services on one Sunday are one
               morning to write up, under one date, not two headings. */}
-          {serviceDays(services)
+          {serviceDays(list)
             .reverse()
             .map((day) => {
               const left = daysLeft(
@@ -408,7 +511,7 @@ export function DebriefsPage() {
                       // Open by default while it is the most recent one: that is the
                       // service anybody is here to write up.
                       const open =
-                        (service === services[0]) !== isExpanded(service.id);
+                        (service.id === firstOpenId) !== isExpanded(service.id);
 
                       return (
                         <section
@@ -433,6 +536,14 @@ export function DebriefsPage() {
                               <Chevron open={open} />
                             </span>
                           </button>
+                          {teamIds.length > 0 && (
+                            <div className="mt-1.5 text-label-md text-on-surface-faint">
+                              <TeamWindowLine
+                                w={windowOf(service.id)}
+                                minutes={settings.debrief_open_minutes_after}
+                              />
+                            </div>
+                          )}
 
                           <ul
                             id={`debrief-teams-${service.id}`}
@@ -447,7 +558,10 @@ export function DebriefsPage() {
                               );
                               const items = debrief?.items ?? [];
                               const { done, total } = itemProgress(items);
-                              const mine = mayWriteFor(dept.id);
+                              const lead = leads(dept.id);
+                              const member = onTeam(dept.id);
+                              const w = windowOf(service.id);
+                              const memberOpen = member && w.state === "open";
                               return (
                                 <li
                                   key={dept.id}
@@ -465,7 +579,7 @@ export function DebriefsPage() {
                                         </span>
                                       )}
                                     </span>
-                                    {mine && debrief && items.length > 0 && (
+                                    {lead && debrief && items.length > 0 && (
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -490,7 +604,12 @@ export function DebriefsPage() {
                                         <ItemRow
                                           key={item.id}
                                           item={item}
-                                          mayWrite={mine}
+                                          mayTick={lead}
+                                          mayChange={
+                                            lead ||
+                                            (memberOpen &&
+                                              memberMayChangeItem(item, myId))
+                                          }
                                           onToggle={(isDone) =>
                                             tick.mutate({
                                               id: item.id,
@@ -506,8 +625,10 @@ export function DebriefsPage() {
                                           onRemove={() =>
                                             removeItem.mutate({
                                               id: item.id,
+                                              // Only whoever runs the team can take
+                                              // the debrief row itself away.
                                               lastOne:
-                                                items.length === 1
+                                                lead && items.length === 1
                                                   ? debrief!.id
                                                   : null,
                                             })
@@ -517,9 +638,9 @@ export function DebriefsPage() {
                                     </ul>
                                   ) : (
                                     <p className="mt-1.5 text-label-md text-on-surface-faint">
-                                      {mine
+                                      {lead || member
                                         ? "Nothing written up yet."
-                                        : "Nothing written up yet — their head or assisting head can add it."}
+                                        : `Nothing written up yet — anyone on the team can add to it for ${formatMinutes(settings.debrief_open_minutes_after)} after the service.`}
                                     </p>
                                   )}
 
@@ -532,8 +653,15 @@ export function DebriefsPage() {
                                     </p>
                                   )}
 
-                                  {mine && (
+                                  {(lead || member) && (
                                     <ItemComposer
+                                      shutNote={
+                                        lead || memberOpen
+                                          ? null
+                                          : w.state === "closed"
+                                            ? "Closed to the team — their Head can still add to it."
+                                            : "You can add to this once the service ends."
+                                      }
                                       adding={add.isPending}
                                       onAdd={(fields) =>
                                         add.mutate({
@@ -558,6 +686,8 @@ export function DebriefsPage() {
               );
             })}
         </div>
+          )}
+        />
       </QueryState>
 
       {dialog}

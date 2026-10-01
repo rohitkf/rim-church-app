@@ -38,7 +38,7 @@ import { TeamMark } from '../components/TeamMark'
 import { Lifespan } from '../components/Lifespan'
 import { DayHeading } from '../components/DayHeading'
 import { Chevron, useExpanded } from '../components/Collapsible'
-import { FinishedServices } from '../components/FinishedServices'
+import { ServiceSections } from '../components/ServiceSections'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { useConfirmAction } from '../components/ConfirmAction'
 
@@ -166,9 +166,18 @@ export function IssuesPage() {
     ),
     startOf,
   )
-  const upcomingDays = serviceDays(upcoming)
-  // Newest day first; each day still in running order.
-  const finishedDays = serviceDays(finished).reverse()
+  /*
+   * The four sections every page with services uses, less Upcoming: a
+   * service further out cannot take an issue yet. Today's holds anything
+   * still taking issues from today or before — an evening service's window
+   * can run past midnight — and the next service day sits under Next.
+   */
+  const sections = {
+    today: upcoming.filter((s) => s.date <= today),
+    next: upcoming.filter((s) => s.date > today),
+    upcoming: [],
+    finished,
+  }
 
   // A tap on the notification opens its service and lands on the issue.
   const linkedService = openedId ? allIssues.find((i) => i.id === openedId)?.service_id : undefined
@@ -335,31 +344,23 @@ export function IssuesPage() {
         error={issuesQuery.error || servicesQuery.error}
         isEmpty={false}
       >
-        <section aria-label="Upcoming services" className="mt-6">
-          <h2 className="text-headline-md text-on-surface">Upcoming services</h2>
-          {upcomingDays.length === 0 ? (
-            <p className="mt-3 text-body-sm text-on-surface-variant">
-              {`Nothing planned yet. The next service day appears here as soon as it is, and takes issues from ${formatMinutes(settings.issue_open_minutes_before)} before each service until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-8">{upcomingDays.map(renderDay)}</div>
+        <ServiceSections
+          sections={sections}
+          has={{ next: true, upcoming: false }}
+          finishedId="finished-issue-services"
+          finishedOpen={linkedIsFinished}
+          finishedAside={
+            <span className="font-mono text-label-sm text-on-surface-faint">
+              last {settings.issue_retention_days} days
+            </span>
+          }
+          empty={`Nothing planned yet. The next service day appears here as soon as it is, and takes issues from ${formatMinutes(settings.issue_open_minutes_before)} before each service until ${formatMinutes(settings.issue_close_minutes_after)} after it ends.`}
+          render={(list, isFinishedSection) => (
+            <div className="flex flex-col gap-8">
+              {(isFinishedSection ? serviceDays(list).reverse() : serviceDays(list)).map(renderDay)}
+            </div>
           )}
-        </section>
-
-        {finishedDays.length > 0 && (
-          <FinishedServices
-            count={finished.length}
-            id="finished-issue-services"
-            defaultOpen={linkedIsFinished}
-            aside={
-              <span className="font-mono text-label-sm text-on-surface-faint">
-                last {settings.issue_retention_days} days
-              </span>
-            }
-          >
-            {finishedDays.map(renderDay)}
-          </FinishedServices>
-        )}
+        />
       </QueryState>
 
       {dialog}

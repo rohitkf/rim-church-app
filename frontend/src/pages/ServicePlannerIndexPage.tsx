@@ -11,7 +11,7 @@ import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { serviceBounds } from '../lib/serviceProgress'
 import { lastWeeklyClear, lastWeeklyClearDate } from '../lib/plannerWeek'
-import { FinishedServices } from '../components/FinishedServices'
+import { ServiceSections } from '../components/ServiceSections'
 import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
 import { formatTime } from '../lib/time'
 import { formatServiceDay } from '../lib/sunday'
@@ -310,8 +310,19 @@ export function ServicePlannerIndexPage() {
   // Two services on one Sunday are one day with two services in it, not
   // two unrelated rows that happen to repeat a date. Saying the date once
   // is both shorter and truer.
-  const upcomingDays = useMemo(() => groupByDate(upcoming), [upcoming])
-  const finishedDays = useMemo(() => groupByDate(finished), [finished])
+  // The four sections every page with services uses. Finished here keeps
+  // its own rule — this week's, clearing on the board's day — and the
+  // rest is split from Upcoming: today, the next service day, and on.
+  const sections = useMemo(() => {
+    const ahead = upcoming.filter((s) => s.date > today)
+    const nextDate = ahead[0]?.date
+    return {
+      today: upcoming.filter((s) => s.date === today),
+      next: ahead.filter((s) => s.date === nextDate),
+      upcoming: ahead.filter((s) => s.date !== nextDate),
+      finished,
+    }
+  }, [upcoming, finished, today])
 
   function shiftMonth(delta: number) {
     setCursor(({ year, month }) => {
@@ -574,53 +585,29 @@ export function ServicePlannerIndexPage() {
           </Overlay>
         )}
 
-        {upcomingDays.length > 0 && (
-          <section className="mt-6">
-            <div className="text-headline-md">Upcoming services</div>
-            <div className="mt-3 flex flex-col gap-5">
-              {upcomingDays.map(([date, services]) => (
+        <ServiceSections
+          sections={sections}
+          finishedId="finished-services"
+          finishedAside={
+            <span className="font-mono text-label-sm text-on-surface-faint">
+              Clears every {WEEKDAY_NAMES[settings.board_clear_dow]}
+            </span>
+          }
+          render={(list, isFinishedSection) => (
+            <div className="flex flex-col gap-5">
+              {groupByDate(list).map(([date, services]) => (
                 <DayGroup
                   key={date}
                   date={date}
                   services={services}
                   windowFor={windowFor}
+                  finished={isFinishedSection}
                   onOpen={(id) => navigate(`/service-planner/${id}`)}
                 />
               ))}
             </div>
-          </section>
-        )}
-
-        {/* What has already happened, out of the way of what hasn't.
-            Still openable — the running order is where the overruns and
-            the sign-offs are, and the week after is when anyone actually
-            looks at them. */}
-        {/* What has already happened, out of the way of what hasn't.
-            Still openable — the running order is where the overruns and
-            the sign-offs are, and the week after is when anyone actually
-            looks at them. */}
-        {finishedDays.length > 0 && (
-          <FinishedServices
-            count={finished.length}
-            id="finished-services"
-            aside={
-              <span className="font-mono text-label-sm text-on-surface-faint">
-                Clears every {WEEKDAY_NAMES[settings.board_clear_dow]}
-              </span>
-            }
-          >
-            {finishedDays.map(([date, services]) => (
-              <DayGroup
-                key={date}
-                date={date}
-                services={services}
-                windowFor={windowFor}
-                finished
-                onOpen={(id) => navigate(`/service-planner/${id}`)}
-              />
-            ))}
-          </FinishedServices>
-        )}
+          )}
+        />
       </QueryState>
 
       <UnsavedChangesDialog

@@ -500,15 +500,16 @@ describe('the availability tracker over three weeks', () => {
     expect(teamsOf(cardFor(/September 20/))).toHaveAttribute('hidden')
   })
 
-  it('files everything past the next service day under its own heading', async () => {
+  it('files today, the next service day, and the rest under their own sections', async () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
-    const heading = screen.getByRole('heading', { name: 'Later services' })
-    const section = heading.closest('section')!
-    expect(within(section).getByText(/September 13/)).toBeInTheDocument()
-    expect(within(section).getByText(/September 20/)).toBeInTheDocument()
-    // The day in front of you is not filed under "later".
-    expect(section).not.toContainElement(cardFor(/Today/, 'English Service'))
+    const todays = screen.getByRole('region', { name: 'Today’s services' })
+    const next = screen.getByRole('region', { name: 'Next service' })
+    const upcoming = screen.getByRole('region', { name: 'Upcoming services' })
+    expect(todays).toContainElement(cardFor(/Today/, 'English Service'))
+    expect(within(next).getByText(/September 13/)).toBeInTheDocument()
+    expect(within(upcoming).getByText(/September 20/)).toBeInTheDocument()
+    expect(upcoming).not.toContainElement(cardFor(/Today/, 'English Service'))
   })
 
   /*
@@ -520,7 +521,7 @@ describe('the availability tracker over three weeks', () => {
   it('keeps the whole next morning together, with only its first service open', async () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
-    const later = screen.getByRole('heading', { name: 'Later services' }).closest('section')!
+    const later = screen.getByRole('region', { name: 'Upcoming services' })
 
     const english = cardFor(/Today/, 'English Service')
     const malayalam = cardFor(/Today/, 'Malayalam Service')
@@ -529,7 +530,7 @@ describe('the availability tracker over three weeks', () => {
     expect(later).not.toContainElement(english)
     expect(later).not.toContainElement(malayalam)
     // One heading for the day, not two.
-    expect(screen.getAllByRole('heading', { name: /Today/ })).toHaveLength(1)
+    expect(screen.getAllByRole('heading', { name: /^Today ·/ })).toHaveLength(1)
   })
 
   /*

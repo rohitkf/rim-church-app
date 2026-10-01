@@ -13,9 +13,9 @@ import { callTimeRowSchema, serviceDays, type CallTimeRow } from '../lib/callTim
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { checklistWindow } from '../lib/checklistWindow'
 import { useNow } from '../lib/useNow'
-import { splitFinished } from '../lib/finishedSection'
+import { sectionServices } from '../lib/serviceSections'
+import { ServiceSections } from '../components/ServiceSections'
 import { DayHeading } from '../components/DayHeading'
-import { FinishedServices } from '../components/FinishedServices'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
@@ -25,7 +25,6 @@ import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../
 import {
   availabilityWindowDays,
   opensByDefault,
-  splitAvailabilityGroups,
 } from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { inStartOrder } from '../lib/upcomingServices'
@@ -338,11 +337,14 @@ export function AvailabilityPage() {
     return (service: { id: string }) => first.get(service.id) ?? null
   }, [startsQuery.data])
 
-  const { live, finished } = useMemo(
-    () => splitFinished(inStartOrder(upcoming, startOf), (s) => isFinished(s.id)),
-    [upcoming, startOf, isFinished],
+  // Today's, the next service day, the rest, and what is over — the same
+  // four sections as every page with services on it (lib/serviceSections).
+  const sections = useMemo(
+    () => sectionServices(inStartOrder(upcoming, startOf), today, (s) => isFinished(s.id)),
+    [upcoming, startOf, today, isFinished],
   )
-  const groups = useMemo(() => splitAvailabilityGroups(live, isFinished), [live, isFinished])
+  // The one service that arrives open: the first still to answer for.
+  const nextId = (sections.today[0] ?? sections.next[0])?.id ?? null
 
   /*
    * A Sunday is one occasion, not two questions.
@@ -1070,71 +1072,23 @@ export function AvailabilityPage() {
             You're not on a team yet — an Admin can add you to one.
           </p>
         ) : (
-          <div className="mt-6 flex flex-col gap-6">
-            {groups.now.length > 0 && (
-              <h2 className="-mb-2 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
-                Next up
-              </h2>
-            )}
-            {daysOf(groups.now).map((day) => (
-              <section key={day.date} aria-label={formatServiceDay(day.date)}>
-                <DayHeading date={day.date} today={today} count={day.services.length} />
-                <div className="mt-3 flex flex-col gap-4">
-                  {/* The whole day together; only its first service opens. */}
-                  {day.services.map((service) => renderService(service, service.id === groups.nextId))}
-                </div>
-              </section>
-            ))}
-
-            {live.length === 0 && (
-              <p className="text-body-sm text-on-surface-variant">
-                Every service in the window is over. What was answered is under Finished.
-              </p>
-            )}
-
-            {groups.later.length > 0 && (
-              /* Everything after the next service's day. Real services with real questions on
-                 them — folded, because answering the one in front of you
-                 should not mean scrolling past three weeks first. */
-              <section aria-labelledby="upcoming-availability">
-                <h2
-                  id="upcoming-availability"
-                  className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
-                >
-                  Later services
-                </h2>
-                <p className="mt-1 text-label-sm text-on-surface-faint">
-                  The rest of the next three weeks. Answer early if you already know.
-                </p>
-                <div className="mt-4 flex flex-col gap-6">
-                  {daysOf(groups.later).map((day) => (
-                    <section key={day.date} aria-label={formatServiceDay(day.date)}>
-                      <DayHeading date={day.date} today={today} count={day.services.length} />
-                      <div className="mt-3 flex flex-col gap-4">
-                        {day.services.map((service) => renderService(service, false))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* The record, folded. Openable, because "who said they could
-                serve last Sunday" is a real question — just never the one
-                the page is for. */}
-            {finished.length > 0 && (
-              <FinishedServices count={finished.length} id="finished-availability">
-                {daysOf(finished).map((day) => (
+          <ServiceSections
+            sections={sections}
+            finishedId="finished-availability"
+            empty="Every service in the window is over. What was answered is under Finished services."
+            render={(list) => (
+              <div className="flex flex-col gap-6">
+                {daysOf(list).map((day) => (
                   <section key={day.date} aria-label={formatServiceDay(day.date)}>
                     <DayHeading date={day.date} today={today} count={day.services.length} />
                     <div className="mt-3 flex flex-col gap-4">
-                      {day.services.map((service) => renderService(service, false))}
+                      {day.services.map((service) => renderService(service, service.id === nextId))}
                     </div>
                   </section>
                 ))}
-              </FinishedServices>
+              </div>
             )}
-          </div>
+          />
         )}
       </QueryState>
     </div>

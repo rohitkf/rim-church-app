@@ -4,17 +4,7 @@ import {
   availabilityHorizon,
   availabilityWindowDays,
   opensByDefault,
-  splitAvailabilityGroups,
 } from './availabilityWindow'
-
-const service = (id: string, date: string, service_type = 'English Service') => ({
-  id,
-  date,
-  service_type,
-})
-
-const none = () => false
-const ids = (list: { id: string }[]) => list.map((s) => s.id)
 
 describe('availabilityWindowDays', () => {
   it('is three weeks, whatever the rota is set to', () => {
@@ -34,77 +24,6 @@ describe('availabilityWindowDays', () => {
 describe('availabilityHorizon', () => {
   it('reaches three weeks past today', () => {
     expect(availabilityHorizon('2026-09-06', 7)).toBe('2026-09-27')
-  })
-})
-
-describe('splitAvailabilityGroups', () => {
-  const THREE_SUNDAYS = [
-    service('a', '2026-09-06'),
-    service('b', '2026-09-13'),
-    service('c', '2026-09-20'),
-  ]
-
-  it('opens the next service and files the rest under upcoming', () => {
-    const { now, later } = splitAvailabilityGroups(THREE_SUNDAYS, none)
-    expect(ids(now)).toEqual(['a'])
-    expect(ids(later)).toEqual(['b', 'c'])
-  })
-
-  /*
-   * One card open, one day together. Splitting a Sunday put its English
-   * service on top and its Malayalam service under Upcoming — the same
-   * date heading twice. The day stays whole; only its first service opens.
-   */
-  it('keeps the whole next day together, with only its first service as the one to open', () => {
-    const twoOnOneDay = [
-      service('a', '2026-09-06', 'English Service'),
-      service('b', '2026-09-06', 'Malayalam Service'),
-      service('c', '2026-09-13'),
-    ]
-    const { now, nextId, later } = splitAvailabilityGroups(twoOnOneDay, none)
-    expect(ids(now)).toEqual(['a', 'b'])
-    expect(nextId).toBe('a')
-    expect(ids(later)).toEqual(['c'])
-  })
-
-  // "The first" is whatever the caller put first: the order is the
-  // running order's to decide, and this does not second-guess it by name.
-  it('takes the first in the order it is given, not the first by name', () => {
-    const malayalamFirst = [
-      service('m', '2026-09-06', 'Malayalam Service'),
-      service('e', '2026-09-06', 'English Service'),
-    ]
-    const { now, nextId, later } = splitAvailabilityGroups(malayalamFirst, none)
-    expect(ids(now)).toEqual(['m', 'e'])
-    expect(nextId).toBe('m')
-    expect(later).toEqual([])
-  })
-
-  it('does not let a finished service decide where the line falls', () => {
-    // Today's service is over; the next one that can still be answered
-    // for is what the page is about.
-    const finished = (id: string) => id === 'a'
-    const { now, later } = splitAvailabilityGroups(THREE_SUNDAYS, finished)
-    expect(ids(now)).toEqual(['a', 'b'])
-    expect(ids(later)).toEqual(['c'])
-  })
-
-  it('keeps a finished service above the line, where its day puts it', () => {
-    const finished = (id: string) => id === 'a'
-    const { now } = splitAvailabilityGroups(THREE_SUNDAYS, finished)
-    expect(ids(now)).toContain('a')
-  })
-
-  it('files nothing under upcoming when everything has finished', () => {
-    // It is all a record. Reading it as "what is in front of you" is
-    // wrong, but so is filing today's under "upcoming".
-    const { now, later } = splitAvailabilityGroups(THREE_SUNDAYS, () => true)
-    expect(ids(now)).toEqual(['a', 'b', 'c'])
-    expect(later).toEqual([])
-  })
-
-  it('copes with nothing at all', () => {
-    expect(splitAvailabilityGroups([], none)).toEqual({ now: [], nextId: null, later: [] })
   })
 })
 

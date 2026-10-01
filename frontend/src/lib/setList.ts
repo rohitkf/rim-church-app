@@ -1,3 +1,4 @@
+import { sectionServices, type SectionedServices } from './serviceSections'
 import type { RotaAssignment, SetListItem } from './types'
 import { shiftIsoDays } from './rotaWindow'
 
@@ -89,28 +90,23 @@ export const SONG_KEYS: string[] = [
 export const SET_LIST_DAYS = 21
 
 /**
- * The set lists page in three groups: today's services still to happen,
- * everything else up to three weeks ahead, and what has finished in the
- * last three weeks — the latest first, since last Sunday's set is the one
- * somebody looks back for.
+ * The set lists page in the four sections every service page uses
+ * (lib/serviceSections): today's still to happen, the next service day,
+ * the rest up to three weeks ahead, and the last three weeks finished,
+ * latest first, since last Sunday's set is the one somebody looks back for.
  */
 export function groupSetListServices<T extends { id: string; date: string }>(
   services: T[],
   today: string,
   isFinished: (id: string) => boolean,
   days = SET_LIST_DAYS,
-): { today: T[]; upcoming: T[]; finished: T[] } {
+): SectionedServices<T> {
   const from = shiftIsoDays(today, -days)
   const to = shiftIsoDays(today, days)
-  const inWindow = services
-    .filter((s) => s.date >= from && s.date <= to)
-    .sort((a, b) => a.date.localeCompare(b.date))
-  // A day that has gone is over whether or not anybody gave it times.
-  const over = (s: T) => s.date < today || isFinished(s.id)
-  return {
-    today: inWindow.filter((s) => s.date === today && !over(s)),
-    upcoming: inWindow.filter((s) => s.date > today && !over(s)),
-    finished: inWindow.filter(over).reverse(),
-  }
+  return sectionServices(
+    services.filter((s) => s.date >= from && s.date <= to),
+    today,
+    (s) => isFinished(s.id),
+  )
 }
 
