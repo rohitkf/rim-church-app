@@ -157,7 +157,7 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'purchase_requests', keys: ['purchase-requests'] },
 
   /* ---- settings everyone reads ------------------------------------ */
-  { table: 'app_settings', keys: ['app-settings'] },
+  { table: 'app_settings', keys: ['app-settings', 'nav-layout'] },
   { table: 'rota_tags', keys: ['rota-tags', 'rota'] },
   { table: 'rota_assignment_tags', keys: ['rota', 'rota-assignments', 'checklist-assignments'] },
   { table: 'service_team_readiness', keys: ['team-readiness'] },
