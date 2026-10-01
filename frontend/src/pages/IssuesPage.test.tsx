@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { IssuesPage } from './IssuesPage'
-import { mayRaiseIssue } from '../lib/issues'
+import { issueWindow, mayDeleteIssue, mayMarkIssue, mayRaiseIssue } from '../lib/issues'
 import { chooseOption } from '../test/select'
 
 const auth = vi.hoisted(() => ({
@@ -17,17 +17,46 @@ vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 const teams = vi.hoisted(() => ({ teamIds: ['media'], onATeam: true, settled: true }))
 vi.mock('../lib/useMyTeams', () => ({ useMyTeams: () => teams }))
 
-const settings = vi.hoisted(() => ({ issues_raise_scope: 'team', issue_retention_days: 30 }))
+const settings = vi.hoisted(() => ({
+  issues_raise_scope: 'team',
+  issue_retention_days: 30,
+  issue_open_minutes_before: 60,
+  issue_close_minutes_after: 120,
+}))
 vi.mock('../lib/appSettings', () => ({ useAppSettings: () => settings }))
 
+const HOUR = 3_600_000
+const NOW = Date.parse('2026-10-04T11:00:00Z')
 const today = new Date().toISOString().slice(0, 10)
+
+/*
+ * When each service runs, relative to NOW: s1 is on, s2 starts in three
+ * hours (opens for issues in two), s3 ended three hours ago (closed an hour
+ * ago).
+ */
+const clock = vi.hoisted(() => ({
+  bounds: {} as Record<string, { from: number; to: number }>,
+}))
+vi.mock('../lib/useFinishedServices', () => ({
+  useFinishedServices: () => ({
+    startsAt: (id: string) => (clock.bounds[id] ? new Date(clock.bounds[id].from).toISOString() : null),
+    endsAt: (id: string) => clock.bounds[id]?.to ?? null,
+    now: NOW,
+  }),
+}))
+
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () =>
     Promise.resolve([
       { id: 'media', name: 'Media', color: '#a855f7' },
       { id: 'sound', name: 'Sound', color: '#ef4444' },
     ]),
-  fetchServices: () => Promise.resolve([{ id: 's1', date: today, service_type: 'English Service', created_at: '' }]),
+  fetchServices: () =>
+    Promise.resolve([
+      { id: 's1', date: today, service_type: 'English Service', created_at: '' },
+      { id: 's2', date: today, service_type: 'Evening Service', created_at: '' },
+      { id: 's3', date: today, service_type: 'Early Service', created_at: '' },
+    ]),
 }))
 
 const state = vi.hoisted(() => ({
@@ -60,26 +89,34 @@ const issue = (over: Record<string, unknown> = {}) => ({
   raised_by: 'someone',
   raised_by_department_id: 'media',
   created_at: new Date().toISOString(),
-  resolved_at: null,
-  resolved_by: null,
-  service: { date: today, service_type: 'English Service' },
+  outcome: null,
+  remarks: null,
+  marked_at: null,
+  marked_by: null,
   team: { id: 'sound', name: 'Sound', color: '#ef4444' },
   raiser_team: { id: 'media', name: 'Media', color: '#a855f7' },
   raiser: { first_name: 'Grace', last_name: 'Mensah' },
-  resolver: null,
+  marker: null,
   ...over,
 })
 
-function show() {
+function show(path = '/issues') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <IssuesPage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
+}
+
+const card = (name: string) => screen.findByRole('region', { name })
+const openCard = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+  const c = await card(name)
+  await user.click(within(c).getByRole('button', { name: new RegExp(name) }))
+  return c
 }
 
 beforeEach(() => {
@@ -90,10 +127,15 @@ beforeEach(() => {
   settings.issues_raise_scope = 'team'
   state.issues = []
   state.rpc = []
+  clock.bounds = {
+    s1: { from: NOW - HOUR, to: NOW + HOUR },
+    s2: { from: NOW + 3 * HOUR, to: NOW + 4 * HOUR },
+    s3: { from: NOW - 5 * HOUR, to: NOW - 3 * HOUR },
+  }
 })
 
-describe('who may raise an issue', () => {
-  it('follows App settings', () => {
+describe('the rules', () => {
+  it('lets App settings decide who may raise one', () => {
     const member = { isAdmin: false, onATeam: true, leadsATeam: false }
     const churchMember = { isAdmin: false, onATeam: false, leadsATeam: false }
     expect(mayRaiseIssue('team', member)).toBe(true)
@@ -102,23 +144,52 @@ describe('who may raise an issue', () => {
     expect(mayRaiseIssue('leads', member)).toBe(false)
     expect(mayRaiseIssue('leads', { ...member, leadsATeam: true })).toBe(true)
   })
+
+  it('takes issues from an hour before a service until two hours after it ends', () => {
+    const s = { issue_open_minutes_before: 60, issue_close_minutes_after: 120 }
+    const from = NOW
+    const to = NOW + 2 * HOUR
+    expect(issueWindow(from, to, s, NOW - 61 * 60_000).state).toBe('before')
+    expect(issueWindow(from, to, s, NOW - 59 * 60_000).state).toBe('open')
+    expect(issueWindow(from, to, s, to + 119 * 60_000).state).toBe('open')
+    expect(issueWindow(from, to, s, to + 121 * 60_000).state).toBe('closed')
+    expect(issueWindow(null, null, s, NOW).state).toBe('unplanned')
+  })
+
+  it('lets only a Head of the team, or an Admin, give the verdict', () => {
+    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['media'] })).toBe(false)
+    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['sound'] })).toBe(true)
+    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: true, ledTeamIds: [] })).toBe(true)
+  })
+
+  it('stops the raiser deleting it once a Head has marked it', () => {
+    const me = { isAdmin: false, myId: 'me' }
+    expect(mayDeleteIssue({ raised_by: 'me', outcome: null }, me)).toBe(true)
+    expect(mayDeleteIssue({ raised_by: 'me', outcome: 'persistent' }, me)).toBe(false)
+    expect(mayDeleteIssue({ raised_by: 'me', outcome: 'resolved' }, { isAdmin: true, myId: 'x' })).toBe(true)
+  })
 })
 
 describe('the Issues page', () => {
-  it('shows who raised it and the team they are on, and the team it is for', async () => {
+  it('keeps each service shut until it is opened', async () => {
     state.issues = [issue()]
-    show()
-    expect(await screen.findByText('Mic 2 crackles')).toBeInTheDocument()
-    expect(screen.getByText('For Sound')).toBeInTheDocument()
-    expect(screen.getByText(/Raised by/)).toHaveTextContent('Raised by Grace Mensah · Media')
+    const user = show()
+    const c = await card('English Service')
+    expect(within(c).getByText('1 open · 0 marked')).toBeInTheDocument()
+    expect(within(c).getByText('Mic 2 crackles')).not.toBeVisible()
+    await user.click(within(c).getByRole('button', { name: /English Service/ }))
+    expect(within(c).getByText('Mic 2 crackles')).toBeVisible()
+    expect(within(c).getByText(/Raised by/)).toHaveTextContent('Raised by Grace Mensah · Media')
+    expect(within(c).getByText('For Sound')).toBeInTheDocument()
   })
 
-  it('raises one against a service and a team, as your own team', async () => {
+  it('raises one under the service it was seen at, as your own team', async () => {
     const user = show()
-    await screen.findByRole('form', { name: 'Raise an issue' })
-    await chooseOption(user, screen.getByRole('combobox', { name: 'Team it is for' }), 'Sound')
-    await user.type(screen.getByPlaceholderText('Mic 2 crackles when it moves'), 'Projector will not wake')
-    await user.click(screen.getByRole('button', { name: 'Raise issue' }))
+    const c = await openCard(user, 'English Service')
+    await user.click(within(c).getByRole('button', { name: 'Raise an issue' }))
+    await chooseOption(user, within(c).getByRole('combobox', { name: 'Team it is for' }), 'Sound')
+    await user.type(within(c).getByPlaceholderText('Mic 2 crackles when it moves'), 'Projector will not wake')
+    await user.click(within(c).getByRole('button', { name: 'Raise issue' }))
     await waitFor(() => expect(state.rpc).toHaveLength(1))
     expect(state.rpc[0]).toEqual({
       name: 'raise_issue',
@@ -126,43 +197,90 @@ describe('the Issues page', () => {
     })
   })
 
-  it('lets only the team it is for mark it done', async () => {
-    state.issues = [issue()]
-    show()
-    await screen.findByText('Mic 2 crackles')
-    // I am on Media; this is Sound's.
-    expect(screen.queryByRole('button', { name: 'Mark done' })).not.toBeInTheDocument()
+  it('does not take issues before a service opens for them', async () => {
+    const user = show()
+    const c = await openCard(user, 'Evening Service')
+    expect(within(c).getByText(/^Taking issues from/)).toBeInTheDocument()
+    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
   })
 
-  it('marks it done for somebody on the team, and shows who did', async () => {
+  it('closes a service to new issues two hours after it ends', async () => {
+    state.issues = [issue({ service_id: 's3' })]
+    const user = show()
+    const c = await openCard(user, 'Early Service')
+    expect(within(c).getByText('Closed for new issues')).toBeInTheDocument()
+    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
+  })
+
+  it('offers no verdict to somebody on the team who is not its Head', async () => {
     teams.teamIds = ['sound']
     state.issues = [issue()]
     const user = show()
-    await user.click(await screen.findByRole('button', { name: 'Mark done' }))
-    await waitFor(() => expect(state.rpc).toHaveLength(1))
-    expect(state.rpc[0]).toEqual({ name: 'resolve_issue', args: { issue: 'i1', done: true } })
+    const c = await openCard(user, 'English Service')
+    expect(within(c).queryByRole('button', { name: 'Mark' })).not.toBeInTheDocument()
   })
 
-  it('files a resolved one under Resolved with the name of whoever did it', async () => {
+  it('lets the Head mark it persistent, with remarks', async () => {
+    auth.ledDepartmentIds = ['sound']
+    state.issues = [issue()]
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    await user.click(within(c).getByRole('button', { name: 'Mark' }))
+    await user.click(within(c).getByRole('radio', { name: 'Persistent' }))
+    await user.type(within(c).getByPlaceholderText(/Swapped the cable/), 'Cable is worn; ordering one')
+    await user.click(within(c).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.rpc).toHaveLength(1))
+    expect(state.rpc[0]).toEqual({
+      name: 'mark_issue',
+      args: { issue: 'i1', outcome: 'persistent', remarks: 'Cable is worn; ordering one' },
+    })
+  })
+
+  it('shows the verdict, who gave it and their remarks', async () => {
     state.issues = [
       issue({
-        resolved_at: new Date().toISOString(),
-        resolved_by: 'r',
-        resolver: { first_name: 'Joel', last_name: 'Reji' },
+        outcome: 'not_resolved',
+        remarks: 'Needs a new desk',
+        marked_at: new Date().toISOString(),
+        marked_by: 'h',
+        marker: { first_name: 'Joel', last_name: 'Reji' },
       }),
     ]
     const user = show()
-    await screen.findByText(/Nothing open/)
-    await user.click(screen.getByRole('button', { name: /Resolved/ }))
-    const resolved = await screen.findByText('Mic 2 crackles')
-    expect(resolved.closest('li')!).toHaveTextContent('Marked done by Joel Reji')
-    expect(within(resolved.closest('li')!).getByText('Resolved')).toBeInTheDocument()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).getByText('Not resolved')).toBeInTheDocument()
+    expect(within(c).getByText(/Marked not resolved by/)).toHaveTextContent('Joel Reji')
+    expect(within(c).getByText('Needs a new desk')).toBeInTheDocument()
   })
 
-  it('offers no form when App settings close raising to Heads and Admins', async () => {
+  it('stops the raiser deleting a marked issue', async () => {
+    state.issues = [
+      issue({ raised_by: 'me', outcome: 'resolved', marked_at: new Date().toISOString(), marked_by: 'h' }),
+    ]
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).queryByRole('button', { name: /Delete issue/ })).not.toBeInTheDocument()
+  })
+
+  it('lets an Admin delete a marked issue', async () => {
+    auth.isAdmin = true
+    state.issues = [issue({ outcome: 'resolved', marked_at: new Date().toISOString(), marked_by: 'h' })]
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).getByRole('button', { name: /Delete issue/ })).toBeInTheDocument()
+  })
+
+  it('opens the service a notification points at', async () => {
+    state.issues = [issue()]
+    show('/issues?issue=i1')
+    const c = await card('English Service')
+    expect(within(c).getByText('Mic 2 crackles')).toBeVisible()
+  })
+
+  it('offers no way to raise one when App settings close it to Heads and Admins', async () => {
     settings.issues_raise_scope = 'leads'
-    show()
-    await screen.findByText(/Nothing open/)
-    expect(screen.queryByRole('form', { name: 'Raise an issue' })).not.toBeInTheDocument()
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).queryByRole('button', { name: 'Raise an issue' })).not.toBeInTheDocument()
   })
 })

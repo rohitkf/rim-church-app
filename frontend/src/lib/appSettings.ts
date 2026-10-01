@@ -28,6 +28,8 @@ export const appSettingsSchema = z.object({
   issues_raise_scope: z.enum(['everyone', 'team', 'leads']).default('team'),
   /** Days a resolved issue is kept after it was marked done. */
   issue_retention_days: z.number().int().min(1).max(365).default(30),
+  issue_open_minutes_before: z.number().int().min(0).max(720).default(60),
+  issue_close_minutes_after: z.number().int().min(0).max(1440).default(120),
   /** Days a service's debrief minutes are kept, counted from the service. */
   debrief_retention_days: z.number().int().min(1).max(365),
   board_clear_dow: z.number().int().min(0).max(6),
@@ -66,6 +68,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   after_service_checklist_minutes: 120,
   issues_raise_scope: 'team',
   issue_retention_days: 30,
+  issue_open_minutes_before: 60,
+  issue_close_minutes_after: 120,
   debrief_retention_days: 30,
   board_clear_dow: 2,
   logo_url: null,
@@ -80,7 +84,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
     )
     .maybeSingle()
   if (error) throw error
