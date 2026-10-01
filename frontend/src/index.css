@@ -552,6 +552,34 @@ body::after {
   );
 }
 
+/*
+ * The quick menu (components/QuickNav): the scrim fades in, the list rises
+ * a few pixels as it settles, and the rows arrive in a quick stagger from
+ * the bottom up — fast enough that a thumb already moving is never waiting
+ * on it. Reduced motion collapses all three to nothing, below.
+ */
+@keyframes quicknav-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes quicknav-rise {
+  from { transform: translateY(14px); }
+  to { transform: translateY(0); }
+}
+@keyframes quicknav-row {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.quicknav-in {
+  animation: quicknav-fade 160ms var(--ease-glide) both;
+}
+.quicknav-rise {
+  animation: quicknav-rise 220ms var(--ease-glide) both;
+}
+.quicknav-row {
+  animation: quicknav-row 200ms var(--ease-glide) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

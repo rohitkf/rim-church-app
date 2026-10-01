@@ -5,6 +5,7 @@ import { MoreIcon } from './icons'
 import { Overlay } from './Surface'
 import { dockWindow } from '../lib/dockWindow'
 import { groupItems } from '../lib/navGroups'
+import { QuickNavButton } from './QuickNav'
 
 export interface DockItem {
   to: string
@@ -223,15 +224,15 @@ export function DockNav({
 
         {/* Everything the bar could not hold, plus whatever is trailing —
             the assistant has no room on a phone bar either. */}
-        <button
-          type="button"
-          onClick={() => setMoreOpen(true)}
-          aria-label="More"
-          aria-expanded={moreOpen}
+        {/* Tap for the sheet; hold and slide for the quick menu. */}
+        <QuickNavButton
+          items={items}
+          onTap={() => setMoreOpen(true)}
+          expanded={moreOpen}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface md:hidden"
         >
           <MoreIcon width={19} height={19} />
-        </button>
+        </QuickNavButton>
 
         {trailing && (
           <>
