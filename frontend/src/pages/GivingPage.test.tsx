@@ -70,7 +70,7 @@ describe('the Giving page', () => {
     admin = true
     show(<GivingPage />)
     expect(await screen.findByText('Nothing has been set up here yet.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'App settings' })).toHaveAttribute('href', '/settings/church#giving')
+    expect(screen.getByRole('link', { name: 'Settings › Giving' })).toHaveAttribute('href', '/settings/giving')
   })
 
   it('shows a link as a button that opens the provider, and a QR code of it', async () => {

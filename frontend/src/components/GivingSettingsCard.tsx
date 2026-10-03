@@ -17,7 +17,7 @@ import { AccountCard, LinkCard, UploadedQr } from '../pages/GivingPage'
 import { useConfirmAction } from './ConfirmAction'
 import { QueryState } from './QueryState'
 import { FileButton } from './FileButton'
-import { ActionButton, inputClasses } from './Surface'
+import { ActionButton, SectionTile, inputClasses } from './Surface'
 
 /**
  * What the Giving page says, kept by an Admin (0108).
@@ -31,27 +31,24 @@ export function GivingSettingsCard() {
   const giving = useGiving()
   if (!isAdmin) return null
   return (
-    <section id="giving" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-      <h2 className="text-headline-md">Giving</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        What the Tithes &amp; offerings page shows every member. No payment goes through the app:
-        a link opens the provider’s own page — a Stripe Payment Link offers Apple Pay and Google
-        Pay there — so card details never reach the church’s app.
-      </p>
-      <QueryState isLoading={giving.isLoading} error={giving.error}>
-        {giving.data && (
-          <div className="mt-6 flex flex-col gap-8">
-            <IntroSection intro={giving.data.page.intro} />
-            <LinksSection links={giving.data.links} />
-            <QrImageSection
-              path={giving.data.page.qr_image_path}
-              caption={giving.data.page.qr_image_caption}
-            />
-            <AccountsSection accounts={giving.data.accounts} />
-          </div>
-        )}
-      </QueryState>
-    </section>
+    <QueryState isLoading={giving.isLoading} error={giving.error}>
+      {giving.data && (
+        <div id="giving" className="flex flex-col gap-4">
+          {/* No payment goes through the app: a link opens the provider’s
+              own page, so card details never reach the church’s app. */}
+          <p className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-on-surface-variant">
+            No money passes through this app — every link opens the provider’s own page.
+          </p>
+          <IntroSection intro={giving.data.page.intro} />
+          <LinksSection links={giving.data.links} />
+          <QrImageSection
+            path={giving.data.page.qr_image_path}
+            caption={giving.data.page.qr_image_caption}
+          />
+          <AccountsSection accounts={giving.data.accounts} />
+        </div>
+      )}
+    </QueryState>
   )
 }
 
@@ -77,15 +74,6 @@ function useGivingWrite<T>(fn: (v: T) => Promise<void>, failed: string, after?: 
 async function check(p: PromiseLike<{ error: unknown }>) {
   const { error } = await p
   if (error) throw error
-}
-
-function Heading({ title, blurb }: { title: string; blurb: string }) {
-  return (
-    <>
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">{title}</div>
-      <p className="mt-1 text-label-md text-on-surface-faint">{blurb}</p>
-    </>
-  )
 }
 
 function ErrorLine({ error }: { error: string | null }) {
@@ -155,15 +143,14 @@ function IntroSection({ intro }: { intro: string | null }) {
   )
   const changed = (text.trim() || null) !== (intro ?? null)
   return (
-    <div>
-      <Heading title="Welcome line" blurb="The sentence under the page title. Left empty, the page thanks people and says every way reaches the church directly." />
+    <SectionTile title="Welcome line" hint="The sentence under the page title. Leave it empty for a simple thank-you.">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, 1000))}
         rows={3}
         aria-label="Welcome line"
         placeholder="Thank you for giving. Choose whichever way suits you — every one reaches the church directly."
-        className={`${inputClasses} mt-3`}
+        className={inputClasses}
       />
       <div className="mt-2 flex justify-end">
         <ActionButton size="sm" onClick={() => mutation.mutate(text)} disabled={!changed || mutation.isPending}>
@@ -171,7 +158,7 @@ function IntroSection({ intro }: { intro: string | null }) {
         </ActionButton>
       </div>
       <ErrorLine error={error} />
-    </div>
+    </SectionTile>
   )
 }
 
@@ -196,12 +183,8 @@ function LinksSection({ links }: { links: GivingLink[] }) {
   )
 
   return (
-    <div>
-      <Heading
-        title="Giving links"
-        blurb="A Stripe Payment Link, PayPal, a giving platform — anything with an https address. Each is a button on the page, and a QR code drawn from the link so somebody can scan it off a screen."
-      />
-      <ul className="mt-3 flex flex-col gap-2" aria-label="Giving links">
+    <SectionTile title="Giving links" hint="Stripe, PayPal, a giving platform — any https link. Each becomes a button and a QR code.">
+      <ul className="flex flex-col gap-2" aria-label="Giving links">
         {links.map((link) =>
           draft?.id === link.id ? (
             <li key={link.id}>
@@ -248,7 +231,7 @@ function LinksSection({ links }: { links: GivingLink[] }) {
       )}
       <ErrorLine error={save.error ?? remove.error} />
       {dialog}
-    </div>
+    </SectionTile>
   )
 }
 
@@ -348,12 +331,8 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
   )
 
   return (
-    <div>
-      <Heading
-        title="A QR picture"
-        blurb="For a code your bank or provider gave you as an image. If you have the link itself, add it above instead — the app draws its QR code for you, and it stays sharp."
-      />
-      <div className="mt-3 flex flex-col gap-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
+    <SectionTile title="A QR picture" hint="Only for a code you were given as an image. Have the link? Add it above instead.">
+      <div className="flex flex-col gap-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
         <div className="flex flex-col gap-1.5">
           <FileButton
             accept={QR_TYPES.join(',')}
@@ -395,7 +374,7 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
       </div>
       <ErrorLine error={problem ?? upload.error ?? saveCaption.error ?? remove.error} />
       {dialog}
-    </div>
+    </SectionTile>
   )
 }
 
@@ -457,9 +436,8 @@ function AccountsSection({ accounts }: { accounts: BankAccount[] }) {
   )
 
   return (
-    <div>
-      <Heading title="Bank accounts" blurb="As many as the church has — a general fund, a building fund. Members can copy each number with one tap." />
-      <ul className="mt-3 flex flex-col gap-2" aria-label="Bank accounts">
+    <SectionTile title="Bank accounts" hint="As many as the church has. Members copy each number with one tap.">
+      <ul className="flex flex-col gap-2" aria-label="Bank accounts">
         {accounts.map((a) =>
           draft?.id === a.id ? (
             <li key={a.id}>
@@ -503,7 +481,7 @@ function AccountsSection({ accounts }: { accounts: BankAccount[] }) {
       )}
       <ErrorLine error={save.error ?? remove.error} />
       {dialog}
-    </div>
+    </SectionTile>
   )
 }
 

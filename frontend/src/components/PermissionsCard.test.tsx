@@ -14,19 +14,65 @@ const rowFor = (action: string | RegExp) =>
   screen.getByRole('rowheader', { name: typeof action === 'string' ? new RegExp(action) : action })
     .closest('tr')!
 
+/** Open the full grid, the way somebody comparing every standing does. */
+const compare = async (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('radio', { name: 'Compare all' }))
+
 describe('PermissionsCard', () => {
-  it('starts open, because it is now a page somebody chose to walk into', () => {
+  /*
+   * Thirteen six-column tables, open at once, were twenty screens of
+   * sideways grid on a phone. The question people bring is about one
+   * person, so the page starts there.
+   */
+  it('starts by asking who, not with thirteen tables', () => {
     show()
-    expect(screen.getAllByRole('table').length).toBe(PERMISSIONS.length)
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.getByRole('radiogroup', { name: 'Role' })).toBeInTheDocument()
+    for (const role of ROLES) expect(screen.getByRole('radio', { name: role.label })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Team Member' })).toBeChecked()
   })
 
-  it('still folds away, and folding it takes the tables out of the tree', async () => {
+  it('folds each area to one line saying how much of it is theirs', () => {
+    show()
+    const list = screen.getByRole('list', { name: 'What a Team Member can do' })
+    const areas = within(list).getAllByRole('button')
+    expect(areas).toHaveLength(PERMISSIONS.length)
+    for (const area of areas) expect(area).toHaveAttribute('aria-expanded', 'false')
+    const giving = PERMISSIONS.find((a) => a.area === 'Giving')!
+    const theirs = giving.capabilities.filter((c) => c.can.member !== 'no').length
+    expect(
+      within(screen.getByRole('button', { name: /^Giving/ })).getByText(`${theirs} of ${giving.capabilities.length}`),
+    ).toBeInTheDocument()
+  })
+
+  it('answers for the chosen role when an area is opened', async () => {
     const user = show()
-    // Hidden content is out of the accessibility tree entirely, which is
-    // the point: a screen reader should not wade through eight tables to
-    // reach the rest of the settings either.
-    await user.click(screen.getByRole('button', { name: 'Hide' }))
-    expect(screen.queryByRole('table')).toBeNull()
+    await user.click(screen.getByRole('radio', { name: 'Church Member' }))
+    await user.click(screen.getByRole('button', { name: /^Team rota/ }))
+    const row = screen.getByText('See the rota').closest('li')!
+    expect(within(row).getByText('No')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Admin' }))
+    expect(within(screen.getByText('See the rota').closest('li')!).getByText('Yes')).toBeInTheDocument()
+  })
+
+  it('can hide everything the role cannot do', async () => {
+    const user = show()
+    await user.click(screen.getByRole('radio', { name: 'Church Member' }))
+    await user.click(screen.getByRole('button', { name: 'Open all' }))
+    expect(screen.getByText('See the rota')).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /Only show what a Church Member can do/ }))
+    expect(screen.queryByText('See the rota')).toBeNull()
+    expect(screen.queryAllByText('No').length).toBe(0)
+  })
+
+  it('opens and folds every area at once', async () => {
+    const user = show()
+    await user.click(screen.getByRole('button', { name: 'Open all' }))
+    const list = screen.getByRole('list', { name: 'What a Team Member can do' })
+    for (const area of within(list).getAllByRole('button', { expanded: true })) expect(area).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fold all' }))
+    expect(within(list).queryAllByRole('button', { expanded: true })).toHaveLength(0)
   })
 
   it('says it does not change anything, before anybody opens it', () => {
@@ -34,8 +80,9 @@ describe('PermissionsCard', () => {
     expect(screen.getByText(/enforced by the database on every request, not by this page/)).toBeVisible()
   })
 
-  it('opens to a table per area, with a column per standing', () => {
-    show()
+  it('still offers the whole grid: a table per area, with a column per standing', async () => {
+    const user = show()
+    await compare(user)
     expect(screen.getAllByRole('table')).toHaveLength(PERMISSIONS.length)
     for (const role of ROLES) {
       expect(screen.getAllByRole('columnheader', { name: role.label }).length).toBe(
@@ -51,12 +98,12 @@ describe('PermissionsCard', () => {
   })
 
   describe('the answers it gives', () => {
-    it('lets everybody see their own DBS, and nobody else’s but an Admin', () => {
+    it('lets everybody see their own DBS, and nobody else’s but an Admin', async () => {
       // Verified against production: a Head reading profile_sensitive gets
       // exactly their own row and zero of anybody else's. The first draft
       // of this table said Heads could not see it at all, which was wrong
       // in a way only the database could settle.
-      show()
+      await compare(show())
       const row = rowFor('See DBS and safeguarding details')
       const cells = within(row).getAllByRole('cell')
       expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
@@ -67,7 +114,6 @@ describe('PermissionsCard', () => {
     })
 
     it('shows the Coordinator holding exactly one power, and it is the checklist', () => {
-      show()
       const coordinatorColumn = ROLES.findIndex((r) => r.key === 'coordinator')
       const granted = PERMISSIONS.flatMap((area) =>
         area.capabilities.filter((c) => c.can.coordinator !== 'no' && c.can.coordinator !== 'own'),

@@ -163,6 +163,8 @@ isn't here, add it here rather than inline — that is the whole mechanism.
 | `LiveDot` | the pulsing green dot: this is happening now |
 | `Field` / `inputClasses` | a labelled control |
 | `Overlay` | anything covering the page: a sheet, a confirmation, a picker. `align`: `center` \| `sheet` |
+| `SectionTile` | one titled block of a settings room: a heading, one line, the controls |
+| `IconBadge` | a glyph on a small tinted square, for a list of places. `tone` keeps its usual meaning — `red` destroys |
 | `TeamMark` | the mark beside a team's name — a dot, or a gradient spine |
 | `TeamAvatar` | a team's initials on its own colour |
 | `TeamChip` | a team's name as a tag |

@@ -204,7 +204,14 @@ export function ActionButton({
       aria-controls={ariaControls}
       className={`inline-flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
     >
-      {glyph}
+      {/* Wrapped, because a text glyph ("+") beside text children would
+          merge with them into one flex item and the gap would never land:
+          "+Add a tag". */}
+      {glyph != null && (
+        <span aria-hidden="true" className="inline-flex shrink-0">
+          {glyph}
+        </span>
+      )}
       {children}
     </button>
   )
@@ -248,6 +255,48 @@ export function Pill({
     >
       {dot && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
+    </span>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Icon badges
+ * ------------------------------------------------------------------ */
+
+export type BadgeTone = 'blue' | 'green' | 'orange' | 'red' | 'indigo'
+
+const BADGE_TONES: Record<BadgeTone, string> = {
+  blue: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-blue)_34%,transparent),color-mix(in_oklab,var(--color-accent-blue)_12%,transparent))] text-accent-blue-soft',
+  green: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-green)_30%,transparent),color-mix(in_oklab,var(--color-accent-green)_10%,transparent))] text-accent-green',
+  orange: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-orange)_32%,transparent),color-mix(in_oklab,var(--color-accent-orange)_10%,transparent))] text-accent-orange-soft',
+  red: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-red)_32%,transparent),color-mix(in_oklab,var(--color-accent-red)_10%,transparent))] text-accent-red-soft',
+  indigo: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-indigo)_36%,transparent),color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent))] text-accent-indigo-soft',
+}
+
+/**
+ * A glyph on a small tinted square: what lets a list of places be read by
+ * shape and colour before a word of it is. Each tone keeps the meaning it
+ * has everywhere else — red is the one that destroys things.
+ */
+export function IconBadge({
+  icon: Icon,
+  tone = 'blue',
+  size = 'md',
+  className = '',
+}: {
+  icon: ComponentType<{ className?: string; width?: number; height?: number }>
+  tone?: BadgeTone
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+}) {
+  const box = size === 'sm' ? 'h-7 w-7 rounded-[9px]' : size === 'lg' ? 'h-12 w-12 rounded-[15px]' : 'h-9 w-9 rounded-[11px]'
+  const glyph = size === 'sm' ? 15 : size === 'lg' ? 24 : 18
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex shrink-0 items-center justify-center hairline ${box} ${BADGE_TONES[tone]} ${className}`}
+    >
+      <Icon width={glyph} height={glyph} />
     </span>
   )
 }
@@ -329,6 +378,43 @@ export function Panel({
         {aside}
       </header>
       <div className={bodyClassName || 'mt-5'}>{children}</div>
+    </Tile>
+  )
+}
+
+/**
+ * One titled block of a settings room: a heading, a single line saying
+ * what it is for, and the controls. A room is a stack of these, so every
+ * room reads the same way — and a block that needs a paragraph to explain
+ * itself puts the paragraph behind a disclosure, not above the controls.
+ */
+export function SectionTile({
+  title,
+  hint,
+  aside,
+  children,
+  id,
+  tone = 'plain',
+  className = '',
+}: {
+  title: ReactNode
+  hint?: ReactNode
+  aside?: ReactNode
+  children: ReactNode
+  id?: string
+  tone?: TileTone
+  className?: string
+}) {
+  return (
+    <Tile as="section" tone={tone} className={`scroll-mt-24 ${className}`}>
+      <div id={id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-body-lg font-semibold text-on-surface">{title}</h2>
+          {hint && <p className="mt-0.5 text-body-sm text-on-surface-variant">{hint}</p>}
+        </div>
+        {aside}
+      </div>
+      <div className="mt-5">{children}</div>
     </Tile>
   )
 }

@@ -149,8 +149,14 @@ build/swBuildId.ts           stamps the commit into sw.js at build time
 DESIGN.md                    the design system's rules — read before UI work
 ```
 
-Routes live in `src/App.tsx`. Settings is a parent route with panes
-(`/settings/profile|access|alerts|church|data`).
+Routes live in `src/App.tsx`. Settings is a parent route: `/settings` is
+the hall (every room, grouped), and each room is its own child route —
+`profile`, `appearance`, `timings`, `rota`, `giving`, `menu`, `access`,
+`alerts`, `logo`, `data`. The rooms, their groups, glyphs and who may open
+them are one list, `lib/settingsSections.ts`; the hall, the sidebar and
+the redirect for a room you have no key to all read it. The old
+`/settings/church` (and its `#rota`, `#giving`, `#menu` anchors) redirects
+to the room each became.
 
 Environment: copy `frontend/.env.example`. Without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY` the app cannot boot. Standing a whole instance up
@@ -246,13 +252,22 @@ migration. Remember it will push.
 capability missing from it is the page starting to lie.
 
 **A new app-wide setting**: `app_settings` column in a migration →
-`lib/appSettings.ts` → a control in `components/AppSettingsCard.tsx`.
-Everything an Admin configures lives in the **App settings** pane
-(`/settings/church`), as cards with a jump list: Timings
-(`AppSettingsCard`), Team Rota (`RotaLookCard`), Giving
-(`GivingSettingsCard`). `AppSettingsCard` saves its whole draft row, so a
-column another card owns must be left out of its update (see
-`coordinator_color`) — or live in its own table, as Giving does.
+`lib/appSettings.ts` → a row in `components/AppSettingsCard.tsx` (the
+**Timings** room, `/settings/timings`), inside the group for the moment
+it governs. A row says its name, one line and its value; the long
+explanation goes in its `help`, behind "How this works" — never as a
+paragraph above the control. Other church-wide set-up has its own room:
+Team Rota (`RotaLookCard`), Giving (`GivingSettingsCard`), Menu
+(`NavLayoutCard`). A room is a stack of `SectionTile`s. `AppSettingsCard`
+saves its whole draft row, so a column another room owns must be left out
+of its update (see `coordinator_color`) — or live in its own table, as
+Giving does.
+
+**A new Settings room**: an entry in `SETTINGS_GROUPS`
+(`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child
+route in `App.tsx`, and a pane export in `pages/SettingsPage.tsx`. The
+shell draws its title and blurb, so the room itself starts with content,
+not a heading.
 
 ---
 

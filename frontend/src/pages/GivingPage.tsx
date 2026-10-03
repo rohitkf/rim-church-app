@@ -52,8 +52,8 @@ export function GivingPage() {
               {isAdmin ? (
                 <>
                   Add the church’s bank details and giving links in{' '}
-                  <Link to="/settings/church#giving" className="text-secondary">
-                    App settings
+                  <Link to="/settings/giving" className="text-secondary">
+                    Settings › Giving
                   </Link>
                   .
                 </>

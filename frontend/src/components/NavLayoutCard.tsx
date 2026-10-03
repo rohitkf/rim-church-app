@@ -145,15 +145,15 @@ export function NavLayoutCard() {
 
   return (
     <section id="menu" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest p-6 hairline">
-      <h2 className="text-headline-md">Menu</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        How the More menu is arranged, for everybody. Drag a page by its grip — past a heading puts it in that
-        group; above the first heading puts it at the top with no heading, like Dashboard. A group moves with
-        its arrows, taking its pages along. Who can open each page does not change.
+      {/* Past a heading puts a page in that group; above the first
+          heading puts it at the top with no heading, like Dashboard. A
+          group moves with its arrows, taking its pages along. */}
+      <p className="text-body-sm text-on-surface-variant">
+        Drag a page by its grip to move it. Who can open each page does not change.
       </p>
 
       <QueryState isLoading={query.isLoading} error={query.error}>
-        <ul className="mt-5 flex flex-col gap-1" aria-label="Menu arrangement">
+        <ul className="mt-4 flex flex-col gap-1" aria-label="Menu arrangement">
           {ordered.map((id, index) => {
             const row = byId.get(id)
             if (!row) return null

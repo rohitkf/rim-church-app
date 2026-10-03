@@ -163,10 +163,11 @@ export function SendAlertCard() {
 
   return (
     <section className="w-full rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)]">
-      <h2 className="text-headline-md">Send an alert</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        Their bell, their phone, and a message they have to dismiss before they can carry on. It is
-        the loudest thing this app can do, so it asks who before it asks what.
+      {/* Their bell, their phone, and a message they have to dismiss
+          before they can carry on: the loudest thing this app can do, so
+          it asks who before it asks what. */}
+      <p className="text-body-sm text-on-surface-variant">
+        It rings their bell and phone, and stays on screen until they dismiss it.
       </p>
 
       {/* Who. A segmented control rather than three buttons: one answer is

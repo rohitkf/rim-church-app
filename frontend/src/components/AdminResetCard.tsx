@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
+import { ActionButton, Overlay, SectionTile, inputClasses } from './Surface'
 
 type Mode = 'activity' | 'everything'
 
@@ -54,71 +55,64 @@ export function AdminResetCard() {
   const needsPhrase = mode === 'everything'
   const canConfirm = !needsPhrase || typed.trim().toUpperCase() === CONFIRM_PHRASE
 
+  const close = () => {
+    setMode(null)
+    setTyped('')
+    setError(null)
+  }
+  const choose = (which: Mode) => {
+    setError(null)
+    setDone(null)
+    setMode(which)
+  }
+
   return (
-    <section className="w-full rounded-lg border border-error/40 bg-error-container/30 p-6">
-      <h2 className="text-headline-md">Reset app data</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        For trying features out on a clean slate. This deletes real records and can't be undone —
-        it is the owner's alone, not every Admin's.
+    <div className="flex flex-col gap-4">
+      <p className="rounded-[var(--radius-row)] bg-[color-mix(in_oklab,var(--color-accent-red)_10%,transparent)] px-4 py-3 text-body-sm text-accent-red-soft">
+        For trying features out on a clean slate. These delete real records, and there is no undo.
       </p>
 
       {done && (
-        <p className="mt-4 rounded-full bg-secondary/10 px-3 py-2 text-body-sm text-secondary">{done}</p>
+        <p role="status" className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-accent-green">
+          {done}
+        </p>
       )}
       {error && !mode && (
-        <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+        <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}
         </p>
       )}
 
-      <div className="mt-5 flex flex-col gap-4">
-        <div className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
-          <div className="font-medium text-on-surface">Clear activity</div>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
-            Services and their running orders, rota, checklist progress, availability, attendance
-            and the message board. Teams, roles, members, service templates and inventory all stay,
-            so you can test again straight away.
-          </p>
-          <button
-            onClick={() => {
-              setError(null)
-              setDone(null)
-              setMode('activity')
-            }}
-            className="tap mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
-          >
-            Clear activity
-          </button>
-        </div>
+      <SectionTile
+        title="Clear activity"
+        hint="Services and their running orders, rota, checklist progress, availability, attendance and the message board."
+      >
+        <p className="text-body-sm text-on-surface-faint">
+          Teams, roles, members, service templates and inventory all stay, so you can test again
+          straight away.
+        </p>
+        <ActionButton tone="danger-quiet" size="sm" className="mt-4" onClick={() => choose('activity')}>
+          Clear activity
+        </ActionButton>
+      </SectionTile>
 
-        <div className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
-          <div className="font-medium text-on-surface">Clear everything</div>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
-            All of the above, plus every team with its roles, role checklists and members, plus
-            service templates, inventory, and every other account. Only your own account survives.
-            Any team made afterwards still comes with its Coordinator role.
-          </p>
-          <button
-            onClick={() => {
-              setError(null)
-              setDone(null)
-              setMode('everything')
-            }}
-            className="tap mt-3 rounded-full hairline px-4 py-2 text-body-sm font-medium text-error hover:border-error"
-          >
-            Clear everything
-          </button>
-        </div>
-      </div>
+      <SectionTile
+        tone="danger"
+        title="Clear everything"
+        hint="All of the above, plus every team, role, checklist, template, inventory item and every other account."
+      >
+        <p className="text-body-sm text-on-surface-faint">
+          Only your own account survives. Any team made afterwards still comes with its Coordinator
+          role.
+        </p>
+        <ActionButton tone="danger-quiet" size="sm" className="mt-4" onClick={() => choose('everything')}>
+          Clear everything
+        </ActionButton>
+      </SectionTile>
 
       {mode && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="reset-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-        >
-          <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 shadow-lg">
+        <Overlay onDismiss={close} label={mode === 'everything' ? 'Clear everything?' : 'Clear activity?'}>
+          <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 hairline shadow-[var(--shadow-lifted)]">
             <h3 id="reset-title" className="text-headline-md">
               {mode === 'everything' ? 'Clear everything?' : 'Clear activity?'}
             </h3>
@@ -129,13 +123,15 @@ export function AdminResetCard() {
             </p>
 
             {needsPhrase && (
-              <label className="mt-4 flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                Type {CONFIRM_PHRASE} to confirm
+              <label className="mt-4 flex flex-col gap-2">
+                <span className="text-body-sm text-on-surface-variant">
+                  Type <span className="font-mono text-on-surface">{CONFIRM_PHRASE}</span> to confirm
+                </span>
                 <input
                   value={typed}
                   onChange={(e) => setTyped(e.target.value)}
                   autoFocus
-                  className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-error focus:outline-none"
+                  className={inputClasses}
                 />
               </label>
             )}
@@ -147,33 +143,24 @@ export function AdminResetCard() {
             )}
 
             <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(null)
-                  setTyped('')
-                  setError(null)
-                }}
-                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface hover:border-secondary"
-              >
+              <ActionButton tone="quiet" onClick={close}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </ActionButton>
+              <ActionButton
+                tone="danger"
                 onClick={() => reset.mutate(mode)}
                 disabled={reset.isPending || !canConfirm}
-                className="rounded-full bg-error px-4 py-2.5 text-body-sm font-medium text-on-error hover:opacity-90 disabled:opacity-50"
               >
                 {reset.isPending
                   ? 'Resetting…'
                   : mode === 'everything'
                     ? 'Yes, clear everything'
                     : 'Yes, clear activity'}
-              </button>
+              </ActionButton>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
-    </section>
+    </div>
   )
 }

@@ -22,6 +22,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
+import { ChurchSettingsRedirect } from './pages/ChurchSettingsRedirect'
 
 /*
  * Each page's code arrives when the page is first opened, not with the
@@ -96,13 +97,22 @@ const router = createBrowserRouter(
               and whatever anybody has bookmarked. */}
           <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/settings" lazy={page(() => import('./pages/SettingsPage'), 'SettingsPage')}>
-            <Route index element={<Navigate to="/settings/profile" replace />} />
+            {/* The index is the hall: every room, grouped. */}
+            <Route index element={null} />
             <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
+            <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
+            <Route path="timings" lazy={page(() => import('./pages/SettingsPage'), 'TimingsSettingsPane')} />
+            <Route path="rota" lazy={page(() => import('./pages/SettingsPage'), 'RotaSettingsPane')} />
+            <Route path="giving" lazy={page(() => import('./pages/SettingsPage'), 'GivingSettingsPane')} />
+            <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
-            <Route path="church" lazy={page(() => import('./pages/SettingsPage'), 'ChurchSettingsPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
+            {/* App settings was one room holding four. Its old address,
+                and its old anchors, still land somewhere sensible. */}
+            <Route path="church" element={<ChurchSettingsRedirect />} />
+            <Route path="*" element={<Navigate to="/settings" replace />} />
           </Route>
           <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
           <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
