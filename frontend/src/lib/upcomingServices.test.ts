@@ -156,3 +156,29 @@ describe('once today is over', () => {
     expect(withNextDayOnceOver(ahead, TODAY, () => false)).toEqual(ahead)
   })
 })
+
+describe('the Dashboard’s own choices', () => {
+  const svc = (id: string, date: string, service_type = 'English Service') => ({ id, date, service_type })
+
+  it('lists the next few service days, not the next few dates', async () => {
+    const { servicesOnNextDays } = await import('./upcomingServices')
+    const all = [
+      svc('a', '2026-10-04'),
+      svc('b', '2026-10-04', 'Malayalam Service'),
+      svc('c', '2026-10-11'),
+      svc('d', '2026-10-18'),
+      svc('old', '2026-09-27'),
+    ]
+    expect(servicesOnNextDays(all, '2026-10-03', 2).map((s) => s.id)).toEqual(['a', 'b', 'c'])
+    expect(servicesOnNextDays(all, '2026-10-03', 4).map((s) => s.id)).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('opens a card on its day, always or never as chosen — but never a finished one', async () => {
+    const { opensByChoice } = await import('./upcomingServices')
+    expect(opensByChoice('auto', '2026-10-04', '2026-10-04', 'upcoming')).toBe(true)
+    expect(opensByChoice('auto', '2026-10-11', '2026-10-04', 'upcoming')).toBe(false)
+    expect(opensByChoice('always', '2026-10-11', '2026-10-04', 'upcoming')).toBe(true)
+    expect(opensByChoice('never', '2026-10-04', '2026-10-04', 'running')).toBe(false)
+    expect(opensByChoice('always', '2026-10-04', '2026-10-04', 'done')).toBe(false)
+  })
+})

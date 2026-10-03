@@ -40,4 +40,21 @@ describe('how long things last', () => {
     expect(nextBoardClearTime(sunday, 2).toISOString()).toBe('2026-09-29T00:00:00.000Z')
     expect(nextBoardClearTime(sunday, 1).toISOString()).toBe('2026-09-28T00:00:00.000Z')
   })
+
+  /*
+   * The clocks 0123 added say themselves too, worded from the settings
+   * the nightly job reads — "for ever" until somebody sets one.
+   */
+  it('says nothing clears until a church sets a clock, then says when', () => {
+    expect(lifespanOf('team-chat', settings)).toMatch(/Nothing here clears on its own/)
+    expect(lifespanOf('team-chat', { ...settings, team_chat_retention_days: 90 })).toContain('deleted 90 days after')
+    expect(lifespanOf('updates', { ...settings, church_update_retention_days: 30 })).toContain('unless it is pinned')
+    expect(lifespanOf('polls', { ...settings, poll_retention_days: 1 })).toContain('deleted 1 day after it closes')
+  })
+
+  it('says how far Set Lists looks, in weeks when it is whole weeks', () => {
+    expect(lifespanOf('set-lists', settings)).toContain('3 weeks either side')
+    expect(lifespanOf('set-lists', { ...settings, set_list_days: 7 })).toContain('1 week either side')
+    expect(lifespanOf('set-lists', { ...settings, set_list_days: 10 })).toContain('10 days either side')
+  })
 })

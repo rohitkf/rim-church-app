@@ -359,3 +359,74 @@ export function PollIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Appearance: how the app is drawn for you. */
+export function PaletteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3Z" />
+      <circle cx="7.5" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10.5" cy="7.2" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="7.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** A picture: the church's logo. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.6" />
+      <path d="m21 16-5-5-9 9" />
+    </svg>
+  )
+}
+
+/** Erasing: the one that takes things away. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
+  )
+}
+
+/** A list of things in order: the menu's arrangement. */
+export function ListIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  )
+}
+
+/** Keeping and clearing: what the app holds on to, and for how long. */
+export function ArchiveIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="4" rx="1.2" />
+      <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4" />
+    </svg>
+  )
+}

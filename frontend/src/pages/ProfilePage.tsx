@@ -6,11 +6,10 @@ import { isMissingColumnError } from '../lib/missingColumn'
 import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
+import { ActionButton, SectionTile, inputClasses } from '../components/Surface'
 import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
 
-const inputClasses =
-  'rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none'
-const labelClasses = 'flex flex-col gap-1 text-body-sm text-on-surface-variant'
+const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
@@ -108,8 +107,8 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="w-full">
-      <form onSubmit={handleSave} className="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
+    <form onSubmit={handleSave} className="flex w-full flex-col gap-4">
+      <SectionTile title="About you" hint="How your name appears on the rota, in chats and on the teams.">
         {/* Two fields side by side need a phone to be wider than one, so
             below `sm` they stack. `min-w-0` is what lets them shrink at
             all: a flex child will not go below its input's intrinsic
@@ -125,131 +124,142 @@ export function ProfilePage() {
             <input required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
           </label>
         </div>
-        <label className={labelClasses}>
-          Email
-          <input disabled value={profile.email} className={`${inputClasses} bg-surface-muted text-on-surface-variant`} />
-        </label>
-        <label className={labelClasses}>
-          Phone
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClasses} />
-        </label>
-        <label className={labelClasses}>
-          Date of birth
-          <DateField value={dob} onChange={setDob} label="Date of birth" max={todayIso()} clearable />
-        </label>
-        <label className={labelClasses}>
-          Marital status
-          <Select
-            value={maritalStatus}
-            onChange={setMaritalStatus}
-            placeholder="Choose one"
-            aria-label="Marital status"
-            options={MARITAL_STATUSES.map((m) => ({ value: m.value, label: m.label }))}
-          />
-        </label>
-        <label className={labelClasses}>
-          Wedding anniversary
-          <DateField
-            value={anniversary}
-            onChange={setAnniversary}
-            label="Wedding anniversary"
-            max={todayIso()}
-            clearable
-          />
-          <span className="font-mono text-label-sm text-on-surface-variant">
-            Optional — leave it blank if it doesn't apply. Shown to everyone on the Celebrations
-            page, like your birthday.
-          </span>
-        </label>
+      </SectionTile>
 
-        {/*
-          A section, not a <fieldset>. A legend is laid out inside the box's
-          own border, so a phone-width one wraps onto a second line and sits
-          on top of the border it was meant to interrupt — which is what made
-          this block look broken. A heading above the fields wraps like
-          ordinary text and cannot collide with anything.
-        */}
-        {sensitive && (
-          <section className="rounded-[var(--radius-card)] bg-surface-muted p-4 hairline">
-            <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-              Compliance details
-            </h2>
-            <p className="mt-1 text-label-md text-on-surface-faint">
-              Only you and an Admin can see these.
-            </p>
+      <SectionTile title="How to reach you" hint="Your Heads and Admins can see these.">
+        <div className="flex flex-col gap-4">
+          <label className={labelClasses}>
+            Email
+            <input disabled value={profile.email} className={`${inputClasses} text-on-surface-variant opacity-70`} />
+            <span className="text-label-sm text-on-surface-faint">The address you sign in with.</span>
+          </label>
+          <label className={labelClasses}>
+            Phone
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={inputClasses}
+            />
+          </label>
+        </div>
+      </SectionTile>
 
-            <div className="mt-4 flex flex-col gap-4">
-              {/* The same list the joining form offers, so the two cannot
-                  drift into describing the same person differently. */}
-              <label className={labelClasses}>
-                Your status in the UK
-                <Select
-                  value={sensitive.visa_type ?? ''}
-                  onChange={(value) => setSensitive({ ...sensitive, visa_type: value || null })}
-                  placeholder="Choose one"
-                  aria-label="Your status in the UK"
-                  options={VISA_TYPES.map((v) => ({ value: v.value, label: v.label }))}
-                />
-              </label>
-              {/* A citizen and somebody settled here are not asked for an
-                  expiry: their status does not run out. */}
-              {!isSettledStatus(sensitive.visa_type) && (
-                <>
-                  <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
-                    <input
-                      type="checkbox"
-                      checked={sensitive.visa_has_expiry ?? false}
-                      onChange={(e) =>
-                        setSensitive({
-                          ...sensitive,
-                          visa_has_expiry: e.target.checked,
-                          visa_expiry: e.target.checked ? sensitive.visa_expiry : null,
-                        })
-                      }
-                      className="mt-0.5 h-4 w-4 shrink-0"
+      <SectionTile title="Dates we celebrate" hint="Shown to everyone on the Celebrations page. Leave out what doesn’t apply.">
+        <div className="flex flex-col gap-4">
+          <label className={labelClasses}>
+            Date of birth
+            <DateField value={dob} onChange={setDob} label="Date of birth" max={todayIso()} clearable />
+          </label>
+          <label className={labelClasses}>
+            Marital status
+            <Select
+              value={maritalStatus}
+              onChange={setMaritalStatus}
+              placeholder="Choose one"
+              aria-label="Marital status"
+              options={MARITAL_STATUSES.map((m) => ({ value: m.value, label: m.label }))}
+            />
+          </label>
+          <label className={labelClasses}>
+            Wedding anniversary
+            <DateField
+              value={anniversary}
+              onChange={setAnniversary}
+              label="Wedding anniversary"
+              max={todayIso()}
+              clearable
+            />
+            <span className="text-label-sm text-on-surface-faint">Optional.</span>
+          </label>
+        </div>
+      </SectionTile>
+
+      {/*
+        A section, not a <fieldset>. A legend is laid out inside the box's
+        own border, so a phone-width one wraps onto a second line and sits
+        on top of the border it was meant to interrupt — which is what made
+        this block look broken. A heading above the fields wraps like
+        ordinary text and cannot collide with anything.
+      */}
+      {sensitive && (
+        <SectionTile title="Compliance details" hint="Only you and an Admin can see these.">
+          <div className="flex flex-col gap-4">
+            {/* The same list the joining form offers, so the two cannot
+                drift into describing the same person differently. */}
+            <label className={labelClasses}>
+              Your status in the UK
+              <Select
+                value={sensitive.visa_type ?? ''}
+                onChange={(value) => setSensitive({ ...sensitive, visa_type: value || null })}
+                placeholder="Choose one"
+                aria-label="Your status in the UK"
+                options={VISA_TYPES.map((v) => ({ value: v.value, label: v.label }))}
+              />
+            </label>
+            {/* A citizen and somebody settled here are not asked for an
+                expiry: their status does not run out. */}
+            {!isSettledStatus(sensitive.visa_type) && (
+              <>
+                <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
+                  <input
+                    type="checkbox"
+                    checked={sensitive.visa_has_expiry ?? false}
+                    onChange={(e) =>
+                      setSensitive({
+                        ...sensitive,
+                        visa_has_expiry: e.target.checked,
+                        visa_expiry: e.target.checked ? sensitive.visa_expiry : null,
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <span className="min-w-0">It has an expiry date</span>
+                </label>
+                {sensitive.visa_has_expiry && (
+                  <label className={labelClasses}>
+                    Visa expiry
+                    <DateField
+                      value={sensitive.visa_expiry ?? ''}
+                      onChange={(d) => setSensitive({ ...sensitive, visa_expiry: d || null })}
+                      label="Visa expiry"
+                      clearable
                     />
-                    <span className="min-w-0">It has an expiry date</span>
                   </label>
-                  {sensitive.visa_has_expiry && (
-                    <label className={labelClasses}>
-                      Visa expiry
-                      <DateField
-                        value={sensitive.visa_expiry ?? ''}
-                        onChange={(d) => setSensitive({ ...sensitive, visa_expiry: d || null })}
-                        label="Visa expiry"
-                        clearable
-                      />
-                    </label>
-                  )}
-                </>
-              )}
-              {/* `items-start` and a nudged box: with `items-center` a label
-                  that wraps to two lines centres the tick against the middle
-                  of the paragraph instead of the first line. */}
-              <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
-                <input
-                  type="checkbox"
-                  checked={sensitive.has_dbs}
-                  onChange={(e) => setSensitive({ ...sensitive, has_dbs: e.target.checked })}
-                  className="mt-0.5 h-4 w-4 shrink-0"
-                />
-                <span className="min-w-0">Has a valid DBS check</span>
-              </label>
-            </div>
-          </section>
-        )}
+                )}
+              </>
+            )}
+            {/* `items-start` and a nudged box: with `items-center` a label
+                that wraps to two lines centres the tick against the middle
+                of the paragraph instead of the first line. */}
+            <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
+              <input
+                type="checkbox"
+                checked={sensitive.has_dbs}
+                onChange={(e) => setSensitive({ ...sensitive, has_dbs: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span className="min-w-0">Has a valid DBS check</span>
+            </label>
+          </div>
+        </SectionTile>
+      )}
 
-        {message && <p className="text-body-sm text-on-surface-variant">{message}</p>}
-        <button
-          type="submit"
-          disabled={saving}
-          className="self-start rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
-        >
+      <div className="flex flex-wrap items-center gap-3 px-1">
+        <ActionButton type="submit" disabled={saving}>
           {saving ? 'Saving…' : 'Save changes'}
-        </button>
-      </form>
-
-
-    </div>
+        </ActionButton>
+        {message && (
+          <p
+            role="status"
+            className={`text-body-sm ${message === 'Saved.' ? 'text-accent-green' : 'text-error'}`}
+          >
+            {message}
+          </p>
+        )}
+      </div>
+    </form>
   )
 }

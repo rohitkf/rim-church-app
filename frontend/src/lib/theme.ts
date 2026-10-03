@@ -39,3 +39,10 @@ export function writeThemePreference(preference: ThemePreference) {
 export function applyTheme(preference: ThemePreference) {
   document.documentElement.dataset.theme = resolveTheme(preference)
 }
+
+/** The three answers, in the order every switcher offers them. */
+export const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Auto' },
+]

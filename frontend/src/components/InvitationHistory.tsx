@@ -13,6 +13,7 @@ import {
   type InvitationFilter,
 } from "../lib/invitations";
 import type { Invitation } from "../lib/types";
+import { useDisplay } from "../lib/appSettings";
 import { Panel, Pill, Row } from "./Surface";
 import { QueryState } from "./QueryState";
 import { TeamMark } from "./TeamMark";
@@ -36,6 +37,8 @@ export function InvitationHistory() {
   const errorText = useErrorText();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<InvitationFilter>("all");
+  // When an unanswered one reads as gone quiet — the church's choice.
+  const staleDays = useDisplay().windows.invitationStaleDays;
   // Shut unless asked for. This is a reference, not a working surface —
   // most visits to this page are about the roster, and an invitation list
   // that is usually short and usually settled does not earn permanent
@@ -198,7 +201,7 @@ export function InvitationHistory() {
             ) : (
               <ul className="flex flex-col gap-2">
                 {shown.map((invitation) => {
-                  const status = invitationStatus(invitation);
+                  const status = invitationStatus(invitation, undefined, staleDays);
                   const busy = busyId === invitation.id;
 
                   return (

@@ -19,7 +19,7 @@ import { DayHeading } from '../components/DayHeading'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
-import { useAppSettings } from '../lib/appSettings'
+import { useAppSettings, useDisplay } from '../lib/appSettings'
 import { availabilityClosesAt } from '../lib/availabilityDeadline'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import {
@@ -221,6 +221,7 @@ export function AvailabilityPage() {
   const queryClient = useQueryClient()
   const today = todayIso()
   const settings = useAppSettings()
+  const display = useDisplay()
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -256,10 +257,10 @@ export function AvailabilityPage() {
   const listed = useMemo(
     () =>
       servicesToShow(candidates, today, {
-        days: availabilityWindowDays(settings.rota_window_days),
+        days: availabilityWindowDays(settings.rota_window_days, display.windows.availabilityDays),
         isFinished,
       }),
-    [candidates, today, isFinished, settings],
+    [candidates, today, isFinished, settings, display],
   )
 
   // In date order, so the split below can draw its line at a day.

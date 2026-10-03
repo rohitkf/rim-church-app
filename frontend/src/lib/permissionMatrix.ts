@@ -17,6 +17,8 @@
  * rather than implying an accuracy it cannot promise.
  */
 
+import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
+
 export const CHECKED_ON = '27 September 2026'
 
 /** The standings a person can hold. Columns, left to right. */
@@ -60,6 +62,12 @@ export interface Capability {
   /** Said out loud when the answer needs a sentence rather than a tick. */
   note?: string
   can: Record<RoleKey, Allowed>
+  /**
+   * The page whose "who can open it" setting decides this row (Settings ›
+   * Access & privileges › Pages). The grid above is the app's defaults;
+   * `withPageAccess` redraws these rows with the church's own choices.
+   */
+  page?: string
 }
 
 export interface PermissionArea {
@@ -103,6 +111,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See the church diary',
+        page: '/events',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
       },
       {
@@ -122,6 +131,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See the rota',
+        page: '/rota',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
@@ -134,7 +144,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Choose the rota’s tags and the Coordinator’s colour',
         can: all(),
-        note: 'In App settings.',
+        note: 'In Settings › Team Rota.',
       },
       { action: 'Ask another team to release a volunteer', can: all({ head: 'team' }) },
       { action: 'Approve or refuse a release request', can: all({ head: 'team' }) },
@@ -169,7 +179,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See your own checklist and tick it off',
         can: all({ head: 'own', coordinator: 'own', member: 'own' }),
-        note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless App settings say otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
+        note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless Settings › Timings says otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
       },
       {
         action: 'Verify a team’s checklist as done',
@@ -218,6 +228,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See the register and its documents',
+        page: '/inventory',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Any team’s, by anybody on a team. Somebody on no team sees none of it.',
       },
@@ -241,6 +252,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'Read the message board',
+        page: '/messages',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'The church-wide board, for anybody on a team.',
       },
@@ -262,6 +274,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See and answer a poll',
+        page: '/polls',
         can: all({
           owner: 'own',
           admin: 'own',
@@ -274,6 +287,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Read the church updates',
+        page: '/updates',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
       },
       {
@@ -299,12 +313,12 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Raise an issue seen at a service',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in App settings). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. App settings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
+        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in Settings › Timings). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. Settings › Timings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
       },
       {
         action: 'See the issues',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'Every team’s. Church Members see them only when App settings let everyone raise one.',
+        note: 'Every team’s. Church Members see them only when Settings › Timings lets everyone raise one.',
       },
       {
         action: 'Mark an issue resolved, not resolved or persistent, with remarks — or reopen it',
@@ -314,7 +328,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Delete an issue',
         can: all({ head: 'own', coordinator: 'own', member: 'own' }),
-        note: 'Whoever raised it, until a Head has marked it — after that only an Admin. Resolved issues are deleted on their own after the number of days in App settings; not resolved and persistent ones stay until they are resolved.',
+        note: 'Whoever raised it, until a Head has marked it — after that only an Admin. Resolved issues are deleted on their own after the number of days in Settings › Timings; not resolved and persistent ones stay until they are resolved.',
       },
     ],
   },
@@ -337,6 +351,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'Read a team’s debrief',
+        page: '/debriefs',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team. It was readable by anybody signed in until 27 September 2026 (0109).',
       },
@@ -348,7 +363,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Add to their own team’s debrief, and edit or remove their own points',
         can: all({ head: 'team', coordinator: 'team', member: 'team' }),
-        note: 'Anybody on the team, from when the service ends until 12 hours after (App settings). A point a Head has ticked or assigned is the Head’s to change.',
+        note: 'Anybody on the team, from when the service ends until 12 hours after (Settings › Timings). A point a Head has ticked or assigned is the Head’s to change.',
       },
       {
         action: 'See the activity feed',
@@ -362,10 +377,11 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See how to give — bank details and giving links',
+        page: '/giving',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
         note: 'Every member. No payment passes through the app: a link opens the provider’s own page.',
       },
-      { action: 'Change the Giving page', can: all(), note: 'In App settings.' },
+      { action: 'Change the Giving page', can: all(), note: 'In Settings › Giving.' },
     ],
   },
   {
@@ -411,7 +427,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Arrange the menu — its groups, their names, and the order of pages',
         can: all(),
-        note: 'In App settings, for everybody at once. It only moves pages; who can open each one is unchanged.',
+        note: 'In Settings › Menu, for everybody at once. It only moves pages; who can open each one is unchanged.',
       },
       {
         action: 'Hand over ownership',
@@ -421,3 +437,37 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
 ]
+
+/** The page standing each column is, for the purpose of opening pages. */
+const COLUMN_STANDING: Record<RoleKey, Standing> = {
+  owner: 'admin',
+  admin: 'admin',
+  head: 'lead',
+  coordinator: 'member',
+  member: 'member',
+  newcomer: 'church',
+}
+
+/**
+ * The grid as this church has set it: every row tied to a page reads
+ * "yes" for a standing the page is now open to, and "no" for one it is
+ * closed to. A narrower answer that still holds ("own", "team") is kept,
+ * because opening the page does not widen it.
+ */
+export function withPageAccess(access: PageAccess, issuesScope?: string): PermissionArea[] {
+  return PERMISSIONS.map((area) => ({
+    ...area,
+    capabilities: area.capabilities.map((c) => {
+      if (!c.page) return c
+      const level = levelOf(c.page, access, issuesScope)
+      const can = Object.fromEntries(
+        (Object.keys(c.can) as RoleKey[]).map((role) => {
+          const open = standingMayOpen(COLUMN_STANDING[role], level)
+          const was = c.can[role]
+          return [role, !open ? 'no' : was === 'no' ? 'yes' : was]
+        }),
+      ) as Record<RoleKey, Allowed>
+      return { ...c, can }
+    }),
+  }))
+}

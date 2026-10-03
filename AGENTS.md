@@ -81,11 +81,21 @@ Other things that are true and not guessable:
   policy that distinguishes them.
 - **The Team Coordinator is a rota role, not a rank.** Whoever holds it for
   a service can sign that service's checklists off, and only then.
-- **A Church Member sees the church's shape, not its teams' working**:
-  Dashboard, Service Planner, Events, Set Lists, Giving, Church Updates,
-  Polls (the ones addressed to them) and Teams (to ask to join one). Team pages sit behind `TeamOnlyRoute`, and their
-  tables read `is_on_a_team` — both, always (0080, 0109). A new team-only
-  table that reads `auth.uid() is not null` leaks to Church Members.
+- **Who opens which page is the church's choice, within limits the
+  database can honour** (0123, `docs/configuration.md`). Each page in
+  `lib/pageAccess.ts` `PAGE_RULES` has a default and the levels it may be
+  set to — `everyone`, `team`, `leads` (Heads), `admins` — stored in
+  `app_settings.page_access`. Admins always may. Out of the box a Church
+  Member sees the church's shape, not its teams' working: Dashboard,
+  Service Planner, Events, Set Lists, Giving, Church Updates, Polls (the
+  ones addressed to them) and Teams (to ask to join one). Gated routes sit
+  behind `PageGate`; the menu, search and gate all ask `usePageAccess()`.
+  The tables follow too: their select policies call `can_open_page(uid,
+  page)` (the rota's only widen — Availability and Checklists read the
+  same rows). `page_access_is_valid()` in SQL and `PAGE_RULES` must agree;
+  `pageAccess.test.ts` reads the migration and checks. A new team-only
+  table that reads `auth.uid() is not null` leaks to Church Members — give
+  it `can_open_page` or `is_on_a_team`.
 - **Rota tags are labels, never exemptions.** A tagged assignment is
   still that person's one role at the service.
 - **No payment passes through the app.** Giving links open the provider's
@@ -136,6 +146,8 @@ frontend/src/
   components/AppShell.tsx    header, dock, routes' wash colour, alert banner
   lib/queries.ts             shared Supabase reads
   lib/permissionMatrix.ts    the Access & privileges table, hand-maintained
+  lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
+  lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
   lib/pwa.ts                 install, offline, and the update banner
   auth/AuthContext.tsx       useAuth(): isAdmin, isSuperAdmin, ownerId,
@@ -147,10 +159,17 @@ supabase/migrations/         numbered, immutable once shipped
 supabase/functions/          edge functions (push-notify, invite)
 build/swBuildId.ts           stamps the commit into sw.js at build time
 DESIGN.md                    the design system's rules — read before UI work
+docs/configuration.md        every setting: what it is, where it lives, what enforces it
 ```
 
-Routes live in `src/App.tsx`. Settings is a parent route with panes
-(`/settings/profile|access|alerts|church|data`).
+Routes live in `src/App.tsx`. Settings is a parent route: `/settings` is
+the hall (every room, grouped), and each room is its own child route —
+`profile`, `appearance`, `timings`, `retention`, `display`, `rota`,
+`giving`, `menu`, `access`, `alerts`, `logo`, `data`. The rooms, their groups, glyphs and who may open
+them are one list, `lib/settingsSections.ts`; the hall, the sidebar and
+the redirect for a room you have no key to all read it. The old
+`/settings/church` (and its `#rota`, `#giving`, `#menu` anchors) redirects
+to the room each became.
 
 Environment: copy `frontend/.env.example`. Without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY` the app cannot boot. Standing a whole instance up
@@ -228,7 +247,10 @@ Each of these has already cost real time. None of them show up in review.
 
 ## 9. Recipes
 
-**A new page**: route in `App.tsx` → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
+**A new page**: route in `App.tsx` (inside `PageGate` unless everybody may
+always open it) → a rule in `lib/pageAccess.ts` `PAGE_RULES` (default,
+choices, what enforces it — and the same choices in SQL's
+`page_access_is_valid`, in a migration, if it has a key) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
 with the default `group` it sits under in the More sheet (Sunday, After the service,
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
@@ -245,14 +267,27 @@ migration. Remember it will push.
 `lib/permissionMatrix.ts`. That page claims to describe the database; a
 capability missing from it is the page starting to lie.
 
-**A new app-wide setting**: `app_settings` column in a migration →
-`lib/appSettings.ts` → a control in `components/AppSettingsCard.tsx`.
-Everything an Admin configures lives in the **App settings** pane
-(`/settings/church`), as cards with a jump list: Timings
-(`AppSettingsCard`), Team Rota (`RotaLookCard`), Giving
-(`GivingSettingsCard`). `AppSettingsCard` saves its whole draft row, so a
-column another card owns must be left out of its update (see
-`coordinator_color`) — or live in its own table, as Giving does.
+**A new app-wide setting**: first decide which kind it is
+(`docs/configuration.md`). **A rule** the database must obey —
+`app_settings` column with a check constraint in a migration →
+`lib/appSettings.ts` → a row in the room it belongs to: Timings
+(`AppSettingsCard`) for when things open and close, Data & retention
+(`RetentionCard`) for what is deleted and when, Access (`PageAccessCard`)
+for who sees what. **A preference only the screens read** — a key in
+`lib/display.ts` (`DISPLAY_DEFAULTS` and `readDisplay`, which falls back
+per key), no migration → a control in `DisplayCard` (Dashboard & lists) →
+read it with `useDisplay()`. Either way the room saves through
+`useSettingsDraft(keys)`, which writes only that room's columns, so no
+room can undo another. A row says its name, one line and its value; the
+long explanation goes in its `help`, behind "How this works". A new clock
+needs its sentence in `lib/lifespan.ts`. A room is a stack of
+`SectionTile`s built from `SettingRows`.
+
+**A new Settings room**: an entry in `SETTINGS_GROUPS`
+(`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child
+route in `App.tsx`, and a pane export in `pages/SettingsPage.tsx`. The
+shell draws its title and blurb, so the room itself starts with content,
+not a heading.
 
 ---
 

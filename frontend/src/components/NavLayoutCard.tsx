@@ -12,6 +12,8 @@ import {
 } from '../lib/navLayout'
 import { useDragReorder } from '../lib/useDragReorder'
 import { useErrorText } from '../lib/useErrorText'
+import { useAppSettings } from '../lib/appSettings'
+import { ACCESS_LEVELS, levelOf, type AccessLevel, type PageAccess } from '../lib/pageAccess'
 import { ActionButton, inputClasses } from './Surface'
 import { DragHandle } from './DragHandle'
 import { QueryState } from './QueryState'
@@ -72,8 +74,13 @@ function blockOf(rows: Row[], index: number): [number, number] {
   return [index, end]
 }
 
+const levelShort = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
+
 export function NavLayoutCard() {
   const { isAdmin } = useAuth()
+  // Who each page is open to, beside its name: the church's own choice.
+  const settings = useAppSettings()
+  const access = settings.page_access as PageAccess
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const query = useQuery({ queryKey: NAV_LAYOUT_KEY, queryFn: fetchNavLayout, enabled: isAdmin })
@@ -145,15 +152,15 @@ export function NavLayoutCard() {
 
   return (
     <section id="menu" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest p-6 hairline">
-      <h2 className="text-headline-md">Menu</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        How the More menu is arranged, for everybody. Drag a page by its grip — past a heading puts it in that
-        group; above the first heading puts it at the top with no heading, like Dashboard. A group moves with
-        its arrows, taking its pages along. Who can open each page does not change.
+      {/* Past a heading puts a page in that group; above the first
+          heading puts it at the top with no heading, like Dashboard. A
+          group moves with its arrows, taking its pages along. */}
+      <p className="text-body-sm text-on-surface-variant">
+        Drag a page by its grip to move it. Who can open each page does not change.
       </p>
 
       <QueryState isLoading={query.isLoading} error={query.error}>
-        <ul className="mt-5 flex flex-col gap-1" aria-label="Menu arrangement">
+        <ul className="mt-4 flex flex-col gap-1" aria-label="Menu arrangement">
           {ordered.map((id, index) => {
             const row = byId.get(id)
             if (!row) return null
@@ -216,11 +223,10 @@ export function NavLayoutCard() {
                 <DragHandle label={labelOf(row.to)} {...handleProps(row.id)} />
                 {Icon && <Icon className="shrink-0" width={18} height={18} />}
                 <span className="min-w-0 flex-1 truncate">{labelOf(row.to)}</span>
-                {item?.adminOnly && (
-                  <span className="font-mono text-label-sm text-on-surface-faint">Admins</span>
-                )}
-                {item?.teamOnly && (
-                  <span className="font-mono text-label-sm text-on-surface-faint">Teams</span>
+                {item && levelOf(item.to, access, settings.issues_raise_scope) !== 'everyone' && (
+                  <span className="font-mono text-label-sm text-on-surface-faint">
+                    {levelShort(levelOf(item.to, access, settings.issues_raise_scope))}
+                  </span>
                 )}
               </li>
             )

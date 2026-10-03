@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { readDisplay, type Display } from './display'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 
@@ -56,6 +58,19 @@ export const appSettingsSchema = z.object({
   availability_closes_time: z.string(),
   /** The Team Coordinator's row on the rota. Null is the night sky. */
   coordinator_color: z.string().nullable().default(null),
+  /*
+   * Who may open each page (0123): a page key to the lowest level that
+   * may. lib/pageAccess reads it, and drops any value it does not know.
+   */
+  page_access: z.record(z.string(), z.string()).catch({}).default({}),
+  /** Preferences only the screens read (0123); lib/display reads it. */
+  display: z.unknown().default({}),
+  /* How long things are kept, in days (0123). Null is for ever. */
+  notification_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  team_chat_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  church_update_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  poll_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  alert_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -78,6 +93,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timezone: 'Europe/London',
   availability_closes_time: '23:59:00',
   coordinator_color: null,
+  page_access: {},
+  display: {},
+  notification_retention_days: null,
+  team_chat_retention_days: null,
+  church_update_retention_days: null,
+  poll_retention_days: null,
+  alert_retention_days: null,
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -86,7 +108,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, alert_retention_days',
     )
     .maybeSingle()
   if (error) throw error
@@ -101,12 +123,28 @@ export async function fetchAppSettings(): Promise<AppSettings> {
  * these change when an Admin changes them, which invalidates the key.
  */
 export function useAppSettings(): AppSettings {
+  return useAppSettingsState().settings
+}
+
+/**
+ * The settings, and whether they are the church's yet or still the
+ * defaults standing in. A page that would turn somebody away on a
+ * setting waits for `settled`: the defaults are right for most churches,
+ * and wrong for the one that has opened the rota to everybody.
+ */
+export function useAppSettingsState(): { settings: AppSettings; settled: boolean } {
   const query = useQuery({
     queryKey: SETTINGS_KEY,
     queryFn: fetchAppSettings,
     staleTime: 5 * 60_000,
   })
-  return query.data ?? DEFAULT_SETTINGS
+  return { settings: query.data ?? DEFAULT_SETTINGS, settled: query.isSuccess || query.isError }
+}
+
+/** The screens' preferences, every key filled in. */
+export function useDisplay(): Display {
+  const { display } = useAppSettings()
+  return useMemo(() => readDisplay(display), [display])
 }
 
 /** Sunday first, the way both Postgres and JavaScript count. */

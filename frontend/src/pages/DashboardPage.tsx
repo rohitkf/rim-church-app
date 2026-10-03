@@ -42,12 +42,14 @@ import { serviceStanding, type ServiceStanding } from '../lib/serviceState'
 import {
   inStartOrder,
   nextServiceDayAfter,
-  opensOnItsOwn,
+  opensByChoice,
+  servicesOnNextDays,
   upcomingServices,
   withNextDayOnceOver,
 } from '../lib/upcomingServices'
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
+import { useDisplay } from '../lib/appSettings'
 import { DateField } from '../components/DateTimeFields'
 import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
@@ -132,6 +134,10 @@ export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
+  // What the church has chosen this page shows (Settings › Dashboard & lists).
+  const display = useDisplay()
+  const show = display.dashboard.show
+  const serviceDaysAhead = display.dashboard.serviceDays
 
   // Today is what the page is anchored to: what is on, and what is still
   // coming. Admins alone can step off it to a particular day, which is how
@@ -178,6 +184,9 @@ export function DashboardPage() {
     () => {
       if (adminDate) return dayServices
       const all = servicesQuery.data ?? []
+      // More than one service day, when the church asked for it: each one
+      // listed with its own countdown.
+      if (serviceDaysAhead > 1) return servicesOnNextDays(all, today, serviceDaysAhead)
       const upcoming = upcomingServices(all, today)
       // Next service day too, when the nearest is today — shown only once
       // today is over (withNextDayOnceOver, below), but fetched now so its
@@ -186,7 +195,7 @@ export function DashboardPage() {
         ? [...upcoming, ...nextServiceDayAfter(all, today)]
         : upcoming
     },
-    [adminDate, dayServices, servicesQuery.data, today],
+    [adminDate, dayServices, servicesQuery.data, today, serviceDaysAhead],
   )
   const listedIds = useMemo(() => listedServices.map((s) => s.id), [listedServices])
 
@@ -258,12 +267,12 @@ export function DashboardPage() {
   const services = useMemo(
     () =>
       inStartOrder(
-        adminDate
+        adminDate || serviceDaysAhead > 1
           ? listedServices
           : withNextDayOnceOver(listedServices, today, (s) => standingOf(s.id).state === 'done'),
         (s) => startsAt.get(s.id) ?? null,
       ),
-    [listedServices, startsAt, adminDate, today, standingOf],
+    [listedServices, startsAt, adminDate, today, standingOf, serviceDaysAhead],
   )
 
   const aheadCount = services.filter((s) => standingOf(s.id).state !== 'done').length
@@ -280,7 +289,8 @@ export function DashboardPage() {
    */
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({})
   const isOpen = (service: { id: string; date: string }) =>
-    openOverrides[service.id] ?? opensOnItsOwn(service.date, focusDate, standingOf(service.id).state)
+    openOverrides[service.id] ??
+    opensByChoice(display.dashboard.openNext, service.date, focusDate, standingOf(service.id).state)
   const toggleService = (service: { id: string; date: string }) =>
     setOpenOverrides((open) => ({ ...open, [service.id]: !isOpen(service) }))
 
@@ -437,7 +447,7 @@ export function DashboardPage() {
       {/* What is on today, before anything about a service: an event
           happens once, and the morning of it is the last useful moment to
           be told. Nothing at all on the days there is nothing on. */}
-      <TodayEvents events={eventsToday} className="mt-6" />
+      {show.todayEvents && <TodayEvents events={eventsToday} className="mt-6" />}
 
       <QueryState isLoading={isLoading} error={error}>
         {services.length === 0 ? (
@@ -724,6 +734,7 @@ export function DashboardPage() {
                       its Coordinator, Head or an Admin says so, red until
                       then — and the words once they all are. */}
                   {(() => {
+                    if (!show.teamsReady) return null
                     const teams = servingTeams(service.id, rota)
                     if (teams.length === 0) return null
                     const { lights, allReady } = teamLights(service.id, teams, teamReadinessQuery.data ?? [])
@@ -754,6 +765,8 @@ export function DashboardPage() {
                       </Tile>
                     )
                   })()}
+                  {show.readiness && (
+                  <>
                   {/* Readiness, as the one big ring the screen is allowed. */}
                   <Tile className="lg:col-span-5">
                     <div className="flex items-baseline justify-between gap-4">
@@ -855,6 +868,10 @@ export function DashboardPage() {
                       </ul>
                     </Tile>
                   )}
+                  </>
+                  )}
+                  {show.availability && (
+                  <>
                   {/* Estimate and outcome, side by side, same denominator. */}
                   <Tile className="lg:col-span-5">
                     <Eyebrow>People</Eyebrow>
@@ -921,7 +938,11 @@ export function DashboardPage() {
                       </>
                     )}
                   </Tile>
+                  </>
+                  )}
 
+                  {show.turnout && (
+                  <>
                   {/* Every team at a glance, worst first — the tile you scan
                       when you only have ten seconds before the doors.
 
@@ -963,8 +984,10 @@ export function DashboardPage() {
                       </p>
                     )}
                   </Tile>
+                  </>
+                  )}
 
-                  <ActivityFeed serviceId={service.id} className="lg:col-span-12" />
+                  {show.activity && <ActivityFeed serviceId={service.id} className="lg:col-span-12" />}
                     </>
                   )}
 

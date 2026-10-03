@@ -10,7 +10,7 @@ import { todayIso } from "../lib/monthGrid";
 import { DayHeading } from "../components/DayHeading";
 import { serviceDays } from "../lib/callTimes";
 import { formatServiceDay } from "../lib/sunday";
-import { useAppSettings } from "../lib/appSettings";
+import { useAppSettings, useDisplay } from "../lib/appSettings";
 import { useErrorText } from "../lib/useErrorText";
 import { useConfirmAction } from "../components/ConfirmAction";
 import { Chevron, useExpanded } from "../components/Collapsible";
@@ -70,7 +70,6 @@ import { formatRange } from "../lib/dateRange";
  */
 
 /** How far ahead the page lists services: three weeks, like the set lists. */
-const DEBRIEF_AHEAD_DAYS = 21;
 
 const fullName = (p: { first_name: string; last_name: string }) =>
   `${p.first_name} ${p.last_name}`;
@@ -295,6 +294,8 @@ export function DebriefsPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth();
   const { teamIds } = useMyTeams();
   const settings = useAppSettings();
+  // How far ahead services are listed — the church's choice.
+  const aheadDays = useDisplay().windows.debriefAheadDays;
   const errorText = useErrorText();
   const queryClient = useQueryClient();
   const today = todayIso();
@@ -326,11 +327,11 @@ export function DebriefsPage() {
             // Three weeks ahead, like the set lists, so the coming Sunday
             // is on the page before it happens; behind, as long as the
             // minutes are kept.
-            s.date <= shiftIsoDays(today, DEBRIEF_AHEAD_DAYS) &&
+            s.date <= shiftIsoDays(today, aheadDays) &&
             !isExpired(s.date, settings.debrief_retention_days, today),
         )
         .sort((a, b) => b.date.localeCompare(a.date)),
-    [servicesQuery.data, today, settings.debrief_retention_days],
+    [servicesQuery.data, today, settings.debrief_retention_days, aheadDays],
   );
 
   // When each service ended, on the same clock as every other page; the

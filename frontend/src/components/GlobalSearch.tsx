@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { usePageAccess } from '../lib/usePageAccess'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
@@ -41,9 +42,11 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
   { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
   { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
-  { label: 'Settings', detail: 'Your profile and appearance', to: '/settings/profile', keywords: 'profile account theme password' },
+  { label: 'Settings', detail: 'Your account, and how the church’s app behaves', to: '/settings', keywords: 'settings preferences account' },
+  { label: 'Profile', detail: 'Your name, contact details and dates', to: '/settings/profile', keywords: 'profile account name phone birthday password' },
+  { label: 'Appearance & alerts', detail: 'Theme, team style and phone notifications', to: '/settings/appearance', keywords: 'theme dark light mode appearance notifications push' },
   { label: 'Access & privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
-  { label: 'App settings', detail: 'The church’s clocks and windows', to: '/settings/church', keywords: 'settings timings rota window clear' },
+  { label: 'Timings', detail: 'The church’s clocks and windows', to: '/settings/timings', keywords: 'app settings timings rota window clear deadline' },
 ]
 
 const MIN_QUERY = 2
@@ -407,7 +410,13 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
     enabled,
   })
 
-  const hits = useMemo(() => results.data ?? [], [results.data])
+  // A page somebody cannot open is not offered as a way to move. (What the
+  // database refuses never comes back to be offered in the first place.)
+  const { canOpen } = usePageAccess()
+  const hits = useMemo(
+    () => (results.data ?? []).filter((hit) => hit.kind !== 'Page' || canOpen(hit.to)),
+    [results.data, canOpen],
+  )
 
   useEffect(() => setActive(0), [debounced])
   useEffect(() => input.current?.focus(), [])

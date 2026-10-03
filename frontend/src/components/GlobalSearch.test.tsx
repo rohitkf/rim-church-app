@@ -11,6 +11,11 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate }
 })
 
+// Who may open which page is lib/pageAccess's, tested there.
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ standing: 'admin', canOpen: () => true, settled: true }),
+}))
+
 /** Every source answers; only departments has anything to say. */
 const table = (rows: unknown[]) => {
   const builder: Record<string, unknown> = {}

@@ -55,8 +55,12 @@ export function InventoryIndexPage() {
 
       {/* Three figures, and the two that carry a judgement wear it: money
           that is actually in service reads as good news, anything flagged
-          reads as work. The count itself is just a count. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          reads as work. The count itself is just a count.
+
+          On a phone the money takes the full width and the two counts share
+          the row below it: three full-width tiles of one number each were a
+          screen and a half of figures before the first team. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         {(
           [
             { label: 'Items on the books', value: String(items.length), tone: 'plain', note: undefined },
@@ -74,7 +78,11 @@ export function InventoryIndexPage() {
             },
           ] as { label: string; value: string; tone: TileTone; note?: string }[]
         ).map((tile) => (
-          <Tile key={tile.label} tone={tile.tone}>
+          <Tile
+            key={tile.label}
+            tone={tile.tone}
+            className={tile.label === 'Value in service' ? 'order-first col-span-2 sm:order-none sm:col-span-1' : ''}
+          >
             <Eyebrow>{tile.label}</Eyebrow>
             <Statistic className="mt-2.5" value={tile.value} unit={tile.note} />
           </Tile>

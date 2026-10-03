@@ -108,10 +108,14 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
  * list — so the morning after a members' meeting it was the one kind that
  * simply stopped existing.
  */
-export function pastDiaryEntries(events: DiaryEvent[], today: string): DiaryEntry[] {
-  // The last year, the same distance back as the diary looks forward: a
-  // record of what this church has done lately, not everything it ever did.
-  const floor = addDays(today, -DIARY_WINDOW_DAYS)
+export function pastDiaryEntries(
+  events: DiaryEvent[],
+  today: string,
+  keepDays: number = DIARY_WINDOW_DAYS,
+): DiaryEntry[] {
+  // The last year unless the church says otherwise (Settings › Dashboard
+  // & lists): a record of what it has done lately, not everything it ever did.
+  const floor = addDays(today, -keepDays)
   return events
     .filter((event) => eventIsOver(event, today) && lastDayOf(event) >= floor)
     .map((event) => {

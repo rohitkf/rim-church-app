@@ -9,7 +9,7 @@ import {
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { TeamOnlyRoute } from './components/TeamOnlyRoute'
+import { PageGate } from './components/PageGate'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
@@ -22,6 +22,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
+import { ChurchSettingsRedirect } from './pages/ChurchSettingsRedirect'
 
 /*
  * Each page's code arrives when the page is first opened, not with the
@@ -96,36 +97,45 @@ const router = createBrowserRouter(
               and whatever anybody has bookmarked. */}
           <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/settings" lazy={page(() => import('./pages/SettingsPage'), 'SettingsPage')}>
-            <Route index element={<Navigate to="/settings/profile" replace />} />
+            {/* The index is the hall: every room, grouped. */}
+            <Route index element={null} />
             <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
+            <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
+            <Route path="timings" lazy={page(() => import('./pages/SettingsPage'), 'TimingsSettingsPane')} />
+            <Route path="retention" lazy={page(() => import('./pages/SettingsPage'), 'RetentionSettingsPane')} />
+            <Route path="display" lazy={page(() => import('./pages/SettingsPage'), 'DisplaySettingsPane')} />
+            <Route path="rota" lazy={page(() => import('./pages/SettingsPage'), 'RotaSettingsPane')} />
+            <Route path="giving" lazy={page(() => import('./pages/SettingsPage'), 'GivingSettingsPane')} />
+            <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
-            <Route path="church" lazy={page(() => import('./pages/SettingsPage'), 'ChurchSettingsPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
+            {/* App settings was one room holding four. Its old address,
+                and its old anchors, still land somewhere sensible. */}
+            <Route path="church" element={<ChurchSettingsRedirect />} />
+            <Route path="*" element={<Navigate to="/settings" replace />} />
           </Route>
-          <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
-          <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
-          <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
-          {/* For every member, a team or not: it is how anybody gives. */}
-          <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
-          <Route path="/updates" lazy={page(() => import('./pages/ChurchUpdatesPage'), 'ChurchUpdatesPage')} />
-          <Route path="/polls" lazy={page(() => import('./pages/PollsPage'), 'PollsPage')} />
-          {/* Teams always; everybody when App settings let everybody raise
-              one — so the page decides, not TeamOnlyRoute. */}
+          {/* Issues decides for itself: teams always, everybody when the
+              church lets everybody raise one (Settings › Timings). */}
           <Route path="/issues" lazy={page(() => import('./pages/IssuesPage'), 'IssuesPage')} />
-          <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
-          <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
-          <Route path="/service-planner" lazy={page(() => import('./pages/ServicePlannerIndexPage'), 'ServicePlannerIndexPage')} />
-          <Route path="/service-planner/templates" lazy={page(() => import('./pages/ServiceTemplatesPage'), 'ServiceTemplatesPage')} />
-          <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
-          {/* The teams' own pages. Somebody who has signed up but has not
-              been put on a team yet has nothing in any of them, so they go
-              back to the dashboard rather than meeting three empty rooms —
-              and the database refuses the rows regardless (0080). */}
-          <Route element={<TeamOnlyRoute />}>
-            {/* A rota, an availability answer and a checklist are all
-                somebody's team's. On no team they are three empty pages. */}
+          {/* Every other page a church can open or close to some of its
+              people (Settings › Access & privileges, lib/pageAccess).
+              Somebody a page is closed to goes back to the dashboard rather
+              than meeting an empty room — and wherever it can, the database
+              refuses the rows too (0123). */}
+          <Route element={<PageGate />}>
+            <Route path="/service-planner" lazy={page(() => import('./pages/ServicePlannerIndexPage'), 'ServicePlannerIndexPage')} />
+            <Route path="/service-planner/templates" lazy={page(() => import('./pages/ServiceTemplatesPage'), 'ServiceTemplatesPage')} />
+            <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
+            <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
+            <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
+            <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
+            <Route path="/updates" lazy={page(() => import('./pages/ChurchUpdatesPage'), 'ChurchUpdatesPage')} />
+            <Route path="/polls" lazy={page(() => import('./pages/PollsPage'), 'PollsPage')} />
+            <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
+            <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
+            <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
             <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
             <Route path="/checklists/:departmentId/:serviceId" lazy={page(() => import('./pages/DepartmentPrepPage'), 'DepartmentPrepPage')} />
             <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />

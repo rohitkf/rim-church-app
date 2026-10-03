@@ -121,8 +121,7 @@ export function AppLogoCard() {
   if (!isSuperAdmin) {
     return (
       <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-        <h2 className="text-headline-md">App logo</h2>
-        <p className="mt-2 text-body-sm text-on-surface-variant">
+        <p className="text-body-sm text-on-surface-variant">
           The mark at the top of every page is the owner&rsquo;s to choose. Ask whoever owns this
           app to change it.
         </p>
@@ -134,8 +133,7 @@ export function AppLogoCard() {
 
   return (
     <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-      <h2 className="text-headline-md">App logo</h2>
-      <p className="mt-1.5 text-body-sm text-on-surface-variant">
+      <p className="text-body-sm text-on-surface-variant">
         The mark at the top-left of every page. Yours to choose, and yours alone — an Admin can set
         the church&rsquo;s clocks but not its face.
       </p>

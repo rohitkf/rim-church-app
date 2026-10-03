@@ -17,7 +17,7 @@ import { skyStyle } from '../lib/coordinatorSky'
 import { TEAM_COLORS, normaliseHex } from '../lib/teamColors'
 import { useConfirmAction } from './ConfirmAction'
 import { QueryState } from './QueryState'
-import { ActionButton, inputClasses } from './Surface'
+import { ActionButton, SectionTile, inputClasses } from './Surface'
 
 /**
  * How the Team Rota looks, in the church's own words and colours: the tags
@@ -35,17 +35,21 @@ export function RotaLookCard() {
   const { isAdmin } = useAuth()
   if (!isAdmin) return null
   return (
-    <section id="rota" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-      <h2 className="text-headline-md">Team Rota</h2>
-      <p className="mt-1 text-body-sm text-on-surface-variant">
-        The tags a role can carry, and how the Team Coordinator stands out. Everyone sees these on
-        the rota; only an Admin changes them.
-      </p>
-      <div className="mt-6 flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
+      <SectionTile
+        id="rota"
+        title="Tags"
+        hint="Chips a Head can add to a role — “Shadow” for somebody learning it, and whatever else your church needs."
+      >
         <TagsSection />
+      </SectionTile>
+      <SectionTile
+        title="Team Coordinator"
+        hint="Their row on the rota is a starry sky, so the team can see who to look to. Keep the night, or pick a colour."
+      >
         <CoordinatorSection />
-      </div>
-    </section>
+      </SectionTile>
+    </div>
   )
 }
 
@@ -113,17 +117,11 @@ function TagsSection() {
 
   return (
     <div>
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-        Tags
-      </div>
-      <p className="mt-1 text-label-md text-on-surface-faint">
-        Offered as chips when a Head assigns a role — “Shadow” for somebody learning it,
-        and whatever else your church needs. A role can carry several. A tag is a label, not a
-        rule: a shadow is still that person’s one role at the service.
-      </p>
+      {/* A role can carry several. A tag is a label, not a rule: a
+          shadow is still that person’s one role at the service. */}
 
       <QueryState isLoading={tagsQuery.isLoading} error={tagsQuery.error}>
-        <ul className="mt-4 flex flex-col gap-2" aria-label="Rota tags">
+        <ul className="flex flex-col gap-2" aria-label="Rota tags">
           {tags.length === 0 && (
             <li className="rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
               No tags yet. Add the first below.
@@ -348,15 +346,7 @@ function CoordinatorSection() {
 
   return (
     <div>
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-        Team Coordinator
-      </div>
-      <p className="mt-1 text-label-md text-on-surface-faint">
-        The Coordinator’s row is a starry sky with a glisten across it, so the team can see at a
-        glance who to look to. Keep the night sky, or give it your own colour.
-      </p>
-
-      <div className="mt-4 flex flex-col gap-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
+      <div className="flex flex-col gap-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
         <ColorSwatches
           label="Sky colour"
           value={chosen}

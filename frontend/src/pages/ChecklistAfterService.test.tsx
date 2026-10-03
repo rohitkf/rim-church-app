@@ -91,9 +91,14 @@ vi.mock('../lib/useFinishedServices', () => ({
   }),
 }))
 
-vi.mock('../lib/appSettings', () => ({
-  useAppSettings: () => ({ rota_window_days: 14, after_service_checklist_minutes: 120 }),
-}))
+// The pages' display preferences, at the app's own defaults.
+vi.mock('../lib/appSettings', async () => {
+  const { DISPLAY_DEFAULTS } = await import('../lib/display')
+  return {
+    useDisplay: () => DISPLAY_DEFAULTS,
+    useAppSettings: () => ({ rota_window_days: 14, after_service_checklist_minutes: 120 }),
+  }
+})
 
 function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

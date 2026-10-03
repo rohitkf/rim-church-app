@@ -22,12 +22,16 @@ export const AVAILABILITY_WINDOW_DAYS = 21
 /**
  * The window the tracker actually uses.
  *
- * Never less than three weeks, and never narrower than the church's own
+ * Three weeks unless the church says otherwise (Settings › Dashboard &
+ * lists), and never narrower than the church's own
  * setting: a church that plans two months out has said so, and the page
  * that asks "can you serve" should not be the one that hides the question.
  */
-export function availabilityWindowDays(rotaWindowDays: number): number {
-  return Math.max(AVAILABILITY_WINDOW_DAYS, rotaWindowDays)
+export function availabilityWindowDays(
+  rotaWindowDays: number,
+  askDays: number = AVAILABILITY_WINDOW_DAYS,
+): number {
+  return Math.max(askDays, rotaWindowDays)
 }
 
 
@@ -44,6 +48,10 @@ export function opensByDefault(inNowGroup: boolean, finished: boolean): boolean 
 }
 
 /** The horizon the tracker fetches to, as a date. */
-export function availabilityHorizon(today: string, rotaWindowDays: number): string {
-  return shiftIsoDays(today, availabilityWindowDays(rotaWindowDays))
+export function availabilityHorizon(
+  today: string,
+  rotaWindowDays: number,
+  askDays: number = AVAILABILITY_WINDOW_DAYS,
+): string {
+  return shiftIsoDays(today, availabilityWindowDays(rotaWindowDays, askDays))
 }

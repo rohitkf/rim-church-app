@@ -19,8 +19,11 @@ import {
   UsersIcon,
 } from '../components/icons'
 
-/** A destination, and who it is offered to. Where it sits is lib/navLayout's. */
-export type NavItem = DockItem & { adminOnly?: boolean; teamOnly?: boolean; issues?: boolean }
+/**
+ * A destination. Who it is offered to is lib/pageAccess's (the church's
+ * choice); where it sits is lib/navLayout's.
+ */
+export type NavItem = DockItem
 
 /*
  * The destinations, in the order a Sunday actually happens.
@@ -53,21 +56,21 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday' },
 
   // Your Sunday, in the order it happens to you, ending with the songs.
-  { to: '/availability', label: 'Availability', icon: UserCheckIcon, teamOnly: true, group: 'Sunday' },
-  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, teamOnly: true, group: 'Sunday' },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, teamOnly: true, group: 'Sunday' },
+  { to: '/availability', label: 'Availability', icon: UserCheckIcon, group: 'Sunday' },
+  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, group: 'Sunday' },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, group: 'Sunday' },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
-  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, teamOnly: true, group: 'After the service' },
+  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, group: 'After the service' },
   // What somebody noticed that a team has to put right. Teams always see
   // it; everybody does once App settings let everybody raise one.
-  { to: '/issues', label: 'Issues', icon: WarningIcon, issues: true, group: 'After the service' },
+  { to: '/issues', label: 'Issues', icon: WarningIcon, group: 'After the service' },
 
   // Talking about it. Nothing in either belongs to somebody who is not on
   // a team yet, so neither is offered until they are.
-  { to: '/messages', label: 'Messages', icon: MessageIcon, teamOnly: true, group: 'Talk' },
-  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, teamOnly: true, group: 'Talk' },
+  { to: '/messages', label: 'Messages', icon: MessageIcon, group: 'Talk' },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, group: 'Talk' },
   // For everybody, Church Members included: what the church is saying,
   // and what it is asking.
   { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon, group: 'Talk' },
@@ -78,6 +81,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/events', label: 'Events', icon: CakeIcon, group: 'Church life' },
   { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
   { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & things' },
-  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, adminOnly: true, group: 'People & things' },
-  { to: '/inventory', label: 'Inventory', icon: BoxIcon, teamOnly: true, group: 'People & things' },
+  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, group: 'People & things' },
+  { to: '/inventory', label: 'Inventory', icon: BoxIcon, group: 'People & things' },
 ]

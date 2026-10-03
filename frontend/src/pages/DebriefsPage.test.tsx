@@ -55,9 +55,14 @@ vi.mock('../lib/monthGrid', async () => {
   return { ...actual, todayIso: () => TODAY }
 })
 
-vi.mock('../lib/appSettings', () => ({
-  useAppSettings: () => ({ debrief_retention_days: state.retention, debrief_open_minutes_after: 720 }),
-}))
+// The pages' display preferences, at the app's own defaults.
+vi.mock('../lib/appSettings', async () => {
+  const { DISPLAY_DEFAULTS } = await import('../lib/display')
+  return {
+    useDisplay: () => DISPLAY_DEFAULTS,
+    useAppSettings: () => ({ debrief_retention_days: state.retention, debrief_open_minutes_after: 720 }),
+  }
+})
 
 vi.mock('../lib/queries', () => ({
   fetchServices: () =>

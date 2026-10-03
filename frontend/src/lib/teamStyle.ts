@@ -34,3 +34,10 @@ export function writeTeamStyle(preference: TeamStylePreference) {
     // ignore — the choice still holds for this session
   }
 }
+
+// How a team's colour is drawn everywhere it appears. Same colour either
+// way — this only decides how much of the row it is allowed to use.
+export const TEAM_STYLE_CHOICES: { value: TeamStylePreference; label: string }[] = [
+  { value: 'dot', label: 'Dot' },
+  { value: 'gradient', label: 'Gradient' },
+]

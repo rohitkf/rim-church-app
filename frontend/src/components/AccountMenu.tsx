@@ -6,23 +6,10 @@ import { fetchDepartments } from '../lib/queries'
 import { viewAsLabel } from '../lib/viewAs'
 import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
-import type { ThemePreference } from '../lib/theme'
-import type { TeamStylePreference } from '../lib/teamStyle'
+import { THEME_CHOICES } from '../lib/theme'
+import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
 import { SettingsIcon, UserCircleIcon } from './icons'
 import { ageFrom } from '../lib/celebrations'
-
-const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'Auto' },
-]
-
-// How a team's colour is drawn everywhere it appears. Same colour either
-// way — this only decides how much of the row it is allowed to use.
-const TEAM_STYLE_CHOICES: { value: TeamStylePreference; label: string }[] = [
-  { value: 'dot', label: 'Dot' },
-  { value: 'gradient', label: 'Gradient' },
-]
 
 interface AccountMenuProps {
   initials: string
@@ -168,7 +155,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
 
           {canPreview && <ViewAsSection onChosen={() => setOpen(false)} />}
 
-          <Link to="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
+          <Link to="/settings" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />
             Settings
           </Link>

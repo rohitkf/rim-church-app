@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
 import { FinishedServices } from './FinishedServices'
 import type { SectionedServices } from '../lib/serviceSections'
+import { useDisplay } from '../lib/appSettings'
 
 /**
  * The four sections, drawn the same way on every page that lists
  * services: Today's services (only on the day), Next service (the nearest
  * service day after today), then Upcoming services and Finished services,
- * both folded until opened.
+ * both folded until opened — unless the church has said either should
+ * start open (Settings › Dashboard & lists).
  *
  * The page says how to draw a run of services (`render`), and which
  * sections it has at all — Debriefs has no Next or Upcoming, since
@@ -34,6 +36,8 @@ export function ServiceSections<T>({
   /** Arrive with Finished open — for a link pointing inside it. */
   finishedOpen?: boolean
 }) {
+  const { lists } = useDisplay()
+  const startOpen = finishedOpen || lists.finishedOpen
   const next = has.next ? sections.next : []
   const upcoming = has.upcoming ? sections.upcoming : []
   const nothingCurrent = sections.today.length + next.length + upcoming.length === 0
@@ -47,7 +51,13 @@ export function ServiceSections<T>({
       {/* Folded like Finished: the next service is the one in front of
           you, and everything after it is a tap away rather than a scroll. */}
       {upcoming.length > 0 && (
-        <FinishedServices count={upcoming.length} id={`${finishedId}-upcoming`} label="Upcoming services">
+        <FinishedServices
+          key={lists.upcomingOpen ? 'upcoming-open' : 'upcoming-shut'}
+          count={upcoming.length}
+          id={`${finishedId}-upcoming`}
+          label="Upcoming services"
+          defaultOpen={lists.upcomingOpen}
+        >
           {render(upcoming, false)}
         </FinishedServices>
       )}
@@ -56,12 +66,12 @@ export function ServiceSections<T>({
         <FinishedServices
           // Re-made when it should start open, which can only be known
           // once the services' times have loaded.
-          key={finishedOpen ? 'open' : 'shut'}
+          key={startOpen ? 'finished-open' : 'finished-shut'}
           count={sections.finished.length}
           id={finishedId}
           label="Finished services"
           aside={finishedAside}
-          defaultOpen={finishedOpen}
+          defaultOpen={startOpen}
         >
           {render(sections.finished, true)}
         </FinishedServices>

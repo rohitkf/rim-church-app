@@ -113,6 +113,6 @@ describe('arranging the menu', () => {
   it('is not there for anybody but an Admin', () => {
     auth.isAdmin = false
     show()
-    expect(screen.queryByRole('heading', { name: 'Menu' })).toBeNull()
+    expect(screen.queryByRole('list', { name: 'Menu arrangement' })).toBeNull()
   })
 })

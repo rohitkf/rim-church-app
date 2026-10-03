@@ -26,7 +26,13 @@ type Settings = Pick<
   | 'edit_grace_minutes'
   | 'after_service_checklist_minutes'
   | 'availability_closes_time'
->
+  | 'team_chat_retention_days'
+  | 'church_update_retention_days'
+  | 'poll_retention_days'
+> & {
+  /** How far either side of today Set Lists looks (a display preference). */
+  set_list_days: number
+}
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -45,6 +51,10 @@ const FALLBACK: Settings = {
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   availability_closes_time: '23:59:00',
+  team_chat_retention_days: null,
+  church_update_retention_days: null,
+  poll_retention_days: null,
+  set_list_days: 21,
 }
 
 /** 120 → "2 hours", 90 → "1 hour 30 minutes", 0 → "no time at all". */
@@ -81,6 +91,8 @@ export type LifespanPage =
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
+  const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`
+  const span = (n: number) => (n % 7 === 0 ? `${n / 7} ${n === 7 ? 'week' : 'weeks'}` : days(n))
   for (const key of Object.keys(FALLBACK) as (keyof Settings)[]) {
     if (given[key] !== undefined && given[key] !== null) (s as Record<string, unknown>)[key] = given[key]
   }
@@ -102,13 +114,19 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'planner':
       return `Finished services leave this list each ${clearDay} and stay in the calendar. A running order locks ${grace} after its service ends.`
     case 'set-lists':
-      return 'Shows three weeks either side of today. A set list locks when its service finishes; nothing is deleted.'
+      return `Shows ${span(s.set_list_days)} either side of today. A set list locks when its service finishes; nothing is deleted.`
     case 'polls':
-      return 'Polls stay until they are deleted. Answers lock at a poll’s deadline, if it has one.'
+      return s.poll_retention_days === null
+        ? 'Polls stay until they are deleted. Answers lock at a poll’s deadline, if it has one.'
+        : `A poll is deleted ${days(s.poll_retention_days)} after it closes (or after it was made, if it never closes). Answers lock at a poll’s deadline, if it has one.`
     case 'updates':
-      return 'Updates stay until an Admin deletes them.'
+      return s.church_update_retention_days === null
+        ? 'Updates stay until an Admin deletes them.'
+        : `An update is deleted ${days(s.church_update_retention_days)} after it is posted, unless it is pinned.`
     case 'team-chat':
-      return 'Nothing here clears on its own — messages stay until they are deleted.'
+      return s.team_chat_retention_days === null
+        ? 'Nothing here clears on its own — messages stay until they are deleted.'
+        : `Messages are deleted ${days(s.team_chat_retention_days)} after they are posted.`
     case 'issues':
       return `Issues can be raised from ${formatMinutes(s.issue_open_minutes_before)} before a service starts until ${formatMinutes(s.issue_close_minutes_after)} after it ends (Heads and Admins, any time). A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after a Head marks it; not resolved and persistent ones stay until they are resolved. Finished services stay listed for ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'}.`
   }

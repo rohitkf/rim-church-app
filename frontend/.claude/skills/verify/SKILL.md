@@ -26,7 +26,7 @@ backend is fixtures.
 4. Screenshot at 412px and 1100px.
 5. Before any push that touches more than one page, run the whole-app
    sweep: `S=<scratch> node .claude/skills/verify/sweep.mjs` (preview on
-   :4411). It opens all 22 pages at 360px against shared fixtures — two
+   :4411). It opens every page at 360px against shared fixtures — two
    services every Sunday, today's already over — and exits 1 if any page
    crashes, logs an error or scrolls sideways. `WIDTH=412` to change size.
 6. Stop the preview server by PID when done
