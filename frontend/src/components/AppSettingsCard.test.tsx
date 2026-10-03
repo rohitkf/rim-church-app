@@ -98,9 +98,11 @@ describe('the App settings card', () => {
 
     await waitFor(() => expect(saved).toHaveBeenCalledTimes(1))
     expect(saved.mock.calls[0][0]).toMatchObject({ edit_grace_minutes: 720 })
-    // The Coordinator's colour has its own Save in the Team Rota card; this
-    // one sending its stale copy would undo a colour chosen there.
-    expect(saved.mock.calls[0][0]).not.toHaveProperty('coordinator_color')
+    // Every other room's settings stay out of it: sending this room's
+    // stale copy of them would undo a choice made there since it loaded.
+    for (const theirs of ['coordinator_color', 'page_access', 'display', 'nav_layout', 'logo_url', 'debrief_retention_days', 'board_clear_dow']) {
+      expect(saved.mock.calls[0][0]).not.toHaveProperty(theirs)
+    }
   })
 
   it('offers nothing to save until something has changed', async () => {
@@ -133,7 +135,7 @@ describe('the App settings card', () => {
 
   it('groups the settings by the moment in the week they govern', async () => {
     await show()
-    for (const heading of ['Planning ahead', 'On the day', 'After the service', 'Issues', 'Availability', 'Tidying up']) {
+    for (const heading of ['Planning ahead', 'On the day', 'After the service', 'Issues', 'Availability']) {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
   })

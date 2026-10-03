@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAppSettings } from '../lib/appSettings'
+import { useAppSettings, useDisplay } from '../lib/appSettings'
 import { formatCountdown } from '../lib/boardClear'
 import { lifespanOf, type LifespanPage } from '../lib/lifespan'
 
@@ -21,6 +21,7 @@ export function Lifespan({
   className?: string
 }) {
   const settings = useAppSettings()
+  const setListDays = useDisplay().windows.setListDays
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!until) return
@@ -56,7 +57,7 @@ export function Lifespan({
             .{' '}
           </>
         )}
-        {lifespanOf(page, settings, new Date(now))}
+        {lifespanOf(page, { ...settings, set_list_days: setListDays }, new Date(now))}
       </span>
     </p>
   )

@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import {
+  ArchiveIcon,
   ClipboardUserIcon,
+  GridIcon,
   GiftHeartIcon,
   ImageIcon,
   ListIcon,
@@ -82,6 +84,24 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         keywords: 'app settings clocks windows rota window grace debrief issues availability deadline timezone',
       },
       {
+        to: '/settings/retention',
+        label: 'Data & retention',
+        blurb: 'How long each page keeps things, and when it clears.',
+        icon: ArchiveIcon,
+        tone: 'orange',
+        needs: 'admin',
+        keywords: 'retention delete clear keep history notifications chat polls updates debriefs issues board',
+      },
+      {
+        to: '/settings/display',
+        label: 'Dashboard & lists',
+        blurb: 'What the Dashboard shows, and what starts open.',
+        icon: GridIcon,
+        tone: 'blue',
+        needs: 'admin',
+        keywords: 'dashboard display collapsed expanded folded open services days window',
+      },
+      {
         to: '/settings/rota',
         label: 'Team Rota',
         blurb: 'Role tags, and how the Team Coordinator stands out.',
@@ -116,11 +136,11 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/access',
         label: 'Access & privileges',
-        blurb: 'Who can do what, across the whole app.',
+        blurb: 'Who can open each page, and who can do what.',
         icon: ShieldIcon,
         tone: 'indigo',
         needs: 'admin',
-        keywords: 'permissions roles admin head coordinator member',
+        keywords: 'permissions roles admin head coordinator member pages profiles church member see hide',
       },
       {
         to: '/settings/alerts',

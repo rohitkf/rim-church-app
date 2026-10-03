@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Eyebrow, IconBadge, PageHeader, Tile } from '../components/Surface'
@@ -11,6 +12,12 @@ import { PermissionsCard } from '../components/PermissionsCard'
 import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
+import { PageAccessCard } from '../components/PageAccessCard'
+import { RetentionCard } from '../components/RetentionCard'
+import { DisplayCard } from '../components/DisplayCard'
+import { useAppSettings } from '../lib/appSettings'
+import { withPageAccess } from '../lib/permissionMatrix'
+import type { PageAccess } from '../lib/pageAccess'
 import {
   maySee,
   sectionFor,
@@ -227,9 +234,51 @@ export function AppearanceSettingsPane() {
   return <AppearanceCard />
 }
 
-/** Who can do what. */
+/**
+ * Who can do what: the pages the church opens to each profile, and the
+ * full reference of every rule — the second redrawn with the first's
+ * choices, so the two can never tell different stories.
+ */
 export function AccessSettingsPane() {
-  return <PermissionsCard />
+  const [tab, setTab] = useState<'pages' | 'rules'>('pages')
+  const settings = useAppSettings()
+  const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope)
+  return (
+    <div className="flex flex-col gap-4">
+      <div role="tablist" aria-label="Access" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
+        {(
+          [
+            ['pages', 'Pages'],
+            ['rules', 'Every rule'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            onClick={() => setTab(value)}
+            className={`tap rounded-full px-4 py-2 text-label-md transition-colors duration-300 ${
+              tab === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
+    </div>
+  )
+}
+
+/** How long each page keeps things. */
+export function RetentionSettingsPane() {
+  return <RetentionCard />
+}
+
+/** What the pages show, and what starts open. */
+export function DisplaySettingsPane() {
+  return <DisplayCard />
 }
 
 /** The loudest thing the app can do, and who it is aimed at. */

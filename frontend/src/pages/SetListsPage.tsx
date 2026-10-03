@@ -24,9 +24,9 @@ import {
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { useDisplay } from '../lib/appSettings'
 import { useErrorText } from '../lib/useErrorText'
 import {
-  SET_LIST_DAYS,
   SONG_KEYS,
   groupSetListServices,
   nextSongOrder,
@@ -60,6 +60,8 @@ export function SetListsPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
+  // How far ahead (and back) the page looks — the church's choice.
+  const lookDays = useDisplay().windows.setListDays
   const [error, setError] = useState<string | null>(null)
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
@@ -82,8 +84,8 @@ export function SetListsPage() {
   // the same horizon people answer availability over — and the last three
   // weeks behind, under Finished.
   const groups = useMemo(
-    () => groupSetListServices(servicesQuery.data ?? [], today, isFinished),
-    [servicesQuery.data, today, isFinished],
+    () => groupSetListServices(servicesQuery.data ?? [], today, isFinished, lookDays),
+    [servicesQuery.data, today, isFinished, lookDays],
   )
   const services = useMemo(
     () => [...groups.today, ...groups.next, ...groups.upcoming, ...groups.finished],
@@ -323,7 +325,7 @@ export function SetListsPage() {
           sections={groups}
           finishedId="finished-set-lists"
           render={(list, finished) => renderDays(list, finished)}
-          empty={`Nothing ahead in the next ${SET_LIST_DAYS / 7} weeks.`}
+          empty={`Nothing ahead in the next ${lookDays % 7 === 0 ? `${lookDays / 7} weeks` : `${lookDays} days`}.`}
         />
       </QueryState>
     </div>

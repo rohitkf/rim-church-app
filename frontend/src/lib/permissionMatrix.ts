@@ -17,6 +17,8 @@
  * rather than implying an accuracy it cannot promise.
  */
 
+import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
+
 export const CHECKED_ON = '27 September 2026'
 
 /** The standings a person can hold. Columns, left to right. */
@@ -60,6 +62,12 @@ export interface Capability {
   /** Said out loud when the answer needs a sentence rather than a tick. */
   note?: string
   can: Record<RoleKey, Allowed>
+  /**
+   * The page whose "who can open it" setting decides this row (Settings ›
+   * Access & privileges › Pages). The grid above is the app's defaults;
+   * `withPageAccess` redraws these rows with the church's own choices.
+   */
+  page?: string
 }
 
 export interface PermissionArea {
@@ -103,6 +111,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See the church diary',
+        page: '/events',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
       },
       {
@@ -122,6 +131,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See the rota',
+        page: '/rota',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
@@ -218,6 +228,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See the register and its documents',
+        page: '/inventory',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Any team’s, by anybody on a team. Somebody on no team sees none of it.',
       },
@@ -241,6 +252,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'Read the message board',
+        page: '/messages',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'The church-wide board, for anybody on a team.',
       },
@@ -262,6 +274,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See and answer a poll',
+        page: '/polls',
         can: all({
           owner: 'own',
           admin: 'own',
@@ -274,6 +287,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Read the church updates',
+        page: '/updates',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
       },
       {
@@ -337,6 +351,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'Read a team’s debrief',
+        page: '/debriefs',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team. It was readable by anybody signed in until 27 September 2026 (0109).',
       },
@@ -362,6 +377,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See how to give — bank details and giving links',
+        page: '/giving',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
         note: 'Every member. No payment passes through the app: a link opens the provider’s own page.',
       },
@@ -421,3 +437,37 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
 ]
+
+/** The page standing each column is, for the purpose of opening pages. */
+const COLUMN_STANDING: Record<RoleKey, Standing> = {
+  owner: 'admin',
+  admin: 'admin',
+  head: 'lead',
+  coordinator: 'member',
+  member: 'member',
+  newcomer: 'church',
+}
+
+/**
+ * The grid as this church has set it: every row tied to a page reads
+ * "yes" for a standing the page is now open to, and "no" for one it is
+ * closed to. A narrower answer that still holds ("own", "team") is kept,
+ * because opening the page does not widen it.
+ */
+export function withPageAccess(access: PageAccess, issuesScope?: string): PermissionArea[] {
+  return PERMISSIONS.map((area) => ({
+    ...area,
+    capabilities: area.capabilities.map((c) => {
+      if (!c.page) return c
+      const level = levelOf(c.page, access, issuesScope)
+      const can = Object.fromEntries(
+        (Object.keys(c.can) as RoleKey[]).map((role) => {
+          const open = standingMayOpen(COLUMN_STANDING[role], level)
+          const was = c.can[role]
+          return [role, !open ? 'no' : was === 'no' ? 'yes' : was]
+        }),
+      ) as Record<RoleKey, Allowed>
+      return { ...c, can }
+    }),
+  }))
+}

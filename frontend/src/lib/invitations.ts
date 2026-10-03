@@ -23,10 +23,14 @@ export type InvitationStatus = 'accepted' | 'waiting' | 'stale'
  */
 export const STALE_AFTER_DAYS = 14
 
-export function invitationStatus(invitation: Invitation, now: number = Date.now()): InvitationStatus {
+export function invitationStatus(
+  invitation: Invitation,
+  now: number = Date.now(),
+  staleDays: number = STALE_AFTER_DAYS,
+): InvitationStatus {
   if (invitation.accepted_at) return 'accepted'
   const ageMs = now - new Date(invitation.created_at).getTime()
-  return ageMs >= STALE_AFTER_DAYS * 86_400_000 ? 'stale' : 'waiting'
+  return ageMs >= staleDays * 86_400_000 ? 'stale' : 'waiting'
 }
 
 export type InvitationFilter = 'all' | 'outstanding' | 'accepted'

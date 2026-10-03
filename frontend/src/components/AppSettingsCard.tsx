@@ -1,22 +1,14 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
+import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { useErrorText } from '../lib/useErrorText'
 import { QueryState } from './QueryState'
 import { NumberDial } from './NumberDial'
 import { TimeField } from './DateTimeFields'
-import {
-  DEFAULT_SETTINGS,
-  SETTINGS_KEY,
-  WEEKDAY_NAMES,
-  fetchAppSettings,
-  type AppSettings,
-} from '../lib/appSettings'
+import { DEFAULT_SETTINGS, type AppSettings } from '../lib/appSettings'
+import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { shortDuration } from '../lib/settingsReadout'
 import { Select, selectPillClasses } from './Select'
-import { ActionButton, Pill, SectionTile } from './Surface'
-import { Chevron } from './Collapsible'
+import { SectionTile } from './Surface'
+import { InlineRow, SaveBar, SettingList, SettingRow, Switch } from './SettingRows'
 
 /**
  * A few zones to pick from without typing. Free text underneath, because
@@ -44,7 +36,7 @@ const TIMEZONES = [
  *
  * Every field here used to be a number in the source. They are grouped by
  * the moment in a church's week they govern — planning ahead, the day
- * itself, the hours after, issues, availability, and the tidying-up — because
+ * itself, the hours after, issues and availability — because
  * the question an Admin arrives with is "why am I not seeing next Sunday
  * yet", a question about a moment, not about integers.
  *
@@ -59,15 +51,27 @@ const TIMEZONES = [
  * church that has tuned itself into a corner can find its way out without
  * asking anybody.
  */
-type NumberKey = keyof Omit<
-  AppSettings,
-  | 'always_show_my_services'
-  | 'board_clear_dow'
-  | 'logo_url'
-  | 'timezone'
-  | 'availability_closes_time'
-  | 'coordinator_color'
-  | 'issues_raise_scope'
+/** The keys this room owns, and saves — no other room's. */
+const TIMINGS_KEYS = [
+  'rota_window_days',
+  'always_show_my_services',
+  'lead_in_minutes',
+  'run_out_minutes',
+  'edit_grace_minutes',
+  'after_service_checklist_minutes',
+  'debrief_open_minutes_after',
+  'issues_raise_scope',
+  'issue_open_minutes_before',
+  'issue_close_minutes_after',
+  'availability_closes_time',
+  'timezone',
+] as const satisfies readonly (keyof AppSettings)[]
+
+type TimingsKey = (typeof TIMINGS_KEYS)[number]
+
+type NumberKey = Exclude<
+  TimingsKey,
+  'always_show_my_services' | 'issues_raise_scope' | 'availability_closes_time' | 'timezone'
 >
 
 type NumberField = {
@@ -88,7 +92,7 @@ type NumberField = {
   unit: 'minutes' | 'days'
 }
 
-const FIELDS: Record<string, NumberField> = {
+const FIELDS: Record<NumberKey, NumberField> = {
   rota_window_days: {
     key: 'rota_window_days',
     label: 'Days ahead',
@@ -189,30 +193,6 @@ const FIELDS: Record<string, NumberField> = {
     majorEvery: 4,
     unit: 'minutes',
   },
-  debrief_retention_days: {
-    key: 'debrief_retention_days',
-    label: 'Debrief minutes are kept for',
-    summary: 'Working notes, not an archive — then they are deleted.',
-    help: 'Minutes are working notes rather than an archive: they say what went wrong and often name whoever it went wrong for, which is fine for a fortnight and a file on somebody after a year. The clock runs from the service date, not from when they were typed, so every team’s minutes for one Sunday go together. A nightly job deletes them — deletes, not hides.',
-    affects: ['Debriefs'],
-    min: 1,
-    max: 365,
-    dialMax: 120,
-    majorEvery: 7,
-    unit: 'days',
-  },
-  issue_retention_days: {
-    key: 'issue_retention_days',
-    label: 'Resolved issues are kept for',
-    summary: 'Long enough for everyone to see it was dealt with.',
-    help: 'Once a Head of the team marks an issue resolved, it stays on the Issues page this many days so everyone can see it was dealt with and by whom, then a nightly job deletes it. Open, not resolved and persistent issues are never deleted on a clock — they stay until a Head marks them resolved. The same number of days is how far back the Issues page’s Finished list goes.',
-    affects: ['Issues'],
-    min: 1,
-    max: 365,
-    dialMax: 120,
-    majorEvery: 7,
-    unit: 'days',
-  },
 }
 
 const SCOPES: { value: AppSettings['issues_raise_scope']; label: string }[] = [
@@ -223,45 +203,12 @@ const SCOPES: { value: AppSettings['issues_raise_scope']; label: string }[] = [
 
 export function AppSettingsCard() {
   const { isAdmin } = useAuth()
-  const errorText = useErrorText()
-  const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<AppSettings | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const room = useSettingsDraft(TIMINGS_KEYS)
   const [open, setOpen] = useState<string | null>(null)
-
-  const query = useQuery({ queryKey: SETTINGS_KEY, queryFn: fetchAppSettings })
-  useEffect(() => {
-    if (query.data) setDraft(query.data)
-  }, [query.data])
-
-  const save = useMutation({
-    mutationFn: async (next: AppSettings) => {
-      // The Coordinator's colour has its own room and its own Save; sending
-      // this draft's copy of it would quietly undo a colour chosen there
-      // since this page loaded.
-      const { coordinator_color: _theirs, ...mine } = next
-      const { error } = await supabase.from('app_settings').update(mine).eq('id', true)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      setError(null)
-      setSaved(true)
-      // Every page reads these, and most of them are already on screen
-      // behind this one, so the whole cache is the honest thing to drop.
-      queryClient.invalidateQueries()
-    },
-    onError: (err: unknown) => setError(errorText(err, 'Could not save the settings.')),
-  })
 
   if (!isAdmin) return null
 
-  const set = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    setSaved(false)
-    setDraft((current) => (current ? { ...current, [key]: value } : current))
-  }
-  const changed = !!draft && !!query.data && JSON.stringify(draft) !== JSON.stringify(query.data)
-  const differs = (key: keyof AppSettings) => !!draft && !!query.data && draft[key] !== query.data[key]
+  const { draft, set, differs } = room
   const toggle = (key: string) => setOpen((current) => (current === key ? null : key))
 
   /** A number row: name, line and value; the ruler opens beneath it. */
@@ -303,11 +250,12 @@ export function AppSettingsCard() {
 
   return (
     <div id="timings" className="flex w-full scroll-mt-24 flex-col gap-4">
-      <QueryState isLoading={query.isLoading} error={query.error}>
+      <QueryState isLoading={room.query.isLoading} error={room.query.error}>
         {draft && (
           <>
             <p className="px-1 text-body-sm text-on-surface-variant">
-              The church’s clocks, for everybody at once. Tap a setting to change it.
+              The church’s clocks, for everybody at once. Tap a setting to change it. What gets
+              cleared away, and when, is in Data &amp; retention.
             </p>
 
             <SectionTile title="Planning ahead" hint="What people can see coming.">
@@ -422,285 +370,17 @@ export function AppSettingsCard() {
               </SettingList>
             </SectionTile>
 
-            <SectionTile title="Tidying up" hint="What clears itself, and when. A clear-out is a deletion.">
-              <SettingList>
-                <InlineRow
-                  label="The message board clears every"
-                  summary="And the planner’s Finished list turns over with it."
-                  changed={differs('board_clear_dow')}
-                  help="At 00:00 UTC on this day, the message board empties — every post, plus the bell notifications pointing at them, so the bell never points at something that is gone — and the dashboard’s activity feed clears with it. The planner’s Finished list resets on the same clock, so nobody has to learn two different weeks. The clear-out is a deletion and cannot be undone."
-                  affects={['Message board', 'Service Planner']}
-                  defaultText={`${WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]}, two days after Sunday`}
-                >
-                  <Select
-                    value={String(draft.board_clear_dow)}
-                    onChange={(dow) => set('board_clear_dow', Number(dow))}
-                    aria-label="Day the board clears"
-                    className={selectPillClasses}
-                    options={WEEKDAY_NAMES.map((name, dow) => ({
-                      value: String(dow),
-                      label: name,
-                    }))}
-                  />
-                </InlineRow>
-                {numberRow('debrief_retention_days')}
-                {numberRow('issue_retention_days')}
-              </SettingList>
-            </SectionTile>
-
-            {error && (
-              <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-                {error}
-              </p>
-            )}
-
-            {/*
-              * Save follows you down the page.
-              *
-              * Every control here edits a draft, and the only way to keep it
-              * was a button at the foot of a card that runs to several
-              * screens on a phone. So the honest way to move a dial was:
-              * drag it, scroll past four more settings, press Save. Anyone
-              * who dragged and left — which is everyone, because a dial that
-              * moves looks like a thing that happened — changed nothing, was
-              * told nothing, and found the old number waiting next time.
-              *
-              * The row sticks to the bottom of the screen instead, above the
-              * dock it would otherwise hide behind, and says out loud that
-              * there is something unsaved. It only sticks, and grows its own
-              * background, when there is: with nothing to save it is an
-              * ordinary row at the end of the page, rather than a clear
-              * strip floating over the settings above it.
-              */}
-            <div
-              className={`z-10 flex flex-wrap items-center gap-3 px-4 py-3 ${
-                changed
-                  ? 'sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] rounded-[var(--radius-card)] bg-surface-lowest/95 shadow-[inset_0_0_0_1px_var(--color-outline-variant)] backdrop-blur sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]'
-                  : ''
-              }`}
-            >
-              <ActionButton
-                onClick={() => draft && save.mutate(draft)}
-                disabled={!changed || save.isPending}
-              >
-                {save.isPending ? 'Saving…' : 'Save settings'}
-              </ActionButton>
-              <ActionButton
-                tone="quiet"
-                onClick={() => {
-                  setSaved(false)
-                  setDraft(DEFAULT_SETTINGS)
-                }}
-              >
-                Restore defaults
-              </ActionButton>
-              {changed && (
-                <span className="text-body-sm text-accent-orange-soft">
-                  Not saved yet — nothing changes for anybody until you press Save.
-                </span>
-              )}
-              {saved && !changed && <span className="text-body-sm text-accent-green">Saved.</span>}
-            </div>
+            <SaveBar
+              changed={room.changed}
+              saving={room.saving}
+              saved={room.saved}
+              error={room.error}
+              onSave={room.save}
+              onRestore={room.restoreDefaults}
+            />
           </>
         )}
       </QueryState>
     </div>
-  )
-}
-
-function SettingList({ children }: { children: ReactNode }) {
-  return <ul className="-mx-2 flex flex-col">{children}</ul>
-}
-
-/** The quiet extras for a row: what it moves, its default, and the full story. */
-function Detail({
-  help,
-  affects,
-  defaultText,
-  onDefault,
-  folded = false,
-}: {
-  help: string
-  affects: string[]
-  defaultText: string
-  onDefault?: () => void
-  /** Everything behind the disclosure, for a row that has no open state of its own. */
-  folded?: boolean
-}) {
-  const facts = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {affects.map((page) => (
-        <Pill key={page}>{page}</Pill>
-      ))}
-      <span className="ml-1 font-mono text-label-sm text-on-surface-faint">default {defaultText}</span>
-      {onDefault && (
-        <button
-          type="button"
-          onClick={onDefault}
-          className="tap ml-auto rounded-full px-2 py-1 text-label-md text-accent-blue-soft hover:text-on-surface"
-        >
-          Use default
-        </button>
-      )}
-    </div>
-  )
-  return (
-    <div className={`flex flex-col gap-3 ${folded ? 'mt-1' : 'mt-3'}`}>
-      {!folded && facts}
-      <details className={`group/how ${folded ? '' : 'rounded-[var(--radius-chip)] bg-raised px-3.5 py-2.5'}`}>
-        <summary className="tap inline-flex cursor-pointer list-none items-center text-label-md text-on-surface-faint marker:hidden hover:text-on-surface [&::-webkit-details-marker]:hidden">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="transition-transform duration-300 group-open/how:rotate-90" aria-hidden="true">
-              ›
-            </span>
-            How this works
-          </span>
-        </summary>
-        <div className={`mt-2 flex flex-col gap-2 ${folded ? 'rounded-[var(--radius-chip)] bg-raised px-3.5 py-3' : ''}`}>
-          <p className="text-body-sm text-on-surface-variant">{help}</p>
-          {folded && facts}
-        </div>
-      </details>
-    </div>
-  )
-}
-
-/** A dot that says "you moved this and have not saved it". */
-function Unsaved({ on }: { on: boolean }) {
-  if (!on) return null
-  return (
-    <span
-      title="Changed, not saved yet"
-      aria-label="Changed, not saved yet"
-      className="ml-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-accent-orange align-middle"
-    />
-  )
-}
-
-/**
- * A setting whose control needs room: one row that says its value, and
- * opens to the control and the explanation when tapped.
- */
-function SettingRow({
-  label,
-  summary,
-  value,
-  changed,
-  open,
-  onToggle,
-  children,
-  ...detail
-}: {
-  label: string
-  summary: string
-  value: string
-  changed: boolean
-  open: boolean
-  onToggle: () => void
-  children: ReactNode
-  help: string
-  affects: string[]
-  defaultText: string
-  onDefault?: () => void
-}) {
-  const id = useId()
-  return (
-    <li className={`rounded-[var(--radius-row)] transition-colors duration-300 ${open ? 'bg-raised' : ''}`}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={id}
-        className="tap flex w-full items-center gap-3 rounded-[var(--radius-row)] px-3 py-3 text-left transition-colors duration-300 hover:bg-raised"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block text-body-sm font-medium text-on-surface">
-            {label}
-            <Unsaved on={changed} />
-          </span>
-          <span className="block text-label-md text-on-surface-variant">{summary}</span>
-        </span>
-        <span className="shrink-0 rounded-full bg-raised-strong px-3 py-1 font-mono text-label-md tabular text-on-surface">
-          {value}
-        </span>
-        <Chevron open={open} />
-      </button>
-      {open && (
-        <div id={id} className="px-3 pb-4">
-          {children}
-          <Detail {...detail} />
-        </div>
-      )}
-    </li>
-  )
-}
-
-/**
- * A setting whose control is small enough to sit in the row itself — a
- * switch, a short list, a time. Its explanation still folds away.
- */
-function InlineRow({
-  label,
-  summary,
-  changed,
-  children,
-  help,
-  affects,
-  defaultText,
-}: {
-  label: string
-  summary: string
-  changed: boolean
-  children: ReactNode
-  help: string
-  affects: string[]
-  defaultText: string
-}) {
-  return (
-    <li className="px-3 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="min-w-0 flex-1 basis-48">
-          <span className="block text-body-sm font-medium text-on-surface">
-            {label}
-            <Unsaved on={changed} />
-          </span>
-          <span className="block text-label-md text-on-surface-variant">{summary}</span>
-        </span>
-        <span className="flex shrink-0 items-center">{children}</span>
-      </div>
-      <Detail help={help} affects={affects} defaultText={defaultText} folded />
-    </li>
-  )
-}
-
-/** On or off, drawn as a switch, still a real checkbox underneath. */
-function Switch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean
-  onChange: (on: boolean) => void
-  label: string
-}) {
-  return (
-    <label className="relative inline-flex cursor-pointer items-center">
-      <input
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        aria-label={label}
-        className="peer sr-only"
-      />
-      <span
-        aria-hidden="true"
-        className="h-7 w-12 rounded-full bg-raised-strong hairline transition-colors duration-300 peer-checked:bg-accent-green peer-focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
-      />
-      <span
-        aria-hidden="true"
-        className="absolute left-1 top-1 h-5 w-5 rounded-full bg-on-surface shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] peer-checked:translate-x-5 peer-checked:bg-on-primary"
-      />
-    </label>
   )
 }

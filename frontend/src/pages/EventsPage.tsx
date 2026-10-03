@@ -21,6 +21,7 @@ import {
   type DiaryKind,
 } from '../lib/churchDiary'
 import { fetchEvents, pastDiaryEntries } from '../lib/churchEvents'
+import { useDisplay } from '../lib/appSettings'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TimeField } from '../components/DateTimeFields'
@@ -215,6 +216,7 @@ export function EventsPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
+  const keepPastDays = useDisplay().windows.diaryPastDays
   const now = new Date()
 
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
@@ -293,8 +295,8 @@ export function EventsPage() {
    * and a list that did the same would read as seven identical events.
    */
   const pastDays = useMemo(
-    () => byDay(pastDiaryEntries(eventsQuery.data ?? [], today)).reverse(),
-    [eventsQuery.data, today],
+    () => byDay(pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays)).reverse(),
+    [eventsQuery.data, today, keepPastDays],
   )
 
   const saveEvent = useMutation({

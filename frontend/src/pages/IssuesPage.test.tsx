@@ -23,7 +23,14 @@ const settings = vi.hoisted(() => ({
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
 }))
-vi.mock('../lib/appSettings', () => ({ useAppSettings: () => settings }))
+// The pages' display preferences, at the app's own defaults.
+vi.mock('../lib/appSettings', async () => {
+  const { DISPLAY_DEFAULTS } = await import('../lib/display')
+  return {
+    useDisplay: () => DISPLAY_DEFAULTS,
+    useAppSettings: () => settings,
+  }
+})
 
 const HOUR = 3_600_000
 const NOW = Date.parse('2026-10-04T11:00:00Z')

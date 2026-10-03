@@ -16,11 +16,10 @@ import { useLiveData } from '../lib/useLiveData'
 import { AlertBanner } from './AlertBanner'
 import { DockNav } from './DockNav'
 import { NAV_ITEMS as navItems } from '../lib/navItems'
+import { usePageAccess } from '../lib/usePageAccess'
 import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout } from '../lib/navLayout'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
-import { useMyTeams } from '../lib/useMyTeams'
-import { useAppSettings } from '../lib/appSettings'
 import { WelcomeTour } from './WelcomeTour'
 import { ViewAsBanner } from './ViewAsBanner'
 
@@ -63,7 +62,7 @@ function washFor(pathname: string) {
 const AI_ASSISTANT_ENABLED = import.meta.env.VITE_AI_ASSISTANT_ENABLED === 'true'
 
 export function AppShell() {
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, signOut } = useAuth()
   // Everything the app reads goes stale when the database says so, rather
   // than when somebody thinks to refresh. Signed-in only, which is where
   // the shell lives and the only place any of it is readable.
@@ -72,7 +71,6 @@ export function AppShell() {
   const [comingSoon, setComingSoon] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
-  const { onATeam } = useMyTeams()
   useNotificationRouting()
   const scrolled = useScrolled()
 
@@ -80,15 +78,12 @@ export function AppShell() {
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
     : ''
 
-  const settings = useAppSettings()
   // The church's own arrangement of the menu, when an Admin has saved one.
   const layoutQuery = useQuery({ queryKey: NAV_LAYOUT_KEY, queryFn: fetchNavLayout })
-  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter(
-    (item) =>
-      (!item.adminOnly || isAdmin) &&
-      (!item.teamOnly || onATeam) &&
-      (!item.issues || onATeam || settings.issues_raise_scope === 'everyone'),
-  )
+  // Only what this person may open, under the church's choices (Settings
+  // › Access & privileges) — the same answer PageGate gives at the door.
+  const { canOpen } = usePageAccess()
+  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) => canOpen(item.to))
 
   return (
     <div

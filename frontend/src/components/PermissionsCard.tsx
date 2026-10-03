@@ -4,6 +4,7 @@ import {
   PERMISSIONS,
   ROLES,
   type Allowed,
+  type PermissionArea,
   type RoleKey,
 } from '../lib/permissionMatrix'
 import { Pill, Tile } from './Surface'
@@ -70,14 +71,14 @@ function Cell({ value }: { value: Allowed }) {
   )
 }
 
-export function PermissionsCard() {
+export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionArea[] } = {}) {
   const [view, setView] = useState<'role' | 'compare'>('role')
   const [role, setRole] = useState<RoleKey>('member')
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const [onlyAllowed, setOnlyAllowed] = useState(false)
 
   const chosen = ROLES.find((r) => r.key === role)!
-  const allOpen = open.size === PERMISSIONS.length
+  const allOpen = open.size === areas.length
   const toggleArea = (area: string) =>
     setOpen((current) => {
       const next = new Set(current)
@@ -153,7 +154,7 @@ export function PermissionsCard() {
             <h2 className="text-body-md font-medium text-on-surface">By area</h2>
             <button
               type="button"
-              onClick={() => setOpen(allOpen ? new Set() : new Set(PERMISSIONS.map((a) => a.area)))}
+              onClick={() => setOpen(allOpen ? new Set() : new Set(areas.map((a) => a.area)))}
               className="tap rounded-full px-2 py-1 text-label-md text-accent-blue-soft hover:text-on-surface"
             >
               {allOpen ? 'Fold all' : 'Open all'}
@@ -161,7 +162,7 @@ export function PermissionsCard() {
           </div>
 
           <ul className="flex flex-col gap-2" aria-label={`What a ${chosen.label} can do`}>
-            {PERMISSIONS.map((area) => {
+            {areas.map((area) => {
               const allowed = area.capabilities.filter((c) => c.can[role] !== 'no').length
               const total = area.capabilities.length
               const isOpen = open.has(area.area)
@@ -250,7 +251,7 @@ export function PermissionsCard() {
           </dl>
 
           <div className="mt-6 flex flex-col gap-7">
-            {PERMISSIONS.map((area) => (
+            {areas.map((area) => (
               <section key={area.area}>
                 <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                   {area.area}

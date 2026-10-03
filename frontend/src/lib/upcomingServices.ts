@@ -82,6 +82,35 @@ export function opensOnItsOwn(date: string, focusDate: string, state: ServiceSta
 }
 
 /**
+ * Whether a service's card opens by itself, under the church's choice
+ * (Settings › Dashboard & lists): on its day (the default), always, or
+ * never. A finished one stays shut whatever was chosen — it is a record.
+ */
+export function opensByChoice(
+  choice: 'auto' | 'always' | 'never',
+  date: string,
+  focusDate: string,
+  state: ServiceState,
+): boolean {
+  if (state === 'done') return false
+  if (choice === 'always') return true
+  if (choice === 'never') return false
+  return opensOnItsOwn(date, focusDate, state)
+}
+
+/**
+ * The services on the next `days` service days from `today` — a day with
+ * no service on it is not a service day, so "three" means the next three
+ * Sundays, not the next three dates. In date order, each day by name.
+ */
+export function servicesOnNextDays<T extends ListedService>(services: T[], today: string, days: number): T[] {
+  const dates = [...new Set(services.filter((s) => s.date >= today).map((s) => s.date))].sort().slice(0, days)
+  return services
+    .filter((s) => dates.includes(s.date))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.service_type.localeCompare(b.service_type))
+}
+
+/**
  * The services on the first service day after `day`, or none.
  *
  * The dashboard fetches these alongside today's so that, once today is

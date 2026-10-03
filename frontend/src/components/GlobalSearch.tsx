@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { usePageAccess } from '../lib/usePageAccess'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
@@ -409,7 +410,13 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
     enabled,
   })
 
-  const hits = useMemo(() => results.data ?? [], [results.data])
+  // A page somebody cannot open is not offered as a way to move. (What the
+  // database refuses never comes back to be offered in the first place.)
+  const { canOpen } = usePageAccess()
+  const hits = useMemo(
+    () => (results.data ?? []).filter((hit) => hit.kind !== 'Page' || canOpen(hit.to)),
+    [results.data, canOpen],
+  )
 
   useEffect(() => setActive(0), [debounced])
   useEffect(() => input.current?.focus(), [])
