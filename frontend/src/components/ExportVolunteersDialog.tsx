@@ -28,6 +28,7 @@ export function ExportVolunteersDialog({
   grants,
   adminIds,
   ownerId,
+  isOwner,
   onClose,
 }: {
   departments: Department[]
@@ -36,6 +37,12 @@ export function ExportVolunteersDialog({
   grants: (UserRole & { user_id: string })[]
   adminIds: Set<string>
   ownerId: string | null
+  /**
+   * Contact details and compliance records are the Owner's alone (0126):
+   * for anybody else the workbook leaves those columns and that sheet out
+   * rather than shipping them empty.
+   */
+  isOwner: boolean
   onClose: () => void
 }) {
   const errorText = useErrorText()
@@ -68,7 +75,7 @@ export function ExportVolunteersDialog({
     setError(null)
     try {
       let sensitive: Map<string, SensitiveByUser> | undefined
-      if (includeCompliance) {
+      if (isOwner && includeCompliance) {
         const { data, error: readError } = await supabase
           .from('profile_sensitive')
           .select('user_id, visa_type, has_dbs, visa_expiry')
@@ -91,6 +98,7 @@ export function ExportVolunteersDialog({
         adminIds,
         ownerId,
         includeUnassigned,
+        includeContacts: isOwner,
       })
 
       await writeWorkbook(sheets, exportFileName())
@@ -172,6 +180,7 @@ export function ExportVolunteersDialog({
               </span>
             </label>
 
+            {isOwner && (
             <label className="flex items-start gap-3 text-body-sm text-on-surface">
               <input
                 type="checkbox"
@@ -187,6 +196,7 @@ export function ExportVolunteersDialog({
                 </span>
               </span>
             </label>
+            )}
           </div>
         </div>
 

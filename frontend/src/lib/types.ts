@@ -46,11 +46,12 @@ export const departmentMemberRowSchema = z.object({
       first_name: z.string(),
       last_name: z.string(),
       /*
-       * Optional: the team page asks for it only when the Owner is
-       * looking — nobody else is shown a member's email there.
+       * Never selected: email and phone are closed on `profiles` (0127).
+       * The team page fills the email in for the Owner alone, from
+       * people_contacts() (0126).
        */
       email: z.string().optional(),
-      phone: z.string().nullable(),
+      phone: z.string().nullable().optional(),
       avatar_url: z.string().nullable(),
       /*
        * Everyone on a team may see everyone's age — it is on profiles,

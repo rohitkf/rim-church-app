@@ -41,20 +41,33 @@ async function fetchDepartment(id: string): Promise<Department | null> {
 }
 
 /*
- * Members' email addresses are the Owner's alone to see on this page, so
- * for anybody else the column is not even asked for.
+ * Members' email addresses are the Owner's alone to see on this page.
+ * `profiles.email` is closed to everybody (0127), so the roster never
+ * asks for it; for the Owner it is filled in from people_contacts()
+ * (0126), which refuses anybody else.
  */
 async function fetchMembers(id: string, withEmail: boolean): Promise<DepartmentMemberRow[]> {
   const { data, error } = await supabase
     .from('department_members')
-    .select(
-      withEmail
-        ? '*, profiles(id, first_name, last_name, email, phone, avatar_url, dob)'
-        : '*, profiles(id, first_name, last_name, phone, avatar_url, dob)',
-    )
+    .select('*, profiles(id, first_name, last_name, avatar_url, dob)')
     .eq('department_id', id)
   if (error) throw error
-  return z.array(departmentMemberRowSchema).parse(data)
+  const rows = z.array(departmentMemberRowSchema).parse(data)
+  if (!withEmail || rows.length === 0) return rows
+  const contacts = await fetchContacts(rows.map((r) => r.user_id))
+  return rows.map((r) =>
+    r.profiles && contacts[r.user_id] ? { ...r, profiles: { ...r.profiles, email: contacts[r.user_id] } } : r,
+  )
+}
+
+const contactRowSchema = z.object({ id: z.string(), email: z.string().nullable() })
+
+async function fetchContacts(userIds: string[]): Promise<Record<string, string>> {
+  const { data, error } = await supabase.rpc('people_contacts', { p_ids: userIds })
+  if (error) throw error
+  const out: Record<string, string> = {}
+  for (const row of z.array(contactRowSchema).parse(data ?? [])) if (row.email) out[row.id] = row.email
+  return out
 }
 
 const sensitiveRowSchema = sensitiveByUserSchema.extend({ user_id: z.string() })
@@ -84,8 +97,9 @@ async function fetchDepartmentGrants(departmentId: string): Promise<DepartmentGr
 
 function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined }) {
   // RLS on profile_sensitive is the source of truth: if the row wasn't
-  // returned, this viewer isn't allowed to see it (Admin + the individual
-  // only), so we show a neutral placeholder instead of guessing why.
+  // returned, this viewer isn't allowed to see it (the Owner and the
+  // individual only, 0126), so we show a neutral placeholder instead of
+  // guessing why. The column itself is drawn only for the Owner.
   if (!sensitive) {
     return <span className="text-body-sm text-on-surface-variant">—</span>
   }
@@ -179,7 +193,8 @@ export function DepartmentDetailPage() {
   const sensitiveQuery = useQuery({
     queryKey: ['department-members-sensitive', id, memberIds],
     queryFn: () => fetchSensitive(memberIds),
-    enabled: memberIds.length > 0,
+    // Visa and DBS are the Owner's to see (0126); nobody else is asked.
+    enabled: isOwner && memberIds.length > 0,
   })
 
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
@@ -209,14 +224,12 @@ export function DepartmentDetailPage() {
       let userId = picked?.id ?? null
 
       if (!userId) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle()
-        if (profileError) throw profileError
-        if (!profile) throw new Error('No registered user matches that — pick someone from the suggestions.')
-        userId = profile.id
+        // A typed address is matched by the database, which says only who
+        // it belongs to (0126) — addresses are not readable here (0127).
+        const { data: found, error: lookupError } = await supabase.rpc('person_by_email', { p_email: email })
+        if (lookupError) throw lookupError
+        if (typeof found !== 'string') throw new Error('No registered user matches that — pick someone from the suggestions.')
+        userId = found
       }
 
       const { error } = await supabase
@@ -450,7 +463,7 @@ export function DepartmentDetailPage() {
                         </div>
                       )}
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-                        <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
+                        {isOwner ? <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} /> : <span />}
                         {canManage && (
                           <span className="flex items-center gap-3">
                             {moveButton(
@@ -490,7 +503,7 @@ export function DepartmentDetailPage() {
                       <th className="py-2 pr-4">Age</th>
                       <th className="py-2 pr-4">On this team</th>
                       {isOwner && <th className="py-2 pr-4">Contact</th>}
-                      <th className="py-2 pr-4">Compliance</th>
+                      {isOwner && <th className="py-2 pr-4">Compliance</th>}
                       {canManage && <th className="py-2" />}
                     </tr>
                   </thead>
@@ -511,9 +524,11 @@ export function DepartmentDetailPage() {
                               {m.profiles?.email}
                             </td>
                           )}
-                          <td className="py-3 pr-4">
-                            <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
-                          </td>
+                          {isOwner && (
+                            <td className="py-3 pr-4">
+                              <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
+                            </td>
+                          )}
                           {canManage && (
                             <td className="py-3 text-right">
                               <span className="inline-flex items-center gap-3">
@@ -555,7 +570,7 @@ export function DepartmentDetailPage() {
               <form onSubmit={handleAdd} className="mt-6 flex flex-wrap items-end gap-2 border-t border-border-subtle pt-4">
                 <div className="relative flex flex-1 flex-col gap-1 text-body-sm text-on-surface-variant">
                   <label className="flex flex-col gap-1">
-                    Add by name or email
+                    Add by name, or their full email
                     <input
                       type="text"
                       autoComplete="off"
@@ -564,7 +579,7 @@ export function DepartmentDetailPage() {
                         setAddEmail(e.target.value)
                         setPicked(null)
                       }}
-                      placeholder="Start typing a name or email…"
+                      placeholder="Start typing a name…"
                       className="rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
                     />
                   </label>
@@ -591,9 +606,7 @@ export function DepartmentDetailPage() {
                                 type="button"
                                 onClick={() => {
                                   setPicked(p)
-                                  // The name, not the address: only the
-                                  // Owner is shown members' emails here.
-                                  setAddEmail(`${p.first_name} ${p.last_name}`.trim() || p.email)
+                                  setAddEmail(`${p.first_name} ${p.last_name}`.trim())
                                   setAddError(null)
                                 }}
                                 className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-surface-container"
@@ -601,9 +614,6 @@ export function DepartmentDetailPage() {
                                 <span className="text-body-sm font-medium text-on-surface">
                                   {p.first_name} {p.last_name}
                                 </span>
-                                {isOwner && (
-                                  <span className="text-label-sm text-on-surface-variant">{p.email}</span>
-                                )}
                               </button>
                             </li>
                           ))}

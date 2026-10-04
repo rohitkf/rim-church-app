@@ -94,7 +94,7 @@ async function fetchMembers(departmentIds: string[]): Promise<DepartmentMemberRo
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
+    .select('*, profiles(id, first_name, last_name, avatar_url)')
     .in('department_id', departmentIds)
   if (error) throw error
   return z.array(departmentMemberRowSchema).parse(data)

@@ -53,7 +53,7 @@ export async function fetchMembersForDepartments(departmentIds: string[]): Promi
   if (departmentIds.length === 0) return []
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
+    .select('*, profiles(id, first_name, last_name, avatar_url)')
     .in('department_id', departmentIds)
   if (error) throw error
   return z.array(departmentMemberRowSchema).parse(data)
@@ -167,11 +167,15 @@ export const profileSearchResultSchema = z.object({
   id: z.string(),
   first_name: z.string(),
   last_name: z.string(),
-  email: z.string(),
 })
 export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>
 
-/** Registered people whose name or email contains `term`, for type-ahead. */
+/**
+ * Registered people whose name contains `term`, for type-ahead.
+ *
+ * By name only: email addresses are the Owner's to see (0126/0127), so
+ * they can neither be shown nor searched through here.
+ */
 export async function searchProfiles(term: string, limit = 8): Promise<ProfileSearchResult[]> {
   const q = term.trim()
   if (!q) return []
@@ -179,8 +183,8 @@ export async function searchProfiles(term: string, limit = 8): Promise<ProfileSe
   const safe = q.replace(/[,()]/g, ' ')
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, email')
-    .or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+    .select('id, first_name, last_name')
+    .or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%`)
     .order('first_name')
     .limit(limit)
   if (error) throw error

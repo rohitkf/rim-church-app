@@ -36,7 +36,7 @@ async function fetchDepartment(id: string): Promise<Department | null> {
 async function fetchCoreMembers(departmentId: string): Promise<DepartmentMemberRow[]> {
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url)')
+    .select('*, profiles(id, first_name, last_name, avatar_url)')
     .eq('department_id', departmentId)
     .eq('member_type', 'core')
   if (error) throw error

@@ -54,6 +54,10 @@ vi.mock('../lib/supabaseClient', () => {
         },
         signOut: () => Promise.resolve(),
       },
+      rpc: (fn: string) => {
+        control.queriedTables.push(fn === 'my_profile' ? 'profiles' : fn)
+        return chain(fn === 'my_profile' ? mockProfile : null)
+      },
       from: (table: string) => {
         control.queriedTables.push(table)
         if (table === 'profiles') return chain(mockProfile)

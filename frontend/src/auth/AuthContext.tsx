@@ -77,7 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfileAndRoles(userId: string) {
     const [{ data: profileData }, { data: roleData }, { data: ownerData }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
+      // Your own row, every column, through my_profile() (0126): email,
+      // phone and marital status are closed on `profiles` to everybody
+      // but the Owner's function (0127), so `select('*')` would be refused.
+      supabase.rpc('my_profile').maybeSingle(),
       supabase.from('user_roles').select('id, role_type, department_id, service_id').eq('user_id', userId),
       supabase.from('app_owner').select('user_id').maybeSingle(),
     ])

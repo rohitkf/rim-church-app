@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { chooseOption } from '../test/select'
 import userEvent from '@testing-library/user-event'
@@ -11,13 +11,15 @@ import { VolunteersPage } from './VolunteersPage'
  * shut, so it opens as a list of teams; whoever is on no team is open,
  * because they are the reason somebody came here.
  */
+const who = vi.hoisted(() => ({ owner: false, rpcs: [] as string[], selected: [] as string[] }))
+
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'admin' } },
     profile: { id: 'admin', first_name: 'Ada', last_name: 'Grace' },
     isAdmin: true,
-    isSuperAdmin: false,
-    ownerId: 'admin',
+    isSuperAdmin: who.owner,
+    ownerId: who.owner ? 'admin' : 'someone-else',
     isDepartmentHead: () => false,
     ledDepartmentIds: [],
   }),
@@ -40,8 +42,8 @@ const profile = (id: string, first: string, last: string) => ({
   id,
   first_name: first,
   last_name: last,
+  // Sent anyway, to prove the page drops it for anybody but the Owner.
   email: `${id}@example.com`,
-  phone: null,
   dob: null,
   anniversary: null,
 })
@@ -49,13 +51,21 @@ const profile = (id: string, first: string, last: string) => ({
 const inserted: { table: string; row: unknown }[] = []
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string) => {
+      who.rpcs.push(fn)
+      return Promise.resolve({
+        data: ['joel', 'rose', 'newbie'].map((id) => ({ id, email: `${id}@example.com`, phone: '07000 000000' })),
+        error: null,
+      })
+    },
     from: (table: string) => ({
       insert: (row: unknown) => {
         inserted.push({ table, row })
         return Promise.resolve({ error: null })
       },
-      select: () => {
+      select: (columns?: string) => {
         if (table === 'profiles') {
+          who.selected.push(columns ?? '')
           return {
             order: () =>
               Promise.resolve({
@@ -162,5 +172,29 @@ describe('the volunteers page', () => {
   it('files them under Church Members', async () => {
     show()
     expect(await screen.findByRole('heading', { name: /Church Members · Not on a team yet/ })).toBeInTheDocument()
+  })
+})
+
+describe('contact details on the volunteers page', () => {
+  beforeEach(() => {
+    who.owner = false
+    who.rpcs = []
+    who.selected = []
+  })
+
+  it('are not sent to an Admin who is not the Owner', async () => {
+    show()
+    expect(await screen.findByText('Nimmy Thomas')).toBeInTheDocument()
+    expect(screen.queryByText('newbie@example.com')).toBeNull()
+    expect(who.rpcs).not.toContain('people_contacts')
+    expect(who.selected.every((c) => !/\b(email|phone)\b/.test(c))).toBe(true)
+  })
+
+  it('are shown to the Owner, from the Owner-only function', async () => {
+    who.owner = true
+    show()
+    expect(await screen.findByText('newbie@example.com')).toBeInTheDocument()
+    expect(who.rpcs).toContain('people_contacts')
+    expect(who.selected.every((c) => !/\b(email|phone)\b/.test(c))).toBe(true)
   })
 })

@@ -19,7 +19,7 @@
 
 import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
 
-export const CHECKED_ON = '27 September 2026'
+export const CHECKED_ON = '4 October 2026'
 
 /** The standings a person can hold. Columns, left to right. */
 export const ROLES = [
@@ -388,14 +388,14 @@ export const PERMISSIONS: PermissionArea[] = [
     area: 'People',
     capabilities: [
       {
-        action: 'See the roster and contact details',
+        action: 'See the roster — names, ages, birthdays and anniversaries',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
-        note: 'Names, emails, phone numbers, birthdays and anniversaries are readable by anybody signed in — a Church Member included — through the app’s data connection, even where no page shows them. Only DBS and safeguarding details are closed. Worth a decision.',
+        note: 'Birthdays and anniversaries are what Celebrations and the diary show, so anybody signed in can read them. Nothing else personal is.',
       },
       {
-        action: 'See members’ email addresses on a team’s page',
-        can: all({ admin: 'no' }),
-        note: 'The Owner alone — everybody else sees names, ages and roles. The page only; the data connection still answers anybody signed in (above).',
+        action: 'See somebody’s email address and phone number',
+        can: all({ admin: 'own', head: 'own', coordinator: 'own', member: 'own', newcomer: 'own' }),
+        note: 'Everybody sees their own. Only the Owner sees anybody else’s — closed in the database itself (0127), not just hidden on the page, and left out of an Admin’s export. Marital status is closed the same way.',
       },
       {
         action: 'Edit your own profile',
@@ -410,9 +410,9 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       { action: 'Edit somebody else’s profile', can: all() },
       {
-        action: 'See DBS and safeguarding details',
-        can: all({ head: 'own', coordinator: 'own', member: 'own', newcomer: 'own' }),
-        note: 'Everybody sees their own. Only an Admin sees anybody else’s — leading a team is not a reason to read somebody’s safeguarding record.',
+        action: 'See visa, DBS and safeguarding details',
+        can: all({ admin: 'own', head: 'own', coordinator: 'own', member: 'own', newcomer: 'own' }),
+        note: 'Everybody sees their own. Only the Owner sees anybody else’s (0126) — not Admins, not team Heads.',
       },
       { action: 'Invite somebody to the app', can: all({ head: 'team' }) },
       { action: 'See who has been invited', can: all({ head: 'team' }) },

@@ -46,6 +46,8 @@ const base = (over: Partial<ExportInput> = {}): ExportInput => ({
   adminIds: new Set<string>(),
   ownerId: null,
   includeUnassigned: true,
+  // The Owner's export, which is the only one with contact details.
+  includeContacts: true,
   ...over,
 })
 
@@ -157,5 +159,18 @@ describe('the volunteer workbook', () => {
 describe('the file name', () => {
   it('carries the date, so two exports a week apart do not collide', () => {
     expect(exportFileName(new Date('2026-08-28T11:00:00Z'))).toBe('rim-volunteers-2026-08-28.xlsx')
+  })
+
+  it('leaves email and phone out altogether for anybody but the Owner', () => {
+    const input = base({ includeContacts: false })
+    for (const name of ['Volunteers', 'Team members']) {
+      const labels = sheet(input, name).columns.map((c) => c.label)
+      expect(labels, name).not.toContain('Email')
+      expect(labels, name).not.toContain('Phone')
+      // Every row still lines up with its header.
+      for (const row of sheet(input, name).rows) expect(row).toHaveLength(labels.length)
+    }
+    expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('@rim.org')
+    expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('07000')
   })
 })
