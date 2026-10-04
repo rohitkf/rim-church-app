@@ -71,6 +71,8 @@ export const appSettingsSchema = z.object({
   church_update_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
   poll_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
   alert_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  /** Done and Won't-do feedback, after it was settled (0124). Null is for ever. */
+  feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -100,6 +102,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   church_update_retention_days: null,
   poll_retention_days: null,
   alert_retention_days: null,
+  feedback_retention_days: null,
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -108,7 +111,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, alert_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, alert_retention_days, feedback_retention_days',
     )
     .maybeSingle()
   if (error) throw error

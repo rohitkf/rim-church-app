@@ -29,6 +29,7 @@ type Settings = Pick<
   | 'team_chat_retention_days'
   | 'church_update_retention_days'
   | 'poll_retention_days'
+  | 'feedback_retention_days'
 > & {
   /** How far either side of today Set Lists looks (a display preference). */
   set_list_days: number
@@ -54,6 +55,7 @@ const FALLBACK: Settings = {
   team_chat_retention_days: null,
   church_update_retention_days: null,
   poll_retention_days: null,
+  feedback_retention_days: null,
   set_list_days: 21,
 }
 
@@ -88,6 +90,7 @@ export type LifespanPage =
   | 'updates'
   | 'team-chat'
   | 'issues'
+  | 'feedback'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -127,6 +130,10 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
       return s.team_chat_retention_days === null
         ? 'Nothing here clears on its own — messages stay until they are deleted.'
         : `Messages are deleted ${days(s.team_chat_retention_days)} after they are posted.`
+    case 'feedback':
+      return s.feedback_retention_days === null
+        ? 'Feedback stays until it is taken back or an Admin clears it.'
+        : `Feedback marked Done or Won’t do is deleted ${days(s.feedback_retention_days)} after it was settled; anything still open stays.`
     case 'issues':
       return `Issues can be raised from ${formatMinutes(s.issue_open_minutes_before)} before a service starts until ${formatMinutes(s.issue_close_minutes_after)} after it ends (Heads and Admins, any time). A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after a Head marks it; not resolved and persistent ones stay until they are resolved. Finished services stay listed for ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'}.`
   }

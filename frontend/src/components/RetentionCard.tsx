@@ -30,6 +30,7 @@ const KEYS = [
   'church_update_retention_days',
   'poll_retention_days',
   'alert_retention_days',
+  'feedback_retention_days',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 type Kept = 'debrief_retention_days' | 'issue_retention_days'
@@ -39,6 +40,7 @@ type MaybeForever =
   | 'church_update_retention_days'
   | 'poll_retention_days'
   | 'alert_retention_days'
+  | 'feedback_retention_days'
 
 const FIELDS: Record<Kept | MaybeForever, { label: string; summary: string; help: string; affects: string[] }> = {
   team_chat_retention_days: {
@@ -76,6 +78,12 @@ const FIELDS: Record<Kept | MaybeForever, { label: string; summary: string; help
     summary: 'Read or not, older ones are cleared.',
     help: 'Every notification in everybody’s bell older than this is deleted each night, read or unread. The things they point at are not touched.',
     affects: ['Notifications'],
+  },
+  feedback_retention_days: {
+    label: 'Settled feedback is kept for',
+    summary: 'Done and Won’t do only — open feedback always stays.',
+    help: 'Feedback an Admin has marked Done or Won’t do is deleted this long after it was settled, with its reply. Anything New or Looking into it is never cleared on a clock.',
+    affects: ['Feedback'],
   },
   alert_retention_days: {
     label: 'The record of sent alerts is kept for',
@@ -198,6 +206,10 @@ export function RetentionCard() {
               {foreverRow('notification_retention_days')}
               {foreverRow('alert_retention_days')}
             </SettingList>
+          </SectionTile>
+
+          <SectionTile title="Feedback" hint="What the teams have told you about the app.">
+            <SettingList>{foreverRow('feedback_retention_days')}</SettingList>
           </SectionTile>
 
           <SaveBar

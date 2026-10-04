@@ -148,6 +148,8 @@ const router = createBrowserRouter(
             <Route path="/team-chat" lazy={page(() => import('./pages/TeamChatPage'), 'TeamChatPage')} />
             {/* A team's notes on its own Sunday (0109 closes the rows too). */}
             <Route path="/debriefs" lazy={page(() => import('./pages/DebriefsPage'), 'DebriefsPage')} />
+            {/* What the teams think of the app; Admins answer it (0124). */}
+            <Route path="/feedback" lazy={page(() => import('./pages/FeedbackPage'), 'FeedbackPage')} />
           </Route>
         </Route>
       </Route>

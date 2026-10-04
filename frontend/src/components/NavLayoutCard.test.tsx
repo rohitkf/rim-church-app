@@ -77,7 +77,7 @@ describe('arranging the menu', () => {
       'Church life',
       'People & things',
     ])
-    expect(lastWrite().groups[1].items).toEqual(['/messages', '/team-chat', '/updates', '/polls'])
+    expect(lastWrite().groups[1].items).toEqual(['/messages', '/team-chat', '/updates', '/polls', '/feedback'])
   })
 
   it('moves a page into another group past its heading', async () => {

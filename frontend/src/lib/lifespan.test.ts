@@ -57,4 +57,9 @@ describe('how long things last', () => {
     expect(lifespanOf('set-lists', { ...settings, set_list_days: 7 })).toContain('1 week either side')
     expect(lifespanOf('set-lists', { ...settings, set_list_days: 10 })).toContain('10 days either side')
   })
+
+  it('says what happens to feedback, from the church’s own clock', () => {
+    expect(lifespanOf('feedback', settings)).toMatch(/stays until it is taken back/)
+    expect(lifespanOf('feedback', { ...settings, feedback_retention_days: 90 })).toContain('deleted 90 days after it was settled')
+  })
 })

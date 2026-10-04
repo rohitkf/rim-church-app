@@ -2,6 +2,7 @@ import type { DockItem } from '../components/DockNav'
 import {
   BoxIcon,
   CakeIcon,
+  FeedbackIcon,
   GiftHeartIcon,
   CalendarIcon,
   ChecklistIcon,
@@ -75,6 +76,9 @@ export const NAV_ITEMS: NavItem[] = [
   // and what it is asking.
   { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon, group: 'Talk' },
   { to: '/polls', label: 'Polls', icon: PollIcon, group: 'Talk' },
+  // Telling the people who run the app what to fix — the last thing in
+  // Talk, because it is talk about the app rather than in it.
+  { to: '/feedback', label: 'Feedback', icon: FeedbackIcon, group: 'Talk' },
 
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.

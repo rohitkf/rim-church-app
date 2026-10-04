@@ -281,6 +281,7 @@ describe('AppShell dock', () => {
       'Team Chat',
       'Church Updates',
       'Polls',
+      'Feedback',
       'Events',
       'Giving',
       'Teams',

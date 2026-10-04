@@ -42,6 +42,7 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
   { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
   { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
+  { label: 'Feedback', detail: 'Report a bug or suggest an improvement', to: '/feedback', keywords: 'feedback bug report suggestion idea improvement problem broken' },
   { label: 'Settings', detail: 'Your account, and how the church’s app behaves', to: '/settings', keywords: 'settings preferences account' },
   { label: 'Profile', detail: 'Your name, contact details and dates', to: '/settings/profile', keywords: 'profile account name phone birthday password' },
   { label: 'Appearance & alerts', detail: 'Theme, team style and phone notifications', to: '/settings/appearance', keywords: 'theme dark light mode appearance notifications push' },
