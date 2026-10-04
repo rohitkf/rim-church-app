@@ -263,7 +263,7 @@ export function Pill({
  * Icon badges
  * ------------------------------------------------------------------ */
 
-export type BadgeTone = 'blue' | 'green' | 'orange' | 'red' | 'indigo'
+export type BadgeTone = 'blue' | 'green' | 'orange' | 'red' | 'indigo' | 'neutral'
 
 const BADGE_TONES: Record<BadgeTone, string> = {
   blue: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-blue)_34%,transparent),color-mix(in_oklab,var(--color-accent-blue)_12%,transparent))] text-accent-blue-soft',
@@ -271,6 +271,8 @@ const BADGE_TONES: Record<BadgeTone, string> = {
   orange: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-orange)_32%,transparent),color-mix(in_oklab,var(--color-accent-orange)_10%,transparent))] text-accent-orange-soft',
   red: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-red)_32%,transparent),color-mix(in_oklab,var(--color-accent-red)_10%,transparent))] text-accent-red-soft',
   indigo: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-indigo)_36%,transparent),color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent))] text-accent-indigo-soft',
+  // For the thing that is none of the above: present, and saying nothing.
+  neutral: 'bg-raised-strong text-on-surface-variant',
 }
 
 /**

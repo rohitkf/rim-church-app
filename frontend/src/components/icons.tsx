@@ -430,3 +430,48 @@ export function ArchiveIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** Feedback: telling us what to fix. A speech bubble with a spark in it. */
+export function FeedbackIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12Z" />
+      <path d="M13 8.5 11.5 12H14l-1.5 3.5" />
+    </svg>
+  )
+}
+
+export function BugIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="7" y="8" width="10" height="12" rx="5" />
+      <path d="M9 8a3 3 0 0 1 6 0M12 12v8M3 13h4M17 13h4M4 7l3 2M20 7l-3 2M4 19l3-2M20 19l-3-2" />
+    </svg>
+  )
+}
+
+export function LightbulbIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2V16h5v-.2c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3Z" />
+    </svg>
+  )
+}
+
+export function QuestionIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" />
+    </svg>
+  )
+}
+
+export function HeartIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+    </svg>
+  )
+}

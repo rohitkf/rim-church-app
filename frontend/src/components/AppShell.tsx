@@ -50,6 +50,7 @@ const WASH: Record<string, string> = {
   '/polls': 'var(--color-accent-indigo)',
   '/issues': 'var(--color-accent-orange)',
   '/settings': 'var(--color-accent-indigo)',
+  '/feedback': 'var(--color-accent-indigo)',
 }
 
 function washFor(pathname: string) {

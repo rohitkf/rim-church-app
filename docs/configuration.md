@@ -56,6 +56,7 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Giving | everyone | everyone · team · leads | the database (the three giving tables) |
 | Teams | everyone | everyone · team | the page |
 | Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
+| Feedback | team | fixed | the database (0124: anybody on a team sends; only Admins read everybody's) |
 | Inventory | team | team · leads | the database (the four inventory tables) |
 
 SQL: `page_level(text)`, `is_a_lead(uuid)`, `can_open_page(uuid, text)`. The
@@ -84,6 +85,7 @@ every new one, so applying 0123 deletes nothing. One nightly job,
 | `church_update_retention_days` | unpinned Church Updates older than this | new |
 | `poll_retention_days` | polls this long after they closed (or were made, if they never close) | new |
 | `alert_retention_days` | sent alerts' record (`announcements`) | new |
+| `feedback_retention_days` | feedback marked Done or Won't do, from when it was settled (0124) | new |
 
 Each has its sentence in `lib/lifespan.ts`, so the page that loses things says
 so.

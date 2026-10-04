@@ -419,6 +419,30 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Feedback',
+    capabilities: [
+      {
+        action: 'Send feedback about the app',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'A bug, an idea, an improvement, something confusing, praise. Church Members cannot. Every Admin is told.',
+      },
+      {
+        action: 'See your feedback, where it stands and the reply',
+        can: all({ head: 'own', coordinator: 'own', member: 'own' }),
+      },
+      {
+        action: 'Take your feedback back',
+        can: all({ head: 'own', coordinator: 'own', member: 'own' }),
+        note: 'Only while it is still New — once an Admin has picked it up, it stays.',
+      },
+      {
+        action: 'Read everybody’s feedback, mark where it stands and reply',
+        can: all(),
+        note: 'The sender is told when the status or the reply changes.',
+      },
+    ],
+  },
+  {
     area: 'The app itself',
     capabilities: [
       { action: 'Grant or take away Admin', can: all() },

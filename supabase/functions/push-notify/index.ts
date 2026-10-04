@@ -46,6 +46,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   team_poll: { label: 'There is a poll for you', href: '/polls' },
   church_update: { label: 'News from the church', href: '/updates' },
   service_issue: { label: 'An issue has been raised for your team', href: '/issues' },
+  feedback_received: { label: 'New feedback about the app', href: '/feedback' },
+  feedback_answered: { label: 'Your feedback has an answer', href: '/feedback' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {
@@ -235,5 +237,6 @@ function deepLink(type: string, referenceId: string | null | undefined): string 
   if (type === 'team_poll') return `/polls?poll=${referenceId}`
   if (type === 'church_update') return `/updates?update=${referenceId}`
   if (type === 'service_issue') return `/issues?issue=${referenceId}`
+  if (type === 'feedback_received' || type === 'feedback_answered') return `/feedback?feedback=${referenceId}`
   return null
 }

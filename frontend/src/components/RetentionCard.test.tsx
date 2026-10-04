@@ -59,6 +59,7 @@ describe('Data & retention', () => {
         'board_clear_dow',
         'church_update_retention_days',
         'debrief_retention_days',
+        'feedback_retention_days',
         'issue_retention_days',
         'notification_retention_days',
         'poll_retention_days',

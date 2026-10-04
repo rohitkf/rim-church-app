@@ -26,6 +26,8 @@ export const NOTIFICATION_TYPES = [
   'rota_dropout',
   'availability_change_request',
   'availability_change_decision',
+  'feedback_received',
+  'feedback_answered',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -51,6 +53,10 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   team_poll: { label: 'There is a poll for you', href: '/polls' },
   church_update: { label: 'News from the church', href: '/updates' },
   service_issue: { label: 'An issue has been raised for your team', href: '/issues' },
+  // Both carry their own sentence (the kind and first line; where it now
+  // stands), so the label is only the fallback.
+  feedback_received: { label: 'New feedback about the app', href: '/feedback' },
+  feedback_answered: { label: 'Your feedback has an answer', href: '/feedback' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.
@@ -95,5 +101,7 @@ export function notificationHref(type: string, referenceId?: string | null): str
   if (t === 'team_poll' && referenceId) return `/polls?poll=${referenceId}`
   if (t === 'church_update' && referenceId) return `/updates?update=${referenceId}`
   if (t === 'service_issue' && referenceId) return `/issues?issue=${referenceId}`
+  if ((t === 'feedback_received' || t === 'feedback_answered') && referenceId)
+    return `/feedback?feedback=${referenceId}`
   return NOTIFICATIONS[t].href
 }

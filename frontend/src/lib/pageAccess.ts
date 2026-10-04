@@ -161,6 +161,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'fixed',
     note: 'Roles and safeguarding details are an Admin’s.',
   },
+  '/feedback': {
+    default: 'team',
+    choices: ['team'],
+    enforcement: 'fixed',
+    note: 'Anybody on a team can send feedback; only Admins read everybody’s.',
+  },
   '/inventory': {
     key: 'inventory',
     default: 'team',
