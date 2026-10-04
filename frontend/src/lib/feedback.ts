@@ -14,7 +14,7 @@ import {
 /**
  * Feedback about the app itself, from the people on the teams (0124).
  *
- * Six kinds, in the order Admins read them: what is broken first, then
+ * Six kinds, in the order the Owner reads them: what is broken first, then
  * what is wanted, then the rest. The kinds and statuses are the database's
  * check constraints, word for word — `feedback.test.ts` reads the migration
  * and holds the two together.
@@ -118,8 +118,8 @@ export type Feedback = z.infer<typeof feedbackSchema>
 export const FEEDBACK_KEY = ['feedback']
 
 /**
- * Every piece this person may read: their own, or everybody's for an
- * Admin. Newest first. The database decides which (0124's select policy).
+ * Every piece this person may read: their own, or everybody's for the
+ * Owner. Newest first. The database decides which (0125's select policy).
  */
 export async function fetchFeedback(): Promise<Feedback[]> {
   const { data, error } = await supabase

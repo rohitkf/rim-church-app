@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { QrCode } from '../components/QrCode'
 import { PageHeader, Panel, Tile } from '../components/Surface'
+import { Zoomable } from '../components/Zoomable'
 import {
   formatIban,
   formatSortCode,
@@ -109,11 +110,18 @@ export function LinkCard({ link }: { link: GivingLink }) {
         {link.note && <p className="mt-1 text-body-sm text-on-surface-variant">{link.note}</p>}
       </div>
       {link.show_qr && (
-        <QrCode
-          text={link.url}
+        <Zoomable
           label={`QR code for ${link.label}`}
-          className="h-44 w-44 rounded-[var(--radius-chip)]"
-        />
+          thumbnail={
+            <QrCode
+              text={link.url}
+              label={`QR code for ${link.label}`}
+              className="h-44 w-44 rounded-[var(--radius-chip)]"
+            />
+          }
+        >
+          <QrCode text={link.url} label={`QR code for ${link.label}, enlarged`} className="h-auto w-full" />
+        </Zoomable>
       )}
       {/* The button is for whoever cannot scan — or is already on the
           phone the code would open. */}
@@ -131,15 +139,24 @@ export function LinkCard({ link }: { link: GivingLink }) {
 
 export function UploadedQr({ path, caption }: { path: string; caption: string | null }) {
   const image = useGivingQrImage(path)
+  const alt = caption ? `QR code: ${caption}` : 'QR code to give'
   return (
     <div className="flex flex-col items-center gap-3 rounded-[var(--radius-chip)] bg-surface-container p-5 text-center">
       <h3 className="text-headline-sm text-on-surface">{caption || 'Scan to give'}</h3>
       {image.data ? (
-        <img
-          src={image.data}
-          alt={caption ? `QR code: ${caption}` : 'QR code to give'}
-          className="h-44 w-44 rounded-[var(--radius-chip)] bg-white object-contain p-2"
-        />
+        <Zoomable
+          label={caption || 'Scan to give'}
+          href={image.data}
+          thumbnail={
+            <img
+              src={image.data}
+              alt={alt}
+              className="h-44 w-44 rounded-[var(--radius-chip)] bg-white object-contain p-2"
+            />
+          }
+        >
+          <img src={image.data} alt={`${alt}, enlarged`} className="h-auto w-full object-contain" />
+        </Zoomable>
       ) : (
         <div aria-hidden="true" className="h-44 w-44 animate-pulse rounded-[var(--radius-chip)] bg-surface-low" />
       )}

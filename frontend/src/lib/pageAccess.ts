@@ -165,7 +165,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'team',
     choices: ['team'],
     enforcement: 'fixed',
-    note: 'Anybody on a team can send feedback; only Admins read everybody’s.',
+    note: 'Anybody on a team can send feedback; only the Owner reads everybody’s.',
   },
   '/inventory': {
     key: 'inventory',

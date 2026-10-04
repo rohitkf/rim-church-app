@@ -82,7 +82,7 @@ const FIELDS: Record<Kept | MaybeForever, { label: string; summary: string; help
   feedback_retention_days: {
     label: 'Settled feedback is kept for',
     summary: 'Done and Won’t do only — open feedback always stays.',
-    help: 'Feedback an Admin has marked Done or Won’t do is deleted this long after it was settled, with its reply. Anything New or Looking into it is never cleared on a clock.',
+    help: 'Feedback the Owner has marked Done or Won’t do is deleted this long after it was settled, with its reply. Anything New or Looking into it is never cleared on a clock.',
     affects: ['Feedback'],
   },
   alert_retention_days: {

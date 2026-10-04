@@ -56,7 +56,7 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Giving | everyone | everyone · team · leads | the database (the three giving tables) |
 | Teams | everyone | everyone · team | the page |
 | Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
-| Feedback | team | fixed | the database (0124: anybody on a team sends; only Admins read everybody's) |
+| Feedback | team | fixed | the database (0124: anybody on a team sends; only the Owner reads everybody's — 0125) |
 | Inventory | team | team · leads | the database (the four inventory tables) |
 
 SQL: `page_level(text)`, `is_a_lead(uuid)`, `can_open_page(uuid, text)`. The

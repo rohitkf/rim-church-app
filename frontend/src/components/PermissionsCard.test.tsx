@@ -192,7 +192,10 @@ describe('PermissionsCard', () => {
       const ownerOnly = PERMISSIONS.flatMap((a) =>
         a.capabilities.filter((c) => c.can.owner === 'yes' && c.can.admin === 'no'),
       )
-      expect(ownerOnly.map((c) => c.action)).toEqual(['Hand over ownership'])
+      expect(ownerOnly.map((c) => c.action)).toEqual([
+        'Read everybody’s feedback, mark where it stands and reply',
+        'Hand over ownership',
+      ])
     })
   })
 })
