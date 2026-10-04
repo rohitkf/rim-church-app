@@ -227,3 +227,24 @@ describe('a session held back as not started', () => {
     expect(p.byId.get('c')!.state).toBe('ahead')
   })
 })
+
+describe('a session started early on the rail', () => {
+  const t = (hhmm: string) => `2026-10-04T${hhmm}:00.000Z`
+  const ms = (hhmm: string) => new Date(t(hhmm)).getTime()
+  const sunday = [
+    { id: 'message', start_time: t('13:30'), duration_minutes: 90 },
+    { id: 'conclusion', start_time: t('14:56'), duration_minutes: 2 },
+    { id: 'kids', start_time: t('14:58'), duration_minutes: 3 },
+  ]
+
+  it('ends the session it cut short, so only one is ever on', () => {
+    const p = serviceProgress(sunday, ms('14:57'))
+    expect(p.byId.get('message')).toEqual({ state: 'done', fill: 1 })
+    expect(p.byId.get('conclusion')?.state).toBe('running')
+    expect(p.runningId).toBe('conclusion')
+  })
+
+  it('offers the Session started button on the right session', () => {
+    expect(startableSession(sunday, ms('14:59'))).toBe('kids')
+  })
+})

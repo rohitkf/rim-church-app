@@ -52,12 +52,39 @@ export function toTheMinute(now: number): string {
   return at.toISOString()
 }
 
+/**
+ * When a session actually stops: at its own end (planned length plus any
+ * time granted), or when the next session that runs began, whichever is
+ * sooner.
+ *
+ * The second half is what makes "started early" mean what it says. Starting
+ * the Conclusion at 14:56 while the Message was planned to 15:00 ends the
+ * Message at 14:56 — its row keeps its own start and length, because the
+ * difference is its under-run (see runVariance). Read off its own length
+ * alone, the Message was still "on" until 15:00, so starting the next
+ * session after the Conclusion found the Message running and offered to
+ * mark the Conclusion skipped.
+ */
+function endOf(sessions: RunSession[], index: number): number {
+  const session = sessions[index]
+  const start = new Date(session.start_time).getTime()
+  const own = start + Math.max(runsForMinutes(session), 0) * 60_000
+  for (let i = index + 1; i < sessions.length; i += 1) {
+    if (isSkipped(sessions[i])) continue
+    const next = new Date(sessions[i].start_time).getTime()
+    if (Number.isNaN(next)) continue
+    return next > start ? Math.min(own, next) : own
+  }
+  return own
+}
+
 /** Is `now` inside this session's window? */
-function isRunningAt(session: RunSession, now: number): boolean {
-  if (isSkipped(session)) return false
+function isRunningAt(sessions: RunSession[], index: number, now: number): boolean {
+  const session = sessions[index]
+  if (!session || isSkipped(session)) return false
   const start = new Date(session.start_time).getTime()
   if (Number.isNaN(start)) return false
-  return now >= start && now < start + Math.max(session.duration_minutes ?? 0, 0) * 60_000
+  return now >= start && now < endOf(sessions, index)
 }
 
 /**
@@ -77,7 +104,7 @@ export function frontIndex(sessions: RunSession[], now: number): number {
     const start = new Date(s.start_time).getTime()
     if (Number.isNaN(start)) continue
     lastLive = i
-    if (isRunningAt(s, now)) return i
+    if (isRunningAt(sessions, i, now)) return i
     if (start > now && firstAhead === -1) firstAhead = i
   }
   if (firstAhead !== -1) return firstAhead
@@ -135,7 +162,7 @@ function timeWrites(
  */
 export function jumpedSessions(sessions: RunSession[], index: number, now: number): RunSession[] {
   const front = frontIndex(sessions, now)
-  const first = isRunningAt(sessions[front], now) ? front + 1 : front
+  const first = isRunningAt(sessions, front, now) ? front + 1 : front
   if (index <= first) return []
   return sessions.slice(first, index).filter((s) => !isSkipped(s))
 }

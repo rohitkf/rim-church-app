@@ -373,3 +373,53 @@ describe('heldBackBy', () => {
     expect(heldBackBy(p, 1)?.id).toBe('d')
   })
 })
+
+/*
+ * 4 October 2026, as it was in the database: the Message planned 13:30 for
+ * 90 minutes (to 15:00), the Conclusion started early at 14:56, and the
+ * Kids Testimony then started at 14:58. The dialog offered to mark the
+ * Conclusion skipped, because the Message — read off its own length — was
+ * still "on" until 15:00.
+ */
+describe('a session started early ends the one before it', () => {
+  const t = (hhmm: string) => `2026-10-04T${hhmm}:00.000Z`
+  const ms = (hhmm: string) => new Date(t(hhmm)).getTime()
+  const sunday: RunSession[] = [
+    { id: 'message', session_name: 'Message', start_time: t('13:30'), duration_minutes: 90 },
+    { id: 'conclusion', session_name: 'Conclusion | Live End', start_time: t('14:56'), duration_minutes: 2 },
+    { id: 'kids', session_name: 'Kids Testimony', start_time: t('14:58'), duration_minutes: 3 },
+    { id: 'prayer', session_name: 'Prayer & Benediction', start_time: t('15:01'), duration_minutes: 2 },
+  ]
+
+  it('jumps over nothing when the next session starts on time after one that started early', () => {
+    expect(jumpedSessions(sunday, 2, ms('14:58'))).toEqual([])
+    expect(startAtPlan(sunday, 2, ms('14:58')).some((w) => w.patch.skipped_at)).toBe(false)
+  })
+
+  it('jumps over nothing when that next one starts early too', () => {
+    // 14:57: the Conclusion is on; starting the Kids Testimony early ends it.
+    expect(jumpedSessions(sunday, 2, ms('14:57'))).toEqual([])
+  })
+
+  it('reads the session started early as the one on, not the one it cut short', () => {
+    expect(frontIndex(sunday, ms('14:57'))).toBe(1)
+  })
+
+  it('still marks a session skipped when it really is jumped over', () => {
+    // 14:57, with the Conclusion on: going straight to the Prayer drops the
+    // Kids Testimony, which never began.
+    expect(jumpedSessions(sunday, 3, ms('14:57')).map((s) => s.id)).toEqual(['kids'])
+  })
+
+  it('counts time granted on request as part of the session', () => {
+    // The Message given 10 more minutes runs to 15:10; at 15:05 it is still
+    // on, and starting the Conclusion then jumps over nothing.
+    const longer: RunSession[] = [
+      { ...sunday[0], added_minutes: 10 },
+      { ...sunday[1], start_time: t('15:10') },
+      { ...sunday[2], start_time: t('15:12') },
+    ]
+    expect(frontIndex(longer, ms('15:05'))).toBe(0)
+    expect(jumpedSessions(longer, 1, ms('15:05'))).toEqual([])
+  })
+})
