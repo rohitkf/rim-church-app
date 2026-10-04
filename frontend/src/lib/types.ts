@@ -45,7 +45,11 @@ export const departmentMemberRowSchema = z.object({
       id: z.string(),
       first_name: z.string(),
       last_name: z.string(),
-      email: z.string(),
+      /*
+       * Optional: the team page asks for it only when the Owner is
+       * looking — nobody else is shown a member's email there.
+       */
+      email: z.string().optional(),
       phone: z.string().nullable(),
       avatar_url: z.string().nullable(),
       /*

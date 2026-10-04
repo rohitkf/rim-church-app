@@ -21,12 +21,15 @@ const state = vi.hoisted(() => ({
   members: [] as Record<string, unknown>[],
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
   canManage: true,
+  owner: false,
+  selects: [] as string[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
-    isAdmin: state.canManage,
+    isAdmin: state.canManage || state.owner,
+    isSuperAdmin: state.owner,
     isDepartmentHead: () => state.canManage,
   }),
 }))
@@ -43,7 +46,8 @@ vi.mock('../lib/queries', () => ({ searchProfiles: () => Promise.resolve([]) }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
-      select: () => {
+      select: (columns?: string) => {
+        if (table === 'department_members') state.selects.push(columns ?? '')
         const rows =
           table === 'department_members'
             ? state.members
@@ -97,6 +101,8 @@ beforeEach(() => {
   state.members = [member()]
   state.written = []
   state.canManage = true
+  state.owner = false
+  state.selects = []
 })
 
 function show() {
@@ -170,7 +176,34 @@ describe('moving somebody between core and guest', () => {
     show()
     // The roster is drawn twice — cards on a phone, a table from `sm` up —
     // so the name is on the page more than once either way.
-    await screen.findAllByText('grace@rehoboth.org')
+    await screen.findAllByText('Grace Mensah')
     expect(screen.queryByRole('button', { name: 'Make a guest' })).toBeNull()
+  })
+})
+
+describe('members’ email addresses', () => {
+  it('are shown to the Owner, in the cards and the table', async () => {
+    state.owner = true
+    show()
+    expect((await screen.findAllByText('grace@rehoboth.org')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('columnheader', { name: 'Contact' })).toBeInTheDocument()
+    expect(state.selects.at(-1)).toMatch(/\bemail\b/)
+  })
+
+  it('are neither shown nor even asked for when an Admin or a Head is looking', async () => {
+    state.canManage = true
+    show()
+    await screen.findAllByText('Grace Mensah')
+    expect(screen.queryByText('grace@rehoboth.org')).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'Contact' })).toBeNull()
+    expect(state.selects.length).toBeGreaterThan(0)
+    expect(state.selects.every((c) => !/\bemail\b/.test(c))).toBe(true)
+  })
+
+  it('are not shown to a member of the team either', async () => {
+    state.canManage = false
+    show()
+    await screen.findAllByText('Grace Mensah')
+    expect(screen.queryByText('grace@rehoboth.org')).toBeNull()
   })
 })

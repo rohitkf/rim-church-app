@@ -40,10 +40,18 @@ async function fetchDepartment(id: string): Promise<Department | null> {
   return data ? departmentSchema.parse(data) : null
 }
 
-async function fetchMembers(id: string): Promise<DepartmentMemberRow[]> {
+/*
+ * Members' email addresses are the Owner's alone to see on this page, so
+ * for anybody else the column is not even asked for.
+ */
+async function fetchMembers(id: string, withEmail: boolean): Promise<DepartmentMemberRow[]> {
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, email, phone, avatar_url, dob)')
+    .select(
+      withEmail
+        ? '*, profiles(id, first_name, last_name, email, phone, avatar_url, dob)'
+        : '*, profiles(id, first_name, last_name, phone, avatar_url, dob)',
+    )
     .eq('department_id', id)
   if (error) throw error
   return z.array(departmentMemberRowSchema).parse(data)
@@ -118,7 +126,7 @@ function Age({ dob }: { dob: string | null | undefined }) {
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, isDepartmentHead } = useAuth()
+  const { isAdmin, isSuperAdmin: isOwner, isDepartmentHead } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const canManage = isAdmin || (!!id && isDepartmentHead(id))
@@ -136,8 +144,8 @@ export function DepartmentDetailPage() {
   })
 
   const membersQuery = useQuery({
-    queryKey: ['department-members', id],
-    queryFn: () => fetchMembers(id!),
+    queryKey: ['department-members', id, isOwner],
+    queryFn: () => fetchMembers(id!, isOwner),
     enabled: !!id,
   })
 
@@ -430,10 +438,12 @@ export function DepartmentDetailPage() {
                       </div>
                       {/* An email has no spaces to wrap at, so it needs
                           permission to break mid-word or it sets the card's
-                          width for it. */}
-                      <div className="mt-1 break-all text-body-sm text-on-surface-variant">
-                        {m.profiles?.email}
-                      </div>
+                          width for it. The Owner's alone to see. */}
+                      {isOwner && m.profiles?.email && (
+                        <div className="mt-1 break-all text-body-sm text-on-surface-variant">
+                          {m.profiles.email}
+                        </div>
+                      )}
                       {ageFrom(m.profiles?.dob) !== null && (
                         <div className="mt-0.5 text-body-sm text-on-surface-faint">
                           <Age dob={m.profiles?.dob} /> years old
@@ -479,7 +489,7 @@ export function DepartmentDetailPage() {
                       <th className="py-2 pr-4">Member</th>
                       <th className="py-2 pr-4">Age</th>
                       <th className="py-2 pr-4">On this team</th>
-                      <th className="py-2 pr-4">Contact</th>
+                      {isOwner && <th className="py-2 pr-4">Contact</th>}
                       <th className="py-2 pr-4">Compliance</th>
                       {canManage && <th className="py-2" />}
                     </tr>
@@ -496,9 +506,11 @@ export function DepartmentDetailPage() {
                           <td className="py-3 pr-4 text-on-surface-variant">
                             {DESIGNATION_LABEL[designationOf(m.user_id)]}
                           </td>
-                          <td className="py-3 pr-4 break-all text-on-surface-variant">
-                            {m.profiles?.email}
-                          </td>
+                          {isOwner && (
+                            <td className="py-3 pr-4 break-all text-on-surface-variant">
+                              {m.profiles?.email}
+                            </td>
+                          )}
                           <td className="py-3 pr-4">
                             <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                           </td>
@@ -579,7 +591,9 @@ export function DepartmentDetailPage() {
                                 type="button"
                                 onClick={() => {
                                   setPicked(p)
-                                  setAddEmail(p.email)
+                                  // The name, not the address: only the
+                                  // Owner is shown members' emails here.
+                                  setAddEmail(`${p.first_name} ${p.last_name}`.trim() || p.email)
                                   setAddError(null)
                                 }}
                                 className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-surface-container"
@@ -587,7 +601,9 @@ export function DepartmentDetailPage() {
                                 <span className="text-body-sm font-medium text-on-surface">
                                   {p.first_name} {p.last_name}
                                 </span>
-                                <span className="text-label-sm text-on-surface-variant">{p.email}</span>
+                                {isOwner && (
+                                  <span className="text-label-sm text-on-surface-variant">{p.email}</span>
+                                )}
                               </button>
                             </li>
                           ))}
@@ -639,9 +655,11 @@ export function DepartmentDetailPage() {
                         <div className="text-body-sm font-medium text-on-surface">
                           {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                         </div>
-                        <div className="break-all text-body-sm text-on-surface-variant">
-                          {m.profiles?.email}
-                        </div>
+                        {isOwner && m.profiles?.email && (
+                          <div className="break-all text-body-sm text-on-surface-variant">
+                            {m.profiles.email}
+                          </div>
+                        )}
                         {/* Guests get their age shown too: the point of
                             putting it on the page is that everybody on a
                             team can see everybody, and a guest is on the

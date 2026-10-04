@@ -193,6 +193,7 @@ describe('PermissionsCard', () => {
         a.capabilities.filter((c) => c.can.owner === 'yes' && c.can.admin === 'no'),
       )
       expect(ownerOnly.map((c) => c.action)).toEqual([
+        'See members’ email addresses on a team’s page',
         'Read everybody’s feedback, mark where it stands and reply',
         'Hand over ownership',
       ])

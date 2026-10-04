@@ -393,6 +393,11 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Names, emails, phone numbers, birthdays and anniversaries are readable by anybody signed in — a Church Member included — through the app’s data connection, even where no page shows them. Only DBS and safeguarding details are closed. Worth a decision.',
       },
       {
+        action: 'See members’ email addresses on a team’s page',
+        can: all({ admin: 'no' }),
+        note: 'The Owner alone — everybody else sees names, ages and roles. The page only; the data connection still answers anybody signed in (above).',
+      },
+      {
         action: 'Edit your own profile',
         can: all({
           owner: 'own',
