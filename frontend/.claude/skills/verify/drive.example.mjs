@@ -44,7 +44,19 @@ async function page(width) {
     const req = route.request(); const url = req.url()
     if (url.includes('/auth/v1/')) return route.fulfill({ json: user })
     if (url.includes('/realtime/')) return route.abort()
-    if (url.includes('/rest/v1/rpc/')) return route.fulfill({ json: null })
+    if (url.includes('/rest/v1/rpc/')) {
+      // Your own profile comes through my_profile() (0126), the Owner's view
+      // of everybody's contacts through people_contacts(); profiles itself
+      // no longer hands out email or phone (0127).
+      const fn = new URL(url).pathname.split('/rpc/')[1]
+      const rows = fn === 'my_profile' ? T.profiles ?? []
+        : fn === 'people_contacts' ? (T.profiles ?? []).map((p) => ({ id: p.id, email: p.email ?? null, phone: p.phone ?? null }))
+        : null
+      if (rows === null) return route.fulfill({ json: null })
+      if ((req.headers()['accept'] || '').includes('pgrst.object'))
+        return rows.length ? route.fulfill({ json: rows[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
+      return route.fulfill({ json: rows })
+    }
     const t = table(url); seen.push(t)
     let rows = T[t] ?? []
     const single = (req.headers()['accept'] || '').includes('pgrst.object')

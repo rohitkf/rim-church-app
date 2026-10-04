@@ -60,7 +60,7 @@ the thing most likely to waste your time:
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
 | `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
 | `church_updates` | the **Church Updates** page |
-| `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, answered by an Admin via `mark_feedback` (0124) |
+| `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:
@@ -226,10 +226,24 @@ skipped:
    Then run `notify pgrst, 'reload schema';` so the change is visible at
    once instead of whenever the cache turns over.
 2. **Deploy changed edge functions**: `supabase functions deploy push-notify`.
+3. **Some migrations wait for the release.** A migration that takes
+   something away the live app still uses must be applied *after* that
+   release is live, not before. 0127 (closing email and phone on
+   `profiles`) is one: applied early, the app in production loses every
+   signed-in person's own profile. Its header says so.
 
 ## 8. Things that fail silently
 
 Each of these has already cost real time. None of them show up in review.
+
+- **`profiles` is readable column by column** (0127). Email, phone and
+  marital status are closed to everybody; the Owner reads others' through
+  `people_contacts()`, everyone reads their own through `my_profile()`,
+  and a Head adds by address through `person_by_email()` (0126). A
+  `select('*')` on `profiles`, or any column not in 0127's grant, fails the
+  **whole query** — and a new column starts closed until a migration
+  grants it. `lib/profileColumns.test.ts` reads every select in `src/`
+  against the grant; keep it passing rather than loosening it.
 
 - **`public/sw.js` must keep `const BUILD_ID = '__RIM_BUILD_ID__'`.** A
   browser installs a new service worker only when `sw.js` differs byte for

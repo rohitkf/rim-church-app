@@ -81,7 +81,7 @@ def get_team_for_service(client: Client, user_id: str, department_name: str, ser
     dept_id = _resolve_department_id(client, department_name)
     members_resp = _run(
         client.table("department_members")
-        .select("member_type, profiles(first_name, last_name, email)")
+        .select("member_type, profiles(first_name, last_name)")
         .eq("department_id", dept_id)
         .execute
     )

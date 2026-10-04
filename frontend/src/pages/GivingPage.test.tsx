@@ -85,6 +85,18 @@ describe('the Giving page', () => {
     expect(await screen.findByRole('img', { name: 'QR code for Give by card' })).toBeInTheDocument()
   })
 
+  it('opens a link’s QR code big enough to scan from across the room', async () => {
+    rows.giving_links = [
+      { id: 'l1', label: 'Give by card', url: 'https://buy.stripe.com/abc', note: null, show_qr: true, sort_order: 0 },
+    ]
+    const user = show(<GivingPage />)
+    await user.click(await screen.findByRole('button', { name: 'Enlarge QR code for Give by card' }))
+    const dialog = screen.getByRole('dialog', { name: 'QR code for Give by card' })
+    expect(await within(dialog).findByRole('img', { name: 'QR code for Give by card, enlarged' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('never makes a button of a link that is not https', async () => {
     rows.giving_links = [
       { id: 'l1', label: 'Sneaky', url: 'javascript:alert(1)', note: null, show_qr: true, sort_order: 0 },
@@ -113,6 +125,23 @@ describe('the Giving page', () => {
     show(<GivingPage />)
     expect(await screen.findByText('Thank you!')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: 'QR code: Scan with your banking app' })).toHaveAttribute('src', 'https://signed/qr.png')
+  })
+
+  it('opens the uploaded QR picture big, zooms in on it, and links to the full-size picture', async () => {
+    rows.giving_page = [{ intro: null, qr_image_path: 'qr-1.png', qr_image_caption: 'Scan with your banking app' }]
+    const user = show(<GivingPage />)
+    await user.click(await screen.findByRole('button', { name: 'Enlarge Scan with your banking app' }))
+    const dialog = screen.getByRole('dialog', { name: 'Scan with your banking app' })
+    expect(within(dialog).getByRole('img', { name: 'QR code: Scan with your banking app, enlarged' })).toHaveAttribute(
+      'src',
+      'https://signed/qr.png',
+    )
+    expect(within(dialog).getByRole('link', { name: /Open full size/ })).toHaveAttribute('href', 'https://signed/qr.png')
+    const zoom = within(dialog).getByRole('button', { name: 'Zoom in' })
+    await user.click(zoom)
+    expect(within(dialog).getByRole('button', { name: 'Zoom out' })).toHaveAttribute('aria-pressed', 'true')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

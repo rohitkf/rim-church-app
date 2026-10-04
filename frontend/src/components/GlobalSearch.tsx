@@ -84,8 +84,9 @@ async function search(term: string): Promise<Hit[]> {
     supabase.from('departments').select('id, name').ilike('name', like).limit(4),
     supabase
       .from('profiles')
-      .select('id, first_name, last_name, email')
-      .or(`first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like}`)
+      // By name only — email addresses are the Owner's (0127).
+      .select('id, first_name, last_name')
+      .or(`first_name.ilike.${like},last_name.ilike.${like}`)
       .limit(4),
     supabase
       .from('inventory_items')
@@ -158,14 +159,14 @@ async function search(term: string): Promise<Hit[]> {
   }
 
   for (const row of z
-    .array(z.object({ id: z.string(), first_name: z.string(), last_name: z.string(), email: z.string() }))
+    .array(z.object({ id: z.string(), first_name: z.string(), last_name: z.string() }))
     .catch([])
     .parse(people.data ?? [])) {
     hits.push({
       id: `person-${row.id}`,
       kind: 'Person',
-      label: `${row.first_name} ${row.last_name}`.trim() || row.email,
-      detail: row.email,
+      label: `${row.first_name} ${row.last_name}`.trim() || 'Unnamed person',
+      detail: 'Person',
       to: '/volunteers',
     })
   }

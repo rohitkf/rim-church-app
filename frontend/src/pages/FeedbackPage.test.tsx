@@ -7,13 +7,14 @@ import { FeedbackPage } from './FeedbackPage'
 
 const state = {
   admin: false,
+  owner: false,
   me: 'me',
   rows: [] as Record<string, unknown>[],
   rpc: [] as { fn: string; args: Record<string, unknown> }[],
 }
 
 vi.mock('../auth/AuthContext', () => ({
-  useAuth: () => ({ isAdmin: state.admin, session: { user: { id: state.me } } }),
+  useAuth: () => ({ isAdmin: state.admin || state.owner, isSuperAdmin: state.owner, session: { user: { id: state.me } } }),
 }))
 vi.mock('../components/Lifespan', () => ({ Lifespan: () => null }))
 vi.mock('../lib/supabaseClient', () => ({
@@ -45,6 +46,7 @@ const row = (over: Record<string, unknown>) => ({
 
 beforeEach(() => {
   state.admin = false
+  state.owner = false
   state.rows = []
   state.rpc = []
 })
@@ -90,7 +92,7 @@ describe('sending feedback', () => {
     await user.click(screen.getByRole('button', { name: 'Send feedback' }))
     await waitFor(() => expect(state.rpc).toHaveLength(1))
     expect(state.rpc[0]).toEqual({ fn: 'submit_feedback', args: { p_kind: 'idea', p_body: 'Dark mode for the rota' } })
-    expect(await screen.findByText(/it’s with the Admins/)).toBeInTheDocument()
+    expect(await screen.findByText(/it’s with the Owner/)).toBeInTheDocument()
   })
 })
 
@@ -123,9 +125,22 @@ describe('your own feedback', () => {
   })
 })
 
-describe('for Admins', () => {
-  beforeEach(() => {
+describe('for an Admin who is not the Owner', () => {
+  it('shows only their own — reading and answering everybody’s is the Owner’s', async () => {
     state.admin = true
+    // Whatever the database hands back, an Admin gets no Everyone’s view.
+    state.rows = [row({ id: 'm1', created_by: 'me', kind: 'idea', body: 'Mine' }), row({ id: 'b1', body: 'Theirs' })]
+    show()
+    expect(await screen.findByText('Mine')).toBeInTheDocument()
+    expect(screen.queryByText('Theirs')).toBeNull()
+    expect(screen.queryByRole('tab', { name: /Everyone’s/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull()
+  })
+})
+
+describe('for the Owner', () => {
+  beforeEach(() => {
+    state.owner = true
     state.rows = [
       row({ id: 'p1', kind: 'praise', body: 'Love the countdown' }),
       row({ id: 'b1', kind: 'bug', body: 'Rota jumps' }),

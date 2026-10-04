@@ -34,6 +34,12 @@ vi.mock('../lib/appSettings', async () => {
 
 const HOUR = 3_600_000
 const NOW = Date.parse('2026-10-04T11:00:00Z')
+// The page's countdowns read the real clock. Pinned to NOW, so "opens in two
+// hours" means two hours from NOW whatever day the suite runs — unpinned,
+// these tests began failing the afternoon NOW itself arrived. Only Date is
+// faked; timers stay real for the clocks and for user-event.
+vi.useFakeTimers({ toFake: ['Date'] })
+vi.setSystemTime(NOW)
 const dayFromNow = (n: number) => {
   const d = new Date()
   d.setDate(d.getDate() + n)

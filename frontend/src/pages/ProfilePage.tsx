@@ -126,7 +126,7 @@ export function ProfilePage() {
         </div>
       </SectionTile>
 
-      <SectionTile title="How to reach you" hint="Your Heads and Admins can see these.">
+      <SectionTile title="How to reach you" hint="Only you and the Owner can see these.">
         <div className="flex flex-col gap-4">
           <label className={labelClasses}>
             Email
@@ -147,7 +147,7 @@ export function ProfilePage() {
         </div>
       </SectionTile>
 
-      <SectionTile title="Dates we celebrate" hint="Shown to everyone on the Celebrations page. Leave out what doesn’t apply.">
+      <SectionTile title="Dates we celebrate" hint="Your birthday and anniversary are shown to everyone on the Celebrations page; your marital status is not. Leave out what doesn’t apply.">
         <div className="flex flex-col gap-4">
           <label className={labelClasses}>
             Date of birth
@@ -185,7 +185,7 @@ export function ProfilePage() {
         ordinary text and cannot collide with anything.
       */}
       {sensitive && (
-        <SectionTile title="Compliance details" hint="Only you and an Admin can see these.">
+        <SectionTile title="Compliance details" hint="Only you and the Owner can see these.">
           <div className="flex flex-col gap-4">
             {/* The same list the joining form offers, so the two cannot
                 drift into describing the same person differently. */}

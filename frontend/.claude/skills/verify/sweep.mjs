@@ -84,7 +84,19 @@ await ctx.route('http://supabase.test/**', async (route) => {
   const req = route.request(); const url = req.url()
   if (url.includes('/auth/v1/')) return route.fulfill({ json: user })
   if (url.includes('/realtime/')) return route.abort()
-  if (url.includes('/rest/v1/rpc/')) return route.fulfill({ json: url.includes('can_edit_set_list') ? true : null })
+  if (url.includes('/rest/v1/rpc/')) {
+    // Your own profile comes through my_profile() (0126), the Owner's view
+    // of everybody's contacts through people_contacts(); profiles itself
+    // no longer hands out email or phone (0127).
+    const fn = new URL(url).pathname.split('/rpc/')[1]
+    const rows = fn === 'my_profile' ? T.profiles ?? []
+      : fn === 'people_contacts' ? (T.profiles ?? []).map((p) => ({ id: p.id, email: p.email ?? null, phone: p.phone ?? null }))
+      : null
+    if (rows === null) return route.fulfill({ json: url.includes('can_edit_set_list') ? true : null })
+    if ((req.headers()['accept'] || '').includes('pgrst.object'))
+      return rows.length ? route.fulfill({ json: rows[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
+    return route.fulfill({ json: rows })
+  }
   if (req.method() !== 'GET') return route.fulfill({ status: 204, body: '' })
   const t = new URL(url).pathname.replace('/rest/v1/', '')
   const rows = t === 'app_owner' ? [{ user_id: 'u1' }] : (T[t] ?? [])

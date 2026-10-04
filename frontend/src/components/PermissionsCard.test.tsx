@@ -98,19 +98,27 @@ describe('PermissionsCard', () => {
   })
 
   describe('the answers it gives', () => {
-    it('lets everybody see their own DBS, and nobody else’s but an Admin', async () => {
-      // Verified against production: a Head reading profile_sensitive gets
-      // exactly their own row and zero of anybody else's. The first draft
-      // of this table said Heads could not see it at all, which was wrong
-      // in a way only the database could settle.
+    it('lets everybody see their own visa and DBS, and nobody else’s but the Owner', async () => {
+      // Verified against production (0126 dry run): a Head, and an Admin
+      // who is not the Owner, reading profile_sensitive get exactly their
+      // own row and zero of anybody else's; the Owner gets every row.
       await compare(show())
-      const row = rowFor('See DBS and safeguarding details')
+      const row = rowFor('See visa, DBS and safeguarding details')
       const cells = within(row).getAllByRole('cell')
       expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
-      expect(within(cells[1]).getByLabelText('Yes')).toBeInTheDocument() // Admin
+      expect(within(cells[1]).getByText('own')).toBeInTheDocument() // Admin
       expect(within(cells[2]).getByText('own')).toBeInTheDocument() // Head
       expect(within(cells[4]).getByText('own')).toBeInTheDocument() // Team Member
-      expect(within(row).getByText(/Only an Admin sees anybody else’s/)).toBeInTheDocument()
+      expect(within(row).getByText(/Only the Owner sees anybody else’s/)).toBeInTheDocument()
+    })
+
+    it('keeps email addresses and phone numbers to their owner and the Owner', async () => {
+      await compare(show())
+      const row = rowFor('See somebody’s email address and phone number')
+      const cells = within(row).getAllByRole('cell')
+      expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
+      expect(within(cells[1]).getByText('own')).toBeInTheDocument() // Admin
+      expect(within(cells[4]).getByText('own')).toBeInTheDocument() // Team Member
     })
 
     it('shows the Coordinator holding exactly one power, and it is the checklist', () => {
@@ -192,7 +200,10 @@ describe('PermissionsCard', () => {
       const ownerOnly = PERMISSIONS.flatMap((a) =>
         a.capabilities.filter((c) => c.can.owner === 'yes' && c.can.admin === 'no'),
       )
-      expect(ownerOnly.map((c) => c.action)).toEqual(['Hand over ownership'])
+      expect(ownerOnly.map((c) => c.action)).toEqual([
+        'Read everybody’s feedback, mark where it stands and reply',
+        'Hand over ownership',
+      ])
     })
   })
 })

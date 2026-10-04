@@ -32,24 +32,25 @@ import { ActionButton, IconBadge, PageHeader, Pill, SectionTile, Tile, inputClas
  *
  * Anybody on a team can send it (Church Members cannot — the database
  * refuses them too, 0124): pick what kind it is, say it, send. It goes to
- * every Admin's bell and phone. Your own stay listed underneath, with
+ * the Owner's bell and phone. Your own stay listed underneath, with
  * where each one stands and any reply.
  *
- * Admins see everybody's, grouped by kind in a fixed order — what is
- * broken first — and answer each one: a status, and a line back to the
- * person who sent it, who is told.
+ * The Owner alone sees everybody's (0125 — Admins see only their own),
+ * grouped by kind in a fixed order — what is broken first — and answers
+ * each one: a status, and a line back to the person who sent it, who is
+ * told.
  *
  * This is about the app. A broken projector at a service is an Issue.
  */
 export function FeedbackPage() {
-  const { isAdmin, session } = useAuth()
+  const { isSuperAdmin: isOwner, session } = useAuth()
   const myId = session?.user.id
   const [params] = useSearchParams()
   const openedId = params.get('feedback')
   const query = useQuery({ queryKey: FEEDBACK_KEY, queryFn: fetchFeedback })
   const all = useMemo(() => query.data ?? [], [query.data])
   const mine = all.filter((f) => f.created_by === myId)
-  const [view, setView] = useState<'everyone' | 'mine'>(isAdmin ? 'everyone' : 'mine')
+  const [view, setView] = useState<'everyone' | 'mine'>(isOwner ? 'everyone' : 'mine')
 
   // A tap on the notification lands on the feedback it was about.
   useEffect(() => {
@@ -68,7 +69,7 @@ export function FeedbackPage() {
 
       <Composer />
 
-      {isAdmin && (
+      {isOwner && (
         <div role="tablist" aria-label="Whose feedback" className="mt-8 flex gap-1 self-start rounded-full bg-inset p-1 hairline sm:inline-flex">
           {(
             [
@@ -93,7 +94,7 @@ export function FeedbackPage() {
       )}
 
       <QueryState isLoading={query.isLoading} error={query.error}>
-        {isAdmin && view === 'everyone' ? (
+        {isOwner && view === 'everyone' ? (
           <EveryonesFeedback items={all} openedId={openedId} />
         ) : (
           <YourFeedback items={mine} openedId={openedId} />
@@ -196,7 +197,7 @@ function Composer() {
           )}
           {sent && (
             <span role="status" className="text-body-sm text-accent-green">
-              Thank you — it’s with the Admins. You’ll hear back here.
+              Thank you — it’s with the Owner. You’ll hear back here.
             </span>
           )}
         </div>
@@ -383,7 +384,7 @@ function FeedbackCard({
   )
 }
 
-/** An Admin's answer: where it stands, and a line back to the sender. */
+/** The Owner's answer: where it stands, and a line back to the sender. */
 function AnswerForm({ item, onDone }: { item: Feedback; onDone: () => void }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()

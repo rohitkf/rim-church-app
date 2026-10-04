@@ -21,12 +21,17 @@ const state = vi.hoisted(() => ({
   members: [] as Record<string, unknown>[],
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
   canManage: true,
+  owner: false,
+  selects: [] as string[],
+  rpcs: [] as { fn: string; args: unknown }[],
+  sensitiveAsked: 0,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
-    isAdmin: state.canManage,
+    isAdmin: state.canManage || state.owner,
+    isSuperAdmin: state.owner,
     isDepartmentHead: () => state.canManage,
   }),
 }))
@@ -42,8 +47,16 @@ vi.mock('../lib/queries', () => ({ searchProfiles: () => Promise.resolve([]) }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string, args: unknown) => {
+      state.rpcs.push({ fn, args })
+      if (fn === 'people_contacts') return Promise.resolve({ data: [{ id: 'p1', email: 'grace@rehoboth.org', phone: null }], error: null })
+      if (fn === 'person_by_email') return Promise.resolve({ data: 'p9', error: null })
+      return Promise.resolve({ data: null, error: null })
+    },
     from: (table: string) => ({
-      select: () => {
+      select: (columns?: string) => {
+        if (table === 'department_members') state.selects.push(columns ?? '')
+        if (table === 'profile_sensitive') state.sensitiveAsked += 1
         const rows =
           table === 'department_members'
             ? state.members
@@ -58,6 +71,10 @@ vi.mock('../lib/supabaseClient', () => ({
             }),
           in: () => Promise.resolve({ data: [], error: null }),
         })
+      },
+      insert: (row: unknown) => {
+        state.written.push({ table, op: 'insert', row })
+        return Promise.resolve({ error: null })
       },
       update: (row: unknown) => ({
         eq: (_column: string, id: string) => {
@@ -85,7 +102,6 @@ const member = (over: Record<string, unknown> = {}) => ({
     id: 'p1',
     first_name: 'Grace',
     last_name: 'Mensah',
-    email: 'grace@rehoboth.org',
     phone: null,
     avatar_url: null,
     dob: null,
@@ -97,6 +113,10 @@ beforeEach(() => {
   state.members = [member()]
   state.written = []
   state.canManage = true
+  state.owner = false
+  state.selects = []
+  state.rpcs = []
+  state.sensitiveAsked = 0
 })
 
 function show() {
@@ -170,7 +190,67 @@ describe('moving somebody between core and guest', () => {
     show()
     // The roster is drawn twice — cards on a phone, a table from `sm` up —
     // so the name is on the page more than once either way.
-    await screen.findAllByText('grace@rehoboth.org')
+    await screen.findAllByText('Grace Mensah')
     expect(screen.queryByRole('button', { name: 'Make a guest' })).toBeNull()
+  })
+})
+
+describe('members’ email addresses', () => {
+  it('are shown to the Owner, in the cards and the table', async () => {
+    state.owner = true
+    show()
+    expect((await screen.findAllByText('grace@rehoboth.org')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('columnheader', { name: 'Contact' })).toBeInTheDocument()
+    // Even for the Owner the roster never selects the closed column: the
+    // address comes from the Owner-only function instead.
+    expect(state.selects.every((c) => !/\bemail\b/.test(c))).toBe(true)
+    expect(state.rpcs).toContainEqual({ fn: 'people_contacts', args: { p_ids: ['p1'] } })
+  })
+
+  it('show visa and DBS to the Owner only', async () => {
+    state.owner = true
+    show()
+    await screen.findAllByText('grace@rehoboth.org')
+    expect(screen.getByRole('columnheader', { name: 'Compliance' })).toBeInTheDocument()
+    expect(state.sensitiveAsked).toBeGreaterThan(0)
+  })
+
+  it('are neither shown nor even asked for when an Admin or a Head is looking', async () => {
+    state.canManage = true
+    show()
+    await screen.findAllByText('Grace Mensah')
+    expect(screen.queryByText('grace@rehoboth.org')).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'Contact' })).toBeNull()
+    expect(state.selects.length).toBeGreaterThan(0)
+    expect(state.selects.every((c) => !/\bemail\b/.test(c))).toBe(true)
+    expect(state.rpcs.map((r) => r.fn)).not.toContain('people_contacts')
+    // Nor are their visa and DBS records asked for, or a column drawn.
+    expect(state.sensitiveAsked).toBe(0)
+    expect(screen.queryByRole('columnheader', { name: 'Compliance' })).toBeNull()
+  })
+
+  it('are not shown to a member of the team either', async () => {
+    state.canManage = false
+    show()
+    await screen.findAllByText('Grace Mensah')
+    expect(screen.queryByText('grace@rehoboth.org')).toBeNull()
+  })
+})
+
+describe('adding somebody by their full email', () => {
+  it('asks the database who it belongs to, rather than reading addresses', async () => {
+    show()
+    const user = userEvent.setup()
+    await screen.findAllByText('Grace Mensah')
+    await user.type(screen.getByRole('textbox', { name: /Add by name, or their full email/ }), 'sam@rehoboth.org')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() =>
+      expect(state.written).toContainEqual({
+        table: 'department_members',
+        op: 'insert',
+        row: { department_id: 'd1', user_id: 'p9', member_type: 'core' },
+      }),
+    )
+    expect(state.rpcs).toContainEqual({ fn: 'person_by_email', args: { p_email: 'sam@rehoboth.org' } })
   })
 })

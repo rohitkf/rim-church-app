@@ -20,7 +20,8 @@ export interface ExportPerson {
   id: string
   first_name: string
   last_name: string
-  email: string
+  /** Present only when the Owner is exporting (0126). */
+  email?: string
   phone?: string | null
   dob?: string | null
   anniversary?: string | null
@@ -57,6 +58,11 @@ export interface ExportInput {
   /** Admin user ids, so the sheet can say who can change things. */
   adminIds: Set<string>
   ownerId?: string | null
+  /**
+   * Email and phone columns. The Owner's alone (0126), so off unless the
+   * Owner is exporting; the columns are left out rather than left blank.
+   */
+  includeContacts?: boolean
   /** Include people who are on none of the selected teams. */
   includeUnassigned?: boolean
 }
@@ -137,7 +143,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
     rows: people.map((p) => [
       p.first_name,
       p.last_name,
-      p.email,
+      blank(p.email),
       blank(p.phone),
       blank(p.dob),
       blank(p.anniversary),
@@ -177,7 +183,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       designationIn(grantsBy.get(person.id) ?? [], membership.department_id),
       person.first_name,
       person.last_name,
-      person.email,
+      blank(person.email),
       blank(person.phone),
     ]),
   }
@@ -238,7 +244,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
         return [
           p.first_name,
           p.last_name,
-          p.email,
+          blank(p.email),
           blank(record?.visa_type),
           blank(record?.visa_expiry),
           record ? (record.has_dbs ? 'Yes' : 'No') : '',
@@ -247,7 +253,19 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
     })
   }
 
-  return sheets
+  return input.includeContacts ? sheets : sheets.map(withoutContacts)
+}
+
+const CONTACT_COLUMNS = new Set(['Email', 'Phone'])
+
+/** The same sheet with its Email and Phone columns taken out. */
+function withoutContacts(sheet: ExportSheet): ExportSheet {
+  const keep = sheet.columns.map((c) => !CONTACT_COLUMNS.has(c.label))
+  return {
+    ...sheet,
+    columns: sheet.columns.filter((_, i) => keep[i]),
+    rows: sheet.rows.map((row) => row.filter((_, i) => keep[i])),
+  }
 }
 
 /** Dated, so two exports a week apart don't overwrite each other. */

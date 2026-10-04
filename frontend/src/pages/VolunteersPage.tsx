@@ -35,10 +35,13 @@ const volunteerSchema = z.object({
   id: z.string(),
   first_name: z.string(),
   last_name: z.string(),
-  email: z.string(),
-  // Carried for the export rather than the page: the roster shows names,
-  // but what an admin takes away is the whole profile.
-  phone: z.string().nullable(),
+  /*
+   * Email and phone are the Owner's alone (0126/0127): closed on
+   * `profiles` for everybody, filled in from people_contacts() only when
+   * the Owner is looking. Carried for the export as much as the page.
+   */
+  email: z.string().optional(),
+  phone: z.string().nullable().optional(),
   dob: z.string().nullable(),
   anniversary: z.string().nullable(),
 })
@@ -47,13 +50,24 @@ type Volunteer = z.infer<typeof volunteerSchema>
 const grantSchema = userRoleSchema.extend({ user_id: z.string() })
 type Grant = z.infer<typeof grantSchema>
 
-async function fetchVolunteers(): Promise<Volunteer[]> {
+const contactSchema = z.object({ id: z.string(), email: z.string().nullable(), phone: z.string().nullable() })
+
+async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, email, phone, dob, anniversary')
+    .select('id, first_name, last_name, dob, anniversary')
     .order('first_name')
   if (error) throw error
-  return z.array(volunteerSchema).parse(data)
+  const people = z.array(volunteerSchema).parse(data)
+  // Never carried for anybody else, even if a row ever arrived with them.
+  if (!withContacts) return people.map(({ email: _email, phone: _phone, ...rest }) => rest)
+  const contacts = await supabase.rpc('people_contacts', { p_ids: null })
+  if (contacts.error) throw contacts.error
+  const byId = new Map(z.array(contactSchema).parse(contacts.data ?? []).map((c) => [c.id, c]))
+  return people.map((p) => {
+    const c = byId.get(p.id)
+    return c ? { ...p, email: c.email ?? undefined, phone: c.phone } : p
+  })
 }
 
 async function fetchAllGrants(): Promise<Grant[]> {
@@ -111,7 +125,11 @@ export function VolunteersPage() {
   const [exporting, setExporting] = useState(false)
   const [inviting, setInviting] = useState(false)
 
-  const volunteersQuery = useQuery({ queryKey: ['volunteers'], queryFn: fetchVolunteers, enabled: isAdmin })
+  const volunteersQuery = useQuery({
+    queryKey: ['volunteers', isSuperAdmin],
+    queryFn: () => fetchVolunteers(isSuperAdmin),
+    enabled: isAdmin,
+  })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
   const grantsQuery = useQuery({ queryKey: ['all-user-roles'], queryFn: fetchAllGrants, enabled: isAdmin })
 
@@ -328,7 +346,10 @@ export function VolunteersPage() {
                 </span>
               )}
             </div>
-            <div className="truncate text-body-sm text-on-surface-variant">{v.email}</div>
+            {/* The Owner's alone: nobody else is sent it. */}
+            {isSuperAdmin && v.email && (
+              <div className="truncate text-body-sm text-on-surface-variant">{v.email}</div>
+            )}
           </div>
           {/* What they are across the whole app, not on any one team. */}
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -583,6 +604,7 @@ export function VolunteersPage() {
           grants={grants}
           adminIds={new Set(grants.filter((g) => g.role_type === 'admin').map((g) => g.user_id))}
           ownerId={ownerId}
+          isOwner={isSuperAdmin}
           onClose={() => setExporting(false)}
         />
       )}

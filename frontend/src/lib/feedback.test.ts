@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import migration from '../../../supabase/migrations/0124_the_teams_tell_us_what_to_fix.sql?raw'
+import ownerOnly from '../../../supabase/migrations/0125_only_the_owner_reads_the_feedback.sql?raw'
 import { FEEDBACK_KINDS, FEEDBACK_STATUSES, groupByKind, isOpen, type Feedback } from './feedback'
 
 const listed = (column: string) =>
@@ -41,5 +42,20 @@ describe('groupByKind', () => {
 
   it('leaves out a kind with nothing in it', () => {
     expect(groupByKind([])).toEqual([])
+  })
+})
+
+describe('who reads it (0125)', () => {
+  // The page shows Everyone's only to the Owner; the database has to agree,
+  // or an Admin would get everybody's rows back from the API anyway.
+  it('lets only the Owner read, clear and answer everybody’s', () => {
+    expect(ownerOnly).toMatch(/alter policy app_feedback_select[\s\S]*?or public\.is_super_admin\(auth\.uid\(\)\)\);/)
+    expect(ownerOnly).toMatch(/alter policy app_feedback_delete[\s\S]*?or public\.is_super_admin\(auth\.uid\(\)\)\);/)
+    expect(ownerOnly).toMatch(/if not public\.is_super_admin\(auth\.uid\(\)\) then\s+raise exception 'Only the Owner/)
+    expect(ownerOnly).not.toMatch(/is_admin\(/)
+  })
+
+  it('tells only the Owner when feedback arrives', () => {
+    expect(ownerOnly).toMatch(/notify_people\(\s+coalesce\(array\(select user_id from public\.app_owner\)/)
   })
 })

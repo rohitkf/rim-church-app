@@ -79,6 +79,15 @@ export function serviceProgress(
     .reverse()
     .find((s) => !s.skipped_at && !s.held_at && s.start < heldFrom)
 
+  /*
+   * A session stops when the next one that runs begins, if that is sooner
+   * than its own end — a session started early ends the one before it.
+   * Without this the Message and the Conclusion started early inside it were
+   * both "on" at once (the same rule as runVariance's "actually ended").
+   */
+  const live = ordered.filter((s) => !s.skipped_at)
+  const nextStart = new Map(live.map((s, i) => [s.id, live[i + 1]?.start ?? Infinity]))
+
   for (const session of timed) {
     if (session.skipped_at) {
       // A dropped session is neither ahead nor done — it did not happen, and
@@ -98,14 +107,16 @@ export function serviceProgress(
       continue
     }
     const length = runsForMinutes(session) * 60_000
-    const end = session.start + length
+    const cutShort = nextStart.get(session.id) ?? Infinity
+    const end = cutShort > session.start ? Math.min(session.start + length, cutShort) : session.start + length
 
     if (now >= end) {
       // A zero-length session is done the moment its start passes: there is
       // no window to be inside.
       byId.set(session.id, { state: 'done', fill: 1 })
     } else if (now >= session.start) {
-      const fill = length === 0 ? 1 : (now - session.start) / length
+      const span = end - session.start
+      const fill = span <= 0 ? 1 : (now - session.start) / span
       byId.set(session.id, { state: 'running', fill })
       runningId = session.id
     } else {
