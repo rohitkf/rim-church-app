@@ -151,6 +151,8 @@ frontend/src/
   lib/permissions.ts         the grid's catalog (mirrors `permission_catalog`)
                              and decide(), which mirrors SQL's may()
   lib/usePermissions.ts      can(cap, { departmentId, coordinating, ownerId })
+  lib/availabilityHistory.ts the log behind each availability answer (0145):
+                             written by a trigger only, read per `avail.history`
   lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link

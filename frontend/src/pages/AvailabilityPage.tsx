@@ -42,6 +42,8 @@ import {
 } from '../lib/types'
 import { Select } from '../components/Select'
 import { AskToChangeAnswer, LateAnswerQueue } from '../components/LateAnswerRequest'
+import { AnswerHistory } from '../components/AnswerHistory'
+import { fetchAvailabilityHistory, historyOf } from '../lib/availabilityHistory'
 import {
   AVAILABILITY_REQUESTS_KEY,
   askToChangeAnswer,
@@ -396,6 +398,26 @@ export function AvailabilityPage() {
     () => myDepartments.filter((d) => can('avail.edit_others', { departmentId: d.id })).map((d) => d.id),
     [myDepartments, can],
   )
+
+  /*
+   * The log behind each answer (0145): every time it was given, changed
+   * or taken away, and by whom. Who may read it is the church's to say
+   * (`avail.history`); out of the box, the Owner and Admins. Fetched only
+   * for somebody who may read some of it, and the database returns only
+   * the lines they may.
+   */
+  const seesHistory = (departmentId: string, ownerId: string | undefined) =>
+    can('avail.history', { departmentId, ownerId })
+  const readsHistory = myDepartments.some(
+    (d) => can('avail.history', { departmentId: d.id }) || seesHistory(d.id, myId),
+  )
+  const historyQuery = useQuery({
+    // Under 'availability', so every write on this page refreshes it too.
+    queryKey: ['availability', 'history', upcomingIds],
+    queryFn: () => fetchAvailabilityHistory(upcomingIds),
+    enabled: readsHistory && upcomingIds.length > 0,
+  })
+  const history = historyQuery.data ?? []
 
   // Admins are here to watch the numbers, not to answer for themselves:
   // they see every team, and a row of buttons on each one is noise on a
@@ -843,6 +865,14 @@ export function AvailabilityPage() {
                 />
               )}
 
+              {canAnswer && seesHistory(dept.id, myId) && (
+                <AnswerHistory
+                  label="Your changes"
+                  whose="your answer"
+                  entries={historyOf(history, myId!, service.id, dept.id)}
+                />
+              )}
+
               {/*
                 How long is left to answer.
                 
@@ -901,7 +931,7 @@ export function AvailabilityPage() {
                 />
               )}
 
-              {leads && teamMembers.length > 0 && (
+              {(leads || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
                 <details className="mt-3">
                   <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
                     Team responses ({answers.length}/{coreMembers.length})
@@ -990,7 +1020,16 @@ export function AvailabilityPage() {
                             </p>
                           )}
 
-                          {answer?.status === 'available' && attendance.open && (
+                          {seesHistory(dept.id, m.user_id) && (
+                            <AnswerHistory
+                              whose={`${
+                                m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
+                              }’s answer`}
+                              entries={historyOf(history, m.user_id, service.id, dept.id)}
+                            />
+                          )}
+
+                          {leads && answer?.status === 'available' && attendance.open && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className="font-mono text-label-sm text-on-surface-variant">
                                 Turned up?

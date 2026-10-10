@@ -314,7 +314,7 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Change somebody else’s answer, and mark who turned up',
         key: 'avail.edit_others',
         can: granted('avail.edit_others'),
-        note: 'For the phone call that says “put me down, I forgot”.',
+        note: 'For the phone call that says “put me down, I forgot”. What somebody said stays theirs — only they or an Admin can change it — so for anybody else this is marking who turned up.',
       },
       {
         action: 'Ask to change your answer after it has closed',
@@ -336,6 +336,12 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Nudge whoever has not answered',
         key: 'avail.nudge',
         can: granted('avail.nudge'),
+      },
+      {
+        action: 'See the history of somebody’s answers',
+        key: 'avail.history',
+        can: granted('avail.history'),
+        note: 'Every time an answer was given, changed or taken away — what it said, who did it and when. “Their own” is a person’s own answers. It is kept as long as the answer is.',
       },
     ],
   },

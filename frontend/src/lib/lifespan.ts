@@ -127,7 +127,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'checklists':
       return `“Before the service” closes when the service ends; “After the service” stays open ${formatMinutes(s.after_service_checklist_minutes)} longer. Ticks are ${afterService}.`
     case 'availability':
-      return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service, and are ${afterService}.`
+      return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service. They, and the log of every change to them, are ${afterService}.`
     case 'rota':
       return `A service’s rota locks ${grace} after it ends, and is ${afterService}.`
     case 'planner':

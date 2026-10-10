@@ -254,6 +254,13 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  'avail.history': {
+    admin: offer('none all', 'all'),
+    head: offer('none own team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none own team all', 'none'),
+    newcomer: fixed(),
+  },
   'inv.items': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
