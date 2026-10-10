@@ -650,7 +650,12 @@ function CopyChecklistFrom({
 interface RoleRowProps {
   role: DepartmentRole
   departmentId: string
+  /** Add, rename, delete and reorder roles (team.roles). */
   canManage: boolean
+  /** Write a role's standing checklist (team.checklists). */
+  canChecklists: boolean
+  /** Make, rename and remove the groups roles are filed in (team.groups). */
+  canGroups: boolean
   roles: DepartmentRole[]
   roleNames: Map<string, string>
   groups: DepartmentRoleGroup[]
@@ -693,6 +698,7 @@ function RoleRow({
   role,
   departmentId,
   canManage,
+  canChecklists,
   roles,
   roleNames,
   groups,
@@ -876,14 +882,14 @@ function RoleRow({
                 <RoleChecklistEditor
                   roleId={role.id}
                   departmentId={departmentId}
-                  canManage={canManage}
+                  canManage={canChecklists}
                   phase={p.value}
                   roleNames={roleNames}
                 />
               </section>
             ))}
           </div>
-          {canManage && (
+          {canChecklists && (
             <div className="mt-3">
               <CopyChecklistFrom roleId={role.id} departmentId={departmentId} roles={roles} />
             </div>
@@ -986,7 +992,7 @@ function RoleGroupSection({
                 {section.group?.name ?? UNGROUPED_LABEL}
                 <span className="ml-2 text-on-surface-faint">{section.roles.length}</span>
               </h3>
-              {rowProps.canManage && section.group && (
+              {rowProps.canGroups && section.group && (
                 <ActionButton
                   size="sm"
                   tone="ghost"
@@ -1047,7 +1053,20 @@ function RoleGroupSection({
   )
 }
 
-export function DepartmentRolesCard({ departmentId, canManage }: { departmentId: string; canManage: boolean }) {
+export function DepartmentRolesCard({
+  departmentId,
+  canManage,
+  canGroups = canManage,
+  canChecklists = canManage,
+}: {
+  departmentId: string
+  /** Roles themselves (team.roles). */
+  canManage: boolean
+  /** Their groups (team.groups). */
+  canGroups?: boolean
+  /** Their standing checklists (team.checklists). */
+  canChecklists?: boolean
+}) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
@@ -1221,6 +1240,8 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               role={arranged.coordinator}
               departmentId={departmentId}
               canManage={canManage}
+              canChecklists={canChecklists}
+              canGroups={canGroups}
               roles={roles}
               roleNames={roleNames}
               groups={groups}
@@ -1244,6 +1265,8 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               section={section}
               departmentId={departmentId}
               canManage={canManage}
+              canChecklists={canChecklists}
+              canGroups={canGroups}
               roles={roles}
               roleNames={roleNames}
               groups={groups}
@@ -1273,7 +1296,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
         </div>
       </QueryState>
 
-      {canManage && (
+      {(canManage || canGroups) && (
         /* Adding a role is what this card is for, so its form is the one
            thing standing open at the foot of it. Adding a group is a rarer
            act — a team gets its families once and then lives with them —
@@ -1281,6 +1304,7 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
            a second rule, making the bottom of the card look like a
            settings page. It is a button until it is wanted. */
         <div className="mt-5 flex flex-col gap-3 border-t border-border-subtle pt-5">
+          {canManage && (
           <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
             <Field label="New role" className="min-w-48 flex-1">
               <input
@@ -1294,8 +1318,9 @@ export function DepartmentRolesCard({ departmentId, canManage }: { departmentId:
               {addRole.isPending ? 'Adding…' : 'Add'}
             </ActionButton>
           </form>
+          )}
 
-          {addingGroup ? (
+          {!canGroups ? null : addingGroup ? (
             <form
               onSubmit={(e) => {
                 e.preventDefault()

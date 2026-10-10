@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
 import { PurchaseRequests } from '../components/PurchaseRequests'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchDepartments } from '../lib/queries'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
@@ -27,7 +27,7 @@ async function fetchAllItems(): Promise<InventoryItem[]> {
 }
 
 export function InventoryIndexPage() {
-  const { isAdmin } = useAuth()
+  const { can } = usePermissions()
   const today = todayIso()
   const { teamStyle } = useTeamStyle()
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -140,9 +140,9 @@ export function InventoryIndexPage() {
         </ul>
       </QueryState>
 
-      {/* Every team's asks in one place. "What is everyone waiting on?" is an
-          Admin's question and nobody else's, so nobody else gets the panel. */}
-      {isAdmin && (
+      {/* Every team's asks in one place, for whoever answers them
+          everywhere — "what is everyone waiting on?" is nobody else's question. */}
+      {can('inv.purchase_decide') && (
         <div className="mt-8">
           <PurchaseRequests departmentId={null} />
         </div>

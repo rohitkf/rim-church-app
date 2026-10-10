@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TeamAlertPanel } from './TeamAlertPanel'
 
 const rpc = vi.fn(() => Promise.resolve({ data: 4, error: null }))
-let auth = { isAdmin: false, ledDepartmentIds: ['d1'] }
+let auth = { isAdmin: false, ledDepartmentIds: ['d1'], session: { user: { id: 'u1' } } }
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 
@@ -38,12 +38,12 @@ function renderPanel() {
 
 beforeEach(() => {
   rpc.mockClear()
-  auth = { isAdmin: false, ledDepartmentIds: ['d1'] }
+  auth = { isAdmin: false, ledDepartmentIds: ['d1'], session: { user: { id: 'u1' } } }
 })
 
 describe('TeamAlertPanel', () => {
   it('is not there at all for someone who heads nothing', async () => {
-    auth = { isAdmin: false, ledDepartmentIds: [] }
+    auth = { isAdmin: false, ledDepartmentIds: [], session: { user: { id: 'u1' } } }
     renderPanel()
     // Give the department query a tick to resolve before asserting absence.
     await new Promise((r) => setTimeout(r, 0))

@@ -289,9 +289,8 @@ export function TeamRotaPage() {
     queryClient.invalidateQueries({ queryKey: ['rota-requests'] })
   }
 
-  // Call times belong to Services & planning, which the grid does not set
-  // yet: Admins and the team's Heads (Assisting Heads deputise), as before.
-  const canSetCallTimes = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
+  // A team's call time is Services & planning's (svc.call_times).
+  const canSetCallTimes = (departmentId: string) => can('svc.call_times', { departmentId })
 
   /*
    * The rota's four questions, each the grid's. "Their team" for a

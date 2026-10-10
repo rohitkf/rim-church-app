@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { ManageTeamsCard } from '../components/ManageTeamsCard'
 import { JoinRequestsPanel } from '../components/JoinRequestsPanel'
@@ -16,6 +17,11 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 
 export function DepartmentsPage() {
   const { isAdmin, ledDepartmentIds, session } = useAuth()
+  // Making and removing teams, and clearing answered requests, are the
+  // church's to grant (Settings › Access & privileges). Seeing every team
+  // stays an Admin's view.
+  const { can } = usePermissions()
+  const canCreate = can('team.create')
   const { teamStyle } = useTeamStyle()
 
   const { data: allDepartments, isLoading, error } = useQuery({
@@ -58,15 +64,15 @@ export function DepartmentsPage() {
         description="The teams you're a core member, guest, or head of — plus every team if you're an Admin."
       />
 
-      {isAdmin && <ManageTeamsCard departments={allDepartments ?? []} />}
+      {canCreate && <ManageTeamsCard departments={allDepartments ?? []} />}
 
       {waitingOnMe.length > 0 && (
-        <div className={isAdmin ? 'mt-6' : ''}>
+        <div className={canCreate ? 'mt-6' : ''}>
           <JoinRequestsPanel requests={waitingOnMe} />
         </div>
       )}
 
-      {isAdmin && (
+      {can('people.clear_records') && (
         <div className="mt-4">
           <AnsweredJoinRequests count={joinRequests.filter((r) => r.status !== 'pending').length} />
         </div>
@@ -109,9 +115,13 @@ export function DepartmentsPage() {
                       </span>
                     )}
 
-                    {isAdmin && (
+                    {(canCreate || can('team.edit', { departmentId: dept.id })) && (
                       <div className="mt-5 flex flex-1 flex-col justify-end">
-                        <TeamCardActions dept={dept} />
+                        <TeamCardActions
+                          dept={dept}
+                          canEdit={can('team.edit', { departmentId: dept.id })}
+                          canDelete={canCreate}
+                        />
                       </div>
                     )}
                   </div>

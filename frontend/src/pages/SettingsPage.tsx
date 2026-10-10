@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { Eyebrow, IconBadge, PageHeader, Tile } from '../components/Surface'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { AdminResetCard } from '../components/AdminResetCard'
@@ -45,8 +46,10 @@ import {
  */
 export function SettingsPage() {
   const { isAdmin, isSuperAdmin } = useAuth()
+  const { can } = usePermissions()
   const { pathname } = useLocation()
-  const groups = visibleGroups({ isAdmin, isSuperAdmin })
+  const standing = { isAdmin, isSuperAdmin, can }
+  const groups = visibleGroups(standing)
   const current = sectionFor(pathname)
 
   // An address that is no room — the old App settings, a typo — goes
@@ -68,7 +71,7 @@ export function SettingsPage() {
   }
 
   // A room this person has no key to: back to the hall, not an empty page.
-  if (!maySee(current, { isAdmin, isSuperAdmin })) return <Navigate to="/settings" replace />
+  if (!maySee(current, standing)) return <Navigate to="/settings" replace />
 
   return (
     <div>

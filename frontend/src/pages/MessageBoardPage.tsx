@@ -14,7 +14,7 @@ import { teamChipStyle } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
-import { canPostOnBoard } from '../lib/joinRequests'
+import { usePermissions } from '../lib/usePermissions'
 import { MentionInput } from '../components/MentionInput'
 import { MessageBody } from '../components/MessageBody'
 import { parseMentions, type MentionablePerson } from '../lib/mentions'
@@ -67,11 +67,15 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 }
 
 export function MessageBoardPage() {
-  const { session, isAdmin, roles, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, roles } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  // Heads and Assisting Heads alike: ledDepartmentIds carries both.
-  const isHead = ledDepartmentIds.length > 0
+  // Who may post for which team, and who may tidy the board, are the
+  // church's to say (Settings › Access & privileges). "Everywhere" for
+  // posting is what speaking for the whole church takes.
+  const { can } = usePermissions()
+  const everywhere = can('msg.board_post')
+  const mayModerate = can('msg.board_moderate')
 
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -119,19 +123,15 @@ export function MessageBoardPage() {
   })
   const people = peopleQuery.data ?? []
 
-  const canPost = canPostOnBoard({
-    isAdmin,
-    isHead,
-    memberDeptIds: memberships.map((m) => m.department_id),
-  })
-
   const postAsOptions = departments
-    .filter((d) => myDeptIds.has(d.id))
+    .filter((d) => myDeptIds.has(d.id) && can('msg.board_post', { departmentId: d.id }))
     .map((d) => ({ id: d.id, label: guestDeptIds.has(d.id) ? `${d.name} (guest)` : d.name }))
+
+  const canPost = everywhere || postAsOptions.length > 0
 
   // Admins default to posting as Admin; everyone else to a team they're a
   // core member of, falling back to whatever else they can post as.
-  const defaultPostAs = isAdmin
+  const defaultPostAs = everywhere && (isAdmin || postAsOptions.length === 0)
     ? ''
     : (departments.find((d) => myDeptIds.has(d.id) && !guestDeptIds.has(d.id))?.id ??
       postAsOptions[0]?.id ??
@@ -219,7 +219,7 @@ export function MessageBoardPage() {
         title="Message Board"
         description="A post speaks for the team on its badge."
         action={
-          isAdmin && (messagesQuery.data?.length ?? 0) > 0 ? (
+          mayModerate && (messagesQuery.data?.length ?? 0) > 0 ? (
             <ActionButton
               tone="quiet"
               onClick={() => {
@@ -250,7 +250,7 @@ export function MessageBoardPage() {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             {error && <p className="min-w-0 flex-1 text-body-sm text-error">{error}</p>}
             <div className="ml-auto flex items-center gap-3">
-              {(postAsOptions.length > 0 || isAdmin) && (
+              {(postAsOptions.length > 0 || everywhere) && (
                 <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
                   Post as
                   <Select
@@ -262,7 +262,7 @@ export function MessageBoardPage() {
                     className={selectPillClasses}
                     aria-label="Post as"
                     options={[
-                      ...(isAdmin ? [{ value: '', label: 'Admin' }] : []),
+                      ...(everywhere ? [{ value: '', label: isAdmin ? 'Admin' : 'The whole church' }] : []),
                       ...postAsOptions.map((o) => ({ value: o.id, label: o.label })),
                     ]}
                   />
@@ -334,7 +334,7 @@ export function MessageBoardPage() {
                     <span className="font-mono text-label-sm text-on-surface-variant">
                       {formatRelativeTime(m.created_at)}
                     </span>
-                    {(isAdmin || m.author?.id === session?.user.id) && (
+                    {(mayModerate || m.author?.id === session?.user.id) && (
                       <button
                         type="button"
                         onClick={() => {

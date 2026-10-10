@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
@@ -212,7 +213,12 @@ function DiaryDays({
  * underneath, and the things somebody decides on can be added to it.
  */
 export function EventsPage() {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { session } = useAuth()
+  // Whose events somebody may add, change or remove is the church's to say
+  // (Settings › Access & privileges): a team's, or — "Everywhere" — any,
+  // including the church's own, which belong to no team.
+  const { can } = usePermissions()
+  const everywhere = can('svc.events')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -255,13 +261,14 @@ export function EventsPage() {
   const eventsQuery = useQuery({ queryKey: ['church-events'], queryFn: fetchEvents })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
 
-  // Which teams this person may file an event under. An Admin may use any,
-  // including none — a church event belongs to the church.
+  // Which teams this person may file an event under. Somebody who reaches
+  // everywhere may use any, including none — a church event belongs to the church.
   const myTeams = useMemo(
-    () => (departmentsQuery.data ?? []).filter((d) => isAdmin || isDepartmentHead(d.id)),
-    [departmentsQuery.data, isAdmin, isDepartmentHead],
+    () => (departmentsQuery.data ?? []).filter((d) => can('svc.events', { departmentId: d.id })),
+    [departmentsQuery.data, can],
   )
-  const canAdd = isAdmin || myTeams.length > 0
+  const canAdd = everywhere || myTeams.length > 0
+  const mayChange = (departmentId: string | null) => can('svc.events', { departmentId })
 
   const diary = useMemo(
     () =>
@@ -354,6 +361,9 @@ export function EventsPage() {
   function openAdd(on?: string) {
     closeForm()
     setDate(on ?? today)
+    // Somebody who may only add their own team's events starts on their
+    // team, not on "the whole church" they are not offered.
+    if (!everywhere && myTeams[0]) setDepartmentId(myTeams[0].id)
     setAdding(true)
   }
 
@@ -391,7 +401,7 @@ export function EventsPage() {
     const id = eventIdOf(entry)
     const row = id ? (eventsQuery.data ?? []).find((ev) => ev.id === id) : null
     if (!row) return false
-    return isAdmin || (!!row.department_id && isDepartmentHead(row.department_id))
+    return mayChange(row.department_id)
   }
 
   /** The event row an entry was drawn from, when it was drawn from one. */
@@ -656,7 +666,7 @@ export function EventsPage() {
                   value={departmentId}
                   onChange={setDepartmentId}
                   options={[
-                    ...(isAdmin ? [{ value: '', label: 'The whole church' }] : []),
+                    ...(everywhere ? [{ value: '', label: 'The whole church' }] : []),
                     ...myTeams.map((d) => ({ value: d.id, label: d.name })),
                   ]}
                 />
@@ -796,7 +806,7 @@ export function EventsPage() {
             </dl>
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              {(isAdmin || (!!reading.department_id && isDepartmentHead(reading.department_id))) && (
+              {mayChange(reading.department_id) && (
                 <button
                   type="button"
                   onClick={() => {

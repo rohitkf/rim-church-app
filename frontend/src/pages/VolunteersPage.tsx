@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, PageHeader } from '../components/Surface'
 import { GuestRollCard } from '../components/GuestRollCard'
@@ -116,6 +117,9 @@ const designationClass: Record<string, string> = {
 
 export function VolunteersPage() {
   const { isAdmin, isSuperAdmin, ownerId, session } = useAuth()
+  // Removing an account and inviting are the church's to grant (Settings ›
+  // Access & privileges); who holds Admin or heads a team stays an Admin's.
+  const { can } = usePermissions()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -314,7 +318,8 @@ export function VolunteersPage() {
     // Whether the foot of the card has anything on it at all. An account
     // nobody present can act on shouldn't grow an empty bar for it.
     const canManageAdmin = !holdsAdmin || (isSuperAdmin && !isOwner)
-    const canRemove = v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
+    const canRemove =
+      can('people.remove') && v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
 
     return (
       <li
@@ -581,7 +586,7 @@ export function VolunteersPage() {
             {/* Somebody has to be told the app exists before they can appear
                 on this page at all — which is exactly the page you are on
                 when you notice they are missing. */}
-            {isAdmin && (
+            {can('people.invite') && (
               <ActionButton onClick={() => setInviting(true)} glyph={<span aria-hidden="true">✉</span>}>
                 Invite
               </ActionButton>

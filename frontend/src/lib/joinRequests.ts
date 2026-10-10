@@ -56,21 +56,3 @@ export function joinOptions(
 export function joinableTeams(options: TeamJoinOption[]): TeamJoinOption[] {
   return options.filter((o) => o.state !== 'member')
 }
-
-/**
- * Whether this person may post on the message board.
- *
- * Being on a team is what earns a voice there: a volunteer posts as their
- * team, a head as the team they lead, an Admin for the church. This mirrors
- * the `messages_insert` policy — the button and the database agree, so a
- * refusal never comes as a surprise after the fact.
- */
-export function canPostOnBoard(opts: {
-  isAdmin: boolean
-  isHead: boolean
-  memberDeptIds: Iterable<string>
-}): boolean {
-  if (opts.isAdmin || opts.isHead) return true
-  for (const _ of opts.memberDeptIds) return true
-  return false
-}

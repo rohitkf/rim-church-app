@@ -20,6 +20,9 @@ const MONTHS_OUT = '2026-12-06'
 const state = vi.hoisted(() => ({
   finished: new Set<string>(),
   leads: false,
+  admin: false,
+  /** Every table the page read. */
+  read: [] as string[],
   /** Rows the page reads straight from Postgres, by table. */
   rows: {} as Record<string, unknown[]>,
   /** When each service begins, ISO — absent when nothing is planned. */
@@ -31,7 +34,7 @@ const state = vi.hoisted(() => ({
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
-    isAdmin: false,
+    isAdmin: state.admin,
     isDepartmentHead: () => state.leads,
   }),
 }))
@@ -75,10 +78,15 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
       select: () => {
+        state.read.push(table)
         const rows = Promise.resolve({ data: state.rows[table] ?? [], error: null })
         // `.in(...)` is where every read on this page ends, except the
         // change requests, which also ask for an order.
-        return { in: () => Object.assign(rows, { order: () => rows }) }
+        // The church's permission changes are read whole, with no filter.
+        return {
+          in: () => Object.assign(rows, { order: () => rows }),
+          then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) => rows.then(ok, fail),
+        }
       },
       insert: (row: unknown) => {
         state.written.push({ table, row })
@@ -138,6 +146,8 @@ const teamsOf = (card: HTMLElement) => card.querySelector('ul[id^="availability-
 beforeEach(() => {
   state.finished = new Set()
   state.leads = false
+  state.admin = false
+  state.read = []
   state.rows = {}
   state.starts = {}
   state.written = []
@@ -764,5 +774,134 @@ describe('the note beside an answer', () => {
     const card = cardFor(/Today/, 'English Service') as HTMLElement
 
     expect(within(card).getByText(/There, but not until 9.30/)).toBeInTheDocument()
+  })
+})
+
+/*
+ * The log behind an answer (0145).
+ *
+ * An Admin planning a rota needs to know that somebody said yes on
+ * Monday and no at 23:40 on Saturday — which the answer itself, being
+ * overwritten each time, cannot say. Who may read it is the church's to
+ * set; out of the box the Owner and Admins, and nobody else.
+ */
+describe('the history of somebody’s answer', () => {
+  const member = {
+    id: 'm2',
+    department_id: 'd1',
+    user_id: 'u2',
+    member_type: 'core',
+    created_at: '2026-01-01T00:00:00Z',
+    profiles: { id: 'u2', first_name: 'Joel', last_name: 'Skaria', avatar_url: null },
+  }
+  const line = (over: Record<string, unknown>) => ({
+    id: 'h1',
+    user_id: 'u2',
+    service_id: 's1',
+    department_id: 'd1',
+    kind: 'answered',
+    status: 'available',
+    previous_status: null,
+    note: null,
+    changed_by: 'u2',
+    by_request: false,
+    after_close: false,
+    changed_at: '2026-09-01T10:00:00Z',
+    changer: { first_name: 'Joel', last_name: 'Skaria' },
+    ...over,
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-09-04T09:00:00Z'))
+    state.rows = {
+      department_members: [member],
+      availability: [
+        {
+          id: 'a2',
+          service_id: 's1',
+          department_id: 'd1',
+          user_id: 'u2',
+          status: 'unavailable',
+          note: null,
+          attended: null,
+          updated_at: '2026-09-05T23:40:00Z',
+        },
+      ],
+      availability_history: [
+        line({}),
+        line({
+          id: 'h2',
+          kind: 'changed',
+          status: 'unavailable',
+          previous_status: 'available',
+          changed_by: 'admin',
+          changer: { first_name: 'Grace', last_name: 'Mensah' },
+          after_close: true,
+          changed_at: '2026-09-05T23:40:00Z',
+        }),
+      ],
+    }
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('lets an Admin open it under the person’s name: what, when, and who', async () => {
+    state.admin = true
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    await userEvent.click(within(card).getByText(/Team responses/))
+    await userEvent.click(await within(card).findByRole('button', { name: 'History · 2' }))
+
+    const log = within(card).getByRole('list', { name: 'History of Joel Skaria’s answer' })
+    const lines = within(log).getAllByRole('listitem')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toHaveTextContent('Answered Yes')
+    expect(lines[1]).toHaveTextContent('Changed to No')
+    expect(lines[1]).toHaveTextContent('was Yes')
+    expect(lines[1]).toHaveTextContent('by Grace Mensah')
+    expect(lines[1]).toHaveTextContent('After answers closed')
+    expect(within(lines[1]).getByText((_, el) => el?.tagName === 'TIME')).toHaveAttribute(
+      'datetime',
+      '2026-09-05T23:40:00Z',
+    )
+  })
+
+  it('is not offered to a Head out of the box, and not even asked for', async () => {
+    state.leads = true
+    show()
+    await screen.findAllByText('Joel Skaria')
+    expect(screen.queryByRole('button', { name: /^History/ })).toBeNull()
+    expect(state.read).not.toContain('availability_history')
+  })
+
+  it('opens to a Head once the church gives them their own team’s', async () => {
+    state.leads = true
+    state.rows.role_permissions = [{ role_key: 'head', capability: 'avail.history', reach: 'team' }]
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    await userEvent.click(within(card).getByText(/Team responses/))
+    expect(await within(card).findByRole('button', { name: 'History · 2' })).toBeInTheDocument()
+  })
+
+  it('shows somebody their own changes once the church allows their own', async () => {
+    state.rows.role_permissions = [{ role_key: 'member', capability: 'avail.history', reach: 'own' }]
+    state.rows.availability = [
+      { id: 'a1', service_id: 's1', department_id: 'd1', user_id: 'u1', status: 'available', note: null, attended: null, updated_at: '2026-09-01T00:00:00Z' },
+    ]
+    state.rows.availability_history = [line({ user_id: 'u1', changed_by: 'u1' })]
+    show()
+    const card = await waitFor(() => cardFor(/Today/) as HTMLElement)
+    await userEvent.click(await within(card).findByRole('button', { name: 'Your changes · 1' }))
+    expect(within(card).getByRole('list', { name: 'History of your answer' })).toHaveTextContent('Answered Yes')
+  })
+
+  it('is not offered to somebody answering for themselves out of the box', async () => {
+    state.rows.availability_history = [line({ user_id: 'u1', changed_by: 'u1' })]
+    show()
+    await screen.findAllByRole('heading', { level: 2 })
+    expect(screen.queryByRole('button', { name: /Your changes/ })).toBeNull()
+    expect(state.read).not.toContain('availability_history')
   })
 })

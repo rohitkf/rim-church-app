@@ -5,7 +5,7 @@ import { nextBoardClearTime } from '../lib/boardClear'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { fetchDepartments } from '../lib/queries'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -72,7 +72,9 @@ const AUDIENCES: { value: Audience; label: string; blurb: string }[] = [
  * to two hundred people is a mistake that cannot be taken back.
  */
 export function SendAlertCard() {
-  const { isAdmin } = useAuth()
+  // Reaching past one team — everybody, several teams, named people — is
+  // the church's to grant (msg.alert).
+  const isAdmin = usePermissions().can('msg.alert')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 

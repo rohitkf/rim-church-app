@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { CHURCH_UPDATES_KEY } from '../lib/churchUpdates'
@@ -65,7 +65,8 @@ async function fetchChurchUpdates(): Promise<ChurchUpdate[]> {
  * it passes, pinned or not.
  */
 export function ChurchUpdatesPage() {
-  const { isAdmin } = useAuth()
+  // Posting, pinning, editing and removing are the church's to grant (msg.updates).
+  const isAdmin = usePermissions().can('msg.updates')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [params] = useSearchParams()

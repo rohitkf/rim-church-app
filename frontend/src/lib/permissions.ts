@@ -100,6 +100,321 @@ export const CATALOG = {
     member: fixed(),
     newcomer: fixed(),
   },
+  'svc.manage': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.templates': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.sessions': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.guests': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.repeat': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.events': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'svc.call_times': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.create': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.edit': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.members': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.roles': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.groups': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.checklists': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'team.join': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'day.verify': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: offer('none team', 'team'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'day.ready': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: offer('none team', 'team'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'day.attendance': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'day.nudge': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: offer('none team', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'avail.edit_others': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'avail.add_others': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'avail.late_decide': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'avail.nudge': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'avail.history': {
+    admin: offer('none all', 'all'),
+    head: offer('none own team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none own team all', 'none'),
+    newcomer: fixed(),
+  },
+  'inv.items': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'inv.stock': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'inv.purchase_ask': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'team'),
+    newcomer: fixed(),
+  },
+  'inv.purchase_decide': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.board_post': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'team'),
+    newcomer: fixed(),
+  },
+  'msg.board_moderate': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.chat': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'team'),
+    newcomer: fixed(),
+  },
+  'msg.chat_moderate': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.polls': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.updates': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.alert_team': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: offer('none team', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'msg.alert': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'issue.mark': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'issue.delete': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'set.edit': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none team all', 'team'),
+    newcomer: fixed(),
+  },
+  'debrief.manage': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'debrief.contribute': {
+    admin: offer('none all', 'none'),
+    head: offer('none team all', 'none'),
+    coordinator: offer('none team', 'none'),
+    member: offer('none team all', 'team'),
+    newcomer: fixed(),
+  },
+  'give.edit': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'people.edit_others': {
+    admin: offer('none all', 'all'),
+    head: fixed(),
+    coordinator: fixed(),
+    member: fixed(),
+    newcomer: fixed(),
+  },
+  'people.invite': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'team'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
+  'people.clear_records': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'people.remove': {
+    admin: offer('none all', 'all'),
+    head: fixed(),
+    coordinator: fixed(),
+    member: fixed(),
+    newcomer: fixed(),
+  },
 } as const satisfies Record<string, Record<GrantRole, Rule>>
 
 export type CapabilityKey = keyof typeof CATALOG
@@ -187,6 +502,8 @@ export interface Holder {
   admin: boolean
   /** Teams they head or assist. */
   ledTeams: readonly string[]
+  /** Whether they head or assist this team — AuthContext's own test, when there is one. */
+  leads?: (departmentId: string) => boolean
   /** Teams whose roster they are on. */
   memberTeams: readonly string[]
   /** Whether the rota has them in Team Coordinator anywhere. */
@@ -219,8 +536,9 @@ export function decide(overrides: Overrides, holder: Holder, cap: CapabilityKey,
   if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return true
 
   reach = reachOf(overrides, cap, 'head')
-  if (reach !== 'none' && holder.ledTeams.length > 0) {
-    if (reach === 'all' || mine || (reach === 'team' && !!dept && holder.ledTeams.includes(dept))) return true
+  const leadsHere = !!dept && (holder.leads ? holder.leads(dept) : holder.ledTeams.includes(dept))
+  if (reach !== 'none' && (holder.ledTeams.length > 0 || leadsHere)) {
+    if (reach === 'all' || mine || (reach === 'team' && leadsHere)) return true
   }
 
   reach = reachOf(overrides, cap, 'member')

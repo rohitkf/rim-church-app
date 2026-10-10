@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
@@ -41,6 +42,8 @@ import {
 } from '../lib/types'
 import { Select } from '../components/Select'
 import { AskToChangeAnswer, LateAnswerQueue } from '../components/LateAnswerRequest'
+import { AnswerHistory } from '../components/AnswerHistory'
+import { fetchAvailabilityHistory, historyOf } from '../lib/availabilityHistory'
 import {
   AVAILABILITY_REQUESTS_KEY,
   askToChangeAnswer,
@@ -215,6 +218,10 @@ function AnswerNote({
 
 export function AvailabilityPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  // What may be done to other people's answers is the church's to say
+  // (Settings › Access & privileges). Admins seeing every team, and not
+  // answering for themselves here, stay as they were.
+  const { can } = usePermissions()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -385,17 +392,32 @@ export function AvailabilityPage() {
     enabled: myDepartmentIds.length > 0,
   })
 
-  // Only heads and Admins get the per-person breakdown.
+  // The per-person breakdown, with who turned up, is for whoever may
+  // change somebody else's answer on that team.
   const ledDepartmentIds = useMemo(
-    () =>
-      myDepartments
-        .filter(
-          (d) =>
-            isAdmin || isDepartmentHead(d.id),
-        )
-        .map((d) => d.id),
-    [myDepartments, isAdmin, isDepartmentHead],
+    () => myDepartments.filter((d) => can('avail.edit_others', { departmentId: d.id })).map((d) => d.id),
+    [myDepartments, can],
   )
+
+  /*
+   * The log behind each answer (0145): every time it was given, changed
+   * or taken away, and by whom. Who may read it is the church's to say
+   * (`avail.history`); out of the box, the Owner and Admins. Fetched only
+   * for somebody who may read some of it, and the database returns only
+   * the lines they may.
+   */
+  const seesHistory = (departmentId: string, ownerId: string | undefined) =>
+    can('avail.history', { departmentId, ownerId })
+  const readsHistory = myDepartments.some(
+    (d) => can('avail.history', { departmentId: d.id }) || seesHistory(d.id, myId),
+  )
+  const historyQuery = useQuery({
+    // Under 'availability', so every write on this page refreshes it too.
+    queryKey: ['availability', 'history', upcomingIds],
+    queryFn: () => fetchAvailabilityHistory(upcomingIds),
+    enabled: readsHistory && upcomingIds.length > 0,
+  })
+  const history = historyQuery.data ?? []
 
   // Admins are here to watch the numbers, not to answer for themselves:
   // they see every team, and a row of buttons on each one is noise on a
@@ -774,7 +796,7 @@ export function AvailabilityPage() {
               {/* Chasing an answer belongs beside the count of
                   answers still missing, not in a settings page:
                   this is the moment a head notices. */}
-              {!finished && summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
+              {!finished && summary.noAnswer > 0 && can('avail.nudge', { departmentId: dept.id }) && (
                 <div className="mt-3">
                   <NudgeButton
                     rpc="nudge_availability"
@@ -843,6 +865,14 @@ export function AvailabilityPage() {
                 />
               )}
 
+              {canAnswer && seesHistory(dept.id, myId) && (
+                <AnswerHistory
+                  label="Your changes"
+                  whose="your answer"
+                  entries={historyOf(history, myId!, service.id, dept.id)}
+                />
+              )}
+
               {/*
                 How long is left to answer.
                 
@@ -893,7 +923,7 @@ export function AvailabilityPage() {
 
               {/* The asks waiting on whoever leads this team. Admins see
                   them too, since they can already correct any answer. */}
-              {(leads || isAdmin) && (
+              {can('avail.late_decide', { departmentId: dept.id }) && (
                 <LateAnswerQueue
                   requests={pendingOn(requests, service.id, dept.id)}
                   busy={decideRequest.isPending}
@@ -901,7 +931,7 @@ export function AvailabilityPage() {
                 />
               )}
 
-              {leads && teamMembers.length > 0 && (
+              {(leads || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
                 <details className="mt-3">
                   <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
                     Team responses ({answers.length}/{coreMembers.length})
@@ -935,7 +965,7 @@ export function AvailabilityPage() {
                                 </span>
                               )}
                             </span>
-                            {isAdmin ? (
+                            {can('avail.add_others', { departmentId: dept.id }) ? (
                               <Select
                                 value={answer?.status ?? ''}
                                 onChange={(status) =>
@@ -990,7 +1020,16 @@ export function AvailabilityPage() {
                             </p>
                           )}
 
-                          {answer?.status === 'available' && attendance.open && (
+                          {seesHistory(dept.id, m.user_id) && (
+                            <AnswerHistory
+                              whose={`${
+                                m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
+                              }’s answer`}
+                              entries={historyOf(history, m.user_id, service.id, dept.id)}
+                            />
+                          )}
+
+                          {leads && answer?.status === 'available' && attendance.open && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className="font-mono text-label-sm text-on-surface-variant">
                                 Turned up?

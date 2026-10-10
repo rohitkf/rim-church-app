@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { Chevron } from '../components/Collapsible'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
@@ -132,6 +133,7 @@ const roleLabel: Record<RoleType, string> = {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
+  const mayAddService = usePermissions().can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
   // What the church has chosen this page shows (Settings › Dashboard & lists).
@@ -453,7 +455,7 @@ export function DashboardPage() {
         {services.length === 0 ? (
           <p className="mt-8 text-body-sm text-on-surface-variant">
             {adminDate ? 'No services scheduled for this day.' : 'Nothing scheduled yet.'}{' '}
-            {isAdmin && (
+            {mayAddService && (
               <>
                 Add one from the{' '}
                 <Link to="/service-planner?new=1" className="text-primary">

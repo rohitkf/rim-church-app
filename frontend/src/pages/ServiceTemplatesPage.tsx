@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { NumberDialField } from '../components/NumberDial'
 import { TimeField } from '../components/DateTimeFields'
@@ -30,7 +30,8 @@ function formatTotal(minutes: number): string {
 }
 
 export function ServiceTemplatesPage() {
-  const { isAdmin } = useAuth()
+  // Building templates is the church's to grant (Settings › Access & privileges).
+  const mayTemplates = usePermissions().can('svc.templates')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 
@@ -137,7 +138,7 @@ export function ServiceTemplatesPage() {
     saveTemplate.mutate()
   }
 
-  if (!isAdmin) return <Navigate to="/service-planner" replace />
+  if (!mayTemplates) return <Navigate to="/service-planner" replace />
 
   return (
     <div className="mx-auto max-w-2xl">

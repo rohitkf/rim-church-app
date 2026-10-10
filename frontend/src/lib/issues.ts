@@ -68,23 +68,27 @@ export function mayRaiseIssue(
   return who.onATeam
 }
 
-/** Whether this person may give a verdict: a Head of the team it is for, or an Admin. */
-export function mayMarkIssue(
-  issue: Pick<Issue, 'department_id'>,
-  who: { isAdmin: boolean; ledTeamIds: readonly string[] },
-): boolean {
-  return who.isAdmin || who.ledTeamIds.includes(issue.department_id)
+/** The grid's answer for one capability, for the team an issue is for. */
+type Can = (cap: 'issue.mark' | 'issue.delete', where: { departmentId: string }) => boolean
+
+/** Whether this person may give a verdict: whoever the grid lets mark that team's issues. */
+export function mayMarkIssue(issue: Pick<Issue, 'department_id'>, can: Can): boolean {
+  return can('issue.mark', { departmentId: issue.department_id })
 }
 
 /**
- * Whether this person may delete it: an Admin always; whoever raised it
- * only until a Head has marked it — after that it is a record.
+ * Whether this person may delete it: whoever the grid lets delete that
+ * team's issues; whoever raised it only until it has been marked — after
+ * that it is a record.
  */
 export function mayDeleteIssue(
-  issue: Pick<Issue, 'raised_by' | 'outcome'>,
-  who: { isAdmin: boolean; myId: string | null },
+  issue: Pick<Issue, 'raised_by' | 'outcome' | 'department_id'>,
+  who: { can: Can; myId: string | null },
 ): boolean {
-  return who.isAdmin || (issue.outcome === null && who.myId !== null && issue.raised_by === who.myId)
+  return (
+    who.can('issue.delete', { departmentId: issue.department_id }) ||
+    (issue.outcome === null && who.myId !== null && issue.raised_by === who.myId)
+  )
 }
 
 /**

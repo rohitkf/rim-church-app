@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
@@ -35,13 +36,19 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export function ServicePlannerIndexPage() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  // Who may start a service, and set one repeating, is the church's to
+  // say (Settings › Access & privileges). Seeing past services stays an
+  // Admin's: they are history, not something to plan.
+  const { can } = usePermissions()
+  const canCreate = can('svc.manage')
+  const canRepeat = can('svc.repeat')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const templatesQuery = useQuery({
     queryKey: ['service-templates'],
     queryFn: fetchServiceTemplates,
-    enabled: isAdmin,
+    enabled: canCreate,
   })
 
   const [newDate, setNewDate] = useState('')
@@ -339,12 +346,12 @@ export function ServicePlannerIndexPage() {
         eyebrow="The month ahead"
         title="Service Planner"
         description={
-          isAdmin
+          canCreate
             ? 'Tap a service to open its running order.'
             : 'Tap a service to open its running order. Upcoming services appear here once they are scheduled.'
         }
         action={
-          isAdmin && (
+          canCreate && (
             /* The only way to start a service. It used to live in the
                sidebar; the sidebar is now a dock of destinations, and an
                action is not a destination — so it belongs here, where the
@@ -410,7 +417,7 @@ export function ServicePlannerIndexPage() {
                       handler on the square, so it can be tabbed to and
                       announces which day it means; the service chips sit
                       above it and take their own clicks. */}
-                  {isAdmin && (
+                  {canCreate && (
                     <button
                       type="button"
                       onClick={() => openCreate(cell.iso)}
@@ -478,7 +485,7 @@ export function ServicePlannerIndexPage() {
           </div>
         </section>
 
-        {isAdmin && creating && (
+        {canCreate && creating && (
           <Overlay onDismiss={closeCreate} label="New service">
             <form
               onSubmit={handleCreate}
@@ -488,12 +495,14 @@ export function ServicePlannerIndexPage() {
                 <h2 id="new-service-title" className="text-headline-md">
                   New service
                 </h2>
-                <Link
-                  to="/service-planner/templates"
-                  className="shrink-0 text-body-sm font-medium text-secondary"
-                >
-                  Manage templates ›
-                </Link>
+                {can('svc.templates') && (
+                  <Link
+                    to="/service-planner/templates"
+                    className="shrink-0 text-body-sm font-medium text-secondary"
+                  >
+                    Manage templates ›
+                  </Link>
+                )}
               </div>
               <p className="mt-1 text-body-sm text-on-surface-variant">
                 Start from a template to get the usual running order pre-filled, or Blank to build
@@ -522,13 +531,15 @@ export function ServicePlannerIndexPage() {
                     ]}
                   />
                 </Field>
-                <Field label="Repeats" className="sm:col-span-2">
-                  <Select
-                    value={repeat}
-                    onChange={(value) => setRepeat(value as RepeatChoice)}
-                    options={repeatOptions(newDate)}
-                  />
-                </Field>
+                {canRepeat && (
+                  <Field label="Repeats" className="sm:col-span-2">
+                    <Select
+                      value={repeat}
+                      onChange={(value) => setRepeat(value as RepeatChoice)}
+                      options={repeatOptions(newDate)}
+                    />
+                  </Field>
+                )}
               </div>
 
               {/* Said before anything is made: which dates, how far ahead,

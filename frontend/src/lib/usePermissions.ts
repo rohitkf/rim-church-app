@@ -28,7 +28,7 @@ export async function fetchOverrides(): Promise<Overrides> {
  * answers: the preview narrows roles and teams, and this reads them.
  */
 export function usePermissions() {
-  const { session, isSuperAdmin, isAdmin, ledDepartmentIds } = useAuth()
+  const { session, isSuperAdmin, isAdmin, ledDepartmentIds, isDepartmentHead } = useAuth()
   const { teamIds } = useMyTeams()
   const myId = session?.user.id ?? null
 
@@ -41,17 +41,18 @@ export function usePermissions() {
   const overrides = useMemo(() => query.data ?? {}, [query.data])
 
   // Both lists are rebuilt every render; what they hold is what matters.
-  const led = ledDepartmentIds.join('|')
-  const member = teamIds.join('|')
+  const led = (ledDepartmentIds ?? []).join('|')
+  const member = (teamIds ?? []).join('|')
   const holder: Holder = useMemo(
     () => ({
       myId,
       owner: isSuperAdmin,
       admin: isAdmin,
       ledTeams: led ? led.split('|') : [],
+      leads: isDepartmentHead,
       memberTeams: member ? member.split('|') : [],
     }),
-    [myId, isSuperAdmin, isAdmin, led, member],
+    [myId, isSuperAdmin, isAdmin, led, member, isDepartmentHead],
   )
 
   const can = useCallback(

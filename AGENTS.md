@@ -151,6 +151,8 @@ frontend/src/
   lib/permissions.ts         the grid's catalog (mirrors `permission_catalog`)
                              and decide(), which mirrors SQL's may()
   lib/usePermissions.ts      can(cap, { departmentId, coordinating, ownerId })
+  lib/availabilityHistory.ts the log behind each availability answer (0145):
+                             written by a trigger only, read per `avail.history`
   lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
@@ -211,8 +213,16 @@ rows in `role_permissions`, the policies ask `may()`, and `may()` reads
 the rows. The app's `can()` only decides which buttons to draw. The Owner
 always passes `may()`, and Admin can always edit the grid
 (`app.permissions` is fixed) — that is how a wrong setting gets put right.
-Converted so far: the Team rota. Every other area is still plain policies,
-shown on that page as "coming soon".
+Every area is converted (0133–0144), with the defaults reproducing the
+old rules exactly — each was dry-run against the live data, old rule
+against `may()`, for every person and row, before it went live. Fixed on
+purpose, and outside the grid: what anybody can *see* (that follows team
+membership and the Pages tab), your own things (your profile, your
+answers, withdrawing your own request), the guards that are about time
+rather than people (`service_has_finished`, the checklist and debrief
+windows), Feedback (the Owner's), and The app itself — who is an Admin or
+a Head, settings, the grid itself — because whoever could change those
+could hand themselves everything else.
 
 - Add `supabase/migrations/00NN_a_sentence_about_it.sql`. **Never edit a
   migration that has shipped.**
@@ -239,6 +249,8 @@ skipped:
    Then run `notify pgrst, 'reload schema';` so the change is visible at
    once instead of whenever the cache turns over.
 2. **Deploy changed edge functions**: `supabase functions deploy push-notify`.
+   `invite` asks `may_invite()` (0144), so deploy it only once 0144 is
+   applied — the other way round, every invitation fails.
 3. **Some migrations wait for the release.** A migration that takes
    something away the live app still uses must be applied *after* that
    release is live, not before. 0127 (closing email and phone on
@@ -312,11 +324,12 @@ closing) outside `may()`. Then the same entry in `lib/permissions.ts`
 that ask `can()`. `permissionCatalog.test.ts` reads every migration and
 fails if the two catalogs differ, or if a policy asks `may()` about a
 capability nobody catalogued. Dry-run the old rule against `may()` for
-every person, team and service before applying — 0133's did, and found
-none that differed.
+every person, team and service before applying — 0133–0144's did, and
+found none that differed.
 
-A rule in an area not yet converted is still a policy: write it in a
-migration and add its row (without a key) to `lib/permissionMatrix.ts`.
+A rule that is fixed on purpose (see above) is still a plain policy: write
+it in a migration and add its row (without a key) to
+`lib/permissionMatrix.ts`; an area with no key at all says why in `fixed`.
 That page claims to describe the database; a capability missing from it
 is the page starting to lie.
 

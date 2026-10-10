@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SendAlertCard } from './SendAlertCard'
 
-const auth = { isAdmin: true }
+const auth = { isAdmin: true, session: { user: { id: 'u1' } } }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 
 const state = vi.hoisted(() => ({

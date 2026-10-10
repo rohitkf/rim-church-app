@@ -10,6 +10,16 @@ let standing = { isAdmin: false, isSuperAdmin: false }
 const profile = { first_name: 'Grace', last_name: 'Mensah', email: 'grace@example.test' }
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ ...standing, profile }) }))
+// The grid at its defaults, for whoever `standing` says is looking.
+vi.mock('../lib/usePermissions', async () => {
+  const { decide } = await import('../lib/permissions')
+  return {
+    usePermissions: () => ({
+      can: (cap: Parameters<typeof decide>[2]) =>
+        decide({}, { myId: 'me', owner: standing.isSuperAdmin, admin: standing.isAdmin, ledTeams: [], memberTeams: [] }, cap),
+    }),
+  }
+})
 
 vi.mock('../components/PermissionsCard', () => ({ PermissionsCard: () => <p>permissions</p> }))
 vi.mock('../components/AppSettingsCard', () => ({ AppSettingsCard: () => <p>app settings</p> }))

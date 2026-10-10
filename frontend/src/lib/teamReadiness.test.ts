@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mayMarkReady, servingTeams, teamLights, type ReadinessRow } from './teamReadiness'
+import { decide, type Holder } from './permissions'
 
 const row = (over: Partial<ReadinessRow>): ReadinessRow => ({
   service_id: 's1',
@@ -54,8 +55,21 @@ describe('who may turn a light', () => {
     { service_id: 's1', department_id: 'media', user_id: 'santhi', role_label: 'Team Coordinator' },
     { service_id: 's1', department_id: 'media', user_id: 'joel', role_label: 'Camera Operator 1' },
   ]
-  const ask = (over: Partial<Parameters<typeof mayMarkReady>[0]>) =>
-    mayMarkReady({ isAdmin: false, isHead: false, myId: 'joel', serviceId: 's1', departmentId: 'media', assignments: rota, ...over })
+  // The grid at its defaults, for somebody who is an Admin, a Head of
+  // Media, or neither.
+  const ask = (over: Partial<Parameters<typeof mayMarkReady>[0]> & { isAdmin?: boolean; isHead?: boolean }) => {
+    const { isAdmin = false, isHead = false, ...rest } = over
+    const myId = rest.myId ?? 'joel'
+    const holder: Holder = { myId, owner: false, admin: isAdmin, ledTeams: isHead ? ['media'] : [], memberTeams: ['media'] }
+    return mayMarkReady({
+      can: (cap, where) => decide({}, holder, cap, where),
+      myId,
+      serviceId: 's1',
+      departmentId: 'media',
+      assignments: rota,
+      ...rest,
+    })
+  }
 
   it('lets the team’s Coordinator at that service', () => {
     expect(ask({ myId: 'santhi' })).toBe(true)

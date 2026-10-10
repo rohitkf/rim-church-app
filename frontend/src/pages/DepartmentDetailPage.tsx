@@ -15,6 +15,7 @@ import { userRoleSchema } from '../auth/types'
 import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import { HandbookUploadModal } from '../components/HandbookUploadModal'
@@ -140,10 +141,17 @@ function Age({ dob }: { dob: string | null | undefined }) {
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, isSuperAdmin: isOwner, isDepartmentHead } = useAuth()
+  const { isSuperAdmin: isOwner } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const canManage = isAdmin || (!!id && isDepartmentHead(id))
+  // Each of this team's controls is its own permission (Settings › Access
+  // & privileges): who is on it, its name and handbook, its roles, their
+  // groups and checklists, and inviting somebody new.
+  const { can } = usePermissions()
+  const here = { departmentId: id ?? null }
+  const canManage = can('team.members', here)
+  const canEditTeam = can('team.edit', here)
+  const canInvite = can('people.invite', here)
 
   const [addEmail, setAddEmail] = useState('')
   const [inviting, setInviting] = useState(false)
@@ -365,11 +373,12 @@ export function DepartmentDetailPage() {
                 {handbookLabel}
               </a>
             )}
-            {canManage && (
+            {(canInvite || canEditTeam) && (
               <div className="flex flex-wrap items-center gap-2">
                 {/* Adding somebody who has no account yet is the commonest
                     dead end on this page: the roster only takes people who
                     already exist. */}
+                {canInvite && (
                 <button
                   type="button"
                   onClick={() => setInviting(true)}
@@ -377,6 +386,9 @@ export function DepartmentDetailPage() {
                 >
                   Invite someone
                 </button>
+                )}
+                {canEditTeam && (
+                <>
                 <button
                   type="button"
                   onClick={() => setUploadOpen(true)}
@@ -395,6 +407,8 @@ export function DepartmentDetailPage() {
                   >
                     Remove
                   </button>
+                )}
+                </>
                 )}
               </div>
             )}
@@ -730,7 +744,12 @@ export function DepartmentDetailPage() {
         */}
         {id && (
           <div className="mt-6">
-            <DepartmentRolesCard departmentId={id} canManage={canManage} />
+            <DepartmentRolesCard
+              departmentId={id}
+              canManage={can('team.roles', here)}
+              canGroups={can('team.groups', here)}
+              canChecklists={can('team.checklists', here)}
+            />
           </div>
         )}
 

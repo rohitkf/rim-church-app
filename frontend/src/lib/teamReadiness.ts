@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { isCoordinatorRole } from './useTeamCoordinator'
+import type { Where } from './permissions'
 
 /**
  * Each serving team's "ready for service" light (0110).
@@ -79,23 +80,24 @@ export function servingTeams(
 }
 
 /**
- * Whether the viewer may turn this team's light — the same rule the
- * database holds, asked first so the switch is only offered to them.
+ * Whether the viewer may turn this team's light — the church's grid
+ * (`day.ready`), asked first so the switch is only offered to them. A
+ * Coordinator's "their team" is the team the rota has them coordinating at
+ * this service, so that is worked out here from the rota.
  */
 export function mayMarkReady(opts: {
-  isAdmin: boolean
-  isHead: boolean
+  can: (cap: 'day.ready', where: Where) => boolean
   myId: string | undefined
   serviceId: string
   departmentId: string
   assignments: { service_id: string; department_id: string; user_id: string; role_label: string }[]
 }): boolean {
-  if (opts.isAdmin || opts.isHead) return true
-  return opts.assignments.some(
+  const coordinating = opts.assignments.some(
     (a) =>
       a.service_id === opts.serviceId &&
       a.department_id === opts.departmentId &&
       a.user_id === opts.myId &&
       isCoordinatorRole(a.role_label),
   )
+  return opts.can('day.ready', { departmentId: opts.departmentId, coordinating })
 }

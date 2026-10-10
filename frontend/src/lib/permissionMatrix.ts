@@ -20,7 +20,7 @@
 import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
 import { GRANT_ROLES, isFixed, reachOf, type CapabilityKey, type Overrides, type Reach } from './permissions'
 
-export const CHECKED_ON = '4 October 2026'
+export const CHECKED_ON = '10 October 2026'
 
 /** The standings a person can hold. Columns, left to right. */
 export const ROLES = [
@@ -79,6 +79,12 @@ export interface Capability {
 export interface PermissionArea {
   area: string
   capabilities: Capability[]
+  /**
+   * Said when the area is deliberately not the grid's: who holds the keys
+   * to the app, and the Owner's own mailbox. Changing these from the grid
+   * would let somebody hand themselves the grid.
+   */
+  fixed?: string
 }
 
 const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
@@ -113,17 +119,33 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
         note: 'The church’s own shape, open to anybody signed in — it is what the countdown on the dashboard counts to.',
       },
-      { action: 'Create, edit or delete a service', can: all() },
-      { action: 'Build and edit service templates', can: all() },
-      { action: 'Set session times and the run sheet', can: all() },
+      {
+        action: 'Create, edit or delete a service',
+        key: 'svc.manage',
+        can: granted('svc.manage'),
+        note: 'Ending a service early too.',
+      },
+      {
+        action: 'Build and edit service templates',
+        key: 'svc.templates',
+        can: granted('svc.templates'),
+      },
+      {
+        action: 'Set session times and the run sheet',
+        key: 'svc.sessions',
+        can: granted('svc.sessions'),
+        note: 'Until the service has finished; afterwards it is a record.',
+      },
       {
         action: 'Add a guest to a service',
-        can: all(),
+        key: 'svc.guests',
+        can: granted('svc.guests'),
         note: 'Guests are visible to everyone once added.',
       },
       {
         action: 'Set a service to repeat, or stop it repeating',
-        can: all(),
+        key: 'svc.repeat',
+        can: granted('svc.repeat'),
         note: 'Each service a repeat makes is its own from then on: deleting one Sunday never touches the others.',
       },
       {
@@ -133,12 +155,14 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Add, edit or remove an event in the church diary',
-        can: all({ head: 'team' }),
-        note: 'A Head, for their own team’s events. A church-wide event, belonging to no team, is an Admin’s.',
+        key: 'svc.events',
+        can: granted('svc.events'),
+        note: '“Their team” is their own team’s events. A church-wide event belongs to no team, so it takes “Everywhere”.',
       },
       {
         action: 'Set a team’s call time',
-        can: all({ head: 'team' }),
+        key: 'svc.call_times',
+        can: granted('svc.call_times'),
         note: 'Anybody on a team can read every team’s — knowing Worship is called at eight is how whoever opens up knows who to expect. Somebody on no team reads none of them.',
       },
     ],
@@ -202,13 +226,42 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'team' }),
         note: 'Your own teams. Until September 2026 only an Admin could see this, so the roster showed no Head at all to the people on it.',
       },
-      { action: 'Create or delete a team', can: all() },
-      { action: 'Rename a team, set its colour or handbook', can: all({ head: 'team' }) },
-      { action: 'Add or remove team members', can: all({ head: 'team' }) },
-      { action: 'Add, rename or reorder roles', can: all({ head: 'team' }) },
-      { action: 'Group roles, and file roles into groups', can: all({ head: 'team' }) },
-      { action: 'Write a role’s standing checklist', can: all({ head: 'team' }) },
-      { action: 'See and answer requests to join a team', can: all({ head: 'team' }) },
+      {
+        action: 'Create or delete a team',
+        key: 'team.create',
+        can: granted('team.create'),
+      },
+      {
+        action: 'Rename a team, set its colour or handbook',
+        key: 'team.edit',
+        can: granted('team.edit'),
+      },
+      {
+        action: 'Add or remove team members',
+        key: 'team.members',
+        can: granted('team.members'),
+        note: 'Finding somebody by email address comes with it.',
+      },
+      {
+        action: 'Add, rename or reorder roles',
+        key: 'team.roles',
+        can: granted('team.roles'),
+      },
+      {
+        action: 'Group roles, and file roles into groups',
+        key: 'team.groups',
+        can: granted('team.groups'),
+      },
+      {
+        action: 'Write a role’s standing checklist',
+        key: 'team.checklists',
+        can: granted('team.checklists'),
+      },
+      {
+        action: 'See and answer requests to join a team',
+        key: 'team.join',
+        can: granted('team.join'),
+      },
     ],
   },
   {
@@ -220,17 +273,29 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless Settings › Timings says otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
       },
       {
-        action: 'Verify a team’s checklist as done',
-        can: all({ head: 'team', coordinator: 'team' }),
-        note: 'The Coordinator is why a Sunday does not stall on whoever happens to be in the building. The same window applies: nobody verifies before the call time.',
+        action: 'Tick off and verify somebody else’s checklist',
+        key: 'day.verify',
+        can: granted('day.verify'),
+        note: 'A Coordinator’s “their team” is the team they coordinate, at that service. The same window applies: nobody ticks before the call time — except an Admin, who can put a service right either side of it. The Sign-off team signs every team off, whatever this says.',
       },
       {
         action: 'Mark a team ready for the service (the green light)',
-        can: all({ head: 'team', coordinator: 'team' }),
-        note: 'The team’s Head or Assisting Head, or whoever the rota puts in Team Coordinator for it at that service. From the team’s call time on the day of the service — before then the switch is shown but held — until the service finishes. An Admin can change it at any time. Anybody on a team sees the lights.',
+        key: 'day.ready',
+        can: granted('day.ready'),
+        note: 'From the team’s call time on the day of the service — before then the switch is shown but held — until the service finishes. An Admin can change it at any time. Anybody on a team sees the lights.',
       },
-      { action: 'Record attendance for a team', can: all({ head: 'team' }) },
-      { action: 'Nudge somebody who has not finished', can: all({ head: 'team' }) },
+      {
+        action: 'Log a team’s headcount for a service — expected and actual',
+        key: 'day.attendance',
+        can: granted('day.attendance'),
+        note: 'What the assistant records when asked to log attendance. Marking who turned up is changing their answer, under Availability.',
+      },
+      {
+        action: 'Nudge somebody who has not finished',
+        key: 'day.nudge',
+        can: granted('day.nudge'),
+        note: '“Everywhere” can nudge every team at once.',
+      },
     ],
   },
   {
@@ -246,9 +311,10 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'team', coordinator: 'team' }),
       },
       {
-        action: 'Change somebody else’s answer',
-        can: all({ head: 'team' }),
-        note: 'For the phone call that says “put me down, I forgot”.',
+        action: 'Change somebody else’s answer, and mark who turned up',
+        key: 'avail.edit_others',
+        can: granted('avail.edit_others'),
+        note: 'For the phone call that says “put me down, I forgot”. What somebody said stays theirs — only they or an Admin can change it — so for anybody else this is marking who turned up.',
       },
       {
         action: 'Ask to change your answer after it has closed',
@@ -257,7 +323,25 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Approve or refuse a late change',
-        can: all({ head: 'team' }),
+        key: 'avail.late_decide',
+        can: granted('avail.late_decide'),
+      },
+      {
+        action: 'Add or remove somebody else’s answer',
+        key: 'avail.add_others',
+        can: granted('avail.add_others'),
+        note: 'Changing an answer that is already there is the row above.',
+      },
+      {
+        action: 'Nudge whoever has not answered',
+        key: 'avail.nudge',
+        can: granted('avail.nudge'),
+      },
+      {
+        action: 'See the history of somebody’s answers',
+        key: 'avail.history',
+        can: granted('avail.history'),
+        note: 'Every time an answer was given, changed or taken away — what it said, who did it and when. “Their own” is a person’s own answers. It is kept as long as the answer is.',
       },
     ],
   },
@@ -270,18 +354,27 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Any team’s, by anybody on a team. Somebody on no team sees none of it.',
       },
-      { action: 'Add, edit or remove an item', can: all({ head: 'yes' }) },
-      { action: 'Record stock movements and stock checks', can: all({ head: 'yes' }) },
+      {
+        action: 'Add, edit or remove an item',
+        key: 'inv.items',
+        can: granted('inv.items'),
+        note: 'Its shelves and documents too.',
+      },
+      {
+        action: 'Record stock movements and stock checks',
+        key: 'inv.stock',
+        can: granted('inv.stock'),
+      },
       {
         action: 'Ask for something to be bought',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'Anybody on a team can raise a request.',
+        key: 'inv.purchase_ask',
+        can: granted('inv.purchase_ask'),
+        note: 'Anybody can withdraw their own request until it has been answered.',
       },
-      { action: 'Approve or refuse a purchase request', can: all({ head: 'yes' }) },
       {
-        action: 'Delete a purchase request',
-        can: all({ head: 'yes', coordinator: 'own', member: 'own' }),
-        note: 'Your own, while nobody has answered it yet. A Head or Admin, at any point.',
+        action: 'Approve, refuse or delete a purchase request',
+        key: 'inv.purchase_decide',
+        can: granted('inv.purchase_decide'),
       },
     ],
   },
@@ -296,19 +389,33 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Post to the message board',
-        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
-        note: 'A post is attached to one of your own teams. An Admin can post for any of them.',
+        key: 'msg.board_post',
+        can: granted('msg.board_post'),
+        note: '“Their team” is a post attached to one of their own teams. A church-wide post takes “Everywhere”.',
       },
-      { action: 'Delete a message board post', can: all() },
+      {
+        action: 'Delete anybody’s message board post, or clear the board',
+        key: 'msg.board_moderate',
+        can: granted('msg.board_moderate'),
+        note: 'Anybody can delete their own post.',
+      },
       {
         action: 'Read and post in a team’s chat',
-        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
+        key: 'msg.chat',
+        can: granted('msg.chat'),
         note: 'Your own teams only.',
       },
       {
-        action: 'Ask a poll question',
-        can: all({ head: 'team' }),
-        note: 'A Head asks their own team, whole or only its people at one service. Asking everyone, or people by name, is an Admin’s.',
+        action: 'Edit or delete anybody’s post in a team’s chat',
+        key: 'msg.chat_moderate',
+        can: granted('msg.chat_moderate'),
+        note: 'Anybody can edit or delete their own.',
+      },
+      {
+        action: 'Ask a poll question, and change or remove anybody’s',
+        key: 'msg.polls',
+        can: granted('msg.polls'),
+        note: '“Their team” asks their own team, whole or only its people at one service. Asking everyone, or people by name, takes “Everywhere”. Anybody can change or remove a poll they asked.',
       },
       {
         action: 'See and answer a poll',
@@ -330,18 +437,21 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Post, pin, edit or delete a church update',
-        can: all(),
+        key: 'msg.updates',
+        can: granted('msg.updates'),
         note: 'Posting tells everybody, in the app and on their phone. Never by email.',
       },
       {
-        action: 'Send an alert that reaches phones',
-        can: all({ head: 'team' }),
+        action: 'Send an alert to a team that reaches phones',
+        key: 'msg.alert_team',
+        can: granted('msg.alert_team'),
         note: 'The one thing that puts author-written text on somebody’s lock screen.',
       },
       {
-        action: 'Send that alert to the whole church, or to named people',
-        can: all({}),
-        note: 'A head can interrupt their own team. Reaching past it — everybody, several teams, three people by name — is an Admin’s, from Settings.',
+        action: 'Send an alert to the whole church, several teams, or named people',
+        key: 'msg.alert',
+        can: granted('msg.alert'),
+        note: 'From Settings › Send an alert, which also keeps the record of what was sent.',
       },
     ],
   },
@@ -360,13 +470,15 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Mark an issue resolved, not resolved or persistent, with remarks — or reopen it',
-        can: all({ head: 'team' }),
-        note: 'A Head or Assisting Head of the team it is for. Their name and remarks show on it.',
+        key: 'issue.mark',
+        can: granted('issue.mark'),
+        note: 'Their name and remarks show on it.',
       },
       {
-        action: 'Delete an issue',
-        can: all({ head: 'own', coordinator: 'own', member: 'own' }),
-        note: 'Whoever raised it, until a Head has marked it — after that only an Admin. Resolved issues are deleted on their own after the number of days in Settings › Timings; not resolved and persistent ones stay until they are resolved.',
+        action: 'Delete anybody’s issue',
+        key: 'issue.delete',
+        can: granted('issue.delete'),
+        note: 'Whoever raised one can take it back until it has been marked. Resolved issues are deleted on their own after the number of days in Settings › Data & retention.',
       },
     ],
   },
@@ -379,8 +491,9 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Write and change a set list',
-        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
-        note: 'Anybody on the worship team, whatever their rank on it.',
+        key: 'set.edit',
+        can: granted('set.edit'),
+        note: '“Their team” is a worship team they are on.',
       },
     ],
   },
@@ -395,13 +508,15 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'Write a team’s debrief, tick its points, and change any of them',
-        can: all({ head: 'team' }),
-        note: 'Whoever runs the team, at any time.',
+        key: 'debrief.manage',
+        can: granted('debrief.manage'),
+        note: 'At any time.',
       },
       {
-        action: 'Add to their own team’s debrief, and edit or remove their own points',
-        can: all({ head: 'team', coordinator: 'team', member: 'team' }),
-        note: 'Anybody on the team, from when the service ends until 12 hours after (Settings › Timings). A point a Head has ticked or assigned is the Head’s to change.',
+        action: 'Add to a team’s debrief, and edit or remove their own points',
+        key: 'debrief.contribute',
+        can: granted('debrief.contribute'),
+        note: 'From when the service ends until the window in Settings › Timings closes. A point somebody else has ticked or assigned is not theirs to change.',
       },
       {
         action: 'See the activity feed',
@@ -419,7 +534,12 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
         note: 'Every member. No payment passes through the app: a link opens the provider’s own page.',
       },
-      { action: 'Change the Giving page', can: all(), note: 'In Settings › Giving.' },
+      {
+        action: 'Change the Giving page',
+        key: 'give.edit',
+        can: granted('give.edit'),
+        note: 'In Settings › Giving.',
+      },
     ],
   },
   {
@@ -446,28 +566,40 @@ export const PERMISSIONS: PermissionArea[] = [
           newcomer: 'own',
         }),
       },
-      { action: 'Edit somebody else’s profile', can: all() },
+      {
+        action: 'Edit somebody else’s profile',
+        key: 'people.edit_others',
+        can: granted('people.edit_others'),
+        note: 'Their picture too. Contact details, visa and DBS stay the Owner’s.',
+      },
       {
         action: 'See visa, DBS and safeguarding details',
         can: all({ admin: 'own', head: 'own', coordinator: 'own', member: 'own', newcomer: 'own' }),
         note: 'Everybody sees their own. Only the Owner sees anybody else’s (0126) — not Admins, not team Heads.',
       },
-      { action: 'Invite somebody to the app', can: all({ head: 'team' }) },
-      { action: 'See who has been invited', can: all({ head: 'team' }) },
+      {
+        action: 'Invite somebody to the app, and see who has been invited',
+        key: 'people.invite',
+        can: granted('people.invite'),
+        note: '“Their team” invites to their own team. Inviting to no team at all needs any team they may invite to.',
+      },
       {
         action: 'Clear old people records — accepted invitations, answered join requests',
-        can: all(),
+        key: 'people.clear_records',
+        can: granted('people.clear_records'),
         note: 'They are kept until somebody clears them (0128). A request still waiting on a Head cannot be cleared.',
       },
       {
         action: 'Remove somebody’s account',
-        can: all(),
+        key: 'people.remove',
+        can: granted('people.remove'),
         note: 'Only the Owner can remove another Admin. Nobody can remove the Owner.',
       },
     ],
   },
   {
     area: 'Feedback',
+    fixed: 'Feedback is written to the Owner, so reading it stays the Owner’s.',
     capabilities: [
       {
         action: 'Send feedback about the app',
@@ -492,6 +624,7 @@ export const PERMISSIONS: PermissionArea[] = [
   },
   {
     area: 'The app itself',
+    fixed: 'Whoever could change these could hand themselves everything else, so they stay with the Owner and Admins.',
     capabilities: [
       { action: 'Grant or take away Admin', can: all() },
       { action: 'Make somebody a team Head', can: all() },
