@@ -203,8 +203,10 @@ build-time Vite vars. No other code changes needed either direction.
 
 Runs both services as containers — no local Node/Python toolchain needed.
 Supabase itself is still a separate hosted project (this repo doesn't
-self-host Supabase's Postgres/Auth/Storage/Realtime stack — see the
-architecture note in Section 7 of the PRD for why).
+self-host Supabase's Postgres/Auth/Storage/Realtime stack in production —
+see the architecture note in Section 7 of the PRD for why). For trying it
+locally, `supabase start` runs that stack in Docker from
+`supabase/config.toml`, with every migration applied (SETUP.md, step 3).
 
 ```
 cp .env.example .env   # fill in your Supabase project URL, anon key, service role key
@@ -214,7 +216,7 @@ docker compose up --build
 - Frontend: http://localhost:8080 (nginx serving the static Vite build)
 - Backend: http://localhost:8000 (`/health` for a liveness check)
 
-`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are **build-time** args (Vite
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`/`VITE_VAPID_PUBLIC_KEY` are **build-time** args (Vite
 bakes them into the JS bundle) — changing them means rebuilding the image,
 not just restarting the container. Everything else is a normal runtime env
 var. Both Dockerfiles run as a non-root user and declare a `HEALTHCHECK`.
