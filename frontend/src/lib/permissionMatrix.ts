@@ -1,23 +1,24 @@
 /**
- * Who can do what, written down.
+ * Who can do what, written down — and, area by area, chosen by the church.
  *
- * This is a reference, not a control panel. The app's permissions are not
- * data: they are Row Level Security policies enforced by Postgres on every
- * query, which is precisely why they hold — a rule the database applies
- * cannot be talked out of it by a browser with devtools open. There is no
- * settings table for a checkbox on this page to write to, and there should
- * not be one.
+ * Every permission is enforced by Postgres on every query, which is why it
+ * holds: a rule the database applies cannot be talked out of it by a
+ * browser with devtools open. Until 0133 that meant every rule was a
+ * policy and this file only described them.
  *
- * So this page says what the rules are. Changing them means changing a
- * policy, in a migration, on purpose.
+ * Now a row with a `key` is the church's to set. Its policy asks `may()`,
+ * and `may()` reads the grid in Settings › Access & privileges (see
+ * lib/permissions.ts). Its `can` below is drawn from the catalog's
+ * defaults; `withGrants` redraws it with what the church chose.
  *
- * Every row below was read off `pg_policies` in the live database rather
- * than remembered, on the date in CHECKED_ON. It can still drift: nothing
- * makes a policy added next spring update this file. The page says so
- * rather than implying an accuracy it cannot promise.
+ * A row without a key is still a policy, read off `pg_policies` on the
+ * date in CHECKED_ON. It can drift — nothing makes a policy added next
+ * spring update this file — and the page says so. Its area becomes
+ * editable when a release converts it.
  */
 
 import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
+import { GRANT_ROLES, isFixed, reachOf, type CapabilityKey, type Overrides, type Reach } from './permissions'
 
 export const CHECKED_ON = '4 October 2026'
 
@@ -59,6 +60,11 @@ export type Allowed = 'yes' | 'no' | 'own' | 'team'
 
 export interface Capability {
   action: string
+  /**
+   * The capability in the church's grid (lib/permissions.ts), when this
+   * row is one. Its `can` is then the grid's, not a transcription.
+   */
+  key?: CapabilityKey
   /** Said out loud when the answer needs a sentence rather than a tick. */
   note?: string
   can: Record<RoleKey, Allowed>
@@ -74,6 +80,17 @@ export interface PermissionArea {
   area: string
   capabilities: Capability[]
 }
+
+const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
+
+/** A row the church sets: the Owner always, everybody else as the grid says. */
+const granted = (key: CapabilityKey, overrides: Overrides = {}): Record<RoleKey, Allowed> => ({
+  owner: 'yes',
+  ...(Object.fromEntries(GRANT_ROLES.map((role) => [role, ALLOWED[reachOf(overrides, key, role)]])) as Record<
+    Exclude<RoleKey, 'owner'>,
+    Allowed
+  >),
+})
 
 const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allowed> => ({
   owner: 'yes',
@@ -135,10 +152,16 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
         note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
-      { action: 'Assign somebody to a role', can: all({ head: 'team' }) },
+      {
+        action: 'Assign somebody to a role',
+        key: 'rota.assign',
+        can: granted('rota.assign'),
+        note: 'Moving or removing somebody too. A Coordinator’s “their team” is the team they coordinate, at that service only.',
+      },
       {
         action: 'Tag an assignment — Shadow, and the church’s other tags',
-        can: all({ head: 'team' }),
+        key: 'rota.tag',
+        can: granted('rota.tag'),
         note: 'A tag is a label, not an exemption: a shadow is still that person’s one role at the service.',
       },
       {
@@ -146,9 +169,24 @@ export const PERMISSIONS: PermissionArea[] = [
         can: all(),
         note: 'In Settings › Team Rota.',
       },
-      { action: 'Ask another team to release a volunteer', can: all({ head: 'team' }) },
-      { action: 'Approve or refuse a release request', can: all({ head: 'team' }) },
-      { action: 'Delete a release request outright', can: all() },
+      {
+        action: 'Ask another team to release a volunteer',
+        key: 'rota.release_ask',
+        can: granted('rota.release_ask'),
+        note: '“Their team” is the team that wants the person.',
+      },
+      {
+        action: 'Approve or refuse a release request',
+        key: 'rota.release_decide',
+        can: granted('rota.release_decide'),
+        note: '“Their team” is the team that has the person. Approving frees them.',
+      },
+      {
+        action: 'Delete a release request outright',
+        key: 'rota.release_delete',
+        can: granted('rota.release_delete'),
+        note: 'Anybody can still withdraw a request they sent.',
+      },
     ],
   },
   {
@@ -459,6 +497,12 @@ export const PERMISSIONS: PermissionArea[] = [
       { action: 'Make somebody a team Head', can: all() },
       { action: 'Change church settings and timings', can: all() },
       {
+        action: 'Change who can do what — this grid',
+        key: 'app.permissions',
+        can: granted('app.permissions'),
+        note: 'The Owner and every Admin, always: it is how a wrong setting gets put right.',
+      },
+      {
         action: 'Arrange the menu — its groups, their names, and the order of pages',
         can: all(),
         note: 'In Settings › Menu, for everybody at once. It only moves pages; who can open each one is unchanged.',
@@ -504,4 +548,26 @@ export function withPageAccess(access: PageAccess, issuesScope?: string): Permis
       return { ...c, can }
     }),
   }))
+}
+
+/**
+ * The grid as this church has set it: every row the church sets reads
+ * what it chose rather than the app's default.
+ */
+export function withGrants(areas: PermissionArea[], overrides: Overrides): PermissionArea[] {
+  return areas.map((area) => ({
+    ...area,
+    capabilities: area.capabilities.map((c) => (c.key ? { ...c, can: granted(c.key, overrides) } : c)),
+  }))
+}
+
+/** An area the church can set, rather than one still waiting for its release. */
+export function isLiveArea(area: PermissionArea): boolean {
+  return area.capabilities.some((c) => isEditable(c))
+}
+
+/** A row with at least one cell the church can change. */
+export function isEditable(c: Capability): boolean {
+  const key = c.key
+  return !!key && GRANT_ROLES.some((role) => !isFixed(key, role))
 }

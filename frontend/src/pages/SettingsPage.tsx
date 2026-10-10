@@ -235,8 +235,9 @@ export function AppearanceSettingsPane() {
 }
 
 /**
- * Who can do what: the pages the church opens to each profile, and the
- * full reference of every rule — the second redrawn with the first's
+ * Who can do what: the pages the church opens to each profile, and every
+ * permission — the church's own where an area is editable, the database's
+ * written-down rules where it is not yet — redrawn with the Pages tab's
  * choices, so the two can never tell different stories.
  */
 export function AccessSettingsPane() {
@@ -249,7 +250,7 @@ export function AccessSettingsPane() {
         {(
           [
             ['pages', 'Pages'],
-            ['rules', 'Every rule'],
+            ['rules', 'Permissions'],
           ] as const
         ).map(([value, label]) => (
           <button

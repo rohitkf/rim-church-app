@@ -37,6 +37,7 @@ import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
+import { usePermissions } from '../lib/usePermissions'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
@@ -79,6 +80,9 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 
 export function TeamRotaPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  // Who may change the rota is the church's to set (Settings › Access &
+  // privileges, 0133); these only decide which buttons to draw.
+  const { can } = usePermissions()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -211,15 +215,18 @@ export function TeamRotaPage() {
     [upcoming, today, isFinished],
   )
 
+  // Somebody the grid lets change any team's rota sees every team, the
+  // way an Admin always has.
+  const everyTeam = isAdmin || can('rota.assign')
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
-    if (isAdmin) return all
+    if (everyTeam) return all
     const mine = new Set(ownDeptsQuery.data ?? [])
     return all.filter(
       (d) =>
         mine.has(d.id) || isDepartmentHead(d.id),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, isDepartmentHead])
+  }, [departmentsQuery.data, ownDeptsQuery.data, everyTeam, isDepartmentHead])
   const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
 
   /*
@@ -282,8 +289,34 @@ export function TeamRotaPage() {
     queryClient.invalidateQueries({ queryKey: ['rota-requests'] })
   }
 
-  // Assisting Heads deputise for the Head, so they manage the rota too.
-  const canManage = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
+  // Call times belong to Services & planning, which the grid does not set
+  // yet: Admins and the team's Heads (Assisting Heads deputise), as before.
+  const canSetCallTimes = (departmentId: string) => isAdmin || isDepartmentHead(departmentId)
+
+  /*
+   * The rota's four questions, each the grid's. "Their team" for a
+   * Coordinator means the team they coordinate at that service, so each
+   * asks the rota whether that is this person.
+   */
+  const coordinates = (serviceId: string, departmentId: string) =>
+    (rotaQuery.data ?? []).some(
+      (a) =>
+        a.service_id === serviceId &&
+        a.department_id === departmentId &&
+        a.user_id === myId &&
+        isCoordinatorRole(a.role_label),
+    )
+  const where = (serviceId: string, departmentId: string) => ({
+    departmentId,
+    coordinating: coordinates(serviceId, departmentId),
+  })
+  const canAssign = (serviceId: string, departmentId: string) =>
+    can('rota.assign', where(serviceId, departmentId))
+  const canTag = (serviceId: string, departmentId: string) => can('rota.tag', where(serviceId, departmentId))
+  const canAskRelease = (serviceId: string, departmentId: string) =>
+    can('rota.release_ask', where(serviceId, departmentId))
+  const canAnswer = (r: RotaReleaseRequest) =>
+    !!r.assignment && can('rota.release_decide', where(r.assignment.service_id, r.assignment.department_id))
 
   const addAssignment = useMutation({
     mutationFn: async ({
@@ -392,25 +425,14 @@ export function TeamRotaPage() {
 
   const decideRequest = useMutation({
     mutationFn: async ({ request, approve }: { request: RotaReleaseRequest; approve: boolean }) => {
-      const { error } = await supabase
-        .from('rota_release_requests')
-        .update({
-          status: approve ? 'approved' : 'denied',
-          decided_by: myId,
-          decided_at: new Date().toISOString(),
-        })
-        .eq('id', request.id)
+      // One step (0133): approving frees the person — the holding
+      // assignment goes, which is what lets the asking team book them —
+      // and the right to answer is all it needs.
+      const { error } = await supabase.rpc('answer_release_request', {
+        p_request: request.id,
+        p_approve: approve,
+      })
       if (error) throw error
-
-      // Approving frees the person up: the holding assignment goes, which
-      // is what lets the asking team book them.
-      if (approve) {
-        const { error: delError } = await supabase
-          .from('rota_assignments')
-          .delete()
-          .eq('id', request.assignment_id)
-        if (delError) throw delError
-      }
     },
     onSuccess: refresh,
     onError: (err: unknown) => setError(errorText(err, 'Could not answer the request.')),
@@ -419,10 +441,8 @@ export function TeamRotaPage() {
   const assignments = rotaQuery.data ?? []
   const requests = requestsQuery.data ?? []
 
-  // Requests waiting on me: I head the team that currently holds the person.
-  const incoming = requests.filter(
-    (r) => r.status === 'pending' && r.assignment && canManage(r.assignment.department_id),
-  )
+  // Requests waiting on me: I answer for the team that currently holds the person.
+  const incoming = requests.filter((r) => r.status === 'pending' && canAnswer(r))
 
   const pendingFor = (assignmentId: string) =>
     requests.find((r) => r.assignment_id === assignmentId && r.status === 'pending')
@@ -536,7 +556,8 @@ export function TeamRotaPage() {
                       const key = `${service.id}:${dept.id}`
                       const deptAssignments = serviceAssignments.filter((a) => a.department_id === dept.id)
                       // Who served is a matter of record once the service is over.
-                      const manage = canManage(dept.id) && !finished
+                      const manage = canAssign(service.id, dept.id) && !finished
+                      const tagging = canTag(service.id, dept.id)
                       // Only people who marked themselves available for this
                       // service, on this team, can be put on the rota for it.
                       const availableHere = new Set(
@@ -1014,7 +1035,7 @@ export function TeamRotaPage() {
                               </fieldset>
                               {/* The church's own tags, from App
                                   settings — as many as apply. */}
-                              {offeredTags.length > 0 && (
+                              {tagging && offeredTags.length > 0 && (
                                 <div className="flex w-full flex-wrap items-center gap-1.5" role="group" aria-label="Tags">
                                   {offeredTags.map((tag) => {
                                     const on = (draftTags[key] ?? []).includes(tag.id)
@@ -1069,6 +1090,10 @@ export function TeamRotaPage() {
                               {clashRequest ? (
                                 <p className="mt-2 font-mono text-label-sm text-warning">
                                   Waiting on {clash.department?.name}'s head to respond…
+                                </p>
+                              ) : !canAskRelease(service.id, dept.id) ? (
+                                <p className="mt-2 text-body-sm text-on-surface-variant">
+                                  Asking for them is for whoever the church lets ask on this team’s behalf.
                                 </p>
                               ) : (
                                 <button
@@ -1134,7 +1159,7 @@ export function TeamRotaPage() {
           days={callTimeDays}
           teams={departmentsQuery.data ?? []}
           myTeamIds={myTeamIds}
-          canManage={canManage}
+          canManage={canSetCallTimes}
         />
       </div>
       )}
