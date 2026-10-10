@@ -32,7 +32,7 @@ type ItemDocument = z.infer<typeof documentSchema>
 
 const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-// The church's limit for an inventory document (0128); the bucket enforces it too.
+// The church's limit for an inventory document (0132); the bucket enforces it too.
 const MAX_BYTES = UPLOAD_LIMIT_BYTES.inventoryDoc
 
 async function fetchDocuments(itemId: string): Promise<ItemDocument[]> {

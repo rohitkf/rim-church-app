@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import migration from '../../../supabase/migrations/0128_everything_has_a_clock.sql?raw'
+import rules from '../../../supabase/migrations/0128_everything_has_a_clock.sql?raw'
+import hourly from '../../../supabase/migrations/0129_timed_posts_expire_on_the_hour.sql?raw'
+import alerts from '../../../supabase/migrations/0130_sent_alerts_clear_on_their_day.sql?raw'
+import nightly from '../../../supabase/migrations/0131_services_go_after_two_weeks.sql?raw'
+import weekly from '../../../supabase/migrations/0132_supabase_logs_and_upload_limits.sql?raw'
 import { DEFAULT_SETTINGS } from './appSettings'
 import { UPLOAD_LIMIT_BYTES } from './uploadLimits'
 
@@ -10,6 +14,9 @@ import { UPLOAD_LIMIT_BYTES } from './uploadLimits'
  * does not enforce is a limit anybody can step round.
  */
 
+// The five run as one change, split only so each could be applied alone.
+const migration = [rules, hourly, alerts, nightly, weekly].join('\n')
+
 const columnDefault = (column: string) =>
   Number(migration.match(new RegExp(`alter column ${column} set default (\\d+)`))?.[1] ??
     migration.match(new RegExp(`${column} [a-z]+ (?:not null )?default (\\d+)`))?.[1])
@@ -19,7 +26,7 @@ const bucketLimit = (bucket: string) => {
   return m ? Number(m[1]) * 1024 * 1024 : NaN
 }
 
-describe('the church’s clocks (0128)', () => {
+describe('the church’s clocks (0128–0132)', () => {
   it('starts every setting where the database does', () => {
     expect(columnDefault('service_retention_days')).toBe(DEFAULT_SETTINGS.service_retention_days)
     expect(columnDefault('notification_keep_count')).toBe(DEFAULT_SETTINGS.notification_keep_count)
@@ -59,6 +66,7 @@ describe('the church’s clocks (0128)', () => {
 
   it('runs every clock: hourly for timed posts, weekly for Supabase’s own logs', () => {
     expect(migration).toContain("cron.schedule('expire-timed-posts', '5 * * * *'")
+    expect(migration).toContain("cron.schedule('clear-sent-alerts', '0 0 * * *'")
     expect(migration).toContain("cron.schedule('prune-platform-logs', '30 3 * * 2'")
     expect(migration).toMatch(/delete from public\.services\s+where date < today - s\.service_retention_days/)
     expect(migration).toMatch(/create or replace trigger notifications_keep_newest\s+after insert on public\.notifications/)

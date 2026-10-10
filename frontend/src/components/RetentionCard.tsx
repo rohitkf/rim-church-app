@@ -14,9 +14,9 @@ import { InlineRow, SaveBar, SettingList, SettingRow, Switch } from './SettingRo
  * How long the app keeps things, page by page, in one room.
  *
  * Every clock here deletes — it does not hide — and a job does it: the
- * nightly ones (0116, 0117, 0120, `apply_retention()` from 0123 and 0128),
+ * nightly ones (0116, 0117, 0120, `apply_retention()` from 0123 and 0131),
  * an hourly one for Church Updates and polls, and a weekly one for
- * Supabase's own logs (0128). So each row says plainly what goes.
+ * Supabase’s own logs (0132). So each row says plainly what goes.
  *
  * The page that loses things says so too, in its own Lifespan line
  * (lib/lifespan.ts), worded from these same numbers.

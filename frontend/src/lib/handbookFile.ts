@@ -1,7 +1,7 @@
 /** What a handbook may be, and how big it may get. */
 import { UPLOAD_LIMIT_BYTES } from './uploadLimits'
 
-/** The church's limit for a handbook (0128); the `handbooks` bucket enforces it too. */
+/** The church's limit for a handbook (0132); the `handbooks` bucket enforces it too. */
 export const HANDBOOK_MAX_BYTES = UPLOAD_LIMIT_BYTES.handbook
 
 export const HANDBOOK_TYPES = [

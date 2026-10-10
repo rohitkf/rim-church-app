@@ -1,7 +1,7 @@
 /**
  * How big an uploaded file may be, per kind.
  *
- * The storage buckets refuse anything larger (0128); these are the same
+ * The storage buckets refuse anything larger (0132); these are the same
  * numbers, so the uploader can say so before the upload rather than after
  * it fails. `uploadLimits.test.ts` reads the migration and checks.
  */

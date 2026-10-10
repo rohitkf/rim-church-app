@@ -1,5 +1,5 @@
 /*
- * Everything has a clock.
+ * Everything has a clock. (1 of 5 — the rules. 0129–0132 run them.)
  *
  * What the church decided (October 2026), page by page:
  *
@@ -67,9 +67,7 @@ alter table public.app_settings
   alter column poll_retention_days set not null;
 
 alter table public.app_settings
-  drop constraint if exists app_settings_church_update_days_is_sane,
   add constraint app_settings_church_update_days_is_sane check (church_update_retention_days between 1 and 365),
-  drop constraint if exists app_settings_poll_days_is_sane,
   add constraint app_settings_poll_days_is_sane check (poll_retention_days between 1 and 365);
 
 /* ------------------------------------------------------------------ *
@@ -152,7 +150,6 @@ create or replace trigger church_updates_default_end
 
 alter table public.church_updates
   alter column ends_at set not null,
-  drop constraint if exists church_updates_ends_after_posting,
   add constraint church_updates_ends_after_posting check (ends_at > created_at);
 
 create index if not exists church_updates_ends_at_idx on public.church_updates (ends_at);
@@ -161,13 +158,15 @@ create index if not exists church_updates_ends_at_idx on public.church_updates (
 alter policy church_updates_select on public.church_updates
   using ((select public.can_open_page(auth.uid(), 'updates')) and ends_at > now());
 
-drop function if exists public.post_church_update(text, text, boolean);
-
+-- A second signature rather than a replacement: the three-argument one
+-- stays for an app a release behind (its insert gets the default end from
+-- the trigger above). No default on `ends_at` here, so a call can never be
+-- ambiguous between the two.
 create or replace function public.post_church_update(
   title text,
   body text,
   pinned boolean,
-  ends_at timestamptz default null
+  ends_at timestamptz
 )
 returns uuid
 language plpgsql
@@ -246,7 +245,6 @@ create or replace trigger team_polls_default_clear
 
 alter table public.team_polls
   alter column clears_at set not null,
-  drop constraint if exists team_polls_clears_after_closing,
   add constraint team_polls_clears_after_closing
     check (clears_at > created_at and (closes_at is null or clears_at >= closes_at));
 
@@ -263,144 +261,7 @@ alter policy team_polls_select on public.team_polls
  * Join requests: an Admin can clear answered ones
  * ------------------------------------------------------------------ */
 
-drop policy if exists team_join_requests_admin_delete on public.team_join_requests;
 create policy team_join_requests_admin_delete on public.team_join_requests for delete
   using (public.is_admin(auth.uid()) and status <> 'pending');
-
-/* ------------------------------------------------------------------ *
- * The clocks
- * ------------------------------------------------------------------ */
-
--- Hourly: updates past their end, polls past their clear time. The
--- select policies already hide both the moment they pass; this frees
--- the rows.
-create or replace function public.expire_timed_posts()
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-  delete from public.church_updates where ends_at <= now();
-  delete from public.team_polls where clears_at <= now();
-$$;
-
-revoke all on function public.expire_timed_posts() from public, anon, authenticated;
-
--- Midnight UTC, daily: the board and feed on their day, the sent-alerts
--- record on its own.
-create or replace function public.clear_message_board_if_due()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  dow integer := extract(dow from (now() at time zone 'utc'))::int;
-  s public.app_settings%rowtype;
-begin
-  select * into s from public.app_settings limit 1;
-  if dow = s.board_clear_dow then
-    delete from public.notifications where type = 'message';
-    delete from public.messages where ctid is not null;
-    delete from public.activity where ctid is not null;
-  end if;
-  if s.alert_clear_dow is not null and dow = s.alert_clear_dow then
-    delete from public.announcements where ctid is not null;
-  end if;
-end;
-$$;
-
-revoke all on function public.clear_message_board_if_due() from public, anon, authenticated;
-
--- 03:00 UTC, daily.
-create or replace function public.apply_retention()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  s public.app_settings%rowtype;
-  today date;
-begin
-  select * into s from public.app_settings limit 1;
-  if not found then
-    return;
-  end if;
-  today := (now() at time zone public.church_timezone())::date;
-
-  -- Services, and with them everything about them (every child table
-  -- cascades): running order, rota, availability, ticks, set lists,
-  -- readiness, debriefs, issues, the polls about a service.
-  delete from public.services
-  where date < today - s.service_retention_days;
-
-  if s.notification_retention_days is not null then
-    delete from public.notifications
-    where created_at < now() - make_interval(days => s.notification_retention_days);
-  end if;
-  -- In case the cap was lowered since the last insert.
-  perform public.keep_newest_notifications(null);
-
-  if s.team_chat_retention_days is not null then
-    delete from public.team_messages
-    where created_at < now() - make_interval(days => s.team_chat_retention_days);
-  end if;
-
-  perform public.expire_timed_posts();
-
-  if s.feedback_retention_days is not null then
-    delete from public.app_feedback
-    where status in ('done', 'wont_do')
-      and coalesce(status_changed_at, created_at) < now() - make_interval(days => s.feedback_retention_days);
-  end if;
-end;
-$$;
-
-revoke all on function public.apply_retention() from public, anon, authenticated;
-
--- Weekly: Supabase's own logs keep a week.
-create or replace function public.prune_platform_logs()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  delete from cron.job_run_details where end_time < now() - interval '7 days';
-  if to_regclass('supabase_functions.hooks') is not null then
-    delete from supabase_functions.hooks where created_at < now() - interval '7 days';
-  end if;
-end;
-$$;
-
-revoke all on function public.prune_platform_logs() from public, anon, authenticated;
-
-do $cron$
-begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    perform cron.unschedule(jobid) from cron.job where jobname in ('expire-timed-posts', 'prune-platform-logs');
-    perform cron.schedule('expire-timed-posts', '5 * * * *', 'select public.expire_timed_posts();');
-    perform cron.schedule('prune-platform-logs', '30 3 * * 2', 'select public.prune_platform_logs();');
-  end if;
-end $cron$;
-
-/* ------------------------------------------------------------------ *
- * Uploads: tighter limits per file
- * ------------------------------------------------------------------ */
-
-do $buckets$
-begin
-  if to_regclass('storage.buckets') is not null then
-    update storage.buckets set file_size_limit = 2 * 1024 * 1024 where id = 'branding';
-    update storage.buckets set file_size_limit = 2 * 1024 * 1024 where id = 'giving';
-    update storage.buckets set file_size_limit = 10 * 1024 * 1024 where id = 'handbooks';
-    update storage.buckets set file_size_limit = 5 * 1024 * 1024 where id = 'inventory-docs';
-    update storage.buckets
-      set file_size_limit = 2 * 1024 * 1024,
-          allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp']
-      where id = 'avatars';
-  end if;
-end $buckets$;
 
 notify pgrst, 'reload schema';

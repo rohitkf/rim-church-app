@@ -71,10 +71,11 @@ On the screen: `NAV_ITEMS` entries carry a `page` key instead of
 
 ## 2. How long things are kept — retention columns
 
-The church's rules since 0128. A job does every deleting: `apply_retention()`
-nightly at 03:00 UTC, `clear_message_board_if_due()` at 00:00 UTC, the
-debrief and issue jobs at 02:30 and 02:45, `expire_timed_posts()` hourly at
-:05, and `prune_platform_logs()` on Tuesdays at 03:30.
+The church's rules since 0128–0132. A job does every deleting:
+`apply_retention()` nightly at 03:00 UTC, `clear_message_board_if_due()` and
+`clear_sent_alerts_if_due()` at 00:00 UTC, the debrief and issue jobs at 02:30
+and 02:45, `expire_timed_posts()` hourly at :05, and `prune_platform_logs()`
+on Tuesdays at 03:30.
 
 | What | Rule | Setting (default) |
 |---|---|---|
