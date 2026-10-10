@@ -417,6 +417,11 @@ export const PERMISSIONS: PermissionArea[] = [
       { action: 'Invite somebody to the app', can: all({ head: 'team' }) },
       { action: 'See who has been invited', can: all({ head: 'team' }) },
       {
+        action: 'Clear old people records — accepted invitations, answered join requests',
+        can: all(),
+        note: 'They are kept until somebody clears them (0128). A request still waiting on a Head cannot be cleared.',
+      },
+      {
         action: 'Remove somebody’s account',
         can: all(),
         note: 'Only the Owner can remove another Admin. Nobody can remove the Owner.',

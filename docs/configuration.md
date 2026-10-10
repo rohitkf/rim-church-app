@@ -71,24 +71,41 @@ On the screen: `NAV_ITEMS` entries carry a `page` key instead of
 
 ## 2. How long things are kept — retention columns
 
-Nullable integer days; `null` means **kept for ever**, which is the default for
-every new one, so applying 0123 deletes nothing. One nightly job,
-`apply_retention()` (cron `apply-retention`, 03:00 UTC), does the deleting.
+The church's rules since 0128. A job does every deleting: `apply_retention()`
+nightly at 03:00 UTC, `clear_message_board_if_due()` at 00:00 UTC, the
+debrief and issue jobs at 02:30 and 02:45, `expire_timed_posts()` hourly at
+:05, and `prune_platform_logs()` on Tuesdays at 03:30.
 
-| Column | What goes | Existing? |
+| What | Rule | Setting (default) |
 |---|---|---|
-| `board_clear_dow` | the message board and the activity feed, weekly | yes |
-| `debrief_retention_days` | debrief minutes, from the service date | yes |
-| `issue_retention_days` | resolved issues, from when they were marked | yes |
-| `notification_retention_days` | bell notifications older than this | new |
-| `team_chat_retention_days` | team chat posts older than this | new |
-| `church_update_retention_days` | unpinned Church Updates older than this | new |
-| `poll_retention_days` | polls this long after they closed (or were made, if they never close) | new |
-| `alert_retention_days` | sent alerts' record (`announcements`) | new |
-| `feedback_retention_days` | feedback marked Done or Won't do, from when it was settled (0124) | new |
+| Services, and everything about them (running order, rota, availability, ticks, set list, readiness, debrief, every issue, polls about the service) | deleted N days after the service date | `service_retention_days` (14) |
+| Debrief minutes | N days after the service — never longer than the service | `debrief_retention_days` (14) |
+| Resolved issues | N days after being marked — never longer than the service | `issue_retention_days` (14) |
+| Bell notifications | each person keeps their newest N (trigger on insert, and nightly) | `notification_keep_count` (10) |
+| …and optionally by age | older than N days | `notification_retention_days` (for ever) |
+| Team chat | each post N days after it was written | `team_chat_retention_days` (30) |
+| Message board + activity feed | weekly, on the clear day | `board_clear_dow` (Tuesday) |
+| Sent-alerts record | weekly, on its own day; null never | `alert_clear_dow` (Tuesday) |
+| Church Updates | at each update's own `ends_at` — required; pinned too | `church_update_retention_days` = the form's default end (30) |
+| Polls | at each poll's own `clears_at`, never before its deadline | `poll_retention_days` = the form's default, after the deadline (7) |
+| Settled feedback | N days after Done / Won't do | `feedback_retention_days` (14) |
+| Supabase's own logs (`supabase_functions.hooks`, `cron.job_run_details`) | a week | fixed |
+
+An update past its end and a poll past its clear time are hidden by their
+select policies at once; the hourly job frees the rows. `alert_retention_days`
+is retired (kept null, unread).
+
+Kept until somebody deletes them: inventory, invitations (an Admin can remove
+an accepted one's record), join requests (an Admin can clear answered ones),
+guests, events, uploaded files, and setup.
+
+Upload limits, per file, enforced by the buckets and checked by the
+uploaders (`lib/uploadLimits.ts`): logo 2 MB, Giving QR 2 MB, handbook
+10 MB, inventory document 5 MB, profile photo 2 MB.
 
 Each has its sentence in `lib/lifespan.ts`, so the page that loses things says
-so.
+so; the Finished services heading on every service page counts down to the
+oldest one going (`ServiceSections`).
 
 ## 3. Display preferences — `app_settings.display`
 
@@ -115,7 +132,7 @@ the reverse) never break each other.
 |---|---|
 | Access & privileges | **Pages** (who can open each, with a live preview of each profile's menu) · **Rules** (the reference grid, now reflecting the Pages choices) |
 | Timings | when things open and close (unchanged, minus clean-up) |
-| Data & retention | every clock in §2 |
+| Data & retention | every clock in §2, what is kept on purpose, and the upload limits |
 | Dashboard & lists | everything in §3 |
 | Team Rota · Giving · Menu | unchanged |
 

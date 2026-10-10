@@ -16,6 +16,8 @@ import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { optionShare, pollIsOpen, tallyVotes, timeLeft, type ChoiceMode } from '../lib/polls'
+import { useAppSettings } from '../lib/appSettings'
+import { defaultPollClear, pollClearProblem, untilText } from '../lib/expiry'
 
 const pollSchema = z.object({
   id: z.string(),
@@ -27,6 +29,8 @@ const pollSchema = z.object({
   question: z.string(),
   choice_mode: z.enum(['single', 'multiple']),
   closes_at: z.string().nullable(),
+  /** When it is deleted with every answer (0128). */
+  clears_at: z.string(),
   created_at: z.string(),
   department: z.object({ name: z.string() }).nullable().default(null),
   service: z.object({ date: z.string(), service_type: z.string() }).nullable().default(null),
@@ -42,7 +46,7 @@ async function fetchPolls(): Promise<Poll[]> {
   const { data, error } = await supabase
     .from('team_polls')
     .select(
-      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, closes_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id)',
+      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id)',
     )
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -120,11 +124,17 @@ export function PollsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const pollsQuery = useQuery({ queryKey: POLLS_KEY, queryFn: fetchPolls, enabled: !!myId })
-  const polls = useMemo(() => pollsQuery.data ?? [], [pollsQuery.data])
 
-  // Only tick while something is actually counting down.
-  const anyDeadline = polls.some((p) => p.closes_at)
+  // Only tick while something is actually counting down — and every poll
+  // now clears at some point (0128), so something always is.
+  const anyDeadline = (pollsQuery.data ?? []).length > 0
   const now = useNow(anyDeadline)
+  // The database stops returning a poll once it clears; this takes it off
+  // a screen that has been open since before then.
+  const polls = useMemo(
+    () => (pollsQuery.data ?? []).filter((p) => new Date(p.clears_at).getTime() > now),
+    [pollsQuery.data, now],
+  )
 
   // A tap on the notification lands on the poll it was about.
   useEffect(() => {
@@ -282,6 +292,10 @@ export function PollsPage() {
                         </span>
                       </>
                     )}
+                    <span aria-hidden="true">·</span>
+                    <span title={new Date(poll.clears_at).toLocaleString()}>
+                      Clears {untilText(poll.clears_at, now)}
+                    </span>
                   </div>
 
                   <ul className="mt-3 flex flex-col gap-2">
@@ -372,6 +386,12 @@ function PollComposer({
   const [labels, setLabels] = useState<string[]>(['', ''])
   const [mode, setMode] = useState<ChoiceMode>('single')
   const [closesAt, setClosesAt] = useState('')
+  // Follows the deadline until the asker picks a clear time of their own.
+  const clearDays = useAppSettings().poll_retention_days
+  const [chosenClear, setChosenClear] = useState<string | null>(null)
+  const now = useNow(true)
+  const clearsAt = chosenClear ?? defaultPollClear(closesAt, new Date(now), clearDays)
+  const clearProblem = pollClearProblem(closesAt, clearsAt, now)
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const today = todayIso()
@@ -415,6 +435,7 @@ function PollComposer({
           // A local datetime-local value carries no zone; treating it as
           // local time is what the person typing it meant.
           closes_at: closesAt ? new Date(closesAt).toISOString() : null,
+          clears_at: new Date(clearsAt).toISOString(),
         })
         .select('id')
         .single()
@@ -439,7 +460,7 @@ function PollComposer({
     (audience === 'people' && personIds.length > 0) ||
     // A Head's service poll is for their own team's people on it.
     (audience === 'service' && !!serviceId && (isAdmin || !!teamId))
-  const ready = audienceReady && question.trim().length > 0 && kept.length >= 2
+  const ready = audienceReady && question.trim().length > 0 && kept.length >= 2 && !clearProblem
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -648,9 +669,26 @@ function PollComposer({
               min={todayIso()}
             />
           </div>
+
+          <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
+            Clears
+            <DateTimeField
+              value={clearsAt}
+              onChange={(next) => setChosenClear(next || null)}
+              label="Poll clears"
+              clearable={false}
+              min={closesAt ? closesAt.slice(0, 10) : todayIso()}
+            />
+          </div>
         </div>
 
-        <p className="mt-2 text-label-sm text-on-surface-faint">
+        <p className={`mt-2 text-label-sm ${clearProblem ? 'text-error' : 'text-on-surface-faint'}`}>
+          {clearProblem ??
+            `Deleted with every answer ${untilText(clearsAt, now)}${
+              chosenClear ? '' : ` — ${clearDays} ${clearDays === 1 ? 'day' : 'days'} after ${closesAt ? 'the deadline' : 'it is posted'}`
+            }.`}
+        </p>
+        <p className="mt-1 text-label-sm text-on-surface-faint">
           Everyone it is for is told — their bell and their phone. After the deadline nobody can
           add, change or withdraw an answer.
         </p>

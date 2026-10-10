@@ -236,6 +236,16 @@ skipped:
 
 Each of these has already cost real time. None of them show up in review.
 
+- **A service is deleted 14 days after its date, and takes everything
+  hanging off it** (0128, `service_retention_days`) — rota, availability,
+  running order, ticks, set lists, debriefs, issues. A new table with a
+  `service_id` foreign key on cascade joins that clock; one that must
+  outlive its service must not cascade. Activity triggers on those tables
+  already skip a service that is being deleted (`record_activity`) — keep
+  it that way, or the clean-up floods the feed.
+- **Church Updates and polls carry their own end** (`ends_at`, `clears_at`,
+  0128) and their select policies hide them the moment it passes. Anything
+  that reads them with the service role has to filter for itself.
 - **`profiles` is readable column by column** (0127). Email, phone and
   marital status are closed to everybody; the Owner reads others' through
   `people_contacts()`, everyone reads their own through `my_profile()`,

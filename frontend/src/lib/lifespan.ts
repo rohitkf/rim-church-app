@@ -30,6 +30,9 @@ type Settings = Pick<
   | 'church_update_retention_days'
   | 'poll_retention_days'
   | 'feedback_retention_days'
+  | 'service_retention_days'
+  | 'notification_keep_count'
+  | 'alert_clear_dow'
 > & {
   /** How far either side of today Set Lists looks (a display preference). */
   set_list_days: number
@@ -44,18 +47,21 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
  */
 const FALLBACK: Settings = {
   board_clear_dow: 2,
-  debrief_retention_days: 30,
-  issue_retention_days: 30,
+  debrief_retention_days: 14,
+  issue_retention_days: 14,
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
   debrief_open_minutes_after: 720,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   availability_closes_time: '23:59:00',
-  team_chat_retention_days: null,
-  church_update_retention_days: null,
-  poll_retention_days: null,
-  feedback_retention_days: null,
+  team_chat_retention_days: 30,
+  church_update_retention_days: 30,
+  poll_retention_days: 7,
+  feedback_retention_days: 14,
+  service_retention_days: 14,
+  notification_keep_count: 10,
+  alert_clear_dow: 2,
   set_list_days: 21,
 }
 
@@ -91,6 +97,8 @@ export type LifespanPage =
   | 'team-chat'
   | 'issues'
   | 'feedback'
+  | 'notifications'
+  | 'alerts'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -99,6 +107,14 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
   for (const key of Object.keys(FALLBACK) as (keyof Settings)[]) {
     if (given[key] !== undefined && given[key] !== null) (s as Record<string, unknown>)[key] = given[key]
   }
+  // For these, null is a choice ("never", "for ever"), not a gap to fill.
+  for (const key of ['alert_clear_dow', 'team_chat_retention_days', 'feedback_retention_days'] as const) {
+    if (given[key] === null) (s as Record<string, unknown>)[key] = null
+  }
+  // A service takes its debrief, issues, rota and the rest with it, so no
+  // clock tied to a service can outlast the service.
+  const kept = s.service_retention_days
+  const afterService = `deleted with its service ${span(kept)} after the service date`
   const clearDay = WEEKDAYS[s.board_clear_dow]
   const grace = formatMinutes(s.edit_grace_minutes)
   switch (page) {
@@ -107,25 +123,21 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'activity':
       return `The activity feed clears each ${clearDay}, with the message board.`
     case 'debriefs':
-      return `A team can write its debrief for ${formatMinutes(s.debrief_open_minutes_after)} after the service ends (Heads and Admins, any time). Minutes are deleted ${s.debrief_retention_days} ${s.debrief_retention_days === 1 ? 'day' : 'days'} after their service.`
+      return `A team can write its debrief for ${formatMinutes(s.debrief_open_minutes_after)} after the service ends (Heads and Admins, any time). Minutes are deleted ${span(Math.min(s.debrief_retention_days, kept))} after their service.`
     case 'checklists':
-      return `“Before the service” closes when the service ends; “After the service” stays open ${formatMinutes(s.after_service_checklist_minutes)} longer. Ticks are kept as a record.`
+      return `“Before the service” closes when the service ends; “After the service” stays open ${formatMinutes(s.after_service_checklist_minutes)} longer. Ticks are ${afterService}.`
     case 'availability':
-      return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service, and are kept afterwards.`
+      return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service, and are ${afterService}.`
     case 'rota':
-      return `A service’s rota locks ${grace} after it ends, and is kept as a record.`
+      return `A service’s rota locks ${grace} after it ends, and is ${afterService}.`
     case 'planner':
-      return `Finished services leave this list each ${clearDay} and stay in the calendar. A running order locks ${grace} after its service ends.`
+      return `Finished services leave this list each ${clearDay}. A running order locks ${grace} after its service ends. Every service — running order, rota, availability, debrief, issues and all — is deleted ${span(kept)} after its date.`
     case 'set-lists':
-      return `Shows ${span(s.set_list_days)} either side of today. A set list locks when its service finishes; nothing is deleted.`
+      return `Shows ${span(s.set_list_days)} either side of today. A set list locks when its service finishes, and is ${afterService}.`
     case 'polls':
-      return s.poll_retention_days === null
-        ? 'Polls stay until they are deleted. Answers lock at a poll’s deadline, if it has one.'
-        : `A poll is deleted ${days(s.poll_retention_days)} after it closes (or after it was made, if it never closes). Answers lock at a poll’s deadline, if it has one.`
+      return `Answers lock at a poll’s deadline, if it has one. Every poll is deleted at its own clear time — ${span(s.poll_retention_days)} after its deadline unless whoever asked chose otherwise.`
     case 'updates':
-      return s.church_update_retention_days === null
-        ? 'Updates stay until an Admin deletes them.'
-        : `An update is deleted ${days(s.church_update_retention_days)} after it is posted, unless it is pinned.`
+      return `Every update ends at its own time and is deleted then, pinned or not. A new one ends ${span(s.church_update_retention_days)} after it is posted unless the Admin picks another time.`
     case 'team-chat':
       return s.team_chat_retention_days === null
         ? 'Nothing here clears on its own — messages stay until they are deleted.'
@@ -135,6 +147,12 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
         ? 'Feedback stays until it is taken back or an Admin clears it.'
         : `Feedback marked Done or Won’t do is deleted ${days(s.feedback_retention_days)} after it was settled; anything still open stays.`
     case 'issues':
-      return `Issues can be raised from ${formatMinutes(s.issue_open_minutes_before)} before a service starts until ${formatMinutes(s.issue_close_minutes_after)} after it ends (Heads and Admins, any time). A resolved issue is deleted ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'} after a Head marks it; not resolved and persistent ones stay until they are resolved. Finished services stay listed for ${s.issue_retention_days} ${s.issue_retention_days === 1 ? 'day' : 'days'}.`
+      return `Issues can be raised from ${formatMinutes(s.issue_open_minutes_before)} before a service starts until ${formatMinutes(s.issue_close_minutes_after)} after it ends (Heads and Admins, any time). A resolved issue is deleted ${span(Math.min(s.issue_retention_days, kept))} after a Head marks it. Every issue, resolved or not, is ${afterService}; an Admin can delete one sooner.`
+    case 'notifications':
+      return `Your bell keeps your newest ${s.notification_keep_count}; older ones are deleted as new ones arrive.`
+    case 'alerts':
+      return s.alert_clear_dow === null
+        ? 'The record of sent alerts is kept until it is cleared by hand.'
+        : `The record of sent alerts clears every ${WEEKDAYS[s.alert_clear_dow]} at 00:00 UTC.`
   }
 }

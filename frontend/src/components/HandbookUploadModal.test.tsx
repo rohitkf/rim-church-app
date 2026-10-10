@@ -47,7 +47,7 @@ describe('HandbookUploadModal', () => {
   it('offers the drop zone with the rules stated', () => {
     renderModal()
     expect(screen.getByText(/drag the handbook here/i)).toBeInTheDocument()
-    expect(screen.getByText(/PDF or \.docx · max 30 MB/i)).toBeInTheDocument()
+    expect(screen.getByText(/PDF or \.docx · max 10 MB/i)).toBeInTheDocument()
   })
 
   it('refuses a file of the wrong type without attempting an upload', async () => {
@@ -60,7 +60,7 @@ describe('HandbookUploadModal', () => {
   it('refuses a file over the size limit and names the size', async () => {
     const user = renderModal()
     await user.upload(screen.getByLabelText(/browse/i), fileOf('big.pdf', HANDBOOK_MAX_BYTES + 1))
-    expect(await screen.findByText(/the limit is 30 MB/i)).toBeInTheDocument()
+    expect(await screen.findByText(/the limit is 10 MB/i)).toBeInTheDocument()
     expect(upload).not.toHaveBeenCalled()
   })
 

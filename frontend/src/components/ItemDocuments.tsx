@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
+import { UPLOAD_LIMIT_BYTES, limitText } from '../lib/uploadLimits'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, inputClasses } from './Surface'
 import { Select } from './Select'
@@ -31,7 +32,8 @@ type ItemDocument = z.infer<typeof documentSchema>
 
 const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-const MAX_BYTES = 20 * 1024 * 1024
+// The church's limit for an inventory document (0128); the bucket enforces it too.
+const MAX_BYTES = UPLOAD_LIMIT_BYTES.inventoryDoc
 
 async function fetchDocuments(itemId: string): Promise<ItemDocument[]> {
   const { data, error } = await supabase
@@ -89,7 +91,7 @@ export function ItemDocuments({
         if (!ALLOWED.includes(file.type)) {
           throw new Error('That file type is not accepted — PDF, image or spreadsheet only.')
         }
-        if (file.size > MAX_BYTES) throw new Error('That file is over 20MB.')
+        if (file.size > MAX_BYTES) throw new Error(`That file is over ${limitText(MAX_BYTES)}.`)
         // Filed under the team, so the path itself says who owns it — which
         // is what the storage rules read to decide who may write here.
         const safe = file.name.replace(/[^\w.\-]+/g, '_').slice(-80)
@@ -269,7 +271,7 @@ export function ItemDocuments({
               className={inputClasses}
             />
           </Field>
-          <Field label="…or upload the file" hint="PDF, image or spreadsheet, up to 20MB.">
+          <Field label="…or upload the file" hint={`PDF, image or spreadsheet, up to ${limitText(MAX_BYTES)}.`}>
             <FileButton
               accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx"
               label="Choose a file"

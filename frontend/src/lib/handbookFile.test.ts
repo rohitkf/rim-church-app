@@ -24,7 +24,7 @@ describe('checkHandbookFile', () => {
     expect(checkHandbookFile(file('handbook.pdf', HANDBOOK_MAX_BYTES))).toMatchObject({ ok: true })
     const tooBig = checkHandbookFile(file('handbook.pdf', HANDBOOK_MAX_BYTES + 1))
     expect(tooBig.ok).toBe(false)
-    expect(!tooBig.ok && tooBig.reason).toContain('30 MB')
+    expect(!tooBig.ok && tooBig.reason).toContain('10 MB')
   })
 })
 

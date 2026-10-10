@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { Lifespan } from './Lifespan'
+import { useAppSettings } from '../lib/appSettings'
+import { nextBoardClearTime } from '../lib/boardClear'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -92,6 +95,12 @@ export function SendAlertCard() {
     queryFn: fetchPeople,
     enabled: isAdmin,
   })
+  // The record of what was sent clears on its own day (0128).
+  const alertClearDow = useAppSettings().alert_clear_dow
+  const alertsClearAt = useMemo(
+    () => (alertClearDow === null ? undefined : nextBoardClearTime(new Date(), alertClearDow)),
+    [alertClearDow],
+  )
   const sentQuery = useQuery({
     queryKey: ['announcements-sent'],
     queryFn: fetchSentAnnouncements,
@@ -325,6 +334,11 @@ export function SendAlertCard() {
       {(sentQuery.data?.length ?? 0) > 0 && (
         <div className="mt-6 border-t border-border-subtle pt-5">
           <Eyebrow>Recently sent</Eyebrow>
+          <Lifespan
+            page="alerts"
+            until={alertsClearAt}
+            className="mt-3"
+          />
           <ul className="mt-3 flex flex-col gap-2">
             {sentQuery.data?.map((sent) => (
               <Row key={sent.id} as="li" variant="raised" stack>

@@ -140,7 +140,7 @@ describe('the owner’s logo', () => {
     await user.upload(screen.getByLabelText('Logo image file'), huge(MAX_BYTES + 1))
 
     const said = await screen.findByRole('alertdialog', { name: /too big/i })
-    expect(within(said).getByText(/30/)).toBeInTheDocument()
+    expect(within(said).getByText(/the limit is 2 MB/)).toBeInTheDocument()
     expect(within(said).getByText(/poster-scan\.png/)).toBeInTheDocument()
     expect(uploaded).not.toHaveBeenCalled()
     expect(saved).not.toHaveBeenCalled()
