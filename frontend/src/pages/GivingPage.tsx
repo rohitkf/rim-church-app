@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { QrCode } from '../components/QrCode'
 import { PageHeader, Panel, Tile } from '../components/Surface'
@@ -31,7 +31,8 @@ import {
  * Apple Pay and Google Pay are offered and where the card details go.
  */
 export function GivingPage() {
-  const { isAdmin } = useAuth()
+  // Changing the Giving page is the church's to grant (give.edit).
+  const isAdmin = usePermissions().can('give.edit')
   const giving = useGiving()
 
   return (

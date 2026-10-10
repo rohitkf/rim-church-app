@@ -75,22 +75,17 @@ Deno.serve(async (req) => {
     return json({ error: "That doesn't look like an email address." }, 400)
   }
 
-  // May they invite? Admin anywhere; a Head or Assisting Head for their team.
+  // May they invite? The church's grid says (Settings › Access & privileges,
+  // people.invite, 0144): may_invite() asks the same may() every rule does.
+  // With no team named, any team they may invite to will do.
   const admin = createClient(url, serviceKey)
-  const { data: grants, error: grantsError } = await admin
-    .from('user_roles')
-    .select('role_type, department_id')
-    .eq('user_id', caller.id)
-  if (grantsError) return json({ error: 'Could not check your permissions.' }, 500)
-
-  const isAdmin = (grants ?? []).some((g) => g.role_type === 'admin')
-  const leadsTeam = (grants ?? []).some(
-    (g) =>
-      (g.role_type === 'department_head' || g.role_type === 'assisting_head') &&
-      (departmentId === null || g.department_id === departmentId),
-  )
-  if (!isAdmin && !leadsTeam) {
-    return json({ error: 'Only an Admin or a team Head can invite somebody.' }, 403)
+  const { data: allowed, error: mayError } = await admin.rpc('may_invite', {
+    uid: caller.id,
+    dept: departmentId,
+  })
+  if (mayError) return json({ error: 'Could not check your permissions.' }, 500)
+  if (allowed !== true) {
+    return json({ error: 'Inviting people to that team is not open to you.' }, 403)
   }
 
   // Already here? Saying so is kinder than sending an invite that lands on

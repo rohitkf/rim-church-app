@@ -41,7 +41,7 @@ export function useMyTeams() {
   const teamIds = query.data ?? []
   // An Admin and a head are attached without a roster row, and neither
   // answer needs the query to have come back.
-  const attachedByRole = isAdmin || ledDepartmentIds.length > 0
+  const attachedByRole = isAdmin || (ledDepartmentIds ?? []).length > 0
   const settled = attachedByRole || !myId || query.isSuccess || query.isError
 
   return {

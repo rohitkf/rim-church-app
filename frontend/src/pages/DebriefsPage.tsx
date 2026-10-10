@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import { usePermissions } from "../lib/usePermissions";
 import { QueryState } from "../components/QueryState";
 import { PageHeader } from "../components/Surface";
 import { TeamMark } from "../components/TeamMark";
@@ -291,7 +292,10 @@ function TeamWindowLine({
 }
 
 export function DebriefsPage() {
-  const { session, isAdmin, isDepartmentHead } = useAuth();
+  const { session } = useAuth();
+  // Writing a debrief, and adding to one, are the church's to grant
+  // (Settings › Access & privileges).
+  const { can } = usePermissions();
   const { teamIds } = useMyTeams();
   const settings = useAppSettings();
   // How far ahead services are listed — the church's choice.
@@ -433,12 +437,11 @@ export function DebriefsPage() {
     onError: complain("Could not remove those minutes."),
   });
 
-  /** Whoever runs the team, or an Admin: any time, anything. */
-  const leads = (departmentId: string) =>
-    isAdmin || isDepartmentHead(departmentId);
-  /** Somebody on the team who does not run it: their own points, in the window. */
+  /** Whoever the church lets write the team's debrief: any time, anything. */
+  const leads = (departmentId: string) => can("debrief.manage", { departmentId });
+  /** Whoever may add to it otherwise: their own points, in the window. */
   const onTeam = (departmentId: string) =>
-    !leads(departmentId) && teamIds.includes(departmentId);
+    !leads(departmentId) && can("debrief.contribute", { departmentId });
 
   return (
     <div>

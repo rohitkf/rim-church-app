@@ -99,7 +99,11 @@ await ctx.route('http://supabase.test/**', async (route) => {
   }
   if (req.method() !== 'GET') return route.fulfill({ status: 204, body: '' })
   const t = new URL(url).pathname.replace('/rest/v1/', '')
-  const rows = t === 'app_owner' ? [{ user_id: 'u1' }] : (T[t] ?? [])
+  let rows = t === 'app_owner' ? [{ user_id: 'u1' }] : (T[t] ?? [])
+  // Honour simple eq filters, so a page asking for one row (a team by id)
+  // gets that row rather than the whole table.
+  for (const [k, v] of new URL(url).searchParams)
+    if (v.startsWith('eq.') && rows.length && k in rows[0]) rows = rows.filter((r) => String(r[k]) === v.slice(3))
   if ((req.headers()['accept'] || '').includes('pgrst.object'))
     return rows.length ? route.fulfill({ json: rows[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
   return route.fulfill({ json: rows })

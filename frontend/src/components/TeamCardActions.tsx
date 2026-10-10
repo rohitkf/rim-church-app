@@ -12,7 +12,17 @@ import type { Department } from '../lib/types'
  * and removing it. They live on the team's own card rather than in a second
  * list of every team, which is what made this page say everything twice.
  */
-export function TeamCardActions({ dept }: { dept: Department }) {
+export function TeamCardActions({
+  dept,
+  canEdit = true,
+  canDelete = true,
+}: {
+  dept: Department
+  /** Its name and colour (team.edit). */
+  canEdit?: boolean
+  /** Removing it (team.create). */
+  canDelete?: boolean
+}) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -113,6 +123,8 @@ export function TeamCardActions({ dept }: { dept: Department }) {
 
       {renaming === null ? (
         <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+          <>
           <button
             type="button"
             onClick={() => setPicking(true)}
@@ -128,6 +140,9 @@ export function TeamCardActions({ dept }: { dept: Department }) {
           >
             Rename
           </button>
+          </>
+          )}
+          {canDelete && (
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
@@ -135,6 +150,7 @@ export function TeamCardActions({ dept }: { dept: Department }) {
           >
             Delete
           </button>
+          )}
         </div>
       ) : (
         <form

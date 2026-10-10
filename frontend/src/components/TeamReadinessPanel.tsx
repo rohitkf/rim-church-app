@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import {
   READINESS_KEY,
@@ -48,7 +49,8 @@ export function TeamReadinessPanel({
    */
   windowFor?: (departmentId: string) => { open: boolean; clock: string }
 }) {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { session } = useAuth()
+  const { can } = usePermissions()
   const myId = session?.user.id
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -96,8 +98,7 @@ export function TeamReadinessPanel({
           const may =
             !finished &&
             mayMarkReady({
-              isAdmin,
-              isHead: isDepartmentHead(light.departmentId),
+              can,
               myId,
               serviceId,
               departmentId: light.departmentId,

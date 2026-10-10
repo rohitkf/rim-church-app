@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { LeadPicker, type LeadOption } from '../components/LeadPicker'
 import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
@@ -88,7 +88,6 @@ export function ServicePlannerPage() {
   const { serviceId } = useParams<{ serviceId: string }>()
   const settings = useAppSettings()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 
@@ -106,9 +105,17 @@ export function ServicePlannerPage() {
   const [previewing, setPreviewing] = useState(false)
   const [exporting, setExporting] = useState(false)
 
-  // Planning a service is an Admin action: Service Flow is a department
-  // like any other, not a role scoped to one service.
-  const canManage = isAdmin && !previewing
+  // Who plans a service is the church's to say (Settings › Access &
+  // privileges): the running order, the service itself, its guests, its
+  // repeat and its templates are each their own permission. Preview turns
+  // every one of them off at once.
+  const { can } = usePermissions()
+  const mayPlan = can('svc.sessions') && !previewing
+  const mayService = can('svc.manage') && !previewing
+  const mayGuests = can('svc.guests') && !previewing
+  const mayRepeat = can('svc.repeat') && !previewing
+  const mayTemplates = can('svc.templates') && !previewing
+  const canManage = mayPlan || mayService
 
   const serviceQuery = useQuery({
     queryKey: ['service', serviceId],
@@ -120,7 +127,7 @@ export function ServicePlannerPage() {
     queryFn: () => fetchSessions(serviceId!),
     enabled: !!serviceId,
   })
-  const profilesQuery = useQuery({ queryKey: ['profile-options'], queryFn: fetchProfileOptions, enabled: canManage })
+  const profilesQuery = useQuery({ queryKey: ['profile-options'], queryFn: fetchProfileOptions, enabled: mayPlan })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['service-sessions', serviceId] })
 
@@ -467,7 +474,7 @@ export function ServicePlannerPage() {
    */
   const graceMs = settings.edit_grace_minutes * 60_000
   const locksAt = editingLocksAt(sessions, endedAt, graceMs)
-  const canEdit = canManage && !editingLocked(sessions, clock, endedAt, graceMs)
+  const canEdit = mayPlan && !editingLocked(sessions, clock, endedAt, graceMs)
 
   const {
     ordered: sessionOrder,
@@ -694,7 +701,7 @@ export function ServicePlannerPage() {
             hint: 'See the page as everyone who is not an Admin sees it',
             onSelect: () => setPreviewing(true),
           },
-          ...(sessions.length > 0
+          ...(mayTemplates && sessions.length > 0
             ? ([
                 {
                   label: 'Save as template',
@@ -719,7 +726,7 @@ export function ServicePlannerPage() {
                 },
               ] as MenuAction[])
             : []),
-          ...(series && !series.stopped_at
+          ...(mayRepeat && series && !series.stopped_at
             ? ([
                 {
                   label: 'Stop repeating',
@@ -734,14 +741,18 @@ export function ServicePlannerPage() {
                 },
               ] as MenuAction[])
             : []),
-          {
-            label: 'Delete service',
-            tone: 'danger',
-            onSelect: () => {
-              setConfirmingClear(false)
-              setConfirmingDelete(true)
-            },
-          },
+          ...(mayService
+            ? ([
+                {
+                  label: 'Delete service',
+                  tone: 'danger',
+                  onSelect: () => {
+                    setConfirmingClear(false)
+                    setConfirmingDelete(true)
+                  },
+                },
+              ] as MenuAction[])
+            : []),
         ] as MenuAction[])
       : []),
   ]
@@ -849,7 +860,7 @@ export function ServicePlannerPage() {
             that started it — so the way out has to be somewhere those
             controls are not. It sticks to the top of the page for the
             same reason. */}
-        {isAdmin && previewing && (
+        {previewing && (
           <div className="sticky top-16 z-10 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-indigo)_30%,transparent)] backdrop-blur-xl">
             <span className="font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
               Preview
@@ -1376,7 +1387,7 @@ export function ServicePlannerPage() {
                                     options={leadOptions}
                                     values={peopleOn(session).map(refOf)}
                                     onAddGuest={
-                                      isAdmin
+                                      mayGuests
                                         ? async (name) => {
                                             const made = await addGuest({ name })
                                             await queryClient.invalidateQueries({
@@ -1484,7 +1495,7 @@ export function ServicePlannerPage() {
                           Service ended at{' '}
                           <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
                         </span>
-                        {isAdmin && !previewing && (
+                        {mayService && (
                           <button
                             type="button"
                             onClick={() => endService.mutate(null)}
@@ -1500,6 +1511,7 @@ export function ServicePlannerPage() {
                         <span className="text-body-sm text-on-surface-variant">
                           Closes the running order and records when it really finished.
                         </span>
+                        {mayService && (
                         <button
                           type="button"
                           onClick={() => setEndingService(true)}
@@ -1508,6 +1520,7 @@ export function ServicePlannerPage() {
                         >
                           End service
                         </button>
+                        )}
                       </>
                     )}
                   </div>

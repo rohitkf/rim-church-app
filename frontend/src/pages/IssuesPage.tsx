@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useAppSettings } from '../lib/appSettings'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useErrorText } from '../lib/useErrorText'
@@ -67,6 +68,8 @@ const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
  */
 export function IssuesPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
+  // Marking and deleting are the church's to grant (Settings › Access & privileges).
+  const { can } = usePermissions()
   const settings = useAppSettings()
   const { teamIds, onATeam, settled } = useMyTeams()
   const errorText = useErrorText()
@@ -256,8 +259,8 @@ export function IssuesPage() {
                   key={issue.id}
                   issue={issue}
                   highlighted={issue.id === openedId}
-                  canMark={mayMarkIssue(issue, { isAdmin, ledTeamIds: ledDepartmentIds })}
-                  canDelete={mayDeleteIssue(issue, { isAdmin, myId })}
+                  canMark={mayMarkIssue(issue, can)}
+                  canDelete={mayDeleteIssue(issue, { can, myId })}
                   busy={mark.isPending}
                   onMark={(outcome, remarks) => mark.mutate({ id: issue.id, outcome, remarks })}
                   onDelete={() =>

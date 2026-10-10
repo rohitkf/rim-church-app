@@ -3,6 +3,7 @@ import { Lifespan } from '../components/Lifespan'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { PageHeader } from '../components/Surface'
 import { TeamBoard } from '../components/TeamBoard'
@@ -25,6 +26,9 @@ import { QueryState } from '../components/QueryState'
  */
 export function TeamChatPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
+  // Which rooms somebody may read and post in is the church's to say
+  // (Settings › Access & privileges, msg.chat).
+  const { can } = usePermissions()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // A notification about a poll names the team it was asked of, so the
   // link can open that room rather than whichever one comes first.
@@ -38,18 +42,18 @@ export function TeamChatPage() {
     enabled: !!session,
   })
 
-  // The rooms this person is actually in: their own teams, plus any they
-  // lead. An Admin sees them all, because an Admin is answerable for all
-  // of them.
+  // The rooms this person may be in. An Admin, out of the box, is in all
+  // of them, because an Admin is answerable for all of them; everybody
+  // else in their own teams' — whatever the grid has made of that.
   const myTeams = useMemo(() => {
     const all = departmentsQuery.data ?? []
-    if (isAdmin) return all
+    if (isAdmin && can('msg.chat')) return all
     const mine = new Set([
       ...(membershipsQuery.data ?? []).map((m) => m.department_id),
       ...ledDepartmentIds,
     ])
-    return all.filter((d) => mine.has(d.id))
-  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin])
+    return all.filter((d) => (mine.has(d.id) || can('msg.chat')) && can('msg.chat', { departmentId: d.id }))
+  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin, can])
 
   const departmentId =
     selectedId ??

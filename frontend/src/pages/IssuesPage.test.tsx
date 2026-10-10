@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { IssuesPage } from './IssuesPage'
 import { issueWindow, mayDeleteIssue, mayMarkIssue, mayRaiseIssue, raisesIssuesAnyTime } from '../lib/issues'
+import { decide, type CapabilityKey, type Holder, type Where } from '../lib/permissions'
 import { chooseOption } from '../test/select'
 
 const auth = vi.hoisted(() => ({
@@ -184,17 +185,32 @@ describe('the rules', () => {
     expect(raisesIssuesAnyTime({ isAdmin: true, leadsATeam: false })).toBe(true)
   })
 
-  it('lets only a Head of the team, or an Admin, give the verdict', () => {
-    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['media'] })).toBe(false)
-    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: false, ledTeamIds: ['sound'] })).toBe(true)
-    expect(mayMarkIssue({ department_id: 'sound' }, { isAdmin: true, ledTeamIds: [] })).toBe(true)
+  // The grid at its defaults, for somebody holding these standings.
+  const canFor = (over: Partial<Holder>) => {
+    const holder: Holder = { myId: 'me', owner: false, admin: false, ledTeams: [], memberTeams: [], ...over }
+    return (cap: CapabilityKey, where: Where) => decide({}, holder, cap, where)
+  }
+
+  it('lets only a Head of the team, or an Admin, give the verdict — out of the box', () => {
+    expect(mayMarkIssue({ department_id: 'sound' }, canFor({ ledTeams: ['media'] }))).toBe(false)
+    expect(mayMarkIssue({ department_id: 'sound' }, canFor({ ledTeams: ['sound'] }))).toBe(true)
+    expect(mayMarkIssue({ department_id: 'sound' }, canFor({ admin: true }))).toBe(true)
   })
 
-  it('stops the raiser deleting it once a Head has marked it', () => {
-    const me = { isAdmin: false, myId: 'me' }
-    expect(mayDeleteIssue({ raised_by: 'me', outcome: null }, me)).toBe(true)
-    expect(mayDeleteIssue({ raised_by: 'me', outcome: 'persistent' }, me)).toBe(false)
-    expect(mayDeleteIssue({ raised_by: 'me', outcome: 'resolved' }, { isAdmin: true, myId: 'x' })).toBe(true)
+  it('stops the raiser deleting it once it has been marked', () => {
+    const me = { can: canFor({}), myId: 'me' }
+    expect(mayDeleteIssue({ raised_by: 'me', outcome: null, department_id: 'sound' }, me)).toBe(true)
+    expect(mayDeleteIssue({ raised_by: 'me', outcome: 'persistent', department_id: 'sound' }, me)).toBe(false)
+    expect(
+      mayDeleteIssue({ raised_by: 'me', outcome: 'resolved', department_id: 'sound' }, { can: canFor({ admin: true }), myId: 'x' }),
+    ).toBe(true)
+  })
+
+  it('follows the church when it lets Heads delete their team’s issues', () => {
+    const head: Holder = { myId: 'h', owner: false, admin: false, ledTeams: ['sound'], memberTeams: [] }
+    const can = (cap: CapabilityKey, where: Where) => decide({ 'issue.delete': { head: 'team' } }, head, cap, where)
+    expect(mayDeleteIssue({ raised_by: 'x', outcome: 'persistent', department_id: 'sound' }, { can, myId: 'h' })).toBe(true)
+    expect(mayDeleteIssue({ raised_by: 'x', outcome: 'persistent', department_id: 'media' }, { can, myId: 'h' })).toBe(false)
   })
 })
 

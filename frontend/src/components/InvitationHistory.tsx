@@ -14,7 +14,7 @@ import {
 } from "../lib/invitations";
 import type { Invitation } from "../lib/types";
 import { useDisplay } from "../lib/appSettings";
-import { useAuth } from "../auth/AuthContext";
+import { usePermissions } from "../lib/usePermissions";
 import { Panel, Pill, Row } from "./Surface";
 import { QueryState } from "./QueryState";
 import { TeamMark } from "./TeamMark";
@@ -35,7 +35,8 @@ import { UserCheckIcon } from "./icons";
  * asked in error or has said no.
  */
 export function InvitationHistory() {
-  const { isAdmin } = useAuth();
+  // Clearing an accepted invitation's record is the church's to grant (people.clear_records).
+  const isAdmin = usePermissions().can("people.clear_records");
   const errorText = useErrorText();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<InvitationFilter>("all");

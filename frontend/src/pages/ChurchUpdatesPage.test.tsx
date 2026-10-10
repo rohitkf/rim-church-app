@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ChurchUpdatesPage } from './ChurchUpdatesPage'
 
-const auth = { isAdmin: false }
+const auth = { isAdmin: false, session: { user: { id: 'u1' } } }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 vi.mock('../lib/appSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/appSettings')>()

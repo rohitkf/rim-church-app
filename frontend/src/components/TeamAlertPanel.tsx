@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { ActionButton, inputClasses } from './Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
@@ -26,15 +26,16 @@ const MAX = 500
  * about a service they have answered for.
  */
 export function TeamAlertPanel() {
-  const { isAdmin, ledDepartmentIds } = useAuth()
+  // Which teams somebody may alert is the church's to say (msg.alert_team).
+  const { can } = usePermissions()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
 
-  const departments = (departmentsQuery.data ?? []).filter(
-    (d) => isAdmin || ledDepartmentIds.includes(d.id),
+  const departments = (departmentsQuery.data ?? []).filter((d) =>
+    can('msg.alert_team', { departmentId: d.id }),
   )
   const today = todayIso()
   const upcoming = (servicesQuery.data ?? [])

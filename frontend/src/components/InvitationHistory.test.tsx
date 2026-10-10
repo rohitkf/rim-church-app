@@ -9,7 +9,7 @@ const invoke = vi.fn()
 const del = vi.fn()
 const fetchInvitations = vi.fn()
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, session: { user: { id: 'u1' } } }) }))
 vi.mock('../lib/queries', () => ({ fetchInvitations: () => fetchInvitations() }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {

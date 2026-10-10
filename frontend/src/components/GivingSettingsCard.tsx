@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { UPLOAD_LIMIT_BYTES, limitText } from '../lib/uploadLimits'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import {
   GIVING_BUCKET,
@@ -28,7 +28,8 @@ import { ActionButton, SectionTile, inputClasses } from './Surface'
  * looking before it is saved rather than by a member afterwards.
  */
 export function GivingSettingsCard() {
-  const { isAdmin } = useAuth()
+  // Changing the Giving page is the church's to grant (give.edit).
+  const isAdmin = usePermissions().can('give.edit')
   const giving = useGiving()
   if (!isAdmin) return null
   return (

@@ -6,7 +6,7 @@ import { PurchaseRequests } from '../components/PurchaseRequests'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, inputClasses } from '../components/Surface'
 import { StatusChip } from '../components/SectionPanel'
@@ -67,14 +67,15 @@ async function fetchItems(departmentId: string): Promise<InventoryItem[]> {
 
 export function InventoryPage() {
   const { id } = useParams<{ id: string }>()
-  const { isAdmin, isDepartmentHead } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
 
-  // Heads and their assisting heads own the register; everyone on the team
-  // can sign kit out, bring it back, and record a count.
-  const canManage = isAdmin || (!!id && isDepartmentHead(id))
+  // Who keeps the register, and who records what happens to the things on
+  // it, are the church's to say (Settings › Access & privileges).
+  const { can } = usePermissions()
+  const canManage = can('inv.items', { departmentId: id ?? null })
+  const canStock = can('inv.stock', { departmentId: id ?? null })
   const [docsFor, setDocsFor] = useState<InventoryItem | null>(null)
 
   const [search, setSearch] = useState('')
@@ -500,11 +501,12 @@ export function InventoryPage() {
                     </div>
                   </dl>
 
-                  {canManage && (
+                  {(canManage || canStock) && (
                     <div className="mt-3">
                       <RowActions
                         item={item}
                         canManage={canManage}
+                        canStock={canStock}
                         busy={act.isPending}
                         onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
                         onEdit={() => setEditing(item)}
@@ -536,7 +538,7 @@ export function InventoryPage() {
                       />
                     </th>
                   )}
-                  {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ...(canManage ? [''] : [])].map((h) => (
+                  {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ...(canManage || canStock ? [''] : [])].map((h) => (
                     <th key={h} className="px-4 py-3">
                       <Eyebrow>{h}</Eyebrow>
                     </th>
@@ -548,7 +550,7 @@ export function InventoryPage() {
                   if (row.kind === 'heading') {
                     return (
                       <tr key={`heading-${row.id ?? 'loose'}`} className="bg-surface-low">
-                        <td colSpan={canManage ? 8 : 6} className="p-0">
+                        <td colSpan={canManage || canStock ? 8 : 6} className="p-0">
                           <button
                             type="button"
                             onClick={() => toggleCategory(row.id)}
@@ -653,11 +655,12 @@ export function InventoryPage() {
                         {item.last_audited_at ? formatRelativeTime(item.last_audited_at) : 'never'}
                       </td>
 
-                      {canManage && (
+                      {(canManage || canStock) && (
                       <td className="px-4 py-3 align-top">
                         <RowActions
                           item={item}
                           canManage={canManage}
+                          canStock={canStock}
                           busy={act.isPending}
                           onAct={(fn, args) => act.mutate({ fn, args: { item_id: item.id, ...args } })}
                           onEdit={() => setEditing(item)}
@@ -745,6 +748,7 @@ export function InventoryPage() {
           itemId={scanned}
           items={items}
           canManage={canManage}
+          canStock={canStock}
           busy={act.isPending}
           onAct={(fn, args) => act.mutate({ fn, args: { item_id: scanned, ...args } })}
           onEdit={(item) => {
@@ -826,6 +830,7 @@ function CategoryChevron({ open }: { open: boolean }) {
 function RowActions({
   item,
   canManage,
+  canStock = canManage,
   busy,
   onAct,
   onEdit,
@@ -834,7 +839,10 @@ function RowActions({
   onDocs,
 }: {
   item: InventoryItem
+  /** The item itself: its details, paperwork, QR, and removing it (inv.items). */
   canManage: boolean
+  /** What happens to it: signing out and in, counts, repairs (inv.stock). */
+  canStock?: boolean
   busy: boolean
   onAct: (fn: string, args: Record<string, unknown>) => void
   onEdit: () => void
@@ -842,7 +850,7 @@ function RowActions({
   onShowQr: () => void
   onDocs: () => void
 }) {
-  if (!canManage) return null
+  if (!canManage && !canStock) return null
 
   const status = statusOf(item)
   const kind = kindOf(item)
@@ -854,6 +862,8 @@ function RowActions({
 
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
+      {canStock && (
+      <>
       {kind === 'asset' && status === 'in_service' && (
         <button
           className={button}
@@ -915,6 +925,8 @@ function RowActions({
           Back in service
         </button>
       )}
+      </>
+      )}
       {item.product_url && (
         <a
           className={button}
@@ -926,6 +938,8 @@ function RowActions({
           Link
         </a>
       )}
+      {canManage && (
+      <>
       <button className={button} onClick={onDocs}>
         Paperwork
       </button>
@@ -941,6 +955,8 @@ function RowActions({
       >
         Delete
       </button>
+      </>
+      )}
     </div>
   )
 }
@@ -1403,6 +1419,7 @@ function ScannedItemDialog({
   itemId,
   items,
   canManage,
+  canStock,
   busy,
   onAct,
   onEdit,
@@ -1414,6 +1431,7 @@ function ScannedItemDialog({
   itemId: string
   items: InventoryItem[]
   canManage: boolean
+  canStock: boolean
   busy: boolean
   onAct: (fn: string, args: Record<string, unknown>) => void
   onEdit: (item: InventoryItem) => void
@@ -1442,10 +1460,11 @@ function ScannedItemDialog({
             )}
 
             <div className="mt-5">
-              {canManage ? (
+              {canManage || canStock ? (
                 <RowActions
                   item={item}
                   canManage={canManage}
+                  canStock={canStock}
                   busy={busy}
                   onAct={onAct}
                   onEdit={() => onEdit(item)}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchMembersForDepartments } from '../lib/queries'
 import { parseMentions, type MentionablePerson } from '../lib/mentions'
 import { MentionInput } from './MentionInput'
@@ -68,7 +69,8 @@ export function TeamBoard({
    */
   departmentId?: string | null
 }) {
-  const { session, isAdmin } = useAuth()
+  const { session } = useAuth()
+  const { can } = usePermissions()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -285,8 +287,9 @@ export function TeamBoard({
 
           const gone = !!message.deleted_at
           const editing = editingId === message.id
-          // An Admin can take a message down; only its author can reword it.
-          const mayDelete = mine || isAdmin
+          // Whoever may tidy this team's chat can take a message down; only
+          // its author can reword it.
+          const mayDelete = mine || can('msg.chat_moderate', { departmentId })
           const stamp = `${formatTime(message.created_at)}${message.edited_at ? ' · edited' : ''}`
 
           return (

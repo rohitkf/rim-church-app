@@ -112,15 +112,17 @@ describe('PermissionsCard', () => {
   it('says which areas are the church’s to set, and that the database follows them', () => {
     show()
     expect(screen.getByText(/The database reads them on every request/)).toBeVisible()
-    expect(screen.getByText(/become editable one area at a\s+time/)).toBeVisible()
+    expect(screen.getByText(/fixed on purpose/)).toBeVisible()
   })
 
-  it('marks the Team rota editable and the areas still to come as coming soon', () => {
+  it('marks every area editable except the two kept fixed on purpose', () => {
     show()
-    const rota = screen.getByRole('button', { name: /^Team rota/ })
-    expect(within(rota).getByText('Editable')).toBeInTheDocument()
-    const giving = screen.getByRole('button', { name: /^Giving/ })
-    expect(within(giving).getByText('Coming soon')).toBeInTheDocument()
+    for (const area of PERMISSIONS) {
+      const button = screen.getByRole('button', { name: new RegExp(`^${area.area}`) })
+      expect(within(button).getByText(area.fixed ? 'Fixed' : 'Editable'), area.area).toBeInTheDocument()
+    }
+    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Feedback', 'The app itself'])
+    expect(screen.queryByText('Coming soon')).toBeNull()
   })
 
   it('still offers the whole grid: a table per area, with a column per standing', async () => {
@@ -212,11 +214,12 @@ describe('PermissionsCard', () => {
       expect(screen.getByRole('list', { name: 'Changes to save' })).toBeInTheDocument()
     })
 
-    it('leaves the areas still to come as they were written', async () => {
+    it('offers no choice in an area kept fixed, and says why', async () => {
       const user = show()
       await compare(user)
-      const giving = screen.getByRole('heading', { name: /Giving/ }).closest('section')!
-      expect(within(giving).queryAllByRole('combobox')).toHaveLength(0)
+      const feedback = screen.getByRole('heading', { name: /^Feedback/ }).closest('section')!
+      expect(within(feedback).queryAllByRole('combobox')).toHaveLength(0)
+      expect(within(feedback).getByText(/stays the Owner’s/)).toBeInTheDocument()
     })
 
     it('is a description, not a control, for somebody who cannot change it', async () => {
@@ -252,20 +255,14 @@ describe('PermissionsCard', () => {
       expect(within(cells[4]).getByText('own')).toBeInTheDocument() // Team Member
     })
 
-    it('shows the Coordinator holding exactly one power, and it is the checklist', () => {
-      const coordinatorColumn = ROLES.findIndex((r) => r.key === 'coordinator')
-      const granted = PERMISSIONS.flatMap((area) =>
-        area.capabilities.filter((c) => c.can.coordinator !== 'no' && c.can.coordinator !== 'own'),
+    it('gives the Coordinator, out of the box, the Sunday morning and nothing else', () => {
+      // Whoever the rota puts in Team Coordinator holds the team that
+      // morning: ticking and verifying its checklist, and its green light.
+      // Everything else of theirs is the church's to grant in the grid.
+      const theirs = PERMISSIONS.flatMap((area) =>
+        area.capabilities.filter((c) => c.can.coordinator === 'team' || c.can.coordinator === 'yes'),
       )
-      expect(granted.map((c) => c.action)).toEqual(
-        expect.arrayContaining(['Verify a team’s checklist as done']),
-      )
-      // And it is not quietly an Admin: everything a Coordinator may do
-      // beyond their own things is that one row.
-      expect(granted).toHaveLength(
-        granted.filter((c) => c.can.coordinator === 'yes' || c.can.coordinator === 'team').length,
-      )
-      expect(coordinatorColumn).toBeGreaterThan(-1)
+      expect(theirs.filter((c) => c.key).map((c) => c.key).sort()).toEqual(['day.ready', 'day.verify'])
     })
 
     it('never grants a new account something a Team Member is denied', () => {
@@ -306,9 +303,12 @@ describe('PermissionsCard', () => {
       // A sanity check on the whole grid rather than one row: standings
       // widen outwards, and an inversion would mean the table is wrong or
       // a policy is.
+      // Fixed rows only: a row in the grid is whatever the church chose,
+      // and a Head is not always offered what a member is (a debrief's
+      // "add to it" is the members' way in; Heads write the whole thing).
       const rank: Record<string, number> = { no: 0, own: 1, team: 2, yes: 3 }
       for (const area of PERMISSIONS) {
-        for (const c of area.capabilities) {
+        for (const c of area.capabilities.filter((row) => !row.key)) {
           expect(rank[c.can.member], `${area.area} / ${c.action}`).toBeLessThanOrEqual(
             rank[c.can.head],
           )
@@ -329,7 +329,7 @@ describe('PermissionsCard', () => {
         }
       }
       const ownerOnly = PERMISSIONS.flatMap((a) =>
-        a.capabilities.filter((c) => c.can.owner === 'yes' && c.can.admin === 'no'),
+        a.capabilities.filter((c) => !c.key && c.can.owner === 'yes' && c.can.admin === 'no'),
       )
       expect(ownerOnly.map((c) => c.action)).toEqual([
         'Read everybody’s feedback, mark where it stands and reply',

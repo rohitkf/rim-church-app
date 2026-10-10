@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { fetchDepartments } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
@@ -112,11 +113,17 @@ function useNow(active: boolean): number {
  * are two different promises and both are needed.
  */
 export function PollsPage() {
-  const { session, isAdmin, ledDepartmentIds } = useAuth()
+  const { session } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const myId = session?.user.id ?? null
-  const canAsk = isAdmin || ledDepartmentIds.length > 0
+  // Who may ask, and change or remove anybody's poll, is the church's to
+  // say (Settings › Access & privileges, msg.polls). Anybody can still
+  // manage a poll they asked.
+  const { can } = usePermissions()
+  const departmentsForAsk = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  const canAsk =
+    can('msg.polls') || (departmentsForAsk.data ?? []).some((d) => can('msg.polls', { departmentId: d.id }))
   const [params] = useSearchParams()
   const openedId = params.get('poll')
 
@@ -145,9 +152,9 @@ export function PollsPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: POLLS_KEY })
 
   const mayManage = (poll: Poll) =>
-    isAdmin ||
+    can('msg.polls') ||
     poll.created_by === myId ||
-    (!!poll.department_id && ledDepartmentIds.includes(poll.department_id))
+    (!!poll.department_id && can('msg.polls', { departmentId: poll.department_id }))
 
   const vote = useMutation({
     mutationFn: async ({ poll, optionId, on }: { poll: Poll; optionId: string; on: boolean }) => {
@@ -373,12 +380,19 @@ function PollComposer({
   onCancel: () => void
   onError: (message: string | null) => void
 }) {
-  const { session, isAdmin, ledDepartmentIds } = useAuth()
+  const { session } = useAuth()
   const errorText = useErrorText()
-  const choices = AUDIENCE_CHOICES.filter((c) => isAdmin || !c.adminOnly)
+  // Asking everybody, or people by name, takes "Everywhere" for msg.polls;
+  // a team's own poll takes that team.
+  const { can } = usePermissions()
+  const everywhere = can('msg.polls')
+  const choices = AUDIENCE_CHOICES.filter((c) => everywhere || !c.adminOnly)
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  // A team asker asks only the teams they may; somebody who reaches everywhere, any.
+  const teams = (departmentsQuery.data ?? []).filter((d) => can('msg.polls', { departmentId: d.id }))
 
-  const [audience, setAudience] = useState<PollAudience>(isAdmin ? 'everyone' : 'team')
-  const [teamId, setTeamId] = useState(isAdmin ? '' : (ledDepartmentIds[0] ?? ''))
+  const [audience, setAudience] = useState<PollAudience>(everywhere ? 'everyone' : 'team')
+  const [teamId, setTeamId] = useState(everywhere ? '' : (teams[0]?.id ?? ''))
   const [serviceId, setServiceId] = useState('')
   const [personIds, setPersonIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
@@ -393,7 +407,6 @@ function PollComposer({
   const clearsAt = chosenClear ?? defaultPollClear(closesAt, new Date(now), clearDays)
   const clearProblem = pollClearProblem(closesAt, clearsAt, now)
 
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const today = todayIso()
   const servicesQuery = useQuery({
     queryKey: ['poll-services', today],
@@ -403,13 +416,9 @@ function PollComposer({
   const peopleQuery = useQuery({
     queryKey: ['poll-people'],
     queryFn: fetchPeople,
-    enabled: isAdmin && audience === 'people',
+    enabled: everywhere && audience === 'people',
   })
 
-  // A Head asks only their own teams; an Admin any.
-  const teams = (departmentsQuery.data ?? []).filter(
-    (d) => isAdmin || ledDepartmentIds.includes(d.id),
-  )
   const people = useMemo(() => peopleQuery.data ?? [], [peopleQuery.data])
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -459,7 +468,7 @@ function PollComposer({
     (audience === 'team' && !!teamId) ||
     (audience === 'people' && personIds.length > 0) ||
     // A Head's service poll is for their own team's people on it.
-    (audience === 'service' && !!serviceId && (isAdmin || !!teamId))
+    (audience === 'service' && !!serviceId && (everywhere || !!teamId))
   const ready = audienceReady && question.trim().length > 0 && kept.length >= 2 && !clearProblem
 
   function handleSubmit(e: FormEvent) {
@@ -528,7 +537,7 @@ function PollComposer({
                 value={teamId}
                 onChange={setTeamId}
                 options={
-                  isAdmin
+                  everywhere
                     ? [{ value: '', label: 'Everybody serving' }, ...teamOptions]
                     : teamOptions
                 }

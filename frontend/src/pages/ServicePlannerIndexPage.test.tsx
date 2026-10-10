@@ -7,7 +7,7 @@ import { ServicePlannerIndexPage } from './ServicePlannerIndexPage'
 import { chooseOption } from '../test/select'
 import { pickDate } from '../test/pickers'
 
-const auth = { isAdmin: true }
+const auth = { isAdmin: true, session: { user: { id: 'u1' } } }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 const db = vi.hoisted(() => ({
   rpc: [] as { fn: string; args: unknown }[],

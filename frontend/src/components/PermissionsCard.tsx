@@ -40,12 +40,12 @@ import { SaveBar } from './SettingRows'
  * said plainly that it changed nothing, because a grid of checkboxes that
  * wrote nowhere would have been the friendlier lie.
  *
- * Since 0133 some of it is real. A row with a key is a cell in
+ * Since 0133–0144 it is real. A row with a key is a cell in
  * `role_permissions`, and its policy asks `may()`, which reads that cell
  * on every request — so a change here holds for everybody the moment it
- * is saved, in the database, not in this page. An area waiting for its
- * release still shows its rules, marked "coming soon", and still admits
- * it is a transcription.
+ * is saved, in the database, not in this page. A row without one is
+ * fixed on purpose (what anybody can see, your own things, the keys to
+ * the app) and still admits it is a transcription of a policy.
  *
  * The question people bring is usually about one person ("what can a
  * Team Head do?"), so the page still starts there, an area at a time; the
@@ -102,14 +102,13 @@ function LockGlyph() {
   )
 }
 
-/** "Coming soon" on an area the church cannot set yet. */
-function AreaStatus({ live }: { live: boolean }) {
-  return live ? (
-    <Pill tone="green">Editable</Pill>
-  ) : (
+/** Whether the church sets this area, keeps it fixed on purpose, or has yet to be given it. */
+function AreaStatus({ area }: { area: PermissionArea }) {
+  if (isLiveArea(area)) return <Pill tone="green">Editable</Pill>
+  return (
     <Pill tone="neutral">
       <LockGlyph />
-      Coming soon
+      {area.fixed ? 'Fixed' : 'Coming soon'}
     </Pill>
   )
 }
@@ -277,8 +276,8 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
         ) : (
           <>Areas marked Editable are set by the church’s Admins; the database follows them on every request.</>
         )}{' '}
-        The rest are still written into the database’s own rules, and become editable one area at a
-        time.
+        A row with no choice is fixed on purpose: what anybody can see, what is your own, and the
+        keys to the app itself.
       </p>
 
       <div role="radiogroup" aria-label="View" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
@@ -375,7 +374,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="text-body-md font-medium text-on-surface">{area.area}</span>
-                          <AreaStatus live={live} />
+                          <AreaStatus area={area} />
                         </span>
                         {/* How much of the area is theirs, at a glance. */}
                         <span className="mt-2 block h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-raised-strong" aria-hidden="true">
@@ -390,6 +389,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       </span>
                       <Chevron open={isOpen} />
                     </button>
+                    {isOpen && area.fixed && (
+                      <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.fixed}</p>
+                    )}
                     {isOpen && (
                       <ul id={panel} className="flex flex-col gap-1 px-3 pb-3">
                         {rows.length === 0 && (
@@ -462,8 +464,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                 <section key={area.area}>
                   <h3 className="flex flex-wrap items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                     {area.area}
-                    <AreaStatus live={live} />
+                    <AreaStatus area={area} />
                   </h3>
+                  {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
                   {/* Six columns will not fit a phone, and shrinking them to
                       make them fit is how a table becomes unreadable on every
                       device instead of one. It scrolls inside itself — and is
@@ -553,9 +556,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
           worse than none: somebody would trust it. */}
       <p className="px-1 text-label-sm text-on-surface-faint">
         The Owner always holds every permission, and every Admin can always change this grid — that is
-        how a wrong setting gets put right. Areas marked Coming soon were read from the database’s own
-        policies on {CHECKED_ON}. Adding a rule later will not update them by itself — if one disagrees
-        with what the app does, the app is right and this needs correcting.
+        how a wrong setting gets put right. The fixed rows were read from the database’s own policies
+        on {CHECKED_ON}. Adding a rule later will not update them by itself — if one disagrees with
+        what the app does, the app is right and this needs correcting.
       </p>
     </div>
   )

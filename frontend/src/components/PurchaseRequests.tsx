@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { Field, Overlay, inputClasses } from './Surface'
 import { Select } from './Select'
@@ -122,7 +123,9 @@ export function PurchaseRequests({
   departmentId: string | null
   departmentName?: string
 }) {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { session } = useAuth()
+  // Asking and answering are the church's to grant (Settings › Access & privileges).
+  const { can } = usePermissions()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
@@ -136,7 +139,8 @@ export function PurchaseRequests({
   })
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['purchase-requests'] })
-  const mayDecide = (row: PurchaseRequest) => isAdmin || isDepartmentHead(row.department_id)
+  const mayDecide = (row: PurchaseRequest) => can('inv.purchase_decide', { departmentId: row.department_id })
+  const mayAsk = !!departmentId && can('inv.purchase_ask', { departmentId })
 
   const ask = useMutation({
     mutationFn: async (draft: RequestDraft) => {
@@ -345,7 +349,7 @@ export function PurchaseRequests({
               : 'What every team is asking for.'}
           </p>
         </div>
-        {departmentId && !asking && (
+        {mayAsk && !asking && (
           <button
             type="button"
             onClick={() => setAsking(true)}

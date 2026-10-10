@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
@@ -215,6 +216,10 @@ function AnswerNote({
 
 export function AvailabilityPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  // What may be done to other people's answers is the church's to say
+  // (Settings › Access & privileges). Admins seeing every team, and not
+  // answering for themselves here, stay as they were.
+  const { can } = usePermissions()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -385,16 +390,11 @@ export function AvailabilityPage() {
     enabled: myDepartmentIds.length > 0,
   })
 
-  // Only heads and Admins get the per-person breakdown.
+  // The per-person breakdown, with who turned up, is for whoever may
+  // change somebody else's answer on that team.
   const ledDepartmentIds = useMemo(
-    () =>
-      myDepartments
-        .filter(
-          (d) =>
-            isAdmin || isDepartmentHead(d.id),
-        )
-        .map((d) => d.id),
-    [myDepartments, isAdmin, isDepartmentHead],
+    () => myDepartments.filter((d) => can('avail.edit_others', { departmentId: d.id })).map((d) => d.id),
+    [myDepartments, can],
   )
 
   // Admins are here to watch the numbers, not to answer for themselves:
@@ -774,7 +774,7 @@ export function AvailabilityPage() {
               {/* Chasing an answer belongs beside the count of
                   answers still missing, not in a settings page:
                   this is the moment a head notices. */}
-              {!finished && summary.noAnswer > 0 && ledDepartmentIds.includes(dept.id) && (
+              {!finished && summary.noAnswer > 0 && can('avail.nudge', { departmentId: dept.id }) && (
                 <div className="mt-3">
                   <NudgeButton
                     rpc="nudge_availability"
@@ -893,7 +893,7 @@ export function AvailabilityPage() {
 
               {/* The asks waiting on whoever leads this team. Admins see
                   them too, since they can already correct any answer. */}
-              {(leads || isAdmin) && (
+              {can('avail.late_decide', { departmentId: dept.id }) && (
                 <LateAnswerQueue
                   requests={pendingOn(requests, service.id, dept.id)}
                   busy={decideRequest.isPending}
@@ -935,7 +935,7 @@ export function AvailabilityPage() {
                                 </span>
                               )}
                             </span>
-                            {isAdmin ? (
+                            {can('avail.add_others', { departmentId: dept.id }) ? (
                               <Select
                                 value={answer?.status ?? ''}
                                 onChange={(status) =>

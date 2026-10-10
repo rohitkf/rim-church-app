@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
+import type { CapabilityKey } from './permissions'
 import {
   ArchiveIcon,
   ClipboardUserIcon,
@@ -37,6 +38,12 @@ export interface SettingsSection {
   tone: BadgeTone
   /** Who it is for. Everybody, unless it says otherwise. */
   needs?: SettingsNeeds
+  /**
+   * When the room is one permission in the church's grid, that one: the
+   * room is open to whoever holds it, Admin or not (Settings › Access &
+   * privileges). Rooms without one stay with their `needs`.
+   */
+  capability?: CapabilityKey
   /** The one that destroys things. Dressed as such, so it never gets
       clicked on the way to somewhere else. */
   danger?: boolean
@@ -117,6 +124,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: GiftHeartIcon,
         tone: 'green',
         needs: 'admin',
+        capability: 'give.edit',
         keywords: 'tithes offerings stripe paypal bank sort code qr',
       },
       {
@@ -149,6 +157,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: MegaphoneIcon,
         tone: 'orange',
         needs: 'admin',
+        capability: 'msg.alert',
         keywords: 'announcement broadcast urgent',
       },
     ],
@@ -181,8 +190,16 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 
 export const SETTINGS_SECTIONS: SettingsSection[] = SETTINGS_GROUPS.flatMap((g) => g.sections)
 
+/** Who is asking: their standing, and — when it is known — the grid's answer. */
+export interface SettingsStanding {
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  can?: (cap: CapabilityKey) => boolean
+}
+
 /** Whether somebody of this standing may open a room. */
-export function maySee(section: SettingsSection, standing: { isAdmin: boolean; isSuperAdmin: boolean }) {
+export function maySee(section: SettingsSection, standing: SettingsStanding) {
+  if (section.capability && standing.can) return standing.can(section.capability)
   if (section.needs === 'owner') return standing.isSuperAdmin
   if (section.needs === 'admin') return standing.isAdmin
   return true
@@ -193,7 +210,7 @@ export function maySee(section: SettingsSection, standing: { isAdmin: boolean; i
  * not open is worse than no menu, because it invites somebody to ask why —
  * and a heading over nothing is the same mistake one level up.
  */
-export function visibleGroups(standing: { isAdmin: boolean; isSuperAdmin: boolean }): SettingsGroup[] {
+export function visibleGroups(standing: SettingsStanding): SettingsGroup[] {
   return SETTINGS_GROUPS.map((g) => ({ ...g, sections: g.sections.filter((s) => maySee(s, standing)) })).filter(
     (g) => g.sections.length > 0,
   )

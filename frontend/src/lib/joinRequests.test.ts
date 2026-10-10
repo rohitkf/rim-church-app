@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canPostOnBoard, joinOptions, joinableTeams } from './joinRequests'
+import { joinOptions, joinableTeams } from './joinRequests'
+import { decide, type Holder } from './permissions'
 import type { Department, JoinRequest } from './types'
 
 function dept(id: string, name: string): Department {
@@ -81,20 +82,25 @@ describe('joinableTeams', () => {
   })
 })
 
-describe('canPostOnBoard', () => {
+// Who may post on the message board is the grid's now (msg.board_post);
+// at its defaults it is the rule this page always had.
+describe('posting on the message board, at the defaults', () => {
+  const holder = (over: Partial<Holder>): Holder => ({ myId: 'me', owner: false, admin: false, ledTeams: [], memberTeams: [], ...over })
+
   it('turns a brand-new account away', () => {
-    expect(canPostOnBoard({ isAdmin: false, isHead: false, memberDeptIds: [] })).toBe(false)
+    expect(decide({}, holder({}), 'msg.board_post', { departmentId: 'd1' })).toBe(false)
   })
 
-  it('lets a volunteer on one team speak for it', () => {
-    expect(canPostOnBoard({ isAdmin: false, isHead: false, memberDeptIds: ['d1'] })).toBe(true)
+  it('lets a volunteer on one team speak for it, and only it', () => {
+    expect(decide({}, holder({ memberTeams: ['d1'] }), 'msg.board_post', { departmentId: 'd1' })).toBe(true)
+    expect(decide({}, holder({ memberTeams: ['d1'] }), 'msg.board_post', { departmentId: 'd2' })).toBe(false)
   })
 
   it('lets an Admin speak for the church without belonging anywhere', () => {
-    expect(canPostOnBoard({ isAdmin: true, isHead: false, memberDeptIds: [] })).toBe(true)
+    expect(decide({}, holder({ admin: true }), 'msg.board_post')).toBe(true)
   })
 
   it('lets a head speak for the team they lead', () => {
-    expect(canPostOnBoard({ isAdmin: false, isHead: true, memberDeptIds: [] })).toBe(true)
+    expect(decide({}, holder({ ledTeams: ['d1'] }), 'msg.board_post', { departmentId: 'd1' })).toBe(true)
   })
 })

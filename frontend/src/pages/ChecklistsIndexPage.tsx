@@ -3,6 +3,7 @@ import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { StatusBadge } from '../components/ChecklistStatus'
@@ -45,6 +46,11 @@ import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
+  // Verifying somebody else's ticks, and nudging a team, are the church's
+  // to grant (Settings › Access & privileges). An Admin keeps the window:
+  // they can put a service right either side of it, as the database lets them.
+  const { can } = usePermissions()
+  const mayVerify = (departmentId: string) => can('day.verify', { departmentId })
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -217,8 +223,8 @@ export function ChecklistsIndexPage() {
   /** Which of the three signatures this viewer may give on this assignment. */
   function mayFor(assignment: RotaAssignment) {
     return {
-      member: isAdmin || assignment.user_id === myId,
-      head: isAdmin || isDepartmentHead(assignment.department_id),
+      member: assignment.user_id === myId || (isAdmin && mayVerify(assignment.department_id)),
+      head: mayVerify(assignment.department_id),
       sign: isServiceFlowSigner(assignment.service_id),
     }
   }
@@ -232,7 +238,7 @@ export function ChecklistsIndexPage() {
       rank:
         a.user_id === myId
           ? 0
-          : isAdmin || isDepartmentHead(a.department_id)
+          : mayVerify(a.department_id)
             ? 1
             : onSignOffTeam || isServiceFlowSigner(a.service_id)
               ? 2
@@ -266,7 +272,7 @@ export function ChecklistsIndexPage() {
     // isServiceFlowSigner reads the same assignments and departments this
     // memo already depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignments, myId, isAdmin, isDepartmentHead, serviceFlowDept, onSignOffTeam])
+  }, [assignments, myId, can, serviceFlowDept, onSignOffTeam])
 
   const { isFinished: hasEnded, afterServiceOpenUntil, startsAt } = useFinishedServices(
     dayServices.map((s) => s.id),
@@ -337,7 +343,7 @@ export function ChecklistsIndexPage() {
                     ...new Set(
                       forService
                         .map((m) => m.assignment.department_id)
-                        .filter((id) => isDepartmentHead(id)),
+                        .filter((id) => can('day.nudge', { departmentId: id })),
                     ),
                   ]
 
@@ -377,7 +383,7 @@ export function ChecklistsIndexPage() {
                           heading
                         )}
 
-                        {finished ? null : isAdmin ? (
+                        {finished ? null : can('day.nudge') ? (
                           <NudgeButton
                             rpc="nudge_checklist"
                             args={{ svc_id: service.id, dept_id: null }}
@@ -636,7 +642,7 @@ export function ChecklistsIndexPage() {
         {!dayIso ? (
           <p className="mt-4 text-body-sm text-on-surface-variant">
             No services scheduled yet
-            {isAdmin ? ' — add one from the Service Planner.' : ' — check back soon.'}
+            {can('svc.manage') ? ' — add one from the Service Planner.' : ' — check back soon.'}
           </p>
         ) : (
           <>
