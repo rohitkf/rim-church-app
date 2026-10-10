@@ -5,3 +5,7 @@
 
 # A stray vitest run from the repo root leaves a cache here.
 node_modules/
+
+# Supabase CLI state (supabase link / start)
+supabase/.temp/
+supabase/.branches/
