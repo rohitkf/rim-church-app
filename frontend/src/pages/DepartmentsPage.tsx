@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { ManageTeamsCard } from '../components/ManageTeamsCard'
 import { JoinRequestsPanel } from '../components/JoinRequestsPanel'
+import { AnsweredJoinRequests } from '../components/AnsweredJoinRequests'
 import { JoinTeamPanel } from '../components/JoinTeamPanel'
 import { TeamCardActions } from '../components/TeamCardActions'
 import { Card, PageHeader } from '../components/Surface'
@@ -62,6 +63,12 @@ export function DepartmentsPage() {
       {waitingOnMe.length > 0 && (
         <div className={isAdmin ? 'mt-6' : ''}>
           <JoinRequestsPanel requests={waitingOnMe} />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-4">
+          <AnsweredJoinRequests count={joinRequests.filter((r) => r.status !== 'pending').length} />
         </div>
       )}
 

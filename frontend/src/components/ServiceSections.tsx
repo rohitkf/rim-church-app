@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { FinishedServices } from './FinishedServices'
 import type { SectionedServices } from '../lib/serviceSections'
-import { useDisplay } from '../lib/appSettings'
+import { useAppSettings, useDisplay } from '../lib/appSettings'
+import { serviceGoneAt, untilText } from '../lib/expiry'
+import { useNow } from '../lib/useNow'
 
 /**
  * The four sections, drawn the same way on every page that lists
@@ -37,7 +39,19 @@ export function ServiceSections<T>({
   finishedOpen?: boolean
 }) {
   const { lists } = useDisplay()
+  const keepDays = useAppSettings().service_retention_days
+  const now = useNow(60_000)
   const startOpen = finishedOpen || lists.finishedOpen
+  // Every finished service is deleted on the church's clock (0128); say
+  // when the oldest one here goes, so the countdown is on every page that
+  // lists them.
+  const oldest = sections.finished
+    .map((s) => (s as { date?: unknown }).date)
+    .filter((d): d is string => typeof d === 'string')
+    .sort()[0]
+  const finishedNote = oldest
+    ? `Each is deleted ${keepDays} days after its date, with everything about it — the oldest here goes ${untilText(serviceGoneAt(oldest, keepDays), now)}.`
+    : undefined
   const next = has.next ? sections.next : []
   const upcoming = has.upcoming ? sections.upcoming : []
   const nothingCurrent = sections.today.length + next.length + upcoming.length === 0
@@ -71,6 +85,7 @@ export function ServiceSections<T>({
           id={finishedId}
           label="Finished services"
           aside={finishedAside}
+          note={finishedNote}
           defaultOpen={startOpen}
         >
           {render(sections.finished, true)}

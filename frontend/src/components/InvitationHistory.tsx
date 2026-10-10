@@ -14,6 +14,7 @@ import {
 } from "../lib/invitations";
 import type { Invitation } from "../lib/types";
 import { useDisplay } from "../lib/appSettings";
+import { useAuth } from "../auth/AuthContext";
 import { Panel, Pill, Row } from "./Surface";
 import { QueryState } from "./QueryState";
 import { TeamMark } from "./TeamMark";
@@ -34,6 +35,7 @@ import { UserCheckIcon } from "./icons";
  * asked in error or has said no.
  */
 export function InvitationHistory() {
+  const { isAdmin } = useAuth();
   const errorText = useErrorText();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<InvitationFilter>("all");
@@ -253,6 +255,22 @@ export function InvitationHistory() {
                         </span>
                       </span>
 
+                      {/* Accepted: only the record is left, and an Admin
+                          may clear it (people records stay until somebody
+                          does — 0128). Their account is not touched. */}
+                      {invitation.accepted_at && isAdmin && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setError(null);
+                            setConfirmingRevoke(invitation);
+                          }}
+                          className="tap shrink-0 rounded-full hairline px-3 py-1.5 text-body-sm font-medium text-on-surface-variant hover:border-error hover:text-error disabled:opacity-50"
+                        >
+                          Remove record
+                        </button>
+                      )}
                       {!invitation.accepted_at && (
                         <span className="flex shrink-0 flex-wrap items-center gap-2">
                           <button
@@ -302,13 +320,14 @@ export function InvitationHistory() {
         >
           <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
             <h2 id="revoke-invitation-title" className="text-headline-md">
-              Remove the invitation to {confirmingRevoke.email}?
+              {confirmingRevoke.accepted_at
+                ? `Remove the record of inviting ${confirmingRevoke.email}?`
+                : `Remove the invitation to ${confirmingRevoke.email}?`}
             </h2>
             <p className="mt-2 text-body-sm text-on-surface-variant">
-              This takes the row off this list. It cannot un-send an email that
-              has already gone — if they follow the link they will still be able
-              to set a password and sign in. Use it when the address was wrong,
-              or when they have said no and there is no point waiting.
+              {confirmingRevoke.accepted_at
+                ? "They have already joined. This only takes the row off this list — their account, their teams and everything they have done stay as they are."
+                : "This takes the row off this list. It cannot un-send an email that has already gone — if they follow the link they will still be able to set a password and sign in. Use it when the address was wrong, or when they have said no and there is no point waiting."}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
               <button

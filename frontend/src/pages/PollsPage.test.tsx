@@ -12,6 +12,10 @@ const auth = {
   ledDepartmentIds: [] as string[],
 }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+vi.mock('../lib/appSettings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/appSettings')>()
+  return { ...actual, useAppSettings: () => actual.DEFAULT_SETTINGS }
+})
 
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () =>
@@ -65,6 +69,7 @@ const poll = (over: Record<string, unknown>) => ({
   question: 'Which Sunday suits the picnic?',
   choice_mode: 'single',
   closes_at: null,
+  clears_at: new Date(Date.now() + 6 * 86_400_000).toISOString(),
   created_at: new Date().toISOString(),
   department: null,
   service: null,
@@ -164,6 +169,9 @@ describe('the Polls page', () => {
     await user.click(screen.getByRole('button', { name: 'Post poll' }))
     await waitFor(() => expect(state.inserts).toHaveLength(2))
     expect(state.inserts[0].row).toMatchObject({ audience: 'everyone', department_id: null })
+    // Every poll clears; with no deadline the form starts it a week out (0128).
+    const clears = new Date((state.inserts[0].row as { clears_at: string }).clears_at).getTime()
+    expect(Math.round((clears - Date.now()) / 86_400_000)).toBe(7)
   })
 
   it('will not post a people poll with nobody picked', async () => {
@@ -180,5 +188,16 @@ describe('the Polls page', () => {
     await user.click(screen.getByRole('button', { name: 'Post poll' }))
     await waitFor(() => expect(state.inserts).toHaveLength(2))
     expect(state.inserts[0].row).toMatchObject({ audience: 'people', recipient_ids: ['p1'] })
+  })
+
+  it('says when each poll clears, and drops one that has', async () => {
+    state.polls = [
+      poll({ id: 'live', question: 'Picnic Sunday?' }),
+      poll({ id: 'gone', question: 'Old question?', clears_at: new Date(Date.now() - 1000).toISOString() }),
+    ]
+    show()
+    expect(await screen.findByText('Picnic Sunday?')).toBeInTheDocument()
+    expect(screen.getByText(/Clears in 6 days/)).toBeInTheDocument()
+    expect(screen.queryByText('Old question?')).toBeNull()
   })
 })

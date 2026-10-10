@@ -13,16 +13,15 @@ import { normaliseLogo } from '../lib/logoImage'
 /** What a browser will draw, matched to the bucket's own mime list. */
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
 
+import { UPLOAD_LIMIT_BYTES, limitText } from '../lib/uploadLimits'
+
 /**
- * How big a file somebody may hand over.
- *
- * Generous on purpose: what lands in the bucket is a few tens of
- * kilobytes whatever arrives, because the app trims and rescales the
- * picture before it uploads. The only thing this number has to do is
- * stop a browser being asked to decode something absurd — a scan, a
- * screenshot of a poster — and say so clearly when it does.
+ * How big a file somebody may hand over: the church's upload limit for a
+ * logo (0128), which the `branding` bucket enforces as well. What lands
+ * in the bucket is usually far smaller, because the app trims and
+ * rescales the picture before it uploads.
  */
-export const MAX_BYTES = 30 * 1024 * 1024
+export const MAX_BYTES = UPLOAD_LIMIT_BYTES.logo
 
 const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
 
@@ -207,7 +206,7 @@ export function AppLogoCard() {
       </div>
 
       <p className="mt-4 text-label-sm text-on-surface-faint">
-        PNG, JPEG, WebP or SVG, up to 30&nbsp;MB. Whatever you upload is trimmed of its blank
+        PNG, JPEG, WebP or SVG, up to {limitText(MAX_BYTES)}. Whatever you upload is trimmed of its blank
         margin and resized for you, so it stands the same height as everything else in the header
         — any shape will do.
       </p>
@@ -228,8 +227,8 @@ export function AppLogoCard() {
             <h3 className="text-headline-md">That file is too big</h3>
             <p className="mt-2 text-body-sm text-on-surface-variant">
               <strong className="font-medium text-on-surface">{tooBig.name}</strong> is{' '}
-              {megabytes(tooBig.size)}, and the limit is 30&nbsp;MB. A logo exported at a sensible
-              size is a fraction of that — try the PNG or SVG your designer sent rather than a scan
+              {megabytes(tooBig.size)}, and the limit is {limitText(MAX_BYTES)}. A logo exported at a
+              sensible size is well under that — try the PNG or SVG your designer sent rather than a scan
               or a screenshot.
             </p>
             <div className="mt-6 flex justify-end">

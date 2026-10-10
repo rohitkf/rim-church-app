@@ -8,9 +8,13 @@ import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { CHURCH_UPDATES_KEY } from '../lib/churchUpdates'
+import { useAppSettings } from '../lib/appSettings'
+import { daysAfter, toLocalInput, untilText, updateEndProblem } from '../lib/expiry'
+import { useNow } from '../lib/useNow'
+import { DateTimeField } from '../components/DateTimeFields'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { ActionButton, Field, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, Eyebrow, Field, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
 
 const TITLE_MAX = 120
 const BODY_MAX = 5000
@@ -22,6 +26,8 @@ const updateSchema = z.object({
   pinned: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
+  /** When it is deleted, pinned or not (0128). */
+  ends_at: z.string(),
   author: z
     .object({ first_name: z.string(), last_name: z.string() })
     .nullable()
@@ -33,7 +39,7 @@ async function fetchChurchUpdates(): Promise<ChurchUpdate[]> {
   const { data, error } = await supabase
     .from('church_updates')
     .select(
-      'id, title, body, pinned, created_at, updated_at, author:profiles!church_updates_created_by_fkey(first_name, last_name)',
+      'id, title, body, pinned, created_at, updated_at, ends_at, author:profiles!church_updates_created_by_fkey(first_name, last_name)',
     )
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false })
@@ -53,6 +59,10 @@ async function fetchChurchUpdates(): Promise<ChurchUpdate[]> {
  * An Admin posts, and posting reaches everybody's bell and phone — never
  * their inbox. The database does that (post_church_update), so an update
  * cannot be written without the people it is for being told.
+ *
+ * Every update has an end time (0128), chosen when it is posted — a month
+ * ahead unless the Admin picks otherwise — and is gone for everybody when
+ * it passes, pinned or not.
  */
 export function ChurchUpdatesPage() {
   const { isAdmin } = useAuth()
@@ -65,7 +75,10 @@ export function ChurchUpdatesPage() {
   const { ask, dialog } = useConfirmAction()
 
   const updatesQuery = useQuery({ queryKey: CHURCH_UPDATES_KEY, queryFn: fetchChurchUpdates })
-  const updates = updatesQuery.data ?? []
+  // The database stops returning an update once it ends; this takes it off
+  // a screen that has been open since before then.
+  const now = useNow(60_000)
+  const updates = (updatesQuery.data ?? []).filter((u) => new Date(u.ends_at).getTime() > now)
 
   // A tap on the notification lands on the update it was about.
   useEffect(() => {
@@ -139,8 +152,8 @@ export function ChurchUpdatesPage() {
                   <UpdateEditor
                     update={update}
                     saving={change.isPending}
-                    onSave={(title, body) =>
-                      change.mutate({ id: update.id, patch: { title, body } })
+                    onSave={(title, body, endsAt) =>
+                      change.mutate({ id: update.id, patch: { title, body, ends_at: endsAt } })
                     }
                     onCancel={() => setEditingId(null)}
                   />
@@ -148,6 +161,11 @@ export function ChurchUpdatesPage() {
                   <article>
                     <div className="flex flex-wrap items-center gap-2">
                       {update.pinned && <Pill tone="blue">Pinned</Pill>}
+                      <Pill tone="neutral">
+                        <span title={new Date(update.ends_at).toLocaleString()}>
+                          Ends {untilText(update.ends_at, now)}
+                        </span>
+                      </Pill>
                       <span className="font-mono text-label-sm text-on-surface-faint">
                         {update.author
                           ? `${update.author.first_name} ${update.author.last_name} · `
@@ -226,10 +244,14 @@ function UpdateComposer({
   onError: (message: string | null) => void
 }) {
   const errorText = useErrorText()
+  const settings = useAppSettings()
+  const defaultEnd = () => toLocalInput(daysAfter(new Date(), settings.church_update_retention_days))
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
+  const [endsAt, setEndsAt] = useState(defaultEnd)
   const [note, setNote] = useState<string | null>(null)
+  const now = useNow(30_000)
 
   const post = useMutation({
     mutationFn: async () => {
@@ -237,6 +259,9 @@ function UpdateComposer({
         title: title.trim(),
         body: body.trim(),
         pinned,
+        // A date-and-time field carries no zone; local time is what the
+        // Admin meant.
+        ends_at: new Date(endsAt).toISOString(),
       })
       if (error) throw error
     },
@@ -244,6 +269,7 @@ function UpdateComposer({
       setTitle('')
       setBody('')
       setPinned(false)
+      setEndsAt(defaultEnd())
       onError(null)
       setNote('Posted — everybody has been told, in the app and on their phone.')
       onPosted()
@@ -254,7 +280,8 @@ function UpdateComposer({
     },
   })
 
-  const ready = title.trim().length > 0 && body.trim().length > 0 && !post.isPending
+  const endProblem = updateEndProblem(endsAt, now)
+  const ready = title.trim().length > 0 && body.trim().length > 0 && !endProblem && !post.isPending
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -281,6 +308,12 @@ function UpdateComposer({
             className={inputClasses}
           />
         </Field>
+        <EndsField
+          value={endsAt}
+          onChange={setEndsAt}
+          problem={endProblem}
+          hint={`Gone for everybody then, pinned or not — ${untilText(endsAt, now)}.`}
+        />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-2 text-body-sm text-on-surface">
             <input
@@ -312,19 +345,22 @@ function UpdateEditor({
 }: {
   update: ChurchUpdate
   saving: boolean
-  onSave: (title: string, body: string) => void
+  onSave: (title: string, body: string, endsAt: string) => void
   onCancel: () => void
 }) {
   const [title, setTitle] = useState(update.title)
   const [body, setBody] = useState(update.body)
-  const ready = title.trim().length > 0 && body.trim().length > 0 && !saving
+  const [endsAt, setEndsAt] = useState(() => toLocalInput(new Date(update.ends_at)))
+  const now = useNow(30_000)
+  const endProblem = updateEndProblem(endsAt, now)
+  const ready = title.trim().length > 0 && body.trim().length > 0 && !endProblem && !saving
 
   return (
     <form
       aria-label={`Edit update: ${update.title}`}
       onSubmit={(e) => {
         e.preventDefault()
-        if (ready) onSave(title.trim(), body.trim())
+        if (ready) onSave(title.trim(), body.trim(), new Date(endsAt).toISOString())
       }}
       className="flex flex-col gap-4"
     >
@@ -343,6 +379,12 @@ function UpdateEditor({
           className={inputClasses}
         />
       </Field>
+      <EndsField
+        value={endsAt}
+        onChange={setEndsAt}
+        problem={endProblem}
+        hint={`Gone for everybody ${untilText(endsAt, now)}.`}
+      />
       <p className="text-label-sm text-on-surface-faint">
         Editing does not notify anybody again.
       </p>
@@ -355,5 +397,38 @@ function UpdateEditor({
         </ActionButton>
       </div>
     </form>
+  )
+}
+
+/**
+ * When an update ends — required, so there is no "for ever" to pick
+ * (0128). A plain block rather than a <label>: the date and the time are
+ * two controls, and a label would hand every tap to the first.
+ */
+function EndsField({
+  value,
+  onChange,
+  problem,
+  hint,
+}: {
+  value: string
+  onChange: (next: string) => void
+  problem: string | null
+  hint: string
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Eyebrow>Ends</Eyebrow>
+      <DateTimeField
+        value={value}
+        onChange={onChange}
+        label="Update ends"
+        clearable={false}
+        min={toLocalInput(new Date()).slice(0, 10)}
+      />
+      <span className={`text-label-sm ${problem ? 'text-error' : 'text-on-surface-faint'}`}>
+        {problem ?? hint}
+      </span>
+    </div>
   )
 }

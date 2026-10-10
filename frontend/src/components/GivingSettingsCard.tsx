@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
+import { UPLOAD_LIMIT_BYTES, limitText } from '../lib/uploadLimits'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import {
@@ -341,12 +342,12 @@ function QrImageSection({ path, caption }: { path: string | null; caption: strin
             onFile={(file) => {
               if (!file) return
               if (!QR_TYPES.includes(file.type)) return setProblem('A PNG, JPEG or WebP picture, please.')
-              if (file.size > 2 * 1024 * 1024) return setProblem('That picture is over 2 MB.')
+              if (file.size > UPLOAD_LIMIT_BYTES.givingQr) return setProblem(`That picture is over ${limitText(UPLOAD_LIMIT_BYTES.givingQr)}.`)
               setProblem(null)
               upload.mutation.mutate(file)
             }}
           />
-          <span className="text-label-sm text-on-surface-faint">PNG, JPEG or WebP, up to 2 MB.</span>
+          <span className="text-label-sm text-on-surface-faint">PNG, JPEG or WebP, up to {limitText(UPLOAD_LIMIT_BYTES.givingQr)}.</span>
         </div>
         {path && (
           <>

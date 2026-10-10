@@ -17,6 +17,7 @@ export function FinishedServices({
   count,
   id,
   aside,
+  note,
   label = 'Finished',
   defaultOpen = false,
   children,
@@ -28,6 +29,8 @@ export function FinishedServices({
   id: string
   /** A note on the right of the heading — when the list clears, say. */
   aside?: ReactNode
+  /** A line under the heading, shown even while it is shut — when its contents are deleted, say. */
+  note?: ReactNode
   /** Arrive open — for a link that points at something inside. */
   defaultOpen?: boolean
   children: ReactNode
@@ -50,6 +53,7 @@ export function FinishedServices({
         </span>
         {aside}
       </button>
+      {note && <p className="mt-1 text-label-sm text-on-surface-faint">{note}</p>}
       <div id={id} hidden={!open} className="mt-3 flex flex-col gap-5">
         {children}
       </div>

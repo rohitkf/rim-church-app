@@ -161,4 +161,14 @@ describe('InvitationHistory', () => {
     await user.click(screen.getByRole('button', { name: /Remove it/ }))
     await waitFor(() => expect(del).toHaveBeenCalledWith('id', 'inv-1'))
   })
+
+  it('lets an Admin clear the record of an accepted invitation, without touching the account', async () => {
+    fetchInvitations.mockResolvedValue([invitation({ accepted_at: daysAgo(1) })])
+    const user = await show()
+    await user.click(await screen.findByRole('button', { name: 'Remove record' }))
+    expect(screen.getByText(/They have already joined/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Remove it/ }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('id', 'inv-1'))
+  })
 })
+

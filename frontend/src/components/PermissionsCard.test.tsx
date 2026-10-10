@@ -1,11 +1,45 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PermissionsCard } from './PermissionsCard'
 import { PERMISSIONS, ROLES } from '../lib/permissionMatrix'
+import { decide, type Holder, type Overrides } from '../lib/permissions'
+
+/*
+ * Who is looking, and what the church has stored. usePermissions is
+ * replaced so a test can be an Admin or a Team Head without a session.
+ */
+let viewer: Holder = { myId: 'me', owner: false, admin: true, ledTeams: [], memberTeams: [] }
+let stored: Overrides = {}
+
+vi.mock('../lib/usePermissions', () => ({
+  usePermissions: () => ({
+    can: (cap: Parameters<typeof decide>[2], where?: Parameters<typeof decide>[3]) =>
+      decide(stored, viewer, cap, where),
+    overrides: stored,
+  }),
+}))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: viewer.admin }) }))
+
+const rpc = vi.fn(async (_fn: string, _args: unknown) => ({ error: null as null | { message: string } }))
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: { rpc: (fn: string, args: unknown) => rpc(fn, args) },
+}))
+
+beforeEach(() => {
+  viewer = { myId: 'me', owner: false, admin: true, ledTeams: [], memberTeams: [] }
+  stored = {}
+  rpc.mockClear()
+})
 
 const show = () => {
-  render(<PermissionsCard />)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <PermissionsCard />
+    </QueryClientProvider>,
+  )
   return userEvent.setup()
 }
 
@@ -75,9 +109,18 @@ describe('PermissionsCard', () => {
     expect(within(list).queryAllByRole('button', { expanded: true })).toHaveLength(0)
   })
 
-  it('says it does not change anything, before anybody opens it', () => {
+  it('says which areas are the church’s to set, and that the database follows them', () => {
     show()
-    expect(screen.getByText(/enforced by the database on every request, not by this page/)).toBeVisible()
+    expect(screen.getByText(/The database reads them on every request/)).toBeVisible()
+    expect(screen.getByText(/become editable one area at a\s+time/)).toBeVisible()
+  })
+
+  it('marks the Team rota editable and the areas still to come as coming soon', () => {
+    show()
+    const rota = screen.getByRole('button', { name: /^Team rota/ })
+    expect(within(rota).getByText('Editable')).toBeInTheDocument()
+    const giving = screen.getByRole('button', { name: /^Giving/ })
+    expect(within(giving).getByText('Coming soon')).toBeInTheDocument()
   })
 
   it('still offers the whole grid: a table per area, with a column per standing', async () => {
@@ -91,10 +134,98 @@ describe('PermissionsCard', () => {
     }
   })
 
-  it('admits it can go stale, rather than implying an accuracy it cannot promise', () => {
+  it('admits the areas still written down can go stale', () => {
     show()
-    expect(screen.getByText(/will not update this page by itself/)).toBeInTheDocument()
+    expect(screen.getByText(/will not update them by itself/)).toBeInTheDocument()
     expect(screen.getByText(/the app is right and this needs correcting/)).toBeInTheDocument()
+  })
+
+  describe('changing a permission', () => {
+    it('offers each profile only the reaches that make sense for it', async () => {
+      const user = show()
+      await compare(user)
+      const assign = within(rowFor('Assign somebody to a role'))
+      const options = (label: string) =>
+        within(assign.getByRole('combobox', { name: `Assign somebody to a role — ${label}` }))
+          .getAllByRole('option')
+          .map((o) => o.textContent)
+      // Short in the six-column grid; the one-role view says them in full.
+      expect(options('Admin')).toEqual(['No', 'All'])
+      expect(options('Team Head')).toEqual(['No', 'Team', 'All'])
+      expect(options('Coordinator')).toEqual(['No', 'Team'])
+      expect(options('Team Member')).toEqual(['No', 'Team', 'All'])
+      // A Church Member and the Owner are not offered a choice at all.
+      expect(assign.queryByRole('combobox', { name: /Church Member/ })).toBeNull()
+      expect(assign.queryByRole('combobox', { name: /Owner/ })).toBeNull()
+      expect(assign.getAllByText('(fixed)')).toHaveLength(2)
+    })
+
+    it('saves nothing until Save, then sends exactly the cells that changed', async () => {
+      const user = show()
+      await compare(user)
+      await user.selectOptions(
+        screen.getByRole('combobox', { name: 'Assign somebody to a role — Team Member' }),
+        'team',
+      )
+      expect(rpc).not.toHaveBeenCalled()
+      const pending = screen.getByRole('list', { name: 'Changes to save' })
+      expect(within(pending).getByText(/Team Member/)).toBeInTheDocument()
+      expect(within(pending).getByText('Their team')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Save permissions' }))
+      expect(rpc).toHaveBeenCalledWith('set_permissions', {
+        p_changes: [{ role: 'member', capability: 'rota.assign', reach: 'team' }],
+      })
+    })
+
+    it('shows what the church chose, marked as moved from the default', async () => {
+      stored = { 'rota.assign': { head: 'all' } }
+      const user = show()
+      await compare(user)
+      const picker = screen.getByRole('combobox', { name: 'Assign somebody to a role — Team Head' })
+      expect(picker).toHaveValue('all')
+      expect(within(rowFor('Assign somebody to a role')).getByLabelText('Changed from the app’s default')).toBeInTheDocument()
+    })
+
+    it('restores the defaults as a draft, and saves them only when asked', async () => {
+      stored = { 'rota.assign': { head: 'all', member: 'team' } }
+      const user = show()
+      await user.click(screen.getByRole('button', { name: 'Restore defaults' }))
+      expect(rpc).not.toHaveBeenCalled()
+      expect(within(screen.getByRole('list', { name: 'Changes to save' })).getAllByRole('listitem')).toHaveLength(2)
+      await user.click(screen.getByRole('button', { name: 'Save permissions' }))
+      expect(rpc).toHaveBeenCalledWith('set_permissions', {
+        p_changes: expect.arrayContaining([
+          { role: 'head', capability: 'rota.assign', reach: 'team' },
+          { role: 'member', capability: 'rota.assign', reach: 'none' },
+        ]),
+      })
+    })
+
+    it('lets the chosen role be edited on a phone, without the grid', async () => {
+      const user = show()
+      await user.click(screen.getByRole('radio', { name: 'Coordinator' }))
+      await user.click(screen.getByRole('button', { name: /^Team rota/ }))
+      const picker = screen.getByRole('combobox', { name: 'Approve or refuse a release request — Coordinator' })
+      expect(within(picker).getAllByRole('option').map((o) => o.textContent)).toEqual(['No', 'Their team'])
+      await user.selectOptions(picker, 'team')
+      expect(screen.getByRole('list', { name: 'Changes to save' })).toBeInTheDocument()
+    })
+
+    it('leaves the areas still to come as they were written', async () => {
+      const user = show()
+      await compare(user)
+      const giving = screen.getByRole('heading', { name: /Giving/ }).closest('section')!
+      expect(within(giving).queryAllByRole('combobox')).toHaveLength(0)
+    })
+
+    it('is a description, not a control, for somebody who cannot change it', async () => {
+      viewer = { myId: 'me', owner: false, admin: false, ledTeams: ['a'], memberTeams: [] }
+      const user = show()
+      await compare(user)
+      expect(screen.queryAllByRole('combobox')).toHaveLength(0)
+      expect(screen.queryByRole('button', { name: 'Save permissions' })).toBeNull()
+    })
   })
 
   describe('the answers it gives', () => {

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppSettings } from '../lib/appSettings'
+import { lifespanOf } from '../lib/lifespan'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -26,6 +28,7 @@ export function NotificationsBell() {
   const { session } = useAuth()
   const myId = session?.user.id
   const queryClient = useQueryClient()
+  const settings = useAppSettings()
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -160,6 +163,12 @@ export function NotificationsBell() {
               </li>
             ))}
           </ul>
+
+          {/* Each bell keeps a set number (0128), so say so where the
+              older ones would otherwise seem to vanish. */}
+          <p className="border-t border-border-subtle px-4 py-2.5 text-label-sm text-on-surface-faint">
+            {lifespanOf('notifications', settings)}
+          </p>
 
           <PushPermissionRow />
         </div>

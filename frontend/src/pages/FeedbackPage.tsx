@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useAppSettings } from '../lib/appSettings'
+import { feedbackGoneAt, untilText } from '../lib/expiry'
+import { useNow } from '../lib/useNow'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -314,6 +317,10 @@ function FeedbackCard({
   const [error, setError] = useState<string | null>(null)
   const kind = kindOf(item.kind)
   const status = statusOf(item.status)
+  // Done and Won't do are cleared on the church's clock (0124, 0128).
+  const keepDays = useAppSettings().feedback_retention_days
+  const now = useNow(60_000)
+  const goneAt = isOpen(item.status) ? null : feedbackGoneAt(item.status_changed_at ?? item.created_at, keepDays)
   const mine = item.created_by === session?.user.id
   const name = item.sender ? `${item.sender.first_name} ${item.sender.last_name}`.trim() : 'Somebody'
 
@@ -335,6 +342,11 @@ function FeedbackCard({
           {!answerable && <span className="text-body-sm font-medium text-on-surface">{kind.label}</span>}
           {answerable && <span className="text-body-sm font-medium text-on-surface">{mine ? 'You' : name}</span>}
           <Pill tone={status.tone}>{status.label}</Pill>
+          {goneAt && (
+            <span className="font-mono text-label-sm text-on-surface-faint" title={goneAt.toLocaleString()}>
+              Cleared {untilText(goneAt, now)}
+            </span>
+          )}
           <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
             {formatRelativeTime(item.created_at)}
           </span>

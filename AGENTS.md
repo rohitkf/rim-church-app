@@ -146,7 +146,11 @@ frontend/src/
                              accent-* or custom spinners needed
   components/AppShell.tsx    header, dock, routes' wash colour, alert banner
   lib/queries.ts             shared Supabase reads
-  lib/permissionMatrix.ts    the Access & privileges table, hand-maintained
+  lib/permissionMatrix.ts    the Access & privileges table: rows with a `key`
+                             are the church's grid, the rest hand-maintained
+  lib/permissions.ts         the grid's catalog (mirrors `permission_catalog`)
+                             and decide(), which mirrors SQL's may()
+  lib/usePermissions.ts      can(cap, { departmentId, coordinating, ownerId })
   lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
@@ -201,6 +205,15 @@ authorization layer in the app and there must not be one — the AI assistant
 runs tool calls through the calling user's own client, so RLS is the only
 thing holding.
 
+Since 0133 the church sets some of them itself, in Settings › Access &
+privileges. That does not move authorization into the app: the grid is
+rows in `role_permissions`, the policies ask `may()`, and `may()` reads
+the rows. The app's `can()` only decides which buttons to draw. The Owner
+always passes `may()`, and Admin can always edit the grid
+(`app.permissions` is fixed) — that is how a wrong setting gets put right.
+Converted so far: the Team rota. Every other area is still plain policies,
+shown on that page as "coming soon".
+
 - Add `supabase/migrations/00NN_a_sentence_about_it.sql`. **Never edit a
   migration that has shipped.**
 - **Resolve audiences and permissions in SQL.** A client that posts its own
@@ -236,6 +249,16 @@ skipped:
 
 Each of these has already cost real time. None of them show up in review.
 
+- **A service is deleted 14 days after its date, and takes everything
+  hanging off it** (0128, `service_retention_days`) — rota, availability,
+  running order, ticks, set lists, debriefs, issues. A new table with a
+  `service_id` foreign key on cascade joins that clock; one that must
+  outlive its service must not cascade. Activity triggers on those tables
+  already skip a service that is being deleted (`record_activity`) — keep
+  it that way, or the clean-up floods the feed.
+- **Church Updates and polls carry their own end** (`ends_at`, `clears_at`,
+  0128) and their select policies hide them the moment it passes. Anything
+  that reads them with the service role has to filter for itself.
 - **`profiles` is readable column by column** (0127). Email, phone and
   marital status are closed to everybody; the Owner reads others' through
   `people_contacts()`, everyone reads their own through `my_profile()`,
@@ -278,9 +301,24 @@ every other page.
 error), add the same entry to `push-notify/index.ts`, then emit it from a
 migration. Remember it will push.
 
-**A new permission**: write the policy in a migration, then add the row to
-`lib/permissionMatrix.ts`. That page claims to describe the database; a
-capability missing from it is the page starting to lie.
+**A new permission** is a cell in the church's grid (0133), not a role
+named in a policy. In one migration: add its five catalog lines to
+`permission_catalog` — one per profile, `reaches` narrowest first, the
+default reproducing today's rule exactly — and have the policy ask
+`public.may(auth.uid(), 'area.action', department_id, service_id, owner)`.
+Keep every guard that is not about who (`service_has_finished`, a window
+closing) outside `may()`. Then the same entry in `lib/permissions.ts`
+`CATALOG`, a `key` on its row in `lib/permissionMatrix.ts`, and buttons
+that ask `can()`. `permissionCatalog.test.ts` reads every migration and
+fails if the two catalogs differ, or if a policy asks `may()` about a
+capability nobody catalogued. Dry-run the old rule against `may()` for
+every person, team and service before applying — 0133's did, and found
+none that differed.
+
+A rule in an area not yet converted is still a policy: write it in a
+migration and add its row (without a key) to `lib/permissionMatrix.ts`.
+That page claims to describe the database; a capability missing from it
+is the page starting to lie.
 
 **A new app-wide setting**: first decide which kind it is
 (`docs/configuration.md`). **A rule** the database must obey —

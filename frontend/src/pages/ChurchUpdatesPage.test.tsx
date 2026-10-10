@@ -7,6 +7,10 @@ import { ChurchUpdatesPage } from './ChurchUpdatesPage'
 
 const auth = { isAdmin: false }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+vi.mock('../lib/appSettings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/appSettings')>()
+  return { ...actual, useAppSettings: () => actual.DEFAULT_SETTINGS }
+})
 
 const state = vi.hoisted(() => ({
   rows: [] as Record<string, unknown>[],
@@ -41,6 +45,7 @@ vi.mock('../lib/supabaseClient', () => ({
 }))
 
 const now = new Date().toISOString()
+const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString()
 const row = (over: Record<string, unknown>) => ({
   id: 'u1',
   title: 'Harvest thank-you',
@@ -48,6 +53,7 @@ const row = (over: Record<string, unknown>) => ({
   pinned: false,
   created_at: now,
   updated_at: now,
+  ends_at: inDays(20),
   author: { first_name: 'Grace', last_name: 'Mensah' },
   ...over,
 })
@@ -93,10 +99,13 @@ describe('church updates', () => {
     await user.click(screen.getByLabelText('Pin to the top'))
     await user.click(post)
     await waitFor(() => expect(state.rpc).toHaveLength(1))
-    expect(state.rpc[0]).toEqual({
+    expect(state.rpc[0]).toMatchObject({
       name: 'post_church_update',
       args: { title: 'The hall now opens at 9', body: 'Side door, from Sunday.', pinned: true },
     })
+    // Every update ends; the form starts a month ahead (0128).
+    const ends = new Date(state.rpc[0].args.ends_at as string).getTime()
+    expect(Math.round((ends - Date.now()) / 86_400_000)).toBe(30)
     expect(await screen.findByText(/everybody has been told/)).toBeInTheDocument()
   })
 
@@ -108,5 +117,30 @@ describe('church updates', () => {
     await waitFor(() => expect(state.updates).toHaveLength(1))
     expect(state.updates[0].patch.pinned).toBe(true)
     expect(state.updates[0].id).toBe('u1')
+  })
+
+  it('says when each update ends, and takes one off the screen once it has', async () => {
+    state.rows = [row({ id: 'a', title: 'Still on' }), row({ id: 'b', title: 'Over', ends_at: inDays(-1) })]
+    show()
+    expect(await screen.findByRole('heading', { name: 'Still on' })).toBeInTheDocument()
+    expect(screen.getByText(/Ends in 20 days/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Over' })).toBeNull()
+  })
+
+  it('needs an end time to post, with the month already filled in', async () => {
+    auth.isAdmin = true
+    show()
+    expect(await screen.findByText(/Gone for everybody then, pinned or not — in 30 days/)).toBeInTheDocument()
+    expect(screen.getByText('Ends')).toBeInTheDocument()
+  })
+
+  it('lets an Admin change when an update ends', async () => {
+    auth.isAdmin = true
+    state.rows = [row({})]
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.updates).toHaveLength(1))
+    expect(typeof state.updates[0].patch.ends_at).toBe('string')
   })
 })

@@ -29,7 +29,7 @@ export const appSettingsSchema = z.object({
   /** Who may raise an issue (0117): anybody on a team, everybody signed in, or Heads and Admins. */
   issues_raise_scope: z.enum(['everyone', 'team', 'leads']).default('team'),
   /** Days a resolved issue is kept after it was marked done. */
-  issue_retention_days: z.number().int().min(1).max(365).default(30),
+  issue_retention_days: z.number().int().min(1).max(365).default(14),
   issue_open_minutes_before: z.number().int().min(0).max(720).default(60),
   issue_close_minutes_after: z.number().int().min(0).max(1440).default(120),
   debrief_open_minutes_after: z.number().int().min(0).max(10080).default(720),
@@ -67,12 +67,22 @@ export const appSettingsSchema = z.object({
   display: z.unknown().default({}),
   /* How long things are kept, in days (0123). Null is for ever. */
   notification_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
-  team_chat_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
-  church_update_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
-  poll_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
-  alert_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  team_chat_retention_days: z.number().int().min(1).max(3650).nullable().default(30),
+  /*
+   * The DEFAULT end for a new Church Update, and the DEFAULT clear for a
+   * new poll after its deadline (0128). Each update and poll carries its
+   * own time; these only fill the form.
+   */
+  church_update_retention_days: z.number().int().min(1).max(365).default(30),
+  poll_retention_days: z.number().int().min(1).max(365).default(7),
   /** Done and Won't-do feedback, after it was settled (0124). Null is for ever. */
-  feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(null),
+  feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(14),
+  /** Each person's bell keeps their newest this many (0128). */
+  notification_keep_count: z.number().int().min(5).max(50).default(10),
+  /** The day the sent-alerts record clears, 00:00 UTC (0128). Null never. */
+  alert_clear_dow: z.number().int().min(0).max(6).nullable().default(2),
+  /** Days a service, and everything about it, is kept after its date (0128). */
+  service_retention_days: z.number().int().min(7).max(365).default(14),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -85,11 +95,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
   issues_raise_scope: 'team',
-  issue_retention_days: 30,
+  issue_retention_days: 14,
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
   debrief_open_minutes_after: 720,
-  debrief_retention_days: 30,
+  debrief_retention_days: 14,
   board_clear_dow: 2,
   logo_url: null,
   timezone: 'Europe/London',
@@ -98,11 +108,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   page_access: {},
   display: {},
   notification_retention_days: null,
-  team_chat_retention_days: null,
-  church_update_retention_days: null,
-  poll_retention_days: null,
-  alert_retention_days: null,
-  feedback_retention_days: null,
+  team_chat_retention_days: 30,
+  church_update_retention_days: 30,
+  poll_retention_days: 7,
+  feedback_retention_days: 14,
+  notification_keep_count: 10,
+  alert_clear_dow: 2,
+  service_retention_days: 14,
 }
 
 export const SETTINGS_KEY = ['app-settings']
@@ -111,7 +123,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, alert_retention_days, feedback_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error
