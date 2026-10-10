@@ -55,9 +55,14 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
+`supabase/config.toml` is already in the repo, so there is no
+`supabase init` step.
+
 No CLI? Open the SQL editor and paste each file in `supabase/migrations/`
-in filename order, oldest first. There are 75; do not skip any, and do not
-reorder them.
+in filename order, oldest first — every one of them, however many there are
+by the time you read this; do not skip any, and do not reorder them. Paste
+each into a new, empty query with nothing selected: running a highlighted
+part of a file runs only that part.
 
 > `supabase/_local_test/` is **not** part of this. Those are stub
 > `auth`/`storage` schemas so CI can dry-run the migrations against a bare
@@ -70,6 +75,13 @@ select count(*) from public.departments;   -- 0 rows, no error
 ```
 
 An error here means the migrations did not all apply.
+
+> **Trying it on your own machine first?** With Docker running,
+> `supabase start` from the repo root brings up the whole Supabase stack
+> locally and applies every migration. It prints a local URL and anon key
+> for `frontend/.env`; signup needs no email confirmation there, and any
+> mail it sends lands in Inbucket at http://localhost:54324. Then carry on
+> from step 4. Phone notifications (step 8) need a hosted project.
 
 ## 4. Create your own account first — order matters
 
@@ -220,6 +232,10 @@ project ref** or, on the day some volunteer's mobile network trips the
 fallback, their sign-in will be attempted against a database you do not
 own.
 
+A Vercel build refuses to finish until you do: `scripts/check-vercel-rewrite.mjs`
+runs before every build and fails, naming the line to change, when that
+host is not the one in `VITE_SUPABASE_URL`.
+
 ### Then
 
 Import the repo into Vercel, root directory `frontend`, and add
@@ -231,7 +247,11 @@ Add your Vercel domain to **Authentication → URL Configuration**, and
 update the `SITE_URL` secret from step 7.
 
 Docker is an alternative: `docker-compose.yml` builds the frontend behind
-nginx and the backend under uvicorn.
+nginx and the backend under uvicorn. Copy the root `.env.example` to `.env`
+and fill it in — including `VITE_VAPID_PUBLIC_KEY`, which is baked into the
+bundle at build time like the other `VITE_` values — then
+`docker compose up --build`. The database is your hosted Supabase project
+either way; nginx has no `/sb` fallback route.
 
 ---
 

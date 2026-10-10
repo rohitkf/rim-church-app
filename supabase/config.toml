@@ -1,0 +1,34 @@
+# The Supabase CLI's view of this project. Only what this app depends on is
+# set here; the CLI's own defaults cover the rest.
+#
+#   supabase link --project-ref <ref>   then   supabase db push
+#                                       — your hosted project (SETUP.md)
+#   supabase start                      — the whole stack on your own
+#                                       machine, in Docker, with every
+#                                       migration applied
+#
+# A hosted project keeps its own dashboard settings; `db push` does not copy
+# the [auth] block below onto it.
+
+project_id = "rim-church-app"
+
+[db]
+# What the hosted projects run.
+major_version = 17
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:8080"]
+
+[auth.email]
+enable_signup = true
+# Locally there is no inbox to confirm from; Inbucket on :54324 catches mail.
+enable_confirmations = false
+
+# Both functions are called with a signed-in user's token (invite) or the
+# service key the database webhook adds (push-notify), so both check it.
+[functions.invite]
+verify_jwt = true
+
+[functions.push-notify]
+verify_jwt = true
