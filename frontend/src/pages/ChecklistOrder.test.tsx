@@ -49,7 +49,7 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 vi.mock('../lib/useFinishedServices', () => ({
-  useFinishedServices: () => ({ isFinished: () => false, afterServiceOpenUntil: () => null, startsAt: () => null }),
+  useFinishedServices: () => ({ isFinished: () => false, afterServiceOpenUntil: () => null, afterServiceOpensAt: () => null, startsAt: () => null, now: Date.now() }),
 }))
 // The pages' display preferences, at the app's own defaults.
 vi.mock('../lib/appSettings', async () => {

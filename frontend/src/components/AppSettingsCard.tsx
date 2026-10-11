@@ -58,6 +58,7 @@ const TIMINGS_KEYS = [
   'lead_in_minutes',
   'run_out_minutes',
   'edit_grace_minutes',
+  'after_service_checklist_opens_minutes',
   'after_service_checklist_minutes',
   'debrief_open_minutes_after',
   'issues_raise_scope',
@@ -139,6 +140,19 @@ const FIELDS: Record<NumberKey, NumberField> = {
     dialMax: 1440,
     dialStep: 15,
     majorEvery: 4,
+    unit: 'minutes',
+  },
+  after_service_checklist_opens_minutes: {
+    key: 'after_service_checklist_opens_minutes',
+    label: 'After-the-service checklist opens',
+    summary: 'Before the service ends — not before anything can be packed away.',
+    help: 'The “After the service” half of every checklist can only be ticked from this long before the service ends. Until then its boxes are locked and the page counts down to when they open. The end is when End service was pressed, or, if nobody pressed it, the planned end of the last session — so pressing End service early opens it at once. A service with no running order and nobody pressing End service has no end to count back from, so the half stays shut. The database enforces it, Admins included.',
+    affects: ['Checklists'],
+    min: 0,
+    max: 240,
+    dialMax: 120,
+    dialStep: 5,
+    majorEvery: 3,
     unit: 'minutes',
   },
   after_service_checklist_minutes: {
@@ -288,6 +302,7 @@ export function AppSettingsCard() {
             <SectionTile title="After the service" hint="How long things stay open once it ends.">
               <SettingList>
                 {numberRow('edit_grace_minutes')}
+                {numberRow('after_service_checklist_opens_minutes')}
                 {numberRow('after_service_checklist_minutes')}
                 {numberRow('debrief_open_minutes_after')}
               </SettingList>

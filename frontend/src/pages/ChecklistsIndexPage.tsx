@@ -42,6 +42,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
 import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
 import { ServiceCountdown } from '../components/ServiceCountdown'
+import { formatMinutes } from '../lib/lifespan'
 import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 
 export function ChecklistsIndexPage() {
@@ -274,8 +275,19 @@ export function ChecklistsIndexPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, myId, can, serviceFlowDept, onSignOffTeam])
 
-  const { isFinished: hasEnded, afterServiceOpenUntil, startsAt } = useFinishedServices(
-    dayServices.map((s) => s.id),
+  const {
+    isFinished: hasEnded,
+    afterServiceOpenUntil,
+    afterServiceOpensAt,
+    startsAt,
+    now: clockNow,
+  } = useFinishedServices(dayServices.map((s) => s.id))
+  // And it only opens near the end (0147): packing away cannot be ticked
+  // before there is anything to pack away.
+  const opensBefore = settings.after_service_checklist_opens_minutes ?? 20
+  const afterOpensAt = useCallback(
+    (id: string) => afterServiceOpensAt(id, opensBefore),
+    [afterServiceOpensAt, opensBefore],
   )
   // The packing-up half stays open for a while after the end (0115), so a
   // service only folds away once that has closed too.
@@ -333,6 +345,9 @@ export function ChecklistsIndexPage() {
                   // Ended, with only the "After the service" half still open.
                   const packingUpUntil = afterOpenUntil(service.id)
                   const ended = hasEnded(service.id)
+                  const packingOpensAt = afterOpensAt(service.id)
+                  const packingNotYet =
+                    !finished && (packingOpensAt === null || clockNow < packingOpensAt)
                   const forService = mineFirst.filter((m) => m.assignment.service_id === service.id)
                   if (forService.length === 0) return null
 
@@ -554,6 +569,24 @@ export function ChecklistsIndexPage() {
                                     </span>
                                     <span className="text-label-sm text-on-surface-faint">{phase.blurb}</span>
                                   </div>
+                                  {/* Locked until near the end, and saying
+                                      when — a locked box with no reason
+                                      reads as broken. */}
+                                  {phase.value === 'post' && packingNotYet && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
+                                      <span className="text-body-sm text-on-surface-variant">
+                                        {packingOpensAt === null
+                                          ? `Opens ${formatMinutes(opensBefore)} before the service ends — once it has an end time, or when End service is pressed.`
+                                          : `Opens at ${new Date(packingOpensAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}, ${formatMinutes(opensBefore)} before the service ends.`}
+                                      </span>
+                                      {packingOpensAt !== null && (
+                                        <ServiceCountdown
+                                          startsAt={new Date(packingOpensAt).toISOString()}
+                                          label="until it opens"
+                                        />
+                                      )}
+                                    </div>
+                                  )}
                                   <ul className="mt-1 divide-y divide-border-subtle">
                                   {byPhase(items, phase.value).map((item) => {
                                     const status = statusOf(item.id)
@@ -572,7 +605,7 @@ export function ChecklistsIndexPage() {
                                           // before the service; the packing-up
                                           // half stays open a while longer.
                                           may={
-                                            (phase.value === 'post' ? finished : ended)
+                                            (phase.value === 'post' ? finished || packingNotYet : ended)
                                               ? { member: false, head: false, sign: false }
                                               : may
                                           }

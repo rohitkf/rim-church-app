@@ -25,6 +25,7 @@ type Settings = Pick<
   | 'debrief_open_minutes_after'
   | 'edit_grace_minutes'
   | 'after_service_checklist_minutes'
+  | 'after_service_checklist_opens_minutes'
   | 'availability_closes_time'
   | 'team_chat_retention_days'
   | 'church_update_retention_days'
@@ -54,6 +55,7 @@ const FALLBACK: Settings = {
   debrief_open_minutes_after: 720,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
+  after_service_checklist_opens_minutes: 20,
   availability_closes_time: '23:59:00',
   team_chat_retention_days: 30,
   church_update_retention_days: 30,
@@ -125,7 +127,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'debriefs':
       return `A team can write its debrief for ${formatMinutes(s.debrief_open_minutes_after)} after the service ends (Heads and Admins, any time). Minutes are deleted ${span(Math.min(s.debrief_retention_days, kept))} after their service.`
     case 'checklists':
-      return `“Before the service” closes when the service ends; “After the service” stays open ${formatMinutes(s.after_service_checklist_minutes)} longer. Ticks are ${afterService}.`
+      return `“Before the service” closes when the service ends; “After the service” opens ${formatMinutes(s.after_service_checklist_opens_minutes)} before the end and stays open ${formatMinutes(s.after_service_checklist_minutes)} after it. Ticks are ${afterService}.`
     case 'availability':
       return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service. They, and the log of every change to them, are ${afterService}.`
     case 'rota':

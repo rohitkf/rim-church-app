@@ -123,6 +123,15 @@ export function useFinishedServices(serviceIds: string[]) {
         const until = ended + minutes * 60_000
         return clock < until ? until : null
       },
+      /**
+       * When this service's "After the service" checklist opens —
+       * `minutesBefore` its end (0147) — epoch ms. Null when the service
+       * has no end to count back from, which keeps the half shut.
+       */
+      afterServiceOpensAt: (serviceId: string, minutesBefore: number): number | null => {
+        const end = endsAt.get(serviceId)
+        return end === undefined ? null : end - minutesBefore * 60_000
+      },
       /** Whether the first session's start has passed. */
       hasStarted: (serviceId: string) => {
         const at = startsAt.get(serviceId)

@@ -8,6 +8,7 @@ const settings = {
   service_retention_days: 60,
   edit_grace_minutes: 720,
   after_service_checklist_minutes: 120,
+  after_service_checklist_opens_minutes: 20,
   availability_closes_time: '23:59:00',
 }
 
@@ -29,7 +30,7 @@ describe('how long things last', () => {
   it('carries the numbers the church has set', () => {
     expect(lifespanOf('debriefs', settings)).toContain('30 days')
     expect(lifespanOf('debriefs', { ...settings, debrief_retention_days: 10 })).toContain('10 days')
-    expect(lifespanOf('checklists', settings)).toContain('2 hours longer')
+    expect(lifespanOf('checklists', settings)).toContain('stays open 2 hours after it')
     expect(lifespanOf('rota', settings)).toContain('12 hours')
     expect(lifespanOf('availability', settings)).toContain('23:59')
     expect(lifespanOf('issues', { ...settings, issue_retention_days: 14 })).toContain('2 weeks after a Head marks it')
