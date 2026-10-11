@@ -74,6 +74,8 @@ export const sensitiveByUserSchema = z.object({
   visa_expiry: z.string().nullable(),
   /** Yes, no, or null for never asked. Optional while the column is new. */
   visa_has_expiry: z.boolean().nullable().optional(),
+  /** Their own words about it — "applied, waiting on a decision" (0148). */
+  visa_note: z.string().nullable().optional(),
 })
 export type SensitiveByUser = z.infer<typeof sensitiveByUserSchema>
 

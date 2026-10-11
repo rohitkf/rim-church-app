@@ -237,6 +237,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
         { label: 'Email', width: 30 },
         { label: 'Visa type', width: 20 },
         { label: 'Visa expiry', width: 14 },
+        { label: 'Visa comment', width: 40 },
         { label: 'DBS check', width: 12 },
       ],
       rows: people.map((p) => {
@@ -247,6 +248,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
           blank(p.email),
           blank(record?.visa_type),
           blank(record?.visa_expiry),
+          blank(record?.visa_note),
           record ? (record.has_dbs ? 'Yes' : 'No') : '',
         ]
       }),

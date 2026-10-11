@@ -147,12 +147,12 @@ describe('the volunteer workbook', () => {
 
   it('puts compliance on its own sheet, and says No rather than nothing for a missing check', () => {
     const input = base({
-      sensitive: new Map([['u1', { visa_type: 'Skilled Worker', visa_expiry: '2028-01-31', has_dbs: true }]]),
+      sensitive: new Map([['u1', { visa_type: 'Skilled Worker', visa_expiry: '2028-01-31', has_dbs: true, visa_note: 'Renewal sent 1 Oct' }]]),
     })
     const rows = sheet(input, 'Compliance').rows
-    expect(rows[1]).toEqual(['Grace', 'Mensah', 'grace@rim.org', 'Skilled Worker', '2028-01-31', 'Yes'])
+    expect(rows[1]).toEqual(['Grace', 'Mensah', 'grace@rim.org', 'Skilled Worker', '2028-01-31', 'Renewal sent 1 Oct', 'Yes'])
     // Nobody has recorded anything for Alabi: blank, not a false negative.
-    expect(rows[0]).toEqual(['Tunde', 'Alabi', 'tunde@rim.org', '', '', ''])
+    expect(rows[0]).toEqual(['Tunde', 'Alabi', 'tunde@rim.org', '', '', '', ''])
   })
 })
 
