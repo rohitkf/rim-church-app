@@ -42,6 +42,8 @@ export const householdSchema = z.object({
   address_line2: z.string().nullable(),
   town: z.string().nullable(),
   postcode: z.string().nullable(),
+  /** "Do you have children?" — null until answered (0150). */
+  has_children: z.boolean().nullable().optional(),
 })
 export type Household = z.infer<typeof householdSchema>
 
@@ -67,7 +69,7 @@ const MEMBER_COLUMNS =
 /** Every household the reader may see, and everybody in them. */
 export async function fetchHouseholds(): Promise<{ households: Household[]; members: HouseholdMember[] }> {
   const [h, m] = await Promise.all([
-    supabase.from('households').select('id, address_line1, address_line2, town, postcode'),
+    supabase.from('households').select('id, address_line1, address_line2, town, postcode, has_children'),
     supabase.from('household_members').select(MEMBER_COLUMNS),
   ])
   if (h.error) throw h.error
@@ -152,6 +154,11 @@ export async function saveAddress(a: {
     p_town: a.town,
     p_postcode: a.postcode,
   })
+  if (error) throw error
+}
+
+export async function saveHasChildren(has: boolean): Promise<void> {
+  const { error } = await supabase.rpc('save_household_has_children', { p_has: has })
   if (error) throw error
 }
 

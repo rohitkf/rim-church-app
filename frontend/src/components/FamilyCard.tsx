@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
@@ -17,6 +17,7 @@ import {
   removePerson,
   requestLink,
   saveAddress,
+  saveHasChildren,
   savePerson,
   type Household,
   type HouseholdMember,
@@ -30,6 +31,7 @@ import { DateField } from './DateTimeFields'
 import { Select } from './Select'
 import { PersonPicker } from './PersonPicker'
 import { YesNoSwitch } from './YesNoSwitch'
+import { showToast } from '../lib/toast'
 
 const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 
@@ -63,17 +65,25 @@ export function FamilyCard() {
   const outgoing = (requestsQuery.data ?? []).filter((r) => r.from_user === myId)
 
   const change = useMutation({
-    mutationFn: (fn: () => Promise<void>) => fn(),
-    onSuccess: () => {
+    mutationFn: ({ fn }: { fn: () => Promise<void>; said: string }) => fn(),
+    onSuccess: (_data, { said }) => {
       setError(null)
+      showToast(said)
       return queryClient.invalidateQueries({ queryKey: FAMILY_KEY })
     },
-    onError: (err: unknown) => setError(errorText(err, 'Could not save that.')),
+    onError: (err: unknown) => {
+      const text = errorText(err, 'Could not save that.')
+      setError(text)
+      showToast(text, 'error')
+    },
   })
-  const run = (fn: () => Promise<void>) => change.mutate(fn)
+  const run = (fn: () => Promise<void>, said = 'Family details saved') => change.mutate({ fn, said })
   const busy = change.isPending
 
-  const [hasKids, setHasKids] = useState<boolean | null>(null)
+  // Answered on the household (0150), so it stays answered — and a linked
+  // couple share it. Shown at once while the save is on its way.
+  const [answered, setAnswered] = useState<boolean | null>(null)
+  const hasKids = answered ?? home?.has_children ?? null
   const showKids = children.length > 0 || hasKids === true
 
   if (!myId) return null
@@ -90,7 +100,7 @@ export function FamilyCard() {
           </p>
         )}
 
-        <AddressBlock key={home?.id ?? 'none'} home={home} busy={busy} onSave={(a) => run(() => saveAddress(a))} />
+        <AddressBlock key={home?.id ?? 'none'} home={home} onSave={(a) => run(() => saveAddress(a), 'Address saved')} />
 
         <Group title="Spouse">
           {spouse ? (
@@ -98,9 +108,9 @@ export function FamilyCard() {
               member={spouse}
               busy={busy}
               unlinkWord={spouse.user_id ? 'Unlink' : 'Remove'}
-              onRemove={() => run(() => removePerson(spouse.id))}
+              onRemove={() => run(() => removePerson(spouse.id), 'Removed')}
               onEdit={(draft) => run(() => savePerson({ id: spouse.id, where: 'home', kind: 'adult', draft }))}
-              onLink={(p) => run(() => requestLink(p.id, 'spouse', spouse.id))}
+              onLink={(p) => run(() => requestLink(p.id, 'spouse', spouse.id), 'Request sent')}
               myId={myId}
             />
           ) : (
@@ -111,18 +121,25 @@ export function FamilyCard() {
               addLabel="Add your spouse"
               busy={busy}
               myId={myId}
-              onRequest={(p) => run(() => requestLink(p.id, 'spouse', null))}
+              onRequest={(p) => run(() => requestLink(p.id, 'spouse', null), 'Request sent')}
               onWrite={(draft) => run(() => savePerson({ id: null, where: 'home', kind: 'adult', draft }))}
             />
           )}
-          <Pending requests={outgoing.filter((r) => r.relation === 'spouse')} busy={busy} onCancel={(id) => run(() => cancelLink(id))} />
+          <Pending requests={outgoing.filter((r) => r.relation === 'spouse')} busy={busy} onCancel={(id) => run(() => cancelLink(id), 'Request cancelled')} />
         </Group>
 
         <Group title="Children">
           {children.length === 0 && (
             <div className="flex flex-col gap-2">
               <span className="text-body-sm text-on-surface-variant">Do you have children?</span>
-              <YesNoSwitch value={hasKids} onChange={setHasKids} label="Do you have children?" />
+              <YesNoSwitch
+                value={hasKids}
+                onChange={(next) => {
+                  setAnswered(next)
+                  run(() => saveHasChildren(next), 'Saved')
+                }}
+                label="Do you have children?"
+              />
             </div>
           )}
           {showKids && (
@@ -133,9 +150,9 @@ export function FamilyCard() {
                   member={child}
                   busy={busy}
                   unlinkWord={child.user_id ? 'Unlink' : 'Remove'}
-                  onRemove={() => run(() => removePerson(child.id))}
+                  onRemove={() => run(() => removePerson(child.id), 'Removed')}
                   onEdit={(draft) => run(() => savePerson({ id: child.id, where: 'home', kind: 'child', draft }))}
-                  onLink={(p) => run(() => requestLink(p.id, 'child', child.id))}
+                  onLink={(p) => run(() => requestLink(p.id, 'child', child.id), 'Request sent')}
                   myId={myId}
                 />
               ))}
@@ -146,10 +163,10 @@ export function FamilyCard() {
                 addLabel={children.length === 0 ? 'Add a child' : 'Add another child'}
                 busy={busy}
                 myId={myId}
-                onRequest={(p) => run(() => requestLink(p.id, 'child', null))}
+                onRequest={(p) => run(() => requestLink(p.id, 'child', null), 'Request sent')}
                 onWrite={(draft) => run(() => savePerson({ id: null, where: 'home', kind: 'child', draft }))}
               />
-              <Pending requests={outgoing.filter((r) => r.relation === 'child')} busy={busy} onCancel={(id) => run(() => cancelLink(id))} />
+              <Pending requests={outgoing.filter((r) => r.relation === 'child')} busy={busy} onCancel={(id) => run(() => cancelLink(id), 'Request cancelled')} />
             </>
           )}
         </Group>
@@ -161,9 +178,9 @@ export function FamilyCard() {
               member={parent}
               busy={busy}
               unlinkWord={parent.user_id ? 'Unlink' : 'Remove'}
-              onRemove={() => run(() => removePerson(parent.id))}
+              onRemove={() => run(() => removePerson(parent.id), 'Removed')}
               onEdit={(draft) => run(() => savePerson({ id: parent.id, where: 'parents', kind: 'adult', draft }))}
-              onLink={(p) => run(() => requestLink(p.id, 'parent', parent.id))}
+              onLink={(p) => run(() => requestLink(p.id, 'parent', parent.id), 'Request sent')}
               myId={myId}
             />
           ))}
@@ -175,11 +192,11 @@ export function FamilyCard() {
               addLabel={parents.length === 0 ? 'Add a parent' : 'Add your other parent'}
               busy={busy}
               myId={myId}
-              onRequest={(p) => run(() => requestLink(p.id, 'parent', null))}
+              onRequest={(p) => run(() => requestLink(p.id, 'parent', null), 'Request sent')}
               onWrite={(draft) => run(() => savePerson({ id: null, where: 'parents', kind: 'adult', draft }))}
             />
           )}
-          <Pending requests={outgoing.filter((r) => r.relation === 'parent')} busy={busy} onCancel={(id) => run(() => cancelLink(id))} />
+          <Pending requests={outgoing.filter((r) => r.relation === 'parent')} busy={busy} onCancel={(id) => run(() => cancelLink(id), 'Request cancelled')} />
         </Group>
       </div>
     </SectionTile>
@@ -197,11 +214,9 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 function AddressBlock({
   home,
-  busy,
   onSave,
 }: {
   home: Household | null
-  busy: boolean
   onSave: (a: { line1: string; line2: string; town: string; postcode: string }) => void
 }) {
   const [line1, setLine1] = useState(home?.address_line1 ?? '')
@@ -213,6 +228,19 @@ function AddressBlock({
     line2 !== (home?.address_line2 ?? '') ||
     town !== (home?.town ?? '') ||
     postcode !== (home?.postcode ?? '')
+
+  // Saves itself a moment after the last keystroke, like the rest of the
+  // profile. `onSave` is a new function every render, so it is held in a
+  // ref rather than restarting the timer.
+  const save = useRef(onSave)
+  useEffect(() => {
+    save.current = onSave
+  })
+  useEffect(() => {
+    if (!changed) return
+    const timer = window.setTimeout(() => save.current({ line1, line2, town, postcode }), 1000)
+    return () => window.clearTimeout(timer)
+  }, [changed, line1, line2, town, postcode])
 
   return (
     <Group title="Address">
@@ -241,11 +269,6 @@ function AddressBlock({
           />
         </label>
       </div>
-      {changed && (
-        <ActionButton size="sm" disabled={busy} onClick={() => onSave({ line1, line2, town, postcode })} className="self-start">
-          Save address
-        </ActionButton>
-      )}
     </Group>
   )
 }
@@ -581,8 +604,9 @@ export function FamilyRequests() {
   })
   const answer = useMutation({
     mutationFn: ({ id, accept }: { id: string; accept: boolean }) => answerLink(id, accept),
-    onSuccess: () => {
+    onSuccess: (_data, { accept }) => {
       setError(null)
+      showToast(accept ? 'Linked — your family is updated' : 'Request declined')
       return queryClient.invalidateQueries({ queryKey: FAMILY_KEY })
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not answer that.')),

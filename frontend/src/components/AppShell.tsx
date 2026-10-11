@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
 import { WelcomeTour } from './WelcomeTour'
 import { ViewAsBanner } from './ViewAsBanner'
+import { Toaster } from './Toaster'
 
 
 /**
@@ -214,6 +215,8 @@ export function AppShell() {
       {AI_ASSISTANT_ENABLED && (
         <AiAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
       )}
+
+      <Toaster />
     </div>
   )
 }

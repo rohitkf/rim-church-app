@@ -127,6 +127,42 @@ describe('the family card', () => {
   })
 })
 
+describe('the children question and the address, saved as they change', () => {
+  it('stores the answer to "Do you have children?", so it is not asked again', async () => {
+    const user = userEvent.setup()
+    state.rows.household_members = []
+    state.rows.households = []
+    show(<FamilyCard />)
+    const kids = await screen.findByRole('region', { name: 'Children' })
+    await user.click(within(kids).getByRole('button', { name: 'No' }))
+    await waitFor(() => expect(state.rpc).toContainEqual({ fn: 'save_household_has_children', args: { p_has: false } }))
+  })
+
+  it('remembers a yes that was given before', async () => {
+    state.rows.household_members = [
+      member({ id: 'me', kind: 'adult', user_id: 'u1', person: { id: 'u1', first_name: 'Rohit', last_name: 'K', dob: null } }),
+    ]
+    state.rows.households = [{ id: 'h1', address_line1: null, address_line2: null, town: null, postcode: null, has_children: true }]
+    show(<FamilyCard />)
+    const kids = await screen.findByRole('region', { name: 'Children' })
+    await waitFor(() => expect(within(kids).getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(within(kids).getByRole('button', { name: /Add a child/ })).toBeInTheDocument()
+  })
+
+  it('saves the address on its own a moment after typing stops', async () => {
+    const user = userEvent.setup()
+    show(<FamilyCard />)
+    const town = await screen.findByDisplayValue('Leeds')
+    await user.clear(town)
+    await user.type(town, 'York')
+    await waitFor(
+      () => expect(state.rpc.find((c) => c.fn === 'save_household_address')?.args).toMatchObject({ p_town: 'York', p_line1: '1 High St' }),
+      { timeout: 3000 },
+    )
+    expect(screen.queryByRole('button', { name: 'Save address' })).toBeNull()
+  })
+})
+
 describe('a family request waiting on me', () => {
   it('says who and as what, and confirms through the database', async () => {
     const user = userEvent.setup()

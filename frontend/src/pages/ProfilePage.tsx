@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { sensitiveByUserSchema, type SensitiveByUser } from '../lib/types'
@@ -6,12 +6,41 @@ import { isMissingColumnError } from '../lib/missingColumn'
 import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
-import { ActionButton, SectionTile, inputClasses } from '../components/Surface'
+import { SectionTile, inputClasses } from '../components/Surface'
 import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
 import { YesNoSwitch } from '../components/YesNoSwitch'
 import { FamilyCard } from '../components/FamilyCard'
+import { showToast } from '../lib/toast'
+import { useErrorText } from '../lib/useErrorText'
 
 const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
+
+/** What the profile row is saved as, in one order, so two can be compared. */
+function coreOf(first: string, last: string, phone: string, dob: string, marital: string, anniversary: string) {
+  return {
+    first_name: first.trim(),
+    last_name: last.trim(),
+    phone: phone.trim() || null,
+    dob: dob || null,
+    marital_status: marital || null,
+    anniversary: anniversary || null,
+  }
+}
+
+/** The compliance row as it is saved. */
+function sensitiveRowOf(s: SensitiveByUser) {
+  const settled = isSettledStatus(s.visa_type)
+  return {
+    visa_type: s.visa_type,
+    has_dbs: s.has_dbs,
+    // A status that does not run out cannot carry a date: a stale one
+    // from an older visa would outlive it.
+    visa_expiry: settled ? null : s.visa_expiry,
+    visa_has_expiry: settled ? false : (s.visa_has_expiry ?? null),
+    // Blank is no note at all.
+    visa_note: s.visa_note?.trim() || null,
+  }
+}
 
 export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
@@ -22,25 +51,36 @@ export function ProfilePage() {
   const [anniversary, setAnniversary] = useState('')
   const [maritalStatus, setMaritalStatus] = useState('')
   const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const errorText = useErrorText()
+
+  /*
+   * Filled in once per person, not on every refresh: the profile is
+   * re-read after each save, and resetting the boxes then would throw away
+   * whatever was typed while the save was on its way.
+   */
+  const loadedFor = useRef<string | null>(null)
+  const savedCore = useRef<string | null>(null)
+  const savedSensitive = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!profile) return
+    if (!profile || loadedFor.current === profile.id) return
+    loadedFor.current = profile.id
     setFirstName(profile.first_name)
     setLastName(profile.last_name)
     setPhone(profile.phone ?? '')
     setDob(profile.dob ?? '')
     setAnniversary(profile.anniversary ?? '')
     setMaritalStatus(profile.marital_status ?? '')
+    savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? ''))
   }, [profile])
 
+  const profileId = profile?.id
   useEffect(() => {
-    if (!profile) return
+    if (!profileId) return
     supabase
       .from('profile_sensitive')
       .select('visa_type, has_dbs, visa_expiry, visa_has_expiry, visa_note')
-      .eq('user_id', profile.id)
+      .eq('user_id', profileId)
       .single()
       .then(({ data }) => {
         if (!data) return setSensitive(null)
@@ -49,70 +89,59 @@ export function ProfilePage() {
           console.error('profile_sensitive response did not match expected shape:', result.error)
           return setSensitive(null)
         }
+        savedSensitive.current = JSON.stringify(sensitiveRowOf(result.data))
         setSensitive(result.data)
       })
-  }, [profile])
+  }, [profileId])
+
+  /*
+   * Everything saves itself a moment after the last change, and says so.
+   * A name cannot be blank, so a cleared name waits to be filled in again
+   * rather than saving nothing over somebody's name.
+   */
+  useEffect(() => {
+    if (!profileId || savedCore.current === null) return
+    const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary)
+    const json = JSON.stringify(core)
+    if (json === savedCore.current || !firstName.trim() || !lastName.trim()) return
+    const timer = window.setTimeout(async () => {
+      // Anniversary arrived in a later migration. If the database hasn't had
+      // it applied yet, save everything else rather than losing the edit.
+      let { error } = await supabase.from('profiles').update(core).eq('id', profileId)
+      if (isMissingColumnError(error, 'anniversary')) {
+        const { anniversary: _skip, ...rest } = core
+        void _skip
+        ;({ error } = await supabase.from('profiles').update(rest).eq('id', profileId))
+      }
+      if (error) return showToast(errorText(error, 'Could not save your profile.'), 'error')
+      savedCore.current = json
+      showToast('Profile saved')
+      refreshProfile()
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, refreshProfile, errorText])
+
+  useEffect(() => {
+    if (!profileId || !sensitive || savedSensitive.current === null) return
+    const row = sensitiveRowOf(sensitive)
+    const json = JSON.stringify(row)
+    if (json === savedSensitive.current) return
+    const timer = window.setTimeout(async () => {
+      const { error } = await supabase.from('profile_sensitive').update(row).eq('user_id', profileId)
+      if (error) return showToast(errorText(error, 'Could not save your compliance details.'), 'error')
+      savedSensitive.current = json
+      showToast('Compliance details saved')
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [profileId, sensitive, errorText])
 
   if (!profile) {
     return <p className="text-body-sm text-on-surface-variant">Loading profile…</p>
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setMessage(null)
-
-    // Anniversary arrived in a later migration. If the database hasn't had
-    // it applied yet, save everything else rather than losing the edit.
-    const core = {
-      first_name: firstName,
-      last_name: lastName,
-      phone: phone || null,
-      dob: dob || null,
-      marital_status: maritalStatus || null,
-    }
-    const saveProfile = async () => {
-      const withAnniversary = await supabase
-        .from('profiles')
-        .update({ ...core, anniversary: anniversary || null })
-        .eq('id', profile!.id)
-      if (!isMissingColumnError(withAnniversary.error, 'anniversary')) return withAnniversary
-      return supabase.from('profiles').update(core).eq('id', profile!.id)
-    }
-
-    const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
-      saveProfile(),
-      sensitive
-        ? supabase
-            .from('profile_sensitive')
-            .update({
-              visa_type: sensitive.visa_type,
-              has_dbs: sensitive.has_dbs,
-              // A status that does not run out cannot carry a date: a
-              // stale one from an older visa would outlive it.
-              visa_expiry: isSettledStatus(sensitive.visa_type) ? null : sensitive.visa_expiry,
-              visa_has_expiry: isSettledStatus(sensitive.visa_type)
-                ? false
-                : sensitive.visa_has_expiry ?? null,
-              // Blank is no note at all.
-              visa_note: sensitive.visa_note?.trim() || null,
-            })
-            .eq('user_id', profile!.id)
-        : Promise.resolve({ error: null }),
-    ])
-
-    setSaving(false)
-    if (profileError || sensitiveError) {
-      setMessage((profileError ?? sensitiveError)!.message)
-      return
-    }
-    setMessage('Saved.')
-    refreshProfile()
-  }
-
   return (
     <div className="flex w-full flex-col gap-4">
-    <form onSubmit={handleSave} className="flex w-full flex-col gap-4">
+    <form onSubmit={(e) => e.preventDefault()} className="flex w-full flex-col gap-4">
       <SectionTile title="About you" hint="How your name appears on the rota, in chats and on the teams.">
         {/* Two fields side by side need a phone to be wider than one, so
             below `sm` they stack. `min-w-0` is what lets them shrink at
@@ -274,19 +303,7 @@ export function ProfilePage() {
         </SectionTile>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 px-1">
-        <ActionButton type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </ActionButton>
-        {message && (
-          <p
-            role="status"
-            className={`text-body-sm ${message === 'Saved.' ? 'text-accent-green' : 'text-error'}`}
-          >
-            {message}
-          </p>
-        )}
-      </div>
+      <p className="px-1 text-label-sm text-on-surface-faint">Changes save on their own.</p>
     </form>
     {/* Its own saves, outside the form: Enter in an address box
         should not save the whole profile. */}
