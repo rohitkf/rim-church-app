@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
+import { FamilyRequests } from '../components/FamilyCard'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
@@ -445,6 +446,7 @@ export function DashboardPage() {
           )
         }
       />
+      <FamilyRequests />
 
       {/* What is on today, before anything about a service: an event
           happens once, and the morning of it is the last useful moment to

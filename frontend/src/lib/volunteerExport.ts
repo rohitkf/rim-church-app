@@ -15,6 +15,8 @@
  */
 import type { MemberType, DepartmentMemberRow, SensitiveByUser } from './types'
 import type { UserRole } from '../auth/types'
+import type { Household, HouseholdMember } from './family'
+import { ageFrom } from './celebrations'
 
 export interface ExportPerson {
   id: string
@@ -65,6 +67,13 @@ export interface ExportInput {
   includeContacts?: boolean
   /** Include people who are on none of the selected teams. */
   includeUnassigned?: boolean
+  /**
+   * Households and the people in them (0149), the Owner's alone. When
+   * present, a Families sheet and a Children sheet are added.
+   */
+  family?: { households: Household[]; members: HouseholdMember[] }
+  /** The day ages are worked out on; today unless a test says otherwise. */
+  today?: Date
 }
 
 /** A blank cell reads better than the word "null" in a spreadsheet. */
@@ -255,7 +264,121 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
     })
   }
 
+  if (input.family) sheets.push(...familySheets(people, input.family, input.today ?? new Date()))
+
   return input.includeContacts ? sheets : sheets.map(withoutContacts)
+}
+
+/*
+ * Families, from the households (0149): one row per person with their
+ * address, spouse and children, and one row per child, so a Sunday
+ * school list can be sorted by age or year without unpicking a cell.
+ */
+function familySheets(
+  people: ExportPerson[],
+  family: { households: Household[]; members: HouseholdMember[] },
+  today: Date,
+): ExportSheet[] {
+  const householdById = new Map(family.households.map((h) => [h.id, h]))
+  const inHousehold = (id: string | null | undefined) => family.members.filter((m) => m.household_id === id)
+  const name = (m: HouseholdMember) =>
+    `${m.person?.first_name ?? m.first_name ?? ''} ${m.person?.last_name ?? m.last_name ?? ''}`.trim()
+  const dob = (m: HouseholdMember) => (m.person ? m.person.dob : m.dob) ?? null
+  const age = (d: string | null) => {
+    const years = ageFrom(d, today)
+    return years === null ? '' : years
+  }
+  const address = (h: Household | undefined) =>
+    h ? [h.address_line1, h.address_line2, h.town, h.postcode].filter(Boolean).join(', ') : ''
+  const childLine = (m: HouseholdMember) => {
+    const d = dob(m)
+    const a = ageFrom(d, today)
+    const bits = [d ? `${d}${a === null ? '' : `, ${a}`}` : null, m.year_group, m.school].filter(Boolean)
+    return bits.length > 0 ? `${name(m)} (${bits.join('; ')})` : name(m)
+  }
+
+  const families: ExportSheet = {
+    name: 'Families',
+    columns: [
+      { label: 'First name', width: 18 },
+      { label: 'Last name', width: 18 },
+      { label: 'Date of birth', width: 14 },
+      { label: 'Age', width: 6 },
+      { label: 'Address', width: 40 },
+      { label: 'Spouse', width: 24 },
+      { label: 'Spouse date of birth', width: 18 },
+      { label: 'Spouse age', width: 10 },
+      { label: 'Children', width: 60 },
+      { label: 'Parents', width: 36 },
+    ],
+    rows: people.map((p) => {
+      const homeId = family.members.find((m) => m.user_id === p.id && m.kind === 'adult')?.household_id
+      const parentsId = family.members.find((m) => m.user_id === p.id && m.kind === 'child')?.household_id
+      const home = inHousehold(homeId)
+      const spouse = home.find((m) => m.kind === 'adult' && m.user_id !== p.id)
+      const children = home.filter((m) => m.kind === 'child')
+      const parents = inHousehold(parentsId).filter((m) => m.kind === 'adult')
+      const spouseDob = spouse ? dob(spouse) : null
+      return [
+        p.first_name,
+        p.last_name,
+        blank(p.dob),
+        age(p.dob ?? null),
+        address(householdById.get(homeId ?? '') ?? householdById.get(parentsId ?? '')),
+        spouse ? name(spouse) : '',
+        blank(spouseDob),
+        age(spouseDob),
+        children.map(childLine).join('; '),
+        parents.map(name).join(', '),
+      ]
+    }),
+  }
+
+  // Every child of a household somebody in this export lives in, once.
+  const exported = new Set(people.map((p) => p.id))
+  const homes = new Set(
+    family.members.filter((m) => m.kind === 'adult' && m.user_id && exported.has(m.user_id)).map((m) => m.household_id),
+  )
+  const children: ExportSheet = {
+    name: 'Children',
+    columns: [
+      { label: 'First name', width: 16 },
+      { label: 'Last name', width: 16 },
+      { label: 'Date of birth', width: 14 },
+      { label: 'Age', width: 6 },
+      { label: 'Gender', width: 8 },
+      { label: 'Year group', width: 12 },
+      { label: 'School', width: 26 },
+      { label: 'Parents', width: 36 },
+      { label: 'Address', width: 40 },
+      { label: 'On the app', width: 10 },
+    ],
+    rows: family.members
+      .filter((m) => m.kind === 'child' && homes.has(m.household_id))
+      .map((m) => {
+        const parents = inHousehold(m.household_id).filter((x) => x.kind === 'adult')
+        const d = dob(m)
+        return {
+          sort: `${m.person?.last_name ?? m.last_name ?? ''} ${name(m)}`,
+          row: [
+            m.person?.first_name ?? m.first_name ?? '',
+            m.person?.last_name ?? m.last_name ?? '',
+            blank(d),
+            age(d),
+            m.gender === 'male' ? 'Boy' : m.gender === 'female' ? 'Girl' : '',
+            blank(m.year_group),
+            blank(m.school),
+            parents.map(name).join(', '),
+            address(householdById.get(m.household_id)),
+            m.user_id ? 'Yes' : 'No',
+          ] as ExportCell[],
+        }
+      })
+      .sort((a, b) => a.sort.localeCompare(b.sort))
+      .map((x) => x.row),
+  }
+
+  return [families, children]
 }
 
 const CONTACT_COLUMNS = new Set(['Email', 'Phone'])

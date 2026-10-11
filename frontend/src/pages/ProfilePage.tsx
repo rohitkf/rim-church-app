@@ -8,6 +8,8 @@ import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
 import { ActionButton, SectionTile, inputClasses } from '../components/Surface'
 import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
+import { YesNoSwitch } from '../components/YesNoSwitch'
+import { FamilyCard } from '../components/FamilyCard'
 
 const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 
@@ -109,6 +111,7 @@ export function ProfilePage() {
   }
 
   return (
+    <div className="flex w-full flex-col gap-4">
     <form onSubmit={handleSave} className="flex w-full flex-col gap-4">
       <SectionTile title="About you" hint="How your name appears on the rota, in chats and on the teams.">
         {/* Two fields side by side need a phone to be wider than one, so
@@ -257,18 +260,16 @@ export function ProfilePage() {
                 </label>
               </>
             )}
-            {/* `items-start` and a nudged box: with `items-center` a label
-                that wraps to two lines centres the tick against the middle
-                of the paragraph instead of the first line. */}
-            <label className="flex items-start gap-2.5 text-body-sm text-on-surface">
-              <input
-                type="checkbox"
-                checked={sensitive.has_dbs}
-                onChange={(e) => setSensitive({ ...sensitive, has_dbs: e.target.checked })}
-                className="mt-0.5 h-4 w-4 shrink-0"
+            {/* Yes or No, the way an availability answer is given: a box
+                left unticked could mean "no" or "never looked". */}
+            <div className="flex flex-col gap-2">
+              <span className="text-body-sm text-on-surface-variant">Do you have a valid DBS check?</span>
+              <YesNoSwitch
+                value={sensitive.has_dbs}
+                onChange={(next) => setSensitive({ ...sensitive, has_dbs: next })}
+                label="Do you have a valid DBS check?"
               />
-              <span className="min-w-0">Has a valid DBS check</span>
-            </label>
+            </div>
           </div>
         </SectionTile>
       )}
@@ -287,5 +288,9 @@ export function ProfilePage() {
         )}
       </div>
     </form>
+    {/* Its own saves, outside the form: Enter in an address box
+        should not save the whole profile. */}
+    <FamilyCard />
+    </div>
   )
 }

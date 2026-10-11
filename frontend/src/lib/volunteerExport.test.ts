@@ -174,3 +174,59 @@ describe('the file name', () => {
     expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('07000')
   })
 })
+
+describe('families in the export (0149)', () => {
+  const member = (over: Record<string, unknown>) => ({
+    id: String(over.id),
+    household_id: 'h1',
+    kind: 'child' as 'adult' | 'child',
+    user_id: null as string | null,
+    first_name: null as string | null,
+    last_name: null as string | null,
+    dob: null as string | null,
+    gender: null as 'male' | 'female' | null,
+    school: null as string | null,
+    year_group: null as string | null,
+    person: null as { id: string; first_name: string; last_name: string; dob: string | null } | null,
+    ...over,
+  })
+  const family = {
+    households: [{ id: 'h1', address_line1: '1 High St', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }],
+    members: [
+      member({ id: 'a', kind: 'adult', user_id: 'u1', person: { id: 'u1', first_name: 'Grace', last_name: 'Mensah', dob: '1990-04-02' } }),
+      member({ id: 'b', kind: 'adult', first_name: 'Kofi', last_name: 'Mensah', dob: '1988-01-15' }),
+      member({ id: 'c', first_name: 'Ann', last_name: 'Mensah', dob: '2015-03-12', gender: 'female', school: 'St Mary’s', year_group: 'Year 6' }),
+    ],
+  }
+  const today = new Date('2026-10-11T12:00:00')
+
+  it('leaves families out unless they were asked for', () => {
+    expect(buildVolunteerWorkbook(base()).map((s) => s.name)).not.toContain('Families')
+  })
+
+  it('gives each person their address, spouse with date of birth and age, and children', () => {
+    const rows = sheet(base({ family, today }), 'Families').rows
+    const grace = rows.find((r) => r[0] === 'Grace')!
+    expect(grace).toEqual([
+      'Grace',
+      'Mensah',
+      '1990-04-02',
+      36,
+      '1 High St, Leeds, LS1 1AA',
+      'Kofi Mensah',
+      '1988-01-15',
+      38,
+      'Ann Mensah (2015-03-12, 11; Year 6; St Mary’s)',
+      '',
+    ])
+    // Somebody with no household is still listed, with nothing to say.
+    expect(rows.find((r) => r[0] === 'Tunde')!.slice(4)).toEqual(['', '', '', '', '', ''])
+  })
+
+  it('lists every child on a sheet of their own, with their parents', () => {
+    const rows = sheet(base({ family, today }), 'Children').rows
+    expect(rows).toEqual([
+      ['Ann', 'Mensah', '2015-03-12', 11, 'Girl', 'Year 6', 'St Mary’s', 'Grace Mensah, Kofi Mensah', '1 High St, Leeds, LS1 1AA', 'No'],
+    ])
+  })
+})
