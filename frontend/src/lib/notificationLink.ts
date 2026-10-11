@@ -28,6 +28,8 @@ export const NOTIFICATION_TYPES = [
   'availability_change_decision',
   'feedback_received',
   'feedback_answered',
+  'family_link_request',
+  'family_link_answered',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -57,6 +59,10 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // stands), so the label is only the fallback.
   feedback_received: { label: 'New feedback about the app', href: '/feedback' },
   feedback_answered: { label: 'Your feedback has an answer', href: '/feedback' },
+  // Both carry their own sentence (who, and as what). A request is answered
+  // from the card on the dashboard; an answer is seen on the profile.
+  family_link_request: { label: 'Somebody has added you to their family', href: '/' },
+  family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.

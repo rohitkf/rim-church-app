@@ -48,6 +48,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   service_issue: { label: 'An issue has been raised for your team', href: '/issues' },
   feedback_received: { label: 'New feedback about the app', href: '/feedback' },
   feedback_answered: { label: 'Your feedback has an answer', href: '/feedback' },
+  family_link_request: { label: 'Somebody has added you to their family', href: '/' },
+  family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {

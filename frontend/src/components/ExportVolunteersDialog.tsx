@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { ActionButton, Overlay } from './Surface'
 import { TeamMark } from './TeamMark'
+import { fetchHouseholds } from '../lib/family'
 import { sensitiveByUserSchema, type Department, type DepartmentMemberRow, type SensitiveByUser } from '../lib/types'
 import type { UserRole } from '../auth/types'
 import {
@@ -49,6 +50,7 @@ export function ExportVolunteersDialog({
   const [selected, setSelected] = useState<Set<string>>(() => new Set(departments.map((d) => d.id)))
   const [includeUnassigned, setIncludeUnassigned] = useState(true)
   const [includeCompliance, setIncludeCompliance] = useState(false)
+  const [includeFamily, setIncludeFamily] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -88,7 +90,11 @@ export function ExportVolunteersDialog({
         }
       }
 
+      // Households are the Owner's to read (0149); RLS returns them all.
+      const family = isOwner && includeFamily ? await fetchHouseholds() : undefined
+
       const sheets = buildVolunteerWorkbook({
+        family,
         people,
         teams: departments.map((d) => ({ id: d.id, name: d.name })),
         memberships,
@@ -193,6 +199,24 @@ export function ExportVolunteersDialog({
                 <span className="block text-label-md text-on-surface-faint">
                   Visa type, visa expiry, visa comment and DBS status, on their own sheet. Personal data — the
                   file won’t protect it, so keep it somewhere that will.
+                </span>
+              </span>
+            </label>
+            )}
+
+            {isOwner && (
+            <label className="flex items-start gap-3 text-body-sm text-on-surface">
+              <input
+                type="checkbox"
+                checked={includeFamily}
+                onChange={(e) => setIncludeFamily(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                Include families and addresses
+                <span className="block text-label-md text-on-surface-faint">
+                  Address, spouse and children with dates of birth and ages, on a Families sheet and a
+                  Children sheet. Personal data — keep the file somewhere safe.
                 </span>
               </span>
             </label>
