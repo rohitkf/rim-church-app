@@ -70,10 +70,12 @@ Other things that are true and not guessable:
   `lib/serviceProgress.ts`). Nothing sets a flag. After a grace period
   (`app_settings.edit_grace_minutes`) the database itself refuses edits.
   The one exception is the **"After the service" half of a checklist**,
-  which has its own window from the end
-  (`app_settings.after_service_checklist_minutes`, default 120;
-  `checklist_item_writable`, 0115) — the page keeps such a service out of
-  Finished until that closes.
+  which has its own window around the end: it opens
+  `app_settings.after_service_checklist_opens_minutes` before it (default
+  20, 0147) and closes `after_service_checklist_minutes` after it (default
+  120, 0115), both in `checklist_item_writable`, Admins included. A
+  service with no end time keeps it shut until End service is pressed.
+  The page keeps such a service out of Finished until that closes.
 - **A checklist item climbs a fixed chain**, and the order never changes:
   `pending` → `member_complete` → `head_verified` → `coordinator_verified`
   (the `checklist_item_status` enum, mirrored 1:1 by the `status-*` colour

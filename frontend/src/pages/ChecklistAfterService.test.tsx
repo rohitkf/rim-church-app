@@ -82,12 +82,18 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 
-const clock = vi.hoisted(() => ({ openUntil: null as number | null }))
+const clock = vi.hoisted(() => ({
+  ended: true,
+  openUntil: null as number | null,
+  opensAt: null as number | null,
+}))
 vi.mock('../lib/useFinishedServices', () => ({
   useFinishedServices: () => ({
-    isFinished: () => true,
+    isFinished: () => clock.ended,
     afterServiceOpenUntil: () => clock.openUntil,
+    afterServiceOpensAt: () => clock.opensAt,
     startsAt: () => null,
+    now: Date.now(),
   }),
 }))
 
@@ -96,7 +102,7 @@ vi.mock('../lib/appSettings', async () => {
   const { DISPLAY_DEFAULTS } = await import('../lib/display')
   return {
     useDisplay: () => DISPLAY_DEFAULTS,
-    useAppSettings: () => ({ rota_window_days: 14, after_service_checklist_minutes: 120 }),
+    useAppSettings: () => ({ rota_window_days: 14, after_service_checklist_minutes: 120, after_service_checklist_opens_minutes: 20 }),
   }
 })
 
@@ -117,6 +123,9 @@ describe('the after-the-service checklist', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date(`${SUNDAY}T13:30:00`))
+    clock.ended = true
+    // Twenty minutes before a 13:00 end.
+    clock.opensAt = new Date(`${SUNDAY}T12:40:00`).getTime()
   })
 
   it('stays open after the service has ended, while the before half is closed', async () => {
@@ -136,5 +145,43 @@ describe('the after-the-service checklist', () => {
     show()
     await waitFor(() => expect(screen.getByText(/Finished · closed/)).toBeInTheDocument())
     expect(screen.queryByText(/stays\s+open until/)).not.toBeInTheDocument()
+  })
+
+  /*
+   * And not before (0147): packing away cannot be ticked while the
+   * service is still running, only from twenty minutes before its end.
+   */
+  it('stays locked while the service runs, and says when it opens', async () => {
+    vi.setSystemTime(new Date(`${SUNDAY}T12:00:00`))
+    clock.ended = false
+    clock.openUntil = null
+    show()
+    const pack = (await screen.findByText('Pack the camera away')).closest('li')!
+    const batteries = screen.getByText('Check batteries').closest('li')!
+    expect(within(pack).getByRole('checkbox', { name: /Done/ })).toBeDisabled()
+    expect(screen.getByText(/Opens at .*20 minutes before the service ends/)).toBeInTheDocument()
+    // The before half is the one that is open now.
+    expect(within(batteries).getByRole('checkbox', { name: /Done/ })).toBeEnabled()
+  })
+
+  it('opens twenty minutes before the end, while the service is still on', async () => {
+    vi.setSystemTime(new Date(`${SUNDAY}T12:45:00`))
+    clock.ended = false
+    clock.openUntil = null
+    show()
+    const pack = (await screen.findByText('Pack the camera away')).closest('li')!
+    expect(within(pack).getByRole('checkbox', { name: /Done/ })).toBeEnabled()
+    expect(screen.queryByText(/Opens at/)).not.toBeInTheDocument()
+  })
+
+  it('stays shut for a service with no end to count back from', async () => {
+    vi.setSystemTime(new Date(`${SUNDAY}T12:00:00`))
+    clock.ended = false
+    clock.openUntil = null
+    clock.opensAt = null
+    show()
+    const pack = (await screen.findByText('Pack the camera away')).closest('li')!
+    expect(within(pack).getByRole('checkbox', { name: /Done/ })).toBeDisabled()
+    expect(screen.getByText(/when End service is pressed/)).toBeInTheDocument()
   })
 })

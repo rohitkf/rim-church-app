@@ -26,6 +26,7 @@ export const appSettingsSchema = z.object({
   edit_grace_minutes: z.number().int().min(0).max(10080),
   /** How long the "After the service" checklist stays open once it has ended (0115). */
   after_service_checklist_minutes: z.number().int().min(0).max(1440).default(120),
+  after_service_checklist_opens_minutes: z.number().int().min(0).max(240).default(20),
   /** Who may raise an issue (0117): anybody on a team, everybody signed in, or Heads and Admins. */
   issues_raise_scope: z.enum(['everyone', 'team', 'leads']).default('team'),
   /** Days a resolved issue is kept after it was marked done. */
@@ -94,6 +95,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   run_out_minutes: 15,
   edit_grace_minutes: 60,
   after_service_checklist_minutes: 120,
+  after_service_checklist_opens_minutes: 20,
   issues_raise_scope: 'team',
   issue_retention_days: 14,
   issue_open_minutes_before: 60,
@@ -123,7 +125,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error
