@@ -78,7 +78,7 @@ export function ExportVolunteersDialog({
       if (isOwner && includeCompliance) {
         const { data, error: readError } = await supabase
           .from('profile_sensitive')
-          .select('user_id, visa_type, has_dbs, visa_expiry')
+          .select('user_id, visa_type, has_dbs, visa_expiry, visa_note')
         if (readError) throw readError
         sensitive = new Map()
         for (const row of data ?? []) {
@@ -191,7 +191,7 @@ export function ExportVolunteersDialog({
               <span>
                 Include compliance details
                 <span className="block text-label-md text-on-surface-faint">
-                  Visa type, visa expiry and DBS status, on their own sheet. Personal data — the
+                  Visa type, visa expiry, visa comment and DBS status, on their own sheet. Personal data — the
                   file won’t protect it, so keep it somewhere that will.
                 </span>
               </span>

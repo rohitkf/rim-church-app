@@ -37,7 +37,7 @@ export function ProfilePage() {
     if (!profile) return
     supabase
       .from('profile_sensitive')
-      .select('visa_type, has_dbs, visa_expiry, visa_has_expiry')
+      .select('visa_type, has_dbs, visa_expiry, visa_has_expiry, visa_note')
       .eq('user_id', profile.id)
       .single()
       .then(({ data }) => {
@@ -92,6 +92,8 @@ export function ProfilePage() {
               visa_has_expiry: isSettledStatus(sensitive.visa_type)
                 ? false
                 : sensitive.visa_has_expiry ?? null,
+              // Blank is no note at all.
+              visa_note: sensitive.visa_note?.trim() || null,
             })
             .eq('user_id', profile!.id)
         : Promise.resolve({ error: null }),
@@ -229,6 +231,30 @@ export function ProfilePage() {
                     />
                   </label>
                 )}
+              </>
+            )}
+            {/* For what a date cannot say: an application still being
+                decided, a renewal sent off. Any status can carry one. */}
+            {sensitive.visa_type && (
+              <>
+                <label className={labelClasses}>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span>
+                      Comment <span className="font-normal text-on-surface-faint">(optional)</span>
+                    </span>
+                    <span className="font-mono text-label-sm tabular text-on-surface-faint">
+                      {(sensitive.visa_note ?? '').length}/300
+                    </span>
+                  </span>
+                  <textarea
+                    value={sensitive.visa_note ?? ''}
+                    onChange={(e) => setSensitive({ ...sensitive, visa_note: e.target.value })}
+                    maxLength={300}
+                    rows={3}
+                    placeholder="e.g. Applied for a Graduate visa on 3 October, waiting on a decision"
+                    className="w-full rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
+                  />
+                </label>
               </>
             )}
             {/* `items-start` and a nudged box: with `items-center` a label
