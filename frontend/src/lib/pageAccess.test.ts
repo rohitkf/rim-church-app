@@ -59,7 +59,9 @@ describe('the page rules', () => {
   })
 
   it('has a rule for every page in the menu', () => {
-    for (const item of NAV_ITEMS) expect(ruleFor(item.to), item.to).not.toBeNull()
+    for (const item of NAV_ITEMS) {
+      for (const to of item.tabs ?? [item.to]) expect(ruleFor(to), to).not.toBeNull()
+    }
   })
 
   it('never offers a default that is not one of its own choices', () => {

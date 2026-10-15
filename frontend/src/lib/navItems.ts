@@ -5,7 +5,6 @@ import {
   FeedbackIcon,
   GiftHeartIcon,
   CalendarIcon,
-  ChecklistIcon,
   NotebookIcon,
   ClipboardUserIcon,
   MusicIcon,
@@ -16,9 +15,9 @@ import {
   PollIcon,
   WarningIcon,
   MessageIcon,
-  UserCheckIcon,
   UsersIcon,
 } from '../components/icons'
+import { SERVING_PATH, SERVING_TABS } from './serving'
 
 /**
  * A destination. Who it is offered to is lib/pageAccess's (the church's
@@ -48,18 +47,23 @@ export type NavItem = DockItem
  *      the teams, the people, the cupboard.
  *
  * The dock's phone window slides along this list (lib/dockWindow), so the
- * order is not only a menu but the path along it: from Availability the
- * next step right is the rota built from it, and the one after is the
- * checklist for the morning. Getting it wrong costs a tap every time.
+ * order is not only a menu but the path along it. Getting it wrong costs
+ * a tap every time.
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday' },
 
   // Your Sunday, in the order it happens to you, ending with the songs.
-  { to: '/availability', label: 'Availability', icon: UserCheckIcon, group: 'Sunday' },
-  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, group: 'Sunday' },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, group: 'Sunday' },
+  // Answering, being put on and ticking it off are one job in three steps,
+  // so they are one destination with a tab each (lib/serving).
+  {
+    to: SERVING_PATH,
+    label: 'Serving',
+    icon: ClipboardUserIcon,
+    group: 'Sunday',
+    tabs: SERVING_TABS.map((tab) => tab.to),
+  },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.

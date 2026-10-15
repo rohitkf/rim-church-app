@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useCallback, useMemo, useState } from 'react'
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -682,8 +683,12 @@ export function ChecklistsIndexPage() {
 
             {mineFirst.length === 0 ? (
               <p className="mt-6 text-body-sm text-on-surface-variant">
-                You have no role on the rota for this service. Your team head assigns roles under Team
-                Rota.
+                Your checklist appears here once the rota puts you on a role for this service. Your
+                team head assigns roles under{' '}
+                <Link to="/rota" className="text-secondary hover:underline">
+                  Team Rota
+                </Link>
+                .
               </p>
             ) : (
               <ServiceSections

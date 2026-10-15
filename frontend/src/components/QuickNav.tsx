@@ -62,8 +62,9 @@ export function QuickNavButton({
   activeRef.current = active
 
   const here =
-    items.find((i) => (i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)))?.to ??
-    null
+    items.find((i) =>
+      [i.to, ...(i.tabs ?? [])].some((to) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))),
+    )?.to ?? null
 
   const clearTimer = () => {
     if (timer.current !== null) window.clearTimeout(timer.current)
