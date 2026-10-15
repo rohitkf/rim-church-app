@@ -144,6 +144,7 @@ export function DockNav({
     >
       <div
         ref={barRef}
+        data-tour="dock"
         className="pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-surface-container)_88%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl"
       >
         {/*

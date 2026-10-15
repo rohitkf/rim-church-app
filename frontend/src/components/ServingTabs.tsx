@@ -26,7 +26,7 @@ export function ServingTabs() {
   if (tabs.length < 2) return null
 
   return (
-    <nav aria-label="Serving" className="mb-6">
+    <nav aria-label="Serving" data-tour="serving-tabs" className="mb-6">
       {/* All three fit a 360px phone side by side: tight padding there,
           roomier from sm up. */}
       <ol className="flex w-full gap-0.5 rounded-full bg-inset p-1 hairline sm:inline-flex sm:w-auto sm:gap-1">

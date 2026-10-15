@@ -590,6 +590,12 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'They are kept until somebody clears them (0128). A request still waiting on a Head cannot be cleared.',
       },
       {
+        action: 'Send the tour of the app to somebody, and see who has taken it',
+        key: 'people.onboard',
+        can: granted('people.onboard'),
+        note: '“Their team” sends it to people on their own team. The tour itself is cut by the standing of whoever receives it.',
+      },
+      {
         action: 'Remove somebody’s account',
         key: 'people.remove',
         can: granted('people.remove'),

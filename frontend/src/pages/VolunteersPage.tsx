@@ -580,14 +580,14 @@ export function VolunteersPage() {
         description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
         action={
           <span className="flex flex-wrap items-center gap-2">
-            <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading}>
+            <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading} data-tour="people-export">
               Export
             </ActionButton>
             {/* Somebody has to be told the app exists before they can appear
                 on this page at all — which is exactly the page you are on
                 when you notice they are missing. */}
             {can('people.invite') && (
-              <ActionButton onClick={() => setInviting(true)} glyph={<span aria-hidden="true">✉</span>}>
+              <ActionButton onClick={() => setInviting(true)} glyph={<span aria-hidden="true">✉</span>} data-tour="people-invite">
                 Invite
               </ActionButton>
             )}

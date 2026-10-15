@@ -30,6 +30,7 @@ export const NOTIFICATION_TYPES = [
   'feedback_answered',
   'family_link_request',
   'family_link_answered',
+  'tour_pushed',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -63,6 +64,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // from the card on the dashboard; an answer is seen on the profile.
   family_link_request: { label: 'Somebody has added you to their family', href: '/' },
   family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
+  tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.

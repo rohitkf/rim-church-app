@@ -378,6 +378,7 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        data-tour="search"
         aria-label={`Search — ${shortcutSpoken(platform)}`}
         aria-keyshortcuts={platform.platform && /mac|iphone|ipad/i.test(platform.platform) ? 'Meta+K' : 'Control+K'}
         className="tap flex w-full min-w-0 max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-500 ease-[var(--ease-glide)] hover:ring-secondary/50 dark:bg-surface-container dark:ring-white/10"

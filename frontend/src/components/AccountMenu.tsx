@@ -74,6 +74,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account"
+        data-tour="account"
         className="flex h-10 w-10 items-center justify-center rounded-full sm:h-9 sm:w-9 bg-surface-container font-mono text-label-sm text-on-surface hover:bg-surface-high"
       >
         {initials || <UserCircleIcon width={18} height={18} />}

@@ -115,7 +115,8 @@ export function PageHeader({
   action?: ReactNode
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">
+    // `data-tour`: what the tour points at when a step is about the page itself.
+    <header data-tour="page-title" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">
       <div className="max-w-2xl">
         {eyebrow && (
           <span className="flex items-center gap-2.5">
@@ -172,6 +173,7 @@ export function ActionButton({
   'aria-label': ariaLabel,
   'aria-expanded': ariaExpanded,
   'aria-controls': ariaControls,
+  'data-tour': dataTour,
 }: {
   children: ReactNode
   glyph?: ReactNode
@@ -186,6 +188,8 @@ export function ActionButton({
   /** For a button that opens something: a disclosure is still a button. */
   'aria-expanded'?: boolean
   'aria-controls'?: string
+  /** What the tour calls this button, when it points at it (components/Tour). */
+  'data-tour'?: string
 }) {
   // A small button is 32px tall, which a cursor hits and a thumb misses.
   // `tap` gives it the touch floor without changing how it looks on a
@@ -202,6 +206,7 @@ export function ActionButton({
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
       aria-controls={ariaControls}
+      data-tour={dataTour}
       className={`inline-flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
     >
       {/* Wrapped, because a text glyph ("+") beside text children would
