@@ -323,3 +323,26 @@ describe('events that are over', () => {
     expect(diary).toEqual([])
   })
 })
+
+describe('a couple in the diary', () => {
+  const pair = [
+    { id: 'h', first_name: 'Rohit', last_name: 'Francis', dob: null, anniversary: '2025-09-04' },
+    { id: 'w', first_name: 'Jolsna', last_name: 'Rohit', dob: null, anniversary: '2025-09-04' },
+  ]
+
+  it('is one anniversary entry carrying both names, and says "1 year"', () => {
+    const diary = buildDiary({ people: pair, couples: [{ a: 'h', b: 'w' }], services: [], events: [], today: TODAY })
+    expect(diary).toHaveLength(1)
+    expect(diary[0]).toMatchObject({
+      kind: 'anniversary',
+      date: '2026-09-04',
+      couple: ['Jolsna Rohit', 'Rohit Francis'],
+      detail: '1 year',
+    })
+  })
+
+  it('is two entries when nobody says they are married', () => {
+    const diary = buildDiary({ people: pair, services: [], events: [], today: TODAY })
+    expect(diary.map((e) => e.couple)).toEqual([null, null])
+  })
+})

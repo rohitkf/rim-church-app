@@ -1,4 +1,4 @@
-import { upcomingCelebrations, type Person } from './celebrations'
+import { upcomingCelebrations, type Couple, type Person } from './celebrations'
 import { shiftIsoDays } from './rotaWindow'
 import { dayCount, daysBetween } from './dateRange'
 
@@ -39,6 +39,8 @@ export interface DiaryEntry {
    * identical events somebody entered by mistake.
    */
   span?: { from: string; to: string; day: number; of: number } | null
+  /** A couple's anniversary: the two of them, drawn one under the title. */
+  couple?: [string, string] | null
 }
 
 /**
@@ -100,6 +102,7 @@ export const DIARY_WINDOW_DAYS = 365
 
 export function buildDiary({
   people,
+  couples = [],
   services,
   events,
   today,
@@ -107,6 +110,8 @@ export function buildDiary({
   includePast = false,
 }: {
   people: Person[]
+  /** Who is married to whom, so a couple's anniversary is one entry. */
+  couples?: Couple[]
   services: DiaryService[]
   events: DiaryEvent[]
   today: string
@@ -128,12 +133,13 @@ export function buildDiary({
   const horizon = shiftIsoDays(today, windowDays)
   const pastFloor = shiftIsoDays(today, -windowDays)
 
-  for (const occasion of upcomingCelebrations(people, today, windowDays)) {
+  for (const occasion of upcomingCelebrations(people, today, windowDays, couples)) {
     entries.push({
       id: occasion.id,
       kind: occasion.kind,
       date: occasion.nextIso,
       title: occasion.name,
+      couple: occasion.couple?.names ?? null,
       detail:
         occasion.years === null
           ? occasion.kind === 'birthday'
@@ -141,7 +147,7 @@ export function buildDiary({
             : 'Anniversary'
           : occasion.kind === 'birthday'
             ? `Turns ${occasion.years}`
-            : `${occasion.years} years`,
+            : `${occasion.years} ${occasion.years === 1 ? 'year' : 'years'}`,
     })
   }
 

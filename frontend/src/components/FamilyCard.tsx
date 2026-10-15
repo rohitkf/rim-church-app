@@ -69,6 +69,8 @@ export function FamilyCard() {
     onSuccess: (_data, { said }) => {
       setError(null)
       showToast(said)
+      // The diary pairs couples' anniversaries from the same links.
+      void queryClient.invalidateQueries({ queryKey: ['married-couples'] })
       return queryClient.invalidateQueries({ queryKey: FAMILY_KEY })
     },
     onError: (err: unknown) => {
@@ -607,6 +609,8 @@ export function FamilyRequests() {
     onSuccess: (_data, { accept }) => {
       setError(null)
       showToast(accept ? 'Linked — your family is updated' : 'Request declined')
+      // The diary pairs couples' anniversaries from the same links.
+      void queryClient.invalidateQueries({ queryKey: ['married-couples'] })
       return queryClient.invalidateQueries({ queryKey: FAMILY_KEY })
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not answer that.')),

@@ -73,3 +73,54 @@ describe('whenLabel', () => {
     expect(whenLabel(30)).toBe('In 4 weeks')
   })
 })
+
+describe('a couple shares one anniversary', () => {
+  const people = [
+    { id: 'r', first_name: 'Rohit', last_name: 'Francis', dob: null, anniversary: '2025-07-11' },
+    { id: 'j', first_name: 'Jolsna', last_name: 'Rohit', dob: null, anniversary: '2025-07-11' },
+    { id: 'n', first_name: 'Nijimol', last_name: 'Augustine', dob: null, anniversary: '2015-08-05' },
+    { id: 'b', first_name: 'Jiby', last_name: 'Jacob', dob: null, anniversary: null },
+    { id: 'x', first_name: 'Ama', last_name: 'Owusu', dob: null, anniversary: '2010-07-01' },
+    { id: 'y', first_name: 'Kofi', last_name: 'Owusu', dob: null, anniversary: '2010-07-02' },
+    { id: 's', first_name: 'Sam', last_name: 'Single', dob: null, anniversary: '2012-07-20' },
+  ]
+  const couples = [
+    { a: 'j', b: 'r' },
+    { a: 'b', b: 'n' },
+    { a: 'x', b: 'y' },
+  ]
+  const found = upcomingCelebrations(people, '2026-06-01', 120, couples).filter(
+    (o) => o.kind === 'anniversary',
+  )
+
+  it('draws a couple with the same date once, with both names', () => {
+    const pair = found.filter((o) => o.couple?.ids.includes('r'))
+    expect(pair).toHaveLength(1)
+    expect(pair[0].couple?.names).toEqual(['Jolsna Rohit', 'Rohit Francis'])
+    expect(pair[0].name).toBe('Jolsna Rohit & Rohit Francis')
+    expect(pair[0].years).toBe(1)
+    expect(found.some((o) => o.personId === 'j' && !o.couple)).toBe(false)
+  })
+
+  it('pairs them when only one of the two filled the date in', () => {
+    const pair = found.find((o) => o.couple?.ids.includes('n'))
+    expect(pair?.couple?.names).toEqual(['Jiby Jacob', 'Nijimol Augustine'])
+    expect(pair?.nextIso).toBe('2026-08-05')
+    expect(pair?.years).toBe(11)
+  })
+
+  it('leaves two different dates as two entries rather than guessing', () => {
+    expect(found.filter((o) => o.personId === 'x' || o.personId === 'y').map((o) => o.couple)).toEqual([
+      undefined,
+      undefined,
+    ])
+  })
+
+  it('leaves somebody with no spouse on the app on their own', () => {
+    expect(found.find((o) => o.personId === 's')?.couple).toBeUndefined()
+  })
+
+  it('changes nothing without couples', () => {
+    expect(upcomingCelebrations(people, '2026-06-01', 120).every((o) => !o.couple)).toBe(true)
+  })
+})
