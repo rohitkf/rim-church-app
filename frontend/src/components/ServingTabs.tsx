@@ -17,15 +17,17 @@ export function ServingTabs() {
   if (tabs.length < 2) return null
 
   return (
-    <nav aria-label="Serving" className="mb-6 -mx-1 overflow-x-auto px-1 pb-1">
-      <ol className="flex w-full min-w-max gap-1 rounded-full bg-inset p-1 hairline sm:w-auto sm:min-w-0 sm:inline-flex">
+    <nav aria-label="Serving" className="mb-6">
+      {/* All three fit a 360px phone side by side: tight padding there,
+          roomier from sm up. */}
+      <ol className="flex w-full gap-0.5 rounded-full bg-inset p-1 hairline sm:inline-flex sm:w-auto sm:gap-1">
         {tabs.map((tab, index) => (
-          <li key={tab.to} className="flex-1 sm:flex-none">
+          <li key={tab.to} className="min-w-0 flex-1 sm:flex-none">
             <NavLink
               to={tab.to}
               title={tab.hint}
               className={({ isActive }) =>
-                `tap flex items-center justify-center gap-2 rounded-full px-4 py-2 text-label-md transition-colors duration-300 ease-[var(--ease-glide)] ${
+                `tap flex items-center justify-center gap-1.5 rounded-full px-2 py-2 text-label-md sm:gap-2 sm:px-4 transition-colors duration-300 ease-[var(--ease-glide)] ${
                   isActive ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
                 }`
               }
@@ -34,13 +36,15 @@ export function ServingTabs() {
                 <>
                   <span
                     aria-hidden="true"
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label-sm ${
+                    // On the narrowest phones the words matter more than
+                    // the numbers; the order still reads left to right.
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label-sm max-[379px]:hidden ${
                       isActive ? 'bg-on-primary/20' : 'bg-raised-strong'
                     }`}
                   >
                     {index + 1}
                   </span>
-                  <span className="whitespace-nowrap">{tab.label}</span>
+                  <span className="truncate whitespace-nowrap">{tab.label}</span>
                 </>
               )}
             </NavLink>
