@@ -27,3 +27,52 @@ export function isServingPath(pathname: string): boolean {
     SERVING_TABS.some((tab) => pathname === tab.to || pathname.startsWith(`${tab.to}/`))
   )
 }
+
+/**
+ * Which step Serving opens on: the one that is waiting for you.
+ *
+ * Judged on the next service day (the soonest with services, today
+ * included), because that is the Sunday in front of everybody:
+ *
+ *   - put on the rota for it      → Checklists: the rota has spoken, and
+ *                                   what is left is your list for the day
+ *   - not yet answered for it     → Availability: every team you are on
+ *                                   or lead, for every service that day
+ *   - answered, not on the rota   → Team Rota: see who was put on
+ *
+ * Somebody on no team has nothing to answer, so they start on the rota.
+ * A step this person may not open is passed over for the next one that
+ * they may.
+ */
+export function servingStep({
+  canOpen,
+  nextDayServiceIds,
+  myTeamIds,
+  answered,
+  onRota,
+}: {
+  canOpen: (path: string) => boolean
+  /** The services on the next service day. */
+  nextDayServiceIds: string[]
+  /** Teams this person answers for: their roster and the ones they lead. */
+  myTeamIds: string[]
+  /** Their answers, as (service, team) pairs. */
+  answered: { service_id: string; department_id: string }[]
+  /** Services they are on the rota for. */
+  onRota: string[]
+}): string {
+  const order = (preferred: string) => {
+    const at = SERVING_TABS.findIndex((t) => t.to === preferred)
+    const pick = [...SERVING_TABS.slice(at), ...SERVING_TABS.slice(0, at)].find((t) => canOpen(t.to))
+    return pick?.to ?? '/'
+  }
+
+  const day = new Set(nextDayServiceIds)
+  if (onRota.some((id) => day.has(id))) return order('/checklists')
+
+  const given = new Set(answered.map((a) => `${a.service_id}:${a.department_id}`))
+  const stillToAnswer = nextDayServiceIds.some((s) => myTeamIds.some((t) => !given.has(`${s}:${t}`)))
+  if (stillToAnswer) return order('/availability')
+
+  return order('/rota')
+}
