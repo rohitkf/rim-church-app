@@ -408,6 +408,13 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
+  'people.onboard': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    coordinator: fixed(),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
   'people.remove': {
     admin: offer('none all', 'all'),
     head: fixed(),

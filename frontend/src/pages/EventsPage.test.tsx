@@ -19,6 +19,8 @@ const TODAY = '2026-09-13'
 
 const state = vi.hoisted(() => ({
   events: [] as Record<string, unknown>[],
+  people: [] as Record<string, unknown>[],
+  couples: [] as { a: string; b: string }[],
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
 }))
 
@@ -42,10 +44,12 @@ vi.mock('../lib/queries', () => ({
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string) =>
+      Promise.resolve(fn === 'married_couples' ? { data: state.couples, error: null } : { data: null, error: { message: 'no' } }),
     from: (table: string) => ({
       select: () => {
         const rows = Promise.resolve({
-          data: table === 'church_events' ? state.events : [],
+          data: table === 'church_events' ? state.events : table === 'profiles' ? state.people : [],
           error: null,
         })
         return Object.assign(rows, { order: () => rows })
@@ -88,6 +92,8 @@ const meeting = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   state.events = [meeting()]
   state.written = []
+  state.people = []
+  state.couples = []
 })
 
 function show() {
@@ -352,5 +358,39 @@ describe('events that are over', () => {
     const past = await openPast()
     expect(within(past).getByText('Last spring')).toBeInTheDocument()
     expect(within(past).queryByText('Two summers ago')).toBeNull()
+  })
+})
+
+/*
+ * A husband and wife were two rows on the same day, each with the same
+ * number of years. Linked as each other's spouse, they are one.
+ */
+describe("a couple's anniversary", () => {
+  const people = [
+    { id: 'r', first_name: 'Rohit', last_name: 'Francis', dob: null, anniversary: '2025-09-20' },
+    { id: 'j', first_name: 'Jolsna', last_name: 'Rohit', dob: null, anniversary: '2025-09-20' },
+  ]
+
+  it('is one row: the occasion, then both names', async () => {
+    state.events = []
+    state.people = people
+    state.couples = [{ a: 'j', b: 'r' }]
+    show()
+    const title = await screen.findByText('Wedding anniversary')
+    const row = title.closest('li') as HTMLElement
+    expect(row.textContent).toContain('Jolsna Rohit & Rohit Francis')
+    expect(row.textContent).toContain('1 year')
+    expect(row.textContent).not.toContain('1 years')
+    expect(screen.getAllByText('Wedding anniversary')).toHaveLength(1)
+    expect(screen.queryByText('Rohit Francis')).toBeNull()
+  })
+
+  it('stays two rows for two people nobody has linked', async () => {
+    state.events = []
+    state.people = people
+    show()
+    expect(await screen.findByText('Rohit Francis')).toBeTruthy()
+    expect(screen.getByText('Jolsna Rohit')).toBeTruthy()
+    expect(screen.queryByText('Wedding anniversary')).toBeNull()
   })
 })

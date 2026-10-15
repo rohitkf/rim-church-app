@@ -92,6 +92,7 @@ export function JoinTeamPanel({ departments, memberDeptIds, myRequests }: JoinTe
   if (options.length === 0) return null
 
   return (
+    <div data-tour="join-team">
     <Panel
       title="Join a team"
       icon={UsersIcon}
@@ -128,6 +129,7 @@ export function JoinTeamPanel({ departments, memberDeptIds, myRequests }: JoinTe
         ))}
       </ul>
     </Panel>
+    </div>
   )
 }
 

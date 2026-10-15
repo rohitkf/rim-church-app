@@ -40,6 +40,9 @@ const T = {
   profiles: [{ ...me, dob: '1990-01-01', anniversary: null, welcomed_at: now, onboarded_at: now, marital_status: 'single' }],
   user_roles: [{ id: 'r1', role_type: 'admin', department_id: null, service_id: null }],
   departments: [media, worship],
+  // Toured already: a sweep of every page is not the place for the tour
+  // to start itself over each one.
+  onboarding: [{ user_id: 'u1', seen: Object.fromEntries(['welcome', 'around', 'church', 'serving', 'team', 'talk', 'leading', 'running', 'owner'].map((k) => [k, now])), pushed_at: null, pushed_by: null }],
   department_members: [{ id: 'm1', department_id: 'd1', user_id: 'u1', member_type: 'core', created_at: now, profiles: me }],
   // Two services every Sunday; today's both already over, English first.
   services: [svc('p1', -7, 'English Service'), svc('p2', -7, 'Malayalam Service'),

@@ -238,7 +238,7 @@ export function MessageBoardPage() {
 
 
       {canPost && (
-        <form onSubmit={handleSubmit} className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
+        <form onSubmit={handleSubmit} data-tour="board-composer" className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
           <MentionInput
             value={body}
             onChange={setBody}

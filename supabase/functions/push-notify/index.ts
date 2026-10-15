@@ -50,6 +50,7 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   feedback_answered: { label: 'Your feedback has an answer', href: '/feedback' },
   family_link_request: { label: 'Somebody has added you to their family', href: '/' },
   family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
+  tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {

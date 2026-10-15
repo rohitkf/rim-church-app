@@ -16,6 +16,7 @@ import { AppearanceCard } from '../components/AppearanceCard'
 import { PageAccessCard } from '../components/PageAccessCard'
 import { RetentionCard } from '../components/RetentionCard'
 import { DisplayCard } from '../components/DisplayCard'
+import { OnboardingCard } from '../components/OnboardingCard'
 import { useAppSettings } from '../lib/appSettings'
 import { withPageAccess } from '../lib/permissionMatrix'
 import type { PageAccess } from '../lib/pageAccess'
@@ -110,7 +111,7 @@ export function SettingsPage() {
         </nav>
 
         <div className="w-full min-w-0 max-w-4xl flex-1">
-          <header className="mb-6 flex items-start gap-4">
+          <header data-tour="page-title" className="mb-6 flex items-start gap-4">
             <IconBadge icon={current.icon} tone={current.tone} size="lg" className="mt-1" />
             <div className="min-w-0">
               <Eyebrow>Settings</Eyebrow>
@@ -198,6 +199,7 @@ function SettingsHome({ groups }: { groups: SettingsGroup[] }) {
                 <li key={section.to}>
                   <Link
                     to={section.to}
+                    data-tour={`settings:${section.to}`}
                     className="group/row flex items-center gap-4 px-5 py-4 transition-colors duration-300 hover:bg-raised"
                   >
                     <IconBadge icon={section.icon} tone={section.tone} />
@@ -288,6 +290,11 @@ export function DisplaySettingsPane() {
 /** The loudest thing the app can do, and who it is aimed at. */
 export function SendAlertPane() {
   return <SendAlertCard />
+}
+
+/** The tour of the app: send it to everyone or a few, and see who has taken it. */
+export function OnboardingPane() {
+  return <OnboardingCard />
 }
 
 /** The church's clocks: when things open, close and clear. */

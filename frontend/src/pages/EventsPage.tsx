@@ -48,6 +48,21 @@ async function fetchPeople() {
   return z.array(personSchema).parse(data)
 }
 
+const coupleSchema = z.object({ a: z.string(), b: z.string() })
+
+/**
+ * Who is married to whom (0152), so a couple's anniversary is drawn once.
+ *
+ * Until that migration is on the database the call fails; the diary then
+ * draws each person's anniversary on its own, as it always did, rather
+ * than losing the whole page over a nicety.
+ */
+async function fetchCouples() {
+  const { data, error } = await supabase.rpc('married_couples')
+  if (error) return []
+  return z.array(coupleSchema).parse(data ?? [])
+}
+
 /**
  * The dot a day wears in the calendar, and the chip a row wears in the list.
  *
@@ -93,7 +108,27 @@ function DiaryRow({
   onEdit: (entry: DiaryEntry) => void
   onRemove: (entry: DiaryEntry) => void
 }) {
-  const body = (
+  const body = entry.couple ? (
+    // A couple's anniversary is one occasion with two people in it: the
+    // occasion as the title, and the two of them underneath.
+    <div className="flex w-full flex-col gap-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE.anniversary.chip}`}
+        >
+          Wedding anniversary
+        </span>
+        {entry.detail && (
+          <span className="min-w-0 break-words text-body-sm text-on-surface-variant">
+            {entry.detail}
+          </span>
+        )}
+      </div>
+      <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
+        {entry.couple[0]} <span className="text-on-surface-variant">&amp;</span> {entry.couple[1]}
+      </span>
+    </div>
+  ) : (
     <div className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1">
       {entry.color && <TeamMark color={entry.color} />}
       <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
@@ -257,6 +292,7 @@ export function EventsPage() {
   const { ask, dialog } = useConfirmAction()
 
   const peopleQuery = useQuery({ queryKey: ['diary-people'], queryFn: fetchPeople })
+  const couplesQuery = useQuery({ queryKey: ['married-couples'], queryFn: fetchCouples })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const eventsQuery = useQuery({ queryKey: ['church-events'], queryFn: fetchEvents })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -274,6 +310,7 @@ export function EventsPage() {
     () =>
       buildDiary({
         people: peopleQuery.data ?? [],
+        couples: couplesQuery.data ?? [],
         services: servicesQuery.data ?? [],
         events: eventsQuery.data ?? [],
         today,
@@ -282,7 +319,7 @@ export function EventsPage() {
         // nothing ever happened in it is a calendar lying by omission.
         includePast: true,
       }),
-    [peopleQuery.data, servicesQuery.data, eventsQuery.data, today],
+    [peopleQuery.data, couplesQuery.data, servicesQuery.data, eventsQuery.data, today],
   )
 
   const byDate = useMemo(() => {

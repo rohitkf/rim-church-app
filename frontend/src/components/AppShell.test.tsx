@@ -66,7 +66,7 @@ describe('AppShell dock', () => {
     // Messages is one of the teams' own pages, so it arrives with the
     // answer to "is this person on a team" rather than on first paint.
     expect(await screen.findByRole('link', { name: 'Messages' })).toBeInTheDocument()
-    for (const label of ['Dashboard', 'Service Planner', 'Checklists', 'Teams']) {
+    for (const label of ['Dashboard', 'Service Planner', 'Serving', 'Teams']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
@@ -82,6 +82,7 @@ describe('AppShell dock', () => {
         'Inventory',
         'Messages',
         'Team Chat',
+        'Serving',
         'Checklists',
         'Availability',
         'Team Rota',
@@ -138,7 +139,7 @@ describe('AppShell dock', () => {
     await user.click(screen.getByRole('button', { name: 'More' }))
 
     const sheet = screen.getByRole('dialog', { name: 'All destinations' })
-    for (const label of ['Dashboard', 'Service Planner', 'Checklists', 'Team Rota']) {
+    for (const label of ['Dashboard', 'Service Planner', 'Serving', 'Set Lists']) {
       expect(within(sheet).getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
@@ -180,7 +181,7 @@ describe('AppShell dock', () => {
       </QueryClientProvider>,
     )
     expect(await screen.findByRole('link', { name: 'Messages' })).not.toHaveClass('hidden')
-    expect(screen.getByRole('link', { name: 'Checklists' })).toHaveClass('hidden')
+    expect(screen.getByRole('link', { name: 'Serving' })).toHaveClass('hidden')
   })
 
   /*
@@ -209,12 +210,12 @@ describe('AppShell dock', () => {
     }
 
     it('shows what comes next, not just what came before', async () => {
-      // Checklists is well past the three the bar used to hold. The one
-      // after it has to be reachable in a tap, which is the complaint.
-      await standOn('/checklists', 'Checklists')
-      expect(onBar('Team Rota')).toBe(true)
-      expect(onBar('Checklists')).toBe(true)
-      // The one after a checklist is the songs, the last of the Sunday.
+      // Standing on a checklist is standing on Serving, the third of the
+      // bar; the one after it has to be reachable in a tap.
+      await standOn('/checklists', 'Serving')
+      expect(onBar('Service Planner')).toBe(true)
+      expect(onBar('Serving')).toBe(true)
+      // After serving come the songs, the last of the Sunday.
       expect(onBar('Set Lists')).toBe(true)
       expect(onBar('Dashboard')).toBe(false)
     })
@@ -229,10 +230,10 @@ describe('AppShell dock', () => {
     it('stops at the beginning rather than wrapping', async () => {
       // Waiting on a team-only link: they arrive after the memberships
       // query, and the window is not settled until they are all in.
-      await standOn('/', 'Availability')
+      await standOn('/', 'Serving')
       expect(onBar('Dashboard')).toBe(true)
       expect(onBar('Service Planner')).toBe(true)
-      expect(onBar('Availability')).toBe(true)
+      expect(onBar('Serving')).toBe(true)
       expect(onBar('Inventory')).toBe(false)
     })
 
@@ -240,24 +241,24 @@ describe('AppShell dock', () => {
       // Two blues would fight: the pill is behind, the link carries only
       // its text colour, and the pill measures itself against the link
       // marked as current.
-      await standOn('/checklists', 'Checklists')
+      await standOn('/checklists', 'Serving')
       const dock = screen.getByRole('navigation', { name: 'Main' })
       const pill = dock.querySelector('span.bg-primary')
 
       expect(pill).not.toBeNull()
       expect(pill).toHaveAttribute('aria-hidden', 'true')
       expect(dock.querySelectorAll('[data-dock-active="true"]')).toHaveLength(1)
-      expect(screen.getByRole('link', { name: 'Checklists' })).not.toHaveClass('bg-primary')
+      expect(screen.getByRole('link', { name: 'Serving' })).not.toHaveClass('bg-primary')
     })
 
     it('keeps More, which is still how you jump rather than walk', async () => {
-      await standOn('/checklists', 'Checklists')
+      await standOn('/checklists', 'Serving')
       expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
     })
   })
 
   it('runs the destinations in the order a Sunday happens', async () => {
-    // Answer, then see who was put on, then tick it off on the day. The
+    // Serving (answer, get put on, tick it off), then the songs. The
     // order is the path the dock walks along, so it is worth pinning.
     renderShell()
     await screen.findByRole('link', { name: 'Messages' })
@@ -271,9 +272,7 @@ describe('AppShell dock', () => {
     expect(labels).toEqual([
       'Dashboard',
       'Service Planner',
-      'Availability',
-      'Team Rota',
-      'Checklists',
+      'Serving',
       'Set Lists',
       'Debriefs',
       'Issues',
@@ -296,5 +295,27 @@ describe('AppShell dock', () => {
     expect(screen.getByText('account')).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Dashboard' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('the Serving entry', () => {
+  it('is the current destination on any of its three tabs', async () => {
+    for (const path of ['/availability', '/rota', '/checklists']) {
+      const { unmount } = render(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path={path} element={<div>page</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+      const serving = await screen.findByRole('link', { name: 'Serving' })
+      expect(serving, path).toHaveAttribute('data-dock-active', 'true')
+      expect(serving.textContent, path).toContain('Serving')
+      unmount()
+    }
   })
 })

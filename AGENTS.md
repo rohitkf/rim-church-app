@@ -156,6 +156,10 @@ frontend/src/
   lib/availabilityHistory.ts the log behind each availability answer (0145):
                              written by a trigger only, read per `avail.history`
   lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
+  lib/tour.ts                the tour: chapters by standing, as data; what is due
+  lib/onboarding.ts          what the account remembers of it (0153): seen, sent
+  components/Tour.tsx        the engine: walks the pages, points at `data-tour`
+                             anchors, Next / Back / Skip; starts itself when due
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
   lib/pwa.ts                 install, offline, and the update banner
@@ -281,6 +285,24 @@ Each of these has already cost real time. None of them show up in review.
   **whole query** — and a new column starts closed until a migration
   grants it. `lib/profileColumns.test.ts` reads every select in `src/`
   against the grant; keep it passing rather than loosening it.
+- **Every new function is callable by anyone, signed in or not.** Postgres
+  grants EXECUTE to PUBLIC and Supabase adds anon and authenticated, so a
+  `security definer` helper meant only for a trigger or a cron job is also
+  an RPC that runs with the owner's rights. Either check `auth.uid()` /
+  `may()` inside it, or `revoke all on function … from public, anon,
+  authenticated` in the same migration. 0151 closed five that did neither
+  (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …).
+- **The tour points at `data-tour` anchors.** `PageHeader` is every page's
+  `page-title`; the rest are named where they are drawn (`dock`, `search`,
+  `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,
+  `ready-light`, `board-composer`, `people-invite`, `people-export`, and
+  `settings:<room>` on the Settings hall's tiles). A step whose anchor
+  never turns up falls back to the page's header, then to a card in the
+  middle — so a renamed anchor is a quieter tour, not a broken one, which
+  is why `lib/tour.test.ts` checks every anchor is still written somewhere.
+- **A guard on DELETE is not a guard on UPDATE.** A FOR ALL policy lets
+  the same change through as an edit. `user_roles` has both triggers now
+  (0033 delete, 0151 update); a new "only X may remove Y" rule needs both.
 
 - **`public/sw.js` must keep `const BUILD_ID = '__RIM_BUILD_ID__'`.** A
   browser installs a new service worker only when `sw.js` differs byte for
@@ -307,6 +329,8 @@ with the default `group` it sits under in the More sheet (Sunday, After the serv
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
 never seen lands in its default group, or at the top →
+a step in `lib/tour.ts` for whoever should be shown it (the test holds
+every step to a page and an anchor that exist) →
 a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
 every other page.
 

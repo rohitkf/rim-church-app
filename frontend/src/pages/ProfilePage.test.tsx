@@ -35,6 +35,7 @@ vi.mock('../auth/AuthContext', () => ({
 }))
 
 vi.mock('../components/FamilyCard', () => ({ FamilyCard: () => null }))
+vi.mock('../components/TakeTheTour', () => ({ TakeTheTour: () => null }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {

@@ -19,6 +19,12 @@ export interface DockItem {
    * above them all.
    */
   group?: string
+  /**
+   * The pages this one destination stands for, when it is a set of tabs
+   * (Serving: Availability, Team Rota, Checklists). It is the current
+   * destination on any of them, and offered when any of them may be opened.
+   */
+  tabs?: string[]
 }
 
 
@@ -86,8 +92,9 @@ export function DockNav({
   /** The last place we measured, so a re-render is not a journey. */
   const measured = useRef<{ left: number; width: number } | null>(null)
 
-  const isCurrent = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
-  const activeIndex = items.findIndex((item) => isCurrent(item.to))
+  const onPath = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
+  const isCurrent = (item: DockItem) => onPath(item.to) || (item.tabs ?? []).some(onPath)
+  const activeIndex = items.findIndex((item) => isCurrent(item))
 
   // The window that slides. Always the same number of slots, so the dock
   // never grows or shrinks as you walk along it.
@@ -137,6 +144,7 @@ export function DockNav({
     >
       <div
         ref={barRef}
+        data-tour="dock"
         className="pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-surface-container)_88%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl"
       >
         {/*
@@ -175,9 +183,10 @@ export function DockNav({
               end={item.to === '/'}
               title={item.label}
               // What the pill measures itself against.
-              data-dock-active={isCurrent(item.to) ? 'true' : undefined}
-              className={({ isActive }) =>
-                [
+              data-dock-active={isCurrent(item) ? 'true' : undefined}
+              className={({ isActive: onIt }) => {
+                const isActive = onIt || isCurrent(item)
+                return [
                   'group/dock relative z-10 h-11 items-center justify-center gap-2 rounded-full transition-[color,background-color,width] duration-500 ease-[var(--ease-glide)]',
                   onPhoneBar(index) ? 'flex dock-slot' : 'hidden md:flex',
                   isActive
@@ -186,9 +195,11 @@ export function DockNav({
                       'min-w-0 px-4 text-on-primary'
                     : 'w-11 shrink-0 text-on-surface-variant hover:bg-raised-strong hover:text-on-surface',
                 ].join(' ')
-              }
+              }}
             >
-              {({ isActive }) => (
+              {({ isActive: onIt }) => {
+                const isActive = onIt || isCurrent(item)
+                return (
                 <>
                   <Icon className="shrink-0" width={19} height={19} />
                   {/* Only the current destination spells its name, so the
@@ -217,7 +228,8 @@ export function DockNav({
                     />
                   )}
                 </>
-              )}
+                )
+              }}
             </NavLink>
           )
         })}
@@ -290,7 +302,7 @@ export function DockNav({
                             className={({ isActive }) =>
                               [
                                 'flex min-h-11 items-center gap-3 rounded-[var(--radius-chip)] px-3 text-body-md transition-colors duration-300 ease-[var(--ease-glide)]',
-                                isActive
+                                isActive || isCurrent(item)
                                   ? 'bg-primary text-on-primary'
                                   : 'text-on-surface hover:bg-raised-strong',
                               ].join(' ')

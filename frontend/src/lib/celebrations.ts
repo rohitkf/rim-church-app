@@ -21,7 +21,15 @@ export interface Occasion {
   daysAway: number
   /** How many years it will be — null if the stored year looks unset. */
   years: number | null
+  /**
+   * A couple's anniversary: both of them, by name, in one entry. Absent
+   * for everything that belongs to one person.
+   */
+  couple?: { ids: [string, string]; names: [string, string] }
 }
+
+/** Two accounts married to each other (the adults of one home, 0152). */
+export type Couple = { a: string; b: string }
 
 const DAY_MS = 86_400_000
 
@@ -72,6 +80,7 @@ export function upcomingCelebrations(
   people: Person[],
   todayIso: string,
   windowDays = 60,
+  couples: Couple[] = [],
 ): Occasion[] {
   const out: Occasion[] = []
 
@@ -105,7 +114,53 @@ export function upcomingCelebrations(
     }
   }
 
-  return out.sort((a, b) => a.daysAway - b.daysAway || a.name.localeCompare(b.name))
+  return pairAnniversaries(out, couples, people).sort(
+    (a, b) => a.daysAway - b.daysAway || a.name.localeCompare(b.name),
+  )
+}
+
+/**
+ * A husband and wife share one anniversary, so it is one entry with both
+ * names rather than the same day listed twice.
+ *
+ * Paired when both carry the same date, or when only one of them filled it
+ * in — the other's is the same day whether or not they typed it. Two
+ * different dates are left as two entries: one of them is wrong, and
+ * picking which would be a guess.
+ */
+function pairAnniversaries(occasions: Occasion[], couples: Couple[], people: Person[]): Occasion[] {
+  if (couples.length === 0) return occasions
+  const nameById = new Map(people.map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
+  const anniversaryOf = new Map<string, Occasion>()
+  for (const o of occasions) if (o.kind === 'anniversary') anniversaryOf.set(o.personId, o)
+
+  const taken = new Set<Occasion>()
+  const pairs: Occasion[] = []
+  for (const { a, b } of couples) {
+    const nameA = nameById.get(a)
+    const nameB = nameById.get(b)
+    if (!nameA || !nameB) continue
+    const ofA = anniversaryOf.get(a)
+    const ofB = anniversaryOf.get(b)
+    const one = ofA ?? ofB
+    if (!one || (ofA && taken.has(ofA)) || (ofB && taken.has(ofB))) continue
+    if (ofA && ofB && ofA.nextIso !== ofB.nextIso) continue
+
+    const [x, y] = [
+      { id: a, name: nameA },
+      { id: b, name: nameB },
+    ].sort((p, q) => p.name.localeCompare(q.name))
+    pairs.push({
+      ...one,
+      id: `couple:${x.id}:${y.id}:anniversary`,
+      name: `${x.name} & ${y.name}`,
+      years: ofA?.years ?? ofB?.years ?? null,
+      couple: { ids: [x.id, y.id], names: [x.name, y.name] },
+    })
+    if (ofA) taken.add(ofA)
+    if (ofB) taken.add(ofB)
+  }
+  return [...occasions.filter((o) => !taken.has(o)), ...pairs]
 }
 
 /** "Today", "Tomorrow", "In 6 days" — how far off it is, in words. */

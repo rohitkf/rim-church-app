@@ -10,6 +10,7 @@ import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-qu
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PageGate } from './components/PageGate'
+import { ServingLayout, ServingStart } from './components/ServingTabs'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
@@ -109,6 +110,7 @@ const router = createBrowserRouter(
             <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
+            <Route path="onboarding" lazy={page(() => import('./pages/SettingsPage'), 'OnboardingPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
             {/* App settings was one room holding four. Its old address,
@@ -136,10 +138,15 @@ const router = createBrowserRouter(
             <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
             <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
             <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
-            <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
+            {/* Serving: answer, get put on, tick it off — three steps of
+                one job, so one destination with a tab for each (lib/serving). */}
+            <Route path="/serving" element={<ServingStart />} />
+            <Route element={<ServingLayout />}>
+              <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
+              <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
+              <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
+            </Route>
             <Route path="/checklists/:departmentId/:serviceId" lazy={page(() => import('./pages/DepartmentPrepPage'), 'DepartmentPrepPage')} />
-            <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
-            <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
             <Route path="/inventory" lazy={page(() => import('./pages/InventoryIndexPage'), 'InventoryIndexPage')} />
             <Route path="/inventory/:id" lazy={page(() => import('./pages/InventoryPage'), 'InventoryPage')} />
             {/* Where a scanned label lands; it forwards to the item's own team. */}

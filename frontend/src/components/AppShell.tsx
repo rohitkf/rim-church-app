@@ -20,7 +20,7 @@ import { usePageAccess } from '../lib/usePageAccess'
 import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout } from '../lib/navLayout'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
-import { WelcomeTour } from './WelcomeTour'
+import { Tour } from './Tour'
 import { ViewAsBanner } from './ViewAsBanner'
 import { Toaster } from './Toaster'
 
@@ -85,7 +85,11 @@ export function AppShell() {
   // Only what this person may open, under the church's choices (Settings
   // › Access & privileges) — the same answer PageGate gives at the door.
   const { canOpen } = usePageAccess()
-  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) => canOpen(item.to))
+  // A set of tabs is offered when any one of them may be opened: a Church
+  // Member the rota is open to still has Serving, with the one tab in it.
+  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) =>
+    item.tabs ? item.tabs.some(canOpen) : canOpen(item.to),
+  )
 
   return (
     <div
@@ -173,10 +177,10 @@ export function AppShell() {
         }
       />
 
-      {/* First time in: who you are, what this is for, and the one thing
-          to do about it. Shown once ever, and the once is on the profile
-          rather than in this browser — see WelcomeTour. */}
-      <WelcomeTour />
+      {/* The tour: the app walked page by page, by standing, when chapters
+          are due — and the once is on the account rather than in this
+          browser. See lib/tour and components/Tour. */}
+      <Tour />
 
       <PwaBanners />
 
