@@ -14,6 +14,9 @@ same way.
 
 1. **Work on `develop`, and only `develop`.** Never create a branch. Never
    push to `main` — it is protected and moves only by a pull request.
+   When work is implemented and verified, **open that PR to `main` without
+   being asked** (AGENTS.md §1). Production database changes and function
+   deploys still need the user's explicit yes each time.
 2. **Before pushing**, from `frontend/`: `npx tsc --noEmit -p
    tsconfig.app.json`, `npx tsc --noEmit -p tsconfig.node.json`, `npx
    vitest run`, `npm run build`. All clean, every time.

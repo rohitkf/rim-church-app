@@ -15,6 +15,18 @@ Keep this file current in the same pull request that changes what it says.
   branches. If one seems necessary, ask first.
 - **Never push to `main`.** It is protected and it moves only by a pull
   request from `develop`.
+- **When the work is implemented and verified, open the pull request to
+  `main` — every time, without being asked.** "Verified" means the four
+  commands in §2 are clean and, for anything a person sees, `/verify` has
+  been run on the built app. The PR merges itself once CI is green and
+  Vercel deploys it, so say that in the PR body, what was and was not
+  checked, and which migrations or functions it depends on. Then watch it
+  to merged and deployed. If a PR from `develop` is already open, new
+  commits ride it; do not open a second.
+- Opening the PR is the only thing that is pre-approved. **Applying a
+  migration to production, deploying an edge function, and sending
+  anything to real people still each need the user's explicit yes for
+  that action**, as before.
 - A merged pull request is finished. Follow-up work is a new PR.
 
 ## 2. Commands
