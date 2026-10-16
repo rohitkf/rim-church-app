@@ -17,6 +17,7 @@ import type { MemberType, DepartmentMemberRow, SensitiveByUser } from './types'
 import type { UserRole } from '../auth/types'
 import type { Household, HouseholdMember } from './family'
 import { ageFrom } from './celebrations'
+import { formatPhoneInternational } from './phone'
 
 export interface ExportPerson {
   id: string
@@ -153,7 +154,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       p.first_name,
       p.last_name,
       blank(p.email),
-      blank(p.phone),
+      blank(formatPhoneInternational(p.phone)),
       blank(p.dob),
       blank(p.anniversary),
       teamsFor(p.id, 'core').join(', '),

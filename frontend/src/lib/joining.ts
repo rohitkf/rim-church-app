@@ -76,6 +76,8 @@ export interface JoiningAnswers {
   visaHasExpiry: boolean | null
   visaExpiry: string
   hasDbs: boolean | null
+  /** Optional: what a date cannot say about the visa. */
+  visaNote: string
 }
 
 /**
@@ -138,6 +140,7 @@ export function toProfileRows(answers: JoiningAnswers): {
       visa_has_expiry: settled ? false : answers.visaHasExpiry,
       visa_expiry: settled || answers.visaHasExpiry !== true ? null : answers.visaExpiry || null,
       has_dbs: answers.hasDbs === true,
+      visa_note: answers.visaNote.trim() || null,
     },
   }
 }

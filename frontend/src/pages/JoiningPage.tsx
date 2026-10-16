@@ -5,6 +5,10 @@ import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
 import { AppMark } from '../components/AppMark'
+import { PhoneField } from '../components/PhoneField'
+import { AgeNote } from '../components/AgeNote'
+import { VisaNoteField } from '../components/VisaNoteField'
+import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import {
   MARITAL_STATUSES,
@@ -88,6 +92,8 @@ export function JoiningPage() {
   const [error, setError] = useState<string | null>(null)
   /** Set on the first attempt to finish, so nothing is red before it is due. */
   const [tried, setTried] = useState(false)
+  /** Whether what is in the phone box is a number; the box itself knows. */
+  const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('empty')
 
   /*
    * What they have typed, over what signing up already knew.
@@ -111,20 +117,23 @@ export function JoiningPage() {
     visaHasExpiry: edits.visaHasExpiry ?? null,
     visaExpiry: edits.visaExpiry ?? '',
     hasDbs: edits.hasDbs ?? null,
+    visaNote: edits.visaNote ?? '',
   }
-
 
   const set = <K extends keyof JoiningAnswers>(key: K, value: JoiningAnswers[K]) =>
     setEdits((current) => ({ ...current, [key]: value }))
 
   const missing = missingAnswers(answers)
+  // A number that is typed but not valid is a problem, not a missing answer.
+  const phoneBad = phoneStatus === 'invalid'
+  const blocked = missing.length > 0 || phoneBad
   const wants = (field: keyof JoiningAnswers) => tried && missing.includes(field)
   const settled = isSettledStatus(answers.visaType)
 
   async function finish(event: FormEvent) {
     event.preventDefault()
     setTried(true)
-    if (missing.length > 0) return
+    if (blocked) return
     if (!profile) return
 
     setSaving(true)
@@ -187,16 +196,14 @@ export function JoiningPage() {
                 />
               </label>
             </div>
-            <label className={labelClasses}>
-              Phone
-              <input
-                value={answers.phone}
-                onChange={(e) => set('phone', e.target.value)}
-                placeholder="07…"
-                inputMode="tel"
-                className={`${inputClasses} ${wants('phone') ? 'ring-1 ring-error' : ''}`}
-              />
-            </label>
+            <PhoneField
+              value={answers.phone}
+              onChange={(v) => set('phone', v)}
+              onStatus={setPhoneStatus}
+              showError={tried}
+              normalise
+              inputClassName={wants('phone') ? 'ring-1 ring-error' : ''}
+            />
             <label className={labelClasses}>
               Date of birth
               <DateField
@@ -206,6 +213,7 @@ export function JoiningPage() {
                 max={todayIso()}
                 className={`${fieldTriggerClasses} ${wants('dob') ? 'ring-1 ring-error' : ''}`}
               />
+              <AgeNote dob={answers.dob} />
             </label>
           </div>
         </section>
@@ -289,6 +297,14 @@ export function JoiningPage() {
               </label>
             )}
 
+            {answers.visaType && (
+              <VisaNoteField
+                value={answers.visaNote}
+                onChange={(next) => set('visaNote', next)}
+                labelClassName={labelClasses}
+              />
+            )}
+
             <div className={labelClasses}>
               <span>Do you have a valid DBS check?</span>
               <YesNo
@@ -303,10 +319,11 @@ export function JoiningPage() {
           </div>
         </section>
 
-        {tried && missing.length > 0 && (
+        {tried && blocked && (
           <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-            There {missing.length === 1 ? 'is one thing' : `are ${missing.length} things`} still to
-            answer.
+            {missing.length > 0
+              ? `There ${missing.length === 1 ? 'is one thing' : `are ${missing.length} things`} still to answer.`
+              : 'Check the phone number — it needs fixing before you go in.'}
           </p>
         )}
         {error && (
