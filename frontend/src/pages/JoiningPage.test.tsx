@@ -64,7 +64,7 @@ async function choose(label: string, option: string) {
 }
 
 async function fillTheBasics() {
-  await userEvent.type(screen.getByLabelText('Phone'), '07700900123')
+  await userEvent.type(screen.getByLabelText('Phone'), '07912345678')
   await pickDate(userEvent.setup(), screen.getByLabelText('Date of birth'), '1990-04-02')
   await choose('Marital status', 'Single')
 }
@@ -120,6 +120,8 @@ describe('joining', () => {
     await userEvent.click(within(expiryQuestion).getByRole('button', { name: 'Yes' }))
     await pickDate(userEvent.setup(), screen.getByLabelText('Visa expiry date'), '2027-08-19')
 
+    await userEvent.type(screen.getByLabelText(/Comment/), 'Applied 3 Oct')
+
     const dbs = screen.getByRole('group', { name: /DBS/i })
     await userEvent.click(within(dbs).getByRole('button', { name: 'Yes' }))
 
@@ -131,7 +133,7 @@ describe('joining', () => {
 
     expect(profile).toMatchObject({
       first_name: 'Grace',
-      phone: '07700900123',
+      phone: '+447912345678',
       dob: '1990-04-02',
       marital_status: 'single',
     })
@@ -141,8 +143,45 @@ describe('joining', () => {
       visa_has_expiry: true,
       visa_expiry: '2027-08-19',
       has_dbs: true,
+      visa_note: 'Applied 3 Oct',
     })
     // And the session is told, or the form would still be standing there.
     expect(state.refreshed).toBe(1)
+  })
+
+  it('says what it will save, and shows the age beside a date of birth', async () => {
+    render(<JoiningPage />)
+    await fillTheBasics()
+    expect(screen.getByText(/We’ll save it as \+44 7912 345678/)).toBeInTheDocument()
+    expect(screen.getByText(/You’re \d+ years old/)).toBeInTheDocument()
+  })
+
+  it('will not go in on a phone number that is not one', async () => {
+    render(<JoiningPage />)
+    await fillTheBasics()
+    const phone = screen.getByLabelText('Phone')
+    await userEvent.clear(phone)
+    await userEvent.type(phone, '0770')
+    await choose('Your status in the UK', 'British citizen')
+    const dbs = screen.getByRole('group', { name: /DBS/i })
+    await userEvent.click(within(dbs).getByRole('button', { name: 'No' }))
+    await finish()
+    expect(await screen.findByText('That looks too short.')).toBeInTheDocument()
+    expect(state.written).toHaveLength(0)
+  })
+
+  it('takes the country from a number typed with its +code', async () => {
+    render(<JoiningPage />)
+    const phone = screen.getByLabelText('Phone')
+    await userEvent.type(phone, '+919876543210')
+    expect(screen.getByText(/We’ll save it as \+91 98765 43210/)).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Country code' })).toHaveTextContent('India')
+  })
+
+  it('offers the visa note only once a status is chosen', async () => {
+    render(<JoiningPage />)
+    expect(screen.queryByLabelText(/Comment/)).toBeNull()
+    await choose('Your status in the UK', 'Student visa')
+    expect(screen.getByLabelText(/Comment/)).toBeInTheDocument()
   })
 })

@@ -20,6 +20,7 @@ const answers = (over: Partial<JoiningAnswers> = {}): JoiningAnswers => ({
   visaHasExpiry: null,
   visaExpiry: '',
   hasDbs: false,
+  visaNote: '',
   ...over,
 })
 
@@ -130,5 +131,12 @@ describe('how the stored values read', () => {
   it('shows an unknown value rather than nothing', () => {
     expect(visaLabel('Tier 2 (General)')).toBe('Tier 2 (General)')
     expect(visaLabel(null)).toBeNull()
+  })
+})
+
+describe('the visa note', () => {
+  it('is saved trimmed, and as null when empty', () => {
+    expect(toProfileRows(answers({ visaNote: '  Applied 3 Oct  ' })).sensitive.visa_note).toBe('Applied 3 Oct')
+    expect(toProfileRows(answers({ visaNote: '   ' })).sensitive.visa_note).toBeNull()
   })
 })

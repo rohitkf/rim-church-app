@@ -21,6 +21,7 @@ import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout } from '../lib/navLayout
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
 import { Tour } from './Tour'
+import { PhoneCheckDialog } from './PhoneCheckDialog'
 import { ViewAsBanner } from './ViewAsBanner'
 import { Toaster } from './Toaster'
 
@@ -181,6 +182,9 @@ export function AppShell() {
           are due — and the once is on the account rather than in this
           browser. See lib/tour and components/Tour. */}
       <Tour />
+
+      {/* Older phone numbers have no country code; this asks once per visit. */}
+      <PhoneCheckDialog />
 
       <PwaBanners />
 
