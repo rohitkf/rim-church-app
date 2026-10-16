@@ -18,6 +18,16 @@
 #   - every check run on the head commit has finished and none failed
 #   - nobody has requested changes
 # Put a `do-not-merge` label on a pull request to hold it back by hand.
+#
+# CI runs twice for every commit on develop: once for the push and once for
+# the pull request. Either can finish last, and "every check run on the head
+# commit has finished" is only true once the second has. So both are allowed
+# to start this: whichever finishes last finds everything done and merges,
+# and the one that finishes first finds the other still running and waits.
+# It used to listen to the pull request's run alone, so when that one
+# finished first it waited on the push run, and the push run finishing
+# afterwards was ignored — a green pull request left open until somebody
+# re-ran this by hand.
 
 name: Auto-merge
 
@@ -31,11 +41,24 @@ permissions:
   pull-requests: write
   checks: read
 
+# One at a time per branch, so the two runs above cannot both reach the
+# merge at once. The second one in line finds the pull request already
+# closed and says so.
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
 jobs:
   merge:
+    # A pull request's own run, or the push to develop that carries it. Not a
+    # push to main (that is the merge landing) and not a push to anywhere
+    # else: CI only runs on main and develop, and only develop has a pull
+    # request to merge.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+      (github.event.workflow_run.event == 'pull_request' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'develop'))
     runs-on: ubuntu-latest
     steps:
       - name: Merge the pull request if everything is green
