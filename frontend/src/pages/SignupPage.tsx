@@ -5,6 +5,7 @@ import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../com
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
+import { CheckEmailDialog } from '../components/CheckEmailDialog'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -25,7 +26,8 @@ export function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  // The address the confirmation went to, while the dialog about it is open.
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   const checks = passwordChecks(password)
   const score = passwordScore(password)
@@ -41,7 +43,7 @@ export function SignupPage() {
     setSubmitting(true)
     try {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: { data: { first_name: firstName, last_name: lastName } },
       })
@@ -49,29 +51,12 @@ export function SignupPage() {
         setError(error.message)
         return
       }
-      setDone(true)
+      setSentTo(email.trim())
     } catch (err: unknown) {
       setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (done) {
-    return (
-      <AuthCard
-        title="Check your email"
-        footer={
-          <Link to="/login" className="font-medium text-primary">
-            Back to sign in
-          </Link>
-        }
-      >
-        <p className="text-body-sm text-on-surface-variant">
-          We sent a confirmation link to {email}. Sign in once you&rsquo;ve confirmed your account.
-        </p>
-      </AuthCard>
-    )
   }
 
   return (
@@ -163,6 +148,9 @@ export function SignupPage() {
             {submitting ? 'Creating account…' : 'Sign up'}
           </button>
         </form>
+      {/* Over the form rather than instead of it: "wrong address" is one tap
+          back to what they typed. */}
+      {sentTo && <CheckEmailDialog email={sentTo} onClose={() => setSentTo(null)} />}
     </AuthCard>
   )
 }
