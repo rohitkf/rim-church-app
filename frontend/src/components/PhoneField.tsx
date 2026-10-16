@@ -98,7 +98,7 @@ export function PhoneField({
     <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant">
       <label htmlFor={id}>{label}</label>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="sm:w-56 sm:shrink-0">
+        <div className="sm:w-64 sm:shrink-0">
           <Select
             value={country}
             onChange={pickCountry}
@@ -117,7 +117,7 @@ export function PhoneField({
           placeholder="Phone number"
           aria-invalid={problem ? true : undefined}
           aria-describedby={`${id}-note`}
-          className={`${inputClasses} min-w-0 ${problem ? 'ring-1 ring-error' : ''} ${inputClassName ?? ''}`}
+          className={`${inputClasses} min-w-0 ${problem ? 'field-error' : ''} ${inputClassName ?? ''}`}
         />
       </div>
       <p id={`${id}-note`} role={problem ? 'alert' : undefined} className="text-label-sm">

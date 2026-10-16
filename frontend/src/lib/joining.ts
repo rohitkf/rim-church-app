@@ -12,6 +12,8 @@
  * two places is a list that disagrees with itself by the spring.
  */
 
+import { ageFrom } from './celebrations'
+
 export const MARITAL_STATUSES = [
   { value: 'single', label: 'Single' },
   { value: 'married', label: 'Married' },
@@ -107,6 +109,55 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
   }
   if (answers.hasDbs === null) missing.push('hasDbs')
   return missing
+}
+
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M} '’.-]*$/u
+
+function nameProblem(value: string): string | null {
+  const text = value.trim()
+  if (!text) return null
+  if (text.length > 50) return 'Keep it to 50 letters or fewer.'
+  if (!NAME_PATTERN.test(text)) return 'Use letters only — spaces, hyphens and apostrophes are fine.'
+  return null
+}
+
+/**
+ * What is filled in but cannot be right, in words, by field.
+ *
+ * Separate from `missingAnswers`: a blank is "still to answer", this is
+ * "answered, and wrong". Phone is checked by its own field, which knows
+ * the country. An expiry that has already passed is allowed — people do
+ * hold a visa they are renewing, and refusing to record that would be
+ * refusing the truth — so it is not an error here.
+ */
+export function invalidAnswers(
+  answers: JoiningAnswers,
+  today: Date = new Date(),
+): Partial<Record<keyof JoiningAnswers, string>> {
+  const bad: Partial<Record<keyof JoiningAnswers, string>> = {}
+  const first = nameProblem(answers.firstName)
+  if (first) bad.firstName = first
+  const last = nameProblem(answers.lastName)
+  if (last) bad.lastName = last
+
+  const year = (iso: string) => Number(iso.slice(0, 4))
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  if (answers.dob) {
+    if (answers.dob > todayIso) bad.dob = 'Your date of birth can’t be in the future.'
+    else if (ageFrom(answers.dob, today) === null) bad.dob = 'That date doesn’t look right.'
+  }
+  if (answers.maritalStatus === 'married' && answers.anniversary) {
+    if (answers.anniversary > todayIso) bad.anniversary = 'The anniversary can’t be in the future.'
+    else if (answers.dob && year(answers.anniversary) < year(answers.dob) + 14) {
+      bad.anniversary = 'That’s too soon after your date of birth.'
+    }
+  }
+  if (answers.visaHasExpiry === true && answers.visaExpiry && !isSettledStatus(answers.visaType)) {
+    const y = year(answers.visaExpiry)
+    if (y < 2000 || y > today.getFullYear() + 20) bad.visaExpiry = 'That date doesn’t look right.'
+  }
+  return bad
 }
 
 export function isComplete(answers: JoiningAnswers): boolean {

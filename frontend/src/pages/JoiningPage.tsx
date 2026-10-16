@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { Select } from '../components/Select'
+import { Select, triggerClasses } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
 import { AppMark } from '../components/AppMark'
@@ -14,6 +14,7 @@ import {
   MARITAL_STATUSES,
   VISA_TYPES,
   isSettledStatus,
+  invalidAnswers,
   missingAnswers,
   toProfileRows,
   type JoiningAnswers,
@@ -54,15 +55,22 @@ function YesNo({
   label,
   yes = 'Yes',
   no = 'No',
+  invalid = false,
 }: {
   value: boolean | null
   onChange: (next: boolean) => void
   label: string
   yes?: string
   no?: string
+  /** Not answered yet, and they have tried to go on. */
+  invalid?: boolean
 }) {
   return (
-    <div role="group" aria-label={label} className="flex gap-2">
+    <div
+      role="group"
+      aria-label={label}
+      className={`flex gap-2 rounded-full ${invalid ? 'field-error' : ''}`}
+    >
       {[
         { on: true, text: yes },
         { on: false, text: no },
@@ -124,10 +132,15 @@ export function JoiningPage() {
     setEdits((current) => ({ ...current, [key]: value }))
 
   const missing = missingAnswers(answers)
+  const bad = invalidAnswers(answers)
   // A number that is typed but not valid is a problem, not a missing answer.
   const phoneBad = phoneStatus === 'invalid'
-  const blocked = missing.length > 0 || phoneBad
-  const wants = (field: keyof JoiningAnswers) => tried && missing.includes(field)
+  const blocked = missing.length > 0 || phoneBad || Object.keys(bad).length > 0
+  // Red when it is blank after a try to go on, or filled in and wrong.
+  const wants = (field: keyof JoiningAnswers) => (tried && missing.includes(field)) || !!bad[field]
+  const redRing = (field: keyof JoiningAnswers) => (wants(field) ? 'field-error' : '')
+  const problem = (field: keyof JoiningAnswers) =>
+    bad[field] ? <span className="text-label-sm text-error">{bad[field]}</span> : null
   const settled = isSettledStatus(answers.visaType)
 
   async function finish(event: FormEvent) {
@@ -184,16 +197,20 @@ export function JoiningPage() {
                 <input
                   value={answers.firstName}
                   onChange={(e) => set('firstName', e.target.value)}
-                  className={`${inputClasses} ${wants('firstName') ? 'ring-1 ring-error' : ''}`}
+                  aria-invalid={wants('firstName') || undefined}
+                  className={`${inputClasses} ${redRing('firstName')}`}
                 />
+                {problem('firstName')}
               </label>
               <label className={`min-w-0 flex-1 ${labelClasses}`}>
                 Last name
                 <input
                   value={answers.lastName}
                   onChange={(e) => set('lastName', e.target.value)}
-                  className={`${inputClasses} ${wants('lastName') ? 'ring-1 ring-error' : ''}`}
+                  aria-invalid={wants('lastName') || undefined}
+                  className={`${inputClasses} ${redRing('lastName')}`}
                 />
+                {problem('lastName')}
               </label>
             </div>
             <PhoneField
@@ -202,7 +219,7 @@ export function JoiningPage() {
               onStatus={setPhoneStatus}
               showError={tried}
               normalise
-              inputClassName={wants('phone') ? 'ring-1 ring-error' : ''}
+              inputClassName={wants('phone') ? 'field-error' : ''}
             />
             <label className={labelClasses}>
               Date of birth
@@ -211,9 +228,9 @@ export function JoiningPage() {
                 onChange={(d) => set('dob', d)}
                 label="Date of birth"
                 max={todayIso()}
-                className={`${fieldTriggerClasses} ${wants('dob') ? 'ring-1 ring-error' : ''}`}
+                className={`${fieldTriggerClasses} ${wants('dob') ? 'field-error' : ''}`}
               />
-              <AgeNote dob={answers.dob} />
+              {bad.dob ? problem('dob') : <AgeNote dob={answers.dob} />}
             </label>
           </div>
         </section>
@@ -230,6 +247,7 @@ export function JoiningPage() {
                 onChange={(value) => set('maritalStatus', value as JoiningAnswers['maritalStatus'])}
                 placeholder="Choose one"
                 aria-label="Marital status"
+                className={`${triggerClasses} ${redRing('maritalStatus')}`}
                 options={MARITAL_STATUSES.map((m) => ({ value: m.value, label: m.label }))}
               />
             </label>
@@ -243,11 +261,15 @@ export function JoiningPage() {
                   onChange={(d) => set('anniversary', d)}
                   label="Wedding anniversary"
                   max={todayIso()}
-                  className={`${fieldTriggerClasses} ${wants('anniversary') ? 'ring-1 ring-error' : ''}`}
+                  className={`${fieldTriggerClasses} ${wants('anniversary') ? 'field-error' : ''}`}
                 />
-                <span className="text-label-sm text-on-surface-faint">
-                  Shown on the Celebrations page, like your birthday.
-                </span>
+                {bad.anniversary ? (
+                  problem('anniversary')
+                ) : (
+                  <span className="text-label-sm text-on-surface-faint">
+                    Shown on the Celebrations page, like your birthday.
+                  </span>
+                )}
               </label>
             )}
           </div>
@@ -268,6 +290,7 @@ export function JoiningPage() {
                 onChange={(value) => set('visaType', value)}
                 placeholder="Choose one"
                 aria-label="Your status in the UK"
+                className={`${triggerClasses} ${redRing('visaType')}`}
                 options={VISA_TYPES.map((v) => ({ value: v.value, label: v.label }))}
               />
             </label>
@@ -279,6 +302,7 @@ export function JoiningPage() {
                 <span>Does it have an expiry date?</span>
                 <YesNo
                   label="Does your visa have an expiry date?"
+                  invalid={wants('visaHasExpiry')}
                   value={answers.visaHasExpiry}
                   onChange={(next) => set('visaHasExpiry', next)}
                 />
@@ -292,8 +316,9 @@ export function JoiningPage() {
                   value={answers.visaExpiry}
                   onChange={(d) => set('visaExpiry', d)}
                   label="Visa expiry date"
-                  className={`${fieldTriggerClasses} ${wants('visaExpiry') ? 'ring-1 ring-error' : ''}`}
+                  className={`${fieldTriggerClasses} ${redRing('visaExpiry')}`}
                 />
+                {problem('visaExpiry')}
               </label>
             )}
 
@@ -309,6 +334,7 @@ export function JoiningPage() {
               <span>Do you have a valid DBS check?</span>
               <YesNo
                 label="Do you have a valid DBS check?"
+                invalid={wants('hasDbs')}
                 value={answers.hasDbs}
                 onChange={(next) => set('hasDbs', next)}
               />
@@ -323,7 +349,7 @@ export function JoiningPage() {
           <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
             {missing.length > 0
               ? `There ${missing.length === 1 ? 'is one thing' : `are ${missing.length} things`} still to answer.`
-              : 'Check the phone number — it needs fixing before you go in.'}
+              : 'Check the fields marked in red before you go in.'}
           </p>
         )}
         {error && (

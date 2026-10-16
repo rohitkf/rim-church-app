@@ -184,4 +184,26 @@ describe('joining', () => {
     await choose('Your status in the UK', 'Student visa')
     expect(screen.getByLabelText(/Comment/)).toBeInTheDocument()
   })
+
+  it('marks every unanswered field in red once they try to go on', async () => {
+    render(<JoiningPage />)
+    await finish()
+    const red = (el: HTMLElement) => el.className.includes('field-error')
+    expect(red(screen.getByLabelText('Phone'))).toBe(true)
+    expect(red(screen.getByRole('combobox', { name: 'Marital status' }))).toBe(true)
+    expect(red(screen.getByRole('combobox', { name: 'Your status in the UK' }))).toBe(true)
+    expect(red(screen.getByRole('group', { name: /DBS/i }))).toBe(true)
+    // Answered ones are not.
+    expect(red(screen.getByDisplayValue('Grace'))).toBe(false)
+    expect(state.written).toHaveLength(0)
+  })
+
+  it('says what is wrong with a name, and will not go on', async () => {
+    render(<JoiningPage />)
+    const first = screen.getByDisplayValue('Grace')
+    await userEvent.clear(first)
+    await userEvent.type(first, 'Gr4ce')
+    expect(screen.getByText(/Use letters only/)).toBeInTheDocument()
+    expect(first.className).toContain('field-error')
+  })
 })
