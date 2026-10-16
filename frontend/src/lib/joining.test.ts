@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  invalidAnswers,
   isSettledStatus,
   isComplete,
   maritalLabel,
@@ -138,5 +139,33 @@ describe('the visa note', () => {
   it('is saved trimmed, and as null when empty', () => {
     expect(toProfileRows(answers({ visaNote: '  Applied 3 Oct  ' })).sensitive.visa_note).toBe('Applied 3 Oct')
     expect(toProfileRows(answers({ visaNote: '   ' })).sensitive.visa_note).toBeNull()
+  })
+})
+
+describe('what is filled in and wrong', () => {
+  const today = new Date(2026, 9, 16)
+  it('accepts a normal set of answers', () => {
+    expect(invalidAnswers(answers(), today)).toEqual({})
+  })
+  it('wants names that are names', () => {
+    expect(invalidAnswers(answers({ firstName: 'R2D2!' }), today).firstName).toMatch(/letters/)
+    expect(invalidAnswers(answers({ lastName: 'x'.repeat(51) }), today).lastName).toMatch(/50/)
+    expect(invalidAnswers(answers({ firstName: "Mary-Jane O’Neil", lastName: 'Åsa' }), today)).toEqual({})
+  })
+  it('refuses a birth date in the future or from before 1900', () => {
+    expect(invalidAnswers(answers({ dob: '2027-01-01' }), today).dob).toMatch(/future/)
+    expect(invalidAnswers(answers({ dob: '1850-01-01' }), today).dob).toMatch(/right/)
+  })
+  it('keeps an anniversary after the person was old enough to marry', () => {
+    const married = { maritalStatus: 'married' as const, dob: '1990-04-02' }
+    expect(invalidAnswers(answers({ ...married, anniversary: '2027-01-01' }), today).anniversary).toMatch(/future/)
+    expect(invalidAnswers(answers({ ...married, anniversary: '1995-01-01' }), today).anniversary).toMatch(/soon/)
+    expect(invalidAnswers(answers({ ...married, anniversary: '2015-06-01' }), today)).toEqual({})
+  })
+  it('allows an expiry that has passed, not an absurd one', () => {
+    const base = { visaType: 'student', visaHasExpiry: true }
+    expect(invalidAnswers(answers({ ...base, visaExpiry: '2026-01-01' }), today)).toEqual({})
+    expect(invalidAnswers(answers({ ...base, visaExpiry: '1990-01-01' }), today).visaExpiry).toBeDefined()
+    expect(invalidAnswers(answers({ ...base, visaExpiry: '2099-01-01' }), today).visaExpiry).toBeDefined()
   })
 })
