@@ -894,6 +894,30 @@ describe('the history of somebody’s answer', () => {
     expect(state.read).not.toContain('availability_history')
   })
 
+  it('lets a Head change an answer already given, as a change and not a re-add (0163)', async () => {
+    state.leads = true
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    await userEvent.click(within(card).getByText(/Team responses/))
+    const pick = within(card).getByRole('combobox', { name: 'Availability for Joel Skaria' })
+    await userEvent.click(pick)
+    // Taking the answer away is the narrower "add or remove" right, which a Head is not given by default.
+    expect(screen.queryByRole('option', { name: 'No answer' })).toBeNull()
+    await userEvent.click(await screen.findByRole('option', { name: /Available|Yes/ }))
+    await waitFor(() => expect(state.written).toContainEqual({ table: 'availability', row: { status: 'available' }, id: 'a2' }))
+  })
+
+  it('shows a Head no dropdown for somebody who has not answered, unless the church lets them answer for others', async () => {
+    state.leads = true
+    state.rows.availability = []
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    await userEvent.click(within(card).getByText(/Team responses/))
+    expect(within(card).queryByRole('combobox', { name: 'Availability for Joel Skaria' })).toBeNull()
+  })
+
   it('shows somebody their own changes once the church allows their own', async () => {
     state.rows.role_permissions = [{ role_key: 'member', capability: 'avail.history', reach: 'own' }]
     state.rows.availability = [
