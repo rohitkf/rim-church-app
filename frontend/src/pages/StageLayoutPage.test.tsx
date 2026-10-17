@@ -22,11 +22,16 @@ const db = vi.hoisted(() => ({
   deleted: [] as string[],
   comments: [] as { body: string; blockId: string | null }[],
   cleared: 0,
+  saved: [] as { name: string; bytes: number }[],
   may: { add: true, edit: true, delete: true, comment: true, templates: false },
   finished: false,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } } }) }))
+vi.mock('../lib/useTheme', () => ({ useTheme: () => ({ resolved: 'dark' }) }))
+vi.mock('../lib/downloadFile', () => ({
+  downloadFile: (data: Uint8Array, name: string) => db.saved.push({ name, bytes: data.length }),
+}))
 vi.mock('../lib/useStageAccess', () => ({
   useStageAccess: () => ({ may: (p: keyof typeof db.may) => db.may[p], settled: true, access: [] }),
 }))
@@ -128,6 +133,7 @@ beforeEach(() => {
   db.deleted = []
   db.comments = []
   db.cleared = 0
+  db.saved = []
   db.may = { add: true, edit: true, delete: true, comment: true, templates: false }
   db.finished = false
 })
@@ -242,5 +248,16 @@ describe('a session’s stage', () => {
     show()
     expect(await screen.findByText('Record')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '+ Add block' })).toBeNull()
+  })
+
+  it('exports the drawing as a PDF named for the session and the area', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Export' }))
+    expect(screen.getByRole('dialog', { name: 'Export this layout' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^PDF/ }))
+    await waitFor(() => expect(db.saved).toHaveLength(1))
+    expect(db.saved[0].name).toBe('2026-10-18-english-stage-layout-dark.pdf')
+    expect(db.saved[0].bytes).toBeGreaterThan(500)
   })
 })

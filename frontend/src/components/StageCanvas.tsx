@@ -74,6 +74,8 @@ export function StageCanvas({
   const [live, setLive] = useState<{ id: string; box: BlockBox } | null>(null)
   const gesture = useRef<Gesture | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
+  // Only for the cursor: a ref is not read during render.
+  const [panning, setPanning] = useState(false)
   const { width: stageW, height: stageH } = stage
 
   // Keyed on the two numbers, not the stage object: a parent that builds
@@ -201,6 +203,7 @@ export function StageCanvas({
       return
     }
     gesture.current = { kind: 'pan', pointer: e.pointerId, startX: e.clientX, startY: e.clientY, tx: view.tx, ty: view.ty, moved: false }
+    setPanning(true)
   }
 
   const move = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -255,6 +258,7 @@ export function StageCanvas({
     if (g.pointer !== e.pointerId) return
     gesture.current = null
     if (g.kind === 'pan') {
+      setPanning(false)
       if (!g.moved) onSelect(null)
       return
     }
@@ -301,7 +305,7 @@ export function StageCanvas({
         onPointerCancel={up}
         onKeyDown={onKey}
         className="relative aspect-[12/7] max-h-[62svh] min-h-[280px] w-full touch-none select-none overflow-hidden rounded-[var(--radius-card)] bg-inset hairline focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
-        style={{ cursor: gesture.current?.kind === 'pan' ? 'grabbing' : 'default' }}
+        style={{ cursor: panning ? 'grabbing' : 'default' }}
       >
         <div
           data-stage
