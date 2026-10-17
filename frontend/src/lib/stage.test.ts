@@ -121,7 +121,7 @@ describe('the workspace', () => {
 })
 
 describe('a copy of a block', () => {
-  const source = { area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 1100, y: 650, w: 160, h: 100, rotation: 90, kind: 'block' as const, seats: 0 }
+  const source = { area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 1100, y: 650, w: 160, h: 100, rotation: 90, kind: 'block' as const, seats: 0, corners: 'rounded' as const, icon: null }
   it('lands a step down and right, inside its region, as the top block', () => {
     const copy = duplicateOf({ ...source, x: 100, y: 100 }, { width: 1200, height: 700 }, 7)
     expect(copy).toMatchObject({ area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 130, y: 130, w: 160, h: 100, rotation: 90, z: 7 })
@@ -130,6 +130,10 @@ describe('a copy of a block', () => {
     const copy = duplicateOf(source, { width: 1200, height: 700 }, 1)
     expect(copy.x + copy.w).toBeLessThanOrEqual(1200)
     expect(copy.y + copy.h).toBeLessThanOrEqual(700)
+  })
+  it('keeps its corners, and the picture of an item', () => {
+    expect(duplicateOf({ ...source, x: 100, y: 100 }, { width: 1200, height: 700 }, 1)).toMatchObject({ corners: 'rounded', icon: null })
+    expect(duplicateOf({ ...source, x: 100, y: 100, kind: 'item', icon: 'camera' }, { width: 1200, height: 700 }, 1)).toMatchObject({ kind: 'item', icon: 'camera' })
   })
   it('keeps the seats of a row', () => {
     expect(duplicateOf({ ...source, kind: 'seats', seats: 12 }, { width: 1200, height: 700 }, 1)).toMatchObject({ kind: 'seats', seats: 12 })

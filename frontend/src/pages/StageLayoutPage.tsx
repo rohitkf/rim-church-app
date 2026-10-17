@@ -18,8 +18,10 @@ import { formatServiceDay } from '../lib/sunday'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useStageAccess } from '../lib/useStageAccess'
+import { STAGE_ICONS } from '../lib/stageIcons'
 import {
   BLOCK_COLORS,
+  DEFAULT_ITEM,
   DEFAULT_SEATS,
   SEAT_PITCH,
   STAGE_KEY,
@@ -146,11 +148,15 @@ export function StageLayoutPage() {
   }
 
   const add = useMutation({
-    mutationFn: async (what: { label: string; areaId: string; seats?: number }) => {
+    mutationFn: async (what: { label: string; areaId: string; seats?: number; icon?: string }) => {
       const lay = await layoutFor()
       const region = regions.find((r) => r.area.id === what.areaId) ?? regions[0]
       if (!region) throw new Error('There are no areas to lay out.')
-      const size = what.seats ? { w: Math.min(region.width - 80, what.seats * SEAT_PITCH + 16), h: 90 } : undefined
+      const size = what.seats
+        ? { w: Math.min(region.width - 80, what.seats * SEAT_PITCH + 16), h: 90 }
+        : what.icon
+          ? DEFAULT_ITEM
+          : undefined
       const at = placeNewBlock(blocks.filter((b) => b.area_id === region.area.id), { width: region.width, height: region.height }, size)
       const z = blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1
       return addStageBlock(lay.id, {
@@ -160,6 +166,7 @@ export function StageLayoutPage() {
         ...size,
         z,
         ...(what.seats ? { kind: 'seats' as const, seats: what.seats } : {}),
+        ...(what.icon ? { kind: 'item' as const, icon: what.icon } : {}),
       })
     },
     onSuccess: (block) => {
@@ -319,6 +326,8 @@ export function StageLayoutPage() {
         h: b.h,
         rotation: b.rotation,
         kind: b.kind,
+        corners: b.corners,
+        icon: b.icon,
         seats: b.seats,
       })),
       footer: `${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'}${last ? ` · last changed by ${stampText(last.updater, last.updated_at)}` : ''} · exported ${new Date().toLocaleDateString()}`,
@@ -497,7 +506,7 @@ export function StageLayoutPage() {
             onClose={() => setPanel(null)}
             areas={areas}
             startIn={selected?.area_id ?? areas[0]?.id ?? ''}
-            onAdd={(label, areaId, seats) => add.mutate({ label, areaId, seats })}
+            onAdd={(label, areaId, seats, icon) => add.mutate({ label, areaId, seats, icon })}
             busy={add.isPending}
           />
         )}
@@ -747,6 +756,45 @@ function BlockInspector({
               <SeatsInput value={block.seats} onCommit={(n) => onChange({ seats: n })} label="Seats in this row" />
             </label>
           )}
+          {block.kind === 'item' ? (
+            <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant sm:col-span-2">
+              Picture
+              <div role="radiogroup" aria-label="Picture" className="flex flex-wrap gap-1.5">
+                {STAGE_ICONS.map((i) => (
+                  <button
+                    key={i.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={block.icon === i.key}
+                    aria-label={i.name}
+                    title={i.name}
+                    onClick={() => onChange({ icon: i.key })}
+                    className={`tap flex h-10 w-10 items-center justify-center rounded-[var(--radius-chip)] hairline ${block.icon === i.key ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface hover:bg-raised-strong'}`}
+                  >
+                    <IconGlyph d={i.d} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant">
+              Corners
+              <div role="radiogroup" aria-label="Corners" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
+                {(['sharp', 'rounded'] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={block.corners === c}
+                    onClick={() => onChange({ corners: c })}
+                    className={`tap rounded-full px-3.5 py-1.5 text-label-md transition-colors ${block.corners === c ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  >
+                    {c === 'sharp' ? 'Sharp' : 'Rounded'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
             <ActionButton size="sm" tone="quiet" onClick={() => onChange({ rotation: ((block.rotation + 90 + 180) % 360) - 180 })}>
               Turn 90°
@@ -925,7 +973,7 @@ function AddBlockSheet({
   areas: StageArea[]
   /** The area it goes in to begin with: the selected block's, else the first. */
   startIn: string
-  onAdd: (label: string, areaId: string, seats?: number) => void
+  onAdd: (label: string, areaId: string, seats?: number, icon?: string) => void
   busy: boolean
 }) {
   const [areaId, setAreaId] = useState(startIn)
@@ -1018,8 +1066,37 @@ function AddBlockSheet({
             </ActionButton>
           </div>
         </form>
+        {/* Things that are not a person's place: drawn as a picture, named after it. */}
+        <div className="mt-5 border-t border-border-subtle pt-4">
+          <h3 className="text-body-sm font-medium text-on-surface">An item</h3>
+          <p className="mt-0.5 text-label-md text-on-surface-faint">A picture of the thing, in whatever colour you give it. Rename it once it is down.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {STAGE_ICONS.map((i) => (
+              <button
+                key={i.key}
+                type="button"
+                disabled={busy || !area}
+                aria-label={`Add ${i.name}`}
+                title={i.name}
+                onClick={() => onAdd(i.name, area!.id, undefined, i.key)}
+                className="tap flex h-11 w-11 items-center justify-center rounded-[var(--radius-chip)] bg-raised text-on-surface hairline hover:bg-raised-strong disabled:opacity-50"
+              >
+                <IconGlyph d={i.d} />
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </Overlay>
+  )
+}
+
+/** One of the stage pictures, at button size, in the current text colour. */
+function IconGlyph({ d }: { d: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   )
 }
 

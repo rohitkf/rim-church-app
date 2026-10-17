@@ -114,7 +114,7 @@ fetchStageAreas: () => Promise.resolve([
 
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   id: 'b1', layout_id: 'l1', area_id: 'A', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, locked_by: null, locked_at: null,
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, corners: 'sharp', icon: null, locked_by: null, locked_at: null,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u2', updated_at: '2026-10-17T11:00:00Z',
   person: null,
   placer: { id: 'u', first_name: 'Rohit', last_name: 'K' },
@@ -362,6 +362,30 @@ describe('a session’s stage', () => {
     expect(screen.getByText(/asked to move it to 300, 100/)).toHaveTextContent('Joel S')
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     await waitFor(() => expect(db.decided).toEqual([{ id: 'q1', approve: true }]))
+  })
+
+  it('adds an item from the picture grid, named for it and square', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByRole('button', { name: '+ Add block' }))
+    await user.click(screen.getByRole('button', { name: 'Add Camera' }))
+    await waitFor(() => expect(db.added).toEqual(['Camera']))
+    expect(db.addedRows[0]).toMatchObject({ kind: 'item', icon: 'camera', w: 120, h: 120, area_id: 'A' })
+  })
+
+  it('lets a block be rounded, and an item be given another picture', async () => {
+    const user = userEvent.setup()
+    db.blocks = [block(), block({ id: 'b2', label: 'Camera 1', kind: 'item', icon: 'camera', x: 500 })]
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+    expect(screen.getByRole('radio', { name: 'Sharp' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('radio', { name: 'Rounded' }))
+    await waitFor(() => expect(db.patched).toEqual([{ id: 'b1', patch: { corners: 'rounded' } }]))
+    await user.click(screen.getByRole('button', { name: 'Camera 1' }))
+    expect(screen.queryByRole('radiogroup', { name: 'Corners' })).toBeNull()
+    expect(screen.getByRole('radio', { name: 'Camera' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('radio', { name: 'Door' }))
+    await waitFor(() => expect(db.patched).toContainEqual({ id: 'b2', patch: { icon: 'door' } }))
   })
 
   it('duplicates a block: same look, a step across, nobody on it, and selected', async () => {

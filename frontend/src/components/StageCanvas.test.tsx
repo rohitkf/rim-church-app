@@ -17,7 +17,7 @@ const regions = regionsOf(areas)
 
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   id: 'b1', layout_id: 'l', area_id: 'A', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, locked_by: null, locked_at: null,
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, corners: 'sharp', icon: null, locked_by: null, locked_at: null,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u', updated_at: '2026-10-17T10:00:00Z',
   person: null, placer: { id: 'u', first_name: 'Rohit', last_name: 'K' }, updater: null,
   ...over,
@@ -44,6 +44,29 @@ describe('the stage canvas', () => {
     const el = screen.getByRole('button', { name: 'Keyboard, Jolsna R' })
     expect(el.style.left).toBe('100px')
     expect(el.style.top).toBe('100px')
+  })
+
+  it('draws square corners unless a block is rounded, and an item as its picture with its name', () => {
+    draw({
+      blocks: [
+        block(),
+        block({ id: 'b2', label: 'Soft', corners: 'rounded', x: 400 }),
+        block({ id: 'b3', label: 'Camera 1', kind: 'item', icon: 'camera', x: 700, color: '#30D158' }),
+        block({ id: 'b4', label: 'Mystery', kind: 'item', icon: 'no-such-thing', x: 900 }),
+      ],
+    })
+    expect(screen.getByRole('button', { name: 'Keyboard' }).className).toContain('rounded-none')
+    expect(screen.getByRole('button', { name: 'Soft' }).className).toContain('rounded-[14px]')
+    const camera = screen.getByRole('button', { name: 'Camera 1' })
+    const svg = camera.querySelector('svg[data-icon="camera"]')!
+    expect(svg).not.toBeNull()
+    expect(svg.getAttribute('stroke')).toBe('#30D158')
+    expect(camera.style.background).toBe('')
+    expect(camera).toHaveTextContent('Camera 1')
+    // An unknown picture falls back to a plain block.
+    const mystery = screen.getByRole('button', { name: 'Mystery' })
+    expect(mystery.querySelector('svg[data-icon]')).toBeNull()
+    expect(mystery.style.background).toContain('linear-gradient')
   })
 
   it('selects a block on a tap, and clears on a tap of empty stage', () => {

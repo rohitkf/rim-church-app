@@ -1,6 +1,7 @@
-import { A4, type PdfCircle, type PdfLine, type PdfPage, type PdfRect, type PdfText } from './pdfDoc'
+import { A4, type PdfCircle, type PdfLine, type PdfPage, type PdfPath, type PdfRect, type PdfText } from './pdfDoc'
 import { fitBlock, textWidth, truncateToWidth } from './helveticaMetrics'
 import { inkOn } from './stage'
+import { stageIcon } from './stageIcons'
 import type { SheetTheme } from './serviceSheet'
 
 /**
@@ -26,8 +27,11 @@ export interface StageSheetBlock {
   w: number
   h: number
   rotation: number
-  kind: 'block' | 'seats'
+  kind: 'block' | 'seats' | 'item'
   seats: number
+  corners: 'sharp' | 'rounded'
+  /** For an item: which picture. */
+  icon: string | null
 }
 
 export interface StageSheetRegion {
@@ -80,6 +84,7 @@ export function stageSheetPage(sheet: StageSheet, theme: SheetTheme = 'dark'): P
   const rects: PdfRect[] = []
   const lines: PdfLine[] = []
   const circles: PdfCircle[] = []
+  const paths: PdfPath[] = []
   // A wide workspace (one stage) lies on its side; a tall one (stage over
   // hall) stands up, so neither is a strip across the middle of the page.
   const extent = extentOf(sheet.regions)
@@ -133,7 +138,21 @@ export function stageSheetPage(sheet: StageSheet, theme: SheetTheme = 'dark'): P
     const w = at(b.w)
     const h = at(b.h)
     const ink = inkOn(b.color)
-    rects.push({ x, y, w, h, color: b.color, radius: Math.min(6, w / 4, h / 4) })
+
+    // An item is its picture in the block's colour, its name beneath: no box.
+    if (b.kind === 'item') {
+      const icon = stageIcon(b.icon)
+      if (icon) {
+        const labelSize = Math.max(5, Math.min(8, h * 0.18, w * 0.14))
+        const size = Math.max(4, Math.min(w, h - labelSize * 1.6))
+        paths.push({ d: icon.d, x: x + (w - size) / 2, y: y + (h - labelSize * 1.6 - size) / 2, size, color: b.color, width: 1.6 })
+        const name = truncateToWidth(b.label, labelSize, w, true)
+        texts.push({ x: x + (w - textWidth(name, labelSize, true)) / 2, y: y + h - labelSize * 0.3, size: labelSize, text: name, bold: true, color: P.ink })
+        continue
+      }
+    }
+
+    rects.push({ x, y, w, h, color: b.color, radius: b.corners === 'rounded' ? Math.min(6, w / 4, h / 4) : 0 })
 
     if (b.kind === 'seats') {
       const n = Math.max(1, b.seats)
@@ -167,5 +186,5 @@ export function stageSheetPage(sheet: StageSheet, theme: SheetTheme = 'dark'): P
 
   texts.push({ x: PAD, y: H - PAD + 10, size: 8, text: truncateToWidth(sheet.footer, 8, W - PAD * 2, false, true), mono: true, color: P.muted })
 
-  return { width: W, height: H, texts, rects, lines, circles, background: P.backdrop }
+  return { width: W, height: H, texts, rects, lines, circles, paths, background: P.backdrop }
 }

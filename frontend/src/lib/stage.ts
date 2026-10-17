@@ -18,6 +18,8 @@ export const STAGE_KEY = ['stage'] as const
 
 /** What a block can be. Four stage-sized defaults, in canvas units. */
 export const DEFAULT_BLOCK = { w: 160, h: 100 }
+/** An item is drawn as a picture, so it starts square. */
+export const DEFAULT_ITEM = { w: 120, h: 120 }
 export const DEFAULT_STAGE = { width: 1200, height: 700 }
 
 /** The colours a block may wear: the team palette's clearest few. */
@@ -86,9 +88,13 @@ export const stageBlockSchema = z.object({
   h: z.coerce.number(),
   rotation: z.number(),
   z: z.number(),
-  /** A named box, or a row of seats drawn as chairs. */
-  kind: z.enum(['block', 'seats']).default('block'),
+  /** A named box, a row of seats drawn as chairs, or an item drawn as a picture (lib/stageIcons). */
+  kind: z.enum(['block', 'seats', 'item']).default('block'),
   seats: z.number().default(0),
+  /** Square by default; a block can be rounded on its own. */
+  corners: z.enum(['sharp', 'rounded']).default('sharp'),
+  /** For an item: which picture. */
+  icon: z.string().nullable().default(null),
   /** Set by an Admin: nobody else may move it; they ask instead (0157). */
   locked_by: z.string().nullable(),
   locked_at: z.string().nullable(),
@@ -313,12 +319,26 @@ export async function ensureStageLayout(serviceId: string): Promise<StageLayout>
   return stageLayoutSchema.parse(data)
 }
 
-export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z' | 'seats' | 'area_id'>>
+export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z' | 'seats' | 'area_id' | 'corners' | 'icon'>>
 
-export async function addStageBlock(
-  layoutId: string,
-  block: { area_id: string; label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number; rotation?: number },
-): Promise<StageBlock> {
+/** What a new block is made of; the rest is the database's defaults. */
+export type NewStageBlock = {
+  area_id: string
+  label: string
+  x: number
+  y: number
+  w?: number
+  h?: number
+  color?: string
+  z?: number
+  kind?: StageBlock['kind']
+  seats?: number
+  rotation?: number
+  corners?: StageBlock['corners']
+  icon?: string | null
+}
+
+export async function addStageBlock(layoutId: string, block: NewStageBlock): Promise<StageBlock> {
   const { data, error } = await supabase
     .from('stage_blocks')
     .insert({ layout_id: layoutId, w: DEFAULT_BLOCK.w, h: DEFAULT_BLOCK.h, ...block })
@@ -603,10 +623,10 @@ export function placeNewBlock(
  * nor does a lock: the copy is the copier's to place.
  */
 export function duplicateOf(
-  block: Pick<StageBlock, 'area_id' | 'label' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'kind' | 'seats'>,
+  block: Pick<StageBlock, 'area_id' | 'label' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'kind' | 'seats' | 'corners' | 'icon'>,
   region: { width: number; height: number },
   z: number,
-): { area_id: string; label: string; color: string; x: number; y: number; w: number; h: number; rotation: number; kind: 'block' | 'seats'; seats: number; z: number } {
+): NewStageBlock & { w: number; h: number; z: number } {
   const box = clampBlock({ x: block.x + 30, y: block.y + 30, w: block.w, h: block.h }, region)
   return {
     area_id: block.area_id,
@@ -616,6 +636,8 @@ export function duplicateOf(
     rotation: block.rotation,
     kind: block.kind,
     seats: block.seats,
+    corners: block.corners,
+    icon: block.icon,
     z,
   }
 }
