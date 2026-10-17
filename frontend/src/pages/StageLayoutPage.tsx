@@ -10,6 +10,8 @@ import { QueryState } from '../components/QueryState'
 import { Lifespan } from '../components/Lifespan'
 import { StageCanvas, type BlockBox } from '../components/StageCanvas'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { ExportSheetDialog } from '../components/ExportSheetDialog'
+import { stageSheetPage, type StageSheet } from '../lib/stageSheet'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { formatServiceDay } from '../lib/sunday'
@@ -88,7 +90,7 @@ async function fetchPeople() {
   return z.array(personSchema).parse(data ?? [])
 }
 
-type Panel = 'add' | 'templates' | 'comments' | 'history' | null
+type Panel = 'add' | 'templates' | 'comments' | 'history' | 'export' | null
 
 /** `/stage/:sessionId` on its own: the first area, which is the Stage unless the church reordered them. */
 export function StageAreaRedirect() {
@@ -261,6 +263,32 @@ export function StageLayoutPage() {
   const title = session && area ? `${session.session_name} · ${area.name}` : session ? session.session_name : 'Stage layout'
   const when = session ? `${formatServiceDay(session.service.date)} · ${formatTime(session.start_time)}` : ''
   const thread = (commentsQuery.data ?? []).filter((c) => c.block_id === null)
+
+  // The drawing as a sheet: what is on the stage, the way the page shows it.
+  const sheet = (): StageSheet => {
+    const last = [...blocks].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
+    return {
+      title,
+      subtitle: session ? `${session.service.service_type} · ${when}` : '',
+      width: stage.width,
+      height: stage.height,
+      topLabel: stage.topLabel ?? 'Back',
+      bottomLabel: stage.bottomLabel ?? 'Front',
+      blocks: blocks.map((b) => ({
+        label: b.label,
+        person: b.person ? personName(b.person) : null,
+        color: b.color,
+        x: b.x,
+        y: b.y,
+        w: b.w,
+        h: b.h,
+        rotation: b.rotation,
+        kind: b.kind,
+        seats: b.seats,
+      })),
+      footer: `${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'}${last ? ` · last changed by ${stampText(last.updater, last.updated_at)}` : ''} · exported ${new Date().toLocaleDateString()}`,
+    }
+  }
   const notesOn = (blockId: string) => (commentsQuery.data ?? []).filter((c) => c.block_id === blockId)
 
   return (
@@ -326,6 +354,11 @@ export function StageLayoutPage() {
           {layout && (
             <ActionButton size="sm" tone="quiet" onClick={() => setPanel(panel === 'history' ? null : 'history')}>
               History
+            </ActionButton>
+          )}
+          {blocks.length > 0 && (
+            <ActionButton size="sm" tone="quiet" onClick={() => setPanel('export')}>
+              Export
             </ActionButton>
           )}
           {canDelete && blocks.length > 0 && (
@@ -397,6 +430,15 @@ export function StageLayoutPage() {
           />
         )}
 
+        {panel === 'export' && session && area && (
+          <ExportSheetDialog
+            title="Export this layout"
+            blurb={`${title} · ${when} · ${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'}`}
+            stem={`${session.service.date}-${session.session_name}-${area.name}-layout`}
+            build={(theme) => stageSheetPage(sheet(), theme)}
+            onClose={() => setPanel(null)}
+          />
+        )}
         {panel === 'add' && (
           <AddBlockSheet
             onClose={() => setPanel(null)}
