@@ -52,7 +52,10 @@ export function ChecklistsIndexPage() {
   // to grant (Settings › Access & privileges). An Admin keeps the window:
   // they can put a service right either side of it, as the database lets them.
   const { can } = usePermissions()
-  const mayVerify = (departmentId: string) => can('day.verify', { departmentId })
+  // The rota's Coordinator for a team, at a service, verifies for it there
+  // when the grid says so (day.verify's Coordinator column; 0164).
+  const mayVerify = (departmentId: string, serviceId: string) =>
+    can('day.verify', { departmentId, coordinating: coordinates(departmentId, serviceId) })
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -87,6 +90,13 @@ export function ChecklistsIndexPage() {
     enabled: dayServiceIds.length > 0,
   })
   const assignments = useMemo(() => assignmentsQuery.data ?? [], [assignmentsQuery.data])
+  /** Whether the rota has this viewer in Team Coordinator for this team, at this service. */
+  function coordinates(departmentId: string, serviceId: string) {
+    return assignments.some(
+      (a) =>
+        a.user_id === myId && a.department_id === departmentId && a.service_id === serviceId && isCoordinatorRole(a.role_label),
+    )
+  }
 
   // Each serving team's ready light, at the top of each service.
   const readinessQuery = useQuery({
@@ -225,8 +235,8 @@ export function ChecklistsIndexPage() {
   /** Which of the three signatures this viewer may give on this assignment. */
   function mayFor(assignment: RotaAssignment) {
     return {
-      member: assignment.user_id === myId || (isAdmin && mayVerify(assignment.department_id)),
-      head: mayVerify(assignment.department_id),
+      member: assignment.user_id === myId || (isAdmin && mayVerify(assignment.department_id, assignment.service_id)),
+      head: mayVerify(assignment.department_id, assignment.service_id),
       sign: isServiceFlowSigner(assignment.service_id),
     }
   }
@@ -240,7 +250,7 @@ export function ChecklistsIndexPage() {
       rank:
         a.user_id === myId
           ? 0
-          : mayVerify(a.department_id)
+          : mayVerify(a.department_id, a.service_id)
             ? 1
             : onSignOffTeam || isServiceFlowSigner(a.service_id)
               ? 2
