@@ -694,6 +694,11 @@ export function ServicePlannerPage() {
       hint: 'The running order as an image or a PDF',
       onSelect: () => setExporting(true),
     },
+    {
+      label: 'Stage layout',
+      hint: 'Where everything and everybody stands for this service',
+      onSelect: () => navigate(`/stage/${serviceId}`),
+    },
     ...(canManage
       ? ([
           {
@@ -1434,14 +1439,7 @@ export function ServicePlannerPage() {
 
                             <ActionMenu
                               label={session.session_name}
-                              actions={[
-                                ...sessionActions,
-                                {
-                                  label: 'Stage layout',
-                                  hint: 'Where everything stands for this session',
-                                  onSelect: () => navigate(`/stage/${session.id}`),
-                                },
-                              ]}
+                              actions={sessionActions}
                               className="mt-0.5"
                             />
                           </div>

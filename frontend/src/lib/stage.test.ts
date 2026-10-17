@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  REGION_GAP,
   clampBlock,
+  regionAt,
+  regionsOf,
+  workspaceOf,
   fitScale,
   inkOn,
   logSentence,
@@ -77,6 +81,9 @@ describe('the log, said as a sentence', () => {
     expect(logSentence(line({ kind: 'commented', block_id: null, block_label: null }))).toBe('Rohit K commented')
     expect(logSentence(line({ kind: 'template_applied', block_id: null, block_label: null, detail: { name: 'Full band' } }))).toBe('Rohit K applied the template Full band')
     expect(logSentence(line({ kind: 'cleared', block_label: null }))).toBe('Rohit K cleared the stage')
+    expect(logSentence(line({ kind: 'locked' }))).toBe('Rohit K locked Keyboard')
+    expect(logSentence(line({ kind: 'move_requested', detail: { note: 'Camera' } }))).toBe('Rohit K asked to move Keyboard — “Camera”')
+    expect(logSentence(line({ kind: 'move_declined' }))).toBe('Rohit K declined a move of Keyboard')
   })
   it('says Somebody when the account has gone', () => {
     expect(logSentence(line({ actor: null, kind: 'deleted' }))).toBe('Somebody removed Keyboard')
@@ -87,5 +94,26 @@ describe('ink on a colour', () => {
   it('is dark on a light block and light on a dark one', () => {
     expect(inkOn('#FFD60A')).toBe('#0b0b0f')
     expect(inkOn('#5E5CE6')).toBe('#ffffff')
+  })
+})
+
+describe('the workspace', () => {
+  const areas = [
+    { id: 'B', name: 'Audience', width: 1200, height: 900, top_label: 'Stage', bottom_label: 'Back of hall', position: 1 },
+    { id: 'A', name: 'Stage', width: 1000, height: 700, top_label: 'Back', bottom_label: 'Front', position: 0 },
+  ]
+  it('stacks the areas top to bottom in their set order, a gap between', () => {
+    const regions = regionsOf(areas)
+    expect(regions.map((r) => r.area.name)).toEqual(['Stage', 'Audience'])
+    expect(regions[0].top).toBe(0)
+    expect(regions[1].top).toBe(700 + REGION_GAP)
+    expect(workspaceOf(regions)).toEqual({ width: 1200, height: 700 + REGION_GAP + 900 })
+  })
+  it('says which region a point is in, and the nearest for a point in the gap', () => {
+    const regions = regionsOf(areas)
+    expect(regionAt(regions, 10, 10)?.area.name).toBe('Stage')
+    expect(regionAt(regions, 10, 1000)?.area.name).toBe('Audience')
+    expect(regionAt(regions, 10, 705)?.area.name).toBe('Stage')
+    expect(regionAt([], 1, 1)).toBeNull()
   })
 })

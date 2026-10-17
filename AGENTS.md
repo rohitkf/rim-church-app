@@ -27,6 +27,14 @@ Keep this file current in the same pull request that changes what it says.
   migration to production, deploying an edge function, and sending
   anything to real people still each need the user's explicit yes for
   that action**, as before.
+- **But not before the database is ready.** The PR merges itself and
+  deploys, so a frontend that needs a migration or a redeployed function
+  must not be put up for merge until that migration is applied (with the
+  user's yes) and that function deployed. The other order shipped Stage
+  Layout to every phone as *"Could not find the table
+  'public.stage_layouts'"* (October 2026). Push to `develop`, get the yes,
+  apply, **then** open the PR — and say in it that the migration is
+  already live.
 - A merged pull request is finished. Follow-up work is a new PR.
 
 ## 2. Commands
@@ -73,7 +81,7 @@ the thing most likely to waste your time:
 | `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
-| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one drawing per session per area (Stage, Audience, …; a block can be a row of seats); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
+| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats; an Admin can lock one, and then others ask to move it through `stage_move_requests`, 0157); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:

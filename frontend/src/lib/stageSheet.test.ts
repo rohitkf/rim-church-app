@@ -2,33 +2,36 @@ import { describe, expect, it } from 'vitest'
 import { LANDSCAPE, stageSheetPage, type StageSheet } from './stageSheet'
 
 const sheet: StageSheet = {
-  title: 'English · Stage',
-  subtitle: 'English Service · Sunday, 19 October 2026 · 11:30',
-  width: 1200,
-  height: 700,
-  topLabel: 'Back of stage',
-  bottomLabel: 'Front · congregation',
+  title: 'English Service',
+  subtitle: 'Sunday, 19 October 2026',
+  regions: [
+    { name: 'Stage', top: 0, left: 0, width: 1200, height: 700, topLabel: 'Back of stage', bottomLabel: 'Front · congregation' },
+    { name: 'Audience', top: 760, left: 0, width: 1200, height: 900, topLabel: 'Stage', bottomLabel: 'Back of hall' },
+  ],
   blocks: [
-    { label: 'Keyboard', person: 'Blessy T', color: '#0A84FF', x: 0, y: 0, w: 200, h: 120, rotation: 0, kind: 'block', seats: 0 },
-    { label: 'Drums', person: null, color: '#FF9F0A', x: 1000, y: 580, w: 200, h: 120, rotation: 0, kind: 'block', seats: 0 },
-    { label: 'Row A', person: null, color: '#5E5CE6', x: 100, y: 300, w: 600, h: 60, rotation: 0, kind: 'seats', seats: 12 },
+    { area_id: 'Stage', label: 'Keyboard', person: 'Blessy T', color: '#0A84FF', x: 0, y: 0, w: 200, h: 120, rotation: 0, kind: 'block', seats: 0 },
+    { area_id: 'Stage', label: 'Drums', person: null, color: '#FF9F0A', x: 1000, y: 580, w: 200, h: 120, rotation: 0, kind: 'block', seats: 0 },
+    { area_id: 'Audience', label: 'Row A', person: null, color: '#5E5CE6', x: 100, y: 300, w: 600, h: 60, rotation: 0, kind: 'seats', seats: 12 },
   ],
   footer: '3 blocks · exported today',
 }
 
 describe('a stage as a sheet', () => {
-  it('is a landscape page, with the title, both edges and the footer', () => {
+  it('stands the page up for a stage over a hall, and lies it down for a stage alone', () => {
     const page = stageSheetPage(sheet, 'dark')
-    expect(page.width).toBeGreaterThan(page.height)
-    expect(page.width).toBe(LANDSCAPE.width)
+    expect(page.height).toBeGreaterThan(page.width)
+    const alone = stageSheetPage({ ...sheet, regions: [sheet.regions[0]] }, 'dark')
+    expect(alone.width).toBe(LANDSCAPE.width)
     const words = page.texts.map((t) => t.text)
-    expect(words).toContain('English · Stage')
+    expect(words).toContain('English Service')
     expect(words).toContain('BACK OF STAGE')
     expect(words).toContain('FRONT · CONGREGATION')
+    expect(words).toContain('BACK OF HALL')
+    expect(words).toContain('AUDIENCE')
     expect(words).toContain('3 blocks · exported today')
   })
 
-  it('keeps every block in proportion and inside the stage, in its own colour', () => {
+  it('keeps every block in proportion and inside its region, in its own colour', () => {
     const page = stageSheetPage(sheet, 'light')
     const stageRect = page.rects.find((r) => r.color === '#f2f2f7')!
     const keyboard = page.rects.find((r) => r.color === '#0A84FF')!

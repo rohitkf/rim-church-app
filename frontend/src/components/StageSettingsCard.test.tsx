@@ -35,7 +35,7 @@ vi.mock('../lib/stage', async () => {
     },
     fetchStageTemplateRequests: () =>
       Promise.resolve([
-        { id: 'r1', name: 'Full band', area_id: 'A', blocks: [{}, {}, {}], requested_by: 'u', requested_at: '2026-10-17T10:00:00Z', status: 'pending', decided_by: null, decided_at: null, requester: { id: 'u', first_name: 'Rohit', last_name: 'K' } },
+        { id: 'r1', name: 'Full band', blocks: [{}, {}, {}], requested_by: 'u', requested_at: '2026-10-17T10:00:00Z', status: 'pending', decided_by: null, decided_at: null, requester: { id: 'u', first_name: 'Rohit', last_name: 'K' } },
       ]),
     setStageTeamAccess: (rows: unknown[], remove: string[]) => {
       db.saved = { rows, remove }
@@ -82,7 +82,7 @@ describe('Settings › Stage layout', () => {
     const user = userEvent.setup()
     show()
     expect(await screen.findByText('Full band')).toBeInTheDocument()
-    expect(screen.getByText(/Stage · 3 blocks · Rohit K/)).toBeInTheDocument()
+    expect(screen.getByText(/3 blocks · Rohit K/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     await waitFor(() => expect(db.decided).toEqual([{ id: 'r1', approve: true }]))
   })

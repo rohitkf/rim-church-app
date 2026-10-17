@@ -4,9 +4,11 @@ import { supabase } from './supabaseClient'
 /*
  * The stage, laid out before Sunday (0155).
  *
- * A layout belongs to one session of a service: named blocks on a drawn
- * stage, each optionally carrying a person and a colour, every change
- * written to a log by the database rather than by the app. What is read
+ * A layout belongs to a service: one workspace holding every area the
+ * church has named (Stage, Audience, …) as regions stacked top to
+ * bottom, with named blocks on them, each optionally carrying a person
+ * and a colour, every change written to a log by the database rather
+ * than by the app. What is read
  * and written here; how it is drawn is components/StageCanvas; who may
  * do what is the church's (Settings › Stage layout) and asked of
  * `stage_team_access` through useStageAccess below.
@@ -63,11 +65,7 @@ export type StageArea = z.infer<typeof stageAreaSchema>
 
 export const stageLayoutSchema = z.object({
   id: z.string(),
-  session_id: z.string(),
-  area_id: z.string(),
   service_id: z.string(),
-  width: z.number(),
-  height: z.number(),
   created_by: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -77,6 +75,8 @@ export type StageLayout = z.infer<typeof stageLayoutSchema>
 export const stageBlockSchema = z.object({
   id: z.string(),
   layout_id: z.string(),
+  /** The region it sits in; x and y are measured from that region's corner. */
+  area_id: z.string(),
   label: z.string(),
   person_id: z.string().nullable(),
   color: z.string(),
@@ -89,6 +89,9 @@ export const stageBlockSchema = z.object({
   /** A named box, or a row of seats drawn as chairs. */
   kind: z.enum(['block', 'seats']).default('block'),
   seats: z.number().default(0),
+  /** Set by an Admin: nobody else may move it; they ask instead (0157). */
+  locked_by: z.string().nullable(),
+  locked_at: z.string().nullable(),
   placed_by: z.string().nullable(),
   placed_at: z.string(),
   updated_by: z.string().nullable(),
@@ -96,6 +99,7 @@ export const stageBlockSchema = z.object({
   person: personSchema.optional(),
   placer: personSchema.optional(),
   updater: personSchema.optional(),
+  locker: personSchema.optional(),
 })
 export type StageBlock = z.infer<typeof stageBlockSchema>
 
@@ -113,6 +117,7 @@ export type StageComment = z.infer<typeof stageCommentSchema>
 export const LOG_KINDS = [
   'added', 'moved', 'resized', 'rotated', 'renamed', 'recoloured', 'assigned',
   'deleted', 'commented', 'template_applied', 'cleared',
+  'locked', 'unlocked', 'move_requested', 'move_approved', 'move_declined',
 ] as const
 export type LogKind = (typeof LOG_KINDS)[number]
 
@@ -132,9 +137,6 @@ export type StageLogLine = z.infer<typeof stageLogSchema>
 export const stageTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
-  area_id: z.string(),
-  width: z.number(),
-  height: z.number(),
   blocks: z.array(z.record(z.string(), z.unknown())),
   created_by: z.string().nullable(),
   created_at: z.string(),
@@ -145,7 +147,6 @@ export type StageTemplate = z.infer<typeof stageTemplateSchema>
 export const stageTemplateRequestSchema = z.object({
   id: z.string(),
   name: z.string(),
-  area_id: z.string(),
   blocks: z.array(z.record(z.string(), z.unknown())),
   requested_by: z.string().nullable(),
   requested_at: z.string(),
@@ -155,6 +156,24 @@ export const stageTemplateRequestSchema = z.object({
   requester: personSchema.optional(),
 })
 export type StageTemplateRequest = z.infer<typeof stageTemplateRequestSchema>
+
+export const stageMoveRequestSchema = z.object({
+  id: z.string(),
+  block_id: z.string(),
+  layout_id: z.string(),
+  x: z.coerce.number(),
+  y: z.coerce.number(),
+  w: z.coerce.number(),
+  h: z.coerce.number(),
+  note: z.string().nullable(),
+  requested_by: z.string().nullable(),
+  requested_at: z.string(),
+  status: z.enum(['pending', 'approved', 'declined']),
+  decided_by: z.string().nullable(),
+  decided_at: z.string().nullable(),
+  requester: personSchema.optional(),
+})
+export type StageMoveRequest = z.infer<typeof stageMoveRequestSchema>
 
 export const stageTeamAccessSchema = z.object({
   department_id: z.string(),
@@ -205,13 +224,8 @@ export async function fetchStageBlockCounts(layoutIds: string[]): Promise<Record
   return counts
 }
 
-export async function fetchStageLayout(sessionId: string, areaId: string): Promise<StageLayout | null> {
-  const { data, error } = await supabase
-    .from('stage_layouts')
-    .select('*')
-    .eq('session_id', sessionId)
-    .eq('area_id', areaId)
-    .maybeSingle()
+export async function fetchStageLayout(serviceId: string): Promise<StageLayout | null> {
+  const { data, error } = await supabase.from('stage_layouts').select('*').eq('service_id', serviceId).maybeSingle()
   if (error) throw error
   return data ? stageLayoutSchema.parse(data) : null
 }
@@ -220,7 +234,7 @@ export async function fetchStageBlocks(layoutId: string): Promise<StageBlock[]> 
   const { data, error } = await supabase
     .from('stage_blocks')
     .select(
-      '*, person:profiles!stage_blocks_person_id_fkey(id, first_name, last_name), placer:profiles!stage_blocks_placed_by_fkey(id, first_name, last_name), updater:profiles!stage_blocks_updated_by_fkey(id, first_name, last_name)',
+      '*, person:profiles!stage_blocks_person_id_fkey(id, first_name, last_name), placer:profiles!stage_blocks_placed_by_fkey(id, first_name, last_name), updater:profiles!stage_blocks_updated_by_fkey(id, first_name, last_name), locker:profiles!stage_blocks_locked_by_fkey(id, first_name, last_name)',
     )
     .eq('layout_id', layoutId)
     .order('z')
@@ -250,6 +264,18 @@ export async function fetchStageLog(layoutId: string): Promise<StageLogLine[]> {
   return z.array(stageLogSchema).parse(data ?? [])
 }
 
+/** The open asks to move locked blocks on this layout. */
+export async function fetchStageMoveRequests(layoutId: string): Promise<StageMoveRequest[]> {
+  const { data, error } = await supabase
+    .from('stage_move_requests')
+    .select('*, requester:profiles!stage_move_requests_requested_by_fkey(id, first_name, last_name)')
+    .eq('layout_id', layoutId)
+    .eq('status', 'pending')
+    .order('requested_at')
+  if (error) throw error
+  return z.array(stageMoveRequestSchema).parse(data ?? [])
+}
+
 export async function fetchStageTemplates(): Promise<StageTemplate[]> {
   const { data, error } = await supabase.from('stage_templates').select('*').order('name')
   if (error) throw error
@@ -275,23 +301,23 @@ export async function fetchStageTeamAccess(): Promise<StageTeamAccess[]> {
  * Writing
  * ------------------------------------------------------------------ */
 
-export async function ensureStageLayout(sessionId: string, area: StageArea, serviceId: string): Promise<StageLayout> {
-  const existing = await fetchStageLayout(sessionId, area.id)
+export async function ensureStageLayout(serviceId: string): Promise<StageLayout> {
+  const existing = await fetchStageLayout(serviceId)
   if (existing) return existing
   const { data, error } = await supabase
     .from('stage_layouts')
-    .insert({ session_id: sessionId, area_id: area.id, service_id: serviceId, width: area.width, height: area.height })
+    .insert({ service_id: serviceId })
     .select('*')
     .single()
   if (error) throw error
   return stageLayoutSchema.parse(data)
 }
 
-export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z' | 'seats'>>
+export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z' | 'seats' | 'area_id'>>
 
 export async function addStageBlock(
   layoutId: string,
-  block: { label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number },
+  block: { area_id: string; label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number },
 ): Promise<StageBlock> {
   const { data, error } = await supabase
     .from('stage_blocks')
@@ -324,20 +350,46 @@ export async function deleteStageComment(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function clearStageLayout(sessionId: string, areaId: string): Promise<void> {
-  const { error } = await supabase.rpc('clear_stage_layout', { p_session: sessionId, p_area: areaId })
+export async function clearStageLayout(serviceId: string): Promise<void> {
+  const { error } = await supabase.rpc('clear_stage_layout', { p_service: serviceId })
   if (error) throw error
 }
 
 /** 'saved' straight into the library, or 'requested' for an Admin to answer. */
-export async function saveStageTemplate(sessionId: string, areaId: string, name: string): Promise<'saved' | 'requested'> {
-  const { data, error } = await supabase.rpc('save_stage_template', { p_session: sessionId, p_area: areaId, p_name: name })
+export async function saveStageTemplate(serviceId: string, name: string): Promise<'saved' | 'requested'> {
+  const { data, error } = await supabase.rpc('save_stage_template', { p_service: serviceId, p_name: name })
   if (error) throw error
   return z.enum(['saved', 'requested']).parse(data)
 }
 
-export async function applyStageTemplate(sessionId: string, areaId: string, templateId: string): Promise<void> {
-  const { error } = await supabase.rpc('apply_stage_template', { p_session: sessionId, p_area: areaId, p_template: templateId })
+export async function applyStageTemplate(serviceId: string, templateId: string): Promise<void> {
+  const { error } = await supabase.rpc('apply_stage_template', { p_service: serviceId, p_template: templateId })
+  if (error) throw error
+}
+
+export async function lockStageBlock(id: string, lock: boolean): Promise<void> {
+  const { error } = await supabase.rpc('lock_stage_block', { p_block: id, p_lock: lock })
+  if (error) throw error
+}
+
+export async function requestStageMove(
+  blockId: string,
+  box: { x: number; y: number; w: number; h: number },
+  note: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('request_stage_move', {
+    p_block: blockId, p_x: box.x, p_y: box.y, p_w: box.w, p_h: box.h, p_note: note.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function decideStageMove(id: string, approve: boolean): Promise<void> {
+  const { error } = await supabase.rpc('decide_stage_move', { p_request: id, p_approve: approve })
+  if (error) throw error
+}
+
+export async function withdrawStageMove(id: string): Promise<void> {
+  const { error } = await supabase.rpc('withdraw_stage_move', { p_request: id })
   if (error) throw error
 }
 
@@ -401,10 +453,52 @@ export function stageMay(
 }
 
 /* ------------------------------------------------------------------ *
- * Geometry
+ * Geometry: the workspace is the areas, stacked
  * ------------------------------------------------------------------ */
 
 export const GRID = 10
+
+/** The space between one region and the next, in canvas units. */
+export const REGION_GAP = 60
+
+export interface Region {
+  area: StageArea
+  /** Where the region's corner sits in the workspace. */
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
+/** The areas as regions of one canvas, top to bottom in their set order, left-aligned. */
+export function regionsOf(areas: StageArea[]): Region[] {
+  const sorted = [...areas].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+  let top = 0
+  return sorted.map((area) => {
+    const region = { area, top, left: 0, width: area.width, height: area.height }
+    top += area.height + REGION_GAP
+    return region
+  })
+}
+
+/** The whole workspace: as wide as its widest region, as tall as all of them. */
+export function workspaceOf(regions: Region[]): { width: number; height: number } {
+  if (regions.length === 0) return DEFAULT_STAGE
+  return {
+    width: Math.max(...regions.map((r) => r.width)),
+    height: regions[regions.length - 1].top + regions[regions.length - 1].height,
+  }
+}
+
+/** The region a workspace point falls in — or the nearest, for a drop in the gap. */
+export function regionAt(regions: Region[], x: number, y: number): Region | null {
+  if (regions.length === 0) return null
+  const inside = regions.find((r) => y >= r.top && y <= r.top + r.height && x >= r.left && x <= r.left + r.width)
+  if (inside) return inside
+  return [...regions].sort(
+    (a, b) => Math.abs(y - (a.top + a.height / 2)) - Math.abs(y - (b.top + b.height / 2)),
+  )[0]
+}
 
 export const snap = (n: number) => Math.round(n / GRID) * GRID
 
@@ -420,7 +514,7 @@ export function clampBlock(
   return { x, y, w, h }
 }
 
-/** Where a new block lands: the first free-ish spot reading left to right. */
+/** Where a new block lands in its region: the first free-ish spot reading left to right. */
 export function placeNewBlock(
   blocks: { x: number; y: number; w: number; h: number }[],
   stage: { width: number; height: number },
@@ -482,6 +576,16 @@ export function logSentence(line: StageLogLine): string {
       return `${who} applied the template ${String(d.name ?? '')}`.trim()
     case 'cleared':
       return `${who} cleared the stage`
+    case 'locked':
+      return `${who} locked ${what}`
+    case 'unlocked':
+      return `${who} unlocked ${what}`
+    case 'move_requested':
+      return `${who} asked to move ${what}${d.note ? ` — “${String(d.note)}”` : ''}`
+    case 'move_approved':
+      return `${who} approved a move of ${what}`
+    case 'move_declined':
+      return `${who} declined a move of ${what}`
   }
 }
 

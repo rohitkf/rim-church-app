@@ -33,6 +33,8 @@ export const NOTIFICATION_TYPES = [
   'tour_pushed',
   'stage_template_request',
   'stage_template_decided',
+  'stage_move_request',
+  'stage_move_decided',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -69,6 +71,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
   stage_template_request: { label: 'Somebody wants to keep a stage layout as a template', href: '/settings/stage' },
   stage_template_decided: { label: 'Your stage template request was answered', href: '/stage' },
+  stage_move_request: { label: 'Somebody wants to move a locked block on a stage layout', href: '/stage' },
+  stage_move_decided: { label: 'Your request to move a block was answered', href: '/stage' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.

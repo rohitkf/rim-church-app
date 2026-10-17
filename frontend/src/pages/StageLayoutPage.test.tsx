@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -25,9 +25,14 @@ const db = vi.hoisted(() => ({
   saved: [] as { name: string; bytes: number }[],
   may: { add: true, edit: true, delete: true, comment: true, templates: false },
   finished: false,
+  isAdmin: false,
+  locks: [] as { id: string; on: boolean }[],
+  asks: [] as Record<string, unknown>[],
+  decided: [] as { id: string; approve: boolean }[],
+  pendingAsks: [] as Record<string, unknown>[],
 }))
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } } }) }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: db.isAdmin }) }))
 vi.mock('../lib/useTheme', () => ({ useTheme: () => ({ resolved: 'dark' }) }))
 vi.mock('../lib/downloadFile', () => ({
   downloadFile: (data: Uint8Array, name: string) => db.saved.push({ name, bytes: data.length }),
@@ -41,11 +46,7 @@ vi.mock('../lib/supabaseClient', () => ({
     from: (table: string) => ({
       select: () => ({
         eq: () => ({
-          single: () =>
-            Promise.resolve({
-              data: { id: 's1', service_id: 'svc', session_name: 'English', start_time: '2026-10-18T09:30:00Z', service: { date: '2026-10-18', service_type: 'English Service' } },
-              error: null,
-            }),
+          single: () => Promise.resolve({ data: { id: 'svc', date: '2026-10-18', service_type: 'English Service' }, error: null }),
         }),
         order: () => Promise.resolve({ data: table === 'profiles' ? [{ id: 'p1', first_name: 'Jolsna', last_name: 'R' }] : [], error: null }),
       }),
@@ -63,12 +64,25 @@ fetchStageAreas: () => Promise.resolve([
     fetchStageLayout: () => Promise.resolve(db.layout),
     fetchStageBlocks: () => Promise.resolve(db.blocks),
     fetchStageComments: () => Promise.resolve([]),
+    fetchStageMoveRequests: () => Promise.resolve(db.pendingAsks),
+    lockStageBlock: (id: string, on: boolean) => {
+      db.locks.push({ id, on })
+      return Promise.resolve()
+    },
+    requestStageMove: (id: string, box: unknown, note: string) => {
+      db.asks.push({ id, box, note })
+      return Promise.resolve()
+    },
+    decideStageMove: (id: string, approve: boolean) => {
+      db.decided.push({ id, approve })
+      return Promise.resolve()
+    },
     fetchStageLog: () =>
       Promise.resolve([
         { id: 'g1', layout_id: 'l1', block_id: 'b1', block_label: 'Keyboard', kind: 'moved', detail: {}, by: 'me', at: '2026-10-17T10:00:00Z', actor: { id: 'me', first_name: 'Rohit', last_name: 'K' } },
       ]),
-    fetchStageTemplates: () => Promise.resolve([{ id: 't1', name: 'Full band', area_id: 'A', width: 1200, height: 700, blocks: [{}, {}], created_by: null, created_at: 'x', updated_at: 'x' }]),
-    ensureStageLayout: () => Promise.resolve(db.layout ?? { id: 'l1', session_id: 's1', area_id: 'A', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' }),
+    fetchStageTemplates: () => Promise.resolve([{ id: 't1', name: 'Full band', blocks: [{}, {}], created_by: null, created_at: 'x', updated_at: 'x' }]),
+    ensureStageLayout: () => Promise.resolve(db.layout ?? { id: 'l1', service_id: 'svc', created_by: 'me', created_at: 'x', updated_at: 'x' }),
     addStageBlock: (_l: string, b: { label: string }) => {
       db.added.push(b.label)
       db.addedRows.push(b)
@@ -96,8 +110,8 @@ fetchStageAreas: () => Promise.resolve([
 })
 
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
-  id: 'b1', layout_id: 'l1', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0,
+  id: 'b1', layout_id: 'l1', area_id: 'A', label: 'Keyboard', person_id: null, color: '#0A84FF',
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, locked_by: null, locked_at: null,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u2', updated_at: '2026-10-17T11:00:00Z',
   person: null,
   placer: { id: 'u', first_name: 'Rohit', last_name: 'K' },
@@ -105,14 +119,14 @@ const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   ...over,
 })
 
-const layout = (): StageLayout => ({ id: 'l1', session_id: 's1', area_id: 'A', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' })
+const layout = (): StageLayout => ({ id: 'l1', service_id: 'svc', created_by: 'me', created_at: 'x', updated_at: 'x' })
 
 function show() {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={['/stage/s1/A']}>
+      <MemoryRouter initialEntries={['/stage/svc']}>
         <Routes>
-          <Route path="/stage/:sessionId/:areaId" element={<StageLayoutPage />} />
+          <Route path="/stage/:serviceId" element={<StageLayoutPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -136,14 +150,20 @@ beforeEach(() => {
   db.saved = []
   db.may = { add: true, edit: true, delete: true, comment: true, templates: false }
   db.finished = false
+  db.isAdmin = false
+  db.locks = []
+  db.asks = []
+  db.decided = []
+  db.pendingAsks = []
 })
 
 describe('a session’s stage', () => {
   it('names the session and draws what is on the stage', async () => {
     show()
-    expect(await screen.findByRole('heading', { name: 'English · Stage' })).toBeInTheDocument()
-    // The other areas are a tab away.
-    expect(screen.getByRole('link', { name: 'Audience' })).toHaveAttribute('href', '/stage/s1/B')
+    expect(await screen.findByRole('heading', { name: 'English Service' })).toBeInTheDocument()
+    // Both areas are on the one canvas.
+    expect(document.querySelectorAll('[data-region]')).toHaveLength(2)
+    expect(screen.getByText('Audience')).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Keyboard' })).toBeInTheDocument()
   })
 
@@ -161,12 +181,15 @@ describe('a session’s stage', () => {
     await user.click(await screen.findByRole('button', { name: '+ Add block' }))
     await user.click(screen.getByRole('button', { name: 'Drums' }))
     await waitFor(() => expect(db.added).toEqual(['Drums']))
+    expect(db.addedRows[0]).toMatchObject({ area_id: 'A' })
     await user.click(await screen.findByRole('button', { name: '+ Add block' }))
+    // Into the hall this time.
+    await user.click(screen.getByRole('radio', { name: 'Audience' }))
     await user.clear(screen.getByRole('spinbutton', { name: 'Seats' }))
     await user.type(screen.getByRole('spinbutton', { name: 'Seats' }), '12')
     await user.click(screen.getByRole('button', { name: 'Add row' }))
     await waitFor(() => expect(db.added).toEqual(['Drums', 'Row A']))
-    expect(db.addedRows.at(-1)).toMatchObject({ kind: 'seats', seats: 12 })
+    expect(db.addedRows.at(-1)).toMatchObject({ kind: 'seats', seats: 12, area_id: 'B' })
   })
 
   it('renames, recolours and puts a person on the selected block', async () => {
@@ -257,7 +280,56 @@ describe('a session’s stage', () => {
     expect(screen.getByRole('dialog', { name: 'Export this layout' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^PDF/ }))
     await waitFor(() => expect(db.saved).toHaveLength(1))
-    expect(db.saved[0].name).toBe('2026-10-18-english-stage-layout-dark.pdf')
+    expect(db.saved[0].name).toBe('2026-10-18-english-service-layout-dark.pdf')
     expect(db.saved[0].bytes).toBeGreaterThan(500)
+  })
+
+  it('lets an Admin lock a block, and says so on it', async () => {
+    const user = userEvent.setup()
+    db.isAdmin = true
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+    await user.click(screen.getByRole('button', { name: 'Lock' }))
+    await waitFor(() => expect(db.locks).toEqual([{ id: 'b1', on: true }]))
+  })
+
+  it('keeps a locked block still for everybody else, and offers an ask instead', async () => {
+    const user = userEvent.setup()
+    db.blocks = [block({ locked_by: 'a', locked_at: '2026-10-17T09:00:00Z', locker: { id: 'a', first_name: 'Blessy', last_name: 'T' } })]
+    show()
+    const el = await screen.findByRole('button', { name: 'Keyboard (locked)' })
+    await user.click(el)
+    expect(screen.getByText(/by Blessy T/)).toHaveTextContent(/Locked/)
+    expect(screen.queryByRole('textbox', { name: 'Block name' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Lock' })).toBeNull()
+    // A drag does nothing.
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 200, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 200, clientY: 100 })
+    expect(db.patched).toEqual([])
+    // Propose: now a drag is an ask, with a word why.
+    await user.click(screen.getByRole('button', { name: 'Propose a move' }))
+    expect(screen.getByRole('status')).toHaveTextContent(/Drag Keyboard/)
+    fireEvent.pointerDown(el, { pointerId: 2, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 2, clientX: 160, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 2, clientX: 160, clientY: 100 })
+    expect(await screen.findByRole('dialog', { name: 'Ask to move Keyboard' })).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: 'Why' }), 'Camera needs it left')
+    await user.click(screen.getByRole('button', { name: 'Send the ask' }))
+    await waitFor(() => expect(db.asks).toEqual([{ id: 'b1', box: { x: 220, y: 100, w: 160, h: 100, area_id: 'A' }, note: 'Camera needs it left' }]))
+    expect(db.patched).toEqual([])
+  })
+
+  it('shows an Admin the asks on a block, to approve or decline', async () => {
+    const user = userEvent.setup()
+    db.isAdmin = true
+    db.blocks = [block({ locked_by: 'me', locked_at: '2026-10-17T09:00:00Z' })]
+    db.pendingAsks = [{ id: 'q1', block_id: 'b1', layout_id: 'l1', x: 300, y: 100, w: 160, h: 100, note: 'Camera', requested_by: 'u9', requested_at: '2026-10-17T10:00:00Z', status: 'pending', decided_by: null, decided_at: null, requester: { id: 'u9', first_name: 'Joel', last_name: 'S' } }]
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard (locked)' }))
+    expect(screen.getByText(/asked to move it to 300, 100/)).toHaveTextContent('Joel S')
+    await user.click(screen.getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(db.decided).toEqual([{ id: 'q1', approve: true }]))
   })
 })
