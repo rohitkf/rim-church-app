@@ -16,6 +16,8 @@ import type { SheetTheme } from './serviceSheet'
  */
 
 export interface StageSheetBlock {
+  /** The region it is in, by name. */
+  area_id: string
   label: string
   person: string | null
   color: string
@@ -28,15 +30,23 @@ export interface StageSheetBlock {
   seats: number
 }
 
-export interface StageSheet {
-  /** "English · Stage" */
-  title: string
-  /** "English Service · Sunday, 19 October 2026 · 11:30" */
-  subtitle: string
+export interface StageSheetRegion {
+  name: string
+  top: number
+  left: number
   width: number
   height: number
   topLabel: string
   bottomLabel: string
+}
+
+export interface StageSheet {
+  /** "English Service" */
+  title: string
+  /** "Sunday, 19 October 2026" */
+  subtitle: string
+  /** The areas, as regions of one workspace (lib/stage regionsOf). */
+  regions: StageSheetRegion[]
   blocks: StageSheetBlock[]
   /** "Last changed by Rohit K, 17 Oct 09:24 · exported 18/10/2026" */
   footer: string
@@ -55,14 +65,27 @@ const EDGE_H = 18
 /** Landscape A4: the page on its side. */
 export const LANDSCAPE = { width: A4.height, height: A4.width }
 
+/** The workspace's own extent: as wide as its widest region, as tall as all of them. */
+function extentOf(regions: StageSheetRegion[]): { width: number; height: number } {
+  if (regions.length === 0) return { width: 1200, height: 700 }
+  return {
+    width: Math.max(...regions.map((r) => r.left + r.width)),
+    height: Math.max(...regions.map((r) => r.top + r.height)),
+  }
+}
+
 export function stageSheetPage(sheet: StageSheet, theme: SheetTheme = 'dark'): PdfPage {
   const P = PALETTE[theme]
   const texts: PdfText[] = []
   const rects: PdfRect[] = []
   const lines: PdfLine[] = []
   const circles: PdfCircle[] = []
-  const W = LANDSCAPE.width
-  const H = LANDSCAPE.height
+  // A wide workspace (one stage) lies on its side; a tall one (stage over
+  // hall) stands up, so neither is a strip across the middle of the page.
+  const extent = extentOf(sheet.regions)
+  const landscape = extent.width >= extent.height
+  const W = landscape ? LANDSCAPE.width : A4.width
+  const H = landscape ? LANDSCAPE.height : A4.height
 
   rects.push({ x: 0, y: 0, w: W, h: H, color: P.backdrop })
 
@@ -70,34 +93,43 @@ export function stageSheetPage(sheet: StageSheet, theme: SheetTheme = 'dark'): P
   texts.push({ x: PAD, y: PAD + 18, size: TITLE_SIZE, text: truncateToWidth(sheet.title, TITLE_SIZE, W - PAD * 2, true), bold: true, color: P.ink })
   texts.push({ x: PAD, y: PAD + 36, size: SUB_SIZE, text: truncateToWidth(sheet.subtitle, SUB_SIZE, W - PAD * 2, false, true), mono: true, color: P.muted })
 
-  // The stage, scaled to what is left of the page, kept in proportion.
+  // The workspace, scaled to what is left of the page, kept in proportion.
   const boxTop = PAD + 52
   const boxH = H - boxTop - PAD - 16
   const boxW = W - PAD * 2
-  const scale = Math.min(boxW / sheet.width, boxH / sheet.height)
-  const sw = sheet.width * scale
-  const sh = sheet.height * scale
+  const scale = Math.min(boxW / extent.width, boxH / extent.height)
+  const sw = extent.width * scale
   const sx = PAD + (boxW - sw) / 2
   const sy = boxTop
   const at = (v: number) => v * scale
 
-  rects.push({ x: sx, y: sy, w: sw, h: sh, color: P.stage, radius: 10 })
-  // The two edges: the far one as a quiet band, the near one as a dashed line.
-  rects.push({ x: sx, y: sy, w: sw, h: EDGE_H, color: P.rail, radius: 10 })
-  rects.push({ x: sx, y: sy + EDGE_H / 2, w: sw, h: EDGE_H / 2, color: P.rail })
-  const edge = (label: string, y: number, color: string) => {
+  const edge = (label: string, x: number, w: number, y: number, color: string) => {
     const text = label.toUpperCase()
-    texts.push({ x: sx + (sw - textWidth(text, 7.5, false, true)) / 2, y, size: 7.5, text, mono: true, color })
+    texts.push({ x: x + (w - textWidth(text, 7.5, false, true)) / 2, y, size: 7.5, text, mono: true, color })
   }
-  edge(sheet.topLabel, sy + 12.5, P.muted)
-  lines.push({ x1: sx + 8, y1: sy + sh - EDGE_H, x2: sx + sw - 8, y2: sy + sh - EDGE_H, width: 1, color: P.front, dash: [4, 3] })
-  edge(sheet.bottomLabel, sy + sh - 5.5, P.front)
+  // Each region: a panel with its far edge as a quiet band and its near
+  // edge as a dashed line, its name in the corner.
+  for (const r of sheet.regions) {
+    const rx = sx + at(r.left)
+    const ry = sy + at(r.top)
+    const rw = at(r.width)
+    const rh = at(r.height)
+    rects.push({ x: rx, y: ry, w: rw, h: rh, color: P.stage, radius: 10 })
+    rects.push({ x: rx, y: ry, w: rw, h: EDGE_H, color: P.rail, radius: 10 })
+    rects.push({ x: rx, y: ry + EDGE_H / 2, w: rw, h: EDGE_H / 2, color: P.rail })
+    edge(r.topLabel, rx, rw, ry + 12.5, P.muted)
+    texts.push({ x: rx + 8, y: ry + 12.5, size: 7, text: r.name.toUpperCase(), mono: true, color: P.ink })
+    lines.push({ x1: rx + 8, y1: ry + rh - EDGE_H, x2: rx + rw - 8, y2: ry + rh - EDGE_H, width: 1, color: P.front, dash: [4, 3] })
+    edge(r.bottomLabel, rx, rw, ry + rh - 5.5, P.front)
+  }
 
-  // The blocks, in their own colours. A turned block is drawn upright at
-  // its own place: the sheet is a map, and a map is read, not rotated.
+  // The blocks, in their own colours, each at its place in its region. A
+  // turned block is drawn upright: the sheet is a map, and a map is read,
+  // not rotated.
   for (const b of sheet.blocks) {
-    const x = sx + at(b.x)
-    const y = sy + at(b.y)
+    const r = sheet.regions.find((x) => x.name === b.area_id) ?? sheet.regions[0]
+    const x = sx + at((r?.left ?? 0) + b.x)
+    const y = sy + at((r?.top ?? 0) + b.y)
     const w = at(b.w)
     const h = at(b.h)
     const ink = inkOn(b.color)

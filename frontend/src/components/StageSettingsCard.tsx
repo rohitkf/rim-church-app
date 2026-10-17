@@ -66,7 +66,6 @@ export function StageSettingsCard() {
   const requests = useQuery({ queryKey: [...STAGE_KEY, 'requests'], queryFn: fetchStageTemplateRequests })
   const templates = useQuery({ queryKey: [...STAGE_KEY, 'templates'], queryFn: fetchStageTemplates })
   const areas = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
-  const areaName = (id: string) => areas.data?.find((a) => a.id === id)?.name ?? 'an area'
 
   const areaWrite = useMutation({
     mutationFn: (op: { kind: 'add'; area: AreaDraft } | { kind: 'update'; id: string; patch: Partial<AreaDraft> } | { kind: 'delete'; id: string }) =>
@@ -194,7 +193,7 @@ export function StageSettingsCard() {
         </QueryState>
       </SectionTile>
 
-      <SectionTile title="Areas" hint="The places a session can carry a layout for. Each has its own size and edge labels.">
+      <SectionTile title="Areas" hint="The regions of every service’s workspace, drawn top to bottom in this order. Each has its own size and edge labels.">
         <QueryState isLoading={areas.isLoading} error={areas.error}>
           <ul className="flex flex-col gap-2">
             {(areas.data ?? []).map((a) => (
@@ -229,7 +228,7 @@ export function StageSettingsCard() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-body-sm font-medium text-on-surface">{r.name}</span>
                   <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {areaName(r.area_id)} · {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
+                    {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
                   </span>
                 </span>
                 <ActionButton size="sm" onClick={() => decide.mutate({ id: r.id, approve: true })} disabled={decide.isPending}>
@@ -252,7 +251,7 @@ export function StageSettingsCard() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-body-sm font-medium text-on-surface">{t.name}</span>
                   <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {areaName(t.area_id)} · {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'} · {formatRelativeTime(t.updated_at)}
+                    {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'} · {formatRelativeTime(t.updated_at)}
                   </span>
                 </span>
                 <ActionButton

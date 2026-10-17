@@ -53,6 +53,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
   stage_template_request: { label: 'Somebody wants to keep a stage layout as a template', href: '/settings/stage' },
   stage_template_decided: { label: 'Your stage template request was answered', href: '/stage' },
+  stage_move_request: { label: 'Somebody wants to move a locked block on a stage layout', href: '/stage' },
+  stage_move_decided: { label: 'Your request to move a block was answered', href: '/stage' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {

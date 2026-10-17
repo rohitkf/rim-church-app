@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { StageCanvas } from './StageCanvas'
-import type { StageBlock } from '../lib/stage'
+import { regionsOf, type StageBlock } from '../lib/stage'
 
 /*
  * The canvas, driven with pointer events the way a finger or a mouse
@@ -9,21 +9,25 @@ import type { StageBlock } from '../lib/stage'
  * canvas writes rather than measured.
  */
 
+const areas = [
+  { id: 'A', name: 'Stage', width: 1200, height: 700, top_label: 'Back of stage', bottom_label: 'Front · congregation', position: 0 },
+  { id: 'B', name: 'Audience', width: 1200, height: 900, top_label: 'Stage', bottom_label: 'Back of hall', position: 1 },
+]
+const regions = regionsOf(areas)
+
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
-  id: 'b1', layout_id: 'l', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0,
+  id: 'b1', layout_id: 'l', area_id: 'A', label: 'Keyboard', person_id: null, color: '#0A84FF',
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0, locked_by: null, locked_at: null,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u', updated_at: '2026-10-17T10:00:00Z',
   person: null, placer: { id: 'u', first_name: 'Rohit', last_name: 'K' }, updater: null,
   ...over,
 })
 
-const stage = { width: 1200, height: 700 }
-
 function draw(over: Partial<Parameters<typeof StageCanvas>[0]> = {}) {
   const onCommit = vi.fn()
   const onSelect = vi.fn()
   render(
-    <StageCanvas stage={stage} blocks={[block()]} selectedId={null} onSelect={onSelect} canEdit onCommit={onCommit} {...over} />,
+    <StageCanvas regions={regions} blocks={[block()]} selectedId={null} onSelect={onSelect} canEdit onCommit={onCommit} {...over} />,
   )
   return { onCommit, onSelect }
 }
@@ -66,9 +70,7 @@ describe('the stage canvas', () => {
     expect(onCommit).toHaveBeenCalledTimes(1)
     const [id, box] = onCommit.mock.calls[0]
     expect(id).toBe('b1')
-    expect(box.x).toBe(220)
-    expect(box.y).toBe(100)
-    expect(box.x % 10).toBe(0)
+    expect(box).toEqual({ x: 220, y: 100, w: 160, h: 100, area_id: 'A' })
   })
 
   it('does not move anything for somebody who may only look', () => {
@@ -87,7 +89,7 @@ describe('the stage canvas', () => {
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100, clientY: 100 })
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 150, clientY: 125 })
     fireEvent.pointerUp(handle, { pointerId: 1, clientX: 150, clientY: 125 })
-    expect(onCommit).toHaveBeenCalledWith('b1', { x: 100, y: 100, w: 260, h: 150 })
+    expect(onCommit).toHaveBeenCalledWith('b1', { x: 100, y: 100, w: 260, h: 150, area_id: 'A' })
   })
 
   it('nudges with the arrow keys and offers Delete', () => {
@@ -95,9 +97,9 @@ describe('the stage canvas', () => {
     const { onCommit } = draw({ selectedId: 'b1', onDelete })
     const app = screen.getByRole('application', { name: 'Stage' })
     fireEvent.keyDown(app, { key: 'ArrowRight' })
-    expect(onCommit).toHaveBeenCalledWith('b1', { x: 110, y: 100, w: 160, h: 100 })
+    expect(onCommit).toHaveBeenCalledWith('b1', { x: 110, y: 100, w: 160, h: 100, area_id: 'A' })
     fireEvent.keyDown(app, { key: 'ArrowUp', shiftKey: true })
-    expect(onCommit).toHaveBeenLastCalledWith('b1', { x: 100, y: 50, w: 160, h: 100 })
+    expect(onCommit).toHaveBeenLastCalledWith('b1', { x: 100, y: 50, w: 160, h: 100, area_id: 'A' })
     fireEvent.keyDown(app, { key: 'Delete' })
     expect(onDelete).toHaveBeenCalledWith('b1')
   })
@@ -109,5 +111,46 @@ describe('the stage canvas', () => {
     expect(screen.getByRole('button', { name: 'Fit the whole stage' })).toHaveTextContent('63%')
     fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
     expect(screen.getByRole('button', { name: 'Fit the whole stage' })).toHaveTextContent('50%')
+  })
+
+  it('will not drag a block the caller says cannot move, until a move is being proposed', () => {
+    const onPropose = vi.fn()
+    const locked = block({ locked_by: 'a', locked_at: '2026-10-17T09:00:00Z' })
+    const { onCommit } = draw({ blocks: [locked], canMove: () => false, onPropose })
+    const el = screen.getByRole('button', { name: 'Keyboard (locked)' })
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 160, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 160, clientY: 100 })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(onPropose).not.toHaveBeenCalled()
+  })
+
+  it('turns a drag into a proposal for the block being proposed', () => {
+    const onPropose = vi.fn()
+    const locked = block({ locked_by: 'a', locked_at: '2026-10-17T09:00:00Z' })
+    const { onCommit } = draw({ blocks: [locked], canMove: () => false, proposing: 'b1', onPropose })
+    const el = screen.getByRole('button', { name: 'Keyboard (locked)' })
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 160, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 160, clientY: 100 })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(onPropose).toHaveBeenCalledWith('b1', { x: 220, y: 100, w: 160, h: 100, area_id: 'A' })
+  })
+
+  it('draws every area as a region of one workspace, and lets a block cross from one to the next', () => {
+    const { onCommit } = draw()
+    expect(document.querySelectorAll('[data-region]')).toHaveLength(2)
+    expect(screen.getByText('Audience')).toBeInTheDocument()
+    const el = screen.getByRole('button', { name: 'Keyboard' })
+    // The hall starts 760 stage units down (700 + the gap); at 50% that is 380 screen px.
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 100, clientY: 300 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 100, clientY: 500 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 100, clientY: 500 })
+    const [, box] = onCommit.mock.calls[0]
+    expect(box.area_id).toBe('B')
+    // 100 + 800 stage units down = 900 in the workspace, which is 140 into the hall.
+    expect(box.y).toBe(140)
+    expect(box.x).toBe(100)
   })
 })

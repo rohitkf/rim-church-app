@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -15,14 +15,12 @@ import { stageSheetPage, type StageSheet } from '../lib/stageSheet'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { formatServiceDay } from '../lib/sunday'
-import { formatTime } from '../lib/time'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useStageAccess } from '../lib/useStageAccess'
 import {
   BLOCK_COLORS,
   DEFAULT_SEATS,
-  DEFAULT_STAGE,
   SEAT_PITCH,
   STAGE_KEY,
   addStageBlock,
@@ -37,21 +35,29 @@ import {
   fetchStageAreas,
   fetchStageLayout,
   fetchStageLog,
+  fetchStageMoveRequests,
+  lockStageBlock,
+  requestStageMove,
+  decideStageMove,
+  withdrawStageMove,
   fetchStageTemplates,
   logSentence,
   personName,
   placeNewBlock,
   quickBlocksFor,
+  regionsOf,
   saveStageTemplate,
   stampText,
   updateStageBlock,
   type BlockPatch,
   type StageArea,
   type StageBlock,
+  type StageMoveRequest,
 } from '../lib/stage'
 
 /**
- * One session's stage: the canvas, and everything around it.
+ * One service's layout: the canvas — every area as a region of one
+ * workspace — and everything around it.
  *
  * The canvas is the page. Under it, whichever block is selected opens
  * for editing — its name, who is on it, its colour — and says who put it
@@ -64,22 +70,12 @@ import {
  * layout is a record, like its rota.
  */
 
-const sessionSchema = z.object({
-  id: z.string(),
-  service_id: z.string(),
-  session_name: z.string(),
-  start_time: z.string(),
-  service: z.object({ date: z.string(), service_type: z.string() }),
-})
+const serviceRowSchema = z.object({ id: z.string(), date: z.string(), service_type: z.string() })
 
-async function fetchSession(id: string) {
-  const { data, error } = await supabase
-    .from('service_sessions')
-    .select('id, service_id, session_name, start_time, service:services(date, service_type)')
-    .eq('id', id)
-    .single()
+async function fetchService(id: string) {
+  const { data, error } = await supabase.from('services').select('id, date, service_type').eq('id', id).single()
   if (error) throw error
-  return sessionSchema.parse(data)
+  return serviceRowSchema.parse(data)
 }
 
 const personSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
@@ -92,18 +88,9 @@ async function fetchPeople() {
 
 type Panel = 'add' | 'templates' | 'comments' | 'history' | 'export' | null
 
-/** `/stage/:sessionId` on its own: the first area, which is the Stage unless the church reordered them. */
-export function StageAreaRedirect() {
-  const { sessionId = '' } = useParams()
-  const areas = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
-  if (areas.isLoading) return <p className="text-body-sm text-on-surface-variant">Loading…</p>
-  const first = areas.data?.[0]
-  return <Navigate to={first ? `/stage/${sessionId}/${first.id}` : '/stage'} replace />
-}
-
 export function StageLayoutPage() {
-  const { sessionId = '', areaId = '' } = useParams()
-  const { session: auth } = useAuth()
+  const { serviceId = '' } = useParams()
+  const { session: auth, isAdmin } = useAuth()
   const myId = auth?.user.id ?? ''
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -112,21 +99,26 @@ export function StageLayoutPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [panel, setPanel] = useState<Panel>(null)
   const [error, setError] = useState<string | null>(null)
+  /** A locked block being dragged to where somebody would like it. */
+  const [proposing, setProposing] = useState<string | null>(null)
+  /** Dropped: now the word why, before the ask goes. */
+  const [proposal, setProposal] = useState<{ id: string; box: BlockBox } | null>(null)
 
-  const sessionQuery = useQuery({ queryKey: ['service-sessions', 'one', sessionId], queryFn: () => fetchSession(sessionId), enabled: !!sessionId })
-  const session = sessionQuery.data
-  const { isFinished } = useFinishedServices(session ? [session.service_id] : [])
-  const finished = !!session && isFinished(session.service_id)
+  const serviceQuery = useQuery({ queryKey: ['service', 'stage', serviceId], queryFn: () => fetchService(serviceId), enabled: !!serviceId })
+  const service = serviceQuery.data
+  const { isFinished } = useFinishedServices(service ? [service.id] : [])
+  const finished = !!service && isFinished(service.id)
 
   const areasQuery = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
   const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data])
-  const area: StageArea | null = areas.find((a) => a.id === areaId) ?? null
-  const layoutQuery = useQuery({ queryKey: [...STAGE_KEY, 'layout', sessionId, areaId], queryFn: () => fetchStageLayout(sessionId, areaId), enabled: !!sessionId && !!areaId })
+  const regions = useMemo(() => regionsOf(areas), [areas])
+  const layoutQuery = useQuery({ queryKey: [...STAGE_KEY, 'layout', serviceId], queryFn: () => fetchStageLayout(serviceId), enabled: !!serviceId })
   const layout = layoutQuery.data ?? null
   const layoutId = layout?.id ?? ''
   const blocksQuery = useQuery({ queryKey: [...STAGE_KEY, 'blocks', layoutId], queryFn: () => fetchStageBlocks(layoutId), enabled: !!layoutId })
   const blocks = useMemo(() => blocksQuery.data ?? [], [blocksQuery.data])
   const commentsQuery = useQuery({ queryKey: [...STAGE_KEY, 'comments', layoutId], queryFn: () => fetchStageComments(layoutId), enabled: !!layoutId })
+  const asksQuery = useQuery({ queryKey: [...STAGE_KEY, 'asks', layoutId], queryFn: () => fetchStageMoveRequests(layoutId), enabled: !!layoutId })
   const logQuery = useQuery({ queryKey: [...STAGE_KEY, 'log', layoutId], queryFn: () => fetchStageLog(layoutId), enabled: !!layoutId && panel === 'history' })
   const templatesQuery = useQuery({ queryKey: [...STAGE_KEY, 'templates'], queryFn: fetchStageTemplates, enabled: panel === 'templates' })
   const peopleQuery = useQuery({ queryKey: [...STAGE_KEY, 'people'], queryFn: fetchPeople, enabled: !!selectedId })
@@ -135,12 +127,6 @@ export function StageLayoutPage() {
   const canEdit = !finished && may('edit')
   const canDelete = !finished && may('delete')
   const canComment = !finished && may('comment')
-  const stage = {
-    width: layout?.width ?? area?.width ?? DEFAULT_STAGE.width,
-    height: layout?.height ?? area?.height ?? DEFAULT_STAGE.height,
-    topLabel: area?.top_label,
-    bottomLabel: area?.bottom_label,
-  }
   const selected = blocks.find((b) => b.id === selectedId) ?? null
 
   // A block somebody else just removed is simply no longer selected:
@@ -152,19 +138,22 @@ export function StageLayoutPage() {
   /** The layout row, made on the first stroke. */
   const layoutFor = async () => {
     if (layout) return layout
-    if (!session || !area) throw new Error('The session has not loaded yet.')
-    const made = await ensureStageLayout(session.id, area, session.service_id)
-    await queryClient.invalidateQueries({ queryKey: [...STAGE_KEY, 'layout', sessionId, areaId] })
+    if (!service) throw new Error('The service has not loaded yet.')
+    const made = await ensureStageLayout(service.id)
+    await queryClient.invalidateQueries({ queryKey: [...STAGE_KEY, 'layout', serviceId] })
     return made
   }
 
   const add = useMutation({
-    mutationFn: async (what: { label: string; seats?: number }) => {
+    mutationFn: async (what: { label: string; areaId: string; seats?: number }) => {
       const lay = await layoutFor()
-      const size = what.seats ? { w: Math.min(lay.width - 80, what.seats * SEAT_PITCH + 16), h: 90 } : undefined
-      const at = placeNewBlock(blocks, { width: lay.width, height: lay.height }, size)
+      const region = regions.find((r) => r.area.id === what.areaId) ?? regions[0]
+      if (!region) throw new Error('There are no areas to lay out.')
+      const size = what.seats ? { w: Math.min(region.width - 80, what.seats * SEAT_PITCH + 16), h: 90 } : undefined
+      const at = placeNewBlock(blocks.filter((b) => b.area_id === region.area.id), { width: region.width, height: region.height }, size)
       const z = blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1
       return addStageBlock(lay.id, {
+        area_id: region.area.id,
         label: what.label.trim(),
         ...at,
         ...size,
@@ -219,8 +208,40 @@ export function StageLayoutPage() {
     onError: fail('Could not delete that.'),
   })
 
+  const lock = useMutation({
+    mutationFn: ({ id, on }: { id: string; on: boolean }) => lockStageBlock(id, on),
+    onSuccess: (_r, { on }) => {
+      showToast(on ? 'Locked — only an Admin can move it now' : 'Unlocked')
+      return invalidate()
+    },
+    onError: fail('Could not change the lock.'),
+  })
+  const askMove = useMutation({
+    mutationFn: ({ id, box, note }: { id: string; box: BlockBox; note: string }) => requestStageMove(id, box, note),
+    onSuccess: () => {
+      setProposal(null)
+      setProposing(null)
+      showToast('Sent to an Admin')
+      return invalidate()
+    },
+    onError: fail('Could not send the ask.'),
+  })
+  const decideMove = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) => decideStageMove(id, approve),
+    onSuccess: (_r, { approve }) => {
+      showToast(approve ? 'Moved' : 'Declined')
+      return invalidate()
+    },
+    onError: fail('Could not answer that.'),
+  })
+  const withdrawMove = useMutation({
+    mutationFn: withdrawStageMove,
+    onSuccess: () => invalidate(),
+    onError: fail('Could not take that back.'),
+  })
+
   const clear = useMutation({
-    mutationFn: () => clearStageLayout(sessionId, areaId),
+    mutationFn: () => clearStageLayout(serviceId),
     onSuccess: () => {
       setSelectedId(null)
       showToast('Stage cleared')
@@ -230,7 +251,7 @@ export function StageLayoutPage() {
   })
 
   const apply = useMutation({
-    mutationFn: (templateId: string) => applyStageTemplate(sessionId, areaId, templateId),
+    mutationFn: (templateId: string) => applyStageTemplate(serviceId, templateId),
     onSuccess: () => {
       setPanel(null)
       setSelectedId(null)
@@ -241,7 +262,7 @@ export function StageLayoutPage() {
   })
 
   const keep = useMutation({
-    mutationFn: (name: string) => saveStageTemplate(sessionId, areaId, name),
+    mutationFn: (name: string) => saveStageTemplate(serviceId, name),
     onSuccess: (outcome) => {
       setPanel(null)
       showToast(outcome === 'saved' ? 'Saved as a template' : 'Sent to an Admin to approve')
@@ -260,8 +281,8 @@ export function StageLayoutPage() {
 
   const onCommit = (id: string, box: BlockBox) => patch.mutate({ id, changes: box })
 
-  const title = session && area ? `${session.session_name} · ${area.name}` : session ? session.session_name : 'Stage layout'
-  const when = session ? `${formatServiceDay(session.service.date)} · ${formatTime(session.start_time)}` : ''
+  const title = service ? service.service_type : 'Stage layout'
+  const when = service ? formatServiceDay(service.date) : ''
   const thread = (commentsQuery.data ?? []).filter((c) => c.block_id === null)
 
   // The drawing as a sheet: what is on the stage, the way the page shows it.
@@ -269,12 +290,10 @@ export function StageLayoutPage() {
     const last = [...blocks].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
     return {
       title,
-      subtitle: session ? `${session.service.service_type} · ${when}` : '',
-      width: stage.width,
-      height: stage.height,
-      topLabel: stage.topLabel ?? 'Back',
-      bottomLabel: stage.bottomLabel ?? 'Front',
+      subtitle: when,
+      regions: regions.map((r) => ({ name: r.area.name, top: r.top, left: r.left, width: r.width, height: r.height, topLabel: r.area.top_label, bottomLabel: r.area.bottom_label })),
       blocks: blocks.map((b) => ({
+        area_id: areas.find((a) => a.id === b.area_id)?.name ?? '',
         label: b.label,
         person: b.person ? personName(b.person) : null,
         color: b.color,
@@ -301,9 +320,9 @@ export function StageLayoutPage() {
         }
         title={title}
         description={
-          session ? (
+          service ? (
             <>
-              {session.service.service_type} · {when}
+              {when}
               {finished && (
                 <>
                   {' '}
@@ -316,25 +335,9 @@ export function StageLayoutPage() {
       />
       <Lifespan page="stage" className="mb-4" />
 
-      {/* The areas of this session: one drawing each, a tab each. */}
-      {areas.length > 1 && (
-        <nav aria-label="Areas" className="mb-3 flex gap-1 self-start overflow-x-auto rounded-full bg-inset p-1 hairline">
-          {areas.map((a) => (
-            <Link
-              key={a.id}
-              to={`/stage/${sessionId}/${a.id}`}
-              aria-current={a.id === areaId ? 'page' : undefined}
-              className={`tap shrink-0 rounded-full px-4 py-2 text-label-md transition-colors ${a.id === areaId ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-            >
-              {a.name}
-            </Link>
-          ))}
-        </nav>
-      )}
-
-      <QueryState isLoading={sessionQuery.isLoading || layoutQuery.isLoading || areasQuery.isLoading} error={sessionQuery.error ?? layoutQuery.error ?? areasQuery.error}>
-        {areasQuery.isSuccess && !area && (
-          <p className="mb-3 text-body-sm text-on-surface-variant">That area is no longer there. <Link to="/stage" className="text-primary hover:underline">Back to the list.</Link></p>
+      <QueryState isLoading={serviceQuery.isLoading || layoutQuery.isLoading || areasQuery.isLoading} error={serviceQuery.error ?? layoutQuery.error ?? areasQuery.error}>
+        {areasQuery.isSuccess && areas.length === 0 && (
+          <p className="mb-3 text-body-sm text-on-surface-variant">No areas to lay out yet. An Admin names them in Settings › Stage layout.</p>
         )}
         {/* What can be done, in the order somebody reaches for it. */}
         <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="stage-tools">
@@ -393,17 +396,28 @@ export function StageLayoutPage() {
         )}
 
         <StageCanvas
-          stage={stage}
+          regions={regions}
           blocks={blocks}
           selectedId={selectedId}
           onSelect={setSelectedId}
           canEdit={canEdit}
+          canMove={(b) => !b.locked_at || isAdmin}
+          proposing={proposing}
+          onPropose={(id, box) => setProposal({ id, box })}
           onCommit={onCommit}
-          onDelete={canDelete ? (id) => { const b = blocks.find((x) => x.id === id); if (b) confirmDelete(b) } : undefined}
+          onDelete={canDelete ? (id) => { const b = blocks.find((x) => x.id === id); if (b && (!b.locked_at || isAdmin)) confirmDelete(b) } : undefined}
         />
+        {proposing && (
+          <p role="status" className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-label-md text-primary">
+            Drag {blocks.find((b) => b.id === proposing)?.label ?? 'it'} to where it should go — the drop sends an ask, nothing moves yet.
+            <button type="button" onClick={() => setProposing(null)} className="tap text-on-surface-faint hover:text-on-surface">
+              Cancel
+            </button>
+          </p>
+        )}
         {blocks.length === 0 && layoutQuery.isSuccess && (
           <p className="mt-2 text-center text-label-md text-on-surface-faint">
-            {canAdd ? 'An empty stage. Add a block, or start from a template.' : 'An empty stage.'}
+            {canAdd ? 'Nothing drawn yet. Add a block, or start from a template.' : 'Nothing drawn yet.'}
           </p>
         )}
         {canEdit && blocks.length > 0 && (
@@ -416,9 +430,16 @@ export function StageLayoutPage() {
           <BlockInspector
             key={selected.id}
             block={selected}
-            canEdit={canEdit}
-            canDelete={canDelete}
+            canEdit={canEdit && (!selected.locked_at || isAdmin)}
+            canDelete={canDelete && (!selected.locked_at || isAdmin)}
             canComment={canComment}
+            isAdmin={isAdmin && !finished}
+            mayAsk={canEdit && !!selected.locked_at && !isAdmin}
+            asks={(asksQuery.data ?? []).filter((r) => r.block_id === selected.id)}
+            onLock={(on) => lock.mutate({ id: selected.id, on })}
+            onAsk={() => setProposing(selected.id)}
+            onDecide={(id, approve) => decideMove.mutate({ id, approve })}
+            onWithdraw={(id) => withdrawMove.mutate(id)}
             people={peopleQuery.data ?? []}
             notes={notesOn(selected.id)}
             myId={myId}
@@ -430,11 +451,19 @@ export function StageLayoutPage() {
           />
         )}
 
-        {panel === 'export' && session && area && (
+        {proposal && (
+          <ProposalSheet
+            label={blocks.find((b) => b.id === proposal.id)?.label ?? 'the block'}
+            busy={askMove.isPending}
+            onSend={(note) => askMove.mutate({ id: proposal.id, box: proposal.box, note })}
+            onClose={() => setProposal(null)}
+          />
+        )}
+        {panel === 'export' && service && (
           <ExportSheetDialog
             title="Export this layout"
             blurb={`${title} · ${when} · ${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'}`}
-            stem={`${session.service.date}-${session.session_name}-${area.name}-layout`}
+            stem={`${service.date}-${service.service_type}-layout`}
             build={(theme) => stageSheetPage(sheet(), theme)}
             onClose={() => setPanel(null)}
           />
@@ -442,15 +471,16 @@ export function StageLayoutPage() {
         {panel === 'add' && (
           <AddBlockSheet
             onClose={() => setPanel(null)}
-            names={quickBlocksFor(area?.name ?? 'Stage')}
-            onAdd={(label, seats) => add.mutate({ label, seats })}
+            areas={areas}
+            startIn={selected?.area_id ?? areas[0]?.id ?? ''}
+            onAdd={(label, areaId, seats) => add.mutate({ label, areaId, seats })}
             busy={add.isPending}
           />
         )}
         {panel === 'templates' && (
           <TemplatesSheet
             onClose={() => setPanel(null)}
-            templates={(templatesQuery.data ?? []).filter((t) => t.area_id === areaId)}
+            templates={templatesQuery.data ?? []}
             loading={templatesQuery.isLoading}
             canApply={canEdit}
             canKeep={canEdit && blocks.length > 0}
@@ -473,7 +503,7 @@ export function StageLayoutPage() {
         {panel === 'comments' && (
           <Tile className="mt-4">
             <h2 className="text-body-lg font-semibold text-on-surface">Comments</h2>
-            <p className="mt-0.5 text-body-sm text-on-surface-variant">About this area as a whole. A note about one block is pinned to it instead — tap the block.</p>
+            <p className="mt-0.5 text-body-sm text-on-surface-variant">About the layout as a whole. A note about one block is pinned to it instead — tap the block.</p>
             <CommentList
               comments={thread}
               myId={myId}
@@ -519,6 +549,13 @@ function BlockInspector({
   canEdit,
   canDelete,
   canComment,
+  isAdmin,
+  mayAsk,
+  asks,
+  onLock,
+  onAsk,
+  onDecide,
+  onWithdraw,
   people,
   notes,
   myId,
@@ -532,6 +569,15 @@ function BlockInspector({
   canEdit: boolean
   canDelete: boolean
   canComment: boolean
+  /** May lock and unlock, and answer asks. */
+  isAdmin: boolean
+  /** May edit the layout but not this locked block: may ask instead. */
+  mayAsk: boolean
+  asks: StageMoveRequest[]
+  onLock: (on: boolean) => void
+  onAsk: () => void
+  onDecide: (id: string, approve: boolean) => void
+  onWithdraw: (id: string) => void
   people: { id: string; first_name: string; last_name: string }[]
   notes: { id: string; body: string; author: string | null; created_at: string; writer?: { first_name: string; last_name: string } | null }[]
   myId: string
@@ -576,12 +622,61 @@ function BlockInspector({
             )}
           </p>
         </div>
-        {canDelete && (
-          <ActionButton size="sm" tone="danger-quiet" onClick={onDelete}>
-            Remove
-          </ActionButton>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {isAdmin && (
+            <ActionButton size="sm" tone="quiet" onClick={() => onLock(!block.locked_at)}>
+              {block.locked_at ? 'Unlock' : 'Lock'}
+            </ActionButton>
+          )}
+          {canDelete && (
+            <ActionButton size="sm" tone="danger-quiet" onClick={onDelete}>
+              Remove
+            </ActionButton>
+          )}
+        </div>
       </div>
+
+      {block.locked_at && (
+        <p className="mt-3 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-3.5 py-2.5 text-body-sm text-on-surface">
+          <strong className="font-medium">Locked</strong> by {stampText(block.locker, block.locked_at)}. Only an Admin can move or change it.
+          {mayAsk && (
+            <>
+              {' '}
+              <button type="button" onClick={onAsk} className="tap font-medium text-primary hover:underline">
+                Propose a move
+              </button>
+            </>
+          )}
+        </p>
+      )}
+
+      {asks.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-2" aria-label="Asks to move this block">
+          {asks.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-[var(--radius-chip)] bg-raised px-3 py-2.5">
+              <span className="min-w-0 flex-1 text-body-sm text-on-surface">
+                <span className="font-medium">{personName(r.requester)}</span> asked to move it to {Math.round(r.x)}, {Math.round(r.y)}
+                {r.note && <span className="text-on-surface-variant"> — “{r.note}”</span>}
+                <span className="block font-mono text-label-sm text-on-surface-faint">{formatRelativeTime(r.requested_at)}</span>
+              </span>
+              {isAdmin ? (
+                <>
+                  <ActionButton size="sm" onClick={() => onDecide(r.id, true)}>
+                    Approve
+                  </ActionButton>
+                  <ActionButton size="sm" tone="quiet" onClick={() => onDecide(r.id, false)}>
+                    Decline
+                  </ActionButton>
+                </>
+              ) : r.requested_by === myId ? (
+                <ActionButton size="sm" tone="quiet" onClick={() => onWithdraw(r.id)}>
+                  Withdraw
+                </ActionButton>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {canEdit && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -645,6 +740,45 @@ function BlockInspector({
         {canComment && <CommentForm onSend={onNote} busy={false} placeholder="e.g. needs a second DI box" />}
       </div>
     </Tile>
+  )
+}
+
+/** The word why, before an ask to move a locked block goes to an Admin. */
+function ProposalSheet({ label, busy, onSend, onClose }: { label: string; busy: boolean; onSend: (note: string) => void; onClose: () => void }) {
+  const [note, setNote] = useState('')
+  return (
+    <Overlay onDismiss={onClose} label={`Ask to move ${label}`} align="sheet">
+      <div className="w-full max-w-md rounded-t-[var(--radius-shell)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 sm:rounded-[var(--radius-shell)] dark:ring-white/12">
+        <h2 className="text-headline-sm">Ask to move {label}</h2>
+        <p className="mt-1 text-body-sm text-on-surface-variant">It goes to the Admins with where you dropped it. Nothing moves until one of them says yes.</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSend(note)
+          }}
+          className="mt-4 flex flex-col gap-3"
+        >
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={300}
+            rows={3}
+            autoFocus
+            aria-label="Why"
+            placeholder="Why — e.g. the camera needs it a metre to the left"
+            className={`${inputClasses} text-body-sm`}
+          />
+          <div className="flex justify-end gap-2">
+            <ActionButton tone="quiet" onClick={onClose}>
+              Cancel
+            </ActionButton>
+            <ActionButton type="submit" disabled={busy}>
+              Send the ask
+            </ActionButton>
+          </div>
+        </form>
+      </div>
+    </Overlay>
   )
 }
 
@@ -740,15 +874,21 @@ function CommentForm({ onSend, busy, placeholder = 'Say something about the stag
 
 function AddBlockSheet({
   onClose,
-  names,
+  areas,
+  startIn,
   onAdd,
   busy,
 }: {
   onClose: () => void
-  names: string[]
-  onAdd: (label: string, seats?: number) => void
+  areas: StageArea[]
+  /** The area it goes in to begin with: the selected block's, else the first. */
+  startIn: string
+  onAdd: (label: string, areaId: string, seats?: number) => void
   busy: boolean
 }) {
+  const [areaId, setAreaId] = useState(startIn)
+  const area = areas.find((a) => a.id === areaId) ?? areas[0]
+  const names = quickBlocksFor(area?.name ?? 'Stage')
   const [custom, setCustom] = useState('')
   const [rowName, setRowName] = useState('Row A')
   const [seats, setSeats] = useState(String(DEFAULT_SEATS))
@@ -756,14 +896,30 @@ function AddBlockSheet({
     <Overlay onDismiss={onClose} label="Add a block" align="sheet">
       <div className="w-full max-w-md rounded-t-[var(--radius-shell)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 sm:rounded-[var(--radius-shell)] dark:ring-white/12">
         <h2 className="text-headline-sm">Add a block</h2>
-        <p className="mt-1 text-body-sm text-on-surface-variant">It lands in the first free spot; drag it where it goes.</p>
+        <p className="mt-1 text-body-sm text-on-surface-variant">It lands in the first free spot; drag it where it goes — into another area too.</p>
+        {areas.length > 1 && (
+          <div role="radiogroup" aria-label="Area" className="mt-3 flex gap-1 self-start rounded-full bg-inset p-1 hairline">
+            {areas.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                role="radio"
+                aria-checked={a.id === area?.id}
+                onClick={() => setAreaId(a.id)}
+                className={`tap rounded-full px-3.5 py-1.5 text-label-md transition-colors ${a.id === area?.id ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              >
+                {a.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap gap-2">
           {names.map((name) => (
             <button
               key={name}
               type="button"
-              disabled={busy}
-              onClick={() => onAdd(name)}
+              disabled={busy || !area}
+              onClick={() => onAdd(name, area!.id)}
               className="tap rounded-full bg-raised px-3.5 py-2 text-body-sm text-on-surface hairline hover:bg-raised-strong disabled:opacity-50"
             >
               {name}
@@ -773,7 +929,7 @@ function AddBlockSheet({
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (custom.trim()) onAdd(custom)
+            if (custom.trim() && area) onAdd(custom, area.id)
           }}
           className="mt-4 flex gap-2"
         >
@@ -793,7 +949,7 @@ function AddBlockSheet({
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (rowName.trim()) onAdd(rowName, clampSeats(seats))
+            if (rowName.trim() && area) onAdd(rowName, area.id, clampSeats(seats))
           }}
           className="mt-5 border-t border-border-subtle pt-4"
         >

@@ -34,7 +34,7 @@ export const RELEASES: Release[] = [
     title: 'Stage Layout',
     lead: 'Where everything and everybody stands on the morning, drawn once so the whole band sees the same picture.',
     points: [
-      'A layout for each session — the stage, the hall, any area the church names.',
+      'One picture per service: the stage, the hall and any area the church names, in one workspace.',
       'Drag blocks where they go, resize them, put a person on each. Rows of seats for the hall.',
       'Tap a block to see who placed it and who last moved it. Comments, pinned notes and a full history.',
       'Keep a layout as a template for next time. Layouts of past services clear each Tuesday.',

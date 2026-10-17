@@ -158,10 +158,9 @@ const router = createBrowserRouter(
             <Route path="/debriefs" lazy={page(() => import('./pages/DebriefsPage'), 'DebriefsPage')} />
             {/* What the teams think of the app; Admins answer it (0124). */}
             <Route path="/feedback" lazy={page(() => import('./pages/FeedbackPage'), 'FeedbackPage')} />
-            {/* Where everything stands on the morning, one drawing per session (0155). */}
+            {/* Where everything stands on the morning, one workspace per service (0155–0158). */}
             <Route path="/stage" lazy={page(() => import('./pages/StageLayoutIndexPage'), 'StageLayoutIndexPage')} />
-            <Route path="/stage/:sessionId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageAreaRedirect')} />
-            <Route path="/stage/:sessionId/:areaId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageLayoutPage')} />
+            <Route path="/stage/:serviceId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageLayoutPage')} />
           </Route>
         </Route>
       </Route>

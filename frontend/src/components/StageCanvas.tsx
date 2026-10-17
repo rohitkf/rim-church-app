@@ -6,7 +6,10 @@ import {
   fitScale,
   inkOn,
   personName,
+  regionAt,
   snap,
+  workspaceOf,
+  type Region,
   type StageBlock,
 } from '../lib/stage'
 
@@ -30,16 +33,8 @@ import {
  * under a drag.
  */
 
-export interface Stage {
-  width: number
-  height: number
-  /** What the far edge and the near edge are: "Back of stage", "Front · congregation". */
-  topLabel?: string
-  bottomLabel?: string
-}
-
-/** The part of a block the canvas can change. */
-export type BlockBox = { x: number; y: number; w: number; h: number }
+/** The part of a block the canvas can change: its place in its region, and which region. */
+export type BlockBox = { x: number; y: number; w: number; h: number; area_id: string }
 
 type Gesture =
   | { kind: 'pan'; pointer: number; startX: number; startY: number; tx: number; ty: number; moved: boolean }
@@ -48,16 +43,20 @@ type Gesture =
   | { kind: 'pinch'; a: number; b: number; startDist: number; startScale: number; midX: number; midY: number }
 
 export function StageCanvas({
-  stage,
+  regions,
   blocks,
   selectedId,
   onSelect,
   canEdit,
   onCommit,
   onDelete,
+  canMove,
+  proposing = null,
+  onPropose,
   className = '',
 }: {
-  stage: Stage
+  /** The areas, laid out as regions of one workspace (lib/stage regionsOf). */
+  regions: Region[]
   blocks: StageBlock[]
   selectedId: string | null
   onSelect: (id: string | null) => void
@@ -67,6 +66,11 @@ export function StageCanvas({
   onCommit: (id: string, box: BlockBox) => void
   /** Delete pressed on the keyboard with a block selected. */
   onDelete?: (id: string) => void
+  /** Whether this one block may be dragged at all: a locked block is not, except by an Admin. */
+  canMove?: (block: StageBlock) => boolean
+  /** A locked block being dragged to where somebody would like it: the drop is an ask, not a move. */
+  proposing?: string | null
+  onPropose?: (id: string, box: BlockBox) => void
   className?: string
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -76,7 +80,20 @@ export function StageCanvas({
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   // Only for the cursor: a ref is not read during render.
   const [panning, setPanning] = useState(false)
-  const { width: stageW, height: stageH } = stage
+  const { width: stageW, height: stageH } = workspaceOf(regions)
+  const regionOf = (b: StageBlock) => regions.find((r) => r.area.id === b.area_id) ?? regions[0]
+  /** A block's box in workspace units. */
+  const placed = (b: StageBlock): BlockBox => {
+    const r = regionOf(b)
+    return { x: b.x + (r?.left ?? 0), y: b.y + (r?.top ?? 0), w: b.w, h: b.h, area_id: b.area_id }
+  }
+  /** A workspace box back into a region's own units: the region it lands in, clamped inside it. */
+  const settle = (box: { x: number; y: number; w: number; h: number }): BlockBox | null => {
+    const r = regionAt(regions, box.x + box.w / 2, box.y + box.h / 2)
+    if (!r) return null
+    const local = clampBlock({ x: box.x - r.left, y: box.y - r.top, w: box.w, h: box.h }, { width: r.width, height: r.height })
+    return { ...local, area_id: r.area.id }
+  }
 
   // Keyed on the two numbers, not the stage object: a parent that builds
   // that object fresh each render must not make this a new function each
@@ -157,6 +174,7 @@ export function StageCanvas({
   }, [zoomAt])
 
   const blockById = (id: string) => blocks.find((b) => b.id === id)
+  const movable = (b: StageBlock) => (canEdit && (canMove ? canMove(b) : true)) || proposing === b.id
 
   const down = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = boxRef.current
@@ -186,10 +204,10 @@ export function StageCanvas({
     const blockEl = target.closest<HTMLElement>('[data-block]')
     const world = toWorld(e.clientX, e.clientY)
 
-    if (handle && canEdit) {
+    if (handle) {
       const id = handle.dataset.handle!
       const b = blockById(id)
-      if (!b) return
+      if (!b || !movable(b)) return
       gesture.current = { kind: 'resize', pointer: e.pointerId, id, startW: b.w, startH: b.h, startX: world.x, startY: world.y }
       onSelect(id)
       return
@@ -198,8 +216,9 @@ export function StageCanvas({
       const id = blockEl.dataset.block!
       onSelect(id)
       const b = blockById(id)
-      if (!b || !canEdit) return
-      gesture.current = { kind: 'drag', pointer: e.pointerId, id, grabX: world.x - b.x, grabY: world.y - b.y, moved: false }
+      if (!b || !movable(b)) return
+      const was = placed(b)
+      gesture.current = { kind: 'drag', pointer: e.pointerId, id, grabX: world.x - was.x, grabY: world.y - was.y, moved: false }
       return
     }
     gesture.current = { kind: 'pan', pointer: e.pointerId, startX: e.clientX, startY: e.clientY, tx: view.tx, ty: view.ty, moved: false }
@@ -233,16 +252,19 @@ export function StageCanvas({
     const world = toWorld(e.clientX, e.clientY)
     const b = blockById(g.id)
     if (!b) return
+    const was = placed(b)
     if (g.kind === 'drag') {
-      const next = clampBlock({ x: snap(world.x - g.grabX), y: snap(world.y - g.grabY), w: b.w, h: b.h }, stage)
-      if (next.x !== b.x || next.y !== b.y) g.moved = true
+      const next = settle({ x: snap(world.x - g.grabX), y: snap(world.y - g.grabY), w: b.w, h: b.h })
+      if (!next) return
+      if (next.x !== b.x || next.y !== b.y || next.area_id !== b.area_id) g.moved = true
       setLive({ id: g.id, box: next })
     } else {
-      const next = clampBlock(
+      const r = regionOf(b)
+      const local = clampBlock(
         { x: b.x, y: b.y, w: snap(g.startW + (world.x - g.startX)), h: snap(g.startH + (world.y - g.startY)) },
-        stage,
+        { width: r?.width ?? was.w, height: r?.height ?? was.h },
       )
-      setLive({ id: g.id, box: next })
+      setLive({ id: g.id, box: { ...local, area_id: b.area_id } })
     }
   }
 
@@ -264,21 +286,24 @@ export function StageCanvas({
     }
     if (live && live.id === g.id) {
       const b = blockById(g.id)
-      if (b && (live.box.x !== b.x || live.box.y !== b.y || live.box.w !== b.w || live.box.h !== b.h)) {
-        onCommit(g.id, live.box)
+      if (b && (live.box.x !== b.x || live.box.y !== b.y || live.box.w !== b.w || live.box.h !== b.h || live.box.area_id !== b.area_id)) {
+        if (proposing === g.id && onPropose) onPropose(g.id, live.box)
+        else onCommit(g.id, live.box)
       }
     }
     setLive(null)
   }
 
   const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!selectedId || !canEdit) return
+    if (!selectedId) return
     const b = blockById(selectedId)
-    if (!b) return
+    if (!b || !movable(b) || proposing === b.id) return
     const step = e.shiftKey ? 50 : 10
     const nudge = (dx: number, dy: number) => {
       e.preventDefault()
-      onCommit(b.id, clampBlock({ x: b.x + dx, y: b.y + dy, w: b.w, h: b.h }, stage))
+      const r = regionOf(b)
+      const local = clampBlock({ x: b.x + dx, y: b.y + dy, w: b.w, h: b.h }, { width: r?.width ?? stageW, height: r?.height ?? stageH })
+      onCommit(b.id, { ...local, area_id: b.area_id })
     }
     if (e.key === 'ArrowLeft') nudge(-step, 0)
     else if (e.key === 'ArrowRight') nudge(step, 0)
@@ -309,46 +334,73 @@ export function StageCanvas({
       >
         <div
           data-stage
-          className="absolute left-0 top-0 rounded-[18px] bg-surface-lowest shadow-[var(--shadow-lifted)] ring-1 ring-white/10"
+          className="absolute left-0 top-0"
           style={{
-            width: stage.width,
-            height: stage.height,
+            width: stageW,
+            height: stageH,
             transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
             transformOrigin: '0 0',
-            backgroundImage:
-              'radial-gradient(circle, color-mix(in oklab, var(--color-on-surface) 14%, transparent) 1.2px, transparent 1.3px)',
-            backgroundSize: '40px 40px',
-            backgroundPosition: '20px 20px',
           }}
         >
-          {/* The back wall, and the front where the congregation is. */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 flex h-9 items-center justify-center rounded-t-[18px] bg-raised-strong font-mono text-[13px] uppercase tracking-[0.18em] text-on-surface-faint"
-          >
-            {stage.topLabel ?? 'Back'}
-          </div>
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-primary"
-          >
-            {stage.bottomLabel ?? 'Front'}
-          </div>
+          {/* Each area is a panel of the one workspace: its name in the
+              corner, its far edge along the top, its near edge along the
+              bottom. */}
+          {regions.map((r) => (
+            <div
+              key={r.area.id}
+              data-region={r.area.id}
+              className="absolute rounded-[18px] bg-surface-lowest shadow-[var(--shadow-lifted)] ring-1 ring-white/10"
+              style={{
+                left: r.left,
+                top: r.top,
+                width: r.width,
+                height: r.height,
+                backgroundImage:
+                  'radial-gradient(circle, color-mix(in oklab, var(--color-on-surface) 14%, transparent) 1.2px, transparent 1.3px)',
+                backgroundSize: '40px 40px',
+                backgroundPosition: '20px 20px',
+              }}
+            >
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 top-0 flex h-9 items-center justify-center rounded-t-[18px] bg-raised-strong font-mono text-[13px] uppercase tracking-[0.18em] text-on-surface-faint"
+              >
+                {r.area.top_label}
+              </div>
+              <span className="absolute left-4 top-0 flex h-9 items-center font-mono text-[12px] uppercase tracking-[0.18em] text-on-surface">{r.area.name}</span>
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-primary"
+              >
+                {r.area.bottom_label}
+              </div>
+            </div>
+          ))}
 
           {blocks.map((b) => {
-            const box = live && live.id === b.id ? live.box : { x: b.x, y: b.y, w: b.w, h: b.h }
+            const own = placed(b)
+            const box =
+              live && live.id === b.id
+                ? (() => {
+                    const r = regions.find((x) => x.area.id === live.box.area_id)
+                    return { x: live.box.x + (r?.left ?? 0), y: live.box.y + (r?.top ?? 0), w: live.box.w, h: live.box.h }
+                  })()
+                : own
             const selected = b.id === selectedId
             const ink = inkOn(b.color)
+            const locked = !!b.locked_at
+            const draggable = movable(b)
+            const ghost = proposing === b.id && live?.id === b.id
             return (
               <div
                 key={b.id}
                 data-block={b.id}
                 role="button"
-                aria-label={b.kind === 'seats' ? `${b.label}, ${b.seats} seats` : b.person ? `${b.label}, ${personName(b.person)}` : b.label}
+                aria-label={`${b.kind === 'seats' ? `${b.label}, ${b.seats} seats` : b.person ? `${b.label}, ${personName(b.person)}` : b.label}${locked ? ' (locked)' : ''}`}
                 aria-pressed={selected}
                 className={`absolute flex flex-col items-center justify-center overflow-hidden rounded-[14px] px-2 text-center transition-shadow ${
                   selected ? 'shadow-[0_0_0_4px_var(--color-primary),0_12px_30px_rgba(0,0,0,0.35)]' : 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]'
-                } ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                } ${draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${ghost ? 'opacity-70 outline-dashed outline-2 outline-white/80' : ''}`}
                 style={{
                   left: box.x,
                   top: box.y,
@@ -370,7 +422,15 @@ export function StageCanvas({
                     )}
                   </>
                 )}
-                {selected && canEdit && (
+                {locked && (
+                  <span aria-hidden="true" className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/35">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                    </svg>
+                  </span>
+                )}
+                {selected && draggable && (
                   <span
                     data-handle={b.id}
                     aria-label={`Resize ${b.label}`}
