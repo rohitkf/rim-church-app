@@ -40,6 +40,8 @@ type Gesture =
   | { kind: 'pan'; pointer: number; startX: number; startY: number; tx: number; ty: number; moved: boolean }
   | { kind: 'drag'; pointer: number; id: string; grabX: number; grabY: number; moved: boolean }
   | { kind: 'resize'; pointer: number; id: string; startW: number; startH: number; startX: number; startY: number }
+  /** A finger on a block that will not move: if it pulls, the caller is told once. */
+  | { kind: 'held'; pointer: number; id: string; startX: number; startY: number }
   | { kind: 'pinch'; a: number; b: number; startDist: number; startScale: number; midX: number; midY: number }
 
 export function StageCanvas({
@@ -54,6 +56,7 @@ export function StageCanvas({
   canMove,
   proposing = null,
   onPropose,
+  onRefused,
   className = '',
 }: {
   /** The areas, laid out as regions of one workspace (lib/stage regionsOf). */
@@ -69,8 +72,10 @@ export function StageCanvas({
   onDelete?: (id: string) => void
   /** Ctrl/Cmd+D with a block selected. */
   onDuplicate?: (id: string) => void
-  /** Whether this one block may be dragged at all: a locked block is not, except by an Admin. */
+  /** Whether this one block may be dragged at all: a locked block is not, by anybody, until it is unlocked. */
   canMove?: (block: StageBlock) => boolean
+  /** Somebody tried to drag or resize a block that cannot move: a chance to say why. */
+  onRefused?: (id: string) => void
   /** A locked block being dragged to where somebody would like it: the drop is an ask, not a move. */
   proposing?: string | null
   onPropose?: (id: string, box: BlockBox) => void
@@ -210,7 +215,12 @@ export function StageCanvas({
     if (handle) {
       const id = handle.dataset.handle!
       const b = blockById(id)
-      if (!b || !movable(b)) return
+      if (!b) return
+      if (!movable(b)) {
+        gesture.current = { kind: 'held', pointer: e.pointerId, id, startX: e.clientX, startY: e.clientY }
+        onSelect(id)
+        return
+      }
       gesture.current = { kind: 'resize', pointer: e.pointerId, id, startW: b.w, startH: b.h, startX: world.x, startY: world.y }
       onSelect(id)
       return
@@ -219,7 +229,11 @@ export function StageCanvas({
       const id = blockEl.dataset.block!
       onSelect(id)
       const b = blockById(id)
-      if (!b || !movable(b)) return
+      if (!b) return
+      if (!movable(b)) {
+        gesture.current = { kind: 'held', pointer: e.pointerId, id, startX: e.clientX, startY: e.clientY }
+        return
+      }
       const was = placed(b)
       gesture.current = { kind: 'drag', pointer: e.pointerId, id, grabX: world.x - was.x, grabY: world.y - was.y, moved: false }
       return
@@ -245,6 +259,13 @@ export function StageCanvas({
       return
     }
     if (g.pointer !== e.pointerId) return
+    if (g.kind === 'held') {
+      if (Math.abs(e.clientX - g.startX) + Math.abs(e.clientY - g.startY) > 6) {
+        gesture.current = null
+        onRefused?.(g.id)
+      }
+      return
+    }
     if (g.kind === 'pan') {
       const dx = e.clientX - g.startX
       const dy = e.clientY - g.startY
@@ -282,6 +303,7 @@ export function StageCanvas({
     }
     if (g.pointer !== e.pointerId) return
     gesture.current = null
+    if (g.kind === 'held') return
     if (g.kind === 'pan') {
       setPanning(false)
       if (!g.moved) onSelect(null)
