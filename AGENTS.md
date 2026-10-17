@@ -70,6 +70,7 @@ the thing most likely to waste your time:
 |---|---|
 | `departments` | **Teams** |
 | `department_members` | who is on a team — `core` or `guest` |
+| `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Not counted for availability, reminders or readiness — those count account holders |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator` |
 | `services` → `service_sessions` | a service and its running order |
 | `service_session_assignees` | who is taking a session — a list, one row per person |

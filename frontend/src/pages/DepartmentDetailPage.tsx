@@ -24,6 +24,16 @@ import { searchProfiles, type ProfileSearchResult } from '../lib/queries'
 import { DepartmentRolesCard } from '../components/DepartmentRolesCard'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
+import {
+  GUESTS_KEY,
+  addGuestToTeam,
+  departmentGuestsKey,
+  fetchDepartmentGuests,
+  guestLabel,
+  removeDepartmentGuest,
+  setDepartmentGuestType,
+  type DepartmentGuest,
+} from '../lib/guests'
 import { ageFrom } from '../lib/celebrations'
 import {
   departmentSchema,
@@ -157,6 +167,8 @@ export function DepartmentDetailPage() {
   const [inviting, setInviting] = useState(false)
   const [addType, setAddType] = useState<MemberType>('core')
   const [addError, setAddError] = useState<string | null>(null)
+  /** A typed name nobody registered has: offered the guest roll instead. */
+  const [rollOffer, setRollOffer] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
   const deptQuery = useQuery({
@@ -170,6 +182,21 @@ export function DepartmentDetailPage() {
     queryFn: () => fetchMembers(id!, isOwner),
     enabled: !!id,
   })
+
+  /*
+   * The roll's people on this team (0161): somebody who helps but has no
+   * account, listed core or guest like anybody else. On the rota and on
+   * this page; not asked for availability, there being nobody to ask. The
+   * day they sign up and are linked on the guest roll, the database moves
+   * them into the members above.
+   */
+  const rollQuery = useQuery({
+    queryKey: departmentGuestsKey(id ?? ''),
+    queryFn: () => fetchDepartmentGuests(id!),
+    enabled: !!id,
+  })
+  const rollCore = (rollQuery.data ?? []).filter((g) => g.member_type === 'core')
+  const rollGuests = (rollQuery.data ?? []).filter((g) => g.member_type === 'guest')
 
   /*
    * Who runs this team.
@@ -228,7 +255,7 @@ export function DepartmentDetailPage() {
   const suggestions = (suggestionsQuery.data ?? []).filter((p) => !memberIdSet.has(p.id))
 
   const addMember = useMutation({
-    mutationFn: async ({ email, type }: { email: string; type: MemberType }) => {
+    mutationFn: async ({ email, type }: { email: string; type: MemberType }): Promise<'added' | 'offered'> => {
       let userId = picked?.id ?? null
 
       if (!userId) {
@@ -236,7 +263,16 @@ export function DepartmentDetailPage() {
         // it belongs to (0126) — addresses are not readable here (0127).
         const { data: found, error: lookupError } = await supabase.rpc('person_by_email', { p_email: email })
         if (lookupError) throw lookupError
-        if (typeof found !== 'string') throw new Error('No registered user matches that — pick someone from the suggestions.')
+        if (typeof found !== 'string') {
+          // A name nobody registered has is not a mistake: it may be somebody
+          // who helps without an account. Offer the roll rather than refuse.
+          if (!email.includes('@')) {
+            setRollOffer(email)
+            setAddError(null)
+            return 'offered'
+          }
+          throw new Error('No registered user matches that — pick someone from the suggestions.')
+        }
         userId = found
       }
 
@@ -244,8 +280,11 @@ export function DepartmentDetailPage() {
         .from('department_members')
         .insert({ department_id: id, user_id: userId, member_type: type })
       if (error) throw error
+      return 'added'
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // The name stays in the box while the roll is offered: "Not now" should not mean retyping it.
+      if (result === 'offered') return
       setAddEmail('')
       setPicked(null)
       setAddError(null)
@@ -253,6 +292,89 @@ export function DepartmentDetailPage() {
     },
     onError: (err: unknown) => setAddError(errorText(err, 'Could not add member.')),
   })
+
+  const addRollGuest = useMutation({
+    mutationFn: ({ name, type }: { name: string; type: MemberType }) => addGuestToTeam(id!, name, type),
+    onSuccess: () => {
+      setRollOffer(null)
+      setAddEmail('')
+      setPicked(null)
+      setAddError(null)
+      queryClient.invalidateQueries({ queryKey: departmentGuestsKey(id ?? '') })
+      queryClient.invalidateQueries({ queryKey: GUESTS_KEY })
+    },
+    onError: (err: unknown) => setAddError(errorText(err, 'Could not add them to the roll.')),
+  })
+
+  const setRollType = useMutation({
+    mutationFn: ({ rowId, type }: { rowId: string; type: MemberType }) => setDepartmentGuestType(rowId, type),
+    onSuccess: () => {
+      setAddError(null)
+      queryClient.invalidateQueries({ queryKey: departmentGuestsKey(id ?? '') })
+    },
+    onError: (err: unknown) => setAddError(errorText(err, 'Could not change that membership.')),
+  })
+
+  const removeRollGuest = useMutation({
+    mutationFn: (rowId: string) => removeDepartmentGuest(rowId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: departmentGuestsKey(id ?? '') }),
+    onError: (err: unknown) => setAddError(errorText(err, 'Could not remove them.')),
+  })
+
+  /** A roll guest on the team, wherever one is drawn: name, the fact they have no account yet, the two controls. */
+  const rollRow = (g: DepartmentGuest, where: 'card' | 'guest') => {
+    const who = g.guests ? guestLabel(g.guests) : 'Somebody on the roll'
+    const toGuest = g.member_type === 'core'
+    const quiet = where === 'card' ? 'tap text-label-md' : 'tap inline-flex items-center text-body-sm'
+    return (
+      <>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="min-w-0 break-words text-body-md font-medium text-on-surface">{who}</span>
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+              No account yet
+            </span>
+          </div>
+          <div className="mt-0.5 text-body-sm text-on-surface-faint">On the guest roll. Link them there once they sign up.</div>
+        </div>
+        {canManage && (
+          <span className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              disabled={setRollType.isPending}
+              onClick={() =>
+                ask({
+                  title: toGuest ? `Make ${who} a guest?` : `Make ${who} a core member?`,
+                  body: toGuest
+                    ? 'Guests are not counted when the team looks short.'
+                    : 'Core members are counted when the team looks short. With no account, they are not asked for availability.',
+                  confirmLabel: toGuest ? 'Make a guest' : 'Make core',
+                  onConfirm: () => setRollType.mutate({ rowId: g.id, type: toGuest ? 'guest' : 'core' }),
+                })
+              }
+              className={`${quiet} text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60`}
+            >
+              {toGuest ? 'Make a guest' : 'Make core'}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                ask({
+                  title: `Remove ${who} from the team?`,
+                  body: 'They stay on the guest roll and can be added back at any time.',
+                  confirmLabel: 'Remove',
+                  onConfirm: () => removeRollGuest.mutate(g.id),
+                })
+              }
+              className={`${quiet} text-on-surface-faint hover:text-error hover:underline`}
+            >
+              Remove
+            </button>
+          </span>
+        )}
+      </>
+    )
+  }
 
   const removeMember = useMutation({
     mutationFn: async (memberId: string) => {
@@ -507,6 +629,11 @@ export function DepartmentDetailPage() {
                     </li>
                   )
                 })}
+                {rollCore.map((g) => (
+                  <li key={g.id} className="flex items-start justify-between gap-3 rounded-[var(--radius-row)] bg-raised p-3.5 hairline">
+                    {rollRow(g, 'card')}
+                  </li>
+                ))}
               </ul>
 
               <div className="mt-4 hidden overflow-x-auto sm:block">
@@ -572,9 +699,16 @@ export function DepartmentDetailPage() {
                           )}
                         </tr>
                       ))}
+                    {rollCore.map((g) => (
+                      <tr key={g.id} className="border-b border-border-subtle last:border-0">
+                        <td colSpan={3 + (isOwner ? 2 : 0) + (canManage ? 1 : 0)} className="py-3">
+                          <div className="flex items-center justify-between gap-3">{rollRow(g, 'guest')}</div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-                {coreMembers.length === 0 && (
+                {coreMembers.length === 0 && rollCore.length === 0 && (
                   <p className="py-4 text-body-sm text-on-surface-variant">No core members yet.</p>
                 )}
               </div>
@@ -604,14 +738,30 @@ export function DepartmentDetailPage() {
                     </p>
                   )}
 
+                  {/* Floating over the form only where there is room beside the
+                      box: on a phone the Add button wraps underneath, and a list
+                      floating there sat on top of it. In the flow it pushes the
+                      button down instead. */}
                   {!picked && searchTerm.length >= 2 && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-[var(--radius-chip)] hairline bg-surface-lowest shadow-lg">
+                    <div className="mt-1 overflow-hidden rounded-[var(--radius-chip)] hairline bg-surface-lowest shadow-lg sm:absolute sm:left-0 sm:right-0 sm:top-full sm:z-10">
                       {suggestionsQuery.isLoading ? (
                         <p className="px-3 py-2 text-body-sm text-on-surface-variant">Searching…</p>
                       ) : suggestions.length === 0 ? (
-                        <p className="px-3 py-2 text-body-sm text-on-surface-variant">
+                        <div className="px-3 py-2 text-body-sm text-on-surface-variant">
                           No matching registered user.
-                        </p>
+                          {!searchTerm.includes('@') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRollOffer(searchTerm)
+                                setAddError(null)
+                              }}
+                              className="tap mt-1 block font-medium text-primary hover:underline"
+                            >
+                              Add “{searchTerm}” to the guest roll instead
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <ul className="max-h-56 overflow-y-auto">
                           {suggestions.map((p) => (
@@ -657,6 +807,32 @@ export function DepartmentDetailPage() {
                   {addMember.isPending ? 'Adding…' : 'Add'}
                 </button>
               </form>
+            )}
+            {rollOffer && canManage && (
+              <div role="status" className="mt-3 rounded-[var(--radius-card)] bg-raised p-4 hairline">
+                <p className="text-body-md font-medium text-on-surface">{rollOffer} has no account here.</p>
+                <p className="mt-1 text-body-sm text-on-surface-variant">
+                  Add them to the guest roll and to this team as {addType === 'core' ? 'a core member' : 'a guest'}? They can be put on the
+                  rota, but are not asked for availability until they sign up and are linked on the roll.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={addRollGuest.isPending}
+                    onClick={() => addRollGuest.mutate({ name: rollOffer, type: addType })}
+                    className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                  >
+                    {addRollGuest.isPending ? 'Adding…' : 'Add to the roll'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRollOffer(null)}
+                    className="rounded-full px-4 py-2 text-body-sm text-on-surface-variant hairline hover:text-on-surface"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
             )}
             {addError && (
               <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{addError}</p>
@@ -721,7 +897,12 @@ export function DepartmentDetailPage() {
                       )}
                     </li>
                   ))}
-                {guestMembers.length === 0 && (
+                {rollGuests.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] hairline p-3">
+                    {rollRow(g, 'guest')}
+                  </li>
+                ))}
+                {guestMembers.length === 0 && rollGuests.length === 0 && (
                   <p className="text-body-sm text-on-surface-variant">No guests yet.</p>
                 )}
               </ul>

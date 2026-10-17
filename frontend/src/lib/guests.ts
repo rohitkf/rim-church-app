@@ -91,3 +91,52 @@ export function alreadyOnTheRoll(guests: Guest[], name: string): Guest | null {
   const needle = name.trim().toLowerCase()
   return guests.find((guest) => guest.name.trim().toLowerCase() === needle) ?? null
 }
+
+/* ------------------------------------------------------------------ *
+ * A guest on a team (0161)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The roll's people on a team, core or guest, the same way an account
+ * holder is — until they sign up and are linked, when the database moves
+ * them across to `department_members`. They are on the rota and on the
+ * page; they are not asked whether they can serve, there being nobody to
+ * ask.
+ */
+export const departmentGuestSchema = z.object({
+  id: z.string(),
+  department_id: z.string(),
+  guest_id: z.string(),
+  member_type: z.enum(['core', 'guest']),
+  created_at: z.string(),
+  guests: z.object({ id: z.string(), name: z.string(), title: z.string().nullable() }).nullable().optional(),
+})
+export type DepartmentGuest = z.infer<typeof departmentGuestSchema>
+
+export const departmentGuestsKey = (departmentId: string) => ['department-guests', departmentId]
+
+export async function fetchDepartmentGuests(departmentId: string): Promise<DepartmentGuest[]> {
+  const { data, error } = await supabase
+    .from('department_guests')
+    .select('*, guests(id, name, title)')
+    .eq('department_id', departmentId)
+  if (error) throw error
+  return z.array(departmentGuestSchema).parse(data)
+}
+
+/** Put a name on the team: on the roll already, or added to it. Returns the guest's id. */
+export async function addGuestToTeam(departmentId: string, name: string, type: 'core' | 'guest'): Promise<string> {
+  const { data, error } = await supabase.rpc('add_guest_to_team', { p_department: departmentId, p_name: name.trim(), p_type: type })
+  if (error) throw error
+  return z.string().parse(data)
+}
+
+export async function setDepartmentGuestType(id: string, type: 'core' | 'guest'): Promise<void> {
+  const { error } = await supabase.from('department_guests').update({ member_type: type }).eq('id', id)
+  if (error) throw error
+}
+
+export async function removeDepartmentGuest(id: string): Promise<void> {
+  const { error } = await supabase.from('department_guests').delete().eq('id', id)
+  if (error) throw error
+}
