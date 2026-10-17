@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   REGION_GAP,
   clampBlock,
+  duplicateOf,
   regionAt,
   regionsOf,
   workspaceOf,
@@ -115,5 +116,21 @@ describe('the workspace', () => {
     expect(regionAt(regions, 10, 1000)?.area.name).toBe('Audience')
     expect(regionAt(regions, 10, 705)?.area.name).toBe('Stage')
     expect(regionAt([], 1, 1)).toBeNull()
+  })
+})
+
+describe('a copy of a block', () => {
+  const source = { area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 1100, y: 650, w: 160, h: 100, rotation: 90, kind: 'block' as const, seats: 0 }
+  it('lands a step down and right, inside its region, as the top block', () => {
+    const copy = duplicateOf({ ...source, x: 100, y: 100 }, { width: 1200, height: 700 }, 7)
+    expect(copy).toMatchObject({ area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 130, y: 130, w: 160, h: 100, rotation: 90, z: 7 })
+  })
+  it('is held inside the region when the original sits at the edge', () => {
+    const copy = duplicateOf(source, { width: 1200, height: 700 }, 1)
+    expect(copy.x + copy.w).toBeLessThanOrEqual(1200)
+    expect(copy.y + copy.h).toBeLessThanOrEqual(700)
+  })
+  it('keeps the seats of a row', () => {
+    expect(duplicateOf({ ...source, kind: 'seats', seats: 12 }, { width: 1200, height: 700 }, 1)).toMatchObject({ kind: 'seats', seats: 12 })
   })
 })
