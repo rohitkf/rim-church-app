@@ -8,16 +8,22 @@ import { showToast } from '../lib/toast'
 import {
   PRIVILEGES,
   STAGE_KEY,
+  addStageArea,
   decideStageTemplateRequest,
+  deleteStageArea,
+  fetchStageAreas,
+  updateStageArea,
   deleteStageTemplate,
   fetchStageTeamAccess,
   fetchStageTemplateRequests,
   fetchStageTemplates,
   personName,
   setStageTeamAccess,
+  type AreaDraft,
+  type StageArea,
   type StageTeamAccess,
 } from '../lib/stage'
-import { ActionButton, SectionTile } from './Surface'
+import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { Select } from './Select'
 import { QueryState } from './QueryState'
 import { InlineRow, SaveBar, SettingList } from './SettingRows'
@@ -59,6 +65,22 @@ export function StageSettingsCard() {
   const access = useQuery({ queryKey: [...STAGE_KEY, 'team-access'], queryFn: fetchStageTeamAccess })
   const requests = useQuery({ queryKey: [...STAGE_KEY, 'requests'], queryFn: fetchStageTemplateRequests })
   const templates = useQuery({ queryKey: [...STAGE_KEY, 'templates'], queryFn: fetchStageTemplates })
+  const areas = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
+  const areaName = (id: string) => areas.data?.find((a) => a.id === id)?.name ?? 'an area'
+
+  const areaWrite = useMutation({
+    mutationFn: (op: { kind: 'add'; area: AreaDraft } | { kind: 'update'; id: string; patch: Partial<AreaDraft> } | { kind: 'delete'; id: string }) =>
+      op.kind === 'add'
+        ? addStageArea(op.area, (areas.data ?? []).length)
+        : op.kind === 'update'
+          ? updateStageArea(op.id, op.patch)
+          : deleteStageArea(op.id),
+    onSuccess: () => {
+      setError(null)
+      return queryClient.invalidateQueries({ queryKey: STAGE_KEY })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change the areas.')),
+  })
 
   // The grid as drawn: what is stored, with every team present.
   const [draft, setDraft] = useState<Record<string, StageTeamAccess> | null>(null)
@@ -172,6 +194,29 @@ export function StageSettingsCard() {
         </QueryState>
       </SectionTile>
 
+      <SectionTile title="Areas" hint="The places a session can carry a layout for. Each has its own size and edge labels.">
+        <QueryState isLoading={areas.isLoading} error={areas.error}>
+          <ul className="flex flex-col gap-2">
+            {(areas.data ?? []).map((a) => (
+              <AreaRow
+                key={a.id}
+                area={a}
+                busy={areaWrite.isPending}
+                onSave={(patch) => areaWrite.mutate({ kind: 'update', id: a.id, patch })}
+                onDelete={() =>
+                  ask({
+                    title: `Delete the area ${a.name}?`,
+                    body: 'Every layout and template drawn for it goes too.',
+                    onConfirm: () => areaWrite.mutate({ kind: 'delete', id: a.id }),
+                  })
+                }
+              />
+            ))}
+          </ul>
+          <NewArea busy={areaWrite.isPending} onAdd={(area) => areaWrite.mutate({ kind: 'add', area })} />
+        </QueryState>
+      </SectionTile>
+
       <SectionTile
         title="Template requests"
         hint="A layout somebody asked to keep. Yes puts it in the library; the asker is told either way."
@@ -184,7 +229,7 @@ export function StageSettingsCard() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-body-sm font-medium text-on-surface">{r.name}</span>
                   <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
+                    {areaName(r.area_id)} · {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
                   </span>
                 </span>
                 <ActionButton size="sm" onClick={() => decide.mutate({ id: r.id, approve: true })} disabled={decide.isPending}>
@@ -207,7 +252,7 @@ export function StageSettingsCard() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-body-sm font-medium text-on-surface">{t.name}</span>
                   <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'} · {formatRelativeTime(t.updated_at)}
+                    {areaName(t.area_id)} · {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'} · {formatRelativeTime(t.updated_at)}
                   </span>
                 </span>
                 <ActionButton
@@ -281,5 +326,90 @@ export function StageSettingsCard() {
       </SectionTile>
       {dialog}
     </div>
+  )
+}
+
+/** One area, editable in place: its name, size and the two edge labels. */
+function AreaRow({
+  area,
+  busy,
+  onSave,
+  onDelete,
+}: {
+  area: StageArea
+  busy: boolean
+  onSave: (patch: Partial<AreaDraft>) => void
+  onDelete: () => void
+}) {
+  const [draft, setDraft] = useState<AreaDraft>({
+    name: area.name,
+    width: area.width,
+    height: area.height,
+    top_label: area.top_label,
+    bottom_label: area.bottom_label,
+  })
+  const changed =
+    draft.name !== area.name ||
+    draft.width !== area.width ||
+    draft.height !== area.height ||
+    draft.top_label !== area.top_label ||
+    draft.bottom_label !== area.bottom_label
+  const field = (key: keyof AreaDraft, label: string, extra: Record<string, unknown> = {}) => (
+    <label className="flex flex-col gap-1 text-label-md text-on-surface-variant">
+      {label}
+      <input
+        value={draft[key]}
+        onChange={(e) => setDraft({ ...draft, [key]: typeof draft[key] === 'number' ? Number(e.target.value) || 0 : e.target.value })}
+        aria-label={`${area.name}: ${label}`}
+        className={`${inputClasses} py-2 text-body-sm`}
+        {...extra}
+      />
+    </label>
+  )
+  return (
+    <li className="rounded-[var(--radius-row)] bg-raised px-4 py-3">
+      <div className="grid gap-3 sm:grid-cols-[1.4fr_0.8fr_0.8fr]">
+        {field('name', 'Name', { maxLength: 40 })}
+        {field('width', 'Width', { type: 'number', min: 400, max: 4000, step: 100 })}
+        {field('height', 'Height', { type: 'number', min: 300, max: 4000, step: 100 })}
+        {field('top_label', 'Far edge says', { maxLength: 40 })}
+        {field('bottom_label', 'Near edge says', { maxLength: 40 })}
+        <div className="flex items-end justify-end gap-2">
+          <ActionButton size="sm" tone="danger-quiet" onClick={onDelete} disabled={busy}>
+            Delete
+          </ActionButton>
+          <ActionButton size="sm" onClick={() => onSave(draft)} disabled={busy || !changed || !draft.name.trim()}>
+            Save
+          </ActionButton>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+function NewArea({ busy, onAdd }: { busy: boolean; onAdd: (area: AreaDraft) => void }) {
+  const [name, setName] = useState('')
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!name.trim()) return
+        onAdd({ name: name.trim(), width: 1200, height: 700, top_label: 'Back', bottom_label: 'Front' })
+        setName('')
+      }}
+      className="mt-3 flex gap-2"
+    >
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={40}
+        placeholder="New area, e.g. Foyer"
+        aria-label="New area name"
+        className={`${inputClasses} min-w-0 flex-1`}
+      />
+      <ActionButton type="submit" disabled={busy || !name.trim()}>
+        Add area
+      </ActionButton>
+    </form>
   )
 }

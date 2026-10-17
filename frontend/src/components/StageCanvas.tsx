@@ -33,6 +33,9 @@ import {
 export interface Stage {
   width: number
   height: number
+  /** What the far edge and the near edge are: "Back of stage", "Front · congregation". */
+  topLabel?: string
+  bottomLabel?: string
 }
 
 /** The part of a block the canvas can change. */
@@ -71,31 +74,42 @@ export function StageCanvas({
   const [live, setLive] = useState<{ id: string; box: BlockBox } | null>(null)
   const gesture = useRef<Gesture | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
-  const fitted = useRef(false)
+  const { width: stageW, height: stageH } = stage
 
+  // Keyed on the two numbers, not the stage object: a parent that builds
+  // that object fresh each render must not make this a new function each
+  // render, or everything below that depends on it runs again.
   const fit = useCallback(() => {
     const el = boxRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     if (rect.width === 0) return
-    const scale = fitScale(stage, rect)
+    const scale = fitScale({ width: stageW, height: stageH }, rect)
     setView({
       scale,
-      tx: (rect.width - stage.width * scale) / 2,
-      ty: (rect.height - stage.height * scale) / 2,
+      tx: (rect.width - stageW * scale) / 2,
+      ty: (rect.height - stageH * scale) / 2,
     })
-  }, [stage])
+  }, [stageW, stageH])
 
-  // Fit once the box has a size, and again if the window changes shape.
+  // Fit when the stage appears or changes size, and again only if the box
+  // itself changes shape. A ResizeObserver reports once on observe and
+  // again on every layout nudge, so it is held to a real change of size:
+  // without that, selecting a block re-fitted the stage and threw away
+  // whatever zoom the person had set.
   useLayoutEffect(() => {
-    if (!fitted.current) {
-      fitted.current = true
-      fit()
-    }
+    fit()
     if (typeof ResizeObserver === 'undefined') return
     const el = boxRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => fit())
+    let last = { w: el.clientWidth, h: el.clientHeight }
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth
+      const h = el.clientHeight
+      if (w === last.w && h === last.h) return
+      last = { w, h }
+      fit()
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [fit])
@@ -308,13 +322,13 @@ export function StageCanvas({
             aria-hidden="true"
             className="absolute inset-x-0 top-0 flex h-9 items-center justify-center rounded-t-[18px] bg-raised-strong font-mono text-[13px] uppercase tracking-[0.18em] text-on-surface-faint"
           >
-            Back of stage
+            {stage.topLabel ?? 'Back'}
           </div>
           <div
             aria-hidden="true"
             className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-primary"
           >
-            Front · congregation
+            {stage.bottomLabel ?? 'Front'}
           </div>
 
           {blocks.map((b) => {
@@ -326,7 +340,7 @@ export function StageCanvas({
                 key={b.id}
                 data-block={b.id}
                 role="button"
-                aria-label={b.person ? `${b.label}, ${personName(b.person)}` : b.label}
+                aria-label={b.kind === 'seats' ? `${b.label}, ${b.seats} seats` : b.person ? `${b.label}, ${personName(b.person)}` : b.label}
                 aria-pressed={selected}
                 className={`absolute flex flex-col items-center justify-center overflow-hidden rounded-[14px] px-2 text-center transition-shadow ${
                   selected ? 'shadow-[0_0_0_4px_var(--color-primary),0_12px_30px_rgba(0,0,0,0.35)]' : 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]'
@@ -342,9 +356,15 @@ export function StageCanvas({
                   zIndex: selected ? 50 : 1 + b.z,
                 }}
               >
-                <span className="line-clamp-2 break-words text-[20px] font-semibold leading-tight">{b.label}</span>
-                {b.person && (
-                  <span className="mt-1 line-clamp-1 text-[15px] opacity-90">{personName(b.person)}</span>
+                {b.kind === 'seats' ? (
+                  <SeatRow label={b.label} seats={b.seats} width={box.w} height={box.h} />
+                ) : (
+                  <>
+                    <span className="line-clamp-2 break-words text-[20px] font-semibold leading-tight">{b.label}</span>
+                    {b.person && (
+                      <span className="mt-1 line-clamp-1 text-[15px] opacity-90">{personName(b.person)}</span>
+                    )}
+                  </>
                 )}
                 {selected && canEdit && (
                   <span
@@ -378,6 +398,33 @@ export function StageCanvas({
         </ZoomButton>
       </div>
     </div>
+  )
+}
+
+/**
+ * A row of chairs. However many seats, they share the width: a wide row
+ * of six has roomy chairs, a tight row of thirty has small ones, and the
+ * label sits in the top corner so the chairs are what you see.
+ */
+function SeatRow({ label, seats, width, height }: { label: string; seats: number; width: number; height: number }) {
+  const n = Math.max(1, seats)
+  const gap = 4
+  const chair = Math.max(6, Math.min(height - 26, (width - 16 - gap * (n - 1)) / n))
+  return (
+    <span className="absolute inset-0 flex flex-col px-2 pt-1">
+      <span className="line-clamp-1 text-left text-[13px] font-semibold leading-tight opacity-90">
+        {label} · {seats}
+      </span>
+      <span className="flex flex-1 items-center justify-center" style={{ gap }} aria-hidden="true">
+        {Array.from({ length: n }, (_, i) => (
+          <span
+            key={i}
+            className="shrink-0 rounded-[30%_30%_14%_14%] bg-current opacity-80"
+            style={{ width: chair, height: chair * 0.9 }}
+          />
+        ))}
+      </span>
+    </span>
   )
 }
 

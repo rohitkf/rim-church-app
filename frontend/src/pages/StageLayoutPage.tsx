@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -19,8 +19,9 @@ import { useFinishedServices } from '../lib/useFinishedServices'
 import { useStageAccess } from '../lib/useStageAccess'
 import {
   BLOCK_COLORS,
+  DEFAULT_SEATS,
   DEFAULT_STAGE,
-  QUICK_BLOCKS,
+  SEAT_PITCH,
   STAGE_KEY,
   addStageBlock,
   addStageComment,
@@ -31,16 +32,19 @@ import {
   ensureStageLayout,
   fetchStageBlocks,
   fetchStageComments,
+  fetchStageAreas,
   fetchStageLayout,
   fetchStageLog,
   fetchStageTemplates,
   logSentence,
   personName,
   placeNewBlock,
+  quickBlocksFor,
   saveStageTemplate,
   stampText,
   updateStageBlock,
   type BlockPatch,
+  type StageArea,
   type StageBlock,
 } from '../lib/stage'
 
@@ -86,8 +90,17 @@ async function fetchPeople() {
 
 type Panel = 'add' | 'templates' | 'comments' | 'history' | null
 
-export function StageLayoutPage() {
+/** `/stage/:sessionId` on its own: the first area, which is the Stage unless the church reordered them. */
+export function StageAreaRedirect() {
   const { sessionId = '' } = useParams()
+  const areas = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
+  if (areas.isLoading) return <p className="text-body-sm text-on-surface-variant">Loading…</p>
+  const first = areas.data?.[0]
+  return <Navigate to={first ? `/stage/${sessionId}/${first.id}` : '/stage'} replace />
+}
+
+export function StageLayoutPage() {
+  const { sessionId = '', areaId = '' } = useParams()
   const { session: auth } = useAuth()
   const myId = auth?.user.id ?? ''
   const queryClient = useQueryClient()
@@ -103,7 +116,10 @@ export function StageLayoutPage() {
   const { isFinished } = useFinishedServices(session ? [session.service_id] : [])
   const finished = !!session && isFinished(session.service_id)
 
-  const layoutQuery = useQuery({ queryKey: [...STAGE_KEY, 'layout', sessionId], queryFn: () => fetchStageLayout(sessionId), enabled: !!sessionId })
+  const areasQuery = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
+  const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data])
+  const area: StageArea | null = areas.find((a) => a.id === areaId) ?? null
+  const layoutQuery = useQuery({ queryKey: [...STAGE_KEY, 'layout', sessionId, areaId], queryFn: () => fetchStageLayout(sessionId, areaId), enabled: !!sessionId && !!areaId })
   const layout = layoutQuery.data ?? null
   const layoutId = layout?.id ?? ''
   const blocksQuery = useQuery({ queryKey: [...STAGE_KEY, 'blocks', layoutId], queryFn: () => fetchStageBlocks(layoutId), enabled: !!layoutId })
@@ -117,7 +133,12 @@ export function StageLayoutPage() {
   const canEdit = !finished && may('edit')
   const canDelete = !finished && may('delete')
   const canComment = !finished && may('comment')
-  const stage = layout ? { width: layout.width, height: layout.height } : DEFAULT_STAGE
+  const stage = {
+    width: layout?.width ?? area?.width ?? DEFAULT_STAGE.width,
+    height: layout?.height ?? area?.height ?? DEFAULT_STAGE.height,
+    topLabel: area?.top_label,
+    bottomLabel: area?.bottom_label,
+  }
   const selected = blocks.find((b) => b.id === selectedId) ?? null
 
   // A block somebody else just removed is simply no longer selected:
@@ -129,18 +150,25 @@ export function StageLayoutPage() {
   /** The layout row, made on the first stroke. */
   const layoutFor = async () => {
     if (layout) return layout
-    if (!session) throw new Error('The session has not loaded yet.')
-    const made = await ensureStageLayout(session.id, session.service_id)
-    await queryClient.invalidateQueries({ queryKey: [...STAGE_KEY, 'layout', sessionId] })
+    if (!session || !area) throw new Error('The session has not loaded yet.')
+    const made = await ensureStageLayout(session.id, area, session.service_id)
+    await queryClient.invalidateQueries({ queryKey: [...STAGE_KEY, 'layout', sessionId, areaId] })
     return made
   }
 
   const add = useMutation({
-    mutationFn: async (label: string) => {
+    mutationFn: async (what: { label: string; seats?: number }) => {
       const lay = await layoutFor()
-      const at = placeNewBlock(blocks, { width: lay.width, height: lay.height })
+      const size = what.seats ? { w: Math.min(lay.width - 80, what.seats * SEAT_PITCH + 16), h: 90 } : undefined
+      const at = placeNewBlock(blocks, { width: lay.width, height: lay.height }, size)
       const z = blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1
-      return addStageBlock(lay.id, { label: label.trim(), ...at, z })
+      return addStageBlock(lay.id, {
+        label: what.label.trim(),
+        ...at,
+        ...size,
+        z,
+        ...(what.seats ? { kind: 'seats' as const, seats: what.seats } : {}),
+      })
     },
     onSuccess: (block) => {
       setError(null)
@@ -190,7 +218,7 @@ export function StageLayoutPage() {
   })
 
   const clear = useMutation({
-    mutationFn: () => clearStageLayout(sessionId),
+    mutationFn: () => clearStageLayout(sessionId, areaId),
     onSuccess: () => {
       setSelectedId(null)
       showToast('Stage cleared')
@@ -200,7 +228,7 @@ export function StageLayoutPage() {
   })
 
   const apply = useMutation({
-    mutationFn: (templateId: string) => applyStageTemplate(sessionId, templateId),
+    mutationFn: (templateId: string) => applyStageTemplate(sessionId, areaId, templateId),
     onSuccess: () => {
       setPanel(null)
       setSelectedId(null)
@@ -211,7 +239,7 @@ export function StageLayoutPage() {
   })
 
   const keep = useMutation({
-    mutationFn: (name: string) => saveStageTemplate(sessionId, name),
+    mutationFn: (name: string) => saveStageTemplate(sessionId, areaId, name),
     onSuccess: (outcome) => {
       setPanel(null)
       showToast(outcome === 'saved' ? 'Saved as a template' : 'Sent to an Admin to approve')
@@ -230,7 +258,7 @@ export function StageLayoutPage() {
 
   const onCommit = (id: string, box: BlockBox) => patch.mutate({ id, changes: box })
 
-  const title = session ? `${session.session_name}` : 'Stage layout'
+  const title = session && area ? `${session.session_name} · ${area.name}` : session ? session.session_name : 'Stage layout'
   const when = session ? `${formatServiceDay(session.service.date)} · ${formatTime(session.start_time)}` : ''
   const thread = (commentsQuery.data ?? []).filter((c) => c.block_id === null)
   const notesOn = (blockId: string) => (commentsQuery.data ?? []).filter((c) => c.block_id === blockId)
@@ -260,7 +288,26 @@ export function StageLayoutPage() {
       />
       <Lifespan page="stage" className="mb-4" />
 
-      <QueryState isLoading={sessionQuery.isLoading || layoutQuery.isLoading} error={sessionQuery.error ?? layoutQuery.error}>
+      {/* The areas of this session: one drawing each, a tab each. */}
+      {areas.length > 1 && (
+        <nav aria-label="Areas" className="mb-3 flex gap-1 self-start overflow-x-auto rounded-full bg-inset p-1 hairline">
+          {areas.map((a) => (
+            <Link
+              key={a.id}
+              to={`/stage/${sessionId}/${a.id}`}
+              aria-current={a.id === areaId ? 'page' : undefined}
+              className={`tap shrink-0 rounded-full px-4 py-2 text-label-md transition-colors ${a.id === areaId ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+            >
+              {a.name}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      <QueryState isLoading={sessionQuery.isLoading || layoutQuery.isLoading || areasQuery.isLoading} error={sessionQuery.error ?? layoutQuery.error ?? areasQuery.error}>
+        {areasQuery.isSuccess && !area && (
+          <p className="mb-3 text-body-sm text-on-surface-variant">That area is no longer there. <Link to="/stage" className="text-primary hover:underline">Back to the list.</Link></p>
+        )}
         {/* What can be done, in the order somebody reaches for it. */}
         <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="stage-tools">
           {canAdd && (
@@ -351,12 +398,17 @@ export function StageLayoutPage() {
         )}
 
         {panel === 'add' && (
-          <AddBlockSheet onClose={() => setPanel(null)} onAdd={(label) => add.mutate(label)} busy={add.isPending} />
+          <AddBlockSheet
+            onClose={() => setPanel(null)}
+            names={quickBlocksFor(area?.name ?? 'Stage')}
+            onAdd={(label, seats) => add.mutate({ label, seats })}
+            busy={add.isPending}
+          />
         )}
         {panel === 'templates' && (
           <TemplatesSheet
             onClose={() => setPanel(null)}
-            templates={templatesQuery.data ?? []}
+            templates={(templatesQuery.data ?? []).filter((t) => t.area_id === areaId)}
             loading={templatesQuery.isLoading}
             canApply={canEdit}
             canKeep={canEdit && blocks.length > 0}
@@ -379,7 +431,7 @@ export function StageLayoutPage() {
         {panel === 'comments' && (
           <Tile className="mt-4">
             <h2 className="text-body-lg font-semibold text-on-surface">Comments</h2>
-            <p className="mt-0.5 text-body-sm text-on-surface-variant">About this stage as a whole. A note about one block is pinned to it instead — tap the block.</p>
+            <p className="mt-0.5 text-body-sm text-on-surface-variant">About this area as a whole. A note about one block is pinned to it instead — tap the block.</p>
             <CommentList
               comments={thread}
               myId={myId}
@@ -522,6 +574,12 @@ function BlockInspector({
               ))}
             </div>
           </div>
+          {block.kind === 'seats' && (
+            <label className="flex items-center justify-between gap-3 text-body-sm text-on-surface-variant sm:col-span-2">
+              Seats in this row
+              <SeatsInput value={block.seats} onCommit={(n) => onChange({ seats: n })} label="Seats in this row" />
+            </label>
+          )}
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
             <ActionButton size="sm" tone="quiet" onClick={() => onChange({ rotation: ((block.rotation + 90 + 180) % 360) - 180 })}>
               Turn 90°
@@ -545,6 +603,37 @@ function BlockInspector({
         {canComment && <CommentForm onSend={onNote} busy={false} placeholder="e.g. needs a second DI box" />}
       </div>
     </Tile>
+  )
+}
+
+/** 1 to 60; anything else becomes the default. */
+function clampSeats(text: string): number {
+  const n = Number(text)
+  return Number.isFinite(n) && n >= 1 ? Math.min(60, Math.round(n)) : DEFAULT_SEATS
+}
+
+/** A count you can empty while retyping; it is written on blur or Enter. */
+function SeatsInput({ value, onCommit, label }: { value: number; onCommit: (n: number) => void; label: string }) {
+  const [text, setText] = useState(String(value))
+  const commit = () => {
+    const n = clampSeats(text)
+    setText(String(n))
+    if (n !== value) onCommit(n)
+  }
+  return (
+    <input
+      type="number"
+      min={1}
+      max={60}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+      }}
+      aria-label={label}
+      className={`${inputClasses} w-24 text-center`}
+    />
   )
 }
 
@@ -607,15 +696,27 @@ function CommentForm({ onSend, busy, placeholder = 'Say something about the stag
   )
 }
 
-function AddBlockSheet({ onClose, onAdd, busy }: { onClose: () => void; onAdd: (label: string) => void; busy: boolean }) {
+function AddBlockSheet({
+  onClose,
+  names,
+  onAdd,
+  busy,
+}: {
+  onClose: () => void
+  names: string[]
+  onAdd: (label: string, seats?: number) => void
+  busy: boolean
+}) {
   const [custom, setCustom] = useState('')
+  const [rowName, setRowName] = useState('Row A')
+  const [seats, setSeats] = useState(String(DEFAULT_SEATS))
   return (
     <Overlay onDismiss={onClose} label="Add a block" align="sheet">
       <div className="w-full max-w-md rounded-t-[var(--radius-shell)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 sm:rounded-[var(--radius-shell)] dark:ring-white/12">
         <h2 className="text-headline-sm">Add a block</h2>
         <p className="mt-1 text-body-sm text-on-surface-variant">It lands in the first free spot; drag it where it goes.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {QUICK_BLOCKS.map((name) => (
+          {names.map((name) => (
             <button
               key={name}
               type="button"
@@ -645,6 +746,37 @@ function AddBlockSheet({ onClose, onAdd, busy }: { onClose: () => void; onAdd: (
           <ActionButton type="submit" disabled={busy || !custom.trim()}>
             Add
           </ActionButton>
+        </form>
+        {/* Seats, as a row of chairs rather than a box that says "seats". */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (rowName.trim()) onAdd(rowName, clampSeats(seats))
+          }}
+          className="mt-5 border-t border-border-subtle pt-4"
+        >
+          <h3 className="text-body-sm font-medium text-on-surface">A row of seats</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input
+              value={rowName}
+              onChange={(e) => setRowName(e.target.value)}
+              maxLength={40}
+              aria-label="Row name"
+              className={`${inputClasses} min-w-0 basis-full sm:basis-0 sm:flex-1`}
+            />
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+              aria-label="Seats"
+              className={`${inputClasses} w-20 text-center`}
+            />
+            <ActionButton type="submit" disabled={busy || !rowName.trim()} className="flex-1 sm:flex-none">
+              Add row
+            </ActionButton>
+          </div>
         </form>
       </div>
     </Overlay>

@@ -73,7 +73,7 @@ the thing most likely to waste your time:
 | `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
-| `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one drawing per session; who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
+| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one drawing per session per area (Stage, Audience, …; a block can be a row of seats); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:
@@ -322,6 +322,9 @@ Each of these has already cost real time. None of them show up in review.
   byte; without the placeholder it is identical every deploy and the "a new
   version is ready" banner can never appear. It shipped that way for 84
   deploys. The build now fails loudly if the line goes — leave that guard.
+- **A release is announced once per account** (`lib/releases.ts`, `WhatsNew`,
+  `onboarding.releases_seen`, 0156). A new page or a changed habit gets an
+  entry there — key never reused — or people find it by accident.
 - **Two copies of the notification map** must agree:
   `lib/notificationLink.ts` and `functions/push-notify/index.ts`. One is
   browser, one is Deno. They have drifted once already.

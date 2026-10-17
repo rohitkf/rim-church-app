@@ -17,6 +17,7 @@ const db = vi.hoisted(() => ({
   layout: null as StageLayout | null,
   blocks: [] as StageBlock[],
   added: [] as string[],
+  addedRows: [] as Record<string, unknown>[],
   patched: [] as { id: string; patch: Record<string, unknown> }[],
   deleted: [] as string[],
   comments: [] as { body: string; blockId: string | null }[],
@@ -50,6 +51,10 @@ vi.mock('../lib/stage', async () => {
   const actual = await vi.importActual<typeof import('../lib/stage')>('../lib/stage')
   return {
     ...actual,
+fetchStageAreas: () => Promise.resolve([
+      { id: 'A', name: 'Stage', width: 1200, height: 700, top_label: 'Back of stage', bottom_label: 'Front · congregation', position: 0 },
+      { id: 'B', name: 'Audience', width: 1200, height: 900, top_label: 'Stage', bottom_label: 'Back of hall', position: 1 },
+    ]),
     fetchStageLayout: () => Promise.resolve(db.layout),
     fetchStageBlocks: () => Promise.resolve(db.blocks),
     fetchStageComments: () => Promise.resolve([]),
@@ -57,10 +62,11 @@ vi.mock('../lib/stage', async () => {
       Promise.resolve([
         { id: 'g1', layout_id: 'l1', block_id: 'b1', block_label: 'Keyboard', kind: 'moved', detail: {}, by: 'me', at: '2026-10-17T10:00:00Z', actor: { id: 'me', first_name: 'Rohit', last_name: 'K' } },
       ]),
-    fetchStageTemplates: () => Promise.resolve([{ id: 't1', name: 'Full band', width: 1200, height: 700, blocks: [{}, {}], created_by: null, created_at: 'x', updated_at: 'x' }]),
-    ensureStageLayout: () => Promise.resolve(db.layout ?? { id: 'l1', session_id: 's1', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' }),
+    fetchStageTemplates: () => Promise.resolve([{ id: 't1', name: 'Full band', area_id: 'A', width: 1200, height: 700, blocks: [{}, {}], created_by: null, created_at: 'x', updated_at: 'x' }]),
+    ensureStageLayout: () => Promise.resolve(db.layout ?? { id: 'l1', session_id: 's1', area_id: 'A', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' }),
     addStageBlock: (_l: string, b: { label: string }) => {
       db.added.push(b.label)
+      db.addedRows.push(b)
       return Promise.resolve({ ...block({ id: `new-${db.added.length}`, label: b.label }) })
     },
     updateStageBlock: (id: string, patch: Record<string, unknown>) => {
@@ -86,7 +92,7 @@ vi.mock('../lib/stage', async () => {
 
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   id: 'b1', layout_id: 'l1', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1,
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u2', updated_at: '2026-10-17T11:00:00Z',
   person: null,
   placer: { id: 'u', first_name: 'Rohit', last_name: 'K' },
@@ -94,14 +100,14 @@ const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   ...over,
 })
 
-const layout = (): StageLayout => ({ id: 'l1', session_id: 's1', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' })
+const layout = (): StageLayout => ({ id: 'l1', session_id: 's1', area_id: 'A', service_id: 'svc', width: 1200, height: 700, created_by: 'me', created_at: 'x', updated_at: 'x' })
 
 function show() {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={['/stage/s1']}>
+      <MemoryRouter initialEntries={['/stage/s1/A']}>
         <Routes>
-          <Route path="/stage/:sessionId" element={<StageLayoutPage />} />
+          <Route path="/stage/:sessionId/:areaId" element={<StageLayoutPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -117,6 +123,7 @@ beforeEach(() => {
   db.layout = layout()
   db.blocks = [block()]
   db.added = []
+  db.addedRows = []
   db.patched = []
   db.deleted = []
   db.comments = []
@@ -128,7 +135,9 @@ beforeEach(() => {
 describe('a session’s stage', () => {
   it('names the session and draws what is on the stage', async () => {
     show()
-    expect(await screen.findByRole('heading', { name: 'English' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'English · Stage' })).toBeInTheDocument()
+    // The other areas are a tab away.
+    expect(screen.getByRole('link', { name: 'Audience' })).toHaveAttribute('href', '/stage/s1/B')
     expect(await screen.findByRole('button', { name: 'Keyboard' })).toBeInTheDocument()
   })
 
@@ -140,12 +149,18 @@ describe('a session’s stage', () => {
     expect(screen.getByText(/last changed by/)).toHaveTextContent('Blessy T')
   })
 
-  it('adds a block with one tap on a usual name', async () => {
+  it('adds a block with one tap on a usual name, and a row of seats', async () => {
     const user = userEvent.setup()
     show()
     await user.click(await screen.findByRole('button', { name: '+ Add block' }))
     await user.click(screen.getByRole('button', { name: 'Drums' }))
     await waitFor(() => expect(db.added).toEqual(['Drums']))
+    await user.click(await screen.findByRole('button', { name: '+ Add block' }))
+    await user.clear(screen.getByRole('spinbutton', { name: 'Seats' }))
+    await user.type(screen.getByRole('spinbutton', { name: 'Seats' }), '12')
+    await user.click(screen.getByRole('button', { name: 'Add row' }))
+    await waitFor(() => expect(db.added).toEqual(['Drums', 'Row A']))
+    expect(db.addedRows.at(-1)).toMatchObject({ kind: 'seats', seats: 12 })
   })
 
   it('renames, recolours and puts a person on the selected block', async () => {

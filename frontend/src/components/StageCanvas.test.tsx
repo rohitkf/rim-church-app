@@ -11,7 +11,7 @@ import type { StageBlock } from '../lib/stage'
 
 const block = (over: Partial<StageBlock> = {}): StageBlock => ({
   id: 'b1', layout_id: 'l', label: 'Keyboard', person_id: null, color: '#0A84FF',
-  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1,
+  x: 100, y: 100, w: 160, h: 100, rotation: 0, z: 1, kind: 'block', seats: 0,
   placed_by: 'u', placed_at: '2026-10-17T10:00:00Z', updated_by: 'u', updated_at: '2026-10-17T10:00:00Z',
   person: null, placer: { id: 'u', first_name: 'Rohit', last_name: 'K' }, updater: null,
   ...over,

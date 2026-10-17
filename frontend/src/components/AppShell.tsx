@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
 import { Tour } from './Tour'
 import { PhoneCheckDialog } from './PhoneCheckDialog'
+import { WhatsNew } from './WhatsNew'
 import { ViewAsBanner } from './ViewAsBanner'
 import { Toaster } from './Toaster'
 
@@ -186,6 +187,9 @@ export function AppShell() {
 
       {/* Older phone numbers have no country code; this asks once per visit. */}
       <PhoneCheckDialog />
+
+      {/* What is new since they last looked, once each. See lib/releases. */}
+      <WhatsNew />
 
       <PwaBanners />
 

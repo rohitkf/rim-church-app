@@ -15,10 +15,12 @@ export const onboardingRowSchema = z.object({
   seen: z.record(z.string(), z.string()),
   pushed_at: z.string().nullable(),
   pushed_by: z.string().nullable().optional(),
+  /** Release keys announced to this person, each with when (0156). */
+  releases_seen: z.record(z.string(), z.string()).optional().default({}),
 })
 export type OnboardingRow = z.infer<typeof onboardingRowSchema>
 
-const COLUMNS = 'user_id, seen, pushed_at, pushed_by'
+const COLUMNS = 'user_id, seen, pushed_at, pushed_by, releases_seen'
 
 /** My own row, or null before the tour has ever touched me. */
 export async function fetchMyOnboarding(myId: string): Promise<OnboardingRow | null> {
@@ -40,6 +42,11 @@ export async function markChaptersSeen(chapters: string[]): Promise<void> {
   if (error) throw error
 }
 
+export async function markReleaseSeen(key: string): Promise<void> {
+  const { error } = await supabase.rpc('release_mark_seen', { p_key: key })
+  if (error) throw error
+}
+
 /** Send the tour: to these people, or to everybody when `userIds` is null. Returns how many. */
 export async function pushTour(userIds: string[] | null): Promise<number> {
   const { data, error } = await supabase.rpc('push_onboarding', { p_users: userIds })
@@ -53,7 +60,9 @@ export type TourStatus =
   | { kind: 'taken'; at: string }
   | { kind: 'sent'; at: string }
 
-export function tourStatusOf(row: OnboardingRow | undefined): TourStatus {
+export function tourStatusOf(
+  row: (Pick<OnboardingRow, 'seen' | 'pushed_at'> & Partial<Omit<OnboardingRow, 'seen' | 'pushed_at'>>) | undefined,
+): TourStatus {
   if (!row) return { kind: 'never' }
   const seenAt = Object.values(row.seen).sort().pop() ?? null
   if (row.pushed_at && (!seenAt || Date.parse(seenAt) < Date.parse(row.pushed_at))) {
