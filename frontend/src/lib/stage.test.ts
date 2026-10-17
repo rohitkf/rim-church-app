@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   REGION_GAP,
+  alignBlock,
   clampBlock,
   duplicateOf,
   regionAt,
@@ -132,5 +133,42 @@ describe('a copy of a block', () => {
   })
   it('keeps the seats of a row', () => {
     expect(duplicateOf({ ...source, kind: 'seats', seats: 12 }, { width: 1200, height: 700 }, 1)).toMatchObject({ kind: 'seats', seats: 12 })
+  })
+})
+
+describe('smart guides', () => {
+  const region = { width: 1200, height: 700 }
+  const other = { x: 400, y: 300, w: 160, h: 100 }
+
+  it('pulls a near edge onto a neighbour’s edge, and draws the line between them', () => {
+    const r = alignBlock({ x: 390, y: 100, w: 160, h: 100 }, [other], region, 16)
+    expect(r.x).toBe(400)
+    expect(r.y).toBe(100)
+    expect(r.guides).toEqual([{ axis: 'x', at: 400, from: 100, to: 400 }])
+  })
+
+  it('lines up centres too', () => {
+    // A wide neighbour whose centre (310) is the only line within reach of the block's centre (300).
+    const r = alignBlock({ x: 250, y: 100, w: 100, h: 100 }, [{ x: 200, y: 400, w: 220, h: 20 }], region, 16)
+    expect(r.x).toBe(260)
+    expect(r.guides).toEqual([{ axis: 'x', at: 310, from: 100, to: 420 }])
+  })
+
+  it('leaves a block alone when nothing is within reach', () => {
+    const r = alignBlock({ x: 370, y: 100, w: 160, h: 100 }, [other], region, 16)
+    expect(r).toEqual({ x: 370, y: 100, w: 160, h: 100, guides: [] })
+  })
+
+  it('offers the region’s own centre lines', () => {
+    const r = alignBlock({ x: 515, y: 290, w: 160, h: 100 }, [], region, 16)
+    expect(r.x).toBe(520)
+    expect(r.y).toBe(300)
+    expect(r.guides.map((g) => [g.axis, g.at])).toEqual([['x', 600], ['y', 350]])
+  })
+
+  it('on a resize grows the far edge to meet a neighbour, without sliding', () => {
+    const r = alignBlock({ x: 100, y: 100, w: 290, h: 100 }, [other], region, 16, 'resize')
+    expect(r).toMatchObject({ x: 100, y: 100, w: 300, h: 100 })
+    expect(r.guides).toEqual([{ axis: 'x', at: 400, from: 100, to: 400 }])
   })
 })

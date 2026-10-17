@@ -17,6 +17,8 @@ const auth = vi.hoisted(() => ({
   viewAs: null as unknown,
 }))
 const db = vi.hoisted(() => ({ seen: {} as Record<string, string>, marked: [] as string[], canOpen: true }))
+const pwa = vi.hoisted(() => ({ updateReady: false }))
+vi.mock('../lib/usePwa', () => ({ usePwa: () => pwa }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => db.canOpen, standing: 'church' }) }))
@@ -95,6 +97,24 @@ describe('what is new', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.queryByRole('dialog')).toBeNull()
     endTour()
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('yields to a new version waiting to be reloaded into, and comes back after it', async () => {
+    pwa.updateReady = true
+    const a = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <WhatsNew />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(db.marked).toEqual([])
+    a.unmount()
+    pwa.updateReady = false
+    show()
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
   })
 

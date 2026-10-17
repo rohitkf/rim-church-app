@@ -73,6 +73,24 @@ describe('the stage canvas', () => {
     expect(box).toEqual({ x: 220, y: 100, w: 160, h: 100, area_id: 'A' })
   })
 
+  it('pulls a dragged block onto a neighbour’s edge and shows the guide while it is held', () => {
+    const neighbour = block({ id: 'b2', label: 'Drums', x: 400, y: 300 })
+    const { onCommit } = draw({ blocks: [block(), neighbour] })
+    const el = screen.getByRole('button', { name: 'Keyboard' })
+    // 145 screen px at 50% is 290 stage px: x 390, ten short of the drums' left edge, within reach.
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 200, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 245, clientY: 100 })
+    expect(el.style.left).toBe('400px')
+    const guide = document.querySelector('[data-guide="x"]') as HTMLElement
+    expect(guide).not.toBeNull()
+    expect(guide.style.left).toBe('398.5px')
+    expect(document.querySelector('[data-guide="y"]')).toBeNull()
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 245, clientY: 100 })
+    expect(onCommit).toHaveBeenCalledWith('b1', { x: 400, y: 100, w: 160, h: 100, area_id: 'A' })
+    expect(document.querySelector('[data-guide]')).toBeNull()
+  })
+
   it('does not move anything for somebody who may only look', () => {
     const { onCommit, onSelect } = draw({ canEdit: false })
     const el = screen.getByRole('button', { name: 'Keyboard' })
