@@ -556,6 +556,14 @@ export function AvailabilityPage() {
         if (error) throw error
         return
       }
+      // An answer already given is changed, not re-added: an upsert is
+      // checked as an insert too, which is the narrower "add" right, and
+      // "change" is the one a Head is given (0163).
+      if (answerId) {
+        const { error } = await supabase.from('availability').update({ status }).eq('id', answerId)
+        if (error) throw error
+        return
+      }
       const { error } = await supabase.from('availability').upsert(
         { user_id: userId, service_id: serviceId, department_id: departmentId, status },
         { onConflict: 'user_id,service_id,department_id' },
@@ -965,7 +973,9 @@ export function AvailabilityPage() {
                                 </span>
                               )}
                             </span>
-                            {can('avail.add_others', { departmentId: dept.id }) ? (
+                            {(answer
+                              ? can('avail.edit_others', { departmentId: dept.id })
+                              : can('avail.add_others', { departmentId: dept.id })) ? (
                               <Select
                                 value={answer?.status ?? ''}
                                 onChange={(status) =>
@@ -992,7 +1002,10 @@ export function AvailabilityPage() {
                                   answer ? statusTextClass[answer.status] : 'text-on-surface-variant'
                                 }`}
                                 options={[
-                                  { value: '', label: 'No answer' },
+                                  // Taking an answer away is the "add or remove" right.
+                                  ...(!answer || can('avail.add_others', { departmentId: dept.id })
+                                    ? [{ value: '', label: 'No answer' }]
+                                    : []),
                                   ...STATUS_OPTIONS.map((opt) => ({
                                     value: opt.value,
                                     label: opt.label,

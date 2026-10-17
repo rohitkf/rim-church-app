@@ -332,7 +332,7 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Change somebody else’s answer, and mark who turned up',
         key: 'avail.edit_others',
         can: granted('avail.edit_others'),
-        note: 'For the phone call that says “put me down, I forgot”. What somebody said stays theirs — only they or an Admin can change it — so for anybody else this is marking who turned up.',
+        note: 'For the phone call that says “put me down, I forgot”: change the answer somebody gave, and mark who turned up. Answering for somebody who has not answered, or taking an answer away, is the row below.',
       },
       {
         action: 'Ask to change your answer after it has closed',
