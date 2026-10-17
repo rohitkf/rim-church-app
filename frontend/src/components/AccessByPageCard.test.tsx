@@ -97,56 +97,88 @@ describe('AccessByPageCard', () => {
 
   it('changes the church’s rule from the section, and says what will be saved', async () => {
     const user = show()
-    await user.click(section('Availability'))
-    const history = within(rowFor('See the history of somebody’s answers'))
-    await user.selectOptions(history.getByRole('combobox', { name: /Team Member$/ }), 'team')
-    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Team Member · See the history of somebody’s answers: No → Their team')
+    await user.click(section('Team rota'))
+    const assign = within(rowFor('Assign somebody to a role'))
+    await user.selectOptions(assign.getByRole('combobox', { name: /Team Member$/ }), 'team')
+    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Team Member · Assign somebody to a role: No → Their team')
     await user.click(screen.getByRole('button', { name: 'Save access' }))
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith('set_permissions', {
-        p_changes: [{ role: 'member', capability: 'avail.history', reach: 'team' }],
+        p_changes: [{ role: 'member', capability: 'rota.assign', reach: 'team' }],
       }),
     )
   })
 
   it('gives one team rules of its own, no wider than the team, and sends them with the team', async () => {
     const user = show()
-    await user.click(section('Availability'))
+    await user.click(section('Team rota'))
     await screen.findByRole('option', { name: 'Worship' })
     await user.selectOptions(screen.getByRole('combobox', { name: 'Whose rules' }), 'd2')
     expect(screen.getByText(/Worship’s own rules/)).toBeInTheDocument()
-    const edit = within(rowFor('Change somebody else’s answer'))
-    const member = edit.getByRole('combobox', { name: /Team Member on Worship$/ })
+    const assign = within(rowFor('Assign somebody to a role'))
+    const member = assign.getByRole('combobox', { name: /Team Member on Worship$/ })
     expect(member).toHaveValue('')
     expect(within(member).getAllByRole('option').map((o) => o.textContent)).toEqual(['As the church (No)', 'No', 'Team'])
     // An Admin is the church's: no cell to set.
-    expect(edit.queryByRole('combobox', { name: /Admin on Worship$/ })).toBeNull()
+    expect(assign.queryByRole('combobox', { name: /Admin on Worship$/ })).toBeNull()
     await user.selectOptions(member, 'team')
-    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Worship · Team Member · Change somebody else’s answer, and mark who turned up: As the church → Their team')
+    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Worship · Team Member · Assign somebody to a role: As the church → Their team')
     await user.click(screen.getByRole('button', { name: 'Save access' }))
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith('set_permissions', {
-        p_changes: [{ role: 'member', capability: 'avail.edit_others', reach: 'team', department: 'd2' }],
+        p_changes: [{ role: 'member', capability: 'rota.assign', reach: 'team', department: 'd2' }],
       }),
     )
   })
 
   it('shows a team’s stored rule, and gives it back to the church as null', async () => {
-    storedTeams = { d1: { 'avail.history': { assistant: 'none' } } }
+    storedTeams = { d1: { 'rota.assign': { assistant: 'none' } } }
     const user = show()
-    await user.click(section('Availability'))
+    await user.click(section('Team rota'))
     await screen.findByRole('option', { name: 'Media' })
     await user.selectOptions(screen.getByRole('combobox', { name: 'Whose rules' }), 'd1')
-    const history = within(rowFor('See the history of somebody’s answers'))
-    const assistant = history.getByRole('combobox', { name: /Assisting Head on Media$/ })
+    const assistant = within(rowFor('Assign somebody to a role')).getByRole('combobox', { name: /Assisting Head on Media$/ })
     expect(assistant).toHaveValue('none')
     await user.selectOptions(assistant, '')
     await user.click(screen.getByRole('button', { name: 'Save access' }))
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith('set_permissions', {
-        p_changes: [{ role: 'assistant', capability: 'avail.history', reach: null, department: 'd1' }],
+        p_changes: [{ role: 'assistant', capability: 'rota.assign', reach: null, department: 'd1' }],
       }),
     )
+  })
+
+  describe('Availability, team by team', () => {
+    it('lists every team with who may change answers and see history, and no church-wide cells for those', async () => {
+      storedTeams = { d2: { 'avail.history': { member: 'team' } } }
+      stored = { 'avail.edit_others': { assistant: 'none' }, 'avail.history': { assistant: 'none' } }
+      const user = show()
+      await user.click(section('Availability'))
+      const teams = within(await screen.findByRole('region', { name: 'Team by team' }))
+      expect(await teams.findByRole('button', { name: /^Media/ })).toHaveTextContent('Change answers: Team Head · History: Team Head')
+      expect(teams.getByRole('button', { name: /^Worship/ })).toHaveTextContent('History: Team Head, Team Member')
+      // The rows set per team are not in the church-wide table below.
+      expect(screen.queryByRole('combobox', { name: /Change somebody else’s answer.*— Team Head$/ })).toBeNull()
+    })
+
+    it('sets one team’s cell, and what a new team starts with', async () => {
+      const user = show()
+      await user.click(section('Availability'))
+      const teams = within(await screen.findByRole('region', { name: 'Team by team' }))
+      await user.click(await teams.findByRole('button', { name: /^Media/ }))
+      await user.selectOptions(screen.getByRole('combobox', { name: /Change somebody else’s answer.*Assisting Head on Media$/ }), 'none')
+      await user.selectOptions(screen.getByRole('combobox', { name: /See the history.*Assisting Head for a new team$/ }), 'none')
+      await user.click(screen.getByRole('button', { name: 'Save access' }))
+      await waitFor(() => expect(rpc).toHaveBeenCalled())
+      const sent = (rpc.mock.calls[0][1] as { p_changes: unknown[] }).p_changes
+      expect(sent).toEqual(
+        expect.arrayContaining([
+          { role: 'assistant', capability: 'avail.history', reach: 'none' },
+          { role: 'assistant', capability: 'avail.edit_others', reach: 'none', department: 'd1' },
+        ]),
+      )
+      expect(sent).toHaveLength(2)
+    })
   })
 
   it('saves who can open a page alongside the rules', async () => {

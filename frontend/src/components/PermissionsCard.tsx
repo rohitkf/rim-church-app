@@ -392,6 +392,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       </span>
                       <Chevron open={isOpen} />
                     </button>
+                    {isOpen && area.perTeam && (
+                      <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.perTeam}</p>
+                    )}
                     {isOpen && area.fixed && (
                       <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.fixed}</p>
                     )}

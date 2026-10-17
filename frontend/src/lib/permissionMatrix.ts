@@ -91,6 +91,12 @@ export interface PermissionArea {
    * would let somebody hand themselves the grid.
    */
   fixed?: string
+  /**
+   * Said when the area is set team by team (Settings › Access & privileges
+   * › By page): the church's own cells for the team profiles are then only
+   * what a new team starts with.
+   */
+  perTeam?: string
 }
 
 const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
@@ -310,6 +316,8 @@ export const PERMISSIONS: PermissionArea[] = [
   },
   {
     area: 'Availability',
+    perTeam:
+      'Set team by team, in By page › Availability: who on each team may change answers and see the history. What is shown here is what a new team starts with.',
     capabilities: [
       {
         action: 'Answer your own availability',
