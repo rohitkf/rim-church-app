@@ -84,6 +84,9 @@ export const appSettingsSchema = z.object({
   alert_clear_dow: z.number().int().min(0).max(6).nullable().default(2),
   /** Days a service, and everything about it, is kept after its date (0128). */
   service_retention_days: z.number().int().min(7).max(365).default(14),
+  /** The day and hour stage layouts for held services clear, church time (0155). Null day never. */
+  stage_clear_dow: z.number().int().min(0).max(6).nullable().default(2),
+  stage_clear_hour: z.number().int().min(0).max(23).default(3),
 })
 export type AppSettings = z.infer<typeof appSettingsSchema>
 
@@ -117,6 +120,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notification_keep_count: 10,
   alert_clear_dow: 2,
   service_retention_days: 14,
+  stage_clear_dow: 2,
+  stage_clear_hour: 3,
 }
 
 export const SETTINGS_KEY = ['app-settings']

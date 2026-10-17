@@ -1,0 +1,451 @@
+import { z } from 'zod'
+import { supabase } from './supabaseClient'
+
+/*
+ * The stage, laid out before Sunday (0155).
+ *
+ * A layout belongs to one session of a service: named blocks on a drawn
+ * stage, each optionally carrying a person and a colour, every change
+ * written to a log by the database rather than by the app. What is read
+ * and written here; how it is drawn is components/StageCanvas; who may
+ * do what is the church's (Settings › Stage layout) and asked of
+ * `stage_team_access` through useStageAccess below.
+ */
+
+export const STAGE_KEY = ['stage'] as const
+
+/** What a block can be. Four stage-sized defaults, in canvas units. */
+export const DEFAULT_BLOCK = { w: 160, h: 100 }
+export const DEFAULT_STAGE = { width: 1200, height: 700 }
+
+/** The colours a block may wear: the team palette's clearest few. */
+export const BLOCK_COLORS: { hex: string; name: string }[] = [
+  { hex: '#0A84FF', name: 'Blue' },
+  { hex: '#5E5CE6', name: 'Indigo' },
+  { hex: '#BF5AF2', name: 'Purple' },
+  { hex: '#FF375F', name: 'Pink' },
+  { hex: '#FF6961', name: 'Coral' },
+  { hex: '#FF9F0A', name: 'Orange' },
+  { hex: '#FFD60A', name: 'Yellow' },
+  { hex: '#30D158', name: 'Green' },
+  { hex: '#34D399', name: 'Mint' },
+  { hex: '#64D2FF', name: 'Sky' },
+  { hex: '#8E8E93', name: 'Grey' },
+]
+
+/** Blocks people reach for first, offered as one tap. */
+export const QUICK_BLOCKS = [
+  'Keyboard', 'Drums', 'Bass', 'Electric guitar', 'Acoustic guitar', 'Lead vocal',
+  'Backing vocals', 'Pulpit', 'Monitor', 'Screen', 'Piano', 'Violin',
+]
+
+const personSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() }).nullable()
+
+export const stageLayoutSchema = z.object({
+  id: z.string(),
+  session_id: z.string(),
+  service_id: z.string(),
+  width: z.number(),
+  height: z.number(),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+export type StageLayout = z.infer<typeof stageLayoutSchema>
+
+export const stageBlockSchema = z.object({
+  id: z.string(),
+  layout_id: z.string(),
+  label: z.string(),
+  person_id: z.string().nullable(),
+  color: z.string(),
+  x: z.coerce.number(),
+  y: z.coerce.number(),
+  w: z.coerce.number(),
+  h: z.coerce.number(),
+  rotation: z.number(),
+  z: z.number(),
+  placed_by: z.string().nullable(),
+  placed_at: z.string(),
+  updated_by: z.string().nullable(),
+  updated_at: z.string(),
+  person: personSchema.optional(),
+  placer: personSchema.optional(),
+  updater: personSchema.optional(),
+})
+export type StageBlock = z.infer<typeof stageBlockSchema>
+
+export const stageCommentSchema = z.object({
+  id: z.string(),
+  layout_id: z.string(),
+  block_id: z.string().nullable(),
+  body: z.string(),
+  author: z.string().nullable(),
+  created_at: z.string(),
+  writer: personSchema.optional(),
+})
+export type StageComment = z.infer<typeof stageCommentSchema>
+
+export const LOG_KINDS = [
+  'added', 'moved', 'resized', 'rotated', 'renamed', 'recoloured', 'assigned',
+  'deleted', 'commented', 'template_applied', 'cleared',
+] as const
+export type LogKind = (typeof LOG_KINDS)[number]
+
+export const stageLogSchema = z.object({
+  id: z.string(),
+  layout_id: z.string(),
+  block_id: z.string().nullable(),
+  block_label: z.string().nullable(),
+  kind: z.enum(LOG_KINDS),
+  detail: z.record(z.string(), z.unknown()).default({}),
+  by: z.string().nullable(),
+  at: z.string(),
+  actor: personSchema.optional(),
+})
+export type StageLogLine = z.infer<typeof stageLogSchema>
+
+export const stageTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  width: z.number(),
+  height: z.number(),
+  blocks: z.array(z.record(z.string(), z.unknown())),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+export type StageTemplate = z.infer<typeof stageTemplateSchema>
+
+export const stageTemplateRequestSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  blocks: z.array(z.record(z.string(), z.unknown())),
+  requested_by: z.string().nullable(),
+  requested_at: z.string(),
+  status: z.enum(['pending', 'approved', 'declined']),
+  decided_by: z.string().nullable(),
+  decided_at: z.string().nullable(),
+  requester: personSchema.optional(),
+})
+export type StageTemplateRequest = z.infer<typeof stageTemplateRequestSchema>
+
+export const stageTeamAccessSchema = z.object({
+  department_id: z.string(),
+  can_add: z.boolean(),
+  can_edit: z.boolean(),
+  can_delete: z.boolean(),
+  can_comment: z.boolean(),
+  can_templates: z.boolean(),
+})
+export type StageTeamAccess = z.infer<typeof stageTeamAccessSchema>
+
+export type StagePrivilege = 'add' | 'edit' | 'delete' | 'comment' | 'templates'
+
+export const PRIVILEGES: { key: StagePrivilege; column: keyof StageTeamAccess; label: string; blurb: string }[] = [
+  { key: 'add', column: 'can_add', label: 'Add', blurb: 'Put new blocks on the stage.' },
+  { key: 'edit', column: 'can_edit', label: 'Edit', blurb: 'Move, resize, rename, recolour, and put a person on a block. Apply a template.' },
+  { key: 'delete', column: 'can_delete', label: 'Delete', blurb: 'Take blocks off, and clear the whole stage.' },
+  { key: 'comment', column: 'can_comment', label: 'Comment', blurb: 'Write in the thread under the stage, and pin a note to a block.' },
+  { key: 'templates', column: 'can_templates', label: 'Templates', blurb: 'Keep a layout as a template without asking, and rename or delete templates.' },
+]
+
+/* ------------------------------------------------------------------ *
+ * Reading
+ * ------------------------------------------------------------------ */
+
+export async function fetchStageLayouts(serviceIds: string[]): Promise<StageLayout[]> {
+  if (serviceIds.length === 0) return []
+  const { data, error } = await supabase.from('stage_layouts').select('*').in('service_id', serviceIds)
+  if (error) throw error
+  return z.array(stageLayoutSchema).parse(data ?? [])
+}
+
+/** How many blocks each layout holds, for the list page's cards. */
+export async function fetchStageBlockCounts(layoutIds: string[]): Promise<Record<string, number>> {
+  if (layoutIds.length === 0) return {}
+  const { data, error } = await supabase.from('stage_blocks').select('layout_id').in('layout_id', layoutIds)
+  if (error) throw error
+  const counts: Record<string, number> = {}
+  for (const row of z.array(z.object({ layout_id: z.string() })).parse(data ?? [])) {
+    counts[row.layout_id] = (counts[row.layout_id] ?? 0) + 1
+  }
+  return counts
+}
+
+export async function fetchStageLayout(sessionId: string): Promise<StageLayout | null> {
+  const { data, error } = await supabase.from('stage_layouts').select('*').eq('session_id', sessionId).maybeSingle()
+  if (error) throw error
+  return data ? stageLayoutSchema.parse(data) : null
+}
+
+export async function fetchStageBlocks(layoutId: string): Promise<StageBlock[]> {
+  const { data, error } = await supabase
+    .from('stage_blocks')
+    .select(
+      '*, person:profiles!stage_blocks_person_id_fkey(id, first_name, last_name), placer:profiles!stage_blocks_placed_by_fkey(id, first_name, last_name), updater:profiles!stage_blocks_updated_by_fkey(id, first_name, last_name)',
+    )
+    .eq('layout_id', layoutId)
+    .order('z')
+    .order('placed_at')
+  if (error) throw error
+  return z.array(stageBlockSchema).parse(data ?? [])
+}
+
+export async function fetchStageComments(layoutId: string): Promise<StageComment[]> {
+  const { data, error } = await supabase
+    .from('stage_comments')
+    .select('*, writer:profiles!stage_comments_author_fkey(id, first_name, last_name)')
+    .eq('layout_id', layoutId)
+    .order('created_at')
+  if (error) throw error
+  return z.array(stageCommentSchema).parse(data ?? [])
+}
+
+export async function fetchStageLog(layoutId: string): Promise<StageLogLine[]> {
+  const { data, error } = await supabase
+    .from('stage_layout_log')
+    .select('*, actor:profiles!stage_layout_log_by_fkey(id, first_name, last_name)')
+    .eq('layout_id', layoutId)
+    .order('at', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return z.array(stageLogSchema).parse(data ?? [])
+}
+
+export async function fetchStageTemplates(): Promise<StageTemplate[]> {
+  const { data, error } = await supabase.from('stage_templates').select('*').order('name')
+  if (error) throw error
+  return z.array(stageTemplateSchema).parse(data ?? [])
+}
+
+export async function fetchStageTemplateRequests(): Promise<StageTemplateRequest[]> {
+  const { data, error } = await supabase
+    .from('stage_template_requests')
+    .select('*, requester:profiles!stage_template_requests_requested_by_fkey(id, first_name, last_name)')
+    .order('requested_at', { ascending: false })
+  if (error) throw error
+  return z.array(stageTemplateRequestSchema).parse(data ?? [])
+}
+
+export async function fetchStageTeamAccess(): Promise<StageTeamAccess[]> {
+  const { data, error } = await supabase.from('stage_team_access').select('*')
+  if (error) throw error
+  return z.array(stageTeamAccessSchema).parse(data ?? [])
+}
+
+/* ------------------------------------------------------------------ *
+ * Writing
+ * ------------------------------------------------------------------ */
+
+export async function ensureStageLayout(sessionId: string, serviceId: string): Promise<StageLayout> {
+  const existing = await fetchStageLayout(sessionId)
+  if (existing) return existing
+  const { data, error } = await supabase
+    .from('stage_layouts')
+    .insert({ session_id: sessionId, service_id: serviceId })
+    .select('*')
+    .single()
+  if (error) throw error
+  return stageLayoutSchema.parse(data)
+}
+
+export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z'>>
+
+export async function addStageBlock(
+  layoutId: string,
+  block: { label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number },
+): Promise<StageBlock> {
+  const { data, error } = await supabase
+    .from('stage_blocks')
+    .insert({ layout_id: layoutId, w: DEFAULT_BLOCK.w, h: DEFAULT_BLOCK.h, ...block })
+    .select('*')
+    .single()
+  if (error) throw error
+  return stageBlockSchema.parse(data)
+}
+
+export async function updateStageBlock(id: string, patch: BlockPatch): Promise<void> {
+  const { error } = await supabase.from('stage_blocks').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteStageBlock(id: string): Promise<void> {
+  const { error } = await supabase.from('stage_blocks').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function addStageComment(layoutId: string, body: string, author: string, blockId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('stage_comments')
+    .insert({ layout_id: layoutId, block_id: blockId, body: body.trim(), author })
+  if (error) throw error
+}
+
+export async function deleteStageComment(id: string): Promise<void> {
+  const { error } = await supabase.from('stage_comments').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function clearStageLayout(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('clear_stage_layout', { p_session: sessionId })
+  if (error) throw error
+}
+
+/** 'saved' straight into the library, or 'requested' for an Admin to answer. */
+export async function saveStageTemplate(sessionId: string, name: string): Promise<'saved' | 'requested'> {
+  const { data, error } = await supabase.rpc('save_stage_template', { p_session: sessionId, p_name: name })
+  if (error) throw error
+  return z.enum(['saved', 'requested']).parse(data)
+}
+
+export async function applyStageTemplate(sessionId: string, templateId: string): Promise<void> {
+  const { error } = await supabase.rpc('apply_stage_template', { p_session: sessionId, p_template: templateId })
+  if (error) throw error
+}
+
+export async function decideStageTemplateRequest(id: string, approve: boolean): Promise<void> {
+  const { error } = await supabase.rpc('decide_stage_template_request', { p_request: id, p_approve: approve })
+  if (error) throw error
+}
+
+export async function renameStageTemplate(id: string, name: string): Promise<void> {
+  const { error } = await supabase.rpc('rename_stage_template', { p_template: id, p_name: name })
+  if (error) throw error
+}
+
+export async function deleteStageTemplate(id: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_stage_template', { p_template: id })
+  if (error) throw error
+}
+
+export async function setStageTeamAccess(rows: StageTeamAccess[], removeIds: string[]): Promise<void> {
+  if (removeIds.length > 0) {
+    const { error } = await supabase.from('stage_team_access').delete().in('department_id', removeIds)
+    if (error) throw error
+  }
+  if (rows.length > 0) {
+    const { error } = await supabase.from('stage_team_access').upsert(rows, { onConflict: 'department_id' })
+    if (error) throw error
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Who may: the app's copy of stage_may(), for drawing the buttons
+ * ------------------------------------------------------------------ */
+
+export function stageMay(
+  priv: StagePrivilege,
+  who: { isAdmin: boolean; teamIds: string[] },
+  access: StageTeamAccess[],
+): boolean {
+  if (who.isAdmin) return true
+  const column = PRIVILEGES.find((p) => p.key === priv)!.column
+  return access.some((a) => who.teamIds.includes(a.department_id) && a[column] === true)
+}
+
+/* ------------------------------------------------------------------ *
+ * Geometry
+ * ------------------------------------------------------------------ */
+
+export const GRID = 10
+
+export const snap = (n: number) => Math.round(n / GRID) * GRID
+
+/** Keep a block on the stage, whole. */
+export function clampBlock(
+  b: { x: number; y: number; w: number; h: number },
+  stage: { width: number; height: number },
+): { x: number; y: number; w: number; h: number } {
+  const w = Math.min(Math.max(40, b.w), stage.width)
+  const h = Math.min(Math.max(40, b.h), stage.height)
+  const x = Math.min(Math.max(0, b.x), stage.width - w)
+  const y = Math.min(Math.max(0, b.y), stage.height - h)
+  return { x, y, w, h }
+}
+
+/** Where a new block lands: the first free-ish spot reading left to right. */
+export function placeNewBlock(
+  blocks: { x: number; y: number; w: number; h: number }[],
+  stage: { width: number; height: number },
+  size = DEFAULT_BLOCK,
+): { x: number; y: number } {
+  const overlaps = (x: number, y: number) =>
+    blocks.some((b) => x < b.x + b.w && b.x < x + size.w && y < b.y + b.h && b.y < y + size.h)
+  for (let y = 40; y + size.h <= stage.height; y += 60) {
+    for (let x = 40; x + size.w <= stage.width; x += 60) {
+      if (!overlaps(x, y)) return { x, y }
+    }
+  }
+  // A full stage: stack it near the middle, slightly off whatever is there.
+  return { x: snap(stage.width / 2 - size.w / 2 + (blocks.length % 5) * 12), y: snap(stage.height / 2 - size.h / 2 + (blocks.length % 5) * 12) }
+}
+
+/** The zoom that fits the whole stage in a box, with a margin. */
+export function fitScale(stage: { width: number; height: number }, box: { width: number; height: number }): number {
+  const margin = 24
+  const s = Math.min((box.width - margin) / stage.width, (box.height - margin) / stage.height)
+  return Math.max(0.1, Math.min(2, Number.isFinite(s) ? s : 0.5))
+}
+
+export const ZOOM_MIN = 0.2
+export const ZOOM_MAX = 3
+
+/* ------------------------------------------------------------------ *
+ * Words
+ * ------------------------------------------------------------------ */
+
+const name = (p: { first_name: string; last_name: string } | null | undefined) =>
+  p ? `${p.first_name} ${p.last_name}`.trim() : 'Somebody'
+
+/** A log line as a sentence: "Rohit moved Keyboard". */
+export function logSentence(line: StageLogLine): string {
+  const who = name(line.actor)
+  const what = line.block_label ?? 'a block'
+  const d = line.detail as Record<string, unknown>
+  switch (line.kind) {
+    case 'added':
+      return `${who} added ${what}`
+    case 'moved':
+      return `${who} moved ${what}`
+    case 'resized':
+      return `${who} resized ${what}`
+    case 'rotated':
+      return `${who} turned ${what}`
+    case 'renamed':
+      return `${who} renamed ${d.was ? `${d.was} to ${what}` : what}`
+    case 'recoloured':
+      return `${who} recoloured ${what}`
+    case 'assigned':
+      return d.person ? `${who} put somebody on ${what}` : `${who} took the person off ${what}`
+    case 'deleted':
+      return `${who} removed ${what}`
+    case 'commented':
+      return line.block_id ? `${who} pinned a note to ${what}` : `${who} commented`
+    case 'template_applied':
+      return `${who} applied the template ${String(d.name ?? '')}`.trim()
+    case 'cleared':
+      return `${who} cleared the stage`
+  }
+}
+
+export const personName = name
+
+/** "Rohit, 3 Oct 14:02" — who did a thing and when, under a block. */
+export function stampText(
+  p: { first_name: string; last_name: string } | null | undefined,
+  iso: string,
+): string {
+  const at = new Date(iso)
+  const when = at.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return `${name(p)}, ${when}`
+}
+
+/** Light or dark text on a block of this colour. */
+export function inkOn(hex: string): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
+  if (!m) return '#ffffff'
+  const [r, g, b] = [m[1], m[2], m[3]].map((x) => parseInt(x, 16) / 255)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return lum > 0.55 ? '#0b0b0f' : '#ffffff'
+}

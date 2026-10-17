@@ -83,13 +83,13 @@ describe('arranging the menu', () => {
   it('moves a page into another group past its heading', async () => {
     const user = show()
     await screen.findByRole('list', { name: 'Menu arrangement' })
-    // Set Lists is last in Sunday; one place down is past the next heading.
-    screen.getByRole('button', { name: /Reorder Set Lists/ }).focus()
+    // Stage Layout is last in Sunday; one place down is past the next heading.
+    screen.getByRole('button', { name: /Reorder Stage Layout/ }).focus()
     await user.keyboard('{ArrowDown}')
     await user.click(screen.getByRole('button', { name: 'Save menu' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(lastWrite().groups[0].items).not.toContain('/set-lists')
-    expect(lastWrite().groups[1].items[0]).toBe('/set-lists')
+    expect(lastWrite().groups[0].items).not.toContain('/stage')
+    expect(lastWrite().groups[1].items[0]).toBe('/stage')
   })
 
   it('adds a group and removes it again only while it is empty', async () => {

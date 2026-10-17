@@ -274,6 +274,7 @@ describe('AppShell dock', () => {
       'Service Planner',
       'Serving',
       'Set Lists',
+      'Stage Layout',
       'Debriefs',
       'Issues',
       'Messages',

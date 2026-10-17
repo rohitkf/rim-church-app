@@ -115,13 +115,14 @@ describe('PermissionsCard', () => {
     expect(screen.getByText(/fixed on purpose/)).toBeVisible()
   })
 
-  it('marks every area editable except the two kept fixed on purpose', () => {
+  it('marks every area editable except the three kept fixed on purpose', () => {
     show()
     for (const area of PERMISSIONS) {
       const button = screen.getByRole('button', { name: new RegExp(`^${area.area}`) })
       expect(within(button).getByText(area.fixed ? 'Fixed' : 'Editable'), area.area).toBeInTheDocument()
     }
-    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Feedback', 'The app itself'])
+    // Stage layout is fixed here because it is set per team, in its own room.
+    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Stage layout', 'Feedback', 'The app itself'])
     expect(screen.queryByText('Coming soon')).toBeNull()
   })
 

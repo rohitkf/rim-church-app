@@ -604,6 +604,27 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Stage layout',
+    fixed: 'Set per team rather than per profile: Settings › Stage layout says which teams may add, edit, delete, comment and keep templates. Admins and the Owner always may.',
+    capabilities: [
+      {
+        action: 'See a stage layout, its comments and its history',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+        note: 'Follows the Stage Layout page’s rule on the Pages tab: everyone signed in, unless the church narrows it.',
+      },
+      {
+        action: 'Add, move, rename, recolour, delete blocks; comment; apply a template',
+        can: all({ head: 'no', coordinator: 'no', member: 'no' }),
+        note: 'Given to teams, not profiles, in Settings › Stage layout. Once a service has finished the layout is a record.',
+      },
+      {
+        action: 'Keep a layout as a template',
+        can: all({ head: 'no', coordinator: 'no', member: 'no' }),
+        note: 'A team given Templates saves straight into the library. Anybody who may edit can ask instead; an Admin approves or declines, and is told by notification.',
+      },
+    ],
+  },
+  {
     area: 'Feedback',
     fixed: 'Feedback is written to the Owner, so reading it stays the Owner’s.',
     capabilities: [

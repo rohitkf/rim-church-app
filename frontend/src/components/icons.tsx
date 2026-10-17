@@ -394,6 +394,17 @@ export function TrashIcon(props: IconProps) {
 }
 
 /** A list of things in order: the menu's arrangement. */
+export function StageIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="13" rx="2.5" />
+      <rect x="6.5" y="8.5" width="5" height="4" rx="1" fill="currentColor" stroke="none" />
+      <rect x="13.5" y="8.5" width="4" height="6" rx="1" fill="currentColor" stroke="none" />
+      <path d="M6 21h12" />
+    </svg>
+  )
+}
+
 export function ListIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

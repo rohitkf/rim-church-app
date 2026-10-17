@@ -70,7 +70,7 @@ function show(at = '/') {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[at]}>
         <Routes>
-          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/feedback', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues'].map(
+          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues'].map(
             (p) => (
               <Route key={p} path={p} element={<Page name={p} />} />
             ),
@@ -165,8 +165,8 @@ describe('walking it', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(await screen.findByText('Service Planner')).toBeInTheDocument()
 
-    // Through to the end: eight steps for somebody on no team.
-    for (let i = 0; i < 8; i += 1) await user.click(await screen.findByRole('button', { name: /Next/ }))
+    // Through to the end: nine steps for somebody on no team.
+    for (let i = 0; i < 9; i += 1) await user.click(await screen.findByRole('button', { name: /Next/ }))
     expect(await screen.findByText('That’s the tour.')).toBeInTheDocument()
     expect(db.marked).toEqual([['church']])
 

@@ -15,6 +15,7 @@ import {
   PollIcon,
   WarningIcon,
   MessageIcon,
+  StageIcon,
   UsersIcon,
 } from '../components/icons'
 import { SERVING_PATH, SERVING_TABS } from './serving'
@@ -65,6 +66,8 @@ export const NAV_ITEMS: NavItem[] = [
     tabs: SERVING_TABS.map((tab) => tab.to),
   },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
+  // Where everything stands on the morning, drawn once for everybody.
+  { to: '/stage', label: 'Stage Layout', icon: StageIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
   { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, group: 'After the service' },

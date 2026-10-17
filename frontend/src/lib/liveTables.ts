@@ -170,6 +170,14 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'service_issues', keys: ['issues'] },
   // Sent, answered, taken back: the Admins' list moves as it happens.
   { table: 'app_feedback', keys: ['feedback'] },
+  /* ---- the stage (0155) ---------------------------------------------- */
+  { table: 'stage_layouts', keys: ['stage'] },
+  { table: 'stage_blocks', keys: ['stage'] },
+  { table: 'stage_comments', keys: ['stage'] },
+  { table: 'stage_layout_log', keys: ['stage'] },
+  { table: 'stage_templates', keys: ['stage'] },
+  { table: 'stage_template_requests', keys: ['stage'] },
+  { table: 'stage_team_access', keys: ['stage'] },
   // A poll, its options and every answer: the bars move as people vote.
   { table: 'team_polls', keys: ['polls'] },
   { table: 'team_poll_options', keys: ['polls'] },
