@@ -53,6 +53,21 @@ export interface PdfLine {
   dash?: [number, number]
 }
 
+/**
+ * A line drawing, stroked: an SVG path in a 24-unit box, placed at (x, y)
+ * and drawn `size` points across. Only absolute M, L, H, V, C and Z are
+ * understood — the subset the stage icons (lib/stageIcons) are written in.
+ */
+export interface PdfPath {
+  d: string
+  x: number
+  y: number
+  size: number
+  color?: string
+  /** Stroke width in the path's own 24-unit box. */
+  width?: number
+}
+
 export interface PdfPage {
   width: number
   height: number
@@ -60,6 +75,7 @@ export interface PdfPage {
   rects: PdfRect[]
   lines?: PdfLine[]
   circles?: PdfCircle[]
+  paths?: PdfPath[]
   /**
    * The ground the page is painted on, for a format with no transparency
    * to fall back to. A PDF ignores it — its own backdrop rectangle is
@@ -152,6 +168,54 @@ function escapeText(value: string): string {
 
 const round = (n: number) => Math.round(n * 100) / 100
 
+/**
+ * The path's operators in page space: each point scaled from the 24-box
+ * and, for the PDF, turned over (its y runs up the page). A command the
+ * subset does not know ends the path there rather than drawing nonsense.
+ */
+export function pathOps(d: string, place: (x: number, y: number) => [number, number]): string {
+  const tokens = d.match(/[MLHVCZ]|-?\d*\.?\d+/gi) ?? []
+  const out: string[] = []
+  let i = 0
+  let cx = 0
+  let cy = 0
+  const num = () => Number(tokens[i++])
+  const pt = (x: number, y: number) => {
+    const [px, py] = place(x, y)
+    return `${round(px)} ${round(py)}`
+  }
+  while (i < tokens.length) {
+    const cmd = tokens[i++]
+    switch (cmd) {
+      case 'M':
+        cx = num(); cy = num(); out.push(`${pt(cx, cy)} m`)
+        break
+      case 'L':
+        cx = num(); cy = num(); out.push(`${pt(cx, cy)} l`)
+        break
+      case 'H':
+        cx = num(); out.push(`${pt(cx, cy)} l`)
+        break
+      case 'V':
+        cy = num(); out.push(`${pt(cx, cy)} l`)
+        break
+      case 'C': {
+        const a = pt(num(), num())
+        const b = pt(num(), num())
+        cx = num(); cy = num()
+        out.push(`${a} ${b} ${pt(cx, cy)} c`)
+        break
+      }
+      case 'Z':
+        out.push('h')
+        break
+      default:
+        return out.join(' ')
+    }
+  }
+  return out.join(' ')
+}
+
 function contentStream(page: PdfPage): string {
   const parts: string[] = []
 
@@ -185,6 +249,12 @@ function contentStream(page: PdfPage): string {
         `${l.dash ? `[${round(l.dash[0])} ${round(l.dash[1])}] 0 d ` : ''}` +
         `${round(l.x1)} ${round(page.height - l.y1)} m ${round(l.x2)} ${round(page.height - l.y2)} l S Q`,
     )
+  }
+
+  for (const p of page.paths ?? []) {
+    const s = p.size / 24
+    const ops = pathOps(p.d, (x, y) => [p.x + x * s, page.height - (p.y + y * s)])
+    if (ops) parts.push(`q ${rgb(p.color)} RG ${round((p.width ?? 1.6) * s)} w 1 J 1 j ${ops} S Q`)
   }
 
   for (const t of page.texts) {

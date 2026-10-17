@@ -14,6 +14,7 @@ import {
   type Region,
   type StageBlock,
 } from '../lib/stage'
+import { stageIcon } from '../lib/stageIcons'
 
 /**
  * The stage, drawn, and the blocks on it, moved by hand.
@@ -451,6 +452,10 @@ export function StageCanvas({
             const locked = !!b.locked_at
             const draggable = movable(b)
             const ghost = proposing === b.id && live?.id === b.id
+            // An item is a line picture in its colour with its name beneath, on no box;
+            // an item whose picture the app no longer knows is a plain block.
+            const icon = b.kind === 'item' ? stageIcon(b.icon) : null
+            const corner = b.corners === 'rounded' ? 'rounded-[14px]' : 'rounded-none'
             return (
               <div
                 key={b.id}
@@ -458,8 +463,12 @@ export function StageCanvas({
                 role="button"
                 aria-label={`${b.kind === 'seats' ? `${b.label}, ${b.seats} seats` : b.person ? `${b.label}, ${personName(b.person)}` : b.label}${locked ? ' (locked)' : ''}`}
                 aria-pressed={selected}
-                className={`absolute flex flex-col items-center justify-center overflow-hidden rounded-[14px] px-2 text-center transition-shadow ${
-                  selected ? 'shadow-[0_0_0_4px_var(--color-primary),0_12px_30px_rgba(0,0,0,0.35)]' : 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]'
+                className={`absolute flex flex-col items-center justify-center overflow-hidden ${corner} px-2 text-center transition-shadow ${
+                  selected
+                    ? 'shadow-[0_0_0_4px_var(--color-primary),0_12px_30px_rgba(0,0,0,0.35)]'
+                    : icon
+                      ? ''
+                      : 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]'
                 } ${draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${ghost ? 'opacity-70 outline-dashed outline-2 outline-white/80' : ''}`}
                 style={{
                   left: box.x,
@@ -467,12 +476,34 @@ export function StageCanvas({
                   width: box.w,
                   height: box.h,
                   transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
-                  background: `linear-gradient(160deg, color-mix(in oklab, ${b.color} 92%, white), color-mix(in oklab, ${b.color} 78%, black))`,
-                  color: ink,
+                  background: icon
+                    ? selected
+                      ? 'color-mix(in oklab, var(--color-primary) 10%, transparent)'
+                      : undefined
+                    : `linear-gradient(160deg, color-mix(in oklab, ${b.color} 92%, white), color-mix(in oklab, ${b.color} 78%, black))`,
+                  color: icon ? 'var(--color-on-surface)' : ink,
                   zIndex: selected ? 50 : 1 + b.z,
                 }}
               >
-                {b.kind === 'seats' ? (
+                {icon ? (
+                  <>
+                    <svg
+                      data-icon={icon.key}
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={b.color}
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="min-h-0 w-full flex-1"
+                    >
+                      <path d={icon.d} />
+                    </svg>
+                    <span className="line-clamp-1 text-[15px] font-semibold leading-tight">{b.label}</span>
+                    {b.person && <span className="line-clamp-1 text-[13px] opacity-80">{personName(b.person)}</span>}
+                  </>
+                ) : b.kind === 'seats' ? (
                   <SeatRow label={b.label} seats={b.seats} width={box.w} height={box.h} />
                 ) : (
                   <>

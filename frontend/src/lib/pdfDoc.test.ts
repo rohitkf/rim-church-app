@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { A4, latin1ForPdf, buildPdf } from './pdfDoc'
+import { A4, latin1ForPdf, buildPdf, pathOps } from './pdfDoc'
 
 const decode = (bytes: Uint8Array) => String.fromCharCode(...bytes)
 
@@ -77,5 +77,20 @@ describe('latin1ForPdf', () => {
 
   it('replaces what it cannot fold', () => {
     expect(latin1ForPdf('mic 🎤')).toBe('mic ?')
+  })
+})
+
+describe('pathOps', () => {
+  it('turns the icon subset of SVG into PDF operators through the placing', () => {
+    const ops = pathOps('M3 5H14V13H3Z M14 8L19 5.5 M9 5C9 3.34 10.34 2 12 2', (x, y) => [x * 2, 100 - y * 2])
+    expect(ops).toBe('6 90 m 28 90 l 28 74 l 6 74 l h 28 84 m 38 89 l 18 90 m 18 93.32 20.68 96 24 96 c')
+  })
+  it('stops at a command it does not know rather than drawing nonsense', () => {
+    expect(pathOps('M1 1L2 2A5 5 0 0 1 9 9L3 3', (x, y) => [x, y])).toBe('1 1 m 2 2 l')
+  })
+  it('strokes a page path in its colour', () => {
+    const bytes = buildPdf({ width: 100, height: 100, texts: [], rects: [], paths: [{ d: 'M0 0L24 24', x: 10, y: 10, size: 24, color: '#ff0000', width: 2 }] })
+    const text = new TextDecoder('latin1').decode(bytes)
+    expect(text).toContain('1 0 0 RG 2 w 1 J 1 j 10 90 m 34 66 l S Q')
   })
 })

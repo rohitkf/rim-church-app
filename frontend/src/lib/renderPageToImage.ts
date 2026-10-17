@@ -57,6 +57,19 @@ export async function renderPageToJpeg(page: PdfPage, scale = 2, quality = 0.92)
     ctx.restore()
   }
 
+  for (const p of page.paths ?? []) {
+    const s = p.size / 24
+    ctx.save()
+    ctx.translate(p.x, p.y)
+    ctx.scale(s, s)
+    ctx.strokeStyle = p.color ?? '#000000'
+    ctx.lineWidth = p.width ?? 1.6
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.stroke(new Path2D(p.d))
+    ctx.restore()
+  }
+
   for (const t of page.texts) {
     ctx.fillStyle = t.color ?? '#000000'
     // Helvetica first, Arial behind it: the metrics the layout was
