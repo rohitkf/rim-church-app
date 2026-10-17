@@ -16,6 +16,7 @@ import {
   teamChangesBetween,
   teamChoice,
   teamReaches,
+  TEAM_ROLES,
   type CapabilityKey,
   type GrantRole,
   type Overrides,
@@ -186,18 +187,20 @@ export function AccessByPageCard({ areas }: { areas: PermissionArea[] }) {
       return { ...base, [capability]: { ...base[capability], [who]: reach } }
     })
   }
-  const chooseTeam = (capability: CapabilityKey, who: GrantRole, reach: Reach | null) => {
+  const chooseTeamOn = (dept: string, capability: CapabilityKey, who: GrantRole, reach: Reach | null) => {
     setSaved(false)
     setTeamDraft((d) => {
       const base = d ?? storedTeams
-      const mine = { ...(base[team] ?? {}) }
+      const mine = { ...(base[dept] ?? {}) }
       const cell = { ...(mine[capability] ?? {}) }
       if (reach) cell[who] = reach
       else delete cell[who]
       mine[capability] = cell
-      return { ...base, [team]: mine }
+      return { ...base, [dept]: mine }
     })
   }
+  const chooseTeam = (capability: CapabilityKey, who: GrantRole, reach: Reach | null) => chooseTeamOn(team, capability, who, reach)
+  const [openTeams, setOpenTeams] = useState<Set<string>>(() => new Set())
 
   const teamName = (id: string) => departments.data?.find((d) => d.id === id)?.name ?? 'that team'
 
@@ -385,9 +388,33 @@ export function AccessByPageCard({ areas }: { areas: PermissionArea[] }) {
                       </section>
                     )}
 
+                    {area.perTeam && (
+                      <TeamByTeam
+                        area={area}
+                        teams={(departments.data ?? []).filter((d) => !team || d.id === team)}
+                        editable={editable}
+                        open={openTeams}
+                        onToggle={(id) =>
+                          setOpenTeams((cur) => {
+                            const next = new Set(cur)
+                            if (next.has(id)) next.delete(id)
+                            else next.add(id)
+                            return next
+                          })
+                        }
+                        valueOn={(dept, cap, role) => teamChoice(workingTeams, dept, cap, role) ?? reachOf(working, cap, role)}
+                        unsavedOn={(dept, cap, role) => teamChoice(workingTeams, dept, cap, role) !== teamChoice(storedTeams, dept, cap, role)}
+                        onChoose={(dept, cap, role, reach) => chooseTeamOn(dept, cap, role, reach)}
+                        startValue={(cap, role) => reachOf(working, cap, role)}
+                        startUnsaved={(cap, role) => reachOf(working, cap, role) !== reachOf(stored, cap, role)}
+                        onChooseStart={(cap, role, reach) => chooseChurch(cap, role, reach)}
+                        showStart={!team}
+                      />
+                    )}
+
                     <section>
                       <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        {team ? `What each profile may do — ${teamName(team)}` : 'What each profile may do'}
+                        {area.perTeam ? 'Everything else on this page' : team ? `What each profile may do — ${teamName(team)}` : 'What each profile may do'}
                       </h3>
                       {/* Seven columns will not fit a phone; it scrolls inside itself. */}
                       <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
@@ -409,7 +436,7 @@ export function AccessByPageCard({ areas }: { areas: PermissionArea[] }) {
                             </tr>
                           </thead>
                           <tbody>
-                            {area.capabilities.map((capability) => (
+                            {area.capabilities.filter((c) => !(area.perTeam && perTeamRow(c))).map((capability) => (
                               <tr key={capability.action} className="border-t border-border-subtle align-top">
                                 <th scope="row" className="px-2 py-2 text-left font-normal text-on-surface">
                                   {capability.action}
@@ -481,5 +508,170 @@ export function AccessByPageCard({ areas }: { areas: PermissionArea[] }) {
         the same out of the box; a fixed row reads the two as one.
       </p>
     </div>
+  )
+}
+
+/** A row set team by team: one with a cell a team may set for one of its own profiles. */
+function perTeamRow(c: Capability): boolean {
+  const key = c.key
+  return !!key && TEAM_ROLES.some((role) => isTeamSettable(key, role))
+}
+
+/**
+ * An area set team by team: each team its own row of controls for the
+ * profiles a team has — Head, Assisting Head, Team Member — and, above
+ * them, what a new team starts with. Owner and Admins are not here: they
+ * always may.
+ */
+function TeamByTeam({
+  area,
+  teams,
+  editable,
+  open,
+  onToggle,
+  valueOn,
+  unsavedOn,
+  onChoose,
+  startValue,
+  startUnsaved,
+  onChooseStart,
+  showStart,
+}: {
+  area: PermissionArea
+  teams: { id: string; name: string }[]
+  editable: boolean
+  open: Set<string>
+  onToggle: (id: string) => void
+  valueOn: (dept: string, cap: CapabilityKey, role: GrantRole) => Reach
+  unsavedOn: (dept: string, cap: CapabilityKey, role: GrantRole) => boolean
+  onChoose: (dept: string, cap: CapabilityKey, role: GrantRole, reach: Reach) => void
+  startValue: (cap: CapabilityKey, role: GrantRole) => Reach
+  startUnsaved: (cap: CapabilityKey, role: GrantRole) => boolean
+  onChooseStart: (cap: CapabilityKey, role: GrantRole, reach: Reach) => void
+  showStart: boolean
+}) {
+  const rows = area.capabilities.filter(perTeamRow)
+  const roles = TEAM_ROLES.filter((role) => rows.some((c) => isTeamSettable(c.key!, role)))
+  const grid = (
+    label: string,
+    value: (cap: CapabilityKey, role: GrantRole) => Reach,
+    unsaved: (cap: CapabilityKey, role: GrantRole) => boolean,
+    choose: (cap: CapabilityKey, role: GrantRole, reach: Reach) => void,
+    reachesFor: (cap: CapabilityKey, role: GrantRole) => readonly Reach[],
+  ) => (
+    <div className="relative -mx-2 overflow-x-auto px-2">
+      <table className="w-full min-w-[30rem] border-collapse text-body-sm">
+        <thead>
+          <tr>
+            <th className="w-[46%] px-2 pb-2 text-left font-normal">
+              <span className="sr-only">Action</span>
+            </th>
+            {roles.map((role) => (
+              <th key={role} scope="col" className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant">
+                {roleLabel(role)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => (
+            <tr key={c.action} className="border-t border-border-subtle align-top">
+              <th scope="row" className="px-2 py-2 text-left font-normal text-on-surface">
+                {c.action}
+              </th>
+              {roles.map((role) => {
+                const key = c.key!
+                const v = value(key, role)
+                if (!isTeamSettable(key, role) || !editable) {
+                  return (
+                    <td key={role} className="px-2 py-2 text-center">
+                      <span className="font-mono text-label-sm uppercase text-on-surface-variant">{REACH_SHORT[v]}</span>
+                    </td>
+                  )
+                }
+                return (
+                  <td key={role} className="px-2 py-2 text-center">
+                    <ReachPicker
+                      capability={key}
+                      role={role}
+                      value={v}
+                      reaches={reachesFor(key, role)}
+                      unsaved={unsaved(key, role)}
+                      moved={false}
+                      label={`${c.action} — ${roleLabel(role)}${label}`}
+                      onChange={(next) => choose(key, role, next)}
+                    />
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  return (
+    <section aria-label="Team by team">
+      <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Team by team</h3>
+      <p className="mt-1 text-label-md text-on-surface-faint">
+        Each team’s own rules. The Owner and Admins always may; a Church Member never does. “Team” is their own team only.
+      </p>
+      <ul className="mt-3 flex flex-col gap-2">
+        {teams.map((t) => {
+          const isOpen = open.has(t.id) || teams.length === 1
+          const edit = rows.find((c) => c.key === 'avail.edit_others')
+          const hist = rows.find((c) => c.key === 'avail.history')
+          const whoMay = (cap?: CapabilityKey) =>
+            cap ? roles.filter((role) => valueOn(t.id, cap, role) !== 'none').map((role) => roleLabel(role)).join(', ') || 'Only Admins' : ''
+          return (
+            <li key={t.id} className="rounded-[var(--radius-row)] bg-raised hairline">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => onToggle(t.id)}
+                className="tap flex w-full items-center gap-3 px-3.5 py-3 text-left"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-body-sm font-medium text-on-surface">{t.name}</span>
+                  {edit && hist && (
+                    <span className="mt-0.5 block text-label-md text-on-surface-faint">
+                      Change answers: {whoMay(edit.key)} · History: {whoMay(hist.key)}
+                    </span>
+                  )}
+                </span>
+                <Chevron open={isOpen} />
+              </button>
+              {isOpen && (
+                <div className="px-3.5 pb-3">
+                  {grid(
+                    ` on ${t.name}`,
+                    (cap, role) => valueOn(t.id, cap, role),
+                    (cap, role) => unsavedOn(t.id, cap, role),
+                    (cap, role, reach) => onChoose(t.id, cap, role, reach),
+                    (cap, role) => teamReaches(cap, role),
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {showStart && (
+        <div className="mt-4">
+          <h4 className="text-body-sm font-medium text-on-surface">A new team starts with</h4>
+          <p className="mt-0.5 text-label-md text-on-surface-faint">And so does any team above you have not set for itself.</p>
+          <div className="mt-2">
+            {grid(
+              ' for a new team',
+              startValue,
+              startUnsaved,
+              onChooseStart,
+              (cap, role) => ruleFor(cap, role).reaches.filter((r) => r !== 'all'),
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
