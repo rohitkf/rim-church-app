@@ -23,6 +23,7 @@ const BY_CONSTRAINT: Record<string, string> = {
   user_roles_user_id_role_type_department_id_service_id_key: 'They already hold that role.',
   department_members_user_id_department_id_key: 'They are already on that team.',
   department_members_department_id_user_id_key: 'They are already on that team.',
+  department_guests_department_id_guest_id_key: 'They are already on that team.',
   team_join_requests_one_pending:
     'You have already asked to join that team — the head has it.',
   rota_checklist_progress_assignment_id_item_id_key:

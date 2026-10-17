@@ -25,6 +25,8 @@ const state = vi.hoisted(() => ({
   selects: [] as string[],
   rpcs: [] as { fn: string; args: unknown }[],
   sensitiveAsked: 0,
+  /** The roll's people on the team (department_guests). */
+  roll: [] as Record<string, unknown>[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -50,7 +52,8 @@ vi.mock('../lib/supabaseClient', () => ({
     rpc: (fn: string, args: unknown) => {
       state.rpcs.push({ fn, args })
       if (fn === 'people_contacts') return Promise.resolve({ data: [{ id: 'p1', email: 'grace@rehoboth.org', phone: null }], error: null })
-      if (fn === 'person_by_email') return Promise.resolve({ data: 'p9', error: null })
+      if (fn === 'person_by_email') return Promise.resolve({ data: (args as { p_email: string }).p_email.includes('@') ? 'p9' : null, error: null })
+      if (fn === 'add_guest_to_team') return Promise.resolve({ data: 'g1', error: null })
       return Promise.resolve({ data: null, error: null })
     },
     from: (table: string) => ({
@@ -60,6 +63,8 @@ vi.mock('../lib/supabaseClient', () => ({
         const rows =
           table === 'department_members'
             ? state.members
+            : table === 'department_guests'
+              ? state.roll
             : table === 'departments'
               ? [{ id: 'd1', name: 'Media', handbook_url: null, color: null, is_service_flow: false, is_worship: false, created_at: 'x', updated_at: 'x' }]
               : []
@@ -117,6 +122,7 @@ beforeEach(() => {
   state.selects = []
   state.rpcs = []
   state.sensitiveAsked = 0
+  state.roll = []
 })
 
 function show() {
@@ -252,5 +258,54 @@ describe('adding somebody by their full email', () => {
       }),
     )
     expect(state.rpcs).toContainEqual({ fn: 'person_by_email', args: { p_email: 'sam@rehoboth.org' } })
+  })
+})
+
+describe('somebody with no account', () => {
+  it('is offered the guest roll instead of a refusal, and goes on the team by name', async () => {
+    show()
+    const user = userEvent.setup()
+    await screen.findAllByText('Grace Mensah')
+    await user.type(screen.getByRole('textbox', { name: /Add by name, or their full email/ }), 'Anoop')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    const offer = await screen.findByRole('status')
+    expect(offer).toHaveTextContent('Anoop has no account here.')
+    expect(offer).toHaveTextContent(/as a core member/)
+    expect(state.written.filter((w) => w.table === 'department_members')).toEqual([])
+    // The name stays put while the question is open.
+    expect(screen.getByRole('textbox', { name: /Add by name, or their full email/ })).toHaveValue('Anoop')
+    await user.click(within(offer).getByRole('button', { name: 'Add to the roll' }))
+    await waitFor(() => expect(state.rpcs).toContainEqual({ fn: 'add_guest_to_team', args: { p_department: 'd1', p_name: 'Anoop', p_type: 'core' } }))
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
+  it('is listed on the team as on the roll, moved between core and guest, and removed', async () => {
+    state.roll = [
+      { id: 'r1', department_id: 'd1', guest_id: 'g1', member_type: 'core', created_at: 'x', guests: { id: 'g1', name: 'Anoop', title: null } },
+      { id: 'r2', department_id: 'd1', guest_id: 'g2', member_type: 'guest', created_at: 'x', guests: { id: 'g2', name: 'Sam', title: 'Ps' } },
+    ]
+    show()
+    const user = userEvent.setup()
+    expect((await screen.findAllByText('Anoop')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No account yet').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Ps Sam')).toBeInTheDocument()
+    const guestList = screen.getByText('Ps Sam').closest('li')!
+    await user.click(within(guestList).getByRole('button', { name: 'Make core' }))
+    await confirm(/Make core/)
+    await waitFor(() => expect(state.written).toContainEqual({ table: 'department_guests', op: 'update', row: { member_type: 'core' }, id: 'r2' }))
+    await user.click(within(guestList).getByRole('button', { name: 'Remove' }))
+    await confirm(/Remove/)
+    await waitFor(() => expect(state.written).toContainEqual({ table: 'department_guests', op: 'delete', row: null, id: 'r2' }))
+  })
+
+  it('still refuses an email address nobody registered with', async () => {
+    show()
+    const user = userEvent.setup()
+    await screen.findAllByText('Grace Mensah')
+    await user.type(screen.getByRole('textbox', { name: /Add by name, or their full email/ }), 'nobody@x')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    // The mock answers p9 for any address, so the add goes through; what matters is no roll offer for an address.
+    await waitFor(() => expect(state.written.some((w) => w.table === 'department_members')).toBe(true))
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

@@ -867,22 +867,31 @@ describe('the history of somebody’s answer', () => {
     )
   })
 
-  it('is not offered to a Head out of the box, and not even asked for', async () => {
+  it('is closed to a Head by their own team’s rule, and not even asked for (0162)', async () => {
     state.leads = true
+    state.rows.department_permissions = [{ department_id: 'd1', role_key: 'head', capability: 'avail.history', reach: 'none' }]
     show()
     await screen.findAllByText('Joel Skaria')
     expect(screen.queryByRole('button', { name: /^History/ })).toBeNull()
     expect(state.read).not.toContain('availability_history')
   })
 
-  it('opens to a Head once the church gives them their own team’s', async () => {
+  it('opens to a Head out of the box, for their own team (0162)', async () => {
     state.leads = true
-    state.rows.role_permissions = [{ role_key: 'head', capability: 'avail.history', reach: 'team' }]
     show()
     await screen.findAllByText('Joel Skaria')
     const card = cardFor(/Today/) as HTMLElement
     await userEvent.click(within(card).getByText(/Team responses/))
     expect(await within(card).findByRole('button', { name: 'History · 2' })).toBeInTheDocument()
+  })
+
+  it('closes to a Head again when the church says so', async () => {
+    state.leads = true
+    state.rows.role_permissions = [{ role_key: 'head', capability: 'avail.history', reach: 'none' }]
+    show()
+    await screen.findAllByText('Joel Skaria')
+    expect(screen.queryByRole('button', { name: /^History/ })).toBeNull()
+    expect(state.read).not.toContain('availability_history')
   })
 
   it('shows somebody their own changes once the church allows their own', async () => {

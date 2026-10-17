@@ -33,7 +33,13 @@ export const ROLES = [
   {
     key: 'head',
     label: 'Team Head',
-    blurb: 'Head or Assisting Head — the two are the same in every rule. Their own team only.',
+    blurb: 'The Head of a team. Their own team only.',
+  },
+  {
+    key: 'assistant',
+    label: 'Assisting Head',
+    blurb:
+      'The Head’s deputy. Given the same as the Head out of the box, and their own column here since October 2026, so a church can set the two apart. Their own team only.',
   },
   {
     key: 'coordinator',
@@ -102,6 +108,10 @@ const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allo
   owner: 'yes',
   admin: 'yes',
   head: 'no',
+  // A fixed row is a policy, and the policies read Head and Assisting
+  // Head as one (is_dept_head), so the deputy's column says what the
+  // Head's does unless a row says otherwise.
+  assistant: over.head ?? 'no',
   coordinator: 'no',
   member: 'no',
   // A new account can do none of it until somebody puts them on a team;
@@ -681,6 +691,7 @@ const COLUMN_STANDING: Record<RoleKey, Standing> = {
   owner: 'admin',
   admin: 'admin',
   head: 'lead',
+  assistant: 'lead',
   coordinator: 'member',
   member: 'member',
   newcomer: 'church',

@@ -70,6 +70,27 @@ On the screen: `NAV_ITEMS` entries carry a `page` key instead of
 `teamOnly`/`adminOnly`; the menu, the dock, the search and the route guard
 (`PageRoute`, which replaces `TeamOnlyRoute`) all ask `canOpenPage()`.
 
+### A team's own rules — `department_permissions` (0162)
+
+The grid (`permission_catalog` × `role_permissions`) is the church's: one
+answer per profile for every team. A team can be given rules of its own:
+`department_permissions (department_id, role_key, capability, reach)` holds
+only the cells a team set differently. `may(uid, cap, dept, …)` reads
+`permission_reach(role, cap, dept)` — the team's cell for `dept` if it set one
+the catalog still offers, otherwise the church's. Only the profiles whose
+"team" is a particular team can have one (head, assistant, coordinator,
+member), only for a capability the catalog offers that profile at `team`, and
+no wider than the team (`none`, `own`, `team`): "everywhere" stays the
+church's. `set_permissions()` takes the same change with a `department`; a
+null `reach` gives the cell back to the church. `restore_permission_defaults()`
+clears the teams' rules with the church's.
+
+Head and Assisting Head are two profiles since 0162 (`head`, `assistant`).
+The assistant's catalog copies the head's line for line, and the church's own
+changes to the head's cells were copied across on apply, so nothing changed
+for anybody until the two are set apart. The fixed rows (policies that read
+`is_dept_head()`) still treat the two as one; the grid says so.
+
 ## 2. How long things are kept — retention columns
 
 The church's rules since 0128–0132. A job does every deleting:
@@ -133,7 +154,7 @@ the reverse) never break each other.
 
 | Room | Holds |
 |---|---|
-| Access & privileges | **Pages** (who can open each, with a live preview of each profile's menu) · **Rules** (the reference grid, now reflecting the Pages choices) |
+| Access & privileges | **By page** (one section per page: who can open it, what each profile may do on it, and — with a team picked at the top — that team's own rules, 0162) · **By role** (the same grid a profile at a time) · **Pages** (who can open each, with a live preview of each profile's menu) |
 | Stage layout | which teams may add · edit · delete · comment · keep templates (`stage_team_access`); the **areas** every service's workspace is made of (`stage_areas`: name, size, edge labels, order — Stage and Audience to begin with, stacked top to bottom); template requests waiting for an Admin; the template library (the whole workspace, with each block's corners and picture, 0160); the clear day and hour. Locking a block (Admin/Owner only) and answering asks to move one happen on the stage page itself; a locked block is nobody's to change until it is unlocked, the Admin's included, and a template or a clear over one is refused (0157, 0159) |
 | Timings | when things open and close (unchanged, minus clean-up) |
 | Data & retention | every clock in §2, what is kept on purpose, and the upload limits |
