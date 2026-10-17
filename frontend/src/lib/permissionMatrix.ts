@@ -424,10 +424,10 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Your own teams only.',
       },
       {
-        action: 'Edit or delete anybody’s post in a team’s chat',
+        action: 'Delete anybody’s post in a team’s chat',
         key: 'msg.chat_moderate',
         can: granted('msg.chat_moderate'),
-        note: 'Anybody can edit or delete their own.',
+        note: 'Anybody can edit or delete their own. Only the author ever edits a post: what somebody wrote stays theirs.',
       },
       {
         action: 'Ask a poll question, and change or remove anybody’s',
