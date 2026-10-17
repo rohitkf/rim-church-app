@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Pointer
 import {
   ZOOM_MAX,
   ZOOM_MIN,
+  alignBlock,
+  type Guide,
   clampBlock,
   fitScale,
   inkOn,
@@ -84,6 +86,8 @@ export function StageCanvas({
   const boxRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ scale: 0.5, tx: 0, ty: 0 })
   const [live, setLive] = useState<{ id: string; box: BlockBox } | null>(null)
+  /** Smart guides for the gesture in hand, in the units of the region named. */
+  const [guides, setGuides] = useState<{ area_id: string; lines: Guide[] } | null>(null)
   const gesture = useRef<Gesture | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   // Only for the cursor: a ref is not read during render.
@@ -277,18 +281,27 @@ export function StageCanvas({
     const b = blockById(g.id)
     if (!b) return
     const was = placed(b)
+    // Smart guides reach a few screen pixels, whatever the zoom; capped so a
+    // zoomed-out stage does not pull a block right across the grid.
+    const reach = Math.min(25, Math.max(6, 8 / view.scale))
+    const neighbours = (areaId: string) => blocks.filter((o) => o.id !== b.id && o.area_id === areaId)
     if (g.kind === 'drag') {
       const next = settle({ x: snap(world.x - g.grabX), y: snap(world.y - g.grabY), w: b.w, h: b.h })
       if (!next) return
-      if (next.x !== b.x || next.y !== b.y || next.area_id !== b.area_id) g.moved = true
-      setLive({ id: g.id, box: next })
+      const r = regions.find((x) => x.area.id === next.area_id)
+      const size = { width: r?.width ?? was.w, height: r?.height ?? was.h }
+      const aligned = alignBlock(next, neighbours(next.area_id), size, reach, 'move')
+      const box = { ...clampBlock(aligned, size), area_id: next.area_id }
+      if (box.x !== b.x || box.y !== b.y || box.area_id !== b.area_id) g.moved = true
+      setLive({ id: g.id, box })
+      setGuides(aligned.guides.length ? { area_id: next.area_id, lines: aligned.guides } : null)
     } else {
       const r = regionOf(b)
-      const local = clampBlock(
-        { x: b.x, y: b.y, w: snap(g.startW + (world.x - g.startX)), h: snap(g.startH + (world.y - g.startY)) },
-        { width: r?.width ?? was.w, height: r?.height ?? was.h },
-      )
-      setLive({ id: g.id, box: { ...local, area_id: b.area_id } })
+      const size = { width: r?.width ?? was.w, height: r?.height ?? was.h }
+      const wanted = { x: b.x, y: b.y, w: snap(g.startW + (world.x - g.startX)), h: snap(g.startH + (world.y - g.startY)) }
+      const aligned = alignBlock(wanted, neighbours(b.area_id), size, reach, 'resize')
+      setLive({ id: g.id, box: { ...clampBlock(aligned, size), area_id: b.area_id } })
+      setGuides(aligned.guides.length ? { area_id: b.area_id, lines: aligned.guides } : null)
     }
   }
 
@@ -317,6 +330,7 @@ export function StageCanvas({
       }
     }
     setLive(null)
+    setGuides(null)
   }
 
   const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -399,6 +413,21 @@ export function StageCanvas({
                 {r.area.top_label}
               </div>
               <span className="absolute left-4 top-0 flex h-9 items-center font-mono text-[12px] uppercase tracking-[0.18em] text-on-surface">{r.area.name}</span>
+              {/* Smart guides: a thin line where the block in hand has met a neighbour's edge or centre. */}
+              {guides?.area_id === r.area.id &&
+                guides.lines.map((gl, i) => (
+                  <div
+                    key={i}
+                    data-guide={gl.axis}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute z-[60] bg-[var(--color-accent-red)]"
+                    style={
+                      gl.axis === 'x'
+                        ? { left: gl.at - 0.75 / view.scale, top: gl.from, width: 1.5 / view.scale, height: gl.to - gl.from }
+                        : { top: gl.at - 0.75 / view.scale, left: gl.from, height: 1.5 / view.scale, width: gl.to - gl.from }
+                    }
+                  />
+                ))}
               <div
                 aria-hidden="true"
                 className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-primary"

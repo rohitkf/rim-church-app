@@ -502,6 +502,71 @@ export function regionAt(regions: Region[], x: number, y: number): Region | null
 
 export const snap = (n: number) => Math.round(n / GRID) * GRID
 
+/** A smart guide: a line across the region where a moving block's edge or centre has met a neighbour's. */
+export interface Guide {
+  /** 'x' is a vertical line at x = at; 'y' a horizontal one at y = at. */
+  axis: 'x' | 'y'
+  at: number
+  /** The run of the line along the other axis: from the nearer end of the two boxes to the farther. */
+  from: number
+  to: number
+}
+
+type Box = { x: number; y: number; w: number; h: number }
+
+/**
+ * Smart guides. Within `reach` units, a moving block's left, centre and
+ * right pull onto a neighbour's left, centre or right (and the region's
+ * own centre line), and likewise top, middle and bottom; the nearest
+ * match on each axis wins. A resize pulls only its far edges, so the
+ * block grows to meet a neighbour's edge rather than sliding. Everything
+ * is in the region's own units; the caller clamps the result.
+ */
+export function alignBlock(
+  box: Box,
+  others: Box[],
+  region: { width: number; height: number },
+  reach: number,
+  mode: 'move' | 'resize' = 'move',
+): Box & { guides: Guide[] } {
+  type Line = { at: number; from: number; to: number }
+  const vertical: Line[] = [{ at: region.width / 2, from: 0, to: region.height }]
+  const horizontal: Line[] = [{ at: region.height / 2, from: 0, to: region.width }]
+  for (const o of others) {
+    for (const at of [o.x, o.x + o.w / 2, o.x + o.w]) vertical.push({ at, from: o.y, to: o.y + o.h })
+    for (const at of [o.y, o.y + o.h / 2, o.y + o.h]) horizontal.push({ at, from: o.x, to: o.x + o.w })
+  }
+  const anchorsX = mode === 'move' ? [box.x, box.x + box.w / 2, box.x + box.w] : [box.x + box.w]
+  const anchorsY = mode === 'move' ? [box.y, box.y + box.h / 2, box.y + box.h] : [box.y + box.h]
+
+  const nearest = (anchors: number[], lines: Line[]) => {
+    let best: { delta: number; line: Line } | null = null
+    for (const a of anchors) {
+      for (const line of lines) {
+        const delta = line.at - a
+        if (Math.abs(delta) <= reach && (!best || Math.abs(delta) < Math.abs(best.delta))) best = { delta, line }
+      }
+    }
+    return best
+  }
+  const hx = nearest(anchorsX, vertical)
+  const hy = nearest(anchorsY, horizontal)
+
+  const out: Box = { ...box }
+  if (hx) {
+    if (mode === 'move') out.x = box.x + hx.delta
+    else out.w = Math.max(40, box.w + hx.delta)
+  }
+  if (hy) {
+    if (mode === 'move') out.y = box.y + hy.delta
+    else out.h = Math.max(40, box.h + hy.delta)
+  }
+  const guides: Guide[] = []
+  if (hx) guides.push({ axis: 'x', at: hx.line.at, from: Math.min(out.y, hx.line.from), to: Math.max(out.y + out.h, hx.line.to) })
+  if (hy) guides.push({ axis: 'y', at: hy.line.at, from: Math.min(out.x, hy.line.from), to: Math.max(out.x + out.w, hy.line.to) })
+  return { ...out, guides }
+}
+
 /** Keep a block on the stage, whole. */
 export function clampBlock(
   b: { x: number; y: number; w: number; h: number },
