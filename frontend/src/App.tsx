@@ -111,6 +111,7 @@ const router = createBrowserRouter(
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
             <Route path="onboarding" lazy={page(() => import('./pages/SettingsPage'), 'OnboardingPane')} />
+            <Route path="stage" lazy={page(() => import('./pages/SettingsPage'), 'StageSettingsPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
             {/* App settings was one room holding four. Its old address,
@@ -157,6 +158,9 @@ const router = createBrowserRouter(
             <Route path="/debriefs" lazy={page(() => import('./pages/DebriefsPage'), 'DebriefsPage')} />
             {/* What the teams think of the app; Admins answer it (0124). */}
             <Route path="/feedback" lazy={page(() => import('./pages/FeedbackPage'), 'FeedbackPage')} />
+            {/* Where everything stands on the morning, one drawing per session (0155). */}
+            <Route path="/stage" lazy={page(() => import('./pages/StageLayoutIndexPage'), 'StageLayoutIndexPage')} />
+            <Route path="/stage/:sessionId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageLayoutPage')} />
           </Route>
         </Route>
       </Route>

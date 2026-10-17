@@ -1434,7 +1434,14 @@ export function ServicePlannerPage() {
 
                             <ActionMenu
                               label={session.session_name}
-                              actions={sessionActions}
+                              actions={[
+                                ...sessionActions,
+                                {
+                                  label: 'Stage layout',
+                                  hint: 'Where everything stands for this session',
+                                  onSelect: () => navigate(`/stage/${session.id}`),
+                                },
+                              ]}
                               className="mt-0.5"
                             />
                           </div>

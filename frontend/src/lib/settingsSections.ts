@@ -12,6 +12,7 @@ import {
   MegaphoneIcon,
   PaletteIcon,
   ShieldIcon,
+  StageIcon,
   TimerIcon,
   TrashIcon,
   UserCircleIcon,
@@ -127,6 +128,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         needs: 'admin',
         capability: 'give.edit',
         keywords: 'tithes offerings stripe paypal bank sort code qr',
+      },
+      {
+        to: '/settings/stage',
+        label: 'Stage layout',
+        blurb: 'Which teams may draw the stage, and when layouts clear.',
+        icon: StageIcon,
+        tone: 'blue',
+        needs: 'admin',
+        keywords: 'stage layout band positions templates clear tuesday',
       },
       {
         to: '/settings/menu',

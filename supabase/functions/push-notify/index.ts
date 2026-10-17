@@ -51,6 +51,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   family_link_request: { label: 'Somebody has added you to their family', href: '/' },
   family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
   tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
+  stage_template_request: { label: 'Somebody wants to keep a stage layout as a template', href: '/settings/stage' },
+  stage_template_decided: { label: 'Your stage template request was answered', href: '/stage' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   rota_dropout: { label: 'Somebody has dropped off your rota', href: '/rota' },
   availability_change_request: {

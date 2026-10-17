@@ -154,6 +154,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'When the church asks a question, it lands here. One tap to answer.',
       },
       {
+        path: '/stage',
+        target: 'page-title',
+        title: 'Stage Layout',
+        body: 'Where everything and everybody stands on the morning, drawn once so the whole band sees the same picture. Tap a block to see who placed it.',
+      },
+      {
         path: '/giving',
         target: 'page-title',
         title: 'Giving',

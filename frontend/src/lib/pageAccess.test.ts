@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import migration from '../../../supabase/migrations/0123_the_church_decides_who_sees_what_and_for_how_long.sql?raw'
+// 0155 redefines both functions (adding the Stage Layout page), so the
+// latest word is read.
+import migration from '../../../supabase/migrations/0155_the_stage_is_laid_out_before_sunday.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,

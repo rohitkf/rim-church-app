@@ -17,6 +17,7 @@ import { PageAccessCard } from '../components/PageAccessCard'
 import { RetentionCard } from '../components/RetentionCard'
 import { DisplayCard } from '../components/DisplayCard'
 import { OnboardingCard } from '../components/OnboardingCard'
+import { StageSettingsCard } from '../components/StageSettingsCard'
 import { useAppSettings } from '../lib/appSettings'
 import { withPageAccess } from '../lib/permissionMatrix'
 import type { PageAccess } from '../lib/pageAccess'
@@ -295,6 +296,11 @@ export function SendAlertPane() {
 /** The tour of the app: send it to everyone or a few, and see who has taken it. */
 export function OnboardingPane() {
   return <OnboardingCard />
+}
+
+/** Which teams may draw the stage, the template asks, and when layouts clear. */
+export function StageSettingsPane() {
+  return <StageSettingsCard />
 }
 
 /** The church's clocks: when things open, close and clear. */

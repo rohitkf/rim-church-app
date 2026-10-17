@@ -58,6 +58,7 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
 | Feedback | team | fixed | the database (0124: anybody on a team sends; only the Owner reads everybody's — 0125) |
 | Inventory | team | team · leads | the database (the four inventory tables) |
+| Stage Layout | everyone | everyone · team · leads | the database (layouts, blocks, comments, log). Who may *draw* is per team: Settings › Stage layout (`stage_team_access`, `stage_may()`, 0155) |
 
 SQL: `page_level(text)`, `is_a_lead(uuid)`, `can_open_page(uuid, text)`. The
 affected SELECT policies call `can_open_page` through a sub-select so it is
@@ -90,6 +91,7 @@ on Tuesdays at 03:30.
 | Church Updates | at each update's own `ends_at` — required; pinned too | `church_update_retention_days` = the form's default end (30) |
 | Polls | at each poll's own `clears_at`, never before its deadline | `poll_retention_days` = the form's default, after the deadline (7) |
 | Settled feedback | N days after Done / Won't do | `feedback_retention_days` (14) |
+| Stage layouts of services already held, with their comments and log | weekly, on a day and hour in church time (`clear_stage_layouts_if_due()`, hourly at :10); null day never. Templates stay. | `stage_clear_dow` (Tuesday), `stage_clear_hour` (03:00) |
 | Supabase's own logs (`supabase_functions.hooks`, `cron.job_run_details`) | a week | fixed |
 
 An update past its end and a poll past its clear time are hidden by their
@@ -132,6 +134,7 @@ the reverse) never break each other.
 | Room | Holds |
 |---|---|
 | Access & privileges | **Pages** (who can open each, with a live preview of each profile's menu) · **Rules** (the reference grid, now reflecting the Pages choices) |
+| Stage layout | which teams may add · edit · delete · comment · keep templates on a stage layout (`stage_team_access`); template requests waiting for an Admin; the template library; the clear day and hour |
 | Timings | when things open and close (unchanged, minus clean-up) |
 | Data & retention | every clock in §2, what is kept on purpose, and the upload limits |
 | Dashboard & lists | everything in §3 |

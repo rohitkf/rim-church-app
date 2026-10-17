@@ -31,6 +31,8 @@ export const NOTIFICATION_TYPES = [
   'family_link_request',
   'family_link_answered',
   'tour_pushed',
+  'stage_template_request',
+  'stage_template_decided',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -65,6 +67,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   family_link_request: { label: 'Somebody has added you to their family', href: '/' },
   family_link_answered: { label: 'Your family request was answered', href: '/settings/profile' },
   tour_pushed: { label: 'A tour of the app is waiting for you', href: '/' },
+  stage_template_request: { label: 'Somebody wants to keep a stage layout as a template', href: '/settings/stage' },
+  stage_template_decided: { label: 'Your stage template request was answered', href: '/stage' },
   mention: { label: 'Someone mentioned you', href: '/messages' },
   // Carries its own sentence — who dropped out, of what — so the label is
   // only the fallback if the body ever goes missing.

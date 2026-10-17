@@ -34,6 +34,8 @@ type Settings = Pick<
   | 'service_retention_days'
   | 'notification_keep_count'
   | 'alert_clear_dow'
+  | 'stage_clear_dow'
+  | 'stage_clear_hour'
 > & {
   /** How far either side of today Set Lists looks (a display preference). */
   set_list_days: number
@@ -64,6 +66,8 @@ const FALLBACK: Settings = {
   service_retention_days: 14,
   notification_keep_count: 10,
   alert_clear_dow: 2,
+  stage_clear_dow: 2,
+  stage_clear_hour: 3,
   set_list_days: 21,
 }
 
@@ -101,6 +105,7 @@ export type LifespanPage =
   | 'feedback'
   | 'notifications'
   | 'alerts'
+  | 'stage'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -110,7 +115,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     if (given[key] !== undefined && given[key] !== null) (s as Record<string, unknown>)[key] = given[key]
   }
   // For these, null is a choice ("never", "for ever"), not a gap to fill.
-  for (const key of ['alert_clear_dow', 'team_chat_retention_days', 'feedback_retention_days'] as const) {
+  for (const key of ['alert_clear_dow', 'stage_clear_dow', 'team_chat_retention_days', 'feedback_retention_days'] as const) {
     if (given[key] === null) (s as Record<string, unknown>)[key] = null
   }
   // A service takes its debrief, issues, rota and the rest with it, so no
@@ -156,5 +161,9 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
       return s.alert_clear_dow === null
         ? 'The record of sent alerts is kept until it is cleared by hand.'
         : `The record of sent alerts clears every ${WEEKDAYS[s.alert_clear_dow]} at 00:00 UTC.`
+    case 'stage':
+      return s.stage_clear_dow === null
+        ? `A layout locks when its service finishes, and is ${afterService}. Templates stay.`
+        : `A layout locks when its service finishes. Every ${WEEKDAYS[s.stage_clear_dow]} at ${String(s.stage_clear_hour).padStart(2, '0')}:00 the layouts of services already held are deleted, with their comments and history; one is ${afterService} in any case. Templates stay.`
   }
 }
