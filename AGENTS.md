@@ -70,6 +70,7 @@ the thing most likely to waste your time:
 |---|---|
 | `departments` | **Teams** |
 | `department_members` | who is on a team — `core` or `guest` |
+| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Access & privileges, by page, by role, or by page-opening rule |
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Not counted for availability, reminders or readiness — those count account holders |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator` |
 | `services` → `service_sessions` | a service and its running order |

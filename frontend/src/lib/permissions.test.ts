@@ -5,8 +5,12 @@ import {
   defaultsOver,
   overridesFrom,
   reachOf,
+  teamChangesBetween,
+  teamOverridesFrom,
+  teamReaches,
   type Holder,
   type Overrides,
+  type TeamOverrides,
 } from './permissions'
 
 /*
@@ -20,7 +24,8 @@ const TEAM_B = 'team-b'
 const nobody: Holder = { myId: 'me', owner: false, admin: false, ledTeams: [], memberTeams: [] }
 const owner: Holder = { ...nobody, owner: true }
 const admin: Holder = { ...nobody, admin: true }
-const headOfA: Holder = { ...nobody, ledTeams: [TEAM_A] }
+const headOfA: Holder = { ...nobody, ledTeams: [TEAM_A], headTeams: [TEAM_A], assistTeams: [] }
+const assistantOfA: Holder = { ...nobody, ledTeams: [TEAM_A], headTeams: [], assistTeams: [TEAM_A] }
 const memberOfA: Holder = { ...nobody, memberTeams: [TEAM_A] }
 
 describe('decide(), at the defaults', () => {
@@ -116,5 +121,67 @@ describe('overrides and saving', () => {
     )
     expect(changesBetween(stored, defaultsOver(stored))).toHaveLength(2)
     expect(changesBetween({}, defaultsOver({}))).toEqual([])
+  })
+})
+
+describe('the Assisting Head, as a profile of its own (0162)', () => {
+  it('is given what the Head is given, out of the box', () => {
+    expect(decide({}, assistantOfA, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    expect(decide({}, assistantOfA, 'rota.assign', { departmentId: TEAM_B })).toBe(false)
+    expect(decide({}, assistantOfA, 'avail.history', { departmentId: TEAM_A })).toBe(true)
+  })
+
+  it('can be set apart from the Head by the church', () => {
+    const grid: Overrides = { 'avail.history': { assistant: 'none' } }
+    expect(decide(grid, assistantOfA, 'avail.history', { departmentId: TEAM_A })).toBe(false)
+    expect(decide(grid, headOfA, 'avail.history', { departmentId: TEAM_A })).toBe(true)
+  })
+
+  it('reads a holder that does not say which teams it heads as the Head of every team it leads', () => {
+    const old: Holder = { ...nobody, ledTeams: [TEAM_A] }
+    expect(decide({}, old, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+  })
+})
+
+describe('a team’s own rules (0162)', () => {
+  it('reach the team the row belongs to, and no other', () => {
+    const teams: TeamOverrides = { [TEAM_A]: { 'avail.edit_others': { member: 'team' } } }
+    expect(decide({}, memberOfA, 'avail.edit_others', { departmentId: TEAM_A }, teams)).toBe(true)
+    expect(decide({}, { ...nobody, memberTeams: [TEAM_B] }, 'avail.edit_others', { departmentId: TEAM_B }, teams)).toBe(false)
+  })
+
+  it('can narrow a team’s Head where the church lets Heads everywhere', () => {
+    const church: Overrides = { 'avail.edit_others': { head: 'all' } }
+    const teams: TeamOverrides = { [TEAM_A]: { 'avail.edit_others': { head: 'none' } } }
+    expect(decide(church, headOfA, 'avail.edit_others', { departmentId: TEAM_A }, teams)).toBe(false)
+    expect(decide(church, headOfA, 'avail.edit_others', { departmentId: TEAM_B }, teams)).toBe(true)
+    // Nothing to be on a team for: the church's rule.
+    expect(decide(church, headOfA, 'avail.edit_others', {}, teams)).toBe(true)
+  })
+
+  it('offers a team only what the catalog offers that profile, and never Everywhere', () => {
+    expect(teamReaches('avail.edit_others', 'member')).toEqual(['none', 'team'])
+    expect(teamReaches('avail.history', 'head')).toEqual(['none', 'own', 'team'])
+    expect(teamReaches('avail.edit_others', 'admin')).toEqual([])
+    expect(teamReaches('svc.manage', 'head')).toEqual([])
+  })
+
+  it('reads rows from department_permissions, skipping anything it does not know', () => {
+    expect(
+      teamOverridesFrom([
+        { department_id: TEAM_A, role_key: 'member', capability: 'avail.edit_others', reach: 'team' },
+        { department_id: TEAM_A, role_key: 'member', capability: 'no.such', reach: 'team' },
+        { department_id: TEAM_B, role_key: 'assistant', capability: 'avail.history', reach: 'own' },
+      ]),
+    ).toEqual({ [TEAM_A]: { 'avail.edit_others': { member: 'team' } }, [TEAM_B]: { 'avail.history': { assistant: 'own' } } })
+  })
+
+  it('sends only the team cells that would change, and a cell given back as null', () => {
+    const stored: TeamOverrides = { [TEAM_A]: { 'avail.edit_others': { member: 'team' } } }
+    const next: TeamOverrides = { [TEAM_A]: { 'avail.edit_others': {}, 'avail.history': { head: 'none' } } }
+    expect(teamChangesBetween(stored, next)).toEqual([
+      { role: 'member', capability: 'avail.edit_others', reach: null, department: TEAM_A },
+      { role: 'head', capability: 'avail.history', reach: 'none', department: TEAM_A },
+    ])
   })
 })

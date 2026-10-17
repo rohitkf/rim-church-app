@@ -61,7 +61,7 @@ const ANSWER: Record<Allowed, { label: string; tone: 'green' | 'blue' | 'neutral
 }
 
 /** What a grid cell says. A tick is the loud one; everything else stays quiet. */
-function Cell({ value }: { value: Allowed }) {
+export function Cell({ value }: { value: Allowed }) {
   if (value === 'yes') {
     return (
       <span className="text-success" aria-label="Yes">
@@ -93,7 +93,7 @@ function Cell({ value }: { value: Allowed }) {
   )
 }
 
-function LockGlyph() {
+export function LockGlyph() {
   return (
     <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="shrink-0">
       <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
@@ -117,7 +117,7 @@ function AreaStatus({ area }: { area: PermissionArea }) {
  * One editable cell: the reaches this profile can be given, as a native
  * select — the control a phone already knows how to draw.
  */
-function ReachPicker({
+export function ReachPicker({
   capability,
   role,
   value,
@@ -126,6 +126,7 @@ function ReachPicker({
   label,
   onChange,
   wide = false,
+  reaches = ruleFor(capability, role).reaches,
 }: {
   capability: CapabilityKey
   role: GrantRole
@@ -137,6 +138,8 @@ function ReachPicker({
   label: string
   onChange: (next: Reach) => void
   wide?: boolean
+  /** The choices to offer, when not the catalog's own. */
+  reaches?: readonly Reach[]
 }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -148,7 +151,7 @@ function ReachPicker({
           wide ? 'min-w-32' : ''
         } ${unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''}`}
       >
-        {ruleFor(capability, role).reaches.map((reach) => (
+        {reaches.map((reach) => (
           <option key={reach} value={reach}>
             {wide ? REACH_LABEL[reach] : REACH_SHORT[reach]}
           </option>
@@ -166,7 +169,7 @@ function ReachPicker({
 }
 
 /** A cell nobody can change: what it says, and a lock where it is a choice that isn't offered. */
-function FixedCell({ value, locked }: { value: Allowed; locked: boolean }) {
+export function FixedCell({ value, locked }: { value: Allowed; locked: boolean }) {
   if (!locked) return <Cell value={value} />
   return (
     <span className="inline-flex items-center gap-1 text-on-surface-faint" title="Fixed">
@@ -177,7 +180,7 @@ function FixedCell({ value, locked }: { value: Allowed; locked: boolean }) {
   )
 }
 
-const roleLabel = (key: RoleKey) => ROLES.find((r) => r.key === key)!.label
+export const roleLabel = (key: RoleKey) => ROLES.find((r) => r.key === key)!.label
 
 export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionArea[] } = {}) {
   const [view, setView] = useState<'role' | 'compare'>('role')
@@ -530,7 +533,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               <li key={`${change.capability}:${change.role}`} className="text-body-sm text-on-surface-variant">
                 <span className="font-medium text-on-surface">{roleLabel(change.role)}</span> ·{' '}
                 {actionOf(change.capability)}: {REACH_LABEL[reachOf(stored, change.capability, change.role)]} →{' '}
-                <span className="font-medium text-on-surface">{REACH_LABEL[change.reach]}</span>
+                <span className="font-medium text-on-surface">{change.reach ? REACH_LABEL[change.reach] : 'As the church'}</span>
               </li>
             ))}
           </ul>

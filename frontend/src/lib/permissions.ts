@@ -17,9 +17,16 @@
 export type Reach = 'none' | 'own' | 'team' | 'all'
 
 /** The profiles a permission is given to. The Owner is not one: it holds everything. */
-export type GrantRole = 'admin' | 'head' | 'coordinator' | 'member' | 'newcomer'
+export type GrantRole = 'admin' | 'head' | 'assistant' | 'coordinator' | 'member' | 'newcomer'
 
-export const GRANT_ROLES: readonly GrantRole[] = ['admin', 'head', 'coordinator', 'member', 'newcomer']
+export const GRANT_ROLES: readonly GrantRole[] = ['admin', 'head', 'assistant', 'coordinator', 'member', 'newcomer']
+
+/**
+ * The profiles a team can set its own rules for (0162): the ones whose
+ * "team" is a particular team. An Admin's reach is the church's; a Church
+ * Member is everybody.
+ */
+export const TEAM_ROLES: readonly GrantRole[] = ['head', 'assistant', 'coordinator', 'member']
 
 export interface Rule {
   /** What this profile can be given, narrowest first. One means fixed. */
@@ -61,6 +68,7 @@ export const CATALOG = {
   'app.permissions': {
     admin: fixed('all'),
     head: fixed(),
+    assistant: fixed(),
     coordinator: fixed(),
     member: fixed(),
     newcomer: fixed(),
@@ -68,6 +76,7 @@ export const CATALOG = {
   'rota.assign': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -75,6 +84,7 @@ export const CATALOG = {
   'rota.tag': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -82,6 +92,7 @@ export const CATALOG = {
   'rota.release_ask': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team', 'none'),
     newcomer: fixed(),
@@ -89,6 +100,7 @@ export const CATALOG = {
   'rota.release_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team', 'none'),
     newcomer: fixed(),
@@ -96,6 +108,7 @@ export const CATALOG = {
   'rota.release_delete': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: fixed(),
     newcomer: fixed(),
@@ -103,6 +116,7 @@ export const CATALOG = {
   'svc.manage': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -110,6 +124,7 @@ export const CATALOG = {
   'svc.templates': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -117,6 +132,7 @@ export const CATALOG = {
   'svc.sessions': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -124,6 +140,7 @@ export const CATALOG = {
   'svc.guests': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -131,6 +148,7 @@ export const CATALOG = {
   'svc.repeat': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -138,6 +156,7 @@ export const CATALOG = {
   'svc.events': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -145,6 +164,7 @@ export const CATALOG = {
   'svc.call_times': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -152,6 +172,7 @@ export const CATALOG = {
   'team.create': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -159,6 +180,7 @@ export const CATALOG = {
   'team.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -166,6 +188,7 @@ export const CATALOG = {
   'team.members': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -173,6 +196,7 @@ export const CATALOG = {
   'team.roles': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -180,6 +204,7 @@ export const CATALOG = {
   'team.groups': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -187,6 +212,7 @@ export const CATALOG = {
   'team.checklists': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -194,6 +220,7 @@ export const CATALOG = {
   'team.join': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -201,6 +228,7 @@ export const CATALOG = {
   'day.verify': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'team'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -208,6 +236,7 @@ export const CATALOG = {
   'day.ready': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'team'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -215,6 +244,7 @@ export const CATALOG = {
   'day.attendance': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -222,6 +252,7 @@ export const CATALOG = {
   'day.nudge': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -229,6 +260,7 @@ export const CATALOG = {
   'avail.edit_others': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -236,6 +268,7 @@ export const CATALOG = {
   'avail.add_others': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -243,6 +276,7 @@ export const CATALOG = {
   'avail.late_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -250,13 +284,15 @@ export const CATALOG = {
   'avail.nudge': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
   'avail.history': {
     admin: offer('none all', 'all'),
-    head: offer('none own team all', 'none'),
+    head: offer('none own team all', 'team'),
+    assistant: offer('none own team all', 'team'),
     coordinator: fixed(),
     member: offer('none own team all', 'none'),
     newcomer: fixed(),
@@ -264,6 +300,7 @@ export const CATALOG = {
   'inv.items': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -271,6 +308,7 @@ export const CATALOG = {
   'inv.stock': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -278,6 +316,7 @@ export const CATALOG = {
   'inv.purchase_ask': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
@@ -285,6 +324,7 @@ export const CATALOG = {
   'inv.purchase_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -292,6 +332,7 @@ export const CATALOG = {
   'msg.board_post': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
@@ -299,6 +340,7 @@ export const CATALOG = {
   'msg.board_moderate': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -306,6 +348,7 @@ export const CATALOG = {
   'msg.chat': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
@@ -313,6 +356,7 @@ export const CATALOG = {
   'msg.chat_moderate': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -320,6 +364,7 @@ export const CATALOG = {
   'msg.polls': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -327,6 +372,7 @@ export const CATALOG = {
   'msg.updates': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -334,6 +380,7 @@ export const CATALOG = {
   'msg.alert_team': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: offer('none team', 'none'),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -341,6 +388,7 @@ export const CATALOG = {
   'msg.alert': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -348,6 +396,7 @@ export const CATALOG = {
   'issue.mark': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -355,6 +404,7 @@ export const CATALOG = {
   'issue.delete': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -362,6 +412,7 @@ export const CATALOG = {
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
@@ -369,6 +420,7 @@ export const CATALOG = {
   'debrief.manage': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -376,6 +428,7 @@ export const CATALOG = {
   'debrief.contribute': {
     admin: offer('none all', 'none'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: offer('none team', 'none'),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
@@ -383,6 +436,7 @@ export const CATALOG = {
   'give.edit': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -390,6 +444,7 @@ export const CATALOG = {
   'people.edit_others': {
     admin: offer('none all', 'all'),
     head: fixed(),
+    assistant: fixed(),
     coordinator: fixed(),
     member: fixed(),
     newcomer: fixed(),
@@ -397,6 +452,7 @@ export const CATALOG = {
   'people.invite': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
+    assistant: offer('none team all', 'team'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -404,6 +460,7 @@ export const CATALOG = {
   'people.clear_records': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
@@ -411,6 +468,7 @@ export const CATALOG = {
   'people.onboard': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
@@ -418,6 +476,7 @@ export const CATALOG = {
   'people.remove': {
     admin: offer('none all', 'all'),
     head: fixed(),
+    assistant: fixed(),
     coordinator: fixed(),
     member: fixed(),
     newcomer: fixed(),
@@ -444,6 +503,12 @@ export function isFixed(cap: CapabilityKey, role: GrantRole): boolean {
 export type Overrides = Partial<Record<CapabilityKey, Partial<Record<GrantRole, Reach>>>>
 
 /**
+ * One team's own rules (0162), by team id: the cells it set differently
+ * from the church. A cell a team never set follows the church's.
+ */
+export type TeamOverrides = Record<string, Overrides>
+
+/**
  * The reach in force: the church's choice if it is still on offer,
  * otherwise the default. The same order `permission_reach()` uses.
  */
@@ -451,6 +516,41 @@ export function reachOf(overrides: Overrides, cap: CapabilityKey, role: GrantRol
   const rule = ruleFor(cap, role)
   const chosen = overrides[cap]?.[role]
   return chosen && rule.reaches.includes(chosen) ? chosen : rule.byDefault
+}
+
+/** The reaches a team may set for this profile: the catalog's, no wider than the team. */
+export function teamReaches(cap: CapabilityKey, role: GrantRole): readonly Reach[] {
+  if (!TEAM_ROLES.includes(role)) return []
+  const rule = ruleFor(cap, role)
+  if (!rule.reaches.includes('team')) return []
+  return rule.reaches.filter((r) => r !== 'all')
+}
+
+/** Whether a team can set this cell for itself at all. */
+export function isTeamSettable(cap: CapabilityKey, role: GrantRole): boolean {
+  return teamReaches(cap, role).length > 1
+}
+
+/** What this team set for the cell, if it set anything the catalog still offers. */
+export function teamChoice(teams: TeamOverrides, dept: string | null | undefined, cap: CapabilityKey, role: GrantRole): Reach | null {
+  if (!dept) return null
+  const chosen = teams[dept]?.[cap]?.[role]
+  return chosen && teamReaches(cap, role).includes(chosen) ? chosen : null
+}
+
+/**
+ * The reach in force on one team: the team's own rule where it made one,
+ * otherwise the church's. The same order `permission_reach(role, cap, dept)`
+ * uses.
+ */
+export function reachOn(
+  overrides: Overrides,
+  teams: TeamOverrides,
+  dept: string | null | undefined,
+  cap: CapabilityKey,
+  role: GrantRole,
+): Reach {
+  return teamChoice(teams, dept, cap, role) ?? reachOf(overrides, cap, role)
 }
 
 /** Rows from `role_permissions`, as the overrides they are. Unknown rows are ignored. */
@@ -465,11 +565,31 @@ export function overridesFrom(rows: { role_key: string; capability: string; reac
   return out
 }
 
-/** One cell, as `set_permissions()` takes it. */
+/** Rows from `department_permissions`, as the teams' own rules. Unknown rows are ignored. */
+export function teamOverridesFrom(
+  rows: { department_id: string; role_key: string; capability: string; reach: string }[],
+): TeamOverrides {
+  const out: TeamOverrides = {}
+  for (const row of rows) {
+    if (!isCapabilityKey(row.capability)) continue
+    if (!(GRANT_ROLES as readonly string[]).includes(row.role_key)) continue
+    if (!(REACHES as readonly string[]).includes(row.reach)) continue
+    const team = out[row.department_id] ?? {}
+    team[row.capability] = { ...team[row.capability], [row.role_key as GrantRole]: row.reach as Reach }
+    out[row.department_id] = team
+  }
+  return out
+}
+
+/**
+ * One cell, as `set_permissions()` takes it. With a `department` it is
+ * that team's own rule; `reach: null` there means "as the church".
+ */
 export interface PermissionChange {
   role: GrantRole
   capability: CapabilityKey
-  reach: Reach
+  reach: Reach | null
+  department?: string | null
 }
 
 /**
@@ -484,6 +604,26 @@ export function changesBetween(stored: Overrides, next: Overrides): PermissionCh
       const before = reachOf(stored, capability, role)
       const after = reachOf(next, capability, role)
       if (before !== after) out.push({ role, capability, reach: after })
+    }
+  }
+  return out
+}
+
+/**
+ * What saving `next` over `stored` has to send for the teams' own rules:
+ * every team cell whose choice would change, including one being given
+ * up (sent as null).
+ */
+export function teamChangesBetween(stored: TeamOverrides, next: TeamOverrides): PermissionChange[] {
+  const out: PermissionChange[] = []
+  for (const department of new Set([...Object.keys(stored), ...Object.keys(next)])) {
+    for (const capability of CAPABILITY_KEYS) {
+      for (const role of TEAM_ROLES) {
+        if (!isTeamSettable(capability, role)) continue
+        const before = teamChoice(stored, department, capability, role)
+        const after = teamChoice(next, department, capability, role)
+        if (before !== after) out.push({ role, capability, reach: after, department })
+      }
     }
   }
   return out
@@ -509,6 +649,10 @@ export interface Holder {
   admin: boolean
   /** Teams they head or assist. */
   ledTeams: readonly string[]
+  /** Teams they head, as Head. Left out, every led team counts as headed. */
+  headTeams?: readonly string[]
+  /** Teams they assist, as Assisting Head (0162). Left out, none. */
+  assistTeams?: readonly string[]
   /** Whether they head or assist this team — AuthContext's own test, when there is one. */
   leads?: (departmentId: string) => boolean
   /** Teams whose roster they are on. */
@@ -528,13 +672,21 @@ export interface Where {
 
 /**
  * May this person do this, here? Mirrors `may()` in SQL: the Owner always;
- * otherwise any profile they hold that reaches this far.
+ * otherwise any profile they hold that reaches this far — on this team
+ * by the team's own rule where it made one (0162), else the church's.
  */
-export function decide(overrides: Overrides, holder: Holder, cap: CapabilityKey, where: Where = {}): boolean {
+export function decide(
+  overrides: Overrides,
+  holder: Holder,
+  cap: CapabilityKey,
+  where: Where = {},
+  teams: TeamOverrides = {},
+): boolean {
   if (!holder.myId) return false
   if (holder.owner) return true
   const mine = !!where.ownerId && where.ownerId === holder.myId
   const dept = where.departmentId ?? null
+  const on = (role: GrantRole) => reachOn(overrides, teams, dept, cap, role)
 
   let reach = reachOf(overrides, cap, 'newcomer')
   if (reach === 'all' || (reach !== 'none' && mine)) return true
@@ -542,19 +694,32 @@ export function decide(overrides: Overrides, holder: Holder, cap: CapabilityKey,
   reach = reachOf(overrides, cap, 'admin')
   if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return true
 
-  reach = reachOf(overrides, cap, 'head')
+  // The Head and the Assisting Head: two profiles since 0162, the same
+  // rules unless the church says otherwise. A holder that does not say
+  // which teams it heads is read as heading every team it leads.
+  const headTeams = holder.headTeams ?? holder.ledTeams
+  const assistTeams = holder.assistTeams ?? []
   const leadsHere = !!dept && (holder.leads ? holder.leads(dept) : holder.ledTeams.includes(dept))
-  if (reach !== 'none' && (holder.ledTeams.length > 0 || leadsHere)) {
-    if (reach === 'all' || mine || (reach === 'team' && leadsHere)) return true
+  const headsHere = !!dept && (holder.headTeams ? headTeams.includes(dept) : leadsHere)
+  const assistsHere = !!dept && assistTeams.includes(dept)
+
+  reach = on('head')
+  if (reach !== 'none' && (headTeams.length > 0 || headsHere)) {
+    if (reach === 'all' || mine || (reach === 'team' && headsHere)) return true
   }
 
-  reach = reachOf(overrides, cap, 'member')
+  reach = on('assistant')
+  if (reach !== 'none' && (assistTeams.length > 0 || assistsHere)) {
+    if (reach === 'all' || mine || (reach === 'team' && assistsHere)) return true
+  }
+
+  reach = on('member')
   if (reach !== 'none') {
     if (reach === 'team' && !!dept && holder.memberTeams.includes(dept)) return true
     if ((reach === 'all' || mine) && holder.memberTeams.length > 0) return true
   }
 
-  reach = reachOf(overrides, cap, 'coordinator')
+  reach = on('coordinator')
   if (reach !== 'none') {
     if ((reach === 'team' || reach === 'all') && !!dept && where.coordinating) return true
     if ((reach === 'all' || mine) && (holder.coordinatesAnywhere || where.coordinating)) return true

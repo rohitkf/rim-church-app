@@ -10,6 +10,7 @@ import { GivingSettingsCard } from '../components/GivingSettingsCard'
 import { NavLayoutCard } from '../components/NavLayoutCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
+import { AccessByPageCard } from '../components/AccessByPageCard'
 import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
@@ -241,13 +242,14 @@ export function AppearanceSettingsPane() {
 }
 
 /**
- * Who can do what: the pages the church opens to each profile, and every
- * permission — the church's own where an area is editable, the database's
- * written-down rules where it is not yet — redrawn with the Pages tab's
- * choices, so the two can never tell different stories.
+ * Who can do what, three ways in: a page at a time (who can open it and
+ * what each profile may do on it, with a team's own rules — 0162), a
+ * profile at a time, and the pages alone with a preview of each profile's
+ * menu. All three read the same choices, redrawn with the Pages choices,
+ * so they can never tell different stories.
  */
 export function AccessSettingsPane() {
-  const [tab, setTab] = useState<'pages' | 'rules'>('pages')
+  const [tab, setTab] = useState<'bypage' | 'rules' | 'pages'>('bypage')
   const settings = useAppSettings()
   const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope)
   return (
@@ -255,8 +257,9 @@ export function AccessSettingsPane() {
       <div role="tablist" aria-label="Access" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
         {(
           [
+            ['bypage', 'By page'],
+            ['rules', 'By role'],
             ['pages', 'Pages'],
-            ['rules', 'Permissions'],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -273,7 +276,7 @@ export function AccessSettingsPane() {
           </button>
         ))}
       </div>
-      {tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
+      {tab === 'bypage' ? <AccessByPageCard areas={areas} /> : tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
     </div>
   )
 }
