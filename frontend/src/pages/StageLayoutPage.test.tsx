@@ -332,4 +332,23 @@ describe('a session’s stage', () => {
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     await waitFor(() => expect(db.decided).toEqual([{ id: 'q1', approve: true }]))
   })
+
+  it('duplicates a block: same look, a step across, nobody on it, and selected', async () => {
+    const user = userEvent.setup()
+    db.blocks = [block({ person_id: 'p1', person: { id: 'p1', first_name: 'Jolsna', last_name: 'R' }, color: '#30D158' })]
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard, Jolsna R' }))
+    await user.click(screen.getByRole('button', { name: 'Duplicate' }))
+    await waitFor(() => expect(db.added).toEqual(['Keyboard']))
+    expect(db.addedRows[0]).toMatchObject({ area_id: 'A', color: '#30D158', x: 130, y: 130, w: 160, h: 100 })
+    expect(db.addedRows[0]).not.toHaveProperty('person_id')
+  })
+
+  it('duplicates with Ctrl+D on the canvas', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+    fireEvent.keyDown(screen.getByRole('application', { name: 'Stage' }), { key: 'd', ctrlKey: true })
+    await waitFor(() => expect(db.added).toEqual(['Keyboard']))
+  })
 })

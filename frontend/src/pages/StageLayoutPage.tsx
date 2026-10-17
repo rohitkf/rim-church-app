@@ -44,6 +44,7 @@ import {
   logSentence,
   personName,
   placeNewBlock,
+  duplicateOf,
   quickBlocksFor,
   regionsOf,
   saveStageTemplate,
@@ -186,6 +187,21 @@ export function StageLayoutPage() {
       fail('Could not save the change.')(err)
     },
     onSettled: () => invalidate(),
+  })
+
+  const duplicate = useMutation({
+    mutationFn: async (source: StageBlock) => {
+      const region = regions.find((r) => r.area.id === source.area_id) ?? regions[0]
+      if (!region) throw new Error('There are no areas to lay out.')
+      const z = blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1
+      return addStageBlock(source.layout_id, duplicateOf(source, { width: region.width, height: region.height }, z))
+    },
+    onSuccess: (made) => {
+      setError(null)
+      setSelectedId(made.id)
+      return invalidate()
+    },
+    onError: fail('Could not copy the block.'),
   })
 
   const remove = useMutation({
@@ -406,6 +422,7 @@ export function StageLayoutPage() {
           onPropose={(id, box) => setProposal({ id, box })}
           onCommit={onCommit}
           onDelete={canDelete ? (id) => { const b = blocks.find((x) => x.id === id); if (b && (!b.locked_at || isAdmin)) confirmDelete(b) } : undefined}
+          onDuplicate={canAdd ? (id) => { const b = blocks.find((x) => x.id === id); if (b) duplicate.mutate(b) } : undefined}
         />
         {proposing && (
           <p role="status" className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-label-md text-primary">
@@ -432,6 +449,7 @@ export function StageLayoutPage() {
             block={selected}
             canEdit={canEdit && (!selected.locked_at || isAdmin)}
             canDelete={canDelete && (!selected.locked_at || isAdmin)}
+            canDuplicate={canAdd}
             canComment={canComment}
             isAdmin={isAdmin && !finished}
             mayAsk={canEdit && !!selected.locked_at && !isAdmin}
@@ -448,6 +466,7 @@ export function StageLayoutPage() {
             onNote={(body) => comment.mutate({ body, blockId: selected.id })}
             onDeleteNote={(id) => uncomment.mutate(id)}
             onFront={() => patch.mutate({ id: selected.id, changes: { z: blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1 } })}
+            onDuplicate={() => duplicate.mutate(selected)}
           />
         )}
 
@@ -548,6 +567,7 @@ function BlockInspector({
   block,
   canEdit,
   canDelete,
+  canDuplicate,
   canComment,
   isAdmin,
   mayAsk,
@@ -564,10 +584,13 @@ function BlockInspector({
   onNote,
   onDeleteNote,
   onFront,
+  onDuplicate,
 }: {
   block: StageBlock
   canEdit: boolean
   canDelete: boolean
+  /** May add blocks, so may add a copy of this one. */
+  canDuplicate: boolean
   canComment: boolean
   /** May lock and unlock, and answer asks. */
   isAdmin: boolean
@@ -586,6 +609,7 @@ function BlockInspector({
   onNote: (body: string) => void
   onDeleteNote: (id: string) => void
   onFront: () => void
+  onDuplicate: () => void
 }) {
   const [label, setLabel] = useState(block.label)
   const commitLabel = () => {
@@ -724,6 +748,11 @@ function BlockInspector({
             <ActionButton size="sm" tone="quiet" onClick={onFront}>
               Bring to front
             </ActionButton>
+            {canDuplicate && (
+              <ActionButton size="sm" tone="quiet" onClick={onDuplicate}>
+                Duplicate
+              </ActionButton>
+            )}
             <span className="ml-auto font-mono text-label-sm text-on-surface-faint">
               {Math.round(block.w)} × {Math.round(block.h)}
             </span>
@@ -732,6 +761,13 @@ function BlockInspector({
       )}
       {!canEdit && block.person && (
         <p className="mt-3 text-body-sm text-on-surface">{personName(block.person)}</p>
+      )}
+      {!canEdit && canDuplicate && (
+        <div className="mt-3">
+          <ActionButton size="sm" tone="quiet" onClick={onDuplicate}>
+            Duplicate
+          </ActionButton>
+        </div>
       )}
 
       <div className="mt-5">

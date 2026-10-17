@@ -317,7 +317,7 @@ export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color
 
 export async function addStageBlock(
   layoutId: string,
-  block: { area_id: string; label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number },
+  block: { area_id: string; label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number; rotation?: number },
 ): Promise<StageBlock> {
   const { data, error } = await supabase
     .from('stage_blocks')
@@ -529,6 +529,30 @@ export function placeNewBlock(
   }
   // A full stage: stack it near the middle, slightly off whatever is there.
   return { x: snap(stage.width / 2 - size.w / 2 + (blocks.length % 5) * 12), y: snap(stage.height / 2 - size.h / 2 + (blocks.length % 5) * 12) }
+}
+
+/**
+ * A copy of a block, a step down and right so both can be seen, kept
+ * inside its region. The person does not come along — two blocks with the
+ * same person on them would be a lie about where somebody stands — and
+ * nor does a lock: the copy is the copier's to place.
+ */
+export function duplicateOf(
+  block: Pick<StageBlock, 'area_id' | 'label' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'kind' | 'seats'>,
+  region: { width: number; height: number },
+  z: number,
+): { area_id: string; label: string; color: string; x: number; y: number; w: number; h: number; rotation: number; kind: 'block' | 'seats'; seats: number; z: number } {
+  const box = clampBlock({ x: block.x + 30, y: block.y + 30, w: block.w, h: block.h }, region)
+  return {
+    area_id: block.area_id,
+    label: block.label,
+    color: block.color,
+    ...box,
+    rotation: block.rotation,
+    kind: block.kind,
+    seats: block.seats,
+    z,
+  }
 }
 
 /** The zoom that fits the whole stage in a box, with a margin. */

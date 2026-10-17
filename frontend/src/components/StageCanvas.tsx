@@ -50,6 +50,7 @@ export function StageCanvas({
   canEdit,
   onCommit,
   onDelete,
+  onDuplicate,
   canMove,
   proposing = null,
   onPropose,
@@ -66,6 +67,8 @@ export function StageCanvas({
   onCommit: (id: string, box: BlockBox) => void
   /** Delete pressed on the keyboard with a block selected. */
   onDelete?: (id: string) => void
+  /** Ctrl/Cmd+D with a block selected. */
+  onDuplicate?: (id: string) => void
   /** Whether this one block may be dragged at all: a locked block is not, except by an Admin. */
   canMove?: (block: StageBlock) => boolean
   /** A locked block being dragged to where somebody would like it: the drop is an ask, not a move. */
@@ -297,7 +300,13 @@ export function StageCanvas({
   const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!selectedId) return
     const b = blockById(selectedId)
-    if (!b || !movable(b) || proposing === b.id) return
+    if (!b) return
+    if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && onDuplicate) {
+      e.preventDefault()
+      onDuplicate(b.id)
+      return
+    }
+    if (!movable(b) || proposing === b.id) return
     const step = e.shiftKey ? 50 : 10
     const nudge = (dx: number, dy: number) => {
       e.preventDefault()
@@ -444,8 +453,9 @@ export function StageCanvas({
         </div>
       </div>
 
-      {/* Zoom, pinned to the top corner: the bottom is where the dock sits on a phone. */}
-      <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-surface-container/90 p-1 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 backdrop-blur dark:ring-white/15">
+      {/* Zoom, in a row under the box rather than floating over it: anything
+          floating over the canvas covers a block in that corner. */}
+      <div className="mt-2 flex items-center justify-end gap-1">
         <ZoomButton label="Zoom out" onClick={() => zoomAt(1 / 1.25)}>
           −
         </ZoomButton>
