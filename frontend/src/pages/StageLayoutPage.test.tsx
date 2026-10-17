@@ -31,6 +31,10 @@ const db = vi.hoisted(() => ({
   decided: [] as { id: string; approve: boolean }[],
   pendingAsks: [] as Record<string, unknown>[],
   toasts: [] as string[],
+  restored: [] as Record<string, unknown>[],
+  renamed: [] as { id: string; name: string }[],
+  removedTemplates: [] as string[],
+  kept: [] as string[],
 }))
 
 vi.mock('../lib/toast', () => ({ showToast: (text: string) => db.toasts.push(text) }))
@@ -70,6 +74,19 @@ fetchStageAreas: () => Promise.resolve([
     fetchStageMoveRequests: () => Promise.resolve(db.pendingAsks),
     lockStageBlock: (id: string, on: boolean) => {
       db.locks.push({ id, on })
+      db.blocks = db.blocks.map((b) => (b.id === id ? { ...b, locked_at: on ? '2026-10-17T12:00:00Z' : null, locked_by: on ? 'me' : null } : b))
+      return Promise.resolve()
+    },
+    restoreStageBlocks: (_l: string, rows: Record<string, unknown>[]) => {
+      db.restored.push(...rows)
+      return Promise.resolve(rows.map((r, i) => block({ ...(r as Partial<StageBlock>), id: `back-${db.restored.length}-${i}` })))
+    },
+    renameStageTemplate: (id: string, name: string) => {
+      db.renamed.push({ id, name })
+      return Promise.resolve()
+    },
+    deleteStageTemplate: (id: string) => {
+      db.removedTemplates.push(id)
       return Promise.resolve()
     },
     requestStageMove: (id: string, box: unknown, note: string) => {
@@ -108,7 +125,10 @@ fetchStageAreas: () => Promise.resolve([
       return Promise.resolve()
     },
     applyStageTemplate: () => Promise.resolve(),
-    saveStageTemplate: () => Promise.resolve('requested' as const),
+    saveStageTemplate: (_s: string, name: string) => {
+      db.kept.push(name)
+      return Promise.resolve(db.may.templates ? ('saved' as const) : ('requested' as const))
+    },
   }
 })
 
@@ -155,6 +175,10 @@ beforeEach(() => {
   db.finished = false
   db.isAdmin = false
   db.toasts = []
+  db.restored = []
+  db.renamed = []
+  db.removedTemplates = []
+  db.kept = []
   db.locks = []
   db.asks = []
   db.decided = []
@@ -405,5 +429,130 @@ describe('a session’s stage', () => {
     await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
     fireEvent.keyDown(screen.getByRole('application', { name: 'Stage' }), { key: 'd', ctrlKey: true })
     await waitFor(() => expect(db.added).toEqual(['Keyboard']))
+  })
+
+  describe('undo', () => {
+    it('is not offered before anything has been done', async () => {
+      show()
+      await screen.findByRole('button', { name: 'Keyboard' })
+      expect(screen.queryByRole('button', { name: /^Undo/ })).toBeNull()
+    })
+
+    it('puts a change back with the button, and another with Ctrl+Z, newest first', async () => {
+      const user = userEvent.setup()
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+      await user.click(screen.getByRole('radio', { name: 'Green' }))
+      await waitFor(() => expect(db.patched).toContainEqual({ id: 'b1', patch: { color: '#30D158' } }))
+      fireEvent.keyDown(screen.getByRole('application', { name: 'Stage' }), { key: 'ArrowRight' })
+      await waitFor(() => expect(db.patched).toContainEqual({ id: 'b1', patch: { x: 110, y: 100, w: 160, h: 100, area_id: 'A' } }))
+      await user.click(screen.getByRole('button', { name: 'Undo move Keyboard' }))
+      await waitFor(() => expect(db.patched.at(-1)).toEqual({ id: 'b1', patch: { x: 100 } }))
+      expect(db.toasts).toContain('Undone: move Keyboard')
+      fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
+      await waitFor(() => expect(db.patched.at(-1)).toEqual({ id: 'b1', patch: { color: '#0A84FF' } }))
+      await waitFor(() => expect(screen.queryByRole('button', { name: /^Undo/ })).toBeNull())
+    })
+
+    it('leaves Ctrl+Z to a field being typed in', async () => {
+      const user = userEvent.setup()
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+      await user.click(screen.getByRole('radio', { name: 'Green' }))
+      await waitFor(() => expect(db.patched).toHaveLength(1))
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Block name' }), { key: 'z', ctrlKey: true })
+      await new Promise((r) => setTimeout(r, 50))
+      expect(db.patched).toHaveLength(1)
+    })
+
+    it('puts a removed block back whole', async () => {
+      const user = userEvent.setup()
+      db.blocks = [block({ person_id: 'p1', color: '#30D158', corners: 'rounded' })]
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+      await user.click(screen.getByRole('button', { name: 'Remove' }))
+      await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
+      await waitFor(() => expect(db.deleted).toEqual(['b1']))
+      await user.click(await screen.findByRole('button', { name: 'Undo remove Keyboard' }))
+      await waitFor(() => expect(db.restored).toHaveLength(1))
+      expect(db.restored[0]).toMatchObject({ label: 'Keyboard', person_id: 'p1', color: '#30D158', x: 100, y: 100, corners: 'rounded', area_id: 'A' })
+    })
+
+    it('puts the whole stage back after a clear', async () => {
+      const user = userEvent.setup()
+      db.blocks = [block(), block({ id: 'b2', label: 'Drums', x: 600 })]
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Clear' }))
+      await user.click(screen.getAllByRole('button', { name: 'Clear' }).at(-1)!)
+      await waitFor(() => expect(db.cleared).toBe(1))
+      await user.click(await screen.findByRole('button', { name: 'Undo clear the stage' }))
+      await waitFor(() => expect(db.restored.map((r) => r.label)).toEqual(['Keyboard', 'Drums']))
+    })
+
+    it('takes away an added block', async () => {
+      const user = userEvent.setup()
+      show()
+      await user.click(await screen.findByRole('button', { name: '+ Add block' }))
+      // What the page reads back once the block is written.
+      db.blocks = [...db.blocks, block({ id: 'new-1', label: 'Camera', x: 700 })]
+      await user.click(screen.getByRole('button', { name: 'Add Camera' }))
+      await waitFor(() => expect(db.added).toEqual(['Camera']))
+      await user.click(await screen.findByRole('button', { name: 'Undo add Camera' }))
+      await waitFor(() => expect(db.deleted).toEqual(['new-1']))
+    })
+
+    it('will not undo onto a block that has since been locked, and says why', async () => {
+      const user = userEvent.setup()
+      db.isAdmin = true
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Keyboard' }))
+      await user.click(screen.getByRole('radio', { name: 'Green' }))
+      await waitFor(() => expect(db.patched).toHaveLength(1))
+      await user.click(screen.getByRole('button', { name: 'Lock' }))
+      await screen.findByRole('button', { name: 'Keyboard (locked)' })
+      await user.click(screen.getByRole('button', { name: 'Undo recolour Keyboard' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Keyboard is locked now — unlock it first.')
+      expect(db.patched).toHaveLength(1)
+    })
+  })
+
+  describe('the template library, from the stage', () => {
+    it('lets whoever holds Templates rename and delete a template', async () => {
+      const user = userEvent.setup()
+      db.may = { ...db.may, templates: true }
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Templates' }))
+      await user.click(await screen.findByRole('button', { name: 'Rename Full band' }))
+      const box = screen.getByRole('textbox', { name: 'New name for Full band' })
+      await user.clear(box)
+      await user.type(box, 'Band and choir{Enter}')
+      await waitFor(() => expect(db.renamed).toEqual([{ id: 't1', name: 'Band and choir' }]))
+      await user.click(screen.getByRole('button', { name: 'Delete Full band' }))
+      expect(screen.getByText('Delete the template Full band?')).toBeInTheDocument()
+      await user.click(screen.getAllByRole('button', { name: 'Delete' }).at(-1)!)
+      await waitFor(() => expect(db.removedTemplates).toEqual(['t1']))
+    })
+
+    it('offers neither to somebody without Templates', async () => {
+      const user = userEvent.setup()
+      show()
+      await user.click(await screen.findByRole('button', { name: 'Templates' }))
+      await screen.findByRole('button', { name: 'Apply' })
+      expect(screen.queryByRole('button', { name: /^Rename/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull()
+    })
+  })
+
+  it('keeps a stage as a template with every block on it locked', async () => {
+    const user = userEvent.setup()
+    db.isAdmin = true
+    db.may = { ...db.may, templates: true }
+    db.blocks = [block({ locked_at: 'x', locked_by: 'me' }), block({ id: 'b2', label: 'Drums', x: 600, locked_at: 'x', locked_by: 'me' })]
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Keyboard (locked)' }))
+    await user.click(screen.getByRole('button', { name: 'Templates' }))
+    await user.type(await screen.findByRole('textbox', { name: 'Template name' }), 'Sunday')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.kept).toEqual(['Sunday']))
   })
 })

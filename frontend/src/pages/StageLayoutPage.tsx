@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -30,6 +30,9 @@ import {
   applyStageTemplate,
   clearStageLayout,
   deleteStageBlock,
+  deleteStageTemplate,
+  renameStageTemplate,
+  restoreStageBlocks,
   deleteStageComment,
   ensureStageLayout,
   fetchStageBlocks,
@@ -57,6 +60,7 @@ import {
   type StageBlock,
   type StageMoveRequest,
 } from '../lib/stage'
+import { UNDO_DEPTH, describeChange, inverseOf, isEmptyPatch, resolveId, snapshotOf } from '../lib/stageUndo'
 
 /**
  * One service's layout: the canvas — every area as a region of one
@@ -90,6 +94,12 @@ async function fetchPeople() {
 }
 
 type Panel = 'add' | 'templates' | 'comments' | 'history' | 'export' | null
+
+/** One step back: what the Undo button says, and the opposite change that does it. */
+interface UndoStep {
+  label: string
+  run: () => Promise<void>
+}
 
 export function StageLayoutPage() {
   const { serviceId = '' } = useParams()
@@ -138,6 +148,42 @@ export function StageLayoutPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: STAGE_KEY })
   const fail = (fallback: string) => (err: unknown) => setError(errorText(err, fallback))
 
+  /*
+   * Undo, for what this person did on this stage since opening it.
+   *
+   * Every change is written as it is made, so a step back is the opposite
+   * change, written and logged like any other — the history keeps both
+   * lines. A block an undo puts back is a new row, so `aliases` follows
+   * each old id to the block that now stands for it, and earlier steps
+   * about that block still find it. The stack is this page's alone: it
+   * goes when the page does, and never undoes anybody else's work.
+   */
+  const [undoStack, setUndoStack] = useState<UndoStep[]>([])
+  const aliases = useRef(new Map<string, string>())
+  useEffect(() => {
+    setUndoStack([])
+    aliases.current = new Map()
+  }, [serviceId])
+  const remember = (step: UndoStep) => setUndoStack((stack) => [...stack.slice(-(UNDO_DEPTH - 1)), step])
+  /** The block as the page last saw it, after following it through any undo. */
+  const current = (id: string) =>
+    (queryClient.getQueryData<StageBlock[]>([...STAGE_KEY, 'blocks', layoutId]) ?? []).find(
+      (b) => b.id === resolveId(aliases.current, id),
+    )
+  /** An undo that touches a block must find it, and find it unlocked: the database would refuse it silently. */
+  const mustTouch = (id: string) => {
+    const b = current(id)
+    if (!b) throw new Error('That block is no longer on the stage.')
+    if (b.locked_at) throw new Error(`${b.label} is locked now — unlock it first.`)
+    return b
+  }
+  const putBack = async (layout: string, before: StageBlock[]) => {
+    const made = await restoreStageBlocks(layout, before.map(snapshotOf))
+    before.forEach((b, i) => {
+      if (made[i]) aliases.current.set(b.id, made[i].id)
+    })
+  }
+
   /** The layout row, made on the first stroke. */
   const layoutFor = async () => {
     if (layout) return layout
@@ -173,6 +219,7 @@ export function StageLayoutPage() {
       setError(null)
       setPanel(null)
       setSelectedId(block.id)
+      remember({ label: `add ${block.label}`, run: async () => deleteStageBlock(mustTouch(block.id).id) })
       return invalidate()
     },
     onError: fail('Could not add the block.'),
@@ -206,15 +253,17 @@ export function StageLayoutPage() {
     onSuccess: (made) => {
       setError(null)
       setSelectedId(made.id)
+      remember({ label: `copy of ${made.label}`, run: async () => deleteStageBlock(mustTouch(made.id).id) })
       return invalidate()
     },
     onError: fail('Could not copy the block.'),
   })
 
   const remove = useMutation({
-    mutationFn: deleteStageBlock,
-    onSuccess: () => {
+    mutationFn: (block: StageBlock) => deleteStageBlock(block.id),
+    onSuccess: (_r, block) => {
       setSelectedId(null)
+      remember({ label: `remove ${block.label}`, run: () => putBack(block.layout_id, [block]) })
       return invalidate()
     },
     onError: fail('Could not remove the block.'),
@@ -264,21 +313,30 @@ export function StageLayoutPage() {
   })
 
   const clear = useMutation({
-    mutationFn: () => clearStageLayout(serviceId),
-    onSuccess: () => {
+    mutationFn: (_before: StageBlock[]) => clearStageLayout(serviceId),
+    onSuccess: (_r, before) => {
       setSelectedId(null)
       showToast('Stage cleared')
+      if (before.length > 0) remember({ label: 'clear the stage', run: () => putBack(before[0].layout_id, before) })
       return invalidate()
     },
     onError: fail('Could not clear the stage.'),
   })
 
   const apply = useMutation({
-    mutationFn: (templateId: string) => applyStageTemplate(serviceId, templateId),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; name: string; before: StageBlock[] }) => applyStageTemplate(serviceId, id),
+    onSuccess: (_r, { name, before }) => {
       setPanel(null)
       setSelectedId(null)
       showToast('Template applied')
+      // Back to the stage as it was: the template's blocks off, the old ones on.
+      remember({
+        label: `apply ${name}`,
+        run: async () => {
+          await clearStageLayout(serviceId)
+          if (before.length > 0) await putBack(before[0].layout_id, before)
+        },
+      })
       return invalidate()
     },
     onError: fail('Could not apply the template.'),
@@ -299,10 +357,69 @@ export function StageLayoutPage() {
       title: `Remove ${block.label}?`,
       body: 'It comes off the stage. The log keeps a line saying who removed it.',
       confirmLabel: 'Remove',
-      onConfirm: () => remove.mutate(block.id),
+      onConfirm: () => remove.mutate(block),
     })
 
-  const onCommit = (id: string, box: BlockBox) => patch.mutate({ id, changes: box })
+  /** Every change to a block goes through here, so each one can be stepped back. */
+  const edit = (id: string, changes: BlockPatch) => {
+    const b = blocks.find((x) => x.id === id)
+    if (b) {
+      const back = inverseOf(b, changes)
+      if (!isEmptyPatch(back)) {
+        remember({ label: describeChange(b.label, changes), run: async () => updateStageBlock(mustTouch(id).id, back) })
+      }
+    }
+    patch.mutate({ id, changes })
+  }
+  const onCommit = (id: string, box: BlockBox) => edit(id, box)
+
+  const undo = useMutation({
+    mutationFn: (step: UndoStep) => step.run(),
+    onSuccess: (_r, step) => {
+      setError(null)
+      showToast(`Undone: ${step.label}`)
+    },
+    onError: fail('Could not undo that.'),
+    onSettled: () => invalidate(),
+  })
+  const canUndo = !finished && undoStack.length > 0 && !undo.isPending
+  const stepBack = () => {
+    const step = undoStack[undoStack.length - 1]
+    if (!step || finished || undo.isPending) return
+    setUndoStack((stack) => stack.slice(0, -1))
+    undo.mutate(step)
+  }
+  // Ctrl/Cmd+Z anywhere on the page, except while typing: there it is the field's own undo.
+  const stepBackRef = useRef(stepBack)
+  stepBackRef.current = stepBack
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+      e.preventDefault()
+      stepBackRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const renameTemplate = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => renameStageTemplate(id, name),
+    onSuccess: () => {
+      showToast('Template renamed')
+      return invalidate()
+    },
+    onError: fail('Could not rename the template.'),
+  })
+  const removeTemplate = useMutation({
+    mutationFn: (id: string) => deleteStageTemplate(id),
+    onSuccess: () => {
+      showToast('Template deleted')
+      return invalidate()
+    },
+    onError: fail('Could not delete the template.'),
+  })
 
   const title = service ? service.service_type : 'Stage layout'
   const when = service ? formatServiceDay(service.date) : ''
@@ -371,6 +488,18 @@ export function StageLayoutPage() {
               + Add block
             </ActionButton>
           )}
+          {!finished && undoStack.length > 0 && (
+            <ActionButton
+              size="sm"
+              tone="quiet"
+              disabled={!canUndo}
+              onClick={stepBack}
+              aria-label={`Undo ${undoStack[undoStack.length - 1].label}`}
+              title={`Undo ${undoStack[undoStack.length - 1].label} (Ctrl+Z)`}
+            >
+              ↶ Undo
+            </ActionButton>
+          )}
           {(canEdit || templatesMayBeRead(may('templates'))) && (
             <ActionButton size="sm" tone="quiet" onClick={() => setPanel(panel === 'templates' ? null : 'templates')}>
               Templates
@@ -399,7 +528,7 @@ export function StageLayoutPage() {
                   title: 'Clear the whole stage?',
                   body: `Every block comes off — ${blocks.length} of them. Templates are not touched.`,
                   confirmLabel: 'Clear',
-                  onConfirm: () => clear.mutate(),
+                  onConfirm: () => clear.mutate(blocks),
                 })
               }
             >
@@ -475,11 +604,11 @@ export function StageLayoutPage() {
             people={peopleQuery.data ?? []}
             notes={notesOn(selected.id)}
             myId={myId}
-            onChange={(changes) => patch.mutate({ id: selected.id, changes })}
+            onChange={(changes) => edit(selected.id, changes)}
             onDelete={() => confirmDelete(selected)}
             onNote={(body) => comment.mutate({ body, blockId: selected.id })}
             onDeleteNote={(id) => uncomment.mutate(id)}
-            onFront={() => patch.mutate({ id: selected.id, changes: { z: blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1 } })}
+            onFront={() => edit(selected.id, { z: blocks.reduce((m, b) => Math.max(m, b.z), 0) + 1 })}
             onDuplicate={() => duplicate.mutate(selected)}
           />
         )}
@@ -518,6 +647,16 @@ export function StageLayoutPage() {
             canApply={canEdit}
             canKeep={canEdit && blocks.length > 0}
             keepsDirectly={may('templates')}
+            canManage={may('templates')}
+            onRename={(id, name) => renameTemplate.mutate({ id, name })}
+            onDelete={(id, name) =>
+              ask({
+                title: `Delete the template ${name}?`,
+                body: 'It goes from the library for everybody. Stages it was applied to keep their blocks.',
+                confirmLabel: 'Delete',
+                onConfirm: () => removeTemplate.mutate(id),
+              })
+            }
             hasBlocks={blocks.length > 0}
             onApply={(id, name) =>
               blocks.length > 0
@@ -525,9 +664,9 @@ export function StageLayoutPage() {
                     title: `Apply ${name}?`,
                     body: `It replaces the ${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'} on this stage.`,
                     confirmLabel: 'Apply',
-                    onConfirm: () => apply.mutate(id),
+                    onConfirm: () => apply.mutate({ id, name, before: blocks }),
                   })
-                : apply.mutate(id)
+                : apply.mutate({ id, name, before: blocks })
             }
             onKeep={(name) => keep.mutate(name)}
             busy={apply.isPending || keep.isPending}
@@ -1111,6 +1250,9 @@ function TemplatesSheet({
   onApply,
   onKeep,
   busy,
+  canManage = false,
+  onRename,
+  onDelete,
 }: {
   onClose: () => void
   templates: { id: string; name: string; blocks: unknown[]; updated_at: string }[]
@@ -1122,8 +1264,13 @@ function TemplatesSheet({
   onApply: (id: string, name: string) => void
   onKeep: (name: string) => void
   busy: boolean
+  /** May rename and delete templates: whoever holds Templates. */
+  canManage?: boolean
+  onRename?: (id: string, name: string) => void
+  onDelete?: (id: string, name: string) => void
 }) {
   const [name, setName] = useState('')
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   return (
     <Overlay onDismiss={onClose} label="Templates" align="sheet">
       <div className="w-full max-w-md rounded-t-[var(--radius-shell)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 sm:rounded-[var(--radius-shell)] dark:ring-white/12">
@@ -1136,17 +1283,59 @@ function TemplatesSheet({
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {templates.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-body-sm font-medium text-on-surface">{t.name}</span>
-                  <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'}
-                  </span>
-                </span>
-                {canApply && (
-                  <ActionButton size="sm" tone="quiet" disabled={busy} onClick={() => onApply(t.id, t.name)}>
-                    Apply
-                  </ActionButton>
+              <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5">
+                {renaming?.id === t.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      const next = renaming.name.trim()
+                      if (next && next !== t.name) onRename?.(t.id, next)
+                      setRenaming(null)
+                    }}
+                    className="flex min-w-0 flex-1 basis-full gap-2"
+                  >
+                    <input
+                      autoFocus
+                      value={renaming.name}
+                      onChange={(e) => setRenaming({ id: t.id, name: e.target.value })}
+                      onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
+                      maxLength={60}
+                      aria-label={`New name for ${t.name}`}
+                      className={`${inputClasses} min-w-0 flex-1`}
+                    />
+                    <ActionButton size="sm" type="submit" disabled={!renaming.name.trim()}>
+                      Save
+                    </ActionButton>
+                    <ActionButton size="sm" tone="quiet" onClick={() => setRenaming(null)}>
+                      Cancel
+                    </ActionButton>
+                  </form>
+                ) : (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-body-sm font-medium text-on-surface">{t.name}</span>
+                      <span className="block font-mono text-label-sm text-on-surface-faint">
+                        {t.blocks.length} {t.blocks.length === 1 ? 'block' : 'blocks'}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {canApply && (
+                        <ActionButton size="sm" tone="quiet" disabled={busy} onClick={() => onApply(t.id, t.name)}>
+                          Apply
+                        </ActionButton>
+                      )}
+                      {canManage && (
+                        <>
+                          <ActionButton size="sm" tone="quiet" aria-label={`Rename ${t.name}`} onClick={() => setRenaming({ id: t.id, name: t.name })}>
+                            Rename
+                          </ActionButton>
+                          <ActionButton size="sm" tone="danger-quiet" aria-label={`Delete ${t.name}`} onClick={() => onDelete?.(t.id, t.name)}>
+                            Delete
+                          </ActionButton>
+                        </>
+                      )}
+                    </span>
+                  </>
                 )}
               </li>
             ))}

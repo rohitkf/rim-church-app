@@ -336,6 +336,7 @@ export type NewStageBlock = {
   rotation?: number
   corners?: StageBlock['corners']
   icon?: string | null
+  person_id?: string | null
 }
 
 export async function addStageBlock(layoutId: string, block: NewStageBlock): Promise<StageBlock> {
@@ -346,6 +347,21 @@ export async function addStageBlock(layoutId: string, block: NewStageBlock): Pro
     .single()
   if (error) throw error
   return stageBlockSchema.parse(data)
+}
+
+/**
+ * Put blocks back, as an undo does: many at once, in the order given, and
+ * handed back in that order so the caller can tell which new row stands
+ * for which old one.
+ */
+export async function restoreStageBlocks(layoutId: string, rows: NewStageBlock[]): Promise<StageBlock[]> {
+  if (rows.length === 0) return []
+  const { data, error } = await supabase
+    .from('stage_blocks')
+    .insert(rows.map((r) => ({ layout_id: layoutId, ...r })))
+    .select('*')
+  if (error) throw error
+  return z.array(stageBlockSchema).parse(data ?? [])
 }
 
 export async function updateStageBlock(id: string, patch: BlockPatch): Promise<void> {
