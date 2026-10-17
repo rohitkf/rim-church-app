@@ -33,17 +33,38 @@ export const BLOCK_COLORS: { hex: string; name: string }[] = [
   { hex: '#8E8E93', name: 'Grey' },
 ]
 
+/** A row of seats: how many by default, and how wide each chair is drawn. */
+export const DEFAULT_SEATS = 10
+export const SEAT_PITCH = 44
+
 /** Blocks people reach for first, offered as one tap. */
-export const QUICK_BLOCKS = [
-  'Keyboard', 'Drums', 'Bass', 'Electric guitar', 'Acoustic guitar', 'Lead vocal',
-  'Backing vocals', 'Pulpit', 'Monitor', 'Screen', 'Piano', 'Violin',
-]
+export const QUICK_BLOCKS: Record<string, string[]> = {
+  Stage: ['Keyboard', 'Drums', 'Bass', 'Electric guitar', 'Acoustic guitar', 'Lead vocal', 'Backing vocals', 'Pulpit', 'Monitor', 'Screen', 'Piano', 'Violin'],
+  Audience: ['Welcome desk', 'Sound desk', 'Camera', 'Prayer team', 'Kids corner', 'Reserved', 'Aisle', 'Exit'],
+}
+
+/** The quick names for an area: its own list, or the stage's for one the app has not met. */
+export function quickBlocksFor(areaName: string): string[] {
+  return QUICK_BLOCKS[areaName] ?? [...QUICK_BLOCKS.Stage.slice(0, 6), ...QUICK_BLOCKS.Audience.slice(0, 6)]
+}
 
 const personSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() }).nullable()
+
+export const stageAreaSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  width: z.number(),
+  height: z.number(),
+  top_label: z.string(),
+  bottom_label: z.string(),
+  position: z.number(),
+})
+export type StageArea = z.infer<typeof stageAreaSchema>
 
 export const stageLayoutSchema = z.object({
   id: z.string(),
   session_id: z.string(),
+  area_id: z.string(),
   service_id: z.string(),
   width: z.number(),
   height: z.number(),
@@ -65,6 +86,9 @@ export const stageBlockSchema = z.object({
   h: z.coerce.number(),
   rotation: z.number(),
   z: z.number(),
+  /** A named box, or a row of seats drawn as chairs. */
+  kind: z.enum(['block', 'seats']).default('block'),
+  seats: z.number().default(0),
   placed_by: z.string().nullable(),
   placed_at: z.string(),
   updated_by: z.string().nullable(),
@@ -108,6 +132,7 @@ export type StageLogLine = z.infer<typeof stageLogSchema>
 export const stageTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
+  area_id: z.string(),
   width: z.number(),
   height: z.number(),
   blocks: z.array(z.record(z.string(), z.unknown())),
@@ -120,6 +145,7 @@ export type StageTemplate = z.infer<typeof stageTemplateSchema>
 export const stageTemplateRequestSchema = z.object({
   id: z.string(),
   name: z.string(),
+  area_id: z.string(),
   blocks: z.array(z.record(z.string(), z.unknown())),
   requested_by: z.string().nullable(),
   requested_at: z.string(),
@@ -154,6 +180,12 @@ export const PRIVILEGES: { key: StagePrivilege; column: keyof StageTeamAccess; l
  * Reading
  * ------------------------------------------------------------------ */
 
+export async function fetchStageAreas(): Promise<StageArea[]> {
+  const { data, error } = await supabase.from('stage_areas').select('*').order('position').order('name')
+  if (error) throw error
+  return z.array(stageAreaSchema).parse(data ?? [])
+}
+
 export async function fetchStageLayouts(serviceIds: string[]): Promise<StageLayout[]> {
   if (serviceIds.length === 0) return []
   const { data, error } = await supabase.from('stage_layouts').select('*').in('service_id', serviceIds)
@@ -173,8 +205,13 @@ export async function fetchStageBlockCounts(layoutIds: string[]): Promise<Record
   return counts
 }
 
-export async function fetchStageLayout(sessionId: string): Promise<StageLayout | null> {
-  const { data, error } = await supabase.from('stage_layouts').select('*').eq('session_id', sessionId).maybeSingle()
+export async function fetchStageLayout(sessionId: string, areaId: string): Promise<StageLayout | null> {
+  const { data, error } = await supabase
+    .from('stage_layouts')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('area_id', areaId)
+    .maybeSingle()
   if (error) throw error
   return data ? stageLayoutSchema.parse(data) : null
 }
@@ -238,23 +275,23 @@ export async function fetchStageTeamAccess(): Promise<StageTeamAccess[]> {
  * Writing
  * ------------------------------------------------------------------ */
 
-export async function ensureStageLayout(sessionId: string, serviceId: string): Promise<StageLayout> {
-  const existing = await fetchStageLayout(sessionId)
+export async function ensureStageLayout(sessionId: string, area: StageArea, serviceId: string): Promise<StageLayout> {
+  const existing = await fetchStageLayout(sessionId, area.id)
   if (existing) return existing
   const { data, error } = await supabase
     .from('stage_layouts')
-    .insert({ session_id: sessionId, service_id: serviceId })
+    .insert({ session_id: sessionId, area_id: area.id, service_id: serviceId, width: area.width, height: area.height })
     .select('*')
     .single()
   if (error) throw error
   return stageLayoutSchema.parse(data)
 }
 
-export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z'>>
+export type BlockPatch = Partial<Pick<StageBlock, 'label' | 'person_id' | 'color' | 'x' | 'y' | 'w' | 'h' | 'rotation' | 'z' | 'seats'>>
 
 export async function addStageBlock(
   layoutId: string,
-  block: { label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number },
+  block: { label: string; x: number; y: number; w?: number; h?: number; color?: string; z?: number; kind?: 'block' | 'seats'; seats?: number },
 ): Promise<StageBlock> {
   const { data, error } = await supabase
     .from('stage_blocks')
@@ -287,20 +324,20 @@ export async function deleteStageComment(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function clearStageLayout(sessionId: string): Promise<void> {
-  const { error } = await supabase.rpc('clear_stage_layout', { p_session: sessionId })
+export async function clearStageLayout(sessionId: string, areaId: string): Promise<void> {
+  const { error } = await supabase.rpc('clear_stage_layout', { p_session: sessionId, p_area: areaId })
   if (error) throw error
 }
 
 /** 'saved' straight into the library, or 'requested' for an Admin to answer. */
-export async function saveStageTemplate(sessionId: string, name: string): Promise<'saved' | 'requested'> {
-  const { data, error } = await supabase.rpc('save_stage_template', { p_session: sessionId, p_name: name })
+export async function saveStageTemplate(sessionId: string, areaId: string, name: string): Promise<'saved' | 'requested'> {
+  const { data, error } = await supabase.rpc('save_stage_template', { p_session: sessionId, p_area: areaId, p_name: name })
   if (error) throw error
   return z.enum(['saved', 'requested']).parse(data)
 }
 
-export async function applyStageTemplate(sessionId: string, templateId: string): Promise<void> {
-  const { error } = await supabase.rpc('apply_stage_template', { p_session: sessionId, p_template: templateId })
+export async function applyStageTemplate(sessionId: string, areaId: string, templateId: string): Promise<void> {
+  const { error } = await supabase.rpc('apply_stage_template', { p_session: sessionId, p_area: areaId, p_template: templateId })
   if (error) throw error
 }
 
@@ -316,6 +353,25 @@ export async function renameStageTemplate(id: string, name: string): Promise<voi
 
 export async function deleteStageTemplate(id: string): Promise<void> {
   const { error } = await supabase.rpc('delete_stage_template', { p_template: id })
+  if (error) throw error
+}
+
+/* The areas themselves: an Admin's, written straight to the table. */
+
+export type AreaDraft = Pick<StageArea, 'name' | 'width' | 'height' | 'top_label' | 'bottom_label'>
+
+export async function addStageArea(area: AreaDraft, position: number): Promise<void> {
+  const { error } = await supabase.from('stage_areas').insert({ ...area, position })
+  if (error) throw error
+}
+
+export async function updateStageArea(id: string, patch: Partial<AreaDraft>): Promise<void> {
+  const { error } = await supabase.from('stage_areas').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteStageArea(id: string): Promise<void> {
+  const { error } = await supabase.from('stage_areas').delete().eq('id', id)
   if (error) throw error
 }
 

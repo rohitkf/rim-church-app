@@ -160,7 +160,8 @@ const router = createBrowserRouter(
             <Route path="/feedback" lazy={page(() => import('./pages/FeedbackPage'), 'FeedbackPage')} />
             {/* Where everything stands on the morning, one drawing per session (0155). */}
             <Route path="/stage" lazy={page(() => import('./pages/StageLayoutIndexPage'), 'StageLayoutIndexPage')} />
-            <Route path="/stage/:sessionId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageLayoutPage')} />
+            <Route path="/stage/:sessionId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageAreaRedirect')} />
+            <Route path="/stage/:sessionId/:areaId" lazy={page(() => import('./pages/StageLayoutPage'), 'StageLayoutPage')} />
           </Route>
         </Route>
       </Route>

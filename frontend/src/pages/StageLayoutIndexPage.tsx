@@ -16,14 +16,15 @@ import { inStartOrder } from '../lib/upcomingServices'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { formatTime } from '../lib/time'
 import { formatRelativeTime } from '../lib/relativeTime'
-import { STAGE_KEY, fetchStageBlockCounts, fetchStageLayouts } from '../lib/stage'
+import { STAGE_KEY, fetchStageAreas, fetchStageBlockCounts, fetchStageLayouts } from '../lib/stage'
 import { useStageAccess } from '../lib/useStageAccess'
 import type { Service } from '../lib/types'
 
 /**
- * Every session that can have a stage, in the same four sections as the
- * other Sunday pages. Each row says whether anything is drawn yet and
- * when it last moved, and opens the stage itself.
+ * Every session that can have a layout, in the same four sections as the
+ * other Sunday pages. Under each session, one line per area — the stage,
+ * the hall, whatever the church has named — saying whether anything is
+ * drawn there yet and when it last moved.
  */
 
 const sessionSchema = z.object({
@@ -54,6 +55,7 @@ export function StageLayoutIndexPage() {
   const serviceIds = useMemo(() => services.map((s) => s.id).sort(), [services])
   const { isFinished, startsAt } = useFinishedServices(serviceIds)
 
+  const areasQuery = useQuery({ queryKey: [...STAGE_KEY, 'areas'], queryFn: fetchStageAreas })
   const sessionsQuery = useQuery({
     queryKey: ['service-sessions', 'stage-index', serviceIds],
     queryFn: () => fetchSessions(serviceIds),
@@ -77,9 +79,12 @@ export function StageLayoutIndexPage() {
     () => sectionServices(ordered, today, (s) => isFinished(s.id)),
     [ordered, today, isFinished],
   )
+  const areas = areasQuery.data ?? []
   const sessionsOf = (serviceId: string) =>
     (sessionsQuery.data ?? []).filter((s) => s.service_id === serviceId)
-  const layoutOf = (sessionId: string) => layouts.find((l) => l.session_id === sessionId)
+  const layoutOf = (sessionId: string, areaId: string) =>
+    layouts.find((l) => l.session_id === sessionId && l.area_id === areaId)
+  const mayDraw = may('add') || may('edit')
 
   const render = (list: Service[], finished: boolean) => (
     <div className="flex flex-col gap-6">
@@ -92,40 +97,47 @@ export function StageLayoutIndexPage() {
                 <h3 className="text-body-lg font-semibold text-on-surface">{service.service_type}</h3>
                 {finished && <Pill>Record</Pill>}
               </div>
-              <ul className="mt-3 flex flex-col gap-2">
-                {sessionsOf(service.id).map((session) => {
-                  const layout = layoutOf(session.id)
-                  const count = layout ? (countsQuery.data?.[layout.id] ?? 0) : 0
-                  return (
-                    <li key={session.id}>
-                      <Link
-                        to={`/stage/${session.id}`}
-                        className="tap flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 transition-colors hover:bg-raised-strong"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-body-sm font-medium text-on-surface">
-                            {session.session_name}
-                            <span className="ml-2 font-mono text-label-sm text-on-surface-faint">{formatTime(session.start_time)}</span>
-                          </span>
-                          <span className="block text-label-md text-on-surface-variant">
-                            {layout
-                              ? `${count} ${count === 1 ? 'block' : 'blocks'} · changed ${formatRelativeTime(layout.updated_at)}`
-                              : finished
-                                ? 'Nothing was drawn.'
-                                : may('add') || may('edit')
-                                  ? 'Nothing drawn yet — open it to start.'
-                                  : 'Nothing drawn yet.'}
-                          </span>
-                        </span>
-                        <span aria-hidden="true" className="text-on-surface-faint">›</span>
-                      </Link>
-                    </li>
-                  )
-                })}
+              <div className="mt-3 flex flex-col gap-4">
+                {sessionsOf(service.id).map((session) => (
+                  <div key={session.id}>
+                    <h4 className="text-body-sm font-medium text-on-surface">
+                      {session.session_name}
+                      <span className="ml-2 font-mono text-label-sm text-on-surface-faint">{formatTime(session.start_time)}</span>
+                    </h4>
+                    <ul className="mt-1.5 flex flex-col gap-1.5">
+                      {areas.map((area) => {
+                        const layout = layoutOf(session.id, area.id)
+                        const count = layout ? (countsQuery.data?.[layout.id] ?? 0) : 0
+                        return (
+                          <li key={area.id}>
+                            <Link
+                              to={`/stage/${session.id}/${area.id}`}
+                              className="tap flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-4 py-3 transition-colors hover:bg-raised-strong"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-body-sm text-on-surface">{area.name}</span>
+                                <span className="block text-label-md text-on-surface-variant">
+                                  {layout
+                                    ? `${count} ${count === 1 ? 'block' : 'blocks'} · changed ${formatRelativeTime(layout.updated_at)}`
+                                    : finished
+                                      ? 'Nothing was drawn.'
+                                      : mayDraw
+                                        ? 'Nothing drawn yet — open it to start.'
+                                        : 'Nothing drawn yet.'}
+                                </span>
+                              </span>
+                              <span aria-hidden="true" className="text-on-surface-faint">›</span>
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ))}
                 {sessionsOf(service.id).length === 0 && (
-                  <li className="text-body-sm text-on-surface-variant">No sessions planned yet.</li>
+                  <p className="text-body-sm text-on-surface-variant">No sessions planned yet.</p>
                 )}
-              </ul>
+              </div>
             </Tile>
           ))}
         </section>
@@ -142,10 +154,14 @@ export function StageLayoutIndexPage() {
       />
       <Lifespan page="stage" className="mb-4" />
       <QueryState
-        isLoading={servicesQuery.isLoading || sessionsQuery.isLoading}
-        error={servicesQuery.error ?? sessionsQuery.error ?? layoutsQuery.error}
-        isEmpty={services.length === 0}
-        emptyMessage="No services planned yet. Add one in the Service Planner and its sessions appear here."
+        isLoading={servicesQuery.isLoading || sessionsQuery.isLoading || areasQuery.isLoading}
+        error={servicesQuery.error ?? sessionsQuery.error ?? layoutsQuery.error ?? areasQuery.error}
+        isEmpty={services.length === 0 || (areasQuery.isSuccess && areas.length === 0)}
+        emptyMessage={
+          areasQuery.isSuccess && areas.length === 0
+            ? 'No areas to lay out. An Admin names them in Settings › Stage layout.'
+            : 'No services planned yet. Add one in the Service Planner and its sessions appear here.'
+        }
       >
         <ServiceSections
           sections={sections}

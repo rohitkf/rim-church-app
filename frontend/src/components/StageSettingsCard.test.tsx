@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS } from '../lib/appSettings'
 const db = vi.hoisted(() => ({
   saved: null as null | { rows: unknown[]; remove: string[] },
   decided: [] as { id: string; approve: boolean }[],
+  areas: [] as unknown[],
 }))
 
 vi.mock('../auth/AuthContext', async () => (await import('../test/settingsRow')).adminAuth())
@@ -27,9 +28,14 @@ vi.mock('../lib/stage', async () => {
     ...actual,
     fetchStageTeamAccess: () => Promise.resolve([]),
     fetchStageTemplates: () => Promise.resolve([]),
+    fetchStageAreas: () => Promise.resolve([{ id: 'A', name: 'Stage', width: 1200, height: 700, top_label: 'Back of stage', bottom_label: 'Front · congregation', position: 0 }]),
+    addStageArea: (area: unknown) => {
+      db.areas.push(area)
+      return Promise.resolve()
+    },
     fetchStageTemplateRequests: () =>
       Promise.resolve([
-        { id: 'r1', name: 'Full band', blocks: [{}, {}, {}], requested_by: 'u', requested_at: '2026-10-17T10:00:00Z', status: 'pending', decided_by: null, decided_at: null, requester: { id: 'u', first_name: 'Rohit', last_name: 'K' } },
+        { id: 'r1', name: 'Full band', area_id: 'A', blocks: [{}, {}, {}], requested_by: 'u', requested_at: '2026-10-17T10:00:00Z', status: 'pending', decided_by: null, decided_at: null, requester: { id: 'u', first_name: 'Rohit', last_name: 'K' } },
       ]),
     setStageTeamAccess: (rows: unknown[], remove: string[]) => {
       db.saved = { rows, remove }
@@ -53,6 +59,7 @@ function show() {
 beforeEach(() => {
   db.saved = null
   db.decided = []
+  db.areas = []
   settingsRow.reset({ ...DEFAULT_SETTINGS })
 })
 
@@ -75,7 +82,7 @@ describe('Settings › Stage layout', () => {
     const user = userEvent.setup()
     show()
     expect(await screen.findByText('Full band')).toBeInTheDocument()
-    expect(screen.getByText(/3 blocks · Rohit K/)).toBeInTheDocument()
+    expect(screen.getByText(/Stage · 3 blocks · Rohit K/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Approve' }))
     await waitFor(() => expect(db.decided).toEqual([{ id: 'r1', approve: true }]))
   })
@@ -92,5 +99,14 @@ describe('Settings › Stage layout', () => {
     await user.click(screen.getByRole('combobox', { name: 'Day stage layouts clear' }))
     await user.click(await screen.findByRole('option', { name: 'Never' }))
     expect(screen.queryByRole('combobox', { name: 'Hour stage layouts clear' })).toBeNull()
+  })
+
+  it('lists the areas and adds one', async () => {
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('textbox', { name: 'Stage: Name' })).toHaveValue('Stage')
+    await user.type(screen.getByRole('textbox', { name: 'New area name' }), 'Foyer')
+    await user.click(screen.getByRole('button', { name: 'Add area' }))
+    await waitFor(() => expect(db.areas).toEqual([{ name: 'Foyer', width: 1200, height: 700, top_label: 'Back', bottom_label: 'Front' }]))
   })
 })
