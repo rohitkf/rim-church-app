@@ -227,7 +227,7 @@ export function StageLayoutPage() {
   const lock = useMutation({
     mutationFn: ({ id, on }: { id: string; on: boolean }) => lockStageBlock(id, on),
     onSuccess: (_r, { on }) => {
-      showToast(on ? 'Locked — only an Admin can move it now' : 'Unlocked')
+      showToast(on ? 'Locked — nobody moves it until it is unlocked' : 'Unlocked')
       return invalidate()
     },
     onError: fail('Could not change the lock.'),
@@ -417,11 +417,16 @@ export function StageLayoutPage() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           canEdit={canEdit}
-          canMove={(b) => !b.locked_at || isAdmin}
+          canMove={(b) => !b.locked_at}
+          onRefused={(id) => {
+            const b = blocks.find((x) => x.id === id)
+            if (!b?.locked_at) return
+            showToast(isAdmin ? 'Locked — unlock it first' : 'Locked — ask an Admin, or propose a move')
+          }}
           proposing={proposing}
           onPropose={(id, box) => setProposal({ id, box })}
           onCommit={onCommit}
-          onDelete={canDelete ? (id) => { const b = blocks.find((x) => x.id === id); if (b && (!b.locked_at || isAdmin)) confirmDelete(b) } : undefined}
+          onDelete={canDelete ? (id) => { const b = blocks.find((x) => x.id === id); if (b && !b.locked_at) confirmDelete(b) } : undefined}
           onDuplicate={canAdd ? (id) => { const b = blocks.find((x) => x.id === id); if (b) duplicate.mutate(b) } : undefined}
         />
         {proposing && (
@@ -447,8 +452,8 @@ export function StageLayoutPage() {
           <BlockInspector
             key={selected.id}
             block={selected}
-            canEdit={canEdit && (!selected.locked_at || isAdmin)}
-            canDelete={canDelete && (!selected.locked_at || isAdmin)}
+            canEdit={canEdit && !selected.locked_at}
+            canDelete={canDelete && !selected.locked_at}
             canDuplicate={canAdd}
             canComment={canComment}
             isAdmin={isAdmin && !finished}
@@ -662,7 +667,8 @@ function BlockInspector({
 
       {block.locked_at && (
         <p className="mt-3 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-3.5 py-2.5 text-body-sm text-on-surface">
-          <strong className="font-medium">Locked</strong> by {stampText(block.locker, block.locked_at)}. Only an Admin can move or change it.
+          <strong className="font-medium">Locked</strong> by {stampText(block.locker, block.locked_at)}.{' '}
+          {isAdmin ? 'Nothing on it changes until it is unlocked — Unlock first.' : 'Nobody can move or change it until an Admin unlocks it.'}
           {mayAsk && (
             <>
               {' '}

@@ -30,7 +30,10 @@ const db = vi.hoisted(() => ({
   asks: [] as Record<string, unknown>[],
   decided: [] as { id: string; approve: boolean }[],
   pendingAsks: [] as Record<string, unknown>[],
+  toasts: [] as string[],
 }))
+
+vi.mock('../lib/toast', () => ({ showToast: (text: string) => db.toasts.push(text) }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: db.isAdmin }) }))
 vi.mock('../lib/useTheme', () => ({ useTheme: () => ({ resolved: 'dark' }) }))
@@ -151,6 +154,7 @@ beforeEach(() => {
   db.may = { add: true, edit: true, delete: true, comment: true, templates: false }
   db.finished = false
   db.isAdmin = false
+  db.toasts = []
   db.locks = []
   db.asks = []
   db.decided = []
@@ -319,6 +323,33 @@ describe('a session’s stage', () => {
     await user.click(screen.getByRole('button', { name: 'Send the ask' }))
     await waitFor(() => expect(db.asks).toEqual([{ id: 'b1', box: { x: 220, y: 100, w: 160, h: 100, area_id: 'A' }, note: 'Camera needs it left' }]))
     expect(db.patched).toEqual([])
+  })
+
+  it('keeps a locked block still for the Admin too: unlock first, then change', async () => {
+    const user = userEvent.setup()
+    db.isAdmin = true
+    db.blocks = [block({ locked_by: 'me', locked_at: '2026-10-17T09:00:00Z', locker: { id: 'me', first_name: 'Rohit', last_name: 'K' } })]
+    show()
+    const el = await screen.findByRole('button', { name: 'Keyboard (locked)' })
+    await user.click(el)
+    expect(screen.getByText(/by Rohit K/)).toHaveTextContent(/Unlock first/)
+    expect(screen.queryByRole('textbox', { name: 'Block name' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Propose a move' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Unlock' })).toBeInTheDocument()
+    // A pull on it moves nothing and says why.
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 200, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 200, clientY: 100 })
+    expect(db.patched).toEqual([])
+    expect(db.toasts).toEqual(['Locked — unlock it first'])
+    // Delete on the keyboard is refused too.
+    fireEvent.keyDown(screen.getByRole('application', { name: 'Stage' }), { key: 'Delete' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(db.deleted).toEqual([])
+    // Unlock is the way.
+    await user.click(screen.getByRole('button', { name: 'Unlock' }))
+    await waitFor(() => expect(db.locks).toEqual([{ id: 'b1', on: false }]))
   })
 
   it('shows an Admin the asks on a block, to approve or decline', async () => {

@@ -125,6 +125,25 @@ describe('the stage canvas', () => {
     expect(onPropose).not.toHaveBeenCalled()
   })
 
+  it('tells the caller once when a block that cannot move is pulled, not on a plain tap', () => {
+    const onRefused = vi.fn()
+    const locked = block({ locked_by: 'a', locked_at: '2026-10-17T09:00:00Z' })
+    const { onCommit, onSelect } = draw({ blocks: [locked], canMove: () => false, onRefused })
+    const el = screen.getByRole('button', { name: 'Keyboard (locked)' })
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 101, clientY: 100 })
+    expect(onSelect).toHaveBeenLastCalledWith('b1')
+    expect(onRefused).not.toHaveBeenCalled()
+    fireEvent.pointerDown(el, { pointerId: 2, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 2, clientX: 130, clientY: 100 })
+    fireEvent.pointerMove(el, { pointerId: 2, clientX: 160, clientY: 100 })
+    fireEvent.pointerUp(el, { pointerId: 2, clientX: 160, clientY: 100 })
+    expect(onRefused).toHaveBeenCalledTimes(1)
+    expect(onRefused).toHaveBeenCalledWith('b1')
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(el.style.left).toBe('100px')
+  })
+
   it('turns a drag into a proposal for the block being proposed', () => {
     const onPropose = vi.fn()
     const locked = block({ locked_by: 'a', locked_at: '2026-10-17T09:00:00Z' })
