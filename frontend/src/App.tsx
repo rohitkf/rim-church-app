@@ -101,6 +101,7 @@ const router = createBrowserRouter(
             {/* The index is the hall: every room, grouped. */}
             <Route index element={null} />
             <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
+            <Route path="pages" lazy={page(() => import('./pages/SettingsPage'), 'PagesPane')} />
             <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
             <Route path="timings" lazy={page(() => import('./pages/SettingsPage'), 'TimingsSettingsPane')} />
             <Route path="retention" lazy={page(() => import('./pages/SettingsPage'), 'RetentionSettingsPane')} />

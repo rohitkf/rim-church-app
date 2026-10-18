@@ -154,9 +154,10 @@ the reverse) never break each other.
 
 | Room | Holds |
 |---|---|
-| Access & privileges | **By page** (one section per page: who can open it, what each profile may do on it, and — with a team picked at the top — that team's own rules, 0162) · **By role** (the same grid a profile at a time) · **Pages** (who can open each, with a live preview of each profile's menu) |
+| Page by page | one section per page of the app, in the menu's order (Serving as its three tabs; the bell, Send an alert and the app itself last): the page's own settings from the catalog (`lib/settingsCatalog`, filed by `affects`), links to the rooms with its own controls, who can open it, **Team by team** — a card per team, folded to what each of its profiles may do here, open to a grid of the page's rules against Head · Assisting Head · Coordinator · Team Member, each cell the team's own choice or "As the church" (0162) — and the church-wide rule every team follows unless it sets its own. One Save for settings, opening rules and permissions; `#rota` opens a page's section |
+| Access & privileges | **By role** (the whole grid a profile at a time) · **Pages** (who can open each, with a live preview of each profile's menu) |
 | Stage layout | which teams may add · edit · delete · comment · keep templates (`stage_team_access`); the **areas** every service's workspace is made of (`stage_areas`: name, size, edge labels, order — Stage and Audience to begin with, stacked top to bottom); template requests waiting for an Admin; the template library (the whole workspace, with each block's corners and picture, 0160); the clear day and hour. Locking a block (Admin/Owner only) and answering asks to move one happen on the stage page itself; a locked block is nobody's to change until it is unlocked, the Admin's included, and a template or a clear over one is refused (0157, 0159) |
-| Timings | when things open and close (unchanged, minus clean-up) |
+| Timings | when things open and close — the catalog's rows, grouped by the moment in the week |
 | Data & retention | every clock in §2, what is kept on purpose, and the upload limits |
 | Dashboard & lists | everything in §3 |
 | Team Rota · Giving · Menu | unchanged |

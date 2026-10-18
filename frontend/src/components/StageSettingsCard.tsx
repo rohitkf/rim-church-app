@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchDepartments } from '../lib/queries'
 import { useErrorText } from '../lib/useErrorText'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
-import { DEFAULT_SETTINGS, WEEKDAY_NAMES } from '../lib/appSettings'
+import { settingEntry } from '../lib/settingsCatalog'
 import { showToast } from '../lib/toast'
 import {
   PRIVILEGES,
@@ -24,9 +24,9 @@ import {
   type StageTeamAccess,
 } from '../lib/stage'
 import { ActionButton, SectionTile, inputClasses } from './Surface'
-import { Select } from './Select'
 import { QueryState } from './QueryState'
-import { InlineRow, SaveBar, SettingList } from './SettingRows'
+import { SaveBar, SettingList } from './SettingRows'
+import { SettingEntries } from './SettingEntry'
 import { TeamMark } from './TeamMark'
 import { useConfirmAction } from './ConfirmAction'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -135,8 +135,6 @@ export function StageSettingsCard() {
   })
 
   const pending = (requests.data ?? []).filter((r) => r.status === 'pending')
-  const weekdayOptions = [{ value: 'never', label: 'Never' }, ...WEEKDAY_NAMES.map((name, dow) => ({ value: String(dow), label: name }))]
-  const hourOptions = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -278,38 +276,17 @@ export function StageSettingsCard() {
           {room.draft && (
             <>
               <SettingList>
-                <InlineRow
-                  label="Layouts clear every"
-                  summary="The day the stages of held services are wiped."
-                  changed={room.differs('stage_clear_dow')}
-                  help="On this day, at the hour below, every stage layout whose service date has passed is deleted with its comments and its history. Layouts for services still to come are never touched, and templates never are. Never leaves them to go with their service on the Services clock."
-                  affects={['Stage Layout']}
-                  defaultText={WEEKDAY_NAMES[DEFAULT_SETTINGS.stage_clear_dow ?? 2]}
-                >
-                  <Select
-                    value={room.draft.stage_clear_dow === null ? 'never' : String(room.draft.stage_clear_dow)}
-                    onChange={(v) => room.set('stage_clear_dow', v === 'never' ? null : Number(v))}
-                    aria-label="Day stage layouts clear"
-                    options={weekdayOptions}
-                  />
-                </InlineRow>
-                {room.draft.stage_clear_dow !== null && (
-                  <InlineRow
-                    label="At"
-                    summary="The hour, in the church’s timezone."
-                    changed={room.differs('stage_clear_hour')}
-                    help="The job runs once an hour and acts in this one. Early morning keeps it clear of anybody still drawing late on the day before."
-                    affects={['Stage Layout']}
-                    defaultText={`${String(DEFAULT_SETTINGS.stage_clear_hour).padStart(2, '0')}:00`}
-                  >
-                    <Select
-                      value={String(room.draft.stage_clear_hour)}
-                      onChange={(v) => room.set('stage_clear_hour', Number(v))}
-                      aria-label="Hour stage layouts clear"
-                      options={hourOptions}
-                    />
-                  </InlineRow>
-                )}
+                <SettingEntries
+                  entries={['stage_clear_dow', 'stage_clear_hour'].map(settingEntry)}
+                  draft={room.draft}
+                  stored={room.query.data ?? {}}
+                  set={(patch) => {
+                    if ('stage_clear_dow' in patch) room.set('stage_clear_dow', patch.stage_clear_dow ?? null)
+                    if ('stage_clear_hour' in patch) room.set('stage_clear_hour', patch.stage_clear_hour ?? 3)
+                  }}
+                  open={null}
+                  onToggle={() => {}}
+                />
               </SettingList>
               <SaveBar
                 changed={room.changed}
