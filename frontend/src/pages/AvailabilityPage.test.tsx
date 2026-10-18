@@ -92,6 +92,10 @@ vi.mock('../lib/supabaseClient', () => ({
         state.written.push({ table, row })
         return Promise.resolve({ error: null })
       },
+      upsert: (row: unknown) => {
+        state.written.push({ table, row })
+        return Promise.resolve({ error: null })
+      },
       update: (row: unknown) => ({
         eq: (_column: string, id: string) => {
           state.written.push({ table, row, id })
@@ -892,6 +896,25 @@ describe('the history of somebody’s answer', () => {
     await screen.findAllByText('Joel Skaria')
     expect(screen.queryByRole('button', { name: /^History/ })).toBeNull()
     expect(state.read).not.toContain('availability_history')
+  })
+
+  it('asks before changing an answer already given, and says a No takes you off the rota', async () => {
+    state.rows = {
+      department_members: [{ id: 'm1', department_id: 'd1', user_id: 'u1', member_type: 'core', created_at: 'x', profiles: { id: 'u1', first_name: 'Me', last_name: 'Self', avatar_url: null } }],
+      availability: [{ id: 'mine', service_id: 's1', department_id: 'd1', user_id: 'u1', status: 'available', note: null, attended: null, updated_at: 'x' }],
+    }
+    show()
+    const group = await screen.findAllByRole('group', { name: /Can you serve at English Service for Media/ })
+    await userEvent.click(within(group[0]).getByRole('button', { name: 'No' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent("Change your answer to “Can't make it”?")
+    expect(dialog).toHaveTextContent('takes you off any role')
+    expect(state.written).toEqual([])
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep “Available”' }))
+    expect(state.written).toEqual([])
+    await userEvent.click(within(group[0]).getByRole('button', { name: 'Maybe' }))
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Change answer' }))
+    await waitFor(() => expect(state.written).toContainEqual(expect.objectContaining({ table: 'availability', row: expect.objectContaining({ status: 'tentative' }) })))
   })
 
   it('lets a Head change an answer already given, as a change and not a re-add (0163)', async () => {

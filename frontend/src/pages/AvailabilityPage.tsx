@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
+import { useConfirmAction } from '../components/ConfirmAction'
 import { QueryState } from '../components/QueryState'
 import { PageHeader } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
@@ -222,6 +223,9 @@ export function AvailabilityPage() {
   // (Settings › Access & privileges). Admins seeing every team, and not
   // answering for themselves here, stay as they were.
   const { can } = usePermissions()
+  // A changed answer is asked about first: a tap that slides from Yes to No
+  // takes somebody off the rota, and one slip should not do that.
+  const { ask, dialog } = useConfirmAction()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const myId = session?.user.id
@@ -836,13 +840,26 @@ export function AvailabilityPage() {
                         type="button"
                         title={opt.full}
                         aria-pressed={active}
-                        onClick={() =>
-                          setAvailability.mutate({
-                            serviceId: service.id,
-                            departmentId: dept.id,
-                            status: opt.value,
+                        onClick={() => {
+                          const send = () =>
+                            setAvailability.mutate({
+                              serviceId: service.id,
+                              departmentId: dept.id,
+                              status: opt.value,
+                            })
+                          if (!mine || mine === opt.value) return send()
+                          const was = STATUS_OPTIONS.find((o) => o.value === mine)?.full ?? mine
+                          ask({
+                            title: `Change your answer to “${opt.full}”?`,
+                            body:
+                              opt.value === 'unavailable'
+                                ? `You said “${was}”. Saying you can’t make it takes you off any role you are on for this service, and your Head is told.`
+                                : `You said “${was}”.`,
+                            confirmLabel: 'Change answer',
+                            cancelLabel: `Keep “${was}”`,
+                            onConfirm: send,
                           })
-                        }
+                        }}
                         disabled={setAvailability.isPending}
                         className={`flex h-11 flex-1 items-center justify-center rounded-full text-body-sm transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-60 ${
                           active
@@ -1098,6 +1115,7 @@ export function AvailabilityPage() {
 
   return (
     <div>
+      {dialog}
       <PageHeader
         eyebrow={isAdmin ? 'All teams' : 'Your answers'}
         title={isAdmin ? 'Availability Tracker' : 'Can you serve?'}
