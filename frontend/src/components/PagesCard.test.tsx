@@ -171,6 +171,16 @@ describe('Page by page', () => {
     expect(db.rpc[0].args).toEqual({ p_changes: [{ role: 'member', capability: 'rota.assign', reach: 'team' }] })
   })
 
+  it('relights Issues’ opening rule as soon as everyone may raise one, before Save', async () => {
+    const user = await show()
+    expect(section('Issues')).toHaveTextContent('opens to Teams')
+    await user.click(section('Issues'))
+    await user.click(screen.getByRole('combobox', { name: 'Who can raise an issue' }))
+    await user.click(await screen.findByRole('option', { name: 'Everyone signed in' }))
+    expect(section('Issues')).toHaveTextContent('opens to Everyone')
+    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Who can raise one')
+  })
+
   it('opens the page an anchor names', async () => {
     await show('/settings/pages#availability')
     expect(section('Availability')).toHaveAttribute('aria-expanded', 'true')

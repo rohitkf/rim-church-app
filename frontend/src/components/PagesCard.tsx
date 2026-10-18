@@ -77,10 +77,10 @@ export function PagesCard() {
   const draft = room.draft
   const storedRow = room.query.data ?? {}
   const access = (draft?.page_access ?? {}) as PageAccess
-  const areas = useMemo(
-    () => withGrants(withPageAccess(access, settings.issues_raise_scope), working),
-    [access, settings.issues_raise_scope, working],
-  )
+  // Issues opens to whoever may raise one, so a change to that here
+  // relights its row before it is saved, like any other choice.
+  const scope = draft?.issues_raise_scope ?? settings.issues_raise_scope
+  const areas = useMemo(() => withGrants(withPageAccess(access, scope), working), [access, scope, working])
 
   const toggleIn = (set: (f: (s: Set<string>) => Set<string>) => void, id: string) =>
     set((current) => {
@@ -177,7 +177,7 @@ export function PagesCard() {
                     }}
                     openRow={openRow}
                     onToggleRow={(id) => setOpenRow((cur) => (cur === id ? null : id))}
-                    level={levelOf(page.to, access, settings.issues_raise_scope)}
+                    level={levelOf(page.to, access, scope)}
                     chooseOpen={(key, level) => {
                       setSaved(false)
                       room.set('page_access', compactAccess({ ...access, [key]: level }) as Record<string, string>)
