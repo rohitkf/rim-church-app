@@ -33,6 +33,17 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
 import { humanError, isRotaClash } from '../lib/humanError'
 import { availableFirst, rotaConflict } from '../lib/rotaConflict'
+import { fetchTeamGuests } from '../lib/guestAvailability'
+import {
+  assignGuestToRota,
+  fetchGuestAnswersForRota,
+  fetchGuestRota,
+  guestIdOf,
+  guestKey,
+  isGuestKey,
+  removeGuestFromRota,
+  type RotaRow,
+} from '../lib/guestRota'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
@@ -273,6 +284,33 @@ export function TeamRotaPage() {
     queryFn: () => fetchMembersForDepartments(myDepartmentIds),
     enabled: myDepartmentIds.length > 0,
   })
+
+  /*
+   * The guest roll's people on these teams, with no account (0161): their
+   * yes is given for them (0166) and their roles kept apart (0167). Both
+   * come back keyed `guest:<id>`, so the lists below take them like
+   * anybody else.
+   */
+  const teamGuestsQuery = useQuery({
+    queryKey: ['rota-team-guests', myDepartmentIds],
+    queryFn: () => fetchTeamGuests(myDepartmentIds),
+    enabled: myDepartmentIds.length > 0,
+  })
+  const hasRollGuests = (teamGuestsQuery.data ?? []).length > 0
+  const guestRotaQuery = useQuery({
+    queryKey: ['rota', 'guests', upcomingIds],
+    queryFn: () => fetchGuestRota(upcomingIds),
+    enabled: upcomingIds.length > 0 && hasRollGuests,
+  })
+  const guestAnswersQuery = useQuery({
+    queryKey: ['availability', 'rota-guests', upcomingIds],
+    queryFn: () => fetchGuestAnswersForRota(upcomingIds),
+    enabled: upcomingIds.length > 0 && hasRollGuests,
+  })
+  const answersHere = useMemo(
+    () => [...(availabilityQuery.data ?? []), ...(guestAnswersQuery.data ?? [])],
+    [availabilityQuery.data, guestAnswersQuery.data],
+  )
   const groupsQuery = useQuery({
     queryKey: ['role-groups', myDepartmentIds],
     queryFn: () => fetchRoleGroupsFor(myDepartmentIds),
@@ -285,7 +323,7 @@ export function TeamRotaPage() {
   })
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['rota', upcomingIds] })
+    queryClient.invalidateQueries({ queryKey: ['rota'] })
     queryClient.invalidateQueries({ queryKey: ['rota-requests'] })
   }
 
@@ -335,6 +373,10 @@ export function TeamRotaPage() {
       tagIds: string[]
       halves: { pre: boolean; post: boolean }
     }) => {
+      // Somebody with no account: a role and nothing else (0167).
+      if (isGuestKey(userId)) {
+        return assignGuestToRota({ serviceId, departmentId, guestId: guestIdOf(userId), roleLabel, roleId })
+      }
       // One call, so a role is never left assigned without its tags.
       const { error } = await supabase.rpc('assign_to_rota', {
         service: serviceId,
@@ -388,7 +430,8 @@ export function TeamRotaPage() {
   })
 
   const removeAssignment = useMutation({
-    mutationFn: async (assignmentId: string) => {
+    mutationFn: async ({ id: assignmentId, guest }: { id: string; guest?: boolean }) => {
+      if (guest) return removeGuestFromRota(assignmentId)
       const { error } = await supabase.from('rota_assignments').delete().eq('id', assignmentId)
       if (error) throw error
     },
@@ -437,7 +480,10 @@ export function TeamRotaPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not answer the request.')),
   })
 
-  const assignments = rotaQuery.data ?? []
+  const assignments: RotaRow[] = useMemo(
+    () => [...(rotaQuery.data ?? []), ...(guestRotaQuery.data ?? [])],
+    [rotaQuery.data, guestRotaQuery.data],
+  )
   const requests = requestsQuery.data ?? []
 
   // Requests waiting on me: I answer for the team that currently holds the person.
@@ -560,7 +606,7 @@ export function TeamRotaPage() {
                       // Only people who marked themselves available for this
                       // service, on this team, can be put on the rota for it.
                       const availableHere = new Set(
-                        (availabilityQuery.data ?? [])
+                        answersHere
                           .filter(
                             (a) =>
                               a.service_id === service.id &&
@@ -572,18 +618,32 @@ export function TeamRotaPage() {
                       // What each of them said with their yes — "only there by
                       // 8.30" — so it is read while choosing, not after.
                       const noteOf = (userId: string) =>
-                        (availabilityQuery.data ?? []).find(
+                        answersHere.find(
                           (a) =>
                             a.service_id === service.id &&
                             a.department_id === dept.id &&
                             a.user_id === userId,
                         )?.note ?? null
-                      const roster = (membersQuery.data ?? []).filter(
-                        (m) =>
-                          m.department_id === dept.id &&
-                          m.member_type === 'core' &&
-                          availableHere.has(m.user_id),
-                      )
+                      /*
+                       * Everybody on the team who said yes: the core team
+                       * first, then its guests — with an account or, on
+                       * the guest roll, without one.
+                       */
+                      const accountRoster = (membersQuery.data ?? [])
+                        .filter((m) => m.department_id === dept.id && availableHere.has(m.user_id))
+                        .map((m) => ({
+                          key: m.user_id,
+                          name: m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown',
+                          guest: m.member_type === 'guest',
+                        }))
+                      const rollRoster = (teamGuestsQuery.data ?? [])
+                        .filter((g) => g.department_id === dept.id && availableHere.has(guestKey(g.guest_id)))
+                        .map((g) => ({ key: guestKey(g.guest_id), name: g.guests?.name ?? 'Unknown', guest: true }))
+                      const roster = [
+                        ...accountRoster.filter((m) => !m.guest),
+                        ...accountRoster.filter((m) => m.guest),
+                        ...rollRoster,
+                      ]
                       const deptRoles = (rolesQuery.data ?? []).filter((r) => r.department_id === dept.id)
                       const deptGroups = (groupsQuery.data ?? []).filter(
                         (g) => g.department_id === dept.id,
@@ -596,7 +656,9 @@ export function TeamRotaPage() {
                       const chosenPerson = draftPerson[key] ?? ''
                       // A conflict is the same person already holding a role
                       // anywhere else in this service.
-                      const clash = chosenPerson
+                      // Somebody with no account cannot be asked for: they
+                      // are taken off the other team first (0167).
+                      const clash = chosenPerson && !isGuestKey(chosenPerson)
                         ? serviceAssignments.find((a) => a.user_id === chosenPerson && a.department_id !== dept.id)
                         : undefined
                       const clashRequest = clash ? pendingFor(clash.id) : undefined
@@ -746,7 +808,7 @@ export function TeamRotaPage() {
                                             to everyone when only one is, so the
                                             row says "Before only"; a manager can
                                             switch either, never both off. */}
-                                        {(manage || !a.include_pre || !a.include_post) && (
+                                        {!a.guest && (manage || !a.include_pre || !a.include_post) && (
                                           <span className="relative flex items-center gap-1.5" role="group" aria-label={`Checklists for ${a.role_label}`}>
                                             {(['pre', 'post'] as const).map((half) => {
                                               const on = half === 'pre' ? a.include_pre : a.include_post
@@ -822,7 +884,7 @@ export function TeamRotaPage() {
                                                   } off ${a.role_label}?`,
                                                   body: 'The role goes back to unassigned for this service.',
                                                   confirmLabel: 'Remove',
-                                                  onConfirm: () => removeAssignment.mutate(a.id),
+                                                  onConfirm: () => removeAssignment.mutate({ id: a.id, guest: a.guest }),
                                                 })
                                               }
                                               aria-label={`Remove ${a.role_label}`}
@@ -889,6 +951,13 @@ export function TeamRotaPage() {
                                 e.preventDefault()
                                 const role = (draftRole[key] ?? '').trim()
                                 if (!role || !chosenPerson || clash) return
+                                if (isGuestKey(chosenPerson) && isCoordinatorRole(role)) {
+                                  setClashNotice({
+                                    title: 'A guest with no account can’t coordinate',
+                                    body: 'Coordinating means signing in to run the team’s checklist. Pick another role for them, or somebody else.',
+                                  })
+                                  return
+                                }
                                 const held = rotaConflict(serviceAssignments, {
                                   serviceId: service.id,
                                   departmentId: dept.id,
@@ -988,21 +1057,17 @@ export function TeamRotaPage() {
                                   aria-label="Person"
                                   placeholder="Select…"
                                   options={availableFirst(roster.map((m) => {
-                                    const name = m.profiles
-                                      ? `${m.profiles.first_name} ${m.profiles.last_name}`
-                                      : m.user_id
-                                    const held = heldInTeam(m.user_id, draftRole[key] ?? '')
+                                    const name = m.guest ? `${m.name} (guest)` : m.name
+                                    const held = heldInTeam(m.key, draftRole[key] ?? '')
                                     return held
                                       ? {
-                                          value: m.user_id,
+                                          value: m.key,
                                           label: `${name} — ${held.role_label}${tagNote(held.tags)}`,
                                           disabled: true,
                                         }
                                       : {
-                                          value: m.user_id,
-                                          label: noteOf(m.user_id)
-                                            ? `${name} · “${noteOf(m.user_id)}”`
-                                            : name,
+                                          value: m.key,
+                                          label: noteOf(m.key) ? `${name} · “${noteOf(m.key)}”` : name,
                                         }
                                   }))}
                                 />
@@ -1010,6 +1075,9 @@ export function TeamRotaPage() {
                               {/* Which halves of the role's checklist this person
                                   carries at this service. Both unless one is
                                   unticked — and never neither. */}
+                              {/* A guest with no account has no checklist,
+                                  so nothing to split or tag (0167). */}
+                              {!isGuestKey(chosenPerson) && (
                               <fieldset className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5">
                                 <legend className="sr-only">Checklists for this role</legend>
                                 <span className="text-label-sm text-on-surface-variant">Checklists:</span>
@@ -1033,9 +1101,10 @@ export function TeamRotaPage() {
                                   )
                                 })}
                               </fieldset>
+                              )}
                               {/* The church's own tags, from App
                                   settings — as many as apply. */}
-                              {tagging && offeredTags.length > 0 && (
+                              {tagging && offeredTags.length > 0 && !isGuestKey(chosenPerson) && (
                                 <div className="flex w-full flex-wrap items-center gap-1.5" role="group" aria-label="Tags">
                                   {offeredTags.map((tag) => {
                                     const on = (draftTags[key] ?? []).includes(tag.id)
