@@ -45,6 +45,7 @@ import { Select } from '../components/Select'
 import { AskToChangeAnswer, LateAnswerQueue } from '../components/LateAnswerRequest'
 import { AnswerHistory } from '../components/AnswerHistory'
 import { fetchAvailabilityHistory, historyOf } from '../lib/availabilityHistory'
+import { fetchGuestAnswerHistory, fetchGuestAnswers, fetchTeamGuests, setGuestAnswer } from '../lib/guestAvailability'
 import {
   AVAILABILITY_REQUESTS_KEY,
   askToChangeAnswer,
@@ -85,6 +86,17 @@ const statusTextClass: Record<AvailabilityStatus, string> = {
   available: 'text-success',
   tentative: 'text-warning',
   unavailable: 'text-error',
+}
+
+/** Somebody on a team's list: an account holder, or a name on the guest roll. */
+interface TrackedPerson {
+  /** The membership row's id. */
+  id: string
+  /** The account, or for the guest roll the guest — what their answers are keyed by. */
+  user_id: string
+  member_type: 'core' | 'guest'
+  name: string
+  noAccount: boolean
 }
 
 async function fetchAvailability(serviceIds: string[]): Promise<AvailabilityRow[]> {
@@ -396,6 +408,27 @@ export function AvailabilityPage() {
     enabled: myDepartmentIds.length > 0,
   })
 
+  /*
+   * The guest roll's people on those teams (0161), who have no account and
+   * so no answer of their own: whoever may answer for others answers for
+   * them (0166). Their answers come back keyed by the guest, so the lists
+   * below take them like anybody else's.
+   */
+  const teamGuestsQuery = useQuery({
+    queryKey: ['availability-team-guests', myDepartmentIds],
+    queryFn: () => fetchTeamGuests(myDepartmentIds),
+    enabled: myDepartmentIds.length > 0,
+  })
+  const guestAnswersQuery = useQuery({
+    queryKey: ['availability', 'guests', upcomingIds],
+    queryFn: () => fetchGuestAnswers(upcomingIds),
+    enabled: upcomingIds.length > 0 && (teamGuestsQuery.data ?? []).length > 0,
+  })
+  const allAnswers = useMemo(
+    () => [...(availabilityQuery.data ?? []), ...(guestAnswersQuery.data ?? [])],
+    [availabilityQuery.data, guestAnswersQuery.data],
+  )
+
   // The per-person breakdown, with who turned up, is for whoever may
   // change somebody else's answer on that team.
   const ledDepartmentIds = useMemo(
@@ -421,7 +454,15 @@ export function AvailabilityPage() {
     queryFn: () => fetchAvailabilityHistory(upcomingIds),
     enabled: readsHistory && upcomingIds.length > 0,
   })
-  const history = historyQuery.data ?? []
+  const guestHistoryQuery = useQuery({
+    queryKey: ['availability', 'guest-history', upcomingIds],
+    queryFn: () => fetchGuestAnswerHistory(upcomingIds),
+    enabled: readsHistory && upcomingIds.length > 0 && (teamGuestsQuery.data ?? []).length > 0,
+  })
+  const history = useMemo(
+    () => [...(historyQuery.data ?? []), ...(guestHistoryQuery.data ?? [])],
+    [historyQuery.data, guestHistoryQuery.data],
+  )
 
   // Admins are here to watch the numbers, not to answer for themselves:
   // they see every team, and a row of buttons on each one is noise on a
@@ -547,13 +588,17 @@ export function AvailabilityPage() {
       serviceId,
       departmentId,
       status,
+      guest,
     }: {
       answerId: string | null
       userId: string
       serviceId: string
       departmentId: string
       status: AvailabilityStatus | null
+      /** Somebody on the guest roll, whose answers are kept apart (0166). */
+      guest?: boolean
     }) => {
+      if (guest) return setGuestAnswer({ answerId, guestId: userId, serviceId, departmentId, status })
       if (status === null) {
         if (!answerId) return
         const { error } = await supabase.from('availability').delete().eq('id', answerId)
@@ -712,13 +757,29 @@ export function AvailabilityPage() {
             (m) => m.department_id === dept.id,
           )
           const coreMembers = onTeam.filter((m) => m.member_type === 'core')
-          const answers = (availabilityQuery.data ?? []).filter(
+          /*
+           * The roll's people on the team, as people on it: core or guest
+           * the same way, keyed by the guest — and a core one counts
+           * towards the team like any other core member.
+           */
+          const rollPeople: TrackedPerson[] = (teamGuestsQuery.data ?? [])
+            .filter((g) => g.department_id === dept.id)
+            .map((g) => ({
+              id: g.id,
+              user_id: g.guest_id,
+              member_type: g.member_type,
+              name: g.guests?.name ?? 'Unknown',
+              noAccount: true,
+            }))
+          const answers = allAnswers.filter(
             (a) => a.service_id === service.id && a.department_id === dept.id,
           )
-          const summary = availabilitySummary(
-            coreMembers.map((m) => m.user_id),
-            answers,
-          )
+          const coreIds = [
+            ...coreMembers.map((m) => m.user_id),
+            ...rollPeople.filter((p) => p.member_type === 'core').map((p) => p.user_id),
+          ]
+          const summary = availabilitySummary(coreIds, answers)
+          const coreAnswered = answers.filter((a) => coreIds.includes(a.user_id)).length
           /*
            * Whether anybody can be marked present yet.
            *
@@ -740,20 +801,24 @@ export function AvailabilityPage() {
             now,
           })
           /*
-           * A guest who answered is still listed.
+           * Every guest is listed, answered or not.
            *
-           * The roster here was core-only, so a guest who took the
-           * trouble to say they could serve simply vanished — no
-           * row, no name, nothing to tell the head the answer had
-           * been given. They are shown after the core team and
-           * badged, so the count above still means what it says.
+           * Only a guest who had answered used to appear, so a Head
+           * could neither see that a guest had not said, nor say it
+           * for them. Guests come after the core team and are badged,
+           * so the count above still means what it says; somebody on
+           * the guest roll with no account is badged too.
            */
-          const answeredGuests = onTeam.filter(
-            (m) =>
-              m.member_type === 'guest' &&
-              answers.some((a) => a.user_id === m.user_id),
-          )
-          const teamMembers = [...coreMembers, ...answeredGuests]
+          const accountPeople: TrackedPerson[] = onTeam.map((m) => ({
+            id: m.id,
+            user_id: m.user_id,
+            member_type: m.member_type,
+            name: m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown',
+            noAccount: false,
+          }))
+          const everyone = [...accountPeople, ...rollPeople]
+          const guests = everyone.filter((m) => m.member_type === 'guest')
+          const teamMembers = [...everyone.filter((m) => m.member_type === 'core'), ...guests]
 
           // A team still owed answers keeps the amber row: what
           // needs a person outranks whose team it is.
@@ -959,9 +1024,8 @@ export function AvailabilityPage() {
               {(leads || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
                 <details className="mt-3">
                   <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
-                    Team responses ({answers.length}/{coreMembers.length})
-                    {answeredGuests.length > 0 &&
-                      ` + ${answeredGuests.length} guest${answeredGuests.length === 1 ? '' : 's'}`}
+                    Team responses ({coreAnswered}/{coreIds.length})
+                    {guests.length > 0 && ` + ${guests.length} guest${guests.length === 1 ? '' : 's'}`}
                   </summary>
                   {/* Said once for the team rather than once per person:
                       ten names each carrying the same sentence is a wall,
@@ -981,13 +1045,14 @@ export function AvailabilityPage() {
                         <li key={m.id} className="text-body-sm">
                           <div className="flex items-center justify-between gap-2">
                             <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                              <span className="break-words text-on-surface">
-                                {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown'}
-                              </span>
+                              <span className="break-words text-on-surface">{m.name}</span>
                               {m.member_type === 'guest' && (
                                 <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
                                   Guest
                                 </span>
+                              )}
+                              {m.noAccount && (
+                                <span className="shrink-0 text-label-sm text-on-surface-faint">no account</span>
                               )}
                             </span>
                             {(answer
@@ -1002,12 +1067,11 @@ export function AvailabilityPage() {
                                     serviceId: service.id,
                                     departmentId: dept.id,
                                     status: (status || null) as AvailabilityStatus | null,
+                                    guest: m.noAccount,
                                   })
                                 }
                                 disabled={setForMember.isPending || finished}
-                                aria-label={`Availability for ${
-                                  m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
-                                }`}
+                                aria-label={`Availability for ${m.name}`}
                                 /* A fixed width, so a column of answers
                                    lines up instead of each pill sizing to
                                    its own word — "Yes" and "No answer"
@@ -1050,16 +1114,14 @@ export function AvailabilityPage() {
                             </p>
                           )}
 
-                          {seesHistory(dept.id, m.user_id) && (
+                          {seesHistory(dept.id, m.noAccount ? undefined : m.user_id) && (
                             <AnswerHistory
-                              whose={`${
-                                m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'this member'
-                              }’s answer`}
+                              whose={`${m.name}’s answer`}
                               entries={historyOf(history, m.user_id, service.id, dept.id)}
                             />
                           )}
 
-                          {leads && answer?.status === 'available' && attendance.open && (
+                          {leads && !m.noAccount && answer?.status === 'available' && attendance.open && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span className="font-mono text-label-sm text-on-surface-variant">
                                 Turned up?

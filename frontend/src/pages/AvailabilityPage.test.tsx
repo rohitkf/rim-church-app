@@ -961,3 +961,82 @@ describe('the history of somebody’s answer', () => {
     expect(state.read).not.toContain('availability_history')
   })
 })
+
+describe('guests on a team', () => {
+  const core = {
+    id: 'm2',
+    department_id: 'd1',
+    user_id: 'u2',
+    member_type: 'core',
+    created_at: '2026-01-01T00:00:00Z',
+    profiles: { id: 'u2', first_name: 'Joel', last_name: 'Skaria', avatar_url: null },
+  }
+  const accountGuest = {
+    ...core,
+    id: 'm3',
+    user_id: 'u3',
+    member_type: 'guest',
+    profiles: { id: 'u3', first_name: 'Ann', last_name: 'Varghese', avatar_url: null },
+  }
+  const rollGuest = { id: 'dg1', department_id: 'd1', guest_id: 'g1', member_type: 'guest', guests: { name: 'Steve Tebb' } }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-09-04T09:00:00Z'))
+    state.admin = true
+    state.rows = { department_members: [core, accountGuest], department_guests: [rollGuest], availability: [] }
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const openResponses = async () => {
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    await userEvent.click(within(card).getByText(/Team responses/))
+    return card
+  }
+
+  it('lists every guest, answered or not, and somebody with no account too', async () => {
+    const card = await openResponses()
+    expect(within(card).getByText(/Team responses/)).toHaveTextContent('Team responses (0/1) + 2 guests')
+    expect(within(card).getByText('Ann Varghese')).toBeInTheDocument()
+    expect(within(card).getByText('Steve Tebb')).toBeInTheDocument()
+    expect(within(card).getByText('no account')).toBeInTheDocument()
+  })
+
+  it('answers for a guest with no account, into their own answers', async () => {
+    const card = await openResponses()
+    await userEvent.click(within(card).getByRole('combobox', { name: 'Availability for Steve Tebb' }))
+    await userEvent.click(await screen.findByRole('option', { name: /Yes/ }))
+    await waitFor(() =>
+      expect(state.written).toContainEqual({
+        table: 'guest_availability',
+        row: { guest_id: 'g1', service_id: 's1', department_id: 'd1', status: 'available' },
+      }),
+    )
+    expect(state.written.some((w) => w.table === 'availability')).toBe(false)
+  })
+
+  it('shows and changes the answer already given for them, with its history', async () => {
+    state.rows.guest_availability = [
+      { id: 'ga1', guest_id: 'g1', service_id: 's1', department_id: 'd1', status: 'tentative', note: null, updated_at: '2026-09-03T10:00:00Z' },
+    ]
+    state.rows.guest_availability_history = [
+      {
+        id: 'gh1', guest_id: 'g1', service_id: 's1', department_id: 'd1', kind: 'answered', status: 'tentative',
+        previous_status: null, note: null, changed_by: 'h', after_close: false, changed_at: '2026-09-03T10:00:00Z',
+        changer: { first_name: 'Jobin', last_name: 'K' },
+      },
+    ]
+    const card = await openResponses()
+    const pick = within(card).getByRole('combobox', { name: 'Availability for Steve Tebb' })
+    expect(pick).toHaveTextContent('Maybe')
+    await userEvent.click(await within(card).findByRole('button', { name: 'History · 1' }))
+    expect(within(card).getByRole('list', { name: 'History of Steve Tebb’s answer' })).toHaveTextContent('by Jobin K')
+    await userEvent.click(pick)
+    await userEvent.click(await screen.findByRole('option', { name: 'No' }))
+    await waitFor(() =>
+      expect(state.written).toContainEqual({ table: 'guest_availability', row: { status: 'unavailable' }, id: 'ga1' }),
+    )
+  })
+})
