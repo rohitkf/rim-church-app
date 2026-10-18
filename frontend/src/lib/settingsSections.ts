@@ -3,6 +3,7 @@ import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
 import {
   ArchiveIcon,
+  ChecklistIcon,
   ClipboardUserIcon,
   GridIcon,
   SparklesIcon,
@@ -83,6 +84,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     heading: 'Church set-up',
     sections: [
+      {
+        to: '/settings/pages',
+        label: 'Page by page',
+        blurb: 'Each page’s settings, and who may do what on it — team by team.',
+        icon: ChecklistIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'page settings access team rules head assisting member rota availability dashboard planner',
+      },
       {
         to: '/settings/timings',
         label: 'Timings',

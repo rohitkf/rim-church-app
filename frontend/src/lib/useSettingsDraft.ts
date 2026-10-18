@@ -35,13 +35,19 @@ export function useSettingsDraft<K extends keyof AppSettings>(keys: readonly K[]
   }, [query.data, pick])
 
   const current = query.data ? pick(query.data) : null
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
   const mutation = useMutation({
     mutationFn: async (next: Pick<AppSettings, K>) => {
-      const { error } = await supabase
-        .from('app_settings')
-        .update(next as Record<string, unknown>)
-        .eq('id', true)
+      // Only the columns that moved: a room that holds many (Page by page
+      // holds them all) must not restate the ones it left alone, which an
+      // Admin in another room may have changed since this one loaded.
+      const was = query.data
+      const patch = Object.fromEntries(
+        Object.entries(next).filter(([key, value]) => !was || !same(value, was[key as K])),
+      )
+      if (Object.keys(patch).length === 0) return
+      const { error } = await supabase.from('app_settings').update(patch).eq('id', true)
       if (error) throw error
     },
     onSuccess: () => {
@@ -53,8 +59,6 @@ export function useSettingsDraft<K extends keyof AppSettings>(keys: readonly K[]
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save the settings.')),
   })
-
-  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
   return {
     query,

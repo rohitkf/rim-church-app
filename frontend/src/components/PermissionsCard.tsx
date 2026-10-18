@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CHECKED_ON,
   PERMISSIONS,
@@ -14,20 +13,14 @@ import {
 import {
   REACH_LABEL,
   REACH_SHORT,
-  changesBetween,
-  defaultsOver,
   isFixed,
   reachOf,
   ruleFor,
   type CapabilityKey,
   type GrantRole,
-  type Overrides,
-  type PermissionChange,
   type Reach,
 } from '../lib/permissions'
-import { usePermissions } from '../lib/usePermissions'
-import { supabase } from '../lib/supabaseClient'
-import { useErrorText } from '../lib/useErrorText'
+import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { Pill, Tile } from './Surface'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
@@ -188,42 +181,16 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const [onlyAllowed, setOnlyAllowed] = useState(false)
 
-  const { can, overrides: stored } = usePermissions()
-  const editable = can('app.permissions')
-  const queryClient = useQueryClient()
-  const errorText = useErrorText()
-
-  // The church's changes as they would be after Save. Null until touched,
-  // so a save from another Admin redraws this page rather than being hidden
-  // under a stale copy.
-  const [draft, setDraft] = useState<Overrides | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // The church's changes as they would be after Save (lib/usePermissionDraft).
+  const perms = usePermissionDraft()
+  const { editable, stored, working, pending } = perms
   const [saved, setSaved] = useState(false)
-  const working = draft ?? stored
-  const pending = useMemo(() => changesBetween(stored, working), [stored, working])
-
-  const save = useMutation({
-    mutationFn: async (changes: PermissionChange[]) => {
-      const { error } = await supabase.rpc('set_permissions', { p_changes: changes })
-      if (error) throw error
-    },
-    onSuccess: async () => {
-      setError(null)
-      setSaved(true)
-      await queryClient.invalidateQueries()
-      setDraft(null)
-    },
-    onError: (err: unknown) => setError(errorText(err, 'Could not save the permissions.')),
-  })
 
   const shown = useMemo(() => withGrants(areas, working), [areas, working])
 
   const choose = (capability: CapabilityKey, who: GrantRole, reach: Reach) => {
     setSaved(false)
-    setDraft((d) => {
-      const base = d ?? stored
-      return { ...base, [capability]: { ...base[capability], [who]: reach } }
-    })
+    perms.chooseChurch(capability, who, reach)
   }
 
   /** The cell for one row and one profile, editable where it can be. */
@@ -546,13 +513,18 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
       {editable && (
         <SaveBar
           changed={pending.length > 0}
-          saving={save.isPending}
+          saving={perms.saving}
           saved={saved}
-          error={error}
-          onSave={() => save.mutate(pending)}
+          error={perms.error}
+          onSave={() =>
+            perms
+              .commit()
+              .then(() => setSaved(true))
+              .catch(() => {})
+          }
           onRestore={() => {
             setSaved(false)
-            setDraft(defaultsOver(stored))
+            perms.restoreDefaults()
           }}
           label="Save permissions"
         />

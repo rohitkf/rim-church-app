@@ -10,7 +10,7 @@ import { GivingSettingsCard } from '../components/GivingSettingsCard'
 import { NavLayoutCard } from '../components/NavLayoutCard'
 import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
-import { AccessByPageCard } from '../components/AccessByPageCard'
+import { PagesCard } from '../components/PagesCard'
 import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
@@ -242,22 +242,36 @@ export function AppearanceSettingsPane() {
 }
 
 /**
- * Who can do what, three ways in: a page at a time (who can open it and
- * what each profile may do on it, with a team's own rules — 0162), a
- * profile at a time, and the pages alone with a preview of each profile's
- * menu. All three read the same choices, redrawn with the Pages choices,
- * so they can never tell different stories.
+ * Each page of the app, with its settings and its rules — who can open it,
+ * and what each team's profiles may do on it, a team at a time.
+ */
+export function PagesPane() {
+  return <PagesCard />
+}
+
+/**
+ * Who can do what, two ways in: a profile at a time, and the pages alone
+ * with a preview of each profile's menu. Both read the same choices,
+ * redrawn with the Pages choices, so they can never tell different
+ * stories; a page at a time, with a team's own rules (0162), is Page by
+ * page.
  */
 export function AccessSettingsPane() {
-  const [tab, setTab] = useState<'bypage' | 'rules' | 'pages'>('bypage')
+  const [tab, setTab] = useState<'rules' | 'pages'>('rules')
   const settings = useAppSettings()
   const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope)
   return (
     <div className="flex flex-col gap-4">
+      <p className="px-1 text-body-sm text-on-surface-variant">
+        To set one page’s rules team by team — who on Worship may change answers, say — open{' '}
+        <Link to="/settings/pages" className="text-secondary hover:underline">
+          Page by page
+        </Link>
+        .
+      </p>
       <div role="tablist" aria-label="Access" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
         {(
           [
-            ['bypage', 'By page'],
             ['rules', 'By role'],
             ['pages', 'Pages'],
           ] as const
@@ -276,7 +290,7 @@ export function AccessSettingsPane() {
           </button>
         ))}
       </div>
-      {tab === 'bypage' ? <AccessByPageCard areas={areas} /> : tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
+      {tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
     </div>
   )
 }

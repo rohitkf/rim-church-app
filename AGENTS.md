@@ -70,7 +70,7 @@ the thing most likely to waste your time:
 |---|---|
 | `departments` | **Teams** |
 | `department_members` | who is on a team — `core` or `guest` |
-| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Access & privileges, by page, by role, or by page-opening rule |
+| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by page (a page at a time, team by team), or Access & privileges (by role, or by page-opening rule) |
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator` |
 | `services` → `service_sessions` | a service and its running order |
@@ -200,7 +200,7 @@ docs/configuration.md        every setting: what it is, where it lives, what enf
 
 Routes live in `src/App.tsx`. Settings is a parent route: `/settings` is
 the hall (every room, grouped), and each room is its own child route —
-`profile`, `appearance`, `timings`, `retention`, `display`, `rota`,
+`profile`, `appearance`, `pages`, `timings`, `retention`, `display`, `rota`,
 `giving`, `menu`, `access`, `alerts`, `logo`, `data`. The rooms, their groups, glyphs and who may open
 them are one list, `lib/settingsSections.ts`; the hall, the sidebar and
 the redirect for a room you have no key to all read it. The old
@@ -388,18 +388,31 @@ is the page starting to lie.
 **A new app-wide setting**: first decide which kind it is
 (`docs/configuration.md`). **A rule** the database must obey —
 `app_settings` column with a check constraint in a migration →
-`lib/appSettings.ts` → a row in the room it belongs to: Timings
-(`AppSettingsCard`) for when things open and close, Data & retention
-(`RetentionCard`) for what is deleted and when, Access (`PageAccessCard`)
-for who sees what. **A preference only the screens read** — a key in
+`lib/appSettings.ts`. **A preference only the screens read** — a key in
 `lib/display.ts` (`DISPLAY_DEFAULTS` and `readDisplay`, which falls back
-per key), no migration → a control in `DisplayCard` (Dashboard & lists) →
-read it with `useDisplay()`. Either way the room saves through
-`useSettingsDraft(keys)`, which writes only that room's columns, so no
-room can undo another. A row says its name, one line and its value; the
-long explanation goes in its `help`, behind "How this works". A new clock
-needs its sentence in `lib/lifespan.ts`. A room is a stack of
-`SectionTile`s built from `SettingRows`.
+per key), no migration → read it with `useDisplay()`. Either way, **one
+entry in `lib/settingsCatalog.ts`**: its name, one line, the long
+explanation (behind "How this works"), the pages it moves (`affects`:
+routes, or `BELL`/`ALERTS`/`APP`/`SERVICE_PAGES_REF`), and how to read and
+write it. Then add its id to the room it belongs to — Timings
+(`AppSettingsCard`) for when things open and close, Data & retention
+(`RetentionCard`) for what is deleted and when, Dashboard & lists
+(`DisplayCard`) for what is drawn — and Page by page shows it under its
+pages by itself. `settingsCatalog.test.ts` fails if a column or a display
+key is missing from the catalog, or a page it names does not exist. Rooms
+save through `useSettingsDraft(keys)`, which sends only the columns that
+moved, so no room can undo another. A new clock needs its sentence in
+`lib/lifespan.ts`. A control that is more than a row (the rota's tags, the
+Giving links) keeps its own room, linked from its page in `PAGE_ROOMS`
+(`lib/pageSettings.ts`).
+
+**A new permission** also says which page it is about: its area's `pages`
+in `lib/permissionMatrix.ts`, or its own `at` when the area spans several,
+and a `short` name for the team-by-team grids. `settingsCatalog.test.ts`
+checks every row lands on a page.
+
+**Who can open which pages** is Access & privileges › Pages
+(`PageAccessCard`), and each page's own row in Page by page.
 
 **A new Settings room**: an entry in `SETTINGS_GROUPS`
 (`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child

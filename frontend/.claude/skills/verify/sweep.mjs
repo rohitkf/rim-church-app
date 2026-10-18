@@ -74,7 +74,7 @@ const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists'
   '/messages', '/team-chat', '/updates', '/polls', '/events', '/giving', '/departments', '/departments/d1',
   '/volunteers', '/inventory', '/settings', '/settings/profile', '/settings/appearance', '/settings/timings',
   '/settings/retention', '/settings/display', '/settings/rota', '/settings/giving', '/settings/menu',
-  '/feedback', '/stage', '/settings/stage', '/settings/access', '/settings/alerts', '/settings/logo',
+  '/feedback', '/stage', '/settings/stage', '/settings/access', '/settings/pages', '/settings/alerts', '/settings/logo',
   '/settings/data']
 
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
