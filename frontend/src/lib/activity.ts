@@ -149,6 +149,10 @@ export function activitySentence(row: ActivityRowLike): string {
       // the fact, and who did the assigning is the actor in front.
       const assigned = detail.match(/^(.*) assigned$/)
       if (assigned) return `put ${assigned[1]} on ${subject}`
+      // Their own "can't make it" freed the role (0165): the answer, not a hand.
+      if (detail === "came off, can't serve") return `came off ${subject} — can't serve`
+      const marked = detail.match(/^(.*) off, marked can't serve$/)
+      if (marked) return `took ${marked[1]} off ${subject} — marked them can't serve`
       const removed = detail.match(/^(.*) taken off$/)
       if (removed) return `took ${removed[1]} off ${subject}`
       return `changed ${subject}`

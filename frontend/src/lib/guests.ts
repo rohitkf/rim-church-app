@@ -101,7 +101,8 @@ export function alreadyOnTheRoll(guests: Guest[], name: string): Guest | null {
  * holder is — until they sign up and are linked, when the database moves
  * them across to `department_members`. They are on the rota and on the
  * page; they are not asked whether they can serve, there being nobody to
- * ask.
+ * ask — whoever may answer for others on the team answers for them on the
+ * Availability page (0166, lib/guestAvailability).
  */
 export const departmentGuestSchema = z.object({
   id: z.string(),

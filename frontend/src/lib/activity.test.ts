@@ -150,6 +150,11 @@ describe('activitySentence', () => {
   it('turns the rota’s "X assigned" into who did it to whom', () => {
     expect(say('rota', 'Monitors', 'Dave Smith assigned')).toBe('put Dave Smith on Monitors')
     expect(say('rota', 'Monitors', 'Dave Smith taken off')).toBe('took Dave Smith off Monitors')
+    // Their own "can't make it" took them off (0165), or somebody marked them so.
+    expect(say('rota', 'Camera Operator 2', "came off, can't serve")).toBe("came off Camera Operator 2 — can't serve")
+    expect(say('rota', 'Worship Leader 3', "Rose Sam off, marked can't serve")).toBe(
+      "took Rose Sam off Worship Leader 3 — marked them can't serve",
+    )
   })
 
   it('names the team a post spoke for', () => {
