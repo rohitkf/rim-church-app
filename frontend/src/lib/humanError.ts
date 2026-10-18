@@ -24,6 +24,10 @@ const BY_CONSTRAINT: Record<string, string> = {
   department_members_user_id_department_id_key: 'They are already on that team.',
   department_members_department_id_user_id_key: 'They are already on that team.',
   department_guests_department_id_guest_id_key: 'They are already on that team.',
+  guest_rota_assignments_service_id_guest_id_key:
+    'They already have a role in this service — someone can only hold one role per service. Remove the existing one first, or pick someone else.',
+  guest_rota_not_a_coordinator:
+    'Somebody with no account cannot be Team Coordinator — coordinating means signing in to run the team’s checklist.',
   team_join_requests_one_pending:
     'You have already asked to join that team — the head has it.',
   rota_checklist_progress_assignment_id_item_id_key:
@@ -78,7 +82,9 @@ export function isRotaClash(err: unknown): boolean {
   const haystack = `${typeof message === 'string' ? message : ''} ${typeof details === 'string' ? details : ''}`
   return (
     haystack.includes('rota_assignments_one_role_per_service') ||
-    haystack.includes('rota_assignments_one_coordinator_per_team')
+    haystack.includes('rota_assignments_one_coordinator_per_team') ||
+    haystack.includes('guest_rota_assignments_service_id_guest_id_key') ||
+    haystack.includes('guest_rota_not_a_coordinator')
   )
 }
 
