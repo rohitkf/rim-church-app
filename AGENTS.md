@@ -290,6 +290,16 @@ skipped:
 
 Each of these has already cost real time. None of them show up in review.
 
+- **A new table is not live until two lists say so.** Every screen refetches
+  the moment a row changes (`lib/useLiveData.ts`), but Realtime streams
+  only the tables in the `supabase_realtime` publication, and the app
+  refetches only the query keys named for that table in `lib/liveTables.ts`.
+  A table in neither still loads and still saves; it just goes stale on
+  everybody else's screen until they come back to the tab. 0166 and 0167
+  shipped that way, and 0168 is the migration that caught up. A new table
+  needs its `alter publication supabase_realtime add table` (guarded, as in
+  0168) and a `LIVE_TABLES` row; the test in `useLiveData.test.tsx` checks
+  the keys named there exist.
 - **A service is deleted 14 days after its date, and takes everything
   hanging off it** (0128, `service_retention_days`) — rota, availability,
   running order, ticks, set lists, debriefs, issues. A new table with a
