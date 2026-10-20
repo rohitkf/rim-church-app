@@ -6,7 +6,7 @@ import { availabilityStatusSchema, type AvailabilityStatus } from './types'
  * Every time an answer was given, changed or taken away (0145).
  *
  * The database writes these from the answers themselves and decides who
- * may read them (`avail.history` in Settings › Access & privileges), so
+ * may read them (`avail.history` in Settings › Access & Privileges), so
  * this only fetches what comes back and says it in words.
  */
 

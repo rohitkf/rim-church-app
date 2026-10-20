@@ -123,7 +123,7 @@ export function NotificationsBell() {
               <button
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="text-body-sm text-secondary disabled:opacity-50"
+                className="text-body-sm text-accent-blue-soft disabled:opacity-50"
               >
                 Mark all as read
               </button>
@@ -141,7 +141,7 @@ export function NotificationsBell() {
                     setOpen(false)
                     if (!n.read_boolean) markRead.mutate(n.id)
                   }}
-                  className={`flex items-start gap-3 px-4 py-3 text-body-sm transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-surface-container ${
+                  className={`flex items-start gap-3 px-4 py-3 text-body-sm transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-surface-container ${
                     n.read_boolean ? 'text-on-surface-variant' : 'bg-surface-container text-on-surface'
                   }`}
                 >

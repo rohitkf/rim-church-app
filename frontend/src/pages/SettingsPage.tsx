@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
-import { Eyebrow, IconBadge, PageHeader, Tile } from '../components/Surface'
+import { Eyebrow, IconBadge, PageHeader, SegmentedControl, Tile } from '../components/Surface'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { AdminResetCard } from '../components/AdminResetCard'
 import { RotaLookCard } from '../components/RotaLookCard'
@@ -133,7 +133,7 @@ function SidebarLink({ section }: { section: SettingsSection }) {
     <NavLink
       to={section.to}
       className={({ isActive }) =>
-        `tap flex items-center gap-3 rounded-[var(--radius-chip)] px-3 py-2 text-body-sm transition-colors duration-300 ${
+        `tap flex items-center gap-3 rounded-[var(--radius-chip)] px-3 py-2 text-body-sm transition-colors duration-200 ${
           isActive
             ? section.danger
               ? 'bg-[color-mix(in_oklab,var(--color-accent-red)_16%,transparent)] text-on-surface'
@@ -167,7 +167,7 @@ function SettingsHome({ groups }: { groups: SettingsGroup[] }) {
         <Link
           to="/settings/profile"
           aria-label={`Your profile: ${name}`}
-          className="group/me flex items-center gap-4 rounded-[var(--radius-tile)] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent),var(--color-surface-lowest)_65%)] p-5 hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] hover:-translate-y-0.5"
+          className="group/me flex items-center gap-4 rounded-[var(--radius-tile)] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent),var(--color-surface-lowest)_65%)] p-5 hairline-strong transition-transform duration-300 ease-[var(--ease-glide)] hover:-translate-y-0.5"
         >
           <span
             aria-hidden="true"
@@ -202,7 +202,7 @@ function SettingsHome({ groups }: { groups: SettingsGroup[] }) {
                   <Link
                     to={section.to}
                     data-tour={`settings:${section.to}`}
-                    className="group/row flex items-center gap-4 px-5 py-4 transition-colors duration-300 hover:bg-raised"
+                    className="group/row flex items-center gap-4 px-5 py-4 transition-colors duration-200 hover:bg-raised"
                   >
                     <IconBadge icon={section.icon} tone={section.tone} />
                     <span className="min-w-0 flex-1">
@@ -264,32 +264,22 @@ export function AccessSettingsPane() {
     <div className="flex flex-col gap-4">
       <p className="px-1 text-body-sm text-on-surface-variant">
         To set one page’s rules team by team — who on Worship may change answers, say — open{' '}
-        <Link to="/settings/pages" className="text-secondary hover:underline">
-          Page by page
+        <Link to="/settings/pages" className="text-accent-blue-soft hover:underline">
+          Page by Page
         </Link>
         .
       </p>
-      <div role="tablist" aria-label="Access" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
-        {(
-          [
-            ['rules', 'By role'],
-            ['pages', 'Pages'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={tab === value}
-            onClick={() => setTab(value)}
-            className={`tap rounded-full px-4 py-2 text-label-md transition-colors duration-300 ${
-              tab === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Access"
+        kind="tab"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'rules', label: 'By role' },
+          { value: 'pages', label: 'Pages' },
+        ]}
+        className="self-start"
+      />
       {tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
     </div>
   )

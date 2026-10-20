@@ -37,7 +37,7 @@ export function ServicePlannerIndexPage() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   // Who may start a service, and set one repeating, is the church's to
-  // say (Settings › Access & privileges). Seeing past services stays an
+  // say (Settings › Access & Privileges). Seeing past services stays an
   // Admin's: they are history, not something to plan.
   const { can } = usePermissions()
   const canCreate = can('svc.manage')
@@ -399,7 +399,7 @@ export function ServicePlannerIndexPage() {
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
-                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm uppercase tracking-wide ${d === 'Sun' ? 'text-secondary' : 'text-on-surface-variant'}`}
+                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm uppercase tracking-wide ${d === 'Sun' ? 'text-accent-blue-soft' : 'text-on-surface-variant'}`}
               >
                 {d}
               </div>
@@ -423,7 +423,7 @@ export function ServicePlannerIndexPage() {
                       onClick={() => openCreate(cell.iso)}
                       aria-label={`New service on ${formatServiceDay(cell.iso)}`}
                       title={`New service on ${formatServiceDay(cell.iso)}`}
-                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-300 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
+                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-200 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
                     />
                   )}
                   <div
@@ -449,7 +449,7 @@ export function ServicePlannerIndexPage() {
                       // about what is behind you.
                       const tone = finishedIds.has(s.id)
                         ? {
-                            chip: 'bg-[color-mix(in_oklab,var(--color-accent-green)_20%,transparent)] text-accent-green hover:opacity-90',
+                            chip: 'bg-[color-mix(in_oklab,var(--color-accent-green)_20%,transparent)] text-accent-green-soft hover:opacity-90',
                             dot: 'bg-accent-green',
                           }
                         : s.date < today
@@ -498,7 +498,7 @@ export function ServicePlannerIndexPage() {
                 {can('svc.templates') && (
                   <Link
                     to="/service-planner/templates"
-                    className="shrink-0 text-body-sm font-medium text-secondary"
+                    className="shrink-0 text-body-sm font-medium text-accent-blue-soft"
                   >
                     Manage templates ›
                   </Link>
@@ -576,7 +576,7 @@ export function ServicePlannerIndexPage() {
                 <button
                   type="button"
                   onClick={closeCreate}
-                  className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+                  className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
                 >
                   Cancel
                 </button>
@@ -673,8 +673,8 @@ function DayGroup({
       <div
         className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-md ${
           finished
-            ? 'bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] text-accent-green'
-            : 'bg-secondary/10 text-secondary'
+            ? 'bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] text-accent-green-soft'
+            : 'bg-secondary/10 text-accent-blue-soft'
         }`}
       >
         <span className="font-mono text-label-sm uppercase leading-none">{d.month}</span>

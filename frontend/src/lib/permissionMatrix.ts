@@ -7,7 +7,7 @@
  * policy and this file only described them.
  *
  * Now a row with a `key` is the church's to set. Its policy asks `may()`,
- * and `may()` reads the grid in Settings › Access & privileges (see
+ * and `may()` reads the grid in Settings › Access & Privileges (see
  * lib/permissions.ts). Its `can` below is drawn from the catalog's
  * defaults; `withGrants` redraws it with what the church chose.
  *
@@ -75,7 +75,7 @@ export interface Capability {
   note?: string
   /**
    * The action in two or three words, for a grid too narrow for the
-   * sentence — the team-by-team grids in Settings › Page by page.
+   * sentence — the team-by-team grids in Settings › Page by Page.
    */
   short?: string
   /**
@@ -86,7 +86,7 @@ export interface Capability {
   can: Record<RoleKey, Allowed>
   /**
    * The page whose "who can open it" setting decides this row (Settings ›
-   * Access & privileges › Pages). The grid above is the app's defaults;
+   * Access & Privileges › Pages). The grid above is the app's defaults;
    * `withPageAccess` redraws these rows with the church's own choices.
    */
   page?: string
@@ -96,7 +96,7 @@ export interface PermissionArea {
   area: string
   /**
    * The pages this area is about, as routes — or lib/settingsCatalog's
-   * names for the places that are not pages. Settings › Page by page
+   * names for the places that are not pages. Settings › Page by Page
    * files each row under them; a row can say its own in `at`.
    */
   pages: string[]
@@ -108,7 +108,7 @@ export interface PermissionArea {
    */
   fixed?: string
   /**
-   * Said when the area is set team by team (Settings › Page by page): the
+   * Said when the area is set team by team (Settings › Page by Page): the
    * church's own cells for the team profiles are then only what a new
    * team starts with.
    */
@@ -370,7 +370,7 @@ export const PERMISSIONS: PermissionArea[] = [
     area: 'Availability',
     pages: ['/availability'],
     perTeam:
-      'Set team by team, in Settings › Page by page › Availability: who on each team may change answers and see the history. What is shown here is what a new team starts with.',
+      'Set team by team, in Settings › Page by Page › Availability: who on each team may change answers and see the history. What is shown here is what a new team starts with.',
     capabilities: [
       {
         action: 'Answer your own availability',
@@ -552,7 +552,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['alerts'],
         short: 'Alert the church',
         can: granted('msg.alert'),
-        note: 'From Settings › Send an alert, which also keeps the record of what was sent.',
+        note: 'From Settings › Send an Alert, which also keeps the record of what was sent.',
       },
     ],
   },
@@ -582,7 +582,7 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'issue.delete',
         short: 'Delete issues',
         can: granted('issue.delete'),
-        note: 'Whoever raised one can take it back until it has been marked. Resolved issues are deleted on their own after the number of days in Settings › Data & retention.',
+        note: 'Whoever raised one can take it back until it has been marked. Resolved issues are deleted on their own after the number of days in Settings › Data & Retention.',
       },
     ],
   },
@@ -725,9 +725,9 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
-    area: 'Stage layout',
+    area: 'Stage Layout',
     pages: ['/stage'],
-    fixed: 'Set per team rather than per profile: Settings › Stage layout says which teams may add, edit, delete, comment and keep templates. Admins and the Owner always may.',
+    fixed: 'Set per team rather than per profile: Settings › Stage Layout says which teams may add, edit, delete, comment and keep templates. Admins and the Owner always may.',
     capabilities: [
       {
         action: 'See a stage layout, its comments and its history',
@@ -737,7 +737,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Add, move, rename, recolour, delete blocks; comment; apply a template',
         can: all({ head: 'no', coordinator: 'no', member: 'no' }),
-        note: 'Given to teams, not profiles, in Settings › Stage layout. Once a service has finished the layout is a record.',
+        note: 'Given to teams, not profiles, in Settings › Stage Layout. Once a service has finished the layout is a record.',
       },
       {
         action: 'Keep a layout as a template',

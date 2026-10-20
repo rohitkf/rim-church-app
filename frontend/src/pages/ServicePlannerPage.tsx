@@ -695,7 +695,7 @@ export function ServicePlannerPage() {
       onSelect: () => setExporting(true),
     },
     {
-      label: 'Stage layout',
+      label: 'Stage Layout',
       hint: 'Where everything and everybody stands for this service',
       onSelect: () => navigate(`/stage/${serviceId}`),
     },
@@ -777,7 +777,7 @@ export function ServicePlannerPage() {
       emptyMessage="Service not found."
     >
       <div>
-        <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-secondary">
+        <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
           ← Back to Service Planner
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
@@ -791,7 +791,7 @@ export function ServicePlannerPage() {
                   onCommit={(value) => updateService.mutate({ service_type: value })}
                   /* Block, not inline: two inline fields sat on one line and
                      the name ran straight into the date. */
-                  className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
+                  className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
                 />
                 <div className="mt-1.5">
                   <DateField
@@ -802,7 +802,7 @@ export function ServicePlannerPage() {
                       if (!d || d === serviceQuery.data?.date) return
                       updateService.mutate({ date: d })
                     }}
-                    className="inline-flex items-center gap-2 rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none"
+                    className="inline-flex items-center gap-2 rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none"
                   />
                 </div>
               </>
@@ -875,7 +875,7 @@ export function ServicePlannerPage() {
             </span>
             <button
               onClick={() => setPreviewing(false)}
-              className="tap ml-auto rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+              className="tap ml-auto rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
             >
               Back to editing
             </button>
@@ -886,7 +886,7 @@ export function ServicePlannerPage() {
             what happened and that nothing is lost. */}
         {finished && (
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-green)_8%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_24%,transparent)]">
-            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
+            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
               Finished
             </span>
             <span className="text-body-sm text-on-surface-variant">
@@ -897,7 +897,7 @@ export function ServicePlannerPage() {
             {canEdit && locksAt !== null && (
               // The one number somebody standing on a stage needs: how long
               // they have to fix what they just noticed.
-              <span className="text-label-md text-accent-green">
+              <span className="text-label-md text-accent-green-soft">
                 Changes close at{' '}
                 <span className="font-mono">{formatTime(new Date(locksAt).toISOString())}</span>.
               </span>
@@ -1106,7 +1106,7 @@ export function ServicePlannerPage() {
         {templateMessage && (
           <p
             className={`mt-3 max-w-md rounded-sm px-3 py-2 text-body-sm ${
-              templateMessage.ok ? 'bg-secondary/10 text-secondary' : 'bg-error-container text-on-error-container'
+              templateMessage.ok ? 'bg-secondary/10 text-accent-blue-soft' : 'bg-error-container text-on-error-container'
             }`}
           >
             {templateMessage.text}
@@ -1376,7 +1376,7 @@ export function ServicePlannerPage() {
                                       patch: { session_name: value },
                                     })
                                   }
-                                  className="rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-300 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
+                                  className="rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
                                 />
                               ) : (
                                 <div className="text-headline-sm">{session.session_name}</div>
@@ -1461,7 +1461,7 @@ export function ServicePlannerPage() {
                           {!skipped && grantsOf(session).length > 0 && (
                             <ul className="mt-2.5 flex flex-col gap-0.5">
                               {grantsOf(session).map((grant, i) => (
-                                <li key={i} className="text-label-md text-accent-blue">
+                                <li key={i} className="text-label-md text-accent-blue-soft">
                                   +{grant.minutes} min added on request
                                   {grant.note ? ` — ${grant.note}` : ''}
                                 </li>

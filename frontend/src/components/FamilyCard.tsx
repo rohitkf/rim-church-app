@@ -366,13 +366,13 @@ function MemberRow({
           <>
             {!linked && (
               <>
-                <button type="button" onClick={() => setMode('edit')} className="tap text-label-md text-secondary hover:underline">
+                <button type="button" onClick={() => setMode('edit')} className="tap text-label-md text-accent-blue-soft hover:underline">
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode(mode === 'link' ? 'view' : 'link')}
-                  className="tap text-label-md text-secondary hover:underline"
+                  className="tap text-label-md text-accent-blue-soft hover:underline"
                 >
                   {mode === 'link' ? 'Close' : 'On the app now? Link their account'}
                 </button>

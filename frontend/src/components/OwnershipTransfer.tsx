@@ -115,7 +115,7 @@ export function OwnershipTransfer() {
               type="button"
               onClick={() => respond.mutate(true)}
               disabled={respond.isPending}
-              className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+              className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
             >
               {respond.isPending ? 'Working…' : 'Accept ownership'}
             </button>
@@ -123,7 +123,7 @@ export function OwnershipTransfer() {
               type="button"
               onClick={() => respond.mutate(false)}
               disabled={respond.isPending}
-              className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
+              className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
             >
               Decline
             </button>
@@ -133,7 +133,7 @@ export function OwnershipTransfer() {
             type="button"
             onClick={() => cancel.mutate()}
             disabled={cancel.isPending}
-            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
           >
             {cancel.isPending ? 'Withdrawing…' : 'Withdraw the offer'}
           </button>

@@ -397,7 +397,7 @@ function CoordinatorSection() {
 export function CoordinatorPreview({ color, name = 'Santhi Chennamsetti' }: { color: string | null; name?: string }) {
   return (
     <div
-      className="galaxy glisten flex flex-col gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3"
+      className="galaxy flex flex-col gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3"
       style={skyStyle(color)}
       data-testid="coordinator-preview"
     >

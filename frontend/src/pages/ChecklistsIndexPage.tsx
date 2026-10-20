@@ -49,7 +49,7 @@ import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 export function ChecklistsIndexPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
   // Verifying somebody else's ticks, and nudging a team, are the church's
-  // to grant (Settings › Access & privileges). An Admin keeps the window:
+  // to grant (Settings › Access & Privileges). An Admin keeps the window:
   // they can put a service right either side of it, as the database lets them.
   const { can } = usePermissions()
   // The rota's Coordinator for a team, at a service, verifies for it there
@@ -380,7 +380,7 @@ export function ChecklistsIndexPage() {
                       <h3 className="text-headline-lg">{service.service_type}</h3>
                       {finished && (
                         <>
-                          <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                          <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
                             Finished · closed
                           </span>
                           <span className="font-mono text-label-sm text-on-surface-faint">
@@ -573,7 +573,7 @@ export function ChecklistsIndexPage() {
                                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                     <span
                                       className={`font-mono text-label-md font-semibold uppercase tracking-[0.12em] ${
-                                        phase.value === 'pre' ? 'text-accent-blue' : 'text-accent-indigo-soft'
+                                        phase.value === 'pre' ? 'text-accent-blue-soft' : 'text-accent-indigo-soft'
                                       }`}
                                     >
                                       {phase.label}
@@ -695,7 +695,7 @@ export function ChecklistsIndexPage() {
               <p className="mt-6 text-body-sm text-on-surface-variant">
                 Your checklist appears here once the rota puts you on a role for this service. Your
                 team head assigns roles under{' '}
-                <Link to="/rota" className="text-secondary hover:underline">
+                <Link to="/rota" className="text-accent-blue-soft hover:underline">
                   Team Rota
                 </Link>
                 .

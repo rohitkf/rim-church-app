@@ -7,7 +7,7 @@ import { usePageAccess } from '../lib/usePageAccess'
  * Hiding them from the menu is most of the job and not all of it — a link
  * somebody was sent, or an address they remember, would still open a page
  * of empty panels. This turns those back to the dashboard. Which pages,
- * and for whom, is the church's choice (Settings › Access & privileges,
+ * and for whom, is the church's choice (Settings › Access & Privileges,
  * lib/pageAccess); the database refuses the same rows either way wherever
  * it can (0123), and this is so nobody meets that refusal as a blank
  * screen.

@@ -90,7 +90,7 @@ export function TeamTurnoutRow({ name, ring }: { name: string; ring: TurnoutRing
   return (
     <Link
       to="/availability"
-      className="flex items-start gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong"
+      className="flex items-start gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong"
     >
       <TeamRing predictedPct={ring.predictedPct} actualPct={ring.actualPct} color={ring.color} />
       <span className="min-w-0 flex-1">

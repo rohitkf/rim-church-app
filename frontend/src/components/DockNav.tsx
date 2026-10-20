@@ -145,7 +145,7 @@ export function DockNav({
       <div
         ref={barRef}
         data-tour="dock"
-        className="pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-surface-container)_88%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl"
+        className="glass pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)]"
       >
         {/*
           The highlight, as one travelling object.
@@ -187,7 +187,7 @@ export function DockNav({
               className={({ isActive: onIt }) => {
                 const isActive = onIt || isCurrent(item)
                 return [
-                  'group/dock relative z-10 h-11 items-center justify-center gap-2 rounded-full transition-[color,background-color,width] duration-500 ease-[var(--ease-glide)]',
+                  'group/dock relative z-10 h-11 items-center justify-center gap-2 rounded-full transition-[color,background-color,width] duration-300 ease-[var(--ease-glide)]',
                   onPhoneBar(index) ? 'flex dock-slot' : 'hidden md:flex',
                   isActive
                     ? // No background of its own — the travelling pill is
@@ -241,7 +241,7 @@ export function DockNav({
           items={items}
           onTap={() => setMoreOpen(true)}
           expanded={moreOpen}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface md:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface md:hidden"
         >
           <MoreIcon width={19} height={19} />
         </QuickNavButton>
@@ -301,7 +301,7 @@ export function DockNav({
                             onClick={() => setMoreOpen(false)}
                             className={({ isActive }) =>
                               [
-                                'flex min-h-11 items-center gap-3 rounded-[var(--radius-chip)] px-3 text-body-md transition-colors duration-300 ease-[var(--ease-glide)]',
+                                'flex min-h-11 items-center gap-3 rounded-[var(--radius-chip)] px-3 text-body-md transition-colors duration-200 ease-[var(--ease-glide)]',
                                 isActive || isCurrent(item)
                                   ? 'bg-primary text-on-primary'
                                   : 'text-on-surface hover:bg-raised-strong',

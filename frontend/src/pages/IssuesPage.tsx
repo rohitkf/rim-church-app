@@ -33,7 +33,7 @@ import {
   type IssueWindow,
 } from '../lib/issues'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Field, PageHeader, Pill, type PillTone, inputClasses } from '../components/Surface'
+import { ActionButton, Field, PageHeader, Pill, SegmentedControl, type PillTone, inputClasses } from '../components/Surface'
 import { Select } from '../components/Select'
 import { TeamMark } from '../components/TeamMark'
 import { Lifespan } from '../components/Lifespan'
@@ -68,7 +68,7 @@ const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
  */
 export function IssuesPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
-  // Marking and deleting are the church's to grant (Settings › Access & privileges).
+  // Marking and deleting are the church's to grant (Settings › Access & Privileges).
   const { can } = usePermissions()
   const settings = useAppSettings()
   const { teamIds, onATeam, settled } = useMyTeams()
@@ -323,24 +323,17 @@ export function IssuesPage() {
       )}
 
       {myTeamIds.length > 0 && (
-        <div className="mt-6 flex gap-1 rounded-full bg-inset p-1 hairline" role="group" aria-label="Which issues">
-          {[
-            { mine: false, label: 'All teams' },
-            { mine: true, label: 'For my teams' },
-          ].map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              aria-pressed={mineOnly === c.mine}
-              onClick={() => setMineOnly(c.mine)}
-              className={`tap flex-1 rounded-full px-3 py-1.5 text-label-md transition-colors ${
-                mineOnly === c.mine ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Which issues"
+          kind="pressed"
+          value={mineOnly ? 'mine' : 'all'}
+          onChange={(which) => setMineOnly(which === 'mine')}
+          options={[
+            { value: 'all', label: 'All teams' },
+            { value: 'mine', label: 'For my teams' },
+          ]}
+          className="mt-6"
+        />
       )}
 
       <QueryState
@@ -660,7 +653,7 @@ function RaiseIssue({
         <ActionButton type="submit" size="sm" disabled={!ready}>
           {raise.isPending ? 'Raising…' : 'Raise issue'}
         </ActionButton>
-        {note && <p className="text-body-sm text-accent-green">{note}</p>}
+        {note && <p className="text-body-sm text-accent-green-soft">{note}</p>}
       </div>
     </form>
   )

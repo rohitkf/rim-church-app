@@ -29,7 +29,7 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
       <Confetti />
 
       <div
-        className={`relative w-full max-w-sm rounded-[var(--radius-shell)] bg-surface-lowest p-8 text-center shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-all duration-500 ease-[var(--ease-glide)] dark:ring-white/12 ${
+        className={`relative w-full max-w-sm rounded-[var(--radius-shell)] bg-surface-lowest p-8 text-center shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] dark:ring-white/12 ${
           landed ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
@@ -45,7 +45,7 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
           type="button"
           onClick={onClose}
           autoFocus
-          className="mt-6 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+          className="mt-6 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
         >
           Can’t wait
         </button>

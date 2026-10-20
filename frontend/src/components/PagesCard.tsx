@@ -18,10 +18,10 @@ import { FixedCell, ReachPicker, roleLabel } from './PermissionsCard'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
-import { Eyebrow, IconBadge, Pill, Tile, type BadgeTone } from './Surface'
+import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from './Surface'
 
 /**
- * Settings › Page by page.
+ * Settings › Page by Page.
  *
  * One section per page of the app, in the menu's order, with everything
  * the church can set about it in one place: the settings that move it
@@ -30,7 +30,7 @@ import { Eyebrow, IconBadge, Pill, Tile, type BadgeTone } from './Surface'
  * the church-wide rule every team follows unless it sets its own.
  *
  * The settings are the catalog's rows (lib/settingsCatalog), the same
- * ones the Timings, Dashboard & lists and Data & retention rooms draw, so
+ * ones the Timings, Dashboard & Lists and Data & Retention rooms draw, so
  * a setting reads the same here as there. The rules are the grid's
  * (lib/permissionMatrix), read by the database on every request. One
  * draft, one Save: nothing changes for anybody until it is pressed.
@@ -310,7 +310,7 @@ function PageSection({
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={`${panel}-body`}
-          className="tap flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-300 hover:bg-raised"
+          className="tap flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-200 hover:bg-raised"
         >
           <IconBadge icon={page.icon as ComponentType<{ className?: string; width?: number; height?: number }>} tone={TONES[page.group] ?? 'blue'} size="sm" />
           <span className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ function PageSection({
                       <li key={r.to}>
                         <Link
                           to={r.to}
-                          className="group/room flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 transition-colors duration-300 hover:bg-raised-strong"
+                          className="group/room flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 transition-colors duration-200 hover:bg-raised-strong"
                         >
                           <span className="min-w-0 flex-1">
                             <span className="block text-body-sm font-medium text-on-surface">Settings › {r.label}</span>
@@ -364,22 +364,13 @@ function PageSection({
                 <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Who can open it</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                   {editable && rule.choices.length > 1 && rule.key ? (
-                    <div role="radiogroup" aria-label={`Who can open ${page.label}`} className="flex gap-1 rounded-full bg-inset p-1 hairline">
-                      {rule.choices.map((choice) => (
-                        <button
-                          key={choice}
-                          type="button"
-                          role="radio"
-                          aria-checked={level === choice}
-                          onClick={() => chooseOpen(rule.key!, choice)}
-                          className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
-                            level === choice ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-                          }`}
-                        >
-                          {short(choice)}
-                        </button>
-                      ))}
-                    </div>
+                    <SegmentedControl
+                      label={`Who can open ${page.label}`}
+                      value={level}
+                      onChange={(choice) => chooseOpen(rule.key!, choice)}
+                      options={rule.choices.map((choice) => ({ value: choice, label: short(choice) }))}
+                      className="w-fit"
+                    />
                   ) : (
                     <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">{short(level)}</span>
                   )}

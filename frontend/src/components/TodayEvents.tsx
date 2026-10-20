@@ -25,7 +25,7 @@ export function TodayEvents({
   return (
     <section
       aria-label={events.length === 1 ? 'On today' : `${events.length} things on today`}
-      className={`galaxy sheen rounded-[var(--radius-tile)] p-6 shadow-[var(--shadow-lifted)] sm:p-7 ${className}`}
+      className={`galaxy rounded-[var(--radius-tile)] p-6 shadow-[var(--shadow-lifted)] sm:p-7 ${className}`}
     >
       {/* The sky. Three layers, no pointer, no meaning — see index.css. */}
       <span aria-hidden="true" className="galaxy-glow" />

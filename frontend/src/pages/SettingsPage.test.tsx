@@ -93,8 +93,8 @@ describe('the Settings hall', () => {
     show('/settings', { isAdmin: true, isSuperAdmin: true })
     expect(roomLinks()).toHaveLength(SETTINGS_SECTIONS.length)
     const owner = screen.getByRole('heading', { name: 'Owner only' }).closest('section')!
-    expect(within(owner).getByRole('link', { name: /Erase data/ })).toBeInTheDocument()
-    expect(within(owner).getByRole('link', { name: /App logo/ })).toBeInTheDocument()
+    expect(within(owner).getByRole('link', { name: /Erase Data/ })).toBeInTheDocument()
+    expect(within(owner).getByRole('link', { name: /App Logo/ })).toBeInTheDocument()
   })
 
   it('says what each room is for in a line', () => {
@@ -123,7 +123,7 @@ describe('a Settings room', () => {
     const nav = screen.getByRole('navigation', { name: 'Settings sections' })
     expect(within(nav).getByText('Church set-up')).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Giving' })).toHaveAttribute('aria-current', 'page')
-    expect(within(nav).queryByRole('link', { name: 'Erase data' })).toBeNull()
+    expect(within(nav).queryByRole('link', { name: 'Erase Data' })).toBeNull()
   })
 
   it('sends somebody without the key back to the hall rather than an empty room', () => {

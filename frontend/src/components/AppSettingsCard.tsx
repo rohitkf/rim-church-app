@@ -23,7 +23,7 @@ import { SettingEntries } from './SettingEntry'
  * what it does, and its value as a person would say it ("12 h") — and the
  * ruler and the full explanation open under the row that was tapped. The
  * rows themselves come from the catalog (lib/settingsCatalog), which is
- * also what Page by page draws each page's settings from.
+ * also what Page by Page draws each page's settings from.
  */
 /** The keys this room owns, and saves — no other room's. */
 const TIMINGS_KEYS = [

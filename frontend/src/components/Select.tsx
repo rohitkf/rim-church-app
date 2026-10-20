@@ -363,7 +363,7 @@ export function Select({
       >
         <span className="min-w-0 break-words">{option.label}</span>
         {isSelected && (
-          <span aria-hidden="true" className="shrink-0 text-secondary">
+          <span aria-hidden="true" className="shrink-0 text-accent-blue-soft">
             ✓
           </span>
         )}
@@ -374,11 +374,11 @@ export function Select({
 
 /** The trigger, when the caller has no opinion: the shape of a field. */
 export const triggerClasses =
-  'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-300 ease-[var(--ease-glide)] focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
+  'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-200 ease-[var(--ease-glide)] focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
 
 /** The compact trigger, for a picker sitting inside a row of controls. */
 export const selectPillClasses =
-  'tap rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface transition-shadow duration-300 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] disabled:opacity-50'
+  'tap rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface transition-shadow duration-200 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] disabled:opacity-50'
 
 function ChevronGlyph({ open }: { open: boolean }): ReactNode {
   return (

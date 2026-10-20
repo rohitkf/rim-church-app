@@ -3,19 +3,30 @@
 /*
  * RIM design system — see DESIGN.md.
  *
- * The system is dark-first: a true-black canvas, content in tiles a step
- * above it, and one blue accent spent only on what is live or actionable.
- * Depth comes from a hairline of light along each tile's inside edge
- * rather than from shadow, which is what keeps a near-black screen from
- * reading as a flat void.
+ * A true-black canvas, content in tiles a step above it, and one blue
+ * accent spent only on what is live or actionable. Depth comes from a
+ * hairline of light along each tile's inside edge rather than from
+ * shadow, which is what keeps a near-black screen from reading as a flat
+ * void. The type, the colours' contrast, the controls and the motion
+ * follow Apple's Human Interface Guidelines; the notes beside each block
+ * say which rule it is keeping.
  *
  * Light is the same system with the ground inverted — every component
  * paints from these tokens, so the whole app turns over by redefining
- * them and nothing has to know which theme it is in.
+ * them and nothing has to know which theme it is in. The default follows
+ * the device (lib/theme.ts).
  */
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /*
+   * The platform's own face, and only that: SF on an iPhone or a Mac,
+   * Roboto on Android, Segoe on Windows. It is what every other app on
+   * the device is set in, it carries Apple's size-specific tracking in
+   * the font itself, and it costs nothing to download — a webfont here
+   * was a second face arriving late over a bad connection. Mono is the
+   * platform's too.
+   */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Roboto Mono', 'Liberation Mono', monospace;
 
   /* ---------------------------------------------------------------
    * Ground and tiles
@@ -42,8 +53,11 @@
   /* Text */
   --color-on-background: #f5f5f7;
   --color-on-surface: #f5f5f7;
-  --color-on-surface-variant: #98989d;
-  --color-on-surface-faint: #8e8e93;
+  /* Secondary and tertiary ink. Both clear 4.5:1 on every surface a
+     sentence is set on, the container included — the floor Apple's
+     accessibility guidance sets for text up to 17pt. */
+  --color-on-surface-variant: #a1a1a6;
+  --color-on-surface-faint: #98989d;
   --color-outline: #6b6b73;
   --color-outline-variant: rgb(255 255 255 / 0.14);
   --color-border-subtle: rgb(255 255 255 / 0.08);
@@ -60,11 +74,12 @@
   --color-secondary: #0a84ff;
   --color-on-secondary: #ffffff;
   --color-secondary-container: rgb(10 132 255 / 0.16);
-  --color-on-secondary-container: #5ab0ff;
+  --color-on-secondary-container: #409cff;
 
   --color-accent-blue: #0a84ff;
-  --color-accent-blue-soft: #5ab0ff;
+  --color-accent-blue-soft: #409cff;
   --color-accent-green: #30d158;
+  --color-accent-green-soft: #30d158;
   --color-accent-green-ink: #04270f;
   --color-accent-orange: #ff9f0a;
   --color-accent-orange-soft: #ffb340;
@@ -72,8 +87,8 @@
   --color-accent-red-soft: #ff6961;
   --color-accent-indigo: #5e5ce6;
   --color-accent-indigo-soft: #a5a3ff;
-  --color-accent-teal: #10b981;
-  --color-accent-teal-soft: #34d399;
+  --color-accent-teal: #40c8e0;
+  --color-accent-teal-soft: #40c8e0;
 
   /* Feedback */
   --color-success: #30d158;
@@ -88,6 +103,12 @@
   --color-status-member: #5e5ce6;
   --color-status-head: #0a84ff;
   --color-status-coordinator: #30d158;
+
+  /* The system's own controls: a segmented control's track and the
+     segment that is chosen, and a switch's track when it is off. */
+  --color-track: rgb(118 118 128 / 0.24);
+  --color-segment: #636366;
+  --color-switch-off: rgb(120 120 128 / 0.32);
 
   /* ---------------------------------------------------------------
    * Form
@@ -111,59 +132,63 @@
   /* ---------------------------------------------------------------
    * Type
    *
-   * One family for prose, mono for anything countable — labels, times,
-   * counts, tags. The mono is what makes a dense screen scannable.
+   * Apple's text styles at their default size — Large Title, Title 1 to
+   * 3, Body, Callout, Subheadline, Caption 1 and 2 — written in rem, so a
+   * reader who has made their browser's text bigger gets the whole scale
+   * bigger, which is what Dynamic Type is. Letter-spacing stays at zero:
+   * the system font tracks itself by size, and a value here would sit
+   * on top of that. Mono for anything countable, and nothing under 11px.
    * --------------------------------------------------------------- */
-  --text-display: 76px;
-  --text-display--line-height: 76px;
-  --text-display--letter-spacing: -0.04em;
-  --text-display--font-weight: 500;
+  --text-display: 4.75rem; /* 76 */
+  --text-display--line-height: 1;
+  --text-display--letter-spacing: 0;
+  --text-display--font-weight: 600;
 
-  --text-headline-xl: 40px;
-  --text-headline-xl--line-height: 46px;
-  --text-headline-xl--letter-spacing: -0.03em;
-  --text-headline-xl--font-weight: 600;
+  --text-headline-xl: 2.125rem; /* Large Title 34/41 */
+  --text-headline-xl--line-height: 2.5625rem;
+  --text-headline-xl--letter-spacing: 0;
+  --text-headline-xl--font-weight: 700;
 
-  --text-headline-lg: 28px;
-  --text-headline-lg--line-height: 34px;
-  --text-headline-lg--letter-spacing: -0.02em;
-  --text-headline-lg--font-weight: 600;
+  --text-headline-lg: 1.75rem; /* Title 1 28/34 */
+  --text-headline-lg--line-height: 2.125rem;
+  --text-headline-lg--letter-spacing: 0;
+  --text-headline-lg--font-weight: 700;
 
-  --text-headline-md: 22px;
-  --text-headline-md--line-height: 28px;
-  --text-headline-md--letter-spacing: -0.01em;
-  --text-headline-md--font-weight: 600;
+  --text-headline-md: 1.375rem; /* Title 2 22/28 */
+  --text-headline-md--line-height: 1.75rem;
+  --text-headline-md--letter-spacing: 0;
+  --text-headline-md--font-weight: 700;
 
-  --text-headline-sm: 19px;
-  --text-headline-sm--line-height: 24px;
-  --text-headline-sm--letter-spacing: -0.01em;
+  --text-headline-sm: 1.25rem; /* Title 3 20/25 */
+  --text-headline-sm--line-height: 1.5625rem;
+  --text-headline-sm--letter-spacing: 0;
   --text-headline-sm--font-weight: 600;
 
-  --text-numeral: 44px;
-  --text-numeral--line-height: 48px;
-  --text-numeral--letter-spacing: -0.03em;
+  --text-numeral: 2.75rem; /* 44/48 — a tile's headline figure */
+  --text-numeral--line-height: 3rem;
+  --text-numeral--letter-spacing: 0;
   --text-numeral--font-weight: 600;
 
-  --text-body-lg: 17px;
-  --text-body-lg--line-height: 26px;
+  --text-body-lg: 1.0625rem; /* Body 17/22 */
+  --text-body-lg--line-height: 1.375rem;
 
-  --text-body-md: 16px;
-  --text-body-md--line-height: 24px;
+  --text-body-md: 1rem; /* Callout 16/21 */
+  --text-body-md--line-height: 1.3125rem;
 
-  --text-body-sm: 15px;
-  --text-body-sm--line-height: 22px;
+  --text-body-sm: 0.9375rem; /* Subheadline 15/20 */
+  --text-body-sm--line-height: 1.25rem;
 
-  --text-label-md: 14px;
-  --text-label-md--line-height: 20px;
+  --text-label-md: 0.875rem; /* 14/19 */
+  --text-label-md--line-height: 1.1875rem;
   --text-label-md--font-weight: 500;
 
-  --text-label-sm: 12px;
-  --text-label-sm--line-height: 16px;
+  --text-label-sm: 0.75rem; /* Caption 1 12/16 */
+  --text-label-sm--line-height: 1rem;
   --text-label-sm--font-weight: 500;
 
-  --text-eyebrow: 11px;
-  --text-eyebrow--line-height: 14px;
-  --text-eyebrow--letter-spacing: 0.18em;
+  --text-eyebrow: 0.6875rem; /* Caption 2 11/13 — the floor */
+  --text-eyebrow--line-height: 0.8125rem;
+  --text-eyebrow--letter-spacing: 0.12em;
   --text-eyebrow--font-weight: 500;
 }
 
@@ -191,41 +216,56 @@
 
   --color-on-background: #1c1c1e;
   --color-on-surface: #1c1c1e;
-  --color-on-surface-variant: #6e6e73;
-  --color-on-surface-faint: #8a8a8f;
+  /* Secondary and tertiary ink, dark enough to clear 4.5:1 on white and
+     on the container both. Apple's own secondary label does not, which is
+     a thing its guidance says to strive past rather than a thing to copy. */
+  --color-on-surface-variant: #5c5c61;
+  --color-on-surface-faint: #68686d;
   --color-outline: #8a8a8f;
   --color-outline-variant: rgb(0 0 0 / 0.14);
   --color-border-subtle: rgb(0 0 0 / 0.09);
 
-  --color-primary: #007aff;
-  --color-secondary: #007aff;
-  --color-secondary-container: rgb(0 122 255 / 0.12);
-  --color-on-secondary-container: #0064d2;
+  /*
+   * Blue on a light ground is the blue of Apple's own web: #0066cc, which
+   * is legible as a sentence on white and carries white on itself. The
+   * phone's #007aff is a fill colour that never had to be read.
+   */
+  --color-primary: #0066cc;
+  --color-secondary: #0066cc;
+  --color-secondary-container: rgb(0 102 204 / 0.12);
+  --color-on-secondary-container: #0058b3;
 
-  --color-accent-blue: #007aff;
-  --color-accent-blue-soft: #0064d2;
+  --color-accent-blue: #0066cc;
+  --color-accent-blue-soft: #0058b3;
   --color-accent-green: #34c759;
+  --color-accent-green-soft: #1b7a33;
   --color-accent-green-ink: #04270f;
   --color-accent-orange: #ff9500;
-  --color-accent-orange-soft: #b86e00;
-  --color-accent-red: #ff3b30;
+  --color-accent-orange-soft: #a24a00;
+  --color-accent-red: #d70015;
   --color-accent-red-soft: #c9271e;
   --color-accent-indigo: #5856d6;
   --color-accent-indigo-soft: #4340b5;
-  --color-accent-teal: #059669;
-  --color-accent-teal-soft: #047857;
+  --color-accent-teal: #30b0c7;
+  --color-accent-teal-soft: #0b7285;
 
-  --color-success: #34c759;
-  --color-warning: #ff9500;
-  --color-error: #ff3b30;
+  /* As text these are Apple's increased-contrast system colours; the
+     bright ones above stay for fills, where ink sits on them. */
+  --color-success: #1b7a33;
+  --color-warning: #a24a00;
+  --color-error: #d70015;
   --color-on-error: #ffffff;
-  --color-error-container: rgb(255 59 48 / 0.12);
+  --color-error-container: rgb(215 0 21 / 0.1);
   --color-on-error-container: #c9271e;
 
   --color-status-pending: rgb(0 0 0 / 0.16);
   --color-status-member: #5856d6;
-  --color-status-head: #007aff;
+  --color-status-head: #0066cc;
   --color-status-coordinator: #34c759;
+
+  --color-track: rgb(118 118 128 / 0.12);
+  --color-segment: #ffffff;
+  --color-switch-off: #e9e9eb;
 
   --shadow-ambient: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -16px rgb(15 23 42 / 0.16);
   --shadow-lifted: 0 2px 6px rgb(15 23 42 / 0.06), 0 24px 56px -24px rgb(15 23 42 / 0.26);
@@ -302,6 +342,27 @@ body {
 }
 
 /*
+ * Pressing.
+ *
+ * A control answers the finger the moment it lands — a plain button dims,
+ * a filled one sinks (ActionButton) — and eases back as it lifts. The
+ * press itself is instant on purpose: a transition on the way in is a
+ * wait between touching a thing and seeing it respond. In the base layer,
+ * so a component's own transition still wins where it has one.
+ */
+@layer base {
+  .tap,
+  .tap-square {
+    transition: opacity 180ms var(--ease-glide);
+  }
+  .tap:active,
+  .tap-square:active {
+    opacity: 0.55;
+    transition-duration: 0ms;
+  }
+}
+
+/*
  * The ambient wash.
  *
  * A true-black page with tiles on it reads as a void unless something
@@ -333,21 +394,6 @@ body::before {
       color-mix(in oklab, var(--color-accent-green) 7%, transparent),
       transparent 62%
     );
-}
-
-/* Film grain, fine enough to read as material rather than as texture. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.022;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-:root[data-theme='light'] body::after {
-  opacity: 0.035;
 }
 
 /*
@@ -411,33 +457,6 @@ body::after {
 }
 
 /*
- * The install button's glow.
- *
- * It has to be noticed across a header that is deliberately quiet, without
- * becoming the loudest thing on the page — so it breathes rather than
- * flashes: a soft ring that swells and fades over four seconds. Reduced
- * motion stops it entirely (the rule at the bottom of this file), which is
- * fine: the button is still there and still says what it does.
- */
-@keyframes rim-install-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0 color-mix(in oklab, var(--color-accent-blue) 45%, transparent),
-      0 0 12px 0 color-mix(in oklab, var(--color-accent-blue) 30%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 5px color-mix(in oklab, var(--color-accent-blue) 0%, transparent),
-      0 0 20px 3px color-mix(in oklab, var(--color-accent-blue) 55%, transparent);
-  }
-}
-
-@utility install-glow {
-  animation: rim-install-glow 4s ease-in-out infinite;
-}
-
-/*
  * The welcome's beats.
  *
  * Each one arrives rather than replacing the last: a short rise and fade
@@ -462,100 +481,6 @@ body::after {
 
 .welcome-stagger {
   animation: rim-beat-in 460ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-
-/*
- * The glisten across the install dialog: a band of light travelling from
- * the top-left corner to the bottom-right and away, on a long cycle with a
- * pause built into it, so the card catches the light rather than strobing.
- * It is drawn on an overlay that ignores the pointer, so nothing it passes
- * over stops being clickable.
- */
-@keyframes rim-sheen {
-  0% {
-    transform: translate3d(-120%, -120%, 0) rotate(8deg);
-  }
-  55%,
-  100% {
-    transform: translate3d(120%, 120%, 0) rotate(8deg);
-  }
-}
-
-.sheen::after {
-  content: '';
-  position: absolute;
-  inset: -60%;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 38%,
-    color-mix(in oklab, white 7%, transparent) 47%,
-    color-mix(in oklab, white 16%, transparent) 52%,
-    transparent 62%
-  );
-  animation: rim-sheen 4.5s cubic-bezier(0.4, 0.1, 0.3, 1) infinite;
-}
-
-/* On light the card is already white, so a white band is nothing at all.
-   The light there has to be coloured to be light. */
-:root[data-theme='light'] .sheen::after {
-  background: linear-gradient(
-    115deg,
-    transparent 38%,
-    color-mix(in oklab, var(--color-accent-blue) 7%, transparent) 47%,
-    color-mix(in oklab, var(--color-accent-blue) 15%, transparent) 52%,
-    transparent 62%
-  );
-}
-
-/*
- * The install button's glisten.
- *
- * The dialog's sheen is a wide, soft band tuned for a card the size of a
- * phone screen; run on a chip a hundred pixels across it crosses in a few
- * frames and reads as nothing at all. This is the same idea sized for a
- * button: a narrow highlight, tilted, that sweeps once and then waits out
- * the rest of a four-second cycle, so the button catches the light rather
- * than shimmering continuously. Paired with the glow above, which breathes
- * around the outside on a different beat — two small movements at
- * different rates are noticed; one repeated at one rate is a warning
- * light. It needs `relative` and `overflow-hidden` on the host.
- */
-@keyframes rim-glisten {
-  0% {
-    transform: translate3d(-180%, 0, 0) skewX(-18deg);
-  }
-  40%,
-  100% {
-    transform: translate3d(320%, 0, 0) skewX(-18deg);
-  }
-}
-
-.glisten::after {
-  content: '';
-  position: absolute;
-  top: -40%;
-  bottom: -40%;
-  left: 0;
-  width: 38%;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in oklab, white 55%, transparent),
-    transparent
-  );
-  animation: rim-glisten 4s cubic-bezier(0.3, 0.05, 0.2, 1) infinite;
-}
-
-/* White on a pale blue chip is invisible. On light the light is blue. */
-:root[data-theme='light'] .glisten::after {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in oklab, var(--color-accent-blue) 42%, transparent),
-    transparent
-  );
 }
 
 /*
@@ -586,6 +511,121 @@ body::after {
   animation: quicknav-row 200ms var(--ease-glide) both;
 }
 
+/*
+ * Overlays arriving (the Overlay in components/Surface).
+ *
+ * The scrim fades; a dialog grows into place from just under its full
+ * size; a sheet rises from the bottom edge on the curve a phone's own
+ * sheets use, and on a wide screen, where it is centred, grows like a
+ * dialog instead. The three start together — nothing waits on anything —
+ * and `backwards` leaves no transform behind once they have landed, so a
+ * `fixed` child of the dialog still measures against the window.
+ */
+@keyframes rim-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rim-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes rim-sheet-in {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+.overlay-scrim {
+  animation: rim-scrim-in 200ms ease-out backwards;
+}
+.overlay-dialog {
+  animation: rim-dialog-in 260ms var(--ease-glide) backwards;
+}
+.overlay-sheet {
+  animation: rim-sheet-in 420ms var(--ease-glide) backwards;
+}
+@media (min-width: 640px) {
+  .overlay-sheet {
+    animation: rim-dialog-in 260ms var(--ease-glide) backwards;
+  }
+}
+
+/*
+ * Glass: the chrome that floats over content — the top strip once the
+ * page is moving under it, the dock, the close button on an overlay — is
+ * translucent, with what is beneath it blurred through. Content itself
+ * never is. `--glass` is the colour it is made of; the strip sets it to
+ * the ground, the rest leave it as the container.
+ *
+ * Somebody who has asked their device for less transparency gets the
+ * same chrome solid, and somebody who has asked for more contrast gets
+ * darker ink and firmer edges, from the same tokens.
+ */
+.glass {
+  --glass: var(--color-surface-container);
+  background-color: color-mix(in oklab, var(--glass) 80%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+}
+
+/* A soft edge under the strip, where a hairline used to be: content
+   fades out under it rather than stopping at a line. */
+.scroll-edge::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -14px 0;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-background) 70%, transparent),
+    transparent
+  );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--glass);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .scroll-edge::after {
+    background: linear-gradient(to bottom, var(--color-background), transparent);
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-on-surface-variant: #c7c7cc;
+    --color-on-surface-faint: #aeaeb2;
+    --color-outline-variant: rgb(255 255 255 / 0.4);
+    --color-border-subtle: rgb(255 255 255 / 0.28);
+  }
+  :root[data-theme='light'] {
+    --color-on-surface-variant: #3a3a3c;
+    --color-on-surface-faint: #48484a;
+    --color-outline-variant: rgb(0 0 0 / 0.45);
+    --color-border-subtle: rgb(0 0 0 / 0.3);
+  }
+}
+
+/*
+ * Reduced motion. Everything that moves stops, and what would have moved
+ * is simply there — the overlays above included, which then appear in
+ * place. Nothing in the app is told only by its motion.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -673,8 +713,7 @@ body::after {
  * Four layers, none of which touches the pointer:
  *   1. the base, a wash of indigo and blue under near-black;
  *   2. `.galaxy-glow`, two soft clouds that breathe on a nine-second cycle;
- *   3. `.galaxy-stars`, a tiled field that drifts sideways forever;
- *   4. `.sheen` (above), the glisten that crosses the card.
+ *   3. `.galaxy-stars`, a tiled field that drifts sideways forever.
  *
  * Each runs at its own rate, which is what keeps it looking like a sky
  * rather than a loading spinner: nothing in it repeats with anything else.

@@ -9,7 +9,7 @@ import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { fetchDepartments } from '../lib/queries'
 import { formatRelativeTime } from '../lib/relativeTime'
-import { ActionButton, Eyebrow, Field, Pill, Row, inputClasses } from './Surface'
+import { ActionButton, Eyebrow, Field, Pill, Row, SegmentedControl, inputClasses } from './Surface'
 import { TeamMark } from './TeamMark'
 import { QueryState } from './QueryState'
 
@@ -185,23 +185,14 @@ export function SendAlertCard() {
           chosen at a time, and the object should look like it knows that. */}
       <div className="mt-5">
         <Eyebrow>Who it goes to</Eyebrow>
-        <div className="mt-2 flex gap-1 rounded-full bg-inset p-1 hairline">
-          {AUDIENCES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setAudience(option.value)}
-              aria-pressed={audience === option.value}
-              className={`tap flex-1 rounded-full px-3 py-2 text-label-md transition-colors duration-300 ease-[var(--ease-glide)] ${
-                audience === option.value
-                  ? 'bg-primary font-medium text-on-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Who it goes to"
+          kind="pressed"
+          value={audience}
+          onChange={setAudience}
+          options={AUDIENCES.map((option) => ({ value: option.value, label: option.label }))}
+          className="mt-2"
+        />
         <p className="mt-2 text-label-sm text-on-surface-faint">
           {AUDIENCES.find((a) => a.value === audience)?.blurb}
         </p>
@@ -323,7 +314,7 @@ export function SendAlertCard() {
         </p>
       )}
 
-      {note && <p className="mt-3 text-body-sm text-accent-green">{note}</p>}
+      {note && <p className="mt-3 text-body-sm text-accent-green-soft">{note}</p>}
       {error && (
         <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}

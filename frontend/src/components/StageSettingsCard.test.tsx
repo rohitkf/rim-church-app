@@ -7,7 +7,7 @@ import { settingsRow } from '../test/settingsRow'
 import { DEFAULT_SETTINGS } from '../lib/appSettings'
 
 /*
- * Settings › Stage layout: ticks per team, the asks waiting, the clear day.
+ * Settings › Stage Layout: ticks per team, the asks waiting, the clear day.
  */
 
 const db = vi.hoisted(() => ({
@@ -63,7 +63,7 @@ beforeEach(() => {
   settingsRow.reset({ ...DEFAULT_SETTINGS })
 })
 
-describe('Settings › Stage layout', () => {
+describe('Settings › Stage Layout', () => {
   it('lists every team with a tick per privilege, and saves the ticked ones', async () => {
     const user = userEvent.setup()
     show()

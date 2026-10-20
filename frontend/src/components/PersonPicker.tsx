@@ -77,7 +77,7 @@ export function PersonPicker({
         <button
           type="button"
           onClick={() => onWriteIn(typed.trim())}
-          className="tap self-start text-label-md text-secondary hover:underline"
+          className="tap self-start text-label-md text-accent-blue-soft hover:underline"
         >
           Not on the app? Add “{typed.trim()}” by hand
         </button>

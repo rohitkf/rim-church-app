@@ -133,7 +133,7 @@ function ItemRow({
               setBody(item.body);
               setEditing(false);
             }}
-            className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+            className="tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline"
           >
             Cancel
           </button>
@@ -179,7 +179,7 @@ function ItemRow({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="tap text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+                className="tap text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline"
               >
                 Edit
               </button>
@@ -294,7 +294,7 @@ function TeamWindowLine({
 export function DebriefsPage() {
   const { session } = useAuth();
   // Writing a debrief, and adding to one, are the church's to grant
-  // (Settings › Access & privileges).
+  // (Settings › Access & Privileges).
   const { can } = usePermissions();
   const { teamIds } = useMyTeams();
   const settings = useAppSettings();

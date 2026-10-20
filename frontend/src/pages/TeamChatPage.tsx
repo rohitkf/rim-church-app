@@ -27,7 +27,7 @@ import { QueryState } from '../components/QueryState'
 export function TeamChatPage() {
   const { session, isAdmin, ledDepartmentIds } = useAuth()
   // Which rooms somebody may read and post in is the church's to say
-  // (Settings › Access & privileges, msg.chat).
+  // (Settings › Access & Privileges, msg.chat).
   const { can } = usePermissions()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // A notification about a poll names the team it was asked of, so the
@@ -89,7 +89,7 @@ export function TeamChatPage() {
                 key={d.id}
                 type="button"
                 onClick={() => setSelectedId(d.id)}
-                className={`tap shrink-0 rounded-full px-4 py-2 text-body-sm font-medium transition-colors duration-300 ${
+                className={`tap shrink-0 rounded-full px-4 py-2 text-body-sm font-medium transition-colors duration-200 ${
                   d.id === departmentId
                     ? 'bg-primary text-on-primary'
                     : 'bg-raised text-on-surface-variant hover:bg-raised-strong'
@@ -113,7 +113,7 @@ export function TeamChatPage() {
             <TeamAlertPanel />
             <p className="rounded-[var(--radius-tile)] bg-surface-lowest hairline p-5 text-body-sm text-on-surface-variant">
               Team polls have moved to the{' '}
-              <Link to="/polls" className="font-medium text-secondary hover:underline">
+              <Link to="/polls" className="font-medium text-accent-blue-soft hover:underline">
                 Polls page
               </Link>
               , where a question can go to one team, a service, or the whole church.

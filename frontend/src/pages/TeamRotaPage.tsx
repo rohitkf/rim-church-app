@@ -545,7 +545,7 @@ export function TeamRotaPage() {
                       {service.service_type}
                     </h2>
                     {finished && (
-                      <span className="shrink-0 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
                         Finished
                       </span>
                     )}
@@ -716,7 +716,7 @@ export function TeamRotaPage() {
                                 onClick={() => setOpenForm((s) => ({ ...s, [key]: !formOpen }))}
                                 aria-expanded={formOpen}
                                 data-tour="rota-assign"
-                                className="tap shrink-0 self-center rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                                className="tap shrink-0 self-center rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md text-on-surface transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                               >
                                 {formOpen ? 'Cancel' : 'Assign role'}
                               </button>
@@ -890,7 +890,7 @@ export function TeamRotaPage() {
                                               aria-label={`Remove ${a.role_label}`}
                                               /* Visible on a phone, where there
                                                  is no hover to reveal it with. */
-                                              className={`ml-auto shrink-0 font-mono text-label-sm ${sky ? 'text-white/60' : 'text-on-surface-faint'} transition-opacity duration-300 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0`}
+                                              className={`ml-auto shrink-0 font-mono text-label-sm ${sky ? 'text-white/60' : 'text-on-surface-faint'} transition-opacity duration-200 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0`}
                                             >
                                               ✕
                                             </button>
@@ -927,7 +927,7 @@ export function TeamRotaPage() {
                           {formOpen && deptRoles.length === 0 && (
                             <p className="mt-3 rounded-[var(--radius-chip)] bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
                               No roles defined for this team yet — add them under{' '}
-                              <Link to={`/departments/${dept.id}`} className="text-secondary">
+                              <Link to={`/departments/${dept.id}`} className="text-accent-blue-soft">
                                 Teams → {dept.name} → Roles
                               </Link>
                               .
@@ -938,7 +938,7 @@ export function TeamRotaPage() {
                             <p className="mt-3 rounded-[var(--radius-chip)] bg-surface-low px-3 py-2 text-body-sm text-on-surface-variant">
                               Nobody on this team has marked themselves available for this service
                               yet, so there is nobody to assign. They answer in the{' '}
-                              <Link to="/availability" className="text-secondary">
+                              <Link to="/availability" className="text-accent-blue-soft">
                                 Availability Tracker
                               </Link>
                               .

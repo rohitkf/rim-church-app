@@ -19,7 +19,7 @@ async function show() {
 
 const row = (label: string) => screen.getByRole('button', { name: new RegExp(`^${label}`) })
 
-describe('Data & retention', () => {
+describe('Data & Retention', () => {
   /*
    * The church's own rules (0128): two weeks for a service and all of it,
    * a month for chat posts, the newest ten in a bell, alerts cleared on

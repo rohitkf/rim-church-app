@@ -39,7 +39,7 @@ export function useSettingsDraft<K extends keyof AppSettings>(keys: readonly K[]
 
   const mutation = useMutation({
     mutationFn: async (next: Pick<AppSettings, K>) => {
-      // Only the columns that moved: a room that holds many (Page by page
+      // Only the columns that moved: a room that holds many (Page by Page
       // holds them all) must not restate the ones it left alone, which an
       // Admin in another room may have changed since this one loaded.
       const was = query.data

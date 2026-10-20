@@ -39,7 +39,7 @@ export function UpdateRequiredDialog() {
       >
         <span
           aria-hidden="true"
-          className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-primary)_18%,transparent)] text-primary"
+          className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-primary)_18%,transparent)] text-accent-blue-soft"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path
@@ -73,7 +73,7 @@ export function UpdateRequiredDialog() {
             setReloading(true)
             applyUpdate()
           }}
-          className="mt-6 w-full rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-70"
+          className="mt-6 w-full rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-70"
         >
           {reloading ? 'Reloading…' : 'Reload now'}
         </button>

@@ -95,26 +95,25 @@ describe('InstallAppGuide', () => {
 
 describe('InstallAppBadge', () => {
   /*
-   * The animations used to stop for good once somebody had opened the
-   * directions, on the grounds that a button which keeps moving is
-   * nagging. Reading the steps is not installing the app, though — and
-   * the person who read them and did not follow through is the one the
-   * button is still there for. It goes quiet by being installed.
+   * It used to glow and glisten without end. A control that keeps moving
+   * is a control asking to be looked at, and nothing here is that urgent:
+   * the tint and the words say what it does, and it stays for as long as
+   * the app is not installed — including after the steps have been read,
+   * since reading them is not installing it.
    */
-  it('keeps glowing and glistening for as long as the app is not installed', () => {
+  it('holds still, and says what it does', () => {
     render(<InstallAppBadge />)
     const badge = screen.getByRole('button', { name: 'Install app' })
-    expect(badge).toHaveClass('install-glow')
-    expect(badge).toHaveClass('glisten')
+    expect(badge.className).not.toMatch(/glow|glisten|sheen/)
+    expect(badge).toHaveAttribute('title', 'Add this app to your home screen')
   })
 
-  it('still does, once the directions have been read', async () => {
+  it('is still there once the directions have been read', async () => {
     const user = userEvent.setup()
     render(<InstallAppBadge />)
     const badge = screen.getByRole('button', { name: 'Install app' })
     await user.click(badge)
     expect(screen.getByText(/Keep this on your home screen/)).toBeInTheDocument()
-    expect(badge).toHaveClass('install-glow')
-    expect(badge).toHaveClass('glisten')
+    expect(screen.getByRole('button', { name: 'Install app' })).toBeInTheDocument()
   })
 })

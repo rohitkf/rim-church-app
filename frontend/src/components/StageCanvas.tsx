@@ -431,7 +431,7 @@ export function StageCanvas({
                 ))}
               <div
                 aria-hidden="true"
-                className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-primary"
+                className="absolute inset-x-0 bottom-0 flex h-9 items-center justify-center rounded-b-[18px] border-t-2 border-dashed border-primary/50 font-mono text-[13px] uppercase tracking-[0.18em] text-accent-blue-soft"
               >
                 {r.area.bottom_label}
               </div>

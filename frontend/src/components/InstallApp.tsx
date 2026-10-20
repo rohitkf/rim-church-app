@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Overlay } from './Surface'
 import {
   CloseIcon,
@@ -27,11 +27,10 @@ import {
  * line inside the account menu, which is the last place somebody who does
  * not know the feature exists would go looking for it.
  *
- * So it sits in the header instead, beside the two toggles, and it keeps
- * catching the light for as long as the offer stands. It disappears the
- * moment the app is running from the home screen, because at that point it
- * is advice somebody has already taken — and that, rather than "you have
- * looked at this once", is the thing worth switching the animation off.
+ * So it sits in the header instead, as a tinted pill that says what it
+ * does, for as long as the offer stands. It disappears the moment the app
+ * is running from the home screen, because at that point it is advice
+ * somebody has already taken.
  */
 
 const PLATFORM_ICONS: Record<Platform, typeof PhoneAddIcon> = {
@@ -53,29 +52,18 @@ export function InstallAppBadge() {
   return (
     <>
       {/*
-        Two animations, and neither of them stops.
-
-        The glow breathes around the outside on a four-second cycle; the
-        glisten is a narrow band of light that crosses the face of it in
-        the first half of one and waits out the rest. Two small movements
-        at different rates get noticed; one movement repeated at one rate
-        is a warning light. Both are the quietest version
-        of themselves that still reads as alive — see the keyframes in
-        index.css — and both end the moment the app is installed, which
-        is when this button stops existing.
-
-        This used to stop after the guide had been opened once, on the
-        grounds that a thing which keeps moving at you is nagging. But
-        opening the directions is not installing the app: whoever read
-        them and did not follow through is exactly the person the button
-        is still for, and for them it had gone quiet for good.
+        It used to glow and glisten, two animations that never stopped, on
+        the theory that a quiet header needs one thing moving in it. A
+        control that keeps moving is a control asking to be looked at, and
+        nothing here is that urgent: the tint and the words say what it
+        does, once, and the finger finds it.
       */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         title="Add this app to your home screen"
         aria-label="Install app"
-        className="glisten install-glow tap relative flex h-10 shrink-0 items-center gap-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] px-2.5 text-accent-blue-soft transition-colors duration-300 hover:bg-[color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)] hover:text-on-surface sm:h-9 sm:px-3"
+        className="tap relative flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] px-2.5 text-accent-blue-soft transition-colors duration-200 hover:bg-[color-mix(in_oklab,var(--color-accent-blue)_28%,transparent)] hover:text-on-surface sm:h-9 sm:px-3"
       >
         <PhoneAddIcon width={17} height={17} aria-hidden="true" />
         <span className="hidden text-label-sm font-medium sm:inline">Install app</span>
@@ -100,14 +88,8 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
   const [here] = useState(detectEnvironment)
   const [guideId, setGuideId] = useState<GuideId>(here.guide)
   const [picking, setPicking] = useState(false)
-  const [landed, setLanded] = useState(false)
   const guide = GUIDES[guideId]
   const Icon = PLATFORM_ICONS[guide.platform]
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setLanded(true), 20)
-    return () => window.clearTimeout(id)
-  }, [])
 
   // Chromium can do the whole thing on a tap. Only ever offered while the
   // steps on screen are the ones for the browser we are actually in: an
@@ -117,11 +99,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
 
   return (
     <Overlay onDismiss={onClose} label="How to install the app" align="sheet">
-      <div
-        className={`sheen relative w-full max-w-lg overflow-hidden rounded-t-[var(--radius-shell)] bg-surface-lowest shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-all duration-500 ease-[var(--ease-glide)] sm:rounded-[var(--radius-shell)] dark:ring-white/12 ${
-          landed ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
-        }`}
-      >
+      <div className="relative w-full max-w-lg overflow-hidden rounded-t-[var(--radius-shell)] bg-surface-lowest shadow-[var(--shadow-lifted)] ring-1 ring-black/10 sm:rounded-[var(--radius-shell)] dark:ring-white/12">
         <div className="max-h-[85vh] overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-7">
           <div className="flex items-start gap-3">
             <span
@@ -155,7 +133,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={() => void promptInstall()}
-                className="mt-3 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                className="mt-3 rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
               >
                 Install now
               </button>
@@ -197,7 +175,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
               onClick={() => setPicking((was) => !was)}
               aria-expanded={picking}
               aria-controls="install-guide-picker"
-              className="tap shrink-0 rounded-full px-2.5 py-1 text-label-md font-medium text-secondary hover:underline"
+              className="tap shrink-0 rounded-full px-2.5 py-1 text-label-md font-medium text-accent-blue-soft hover:underline"
             >
               {picking ? 'Never mind' : 'Not this one?'}
             </button>
@@ -222,7 +200,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
                         setGuideId(id)
                         setPicking(false)
                       }}
-                      className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
+                      className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-200 ${
                         id === guideId
                           ? 'bg-primary font-medium text-on-primary'
                           : 'bg-raised text-on-surface-variant hover:text-on-surface'
@@ -262,7 +240,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="mt-6 w-full rounded-full bg-surface-container px-5 py-2.5 text-body-sm font-medium text-on-surface transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+            className="mt-6 w-full rounded-full bg-surface-container px-5 py-2.5 text-body-sm font-semibold text-on-surface transition-transform duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
           >
             Done
           </button>

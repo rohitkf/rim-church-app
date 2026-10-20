@@ -12,7 +12,7 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../lib/pollAudience'
 import { QueryState } from '../components/QueryState'
-import { Eyebrow, Field, PageHeader, Pill, Tile, inputClasses, type PillTone } from '../components/Surface'
+import { Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses, type PillTone } from '../components/Surface'
 import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -118,7 +118,7 @@ export function PollsPage() {
   const queryClient = useQueryClient()
   const myId = session?.user.id ?? null
   // Who may ask, and change or remove anybody's poll, is the church's to
-  // say (Settings › Access & privileges, msg.polls). Anybody can still
+  // say (Settings › Access & Privileges, msg.polls). Anybody can still
   // manage a poll they asked.
   const { can } = usePermissions()
   const departmentsForAsk = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
@@ -294,7 +294,7 @@ export function PollsPage() {
                     {poll.closes_at && (
                       <>
                         <span aria-hidden="true">·</span>
-                        <span className={open ? 'text-accent-orange' : 'text-on-surface-faint'}>
+                        <span className={open ? 'text-accent-orange-soft' : 'text-on-surface-faint'}>
                           {open ? timeLeft(poll.closes_at, now) : 'Closed'}
                         </span>
                       </>
@@ -316,7 +316,7 @@ export function PollsPage() {
                             disabled={!open || vote.isPending}
                             aria-pressed={picked}
                             onClick={() => vote.mutate({ poll, optionId: option.id, on: !picked })}
-                            className={`tap relative flex w-full items-center gap-3 overflow-hidden rounded-[var(--radius-chip)] px-3 py-2 text-left transition-colors duration-300 ${
+                            className={`tap relative flex w-full items-center gap-3 overflow-hidden rounded-[var(--radius-chip)] px-3 py-2 text-left transition-colors duration-200 ${
                               picked ? 'hairline-strong' : 'hairline'
                             } ${open ? 'hover:bg-raised' : 'cursor-default opacity-90'}`}
                           >
@@ -336,7 +336,7 @@ export function PollsPage() {
                               {count}
                             </span>
                             {picked && (
-                              <span className="relative shrink-0 font-mono text-label-sm text-primary">
+                              <span className="relative shrink-0 font-mono text-label-sm text-accent-blue-soft">
                                 ✓
                               </span>
                             )}
@@ -482,23 +482,14 @@ function PollComposer({
     <Tile as="section" className="mb-4">
       <form onSubmit={handleSubmit} aria-label="New poll">
         <Eyebrow>Who it is for</Eyebrow>
-        <div className="mt-2 flex flex-wrap gap-1 rounded-[var(--radius-chip)] bg-inset p-1 hairline sm:rounded-full">
-          {choices.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => setAudience(c.value)}
-              aria-pressed={audience === c.value}
-              className={`tap flex-1 rounded-full px-3 py-2 text-label-md transition-colors duration-300 ${
-                audience === c.value
-                  ? 'bg-primary font-medium text-on-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Who it is for"
+          kind="pressed"
+          value={audience}
+          onChange={setAudience}
+          options={choices.map((c) => ({ value: c.value, label: c.label }))}
+          className="mt-2"
+        />
         <p className="mt-2 text-label-sm text-on-surface-faint">
           {choices.find((c) => c.value === audience)?.blurb}
         </p>
@@ -644,7 +635,7 @@ function PollComposer({
           <button
             type="button"
             onClick={() => setLabels((prev) => [...prev, ''])}
-            className="tap self-start text-label-md text-secondary hover:underline"
+            className="tap self-start text-label-md text-accent-blue-soft hover:underline"
           >
             + Add option
           </button>
@@ -653,20 +644,16 @@ function PollComposer({
         <div className="mt-3 flex flex-wrap gap-4">
           <div className="flex flex-col gap-1">
             <Eyebrow>Answers</Eyebrow>
-            <div className="flex gap-1 rounded-full bg-inset p-1 hairline">
-              {(['single', 'multiple'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={`tap rounded-full px-3 py-1.5 text-body-sm font-medium transition-colors ${
-                    mode === m ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-                  }`}
-                >
-                  {m === 'single' ? 'Pick one' : 'Pick any'}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Answers"
+              kind="pressed"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'single', label: 'Pick one' },
+                { value: 'multiple', label: 'Pick any' },
+              ]}
+            />
           </div>
 
           <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">

@@ -137,7 +137,7 @@ export function DashboardPage() {
   const mayAddService = usePermissions().can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
-  // What the church has chosen this page shows (Settings › Dashboard & lists).
+  // What the church has chosen this page shows (Settings › Dashboard & Lists).
   const display = useDisplay()
   const show = display.dashboard.show
   const serviceDaysAhead = display.dashboard.serviceDays
@@ -460,7 +460,7 @@ export function DashboardPage() {
             {mayAddService && (
               <>
                 Add one from the{' '}
-                <Link to="/service-planner?new=1" className="text-primary">
+                <Link to="/service-planner?new=1" className="text-accent-blue-soft">
                   Service Planner
                 </Link>
                 .
@@ -571,11 +571,11 @@ export function DashboardPage() {
                         <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                           <span className="text-headline-md">{service.service_type}</span>
                           {standing.state === 'running' ? (
-                            <span className="font-mono text-label-sm uppercase tracking-wide text-primary">
+                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
                               On now
                             </span>
                           ) : done ? (
-                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green">
+                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
                               Finished
                             </span>
                           ) : null}
@@ -670,7 +670,7 @@ export function DashboardPage() {
                           once it's over, that it is. */}
                       {standing.state === 'running' ? (
                         <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-                          <span className="text-headline-xl text-primary">On now</span>
+                          <span className="text-headline-xl text-accent-blue-soft">On now</span>
                           {standing.to !== null && (
                             <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
                               until {formatTime(new Date(standing.to).toISOString())}
@@ -682,7 +682,7 @@ export function DashboardPage() {
                           {/* Green, not grey: done is an outcome, and it is
                               the colour a signed-off checklist and a
                               finished session already wear. */}
-                          <span className="text-headline-xl text-accent-green">Finished</span>
+                          <span className="text-headline-xl text-accent-green-soft">Finished</span>
                           {standing.to !== null && (
                             <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
                               ended {formatTime(new Date(standing.to).toISOString())}
@@ -706,7 +706,7 @@ export function DashboardPage() {
                       <div className="mt-5 flex flex-wrap gap-2.5">
                         <Link
                           to={`/service-planner/${service.id}`}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                         >
                           Open running order
                           <span aria-hidden="true">&rarr;</span>
@@ -714,7 +714,7 @@ export function DashboardPage() {
                         {overallAvailability.noAnswer > 0 && (
                           <Link
                             to="/availability"
-                            className="inline-flex items-center rounded-full bg-raised-strong px-5 py-3 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                            className="inline-flex items-center rounded-full bg-raised-strong px-5 py-3 text-body-sm font-medium text-on-surface hairline-strong transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                           >
                             {overallAvailability.noAnswer} still to answer
                           </Link>
@@ -747,7 +747,7 @@ export function DashboardPage() {
                       <Tile className="lg:col-span-12" >
                         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                           <Eyebrow>Teams ready</Eyebrow>
-                          <Link to="/checklists" className="text-label-md text-secondary">
+                          <Link to="/checklists" className="text-label-md text-accent-blue-soft">
                             Checklists <span aria-hidden="true">&rarr;</span>
                           </Link>
                         </div>
@@ -957,7 +957,7 @@ export function DashboardPage() {
                   <Tile className="lg:col-span-7">
                     <div className="flex items-baseline justify-between gap-4">
                       <Eyebrow>Teams on duty</Eyebrow>
-                      <Link to="/departments" className="tap inline-flex items-center text-label-md text-primary">
+                      <Link to="/departments" className="tap inline-flex items-center text-label-md text-accent-blue-soft">
                         All teams
                       </Link>
                     </div>
@@ -1005,7 +1005,7 @@ export function DashboardPage() {
                       </p>
                       <Link
                         to="/departments"
-                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                       >
                         Find your team and ask to join
                         <span aria-hidden="true">&rarr;</span>

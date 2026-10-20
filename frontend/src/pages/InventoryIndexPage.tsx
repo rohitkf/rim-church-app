@@ -119,7 +119,7 @@ export function InventoryIndexPage() {
                 >
                   <div className="flex items-start gap-2">
                     <TeamMark color={dept.color} className="mt-1" />
-                    <span className="text-headline-md leading-tight transition-colors duration-300 ease-[var(--ease-glide)] group-hover/link:text-secondary">
+                    <span className="text-headline-md leading-tight transition-colors duration-200 ease-[var(--ease-glide)] group-hover/link:text-accent-blue-soft">
                       {dept.name}
                     </span>
                   </div>

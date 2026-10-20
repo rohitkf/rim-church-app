@@ -169,7 +169,7 @@ function JoinTeamRow({
           type="button"
           onClick={onWithdraw}
           disabled={busy}
-          className="shrink-0 rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface-variant ring-1 ring-black/8 transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error hover:ring-error/40 disabled:opacity-50 dark:ring-white/12"
+          className="shrink-0 rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface-variant ring-1 ring-black/8 transition-colors duration-200 ease-[var(--ease-glide)] hover:text-error hover:ring-error/40 disabled:opacity-50 dark:ring-white/12"
         >
           {busy ? 'Withdrawing…' : 'Withdraw'}
         </button>
@@ -178,7 +178,7 @@ function JoinTeamRow({
           type="button"
           onClick={onAsk}
           disabled={busy}
-          className="shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98] disabled:opacity-50"
+          className="shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
         >
           {busy ? 'Sending…' : state === 'declined' ? 'Ask again' : 'Request to join'}
         </button>

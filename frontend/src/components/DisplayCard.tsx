@@ -12,7 +12,7 @@ import { SettingEntries } from './SettingEntry'
  * What the pages show, and how they arrive — for everybody at once.
  *
  * None of this is a rule: it decides what is drawn, not what anybody may
- * read (that is Access & privileges). Stored as one object
+ * read (that is Access & Privileges). Stored as one object
  * (`app_settings.display`, lib/display), so a preference added later costs
  * no migration. The rows are the catalog's (lib/settingsCatalog).
  */

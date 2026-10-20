@@ -30,7 +30,7 @@ function formatTotal(minutes: number): string {
 }
 
 export function ServiceTemplatesPage() {
-  // Building templates is the church's to grant (Settings › Access & privileges).
+  // Building templates is the church's to grant (Settings › Access & Privileges).
   const mayTemplates = usePermissions().can('svc.templates')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -142,7 +142,7 @@ export function ServiceTemplatesPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-secondary">
+      <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
         ← Back to Service Planner
       </Link>
       <PageHeader
@@ -213,7 +213,7 @@ export function ServiceTemplatesPage() {
           <button
             type="button"
             onClick={() => setDrafts([...drafts, { ...emptyDraft }])}
-            className="tap inline-flex items-center text-body-sm font-medium text-secondary hover:underline"
+            className="tap inline-flex items-center text-body-sm font-medium text-accent-blue-soft hover:underline"
           >
             + Add session
           </button>
@@ -266,7 +266,7 @@ export function ServiceTemplatesPage() {
                 <button
                   type="button"
                   onClick={() => startEditing(t)}
-                  className="shrink-0 text-body-sm font-medium text-secondary hover:underline"
+                  className="shrink-0 text-body-sm font-medium text-accent-blue-soft hover:underline"
                 >
                   Edit
                 </button>

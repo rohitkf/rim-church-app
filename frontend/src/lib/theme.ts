@@ -15,9 +15,11 @@ export function resolveTheme(preference: ThemePreference): 'light' | 'dark' {
 /**
  * The stored preference. Reading it can throw — a private window, or a
  * browser set to block site data — and a broken theme is no reason to
- * refuse to render, so anything unexpected falls back to the default.
+ * refuse to render, so anything unexpected falls back to the default:
+ * whatever the device is set to, which is what somebody who has never
+ * opened the Appearance room expects every app to do.
  */
-export function readThemePreference(fallback: ThemePreference = 'dark'): ThemePreference {
+export function readThemePreference(fallback: ThemePreference = 'system'): ThemePreference {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored

@@ -70,7 +70,7 @@ function placementFor(trigger: HTMLElement, width: number): Placement {
 const TONES: Record<NonNullable<MenuAction['tone']>, string> = {
   plain: 'text-on-surface',
   danger: 'text-error',
-  accent: 'text-accent-green',
+  accent: 'text-accent-green-soft',
 }
 
 export function ActionMenu({
@@ -208,7 +208,7 @@ export function ActionMenu({
         aria-label={`Actions for ${label}`}
         onClick={() => (open ? close(false) : openMenu())}
         onKeyDown={onKeyDown}
-        className={`tap flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface ${
+        className={`tap flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface ${
           open ? 'bg-raised-strong text-on-surface' : ''
         } ${className}`}
       >

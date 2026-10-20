@@ -213,7 +213,7 @@ export function ItemDocuments({
                 <button
                   type="button"
                   onClick={() => openDocument(doc)}
-                  className="min-w-0 break-all text-left text-body-sm font-medium text-secondary hover:underline"
+                  className="min-w-0 break-all text-left text-body-sm font-medium text-accent-blue-soft hover:underline"
                 >
                   {doc.label ?? (doc.link_url ? 'Open link' : 'Open file')}
                 </button>

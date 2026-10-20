@@ -109,13 +109,13 @@ export function SettingRow({
 }) {
   const id = useId()
   return (
-    <li className={`rounded-[var(--radius-row)] transition-colors duration-300 ${open ? 'bg-raised' : ''}`}>
+    <li className={`rounded-[var(--radius-row)] transition-colors duration-200 ${open ? 'bg-raised' : ''}`}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={id}
-        className="tap flex w-full items-center gap-3 rounded-[var(--radius-row)] px-3 py-3 text-left transition-colors duration-300 hover:bg-raised"
+        className="tap flex w-full items-center gap-3 rounded-[var(--radius-row)] px-3 py-3 text-left transition-colors duration-200 hover:bg-raised"
       >
         <span className="min-w-0 flex-1">
           <span className="block text-body-sm font-medium text-on-surface">
@@ -170,7 +170,7 @@ export function InlineRow({
           </span>
           <span className="block text-label-md text-on-surface-variant">{summary}</span>
         </span>
-        <span className="flex shrink-0 items-center">{children}</span>
+        <span className="flex min-w-0 max-w-full items-center">{children}</span>
       </div>
       <Detail help={help} affects={affects} defaultText={defaultText} folded />
     </li>
@@ -199,11 +199,11 @@ export function Switch({
       />
       <span
         aria-hidden="true"
-        className="h-7 w-12 rounded-full bg-raised-strong hairline transition-colors duration-300 peer-checked:bg-accent-green peer-focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
+        className="h-[31px] w-[51px] rounded-full bg-switch-off transition-colors duration-200 peer-checked:bg-accent-green peer-focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-primary)_40%,transparent)]"
       />
       <span
         aria-hidden="true"
-        className="absolute left-1 top-1 h-5 w-5 rounded-full bg-on-surface shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] peer-checked:translate-x-5 peer-checked:bg-on-primary"
+        className="absolute left-0.5 top-0.5 h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)] transition-transform duration-200 ease-[var(--ease-glide)] peer-checked:translate-x-5"
       />
     </label>
   )
@@ -269,7 +269,7 @@ export function SaveBar({
             Not saved yet — nothing changes for anybody until you press Save.
           </span>
         )}
-        {saved && !changed && <span className="text-body-sm text-accent-green">Saved.</span>}
+        {saved && !changed && <span className="text-body-sm text-accent-green-soft">Saved.</span>}
       </div>
     </>
   )

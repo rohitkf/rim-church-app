@@ -7,7 +7,7 @@ import { ALERTS, APP, BELL, affectsPage } from './settingsCatalog'
 import { TEAM_ROLES, isTeamSettable } from './permissions'
 
 /**
- * Settings › Page by page: the pages, in the order of the menu, and what
+ * Settings › Page by Page: the pages, in the order of the menu, and what
  * each one owns.
  *
  * A page's section gathers the settings that move it (lib/settingsCatalog,
@@ -38,7 +38,7 @@ export const SETTINGS_PAGES: SettingsPage[] = [
       : [{ to: item.to, label: item.label, group: item.group ?? 'Home', icon: item.icon }],
   ),
   { to: BELL, label: 'Notifications', group: 'Everywhere', icon: BellIcon },
-  { to: ALERTS, label: 'Send an alert', group: 'Everywhere', icon: MegaphoneIcon },
+  { to: ALERTS, label: 'Send an Alert', group: 'Everywhere', icon: MegaphoneIcon },
   { to: APP, label: 'The app itself', group: 'Everywhere', icon: SettingsIcon },
 ]
 
@@ -77,11 +77,11 @@ export function teamRows(areas: PermissionArea[]): Capability[] {
 export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: string }[]> = {
   '/rota': [{ to: '/settings/rota', label: 'Team Rota', blurb: 'Role tags, and how the Team Coordinator stands out.' }],
   '/giving': [{ to: '/settings/giving', label: 'Giving', blurb: 'Links, a QR code and bank details.' }],
-  '/stage': [{ to: '/settings/stage', label: 'Stage layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
+  '/stage': [{ to: '/settings/stage', label: 'Stage Layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
   '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Send the tour of the app, and see who has taken it.' }],
-  [ALERTS]: [{ to: '/settings/alerts', label: 'Send an alert', blurb: 'Send one, and the record of what went out.' }],
+  [ALERTS]: [{ to: '/settings/alerts', label: 'Send an Alert', blurb: 'Send one, and the record of what went out.' }],
   [APP]: [
     { to: '/settings/menu', label: 'Menu', blurb: 'How the More menu is arranged, for everybody.' },
-    { to: '/settings/access', label: 'Access & privileges', blurb: 'The same rules, a role at a time — and every page’s opening rule in one list.' },
+    { to: '/settings/access', label: 'Access & Privileges', blurb: 'The same rules, a role at a time — and every page’s opening rule in one list.' },
   ],
 }

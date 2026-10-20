@@ -53,7 +53,7 @@ export function Tile({
     <Tag
       className={`group/tile rounded-[var(--radius-tile)] ${TILE_TONES[tone]} ${
         padded ? 'p-6 sm:p-7' : ''
-      } transition-[transform,box-shadow] duration-500 ease-[var(--ease-glide)] ${
+      } transition-[transform,box-shadow] duration-300 ease-[var(--ease-glide)] ${
         interactive
           ? 'shadow-[var(--shadow-ambient)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lifted)] active:translate-y-0'
           : ''
@@ -124,9 +124,8 @@ export function PageHeader({
             <Eyebrow>{eyebrow}</Eyebrow>
           </span>
         )}
-        {/* A 40px title costs a phone half its first screen, so the page
-            title steps down with the viewport the way the design does. */}
-        <h1 className="mt-2 text-headline-lg sm:text-headline-xl">{title}</h1>
+        {/* Apple's Large Title, 34pt bold, on a phone as on a desk. */}
+        <h1 className="mt-2 text-headline-xl">{title}</h1>
         {description && (
           <p className="mt-1.5 text-body-md text-on-surface-variant sm:text-body-lg">{description}</p>
         )}
@@ -158,7 +157,10 @@ const BUTTON_TONES: Record<ButtonTone, string> = {
 /**
  * Every button in the app is a pill. Size is the only thing that changes
  * with importance — never the shape, and never more than one primary on a
- * screen.
+ * screen. The label is semibold, as a button's is on the platform; and
+ * the press is felt the moment it lands (the button sinks in 80ms) and
+ * eases back over 200 once it lifts — the one transition is for the way
+ * out, never a wait on the way in.
  */
 export function ActionButton({
   children,
@@ -195,7 +197,7 @@ export function ActionButton({
   // `tap` gives it the touch floor without changing how it looks on a
   // desktop; the medium size already clears it.
   const sizing =
-    size === 'sm' ? 'tap px-3.5 py-1.5 text-label-md' : 'px-5 py-3 text-body-sm font-medium'
+    size === 'sm' ? 'tap px-3.5 py-1.5 text-label-md font-semibold' : 'px-5 py-3 text-body-sm font-semibold'
 
   return (
     <button
@@ -207,7 +209,7 @@ export function ActionButton({
       aria-expanded={ariaExpanded}
       aria-controls={ariaControls}
       data-tour={dataTour}
-      className={`inline-flex items-center justify-center gap-2 rounded-full transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full transition-[transform,background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
     >
       {/* Wrapped, because a text glyph ("+") beside text children would
           merge with them into one flex item and the gap would never land:
@@ -231,7 +233,7 @@ export type PillTone = 'neutral' | 'blue' | 'green' | 'orange' | 'red' | 'indigo
 const PILL_TONES: Record<PillTone, string> = {
   neutral: 'bg-raised-strong text-on-surface-variant',
   blue: 'bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] text-accent-blue-soft',
-  green: 'bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] text-accent-green',
+  green: 'bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] text-accent-green-soft',
   orange: 'bg-[color-mix(in_oklab,var(--color-accent-orange)_16%,transparent)] text-accent-orange-soft',
   red: 'bg-[color-mix(in_oklab,var(--color-accent-red)_16%,transparent)] text-accent-red-soft',
   indigo: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_20%,transparent)] text-accent-indigo-soft',
@@ -256,11 +258,101 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase leading-none tracking-[0.12em] ${PILL_TONES[tone]} ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0.12em] ${PILL_TONES[tone]} ${className}`}
     >
       {dot && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
     </span>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Segmented control
+ * ------------------------------------------------------------------ */
+
+/** The track every segmented control sits in: the system's grey, 2px in. */
+export const segmentTrackClasses =
+  'grid auto-cols-[minmax(0,1fr)] grid-flow-col gap-0.5 rounded-[9px] bg-track p-0.5'
+
+/**
+ * One segment. The chosen one is a raised plate — white on light, the
+ * system's grey on dark — with a semibold label; the rest are plain text.
+ * The label is 13pt, the system's size for a segmented control, which is
+ * also what lets four of them share a phone's width. `tone` colours the
+ * label of a chosen segment whose answer carries a meaning of its own
+ * (Yes is green, No is red), and only then.
+ */
+export function segmentClasses(on: boolean, tone?: SegmentTone, padding = 'px-3') {
+  const ink = on ? (tone ? SEGMENT_TONES[tone] : 'text-on-surface') : 'text-on-surface-variant hover:text-on-surface'
+  return `flex min-h-8 min-w-0 items-center justify-center gap-1.5 truncate rounded-[7px] ${padding} text-[0.8125rem] leading-[1.125rem] font-medium transition-[background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:opacity-60 active:duration-0 disabled:opacity-50 ${
+    on ? 'bg-segment font-semibold shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)]' : ''
+  } ${ink}`
+}
+
+export type SegmentTone = 'green' | 'orange' | 'red' | 'blue'
+
+const SEGMENT_TONES: Record<SegmentTone, string> = {
+  green: 'text-accent-green-soft',
+  orange: 'text-accent-orange-soft',
+  red: 'text-accent-red-soft',
+  blue: 'text-accent-blue-soft',
+}
+
+/**
+ * A choice between a few answers, as one object with the chosen answer
+ * standing up out of it — Apple's segmented control. Segments share the
+ * width equally, the labels are nouns, two to five of them.
+ *
+ * `kind` is what the choice means to a screen reader: `radio` sets a
+ * value, `tab` switches what is shown, `pressed` is a filter that can be
+ * read as a set of toggles. The look is the same.
+ */
+export function SegmentedControl<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  kind = 'radio',
+  disabled,
+  className = '',
+}: {
+  label: string
+  value: T | null
+  onChange: (next: T) => void
+  options: { value: T; label: ReactNode; title?: string; tone?: SegmentTone; disabled?: boolean }[]
+  kind?: 'radio' | 'tab' | 'pressed'
+  disabled?: boolean
+  className?: string
+}) {
+  const groupRole = kind === 'radio' ? 'radiogroup' : kind === 'tab' ? 'tablist' : 'group'
+  // Four or five segments share a phone's width: the labels keep their size
+  // and give up some of their room instead.
+  const padding = options.length >= 4 ? 'px-1.5' : 'px-3'
+  return (
+    <div role={groupRole} aria-label={label} className={`${segmentTrackClasses} ${className}`}>
+      {options.map((o) => {
+        const on = o.value === value
+        const state =
+          kind === 'radio'
+            ? { role: 'radio', 'aria-checked': on }
+            : kind === 'tab'
+              ? { role: 'tab', 'aria-selected': on }
+              : { 'aria-pressed': on }
+        return (
+          <button
+            key={o.value}
+            type="button"
+            title={o.title}
+            disabled={disabled || o.disabled}
+            onClick={() => onChange(o.value)}
+            className={segmentClasses(on, o.tone, padding)}
+            {...state}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -272,7 +364,7 @@ export type BadgeTone = 'blue' | 'green' | 'orange' | 'red' | 'indigo' | 'neutra
 
 const BADGE_TONES: Record<BadgeTone, string> = {
   blue: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-blue)_34%,transparent),color-mix(in_oklab,var(--color-accent-blue)_12%,transparent))] text-accent-blue-soft',
-  green: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-green)_30%,transparent),color-mix(in_oklab,var(--color-accent-green)_10%,transparent))] text-accent-green',
+  green: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-green)_30%,transparent),color-mix(in_oklab,var(--color-accent-green)_10%,transparent))] text-accent-green-soft',
   orange: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-orange)_32%,transparent),color-mix(in_oklab,var(--color-accent-orange)_10%,transparent))] text-accent-orange-soft',
   red: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-red)_32%,transparent),color-mix(in_oklab,var(--color-accent-red)_10%,transparent))] text-accent-red-soft',
   indigo: 'bg-[linear-gradient(145deg,color-mix(in_oklab,var(--color-accent-indigo)_36%,transparent),color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent))] text-accent-indigo-soft',
@@ -601,12 +693,15 @@ export function Overlay({
       aria-modal="true"
       aria-label={label}
       onClick={dismissIfOutside}
-      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/55 backdrop-blur-[2px]"
+      className="overlay-scrim fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/55"
     >
+      {/* The dialog grows into place, a sheet rises from the bottom edge —
+          the keyframes in index.css — on the wrapper rather than the
+          child, so every dialog arrives the same way without knowing. */}
       <div
         onClick={dismissIfOutside}
         className={`flex min-h-full justify-center ${
-          align === 'sheet' ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'
+          align === 'sheet' ? 'overlay-sheet items-end sm:items-center sm:p-4' : 'overlay-dialog items-center p-4'
         }`}
       >
         {children}
@@ -628,7 +723,7 @@ export function Overlay({
           type="button"
           onClick={onDismiss}
           aria-label="Close"
-          className="tap fixed right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-surface-container/90 text-on-surface shadow-[var(--shadow-lifted)] ring-1 ring-black/10 backdrop-blur transition-colors hover:bg-surface-container dark:ring-white/15"
+          className="tap glass fixed right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full text-on-surface shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/15"
           style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -672,7 +767,7 @@ export function Field({
 }
 
 export const inputClasses =
-  'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-300 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
+  'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
 
 /** A field that opens a sheet (a date, a time): an input's look, laid out as a button. */
 export const fieldTriggerClasses = `${inputClasses} flex items-center justify-between gap-3 text-left disabled:opacity-60`

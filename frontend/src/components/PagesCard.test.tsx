@@ -9,7 +9,7 @@ import { SETTINGS_PAGES } from '../lib/pageSettings'
 import { decide, type Holder, type Overrides, type TeamOverrides } from '../lib/permissions'
 
 /*
- * Settings › Page by page: each page's settings and rules in one place,
+ * Settings › Page by Page: each page's settings and rules in one place,
  * the rules a team at a time, and one Save for the lot.
  */
 
@@ -87,7 +87,7 @@ const section = (name: string) => screen.getByRole('button', { name: new RegExp(
 const teamCard = (name: string) =>
   within(screen.getByRole('region', { name: 'Team by team' })).getByRole('button', { name: new RegExp(`^${name}`) })
 
-describe('Page by page', () => {
+describe('Page by Page', () => {
   it('lists every page as a folded section under the menu’s headings, saying what each holds', async () => {
     await show()
     for (const page of SETTINGS_PAGES) expect(section(page.label)).toHaveAttribute('aria-expanded', 'false')

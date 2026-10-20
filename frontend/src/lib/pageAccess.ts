@@ -172,7 +172,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'everyone',
     choices: ['everyone', 'team', 'leads'],
     enforcement: 'database',
-    note: 'The layouts, their comments and history follow the choice. Who may draw is set in Settings › Stage layout.',
+    note: 'The layouts, their comments and history follow the choice. Who may draw is set in Settings › Stage Layout.',
   },
   '/inventory': {
     key: 'inventory',

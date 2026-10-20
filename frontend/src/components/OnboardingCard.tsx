@@ -41,9 +41,9 @@ const day = (iso: string) =>
 function StatusChip({ status }: { status: TourStatus }) {
   const look =
     status.kind === 'taken'
-      ? 'bg-accent-green/15 text-accent-green'
+      ? 'bg-accent-green/15 text-accent-green-soft'
       : status.kind === 'sent'
-        ? 'bg-accent-orange/15 text-accent-orange'
+        ? 'bg-accent-orange/15 text-accent-orange-soft'
         : 'bg-raised-strong text-on-surface-variant'
   const text =
     status.kind === 'taken'

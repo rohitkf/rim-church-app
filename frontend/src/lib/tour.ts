@@ -38,7 +38,7 @@ export const TOUR_STANDING_LABEL: Record<TourStanding, string> = {
 export interface TourContext {
   firstName: string
   onATeam: boolean
-  /** Whether a page is open to them (Settings › Access & privileges › Pages). */
+  /** Whether a page is open to them (Settings › Access & Privileges › Pages). */
   canOpen: (path: string) => boolean
   /** Whether a Settings room is theirs to enter (lib/settingsSections' maySee). */
   roomOpen: (path: string) => boolean
@@ -305,7 +305,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/settings/alerts',
         target: 'page-title',
-        title: 'Send an alert',
+        title: 'Send an Alert',
         body: 'Interrupt your team when something cannot wait. It goes to their phones, not just the board.',
       },
     ],
@@ -324,7 +324,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/settings',
         target: 'settings:/settings/access',
-        title: 'Access & privileges',
+        title: 'Access & Privileges',
         body: 'Who can open each page, and who can do what. Every row is the church’s to change, and the database enforces what is chosen.',
       },
       {
@@ -397,7 +397,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/settings',
         target: 'settings:/settings/data',
-        title: 'Erase data',
+        title: 'Erase Data',
         body: 'The one that empties the diary. It asks twice, and it is yours alone.',
       },
     ],

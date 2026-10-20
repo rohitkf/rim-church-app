@@ -54,7 +54,7 @@ export function GivingPage() {
               {isAdmin ? (
                 <>
                   Add the church’s bank details and giving links in{' '}
-                  <Link to="/settings/giving" className="text-secondary">
+                  <Link to="/settings/giving" className="text-accent-blue-soft">
                     Settings › Giving
                   </Link>
                   .
@@ -208,7 +208,7 @@ function CopyButton({ value, what }: { value: string; what: string }) {
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1500)
       }}
-      className="tap shrink-0 rounded-full px-3 py-1.5 text-label-md text-secondary hairline hover:bg-surface-low"
+      className="tap shrink-0 rounded-full px-3 py-1.5 text-label-md text-accent-blue-soft hairline hover:bg-surface-low"
     >
       {copied ? 'Copied' : 'Copy'}
     </button>

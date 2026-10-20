@@ -228,7 +228,7 @@ export function HandbookUploadModal({
             <UploadGlyph active={dragging} />
             <p className="mt-3 text-body-md text-on-surface">
               Drag the handbook here, or
-              <label className="ml-1 cursor-pointer font-medium text-secondary hover:underline">
+              <label className="ml-1 cursor-pointer font-medium text-accent-blue-soft hover:underline">
                 browse
                 <input
                   type="file"
@@ -353,7 +353,7 @@ function UploadGlyph({ active }: { active: boolean }) {
       strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`mx-auto ${active ? 'text-secondary' : 'text-on-surface-variant'}`}
+      className={`mx-auto ${active ? 'text-accent-blue-soft' : 'text-on-surface-variant'}`}
       aria-hidden="true"
     >
       <path d="M12 16V4" />

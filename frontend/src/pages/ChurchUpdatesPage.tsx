@@ -332,7 +332,7 @@ function UpdateComposer({
         <p className="text-label-sm text-on-surface-faint">
           Everybody signed in is told — their bell and their phone. Never by email.
         </p>
-        {note && <p className="text-body-sm text-accent-green">{note}</p>}
+        {note && <p className="text-body-sm text-accent-green-soft">{note}</p>}
       </form>
     </Tile>
   )

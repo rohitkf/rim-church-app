@@ -644,7 +644,7 @@ function SongRow({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="tap inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-1.5 text-label-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface"
+              className="tap inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-1.5 text-label-md text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface"
             >
               Open the song
             </a>

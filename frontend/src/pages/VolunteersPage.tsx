@@ -99,7 +99,7 @@ function designationFor(grants: UserRole[], departmentId: string): string {
  * decide by luck.
  */
 const cardActionBase =
-  'tap rounded-full px-3 py-1.5 text-label-md font-medium ring-1 ring-black/8 transition-all duration-300 ease-[var(--ease-glide)] hover:ring-black/25 dark:ring-white/12 dark:hover:ring-white/30'
+  'tap rounded-full px-3 py-1.5 text-label-md font-medium ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/25 dark:ring-white/12 dark:hover:ring-white/30'
 const cardActionClasses = `${cardActionBase} text-on-surface`
 /** The same button for the thing that takes something away. */
 const cardDangerClasses = `${cardActionBase} text-error hover:ring-error/40`
@@ -118,7 +118,7 @@ const designationClass: Record<string, string> = {
 export function VolunteersPage() {
   const { isAdmin, isSuperAdmin, ownerId, session } = useAuth()
   // Removing an account and inviting are the church's to grant (Settings ›
-  // Access & privileges); who holds Admin or heads a team stays an Admin's.
+  // Access & Privileges); who holds Admin or heads a team stays an Admin's.
   const { can } = usePermissions()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
@@ -346,7 +346,7 @@ export function VolunteersPage() {
                 {v.first_name} {v.last_name}
               </span>
               {v.id === session?.user.id && (
-                <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-secondary">
+                <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
                   You
                 </span>
               )}
@@ -841,7 +841,7 @@ function TransferOwnershipDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
           >
             Cancel
           </button>
@@ -849,7 +849,7 @@ function TransferOwnershipDialog({
             type="button"
             onClick={() => offer.mutate()}
             disabled={offer.isPending}
-            className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+            className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             {offer.isPending ? 'Sending…' : 'Send the offer'}
           </button>

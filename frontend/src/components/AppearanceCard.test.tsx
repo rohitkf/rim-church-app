@@ -6,7 +6,7 @@ import { AppearanceCard } from './AppearanceCard'
 // The push row talks to the browser and the database; its own tests cover it.
 vi.mock('./PushPermission', () => ({ PushPermissionRow: () => <p>push row</p> }))
 
-describe('Appearance & alerts', () => {
+describe('Appearance & Alerts', () => {
   it('chooses the theme from one segmented control, and it takes at once', async () => {
     const user = userEvent.setup()
     render(<AppearanceCard />)

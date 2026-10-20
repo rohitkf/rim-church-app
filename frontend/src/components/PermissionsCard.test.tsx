@@ -121,8 +121,8 @@ describe('PermissionsCard', () => {
       const button = screen.getByRole('button', { name: new RegExp(`^${area.area}`) })
       expect(within(button).getByText(area.fixed ? 'Fixed' : 'Editable'), area.area).toBeInTheDocument()
     }
-    // Stage layout is fixed here because it is set per team, in its own room.
-    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Stage layout', 'Feedback', 'The app itself'])
+    // Stage Layout is fixed here because it is set per team, in its own room.
+    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Stage Layout', 'Feedback', 'The app itself'])
     expect(screen.queryByText('Coming soon')).toBeNull()
   })
 

@@ -8,8 +8,8 @@ import { SERVING_TABS } from './serving'
  *
  * Each entry says what it is called, what it does in a line and in full,
  * which pages move when it moves, and how to read and write it on the
- * settings row. The rooms (Timings, Dashboard & lists, Data & retention,
- * Stage layout) draw their rows from here, and so does Page by page,
+ * settings row. The rooms (Timings, Dashboard & Lists, Data & Retention,
+ * Stage layout) draw their rows from here, and so does Page by Page,
  * which shows each page the settings that are its own — so a setting
  * cannot be worded one way in its room and another on its page, or be in
  * one and missing from the other.
@@ -40,7 +40,7 @@ export const SERVICE_PAGES = ['/service-planner', '/availability', '/rota', '/ch
 
 const SPECIAL_NAMES: Record<string, string> = {
   [BELL]: 'Notifications',
-  [ALERTS]: 'Send an alert',
+  [ALERTS]: 'Send an Alert',
   [APP]: 'The app itself',
   [SERVICE_PAGES_REF]: 'Every service page',
 }

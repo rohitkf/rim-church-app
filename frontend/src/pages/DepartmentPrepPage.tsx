@@ -44,7 +44,7 @@ export function DepartmentPrepPage() {
       emptyMessage="Department or service not found, or you don't have access."
     >
       <div>
-        <Link to="/checklists" className="tap inline-flex items-center text-body-sm text-secondary">
+        <Link to="/checklists" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
           ← Back to Checklists
         </Link>
         <h1 className="mt-2 text-headline-xl">{deptQuery.data?.name} Department Prep</h1>

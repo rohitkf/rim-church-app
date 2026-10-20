@@ -81,7 +81,7 @@ export function InventoryHistory({
         <button
           type="button"
           onClick={onClose}
-          className="text-label-sm text-on-surface-variant transition-colors duration-300 hover:text-on-surface"
+          className="text-label-sm text-on-surface-variant transition-colors duration-200 hover:text-on-surface"
         >
           Close
         </button>

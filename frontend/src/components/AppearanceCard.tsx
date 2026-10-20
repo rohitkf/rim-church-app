@@ -5,7 +5,7 @@ import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
 import { PushPermissionRow } from './PushPermission'
 import { MoonIcon, SunIcon, BellIcon } from './icons'
-import { Tile } from './Surface'
+import { SegmentedControl, Tile } from './Surface'
 
 /**
  * How the app looks to you, and whether it may reach your phone.
@@ -103,10 +103,7 @@ function Setting({
   )
 }
 
-/**
- * A choice between a few answers, drawn as one object with the chosen
- * answer filled in — the shape DESIGN.md asks for, 44px tall for a thumb.
- */
+/** A choice between a few answers: the segmented control, a value at a time. */
 function Segmented<T extends string>({
   label,
   value,
@@ -119,25 +116,7 @@ function Segmented<T extends string>({
   options: { value: T; label: string }[]
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-full bg-inset p-1 hairline">
-      {options.map((option) => {
-        const on = option.value === value
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(option.value)}
-            className={`min-h-11 flex-1 rounded-full px-3 text-body-sm font-medium transition-colors duration-300 ${
-              on ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {option.label}
-          </button>
-        )
-      })}
-    </div>
+    <SegmentedControl label={label} value={value} onChange={onChange} options={options} />
   )
 }
 
