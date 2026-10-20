@@ -80,7 +80,7 @@ function YesNo({
           type="button"
           aria-pressed={value === option.on}
           onClick={() => onChange(option.on)}
-          className={`flex-1 rounded-full px-4 py-2.5 text-body-sm transition-colors duration-300 ${
+          className={`flex-1 rounded-full px-4 py-2.5 text-body-sm transition-colors duration-200 ${
             value === option.on
               ? 'bg-primary font-semibold text-on-primary'
               : 'bg-raised text-on-surface hairline hover:border-secondary'

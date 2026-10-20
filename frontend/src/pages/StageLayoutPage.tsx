@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { ActionButton, Overlay, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, Overlay, PageHeader, Pill, SegmentedControl, Tile, inputClasses } from '../components/Surface'
 import { Select, triggerClasses } from '../components/Select'
 import { QueryState } from '../components/QueryState'
 import { Lifespan } from '../components/Lifespan'
@@ -421,7 +421,7 @@ export function StageLayoutPage() {
     onError: fail('Could not delete the template.'),
   })
 
-  const title = service ? service.service_type : 'Stage layout'
+  const title = service ? service.service_type : 'Stage Layout'
   const when = service ? formatServiceDay(service.date) : ''
   const thread = (commentsQuery.data ?? []).filter((c) => c.block_id === null)
 
@@ -479,7 +479,7 @@ export function StageLayoutPage() {
 
       <QueryState isLoading={serviceQuery.isLoading || layoutQuery.isLoading || areasQuery.isLoading} error={serviceQuery.error ?? layoutQuery.error ?? areasQuery.error}>
         {areasQuery.isSuccess && areas.length === 0 && (
-          <p className="mb-3 text-body-sm text-on-surface-variant">No areas to lay out yet. An Admin names them in Settings › Stage layout.</p>
+          <p className="mb-3 text-body-sm text-on-surface-variant">No areas to lay out yet. An Admin names them in Settings › Stage Layout.</p>
         )}
         {/* What can be done, in the order somebody reaches for it. */}
         <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="stage-tools">
@@ -568,7 +568,7 @@ export function StageLayoutPage() {
           onDuplicate={canAdd ? (id) => { const b = blocks.find((x) => x.id === id); if (b) duplicate.mutate(b) } : undefined}
         />
         {proposing && (
-          <p role="status" className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-label-md text-primary">
+          <p role="status" className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-label-md text-accent-blue-soft">
             Drag {blocks.find((b) => b.id === proposing)?.label ?? 'it'} to where it should go — the drop sends an ask, nothing moves yet.
             <button type="button" onClick={() => setProposing(null)} className="tap text-on-surface-faint hover:text-on-surface">
               Cancel
@@ -820,7 +820,7 @@ function BlockInspector({
           {mayAsk && (
             <>
               {' '}
-              <button type="button" onClick={onAsk} className="tap font-medium text-primary hover:underline">
+              <button type="button" onClick={onAsk} className="tap font-medium text-accent-blue-soft hover:underline">
                 Propose a move
               </button>
             </>
@@ -918,20 +918,16 @@ function BlockInspector({
           ) : (
             <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant">
               Corners
-              <div role="radiogroup" aria-label="Corners" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
-                {(['sharp', 'rounded'] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    role="radio"
-                    aria-checked={block.corners === c}
-                    onClick={() => onChange({ corners: c })}
-                    className={`tap rounded-full px-3.5 py-1.5 text-label-md transition-colors ${block.corners === c ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-                  >
-                    {c === 'sharp' ? 'Sharp' : 'Rounded'}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                label="Corners"
+                value={block.corners}
+                onChange={(c) => onChange({ corners: c })}
+                options={[
+                  { value: 'sharp', label: 'Sharp' },
+                  { value: 'rounded', label: 'Rounded' },
+                ]}
+                className="self-start"
+              />
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
@@ -1127,20 +1123,13 @@ function AddBlockSheet({
         <h2 className="text-headline-sm">Add a block</h2>
         <p className="mt-1 text-body-sm text-on-surface-variant">It lands in the first free spot; drag it where it goes — into another area too.</p>
         {areas.length > 1 && (
-          <div role="radiogroup" aria-label="Area" className="mt-3 flex gap-1 self-start rounded-full bg-inset p-1 hairline">
-            {areas.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                role="radio"
-                aria-checked={a.id === area?.id}
-                onClick={() => setAreaId(a.id)}
-                className={`tap rounded-full px-3.5 py-1.5 text-label-md transition-colors ${a.id === area?.id ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
-              >
-                {a.name}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Area"
+            value={area?.id ?? null}
+            onChange={setAreaId}
+            options={areas.map((a) => ({ value: a.id, label: a.name }))}
+            className="mt-3 self-start"
+          />
         )}
         <div className="mt-4 flex flex-wrap gap-2">
           {names.map((name) => (

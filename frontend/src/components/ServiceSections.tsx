@@ -10,7 +10,7 @@ import { useNow } from '../lib/useNow'
  * services: Today's services (only on the day), Next service (the nearest
  * service day after today), then Upcoming services and Finished services,
  * both folded until opened — unless the church has said either should
- * start open (Settings › Dashboard & lists).
+ * start open (Settings › Dashboard & Lists).
  *
  * The page says how to draw a run of services (`render`), and which
  * sections it has at all — Debriefs has no Next or Upcoming, since

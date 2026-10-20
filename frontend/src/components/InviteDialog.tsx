@@ -195,7 +195,7 @@ export function InviteDialog({
           </p>
         )}
         {sent && (
-          <p className="mt-4 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] px-3 py-2 text-body-sm text-accent-green">
+          <p className="mt-4 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] px-3 py-2 text-body-sm text-accent-green-soft">
             Invitation sent to {sent}.
           </p>
         )}

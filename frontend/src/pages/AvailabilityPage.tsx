@@ -7,7 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { QueryState } from '../components/QueryState'
-import { PageHeader } from '../components/Surface'
+import { PageHeader, segmentClasses, segmentTrackClasses, type SegmentTone } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -69,11 +69,11 @@ const STATUS_OPTIONS: {
   value: AvailabilityStatus
   label: string
   full: string
-  activeClass: string
+  tone: SegmentTone
 }[] = [
-  { value: 'available', label: 'Yes', full: 'Available', activeClass: 'bg-accent-green text-accent-green-ink' },
-  { value: 'tentative', label: 'Maybe', full: 'Tentative', activeClass: 'bg-accent-orange text-accent-green-ink' },
-  { value: 'unavailable', label: 'No', full: "Can't make it", activeClass: 'bg-accent-red text-white' },
+  { value: 'available', label: 'Yes', full: 'Available', tone: 'green' },
+  { value: 'tentative', label: 'Maybe', full: 'Tentative', tone: 'orange' },
+  { value: 'unavailable', label: 'No', full: "Can't make it", tone: 'red' },
 ]
 
 const statusLabel: Record<AvailabilityStatus, string> = {
@@ -162,7 +162,7 @@ function AnswerNote({
               setText(note)
               setEditing(true)
             }}
-            className="tap shrink-0 text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+            className="tap shrink-0 text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline"
           >
             Edit note
           </button>
@@ -217,7 +217,7 @@ function AnswerNote({
               setText(note ?? '')
               setEditing(false)
             }}
-            className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+            className="tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline"
           >
             Cancel
           </button>
@@ -232,7 +232,7 @@ function AnswerNote({
 export function AvailabilityPage() {
   const { session, isAdmin, isDepartmentHead } = useAuth()
   // What may be done to other people's answers is the church's to say
-  // (Settings › Access & privileges). Admins seeing every team, and not
+  // (Settings › Access & Privileges). Admins seeing every team, and not
   // answering for themselves here, stay as they were.
   const { can } = usePermissions()
   // A changed answer is asked about first: a tap that slides from Yes to No
@@ -687,7 +687,7 @@ export function AvailabilityPage() {
           <h2 className="text-headline-md">{service.service_type}</h2>
           <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
             {finished && (
-              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green">
+              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
                 Finished · closed
               </span>
             )}
@@ -889,9 +889,9 @@ export function AvailabilityPage() {
                 <div
                   role="group"
                   aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
-                  className={`mt-3 flex gap-2 rounded-full bg-inset p-1 ${
+                  className={`${segmentTrackClasses} mt-3 ${
                     mine
-                      ? 'hairline'
+                      ? ''
                       : /* Unanswered is the state that needs chasing,
                            so the control itself asks for the tap. */
                         'shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-accent-orange)_35%,transparent)]'
@@ -926,11 +926,8 @@ export function AvailabilityPage() {
                           })
                         }}
                         disabled={setAvailability.isPending}
-                        className={`flex h-11 flex-1 items-center justify-center rounded-full text-body-sm transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-60 ${
-                          active
-                            ? `font-semibold ${opt.activeClass}`
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        }`}
+                        // Taller than the system's 32: these are tapped standing up.
+                        className={`${segmentClasses(active, opt.tone)} min-h-11 text-body-sm`}
                       >
                         {opt.label}
                       </button>
@@ -1023,7 +1020,7 @@ export function AvailabilityPage() {
 
               {(leads || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
                 <details className="mt-3">
-                  <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-300 hover:text-on-surface">
+                  <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-200 hover:text-on-surface">
                     Team responses ({coreAnswered}/{coreIds.length})
                     {guests.length > 0 && ` + ${guests.length} guest${guests.length === 1 ? '' : 's'}`}
                   </summary>

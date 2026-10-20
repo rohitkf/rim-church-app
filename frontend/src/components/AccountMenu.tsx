@@ -92,7 +92,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               </span>
               {/* What you are allowed to do here. The sidebar used to say it
                   under the church's name; this is where it lives now. */}
-              <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
+              <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-on-surface-variant">
                 {primaryRoleLabel(isAdmin, roles, viewAs)}
               </span>
             </div>

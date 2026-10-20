@@ -73,7 +73,7 @@ export function AdminResetCard() {
       </p>
 
       {done && (
-        <p role="status" className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-accent-green">
+        <p role="status" className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-accent-green-soft">
           {done}
         </p>
       )}

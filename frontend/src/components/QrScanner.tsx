@@ -133,7 +133,7 @@ export function QrScanner({
           )}
         </div>
 
-        {note && <p className="mt-3 text-body-sm text-accent-orange">{note}</p>}
+        {note && <p className="mt-3 text-body-sm text-accent-orange-soft">{note}</p>}
 
         <div className="mt-5 flex justify-end">
           <button

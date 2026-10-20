@@ -76,7 +76,7 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
         <span className="flex min-w-0 flex-col">
           <span className="break-words text-body-sm text-on-surface">
             {occasion.name}
-            {isMe && <span className="ml-2 font-mono text-label-sm text-secondary">You</span>}
+            {isMe && <span className="ml-2 font-mono text-label-sm text-accent-blue-soft">You</span>}
           </span>
           <span className="flex items-center gap-2">
             <span className={`rounded-full px-1.5 py-0.5 font-mono text-label-sm ${kind.chip}`}>
@@ -94,7 +94,7 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
       </span>
 
       <span className="flex shrink-0 flex-col items-end">
-        <span className={`font-mono text-label-sm ${today ? 'text-secondary' : 'text-on-surface'}`}>
+        <span className={`font-mono text-label-sm ${today ? 'text-accent-blue-soft' : 'text-on-surface'}`}>
           {whenLabel(occasion.daysAway)}
         </span>
         <span className="font-mono text-label-sm text-on-surface-variant">

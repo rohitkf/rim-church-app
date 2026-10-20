@@ -305,7 +305,7 @@ function CallTimeField({
         type="button"
         disabled={!dirty || draft === '' || busy}
         onClick={() => onSave(draft)}
-        className="tap shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-40"
+        className="tap shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-40"
       >
         Save
       </button>

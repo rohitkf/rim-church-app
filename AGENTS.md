@@ -70,7 +70,7 @@ the thing most likely to waste your time:
 |---|---|
 | `departments` | **Teams** |
 | `department_members` | who is on a team — `core` or `guest` |
-| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by page (a page at a time, team by team), or Access & privileges (by role, or by page-opening rule) |
+| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by Page (a page at a time, team by team), or Access & Privileges (by role, or by page-opening rule) |
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator` |
 | `services` → `service_sessions` | a service and its running order |
@@ -83,7 +83,7 @@ the thing most likely to waste your time:
 | `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
-| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
+| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage Layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:
@@ -171,7 +171,7 @@ frontend/src/
                              accent-* or custom spinners needed
   components/AppShell.tsx    header, dock, routes' wash colour, alert banner
   lib/queries.ts             shared Supabase reads
-  lib/permissionMatrix.ts    the Access & privileges table: rows with a `key`
+  lib/permissionMatrix.ts    the Access & Privileges table: rows with a `key`
                              are the church's grid, the rest hand-maintained
   lib/permissions.ts         the grid's catalog (mirrors `permission_catalog`)
                              and decide(), which mirrors SQL's may()
@@ -395,9 +395,9 @@ entry in `lib/settingsCatalog.ts`**: its name, one line, the long
 explanation (behind "How this works"), the pages it moves (`affects`:
 routes, or `BELL`/`ALERTS`/`APP`/`SERVICE_PAGES_REF`), and how to read and
 write it. Then add its id to the room it belongs to — Timings
-(`AppSettingsCard`) for when things open and close, Data & retention
-(`RetentionCard`) for what is deleted and when, Dashboard & lists
-(`DisplayCard`) for what is drawn — and Page by page shows it under its
+(`AppSettingsCard`) for when things open and close, Data & Retention
+(`RetentionCard`) for what is deleted and when, Dashboard & Lists
+(`DisplayCard`) for what is drawn — and Page by Page shows it under its
 pages by itself. `settingsCatalog.test.ts` fails if a column or a display
 key is missing from the catalog, or a page it names does not exist. Rooms
 save through `useSettingsDraft(keys)`, which sends only the columns that
@@ -411,8 +411,8 @@ in `lib/permissionMatrix.ts`, or its own `at` when the area spans several,
 and a `short` name for the team-by-team grids. `settingsCatalog.test.ts`
 checks every row lands on a page.
 
-**Who can open which pages** is Access & privileges › Pages
-(`PageAccessCard`), and each page's own row in Page by page.
+**Who can open which pages** is Access & Privileges › Pages
+(`PageAccessCard`), and each page's own row in Page by Page.
 
 **A new Settings room**: an entry in `SETTINGS_GROUPS`
 (`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child

@@ -61,7 +61,7 @@ export function NudgeButton({
           send.mutate()
         }}
         disabled={send.isPending}
-        className="rounded-full bg-raised-strong px-3 py-1.5 text-label-md text-on-surface hairline transition-all duration-500 ease-[var(--ease-glide)] hover:bg-surface-container active:scale-[0.98] disabled:opacity-50"
+        className="rounded-full bg-raised-strong px-3 py-1.5 text-label-md text-on-surface hairline transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:bg-surface-container active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
       >
         {send.isPending ? 'Sending…' : children}
       </button>

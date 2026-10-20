@@ -5,6 +5,7 @@ import { NumberDial } from './NumberDial'
 import { TimeField } from './DateTimeFields'
 import { Select, selectPillClasses } from './Select'
 import { InlineRow, SettingRow, Switch } from './SettingRows'
+import { SegmentedControl } from './Surface'
 
 /**
  * One setting from the catalog, drawn as a row.
@@ -254,7 +255,7 @@ export function SettingEntryRow({
   )
 }
 
-/** A short list of choices drawn as pills, for a choice with three or four. */
+/** A short list of choices, for a choice with three or four: the segmented control. */
 export function Segmented({
   label,
   value,
@@ -266,24 +267,7 @@ export function Segmented({
   options: { value: string; label: ReactNode }[]
   onChange: (value: string) => void
 }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-full bg-inset p-1 hairline">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={`tap min-w-9 rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
-            value === o.value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
+  return <SegmentedControl label={label} value={value} options={options} onChange={onChange} />
 }
 
 /**

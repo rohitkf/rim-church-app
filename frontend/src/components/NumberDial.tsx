@@ -220,7 +220,7 @@ export function NumberDial({
             disabled={disabled}
             onClick={() => { setDraft(String(shown)); setTyping(true) }}
             title="Type a value"
-            className="font-mono text-headline-lg leading-none tabular text-primary disabled:opacity-50"
+            className="font-mono text-headline-lg leading-none tabular text-accent-blue-soft disabled:opacity-50"
           >
             {shown}
           </button>
@@ -275,7 +275,7 @@ export function NumberDial({
                 {major && (
                   <span
                     className={`mt-1 font-mono text-label-sm tabular ${
-                      tickValue === shown ? 'text-primary' : 'text-on-surface-faint'
+                      tickValue === shown ? 'text-accent-blue-soft' : 'text-on-surface-faint'
                     }`}
                   >
                     {tickValue}

@@ -120,7 +120,7 @@ export function LoginPage() {
       footer={
         <>
           No account yet?{' '}
-          <Link to="/signup" className="font-medium text-primary">
+          <Link to="/signup" className="font-medium text-accent-blue-soft">
             Sign up
           </Link>
         </>
@@ -151,7 +151,7 @@ export function LoginPage() {
         <label className="flex flex-col gap-2">
           <span className="flex items-baseline justify-between gap-2">
             <AuthLabel>Password</AuthLabel>
-            <Link to="/forgot-password" className="text-label-sm font-medium text-primary">
+            <Link to="/forgot-password" className="text-label-sm font-medium text-accent-blue-soft">
               Forgot?
             </Link>
           </span>

@@ -249,7 +249,7 @@ export function LeadPicker({
         >
           <span className="break-words">{option.name}</span>
           {option.kind === 'guest' && (
-            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-secondary">
+            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-accent-blue-soft">
               Guest
             </span>
           )}

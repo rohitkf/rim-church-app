@@ -79,7 +79,7 @@ export function Zoomable({
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="tap inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-body-sm font-medium text-primary hover:bg-surface-container"
+                  className="tap inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-body-sm font-medium text-accent-blue-soft hover:bg-surface-container"
                 >
                   Open full size <span aria-hidden="true">↗</span>
                 </a>

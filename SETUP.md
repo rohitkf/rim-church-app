@@ -115,7 +115,7 @@ it. Admin and Owner are different things:
   the data.
 
 A fresh database has **no Owner**, and nothing creates one for you. Without
-this, Settings → Erase data never appears, "Remove admin" and "Transfer
+this, Settings → Erase Data never appears, "Remove admin" and "Transfer
 ownership" never appear, and you will think they are broken.
 
 In the SQL editor, replacing the email with yours:
@@ -132,7 +132,7 @@ on conflict (only_row) do nothing;
 ```
 
 **Check it worked**: reload the app. Settings should now list *Access &
-privileges*, *Send an alert*, *App settings* and *Erase data*. All four
+privileges*, *Send an Alert*, *App settings* and *Erase Data*. All four
 means Owner; the first three only means you got Admin but not Owner — run
 the second statement again.
 

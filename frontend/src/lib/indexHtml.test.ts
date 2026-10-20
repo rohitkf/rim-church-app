@@ -4,25 +4,17 @@ import { describe, expect, it } from 'vitest'
 import html from '../../index.html?raw'
 
 describe('the document head', () => {
-  it('does not let a third-party stylesheet block the app from starting', () => {
-    // A render-blocking <link rel="stylesheet"> to fonts.googleapis.com
-    // stops the browser running the module script until Google answers.
-    // On a network where that host is slow or blocked the whole app —
-    // sign-in included — sits blank on "Loading…" with nothing actually
-    // wrong with it. The webfonts are decoration; index.css names the
-    // platform's own faces first.
-    const fontLinks = html.match(/<link[^>]*fonts\.googleapis\.com[^>]*>/g) ?? []
-    const stylesheets = fontLinks.filter((tag: string) => /rel="stylesheet"/.test(tag))
-    expect(stylesheets.length).toBeGreaterThan(0)
-
-    // Every one of them either loads at print media (swapped to all on
-    // load) or sits inside <noscript>, where it blocks nothing.
-    const blocking = stylesheets.filter((tag: string) => !/media="print"/.test(tag))
-    for (const tag of blocking) {
-      const index = html.indexOf(tag)
-      const before = html.slice(0, index)
-      expect(before.lastIndexOf('<noscript>')).toBeGreaterThan(before.lastIndexOf('</noscript>'))
-    }
+  it('fetches nothing from anyone else before the app can start', () => {
+    // A render-blocking <link rel="stylesheet"> to a third party stops
+    // the browser running the module script until that host answers. On
+    // a network where it is slow or blocked the whole app — sign-in
+    // included — sits blank on "Loading…" with nothing actually wrong
+    // with it. The app is set in the device's own face (index.css), so
+    // there is no webfont to fetch at all.
+    const links = html.match(/<link[^>]*>/g) ?? []
+    const offsite = links.filter((tag: string) => /href="https?:\/\//.test(tag))
+    expect(offsite).toEqual([])
+    expect(html).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/)
   })
 
   it('shows something other than a blank page while the bundle loads', () => {

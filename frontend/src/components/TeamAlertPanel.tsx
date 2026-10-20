@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
-import { ActionButton, inputClasses } from './Surface'
+import { ActionButton, SegmentedControl, inputClasses } from './Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { formatServiceDay } from '../lib/sunday'
 import { todayIso } from '../lib/monthGrid'
@@ -84,20 +84,6 @@ export function TeamAlertPanel() {
   // this panel at all.
   if (departments.length === 0) return null
 
-  const scopeButton = (value: 'team' | 'service', label: string) => (
-    <button
-      key={value}
-      type="button"
-      onClick={() => setScope(value)}
-      aria-pressed={scope === value}
-      className={`tap flex-1 rounded-full px-3 py-2 text-label-md transition-colors duration-300 ease-[var(--ease-glide)] ${
-        scope === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-      }`}
-    >
-      {label}
-    </button>
-  )
-
   return (
     /*
      * A column, not a row.
@@ -116,7 +102,7 @@ export function TeamAlertPanel() {
     <section className="rounded-[var(--radius-tile)] bg-surface-lowest p-5 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)]">
       <div className="flex items-center gap-2">
         <svg
-          className="h-4 w-4 shrink-0 text-accent-orange"
+          className="h-4 w-4 shrink-0 text-accent-orange-soft"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -128,7 +114,7 @@ export function TeamAlertPanel() {
           <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
           <path d="M12 9v4M12 17h.01" />
         </svg>
-        <span className="font-mono text-eyebrow uppercase tracking-[0.18em] text-accent-orange">
+        <span className="font-mono text-eyebrow uppercase tracking-[0.18em] text-accent-orange-soft">
           Send an alert
         </span>
       </div>
@@ -151,10 +137,16 @@ export function TeamAlertPanel() {
 
         <div className="flex flex-col gap-1.5">
           <span className="text-label-sm text-on-surface-variant">Who</span>
-          <div className="flex gap-1 rounded-full bg-inset p-1 hairline">
-            {scopeButton('team', 'Everyone')}
-            {scopeButton('service', 'One service')}
-          </div>
+          <SegmentedControl
+            label="Who"
+            kind="pressed"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'team', label: 'Everyone' },
+              { value: 'service', label: 'One service' },
+            ]}
+          />
         </div>
 
         {scope === 'service' && (

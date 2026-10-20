@@ -130,13 +130,13 @@ export function TeamCardActions({
             onClick={() => setPicking(true)}
             aria-label={`Colour for ${dept.name}`}
             title="Team colour"
-            className="tap-square h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-500 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
+            className="tap-square h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-300 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
             style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
           />
           <button
             type="button"
             onClick={() => setRenaming(dept.name)}
-            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] dark:ring-white/10 dark:hover:ring-white/25"
+            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.97] active:duration-[80ms] dark:ring-white/10 dark:hover:ring-white/25"
           >
             Rename
           </button>
@@ -146,7 +146,7 @@ export function TeamCardActions({
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="tap ml-auto rounded-full px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error"
+            className="tap ml-auto rounded-full px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-error"
           >
             Delete
           </button>
@@ -170,7 +170,7 @@ export function TeamCardActions({
           <button
             type="submit"
             disabled={rename.isPending}
-            className="rounded-full bg-primary px-4 py-1.5 text-body-sm font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-1.5 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             Save
           </button>
@@ -180,7 +180,7 @@ export function TeamCardActions({
               setRenaming(null)
               setError(null)
             }}
-            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+            className="tap rounded-full px-3.5 py-1.5 text-body-sm text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
           >
             Cancel
           </button>
@@ -229,7 +229,7 @@ export function TeamCardActions({
                   setConfirmDelete(false)
                   setError(null)
                 }}
-                className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+                className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
               >
                 Cancel
               </button>
@@ -237,7 +237,7 @@ export function TeamCardActions({
                 type="button"
                 onClick={() => remove.mutate()}
                 disabled={remove.isPending}
-                className="rounded-full bg-error px-5 py-2.5 text-body-sm font-medium text-on-error shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+                className="rounded-full bg-error px-5 py-2.5 text-body-sm font-medium text-on-error shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
               >
                 {remove.isPending ? 'Deleting…' : 'Yes, delete'}
               </button>

@@ -83,7 +83,7 @@ export function ServiceCountdown({
           <span className="text-on-surface-faint/50">:</span>
           <RollingDigits value={mins} />
           <span className="text-on-surface-faint/50">:</span>
-          <span className="text-primary">
+          <span className="text-accent-blue-soft">
             <RollingDigits value={secs} />
           </span>
         </span>
@@ -112,7 +112,7 @@ export function ServiceCountdown({
         <span className="text-on-surface-variant">:</span>
         <RollingDigits value={mins} />
         <span className="text-on-surface-variant">:</span>
-        <span className="text-primary">
+        <span className="text-accent-blue-soft">
           <RollingDigits value={secs} />
         </span>
       </span>

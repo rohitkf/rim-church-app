@@ -16,7 +16,7 @@ import {
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { useAppSettings } from '../lib/appSettings'
 import { QueryState } from './QueryState'
-import { Pill, SectionTile } from './Surface'
+import { Pill, SectionTile, SegmentedControl } from './Surface'
 import { SaveBar } from './SettingRows'
 
 /**
@@ -86,7 +86,7 @@ export function PageAccessCard() {
                   role="radio"
                   aria-checked={preview === s.value}
                   onClick={() => setPreview(s.value)}
-                  className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-300 ${
+                  className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-200 ${
                     preview === s.value
                       ? 'bg-primary font-medium text-on-primary'
                       : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
@@ -113,7 +113,7 @@ export function PageAccessCard() {
                   <li
                     key={item.to}
                     aria-label={`${item.label}: ${yes ? 'can open' : 'cannot open'}`}
-                    className={`flex items-center gap-2 rounded-[var(--radius-row)] px-3 py-2.5 text-body-sm transition-colors duration-300 ${
+                    className={`flex items-center gap-2 rounded-[var(--radius-row)] px-3 py-2.5 text-body-sm transition-colors duration-200 ${
                       yes
                         ? 'bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] text-on-surface'
                         : 'bg-raised text-on-surface-faint line-through decoration-on-surface-faint/40'
@@ -153,28 +153,13 @@ export function PageAccessCard() {
                             <Pill tone={tag.tone}>{tag.label}</Pill>
                           </span>
                           {rule.choices.length > 1 && rule.key ? (
-                            <div
-                              role="radiogroup"
-                              aria-label={`Who can open ${item.label}`}
-                              className="flex gap-1 rounded-full bg-inset p-1 hairline"
-                            >
-                              {rule.choices.map((choice) => (
-                                <button
-                                  key={choice}
-                                  type="button"
-                                  role="radio"
-                                  aria-checked={level === choice}
-                                  onClick={() => choose(rule.key!, choice)}
-                                  className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
-                                    level === choice
-                                      ? 'bg-primary font-medium text-on-primary'
-                                      : 'text-on-surface-variant hover:text-on-surface'
-                                  }`}
-                                >
-                                  {short(choice)}
-                                </button>
-                              ))}
-                            </div>
+                            <SegmentedControl
+                              label={`Who can open ${item.label}`}
+                              value={level}
+                              onChange={(choice) => choose(rule.key!, choice)}
+                              options={rule.choices.map((choice) => ({ value: choice, label: short(choice) }))}
+                              className="w-fit"
+                            />
                           ) : (
                             <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">
                               {short(level)}

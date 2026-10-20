@@ -80,7 +80,7 @@ function ConfirmDialog({ request, onClose }: { request: ConfirmRequest; onClose:
             type="button"
             onClick={onClose}
             autoFocus
-            className="tap rounded-full bg-raised-strong px-4 py-2 text-label-md text-on-surface hairline-strong"
+            className="tap rounded-full bg-raised-strong px-4 py-2 text-label-md font-semibold text-on-surface hairline-strong"
           >
             {request.cancelLabel ?? 'Cancel'}
           </button>
@@ -90,7 +90,7 @@ function ConfirmDialog({ request, onClose }: { request: ConfirmRequest; onClose:
               request.onConfirm()
               onClose()
             }}
-            className="tap rounded-full bg-error px-4 py-2 text-label-md font-medium text-on-error"
+            className="tap rounded-full bg-error px-4 py-2 text-label-md font-semibold text-on-error"
           >
             {confirmLabel}
           </button>

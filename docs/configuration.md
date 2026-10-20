@@ -58,7 +58,7 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
 | Feedback | team | fixed | the database (0124: anybody on a team sends; only the Owner reads everybody's — 0125) |
 | Inventory | team | team · leads | the database (the four inventory tables) |
-| Stage Layout | everyone | everyone · team · leads | the database (layouts, blocks, comments, log). Who may *draw* is per team: Settings › Stage layout (`stage_team_access`, `stage_may()`, 0155) |
+| Stage Layout | everyone | everyone · team · leads | the database (layouts, blocks, comments, log). Who may *draw* is per team: Settings › Stage Layout (`stage_team_access`, `stage_may()`, 0155) |
 
 SQL: `page_level(text)`, `is_a_lead(uuid)`, `can_open_page(uuid, text)`. The
 affected SELECT policies call `can_open_page` through a sub-select so it is
@@ -154,12 +154,12 @@ the reverse) never break each other.
 
 | Room | Holds |
 |---|---|
-| Page by page | one section per page of the app, in the menu's order (Serving as its three tabs; the bell, Send an alert and the app itself last): the page's own settings from the catalog (`lib/settingsCatalog`, filed by `affects`), links to the rooms with its own controls, who can open it, **Team by team** — a card per team, folded to what each of its profiles may do here, open to a grid of the page's rules against Head · Assisting Head · Coordinator · Team Member, each cell the team's own choice or "As the church" (0162) — and the church-wide rule every team follows unless it sets its own. One Save for settings, opening rules and permissions; `#rota` opens a page's section |
-| Access & privileges | **By role** (the whole grid a profile at a time) · **Pages** (who can open each, with a live preview of each profile's menu) |
-| Stage layout | which teams may add · edit · delete · comment · keep templates (`stage_team_access`); the **areas** every service's workspace is made of (`stage_areas`: name, size, edge labels, order — Stage and Audience to begin with, stacked top to bottom); template requests waiting for an Admin; the template library (the whole workspace, with each block's corners and picture, 0160); the clear day and hour. Locking a block (Admin/Owner only) and answering asks to move one happen on the stage page itself; a locked block is nobody's to change until it is unlocked, the Admin's included, and a template or a clear over one is refused (0157, 0159) |
+| Page by Page | one section per page of the app, in the menu's order (Serving as its three tabs; the bell, Send an alert and the app itself last): the page's own settings from the catalog (`lib/settingsCatalog`, filed by `affects`), links to the rooms with its own controls, who can open it, **Team by team** — a card per team, folded to what each of its profiles may do here, open to a grid of the page's rules against Head · Assisting Head · Coordinator · Team Member, each cell the team's own choice or "As the church" (0162) — and the church-wide rule every team follows unless it sets its own. One Save for settings, opening rules and permissions; `#rota` opens a page's section |
+| Access & Privileges | **By role** (the whole grid a profile at a time) · **Pages** (who can open each, with a live preview of each profile's menu) |
+| Stage Layout | which teams may add · edit · delete · comment · keep templates (`stage_team_access`); the **areas** every service's workspace is made of (`stage_areas`: name, size, edge labels, order — Stage and Audience to begin with, stacked top to bottom); template requests waiting for an Admin; the template library (the whole workspace, with each block's corners and picture, 0160); the clear day and hour. Locking a block (Admin/Owner only) and answering asks to move one happen on the stage page itself; a locked block is nobody's to change until it is unlocked, the Admin's included, and a template or a clear over one is refused (0157, 0159) |
 | Timings | when things open and close — the catalog's rows, grouped by the moment in the week |
-| Data & retention | every clock in §2, what is kept on purpose, and the upload limits |
-| Dashboard & lists | everything in §3 |
+| Data & Retention | every clock in §2, what is kept on purpose, and the upload limits |
+| Dashboard & Lists | everything in §3 |
 | Team Rota · Giving · Menu | unchanged |
 
 Each room saves only its own columns (`useSettingsDraft(keys)`), so two Admins

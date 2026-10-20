@@ -34,7 +34,7 @@ export function useTheme() {
   const preference = useSyncExternalStore(
     subscribe,
     () => current,
-    () => 'dark' as ThemePreference,
+    () => 'system' as ThemePreference,
   )
 
   useEffect(() => {

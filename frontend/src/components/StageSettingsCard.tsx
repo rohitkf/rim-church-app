@@ -32,7 +32,7 @@ import { useConfirmAction } from './ConfirmAction'
 import { formatRelativeTime } from '../lib/relativeTime'
 
 /**
- * Settings › Stage layout.
+ * Settings › Stage Layout.
  *
  * Three things, in the order an Admin wants them: which teams may work
  * on the stage and what each may do (a tick per privilege per team), the
@@ -217,7 +217,7 @@ export function StageSettingsCard() {
       <SectionTile
         title="Template requests"
         hint="A layout somebody asked to keep. Yes puts it in the library; the asker is told either way."
-        aside={pending.length > 0 ? <span className="rounded-full bg-accent-orange/15 px-2.5 py-1 font-mono text-label-sm text-accent-orange">{pending.length} waiting</span> : undefined}
+        aside={pending.length > 0 ? <span className="rounded-full bg-accent-orange/15 px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">{pending.length} waiting</span> : undefined}
       >
         <QueryState isLoading={requests.isLoading} error={requests.error} isEmpty={pending.length === 0} emptyMessage="Nothing waiting.">
           <ul className="flex flex-col gap-2">

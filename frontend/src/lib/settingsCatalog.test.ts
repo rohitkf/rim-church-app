@@ -88,7 +88,7 @@ describe('the settings catalog', () => {
   })
 })
 
-describe('Page by page', () => {
+describe('Page by Page', () => {
   it('lists every page in the menu, Serving as its three tabs, and the three places that are not pages', () => {
     const tos = SETTINGS_PAGES.map((p) => p.to)
     expect(tos).toEqual(

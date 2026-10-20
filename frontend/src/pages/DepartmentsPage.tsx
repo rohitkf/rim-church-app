@@ -18,7 +18,7 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 export function DepartmentsPage() {
   const { isAdmin, ledDepartmentIds, session } = useAuth()
   // Making and removing teams, and clearing answered requests, are the
-  // church's to grant (Settings › Access & privileges). Seeing every team
+  // church's to grant (Settings › Access & Privileges). Seeing every team
   // stays an Admin's view.
   const { can } = usePermissions()
   const canCreate = can('team.create')
@@ -97,10 +97,10 @@ export function DepartmentsPage() {
                       <TeamAvatar
                         color={dept.color}
                         name={dept.name}
-                        className="h-11 w-11 rounded-xl text-label-md ring-1 ring-inset ring-black/5 transition-transform duration-500 ease-[var(--ease-glide)] group-hover/card:scale-105 dark:ring-white/10"
+                        className="h-11 w-11 rounded-xl text-label-md ring-1 ring-inset ring-black/5 transition-transform duration-300 ease-[var(--ease-glide)] group-hover/card:scale-105 dark:ring-white/10"
                       />
 
-                      <h2 className="mt-4 text-headline-md leading-tight transition-colors duration-300 ease-[var(--ease-glide)] group-hover/link:text-secondary">
+                      <h2 className="mt-4 text-headline-md leading-tight transition-colors duration-200 ease-[var(--ease-glide)] group-hover/link:text-accent-blue-soft">
                         {dept.name}
                       </h2>
 
@@ -110,7 +110,7 @@ export function DepartmentsPage() {
                     </Link>
 
                     {dept.is_service_flow && (
-                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-secondary ring-1 ring-inset ring-secondary/20">
+                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
                         Signs checklists off
                       </span>
                     )}

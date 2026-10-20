@@ -101,7 +101,7 @@ export function CheckEmailDialog({ email, onClose }: { email: string; onClose: (
               href={plan.web.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="tap text-center text-label-md text-secondary hover:underline"
+              className="tap text-center text-label-md text-accent-blue-soft hover:underline"
             >
               Open {plan.web.provider} in the browser
             </a>

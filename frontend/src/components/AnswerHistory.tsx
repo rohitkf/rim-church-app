@@ -38,7 +38,7 @@ export function AnswerHistory({
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
-        className="tap font-mono text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+        className="tap font-mono text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline"
       >
         {open ? `Hide ${label.toLowerCase()}` : `${label} · ${entries.length}`}
       </button>

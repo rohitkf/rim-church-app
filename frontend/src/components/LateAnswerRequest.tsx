@@ -80,7 +80,7 @@ export function AskToChangeAnswer({
       {settled && (
         <p
           className={`mb-2 text-label-sm ${
-            settled.status === 'approved' ? 'text-accent-green' : 'text-on-surface-faint'
+            settled.status === 'approved' ? 'text-accent-green-soft' : 'text-on-surface-faint'
           }`}
         >
           {settled.status === 'approved'

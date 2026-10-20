@@ -21,7 +21,7 @@ import {
   type Reach,
 } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
-import { Pill, Tile } from './Surface'
+import { Pill, SegmentedControl, Tile } from './Surface'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
 
@@ -140,7 +140,7 @@ export function ReachPicker({
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value as Reach)}
-        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-300 hover:bg-raised-strong ${
+        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-200 hover:bg-raised-strong ${
           wide ? 'min-w-32' : ''
         } ${unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''}`}
       >
@@ -250,27 +250,16 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
         keys to the app itself.
       </p>
 
-      <div role="radiogroup" aria-label="View" className="flex gap-1 self-start rounded-full bg-inset p-1 hairline">
-        {(
-          [
-            ['role', 'One role'],
-            ['compare', 'Compare all'],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={view === value}
-            onClick={() => setView(value)}
-            className={`tap rounded-full px-4 py-2 text-label-md transition-colors duration-300 ${
-              view === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="View"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: 'role', label: 'One role' },
+          { value: 'compare', label: 'Compare all' },
+        ]}
+        className="self-start"
+      />
 
       {view === 'role' ? (
         <>
@@ -284,7 +273,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                   role="radio"
                   aria-checked={role === r.key}
                   onClick={() => setRole(r.key)}
-                  className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-300 ${
+                  className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-200 ${
                     role === r.key
                       ? 'bg-primary font-medium text-on-primary'
                       : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
@@ -339,7 +328,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       onClick={() => toggleArea(area.area)}
                       aria-expanded={isOpen}
                       aria-controls={panel}
-                      className="tap flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-300 hover:bg-raised"
+                      className="tap flex w-full items-center gap-3 px-5 py-4 text-left transition-colors duration-200 hover:bg-raised"
                     >
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-2">

@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useAppSettings } from '../lib/appSettings'
 import { useFinishedServices } from '../lib/useFinishedServices'
+import { segmentClasses, segmentTrackClasses } from './Surface'
 import { usePageAccess } from '../lib/usePageAccess'
 
 /**
@@ -27,35 +28,22 @@ export function ServingTabs() {
 
   return (
     <nav aria-label="Serving" data-tour="serving-tabs" className="mb-6">
-      {/* All three fit a 360px phone side by side: tight padding there,
-          roomier from sm up. */}
-      <ol className="flex w-full gap-0.5 rounded-full bg-inset p-1 hairline sm:inline-flex sm:w-auto sm:gap-1">
+      {/* A segmented control whose segments are links: all three share
+          the width on a phone, and sit as one object from sm up. */}
+      <ol className={`${segmentTrackClasses} sm:inline-grid sm:w-auto`}>
         {tabs.map((tab, index) => (
-          <li key={tab.to} className="min-w-0 flex-1 sm:flex-none">
-            <NavLink
-              to={tab.to}
-              title={tab.hint}
-              className={({ isActive }) =>
-                `tap flex items-center justify-center gap-1.5 rounded-full px-2 py-2 text-label-md sm:gap-2 sm:px-4 transition-colors duration-300 ease-[var(--ease-glide)] ${
-                  isActive ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span
-                    aria-hidden="true"
-                    // On the narrowest phones the words matter more than
-                    // the numbers; the order still reads left to right.
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label-sm max-[379px]:hidden ${
-                      isActive ? 'bg-on-primary/20' : 'bg-raised-strong'
-                    }`}
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="truncate whitespace-nowrap">{tab.label}</span>
-                </>
-              )}
+          <li key={tab.to} className="min-w-0">
+            {/* Three words have to fit a 360px phone side by side. */}
+            <NavLink to={tab.to} title={tab.hint} className={({ isActive }) => segmentClasses(isActive, undefined, 'px-1.5 sm:px-4')}>
+              <span
+                aria-hidden="true"
+                // On the narrowest phones the words matter more than the
+                // numbers; the order still reads left to right.
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-raised-strong font-mono text-label-sm max-[379px]:hidden"
+              >
+                {index + 1}
+              </span>
+              <span className="truncate whitespace-nowrap">{tab.label}</span>
             </NavLink>
           </li>
         ))}

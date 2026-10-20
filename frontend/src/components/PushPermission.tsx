@@ -195,7 +195,7 @@ export function PushPermissionRow() {
         type="button"
         onClick={turnOn}
         disabled={busy}
-        className="w-full rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+        className="w-full rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
       >
         {busy ? 'Just a moment…' : 'Turn on notifications'}
       </button>

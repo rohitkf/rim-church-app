@@ -332,7 +332,7 @@ function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
 const QUIET =
   'tap rounded-full px-3.5 py-2 text-label-md text-on-surface-variant transition-colors hover:text-on-surface'
 const PRIMARY =
-  'tap inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]'
+  'tap inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]'
 
 function SundayList() {
   return (
@@ -523,7 +523,7 @@ function TourCard({
       aria-modal="true"
       aria-labelledby={titleId}
       style={style}
-      className={`sheen absolute overflow-hidden rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-[opacity,transform] duration-500 ease-[var(--ease-glide)] sm:p-7 dark:ring-white/12 ${
+      className={`absolute overflow-hidden rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-[opacity,transform] duration-300 ease-[var(--ease-glide)] sm:p-7 dark:ring-white/12 ${
         wide ? 'w-[calc(100%-2rem)] max-w-lg' : 'w-[calc(100%-2rem)] max-w-sm'
       } ${landed ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}
     >

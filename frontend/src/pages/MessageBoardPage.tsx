@@ -71,7 +71,7 @@ export function MessageBoardPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Who may post for which team, and who may tidy the board, are the
-  // church's to say (Settings › Access & privileges). "Everywhere" for
+  // church's to say (Settings › Access & Privileges). "Everywhere" for
   // posting is what speaking for the whole church takes.
   const { can } = usePermissions()
   const everywhere = can('msg.board_post')
@@ -290,7 +290,7 @@ export function MessageBoardPage() {
             </p>
             <Link
               to="/departments"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98]"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms]"
             >
               Find a team to join
               <span aria-hidden="true">&rarr;</span>

@@ -73,7 +73,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/appearance',
-        label: 'Appearance & alerts',
+        label: 'Appearance & Alerts',
         blurb: 'Light or dark, how teams are drawn, and phone notifications.',
         icon: PaletteIcon,
         tone: 'indigo',
@@ -86,7 +86,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     sections: [
       {
         to: '/settings/pages',
-        label: 'Page by page',
+        label: 'Page by Page',
         blurb: 'Each page’s settings, and who may do what on it — team by team.',
         icon: ChecklistIcon,
         tone: 'indigo',
@@ -104,7 +104,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/retention',
-        label: 'Data & retention',
+        label: 'Data & Retention',
         blurb: 'How long each page keeps things, and when it clears.',
         icon: ArchiveIcon,
         tone: 'orange',
@@ -113,7 +113,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/display',
-        label: 'Dashboard & lists',
+        label: 'Dashboard & Lists',
         blurb: 'What the Dashboard shows, and what starts open.',
         icon: GridIcon,
         tone: 'blue',
@@ -141,7 +141,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/stage',
-        label: 'Stage layout',
+        label: 'Stage Layout',
         blurb: 'Which teams may draw the stage, and when layouts clear.',
         icon: StageIcon,
         tone: 'blue',
@@ -164,7 +164,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     sections: [
       {
         to: '/settings/access',
-        label: 'Access & privileges',
+        label: 'Access & Privileges',
         blurb: 'Who can open each page, and who can do what.',
         icon: ShieldIcon,
         tone: 'indigo',
@@ -183,7 +183,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/alerts',
-        label: 'Send an alert',
+        label: 'Send an Alert',
         blurb: 'Interrupt everybody, a team, or a few people.',
         icon: MegaphoneIcon,
         tone: 'orange',
@@ -198,7 +198,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     sections: [
       {
         to: '/settings/logo',
-        label: 'App logo',
+        label: 'App Logo',
         blurb: 'The mark at the top of every page.',
         icon: ImageIcon,
         tone: 'blue',
@@ -207,7 +207,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/data',
-        label: 'Erase data',
+        label: 'Erase Data',
         blurb: 'Clear the app back to an empty diary.',
         icon: TrashIcon,
         tone: 'red',

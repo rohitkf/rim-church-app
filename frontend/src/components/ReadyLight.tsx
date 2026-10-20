@@ -16,7 +16,7 @@ export function ReadyForService() {
   return (
     <p
       role="status"
-      className="font-black uppercase tracking-[0.08em] text-accent-green"
+      className="font-black uppercase tracking-[0.08em] text-accent-green-soft"
       style={{ fontSize: 'clamp(1.75rem, 6vw, 2.75rem)', lineHeight: 1.05, fontWeight: 900 }}
     >
       Ready for service

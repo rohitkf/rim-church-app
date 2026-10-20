@@ -111,7 +111,7 @@ export function TimelineRow({
               <span
                 key={i}
                 title={grant.note ?? undefined}
-                className="font-mono text-label-sm text-accent-blue tabular"
+                className="font-mono text-label-sm text-accent-blue-soft tabular"
               >
                 +{grant.minutes}m asked
               </span>
@@ -129,7 +129,7 @@ export function TimelineRow({
         {over !== undefined && over !== 0 && (
           <div
             className={`mt-1 font-mono text-label-sm tabular ${
-              over > 0 ? 'text-error' : 'text-accent-green'
+              over > 0 ? 'text-error' : 'text-accent-green-soft'
             }`}
           >
             {over > 0 ? `+${over} over` : `${Math.abs(over)} early`}
@@ -218,7 +218,7 @@ export function AssigneePill({
   const tones = {
     neutral: 'bg-raised-strong text-on-surface-variant',
     blue: 'bg-[color-mix(in_oklab,var(--color-accent-blue)_24%,transparent)] text-accent-blue-soft',
-    green: 'bg-[color-mix(in_oklab,var(--color-accent-green)_22%,transparent)] text-accent-green',
+    green: 'bg-[color-mix(in_oklab,var(--color-accent-green)_22%,transparent)] text-accent-green-soft',
     indigo: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_26%,transparent)] text-accent-indigo-soft',
   }
   return (
@@ -267,7 +267,7 @@ export function RailCountdown({
   const text = over && holding ? `+${formatCountdown(-remaining)}` : formatCountdown(remaining)
 
   const tone = !over
-    ? 'text-accent-green ring-accent-green/40'
+    ? 'text-accent-green-soft ring-accent-green/40'
     : holding
       ? 'text-error ring-error/45'
       : 'text-accent-orange-soft ring-accent-orange/45'

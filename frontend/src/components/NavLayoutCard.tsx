@@ -262,7 +262,7 @@ export function NavLayoutCard() {
               Use the app’s own menu
             </ActionButton>
           )}
-          {note && <p className="text-body-sm text-accent-green">{note}</p>}
+          {note && <p className="text-body-sm text-accent-green-soft">{note}</p>}
         </div>
       </QueryState>
     </section>

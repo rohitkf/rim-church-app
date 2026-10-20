@@ -54,7 +54,7 @@ export function AuthCard({
 /** The label above an auth field: mono, spaced, quiet. */
 export function AuthLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="font-mono text-[10px] uppercase leading-none tracking-[0.18em] text-on-surface-faint">
+    <span className="font-mono text-[11px] uppercase leading-none tracking-[0.18em] text-on-surface-faint">
       {children}
     </span>
   )
@@ -65,7 +65,7 @@ export function AuthLabel({ children }: { children: ReactNode }) {
  * only thing on the screen and a 50px target is what a cold thumb needs.
  */
 export const authInputClasses =
-  'h-[50px] w-full rounded-[var(--radius-chip)] border-0 bg-raised-strong px-4 text-body-md text-on-surface hairline-strong transition-shadow duration-300 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
+  'h-[50px] w-full rounded-[var(--radius-chip)] border-0 bg-raised-strong px-4 text-body-md text-on-surface hairline-strong transition-shadow duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
 
 export const authSubmitClasses =
-  'flex h-[52px] w-full items-center justify-center rounded-full bg-primary text-body-md font-semibold text-on-primary transition-all duration-500 ease-[var(--ease-glide)] active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100'
+  'flex h-[52px] w-full items-center justify-center rounded-full bg-primary text-body-md font-semibold text-on-primary transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] active:scale-[0.98] active:duration-[80ms] disabled:opacity-50 disabled:active:scale-100'

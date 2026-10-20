@@ -72,7 +72,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
       title="Requests to join"
       icon={UsersIcon}
       aside={
-        <span className="rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-secondary ring-1 ring-inset ring-secondary/20">
+        <span className="rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
           {requests.length} waiting
         </span>
       }
@@ -130,7 +130,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                   type="button"
                   onClick={() => answer(request.id, true, 'core')}
                   disabled={busy}
-                  className="rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-all duration-500 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
                 >
                   Add as core member
                 </button>
@@ -138,7 +138,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                   type="button"
                   onClick={() => answer(request.id, true, 'guest')}
                   disabled={busy}
-                  className="rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface ring-1 ring-black/8 transition-colors duration-300 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/12 dark:hover:ring-white/24"
+                  className="rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface ring-1 ring-black/8 transition-colors duration-200 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/12 dark:hover:ring-white/24"
                 >
                   Add as guest
                 </button>
@@ -146,7 +146,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                   type="button"
                   onClick={() => answer(request.id, false, 'core')}
                   disabled={busy}
-                  className="rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-error disabled:opacity-50"
+                  className="rounded-full px-3 py-1.5 text-label-sm font-medium text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-error disabled:opacity-50"
                 >
                   Decline
                 </button>

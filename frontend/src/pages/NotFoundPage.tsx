@@ -7,7 +7,7 @@ export function NotFoundPage() {
       <p className="text-body-md text-on-surface-variant">
         This page doesn't exist, or you don't have access to it.
       </p>
-      <Link to="/" className="mt-2 text-body-sm font-medium text-secondary">
+      <Link to="/" className="mt-2 text-body-sm font-medium text-accent-blue-soft">
         Back to Dashboard
       </Link>
     </div>

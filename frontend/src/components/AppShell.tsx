@@ -86,7 +86,7 @@ export function AppShell() {
   // The church's own arrangement of the menu, when an Admin has saved one.
   const layoutQuery = useQuery({ queryKey: NAV_LAYOUT_KEY, queryFn: fetchNavLayout })
   // Only what this person may open, under the church's choices (Settings
-  // › Access & privileges) — the same answer PageGate gives at the door.
+  // › Access & Privileges) — the same answer PageGate gives at the door.
   const { canOpen } = usePageAccess()
   // A set of tabs is offered when any one of them may be opened: a Church
   // Member the rota is open to still has Serving, with the one tab in it.
@@ -107,16 +107,15 @@ export function AppShell() {
         At the top of a page it needs no background — it is sitting on the
         ground. Once content is passing underneath it, the two collide
         unless the strip stands on something, so it takes a translucent one
-        with the page blurred behind it and a hairline along its bottom
-        edge. It appears rather than being there all along, because the
-        cleaner strip is the one worth having whenever it can be had.
+        with the page blurred behind it (`glass`, index.css) and a soft
+        edge below where content fades out under it. It appears rather
+        than being there all along, because the cleaner strip is the one
+        worth having whenever it can be had.
       */}
       <ViewAsBanner />
       <header
         className={`sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-[var(--ease-glide)] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5 ${
-          scrolled
-            ? 'bg-[color-mix(in_oklab,var(--color-background)_72%,transparent)] shadow-[inset_0_-1px_0_0_var(--color-border-subtle)] backdrop-blur-xl backdrop-saturate-150'
-            : ''
+          scrolled ? 'glass scroll-edge [--glass:var(--color-background)]' : ''
         }`}
       >
         {/*
@@ -128,7 +127,7 @@ export function AppShell() {
         */}
         <Link
           to="/"
-          className="tap flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
+          className="tap flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-200 ease-[var(--ease-glide)] hover:opacity-80"
         >
           <AppMark />
           <span className="hidden max-w-[13rem] text-label-md leading-tight text-on-surface-variant xl:block">
@@ -160,7 +159,7 @@ export function AppShell() {
             <button
               type="button"
               onClick={() => setAssistantOpen((o) => !o)}
-              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
             >
               <SparklesIcon width={17} height={17} className="shrink-0" />
               Ask
@@ -171,7 +170,7 @@ export function AppShell() {
             <button
               type="button"
               onClick={() => setComingSoon(true)}
-              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_14%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98]"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_14%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
             >
               <SparklesIcon width={17} height={17} className="shrink-0" />
               Ask

@@ -106,7 +106,7 @@ export function StageLayoutIndexPage() {
         isEmpty={services.length === 0 || (areasQuery.isSuccess && areas.length === 0)}
         emptyMessage={
           areasQuery.isSuccess && areas.length === 0
-            ? 'No areas to lay out. An Admin names them in Settings › Stage layout.'
+            ? 'No areas to lay out. An Admin names them in Settings › Stage Layout.'
             : 'No services planned yet. Add one in the Service Planner and it appears here.'
         }
       >

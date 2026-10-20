@@ -69,7 +69,7 @@ export function TeamColorSheet({
 
         <div className="flex items-center gap-3.5">
           <span
-            className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] font-mono text-label-md uppercase transition-colors duration-300 ease-[var(--ease-glide)]"
+            className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] font-mono text-label-md uppercase transition-colors duration-200 ease-[var(--ease-glide)]"
             style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >
@@ -84,7 +84,7 @@ export function TeamColorSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-raised-strong text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface"
+            className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-raised-strong text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
               <path d="M18 6 6 18M6 6l12 12" />
@@ -104,7 +104,7 @@ export function TeamColorSheet({
                 aria-label={swatch.name}
                 title={swatch.name}
                 onClick={() => setChosen(swatch.hex)}
-                className="relative aspect-square rounded-[var(--radius-chip)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-95"
+                className="relative aspect-square rounded-[var(--radius-chip)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-95"
                 style={{
                   backgroundColor: swatch.hex,
                   // The ring is drawn outside a gap of the sheet's own
@@ -128,7 +128,7 @@ export function TeamColorSheet({
           style={teamWash(chosen, teamStyle)}
         >
           <span
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] font-mono text-label-sm uppercase transition-colors duration-300 ease-[var(--ease-glide)]"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] font-mono text-label-sm uppercase transition-colors duration-200 ease-[var(--ease-glide)]"
             style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >
@@ -141,7 +141,7 @@ export function TeamColorSheet({
             </p>
           </div>
           <span
-            className="ml-auto shrink-0 rounded-full px-2.5 py-1.5 font-mono text-[10px] tracking-[0.12em] transition-colors duration-300 ease-[var(--ease-glide)]"
+            className="ml-auto shrink-0 rounded-full px-2.5 py-1.5 font-mono text-[11px] tracking-[0.12em] transition-colors duration-200 ease-[var(--ease-glide)]"
             style={{ backgroundColor: tint(chosen, 16), color: chosen }}
           >
             {chosen}
@@ -158,14 +158,14 @@ export function TeamColorSheet({
           type="button"
           onClick={() => onSave(chosen)}
           disabled={saving}
-          className="mt-4 flex h-13 w-full items-center justify-center rounded-full bg-primary text-body-lg font-semibold text-on-primary transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+          className="mt-4 flex h-13 w-full items-center justify-center rounded-full bg-primary text-body-lg font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50 disabled:active:scale-100"
         >
           {saving ? 'Saving…' : 'Set colour'}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="mt-2 flex h-12 w-full items-center justify-center rounded-full text-body-md text-on-surface-variant transition-colors duration-300 ease-[var(--ease-glide)] hover:text-on-surface"
+          className="mt-2 flex h-12 w-full items-center justify-center rounded-full text-body-md text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface"
         >
           Cancel
         </button>

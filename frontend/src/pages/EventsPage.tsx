@@ -73,13 +73,13 @@ async function fetchCouples() {
  * now, leaving blue to mean "a service" alone.
  */
 const KIND_TONE: Record<DiaryKind, { dot: string; chip: string }> = {
-  birthday: { dot: 'bg-accent-orange', chip: 'bg-accent-orange/15 text-accent-orange' },
+  birthday: { dot: 'bg-accent-orange', chip: 'bg-accent-orange/15 text-accent-orange-soft' },
   anniversary: {
     dot: 'bg-accent-indigo',
     chip: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_18%,transparent)] text-accent-indigo-soft',
   },
-  service: { dot: 'bg-primary', chip: 'bg-primary/15 text-primary' },
-  event: { dot: 'bg-accent-green', chip: 'bg-accent-green/15 text-accent-green' },
+  service: { dot: 'bg-primary', chip: 'bg-primary/15 text-accent-blue-soft' },
+  event: { dot: 'bg-accent-green', chip: 'bg-accent-green/15 text-accent-green-soft' },
 }
 
 /**
@@ -186,7 +186,7 @@ function DiaryRow({
               <button
                 type="button"
                 onClick={() => onEdit(entry)}
-                className="tap text-label-md text-on-surface-faint hover:text-secondary hover:underline"
+                className="tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline"
               >
                 Edit
               </button>
@@ -250,7 +250,7 @@ function DiaryDays({
 export function EventsPage() {
   const { session } = useAuth()
   // Whose events somebody may add, change or remove is the church's to say
-  // (Settings › Access & privileges): a team's, or — "Everywhere" — any,
+  // (Settings › Access & Privileges): a team's, or — "Everywhere" — any,
   // including the church's own, which belong to no team.
   const { can } = usePermissions()
   const everywhere = can('svc.events')
@@ -541,7 +541,7 @@ export function EventsPage() {
               <div
                 key={d}
                 className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm uppercase tracking-wide ${
-                  d === 'Sun' ? 'text-secondary' : 'text-on-surface-variant'
+                  d === 'Sun' ? 'text-accent-blue-soft' : 'text-on-surface-variant'
                 }`}
               >
                 {d}
@@ -563,7 +563,7 @@ export function EventsPage() {
                       onClick={() => openAdd(cell.iso)}
                       aria-label={`Add an event on ${formatServiceDay(cell.iso)}`}
                       title={`Add an event on ${formatServiceDay(cell.iso)}`}
-                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-300 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
+                      className="absolute inset-0 z-0 rounded-sm transition-colors duration-200 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
                     />
                   )}
                   <div

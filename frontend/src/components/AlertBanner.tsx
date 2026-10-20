@@ -81,7 +81,7 @@ export function AlertBanner() {
       <div className="w-full max-w-sm rounded-[var(--radius-tile)] bg-surface-low p-6 text-center shadow-[var(--shadow-lifted)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_30%,transparent)]">
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_16%,transparent)]">
           <svg
-            className="h-5 w-5 text-accent-orange"
+            className="h-5 w-5 text-accent-orange-soft"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -95,7 +95,7 @@ export function AlertBanner() {
           </svg>
         </div>
 
-        <p className="mt-4 font-mono text-label-sm uppercase tracking-wide text-accent-orange">
+        <p className="mt-4 font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
           {alert.type === 'announcement' ? 'From the church' : 'From your team'}
         </p>
         <p className="mt-2 text-body-md text-on-surface">{alert.body}</p>

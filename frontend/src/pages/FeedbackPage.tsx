@@ -28,7 +28,7 @@ import {
 import { Lifespan } from '../components/Lifespan'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { ActionButton, IconBadge, PageHeader, Pill, SectionTile, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, IconBadge, PageHeader, Pill, SectionTile, SegmentedControl, Tile, inputClasses } from '../components/Surface'
 
 /**
  * Feedback about the app, from the people who use it every Sunday.
@@ -73,27 +73,17 @@ export function FeedbackPage() {
       <Composer />
 
       {isOwner && (
-        <div role="tablist" aria-label="Whose feedback" className="mt-8 flex gap-1 self-start rounded-full bg-inset p-1 hairline sm:inline-flex">
-          {(
-            [
-              ['everyone', `Everyone’s (${all.filter((f) => isOpen(f.status)).length} open)`],
-              ['mine', `Yours (${mine.length})`],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={view === value}
-              onClick={() => setView(value)}
-              className={`tap flex-1 rounded-full px-4 py-2 text-label-md transition-colors duration-300 sm:flex-none ${
-                view === value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Whose feedback"
+          kind="tab"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'everyone', label: `Everyone’s (${all.filter((f) => isOpen(f.status)).length} open)` },
+            { value: 'mine', label: `Yours (${mine.length})` },
+          ]}
+          className="mt-8 sm:w-fit"
+        />
       )}
 
       <QueryState isLoading={query.isLoading} error={query.error}>
@@ -199,7 +189,7 @@ function Composer() {
             <span className="text-body-sm text-accent-orange-soft">Pick what kind it is first.</span>
           )}
           {sent && (
-            <span role="status" className="text-body-sm text-accent-green">
+            <span role="status" className="text-body-sm text-accent-green-soft">
               Thank you — it’s with the Owner. You’ll hear back here.
             </span>
           )}
@@ -259,7 +249,7 @@ function EveryonesFeedback({ items, openedId }: { items: Feedback[]; openedId: s
             role="radio"
             aria-checked={filter === f.value}
             onClick={() => setFilter(f.value)}
-            className={`tap rounded-full px-4 py-2 text-label-md transition-colors duration-300 ${
+            className={`tap rounded-full px-4 py-2 text-label-md transition-colors duration-200 ${
               filter === f.value
                 ? 'bg-on-surface text-background'
                 : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
@@ -416,22 +406,12 @@ function AnswerForm({ item, onDone }: { item: Feedback; onDone: () => void }) {
 
   return (
     <div className="mt-4 flex flex-col gap-3 rounded-[var(--radius-row)] bg-raised p-4">
-      <div role="radiogroup" aria-label="Where it stands" className="flex flex-wrap gap-1 rounded-[var(--radius-chip)] bg-inset p-1 hairline">
-        {FEEDBACK_STATUSES.map((s) => (
-          <button
-            key={s.value}
-            type="button"
-            role="radio"
-            aria-checked={status === s.value}
-            onClick={() => setStatus(s.value)}
-            className={`tap flex-1 rounded-full px-3 py-1.5 text-label-md transition-colors duration-300 ${
-              status === s.value ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Where it stands"
+        value={status}
+        onChange={setStatus}
+        options={FEEDBACK_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+      />
       <textarea
         value={reply}
         onChange={(e) => setReply(e.target.value.slice(0, MAX_REPLY))}

@@ -216,7 +216,7 @@ function RoleChecklistEditor({
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
-                      className="shrink-0 text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+                      className="shrink-0 text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline"
                     >
                       Cancel
                     </button>
@@ -261,7 +261,7 @@ function RoleChecklistEditor({
                          line keeps the two apart for anybody who cannot
                          see which of them they are on. */
                       aria-label={`Edit: ${item.label}`}
-                      className="text-label-sm text-on-surface-faint hover:text-secondary hover:underline"
+                      className="text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline"
                     >
                       Edit
                     </button>
@@ -688,9 +688,9 @@ interface RoleRowProps {
  * without them the query is invalid CSS and generates nothing at all.
  */
 const REVEAL_ON_POINT = {
-  role: 'transition-opacity duration-300 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/role:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/role:opacity-100',
+  role: 'transition-opacity duration-200 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/role:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/role:opacity-100',
   group:
-    'transition-opacity duration-300 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/group:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/group:opacity-100',
+    'transition-opacity duration-200 ease-[var(--ease-glide)] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/group:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/group:opacity-100',
 }
 
 /** One role: its name, what may be done to it, and its checklist. */

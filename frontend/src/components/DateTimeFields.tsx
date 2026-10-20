@@ -302,7 +302,7 @@ function Calendar({
         <button
           type="button"
           onClick={() => onPick(today)}
-          className="tap mt-2 rounded-full px-3 py-1.5 text-label-md text-secondary hover:underline"
+          className="tap mt-2 rounded-full px-3 py-1.5 text-label-md text-accent-blue-soft hover:underline"
         >
           Today
         </button>

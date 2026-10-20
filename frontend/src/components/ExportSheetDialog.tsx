@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Overlay } from './Surface'
+import { Overlay, segmentClasses, segmentTrackClasses } from './Surface'
 import { buildPdf, type PdfPage } from '../lib/pdfDoc'
 import type { SheetTheme } from '../lib/serviceSheet'
 import { renderPageToJpeg } from '../lib/renderPageToImage'
@@ -70,7 +70,7 @@ export function ExportSheetDialog({
   }
 
   const button =
-    'tap w-full rounded-[var(--radius-chip)] hairline px-4 py-3 text-left transition-colors duration-300 hover:bg-raised disabled:opacity-50'
+    'tap w-full rounded-[var(--radius-chip)] hairline px-4 py-3 text-left transition-colors duration-200 hover:bg-raised disabled:opacity-50'
 
   return (
     <Overlay label={title} align="sheet" onDismiss={onClose}>
@@ -91,11 +91,7 @@ export function ExportSheetDialog({
           <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
             Sheet
           </span>
-          <div
-            role="radiogroup"
-            aria-label="Sheet colour"
-            className="mt-2 flex rounded-full p-0.5 ring-1 ring-black/8 dark:ring-white/10"
-          >
+          <div role="radiogroup" aria-label="Sheet colour" className={`${segmentTrackClasses} mt-2`}>
             {(
               [
                 { key: 'dark', label: 'Dark', swatch: '#141418', ring: '#38383f' },
@@ -108,9 +104,7 @@ export function ExportSheetDialog({
                 role="radio"
                 aria-checked={theme === choice.key}
                 onClick={() => setTheme(choice.key)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-body-sm transition-all duration-500 ease-[var(--ease-glide)] ${
-                  theme === choice.key ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-                }`}
+                className={segmentClasses(theme === choice.key)}
               >
                 <span
                   aria-hidden="true"

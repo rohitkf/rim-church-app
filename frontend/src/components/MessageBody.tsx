@@ -22,7 +22,7 @@ export function MessageBody({
         segment.person ? (
           <span
             key={index}
-            className="rounded-[4px] bg-secondary/15 px-1 font-medium text-secondary"
+            className="rounded-[4px] bg-secondary/15 px-1 font-medium text-accent-blue-soft"
           >
             {segment.text}
           </span>

@@ -19,9 +19,9 @@ export function limitText(bytes: number): string {
   return `${Math.round(bytes / MB)} MB`
 }
 
-/** For Settings › Data & retention, in the order people think of them. */
+/** For Settings › Data & Retention, in the order people think of them. */
 export const UPLOAD_LIMITS: [string, string][] = [
-  ['App logo', limitText(UPLOAD_LIMIT_BYTES.logo)],
+  ['App Logo', limitText(UPLOAD_LIMIT_BYTES.logo)],
   ['Giving QR picture', limitText(UPLOAD_LIMIT_BYTES.givingQr)],
   ['Team handbook', limitText(UPLOAD_LIMIT_BYTES.handbook)],
   ['Inventory document', limitText(UPLOAD_LIMIT_BYTES.inventoryDoc)],

@@ -124,7 +124,7 @@ const router = createBrowserRouter(
               church lets everybody raise one (Settings › Timings). */}
           <Route path="/issues" lazy={page(() => import('./pages/IssuesPage'), 'IssuesPage')} />
           {/* Every other page a church can open or close to some of its
-              people (Settings › Access & privileges, lib/pageAccess).
+              people (Settings › Access & Privileges, lib/pageAccess).
               Somebody a page is closed to goes back to the dashboard rather
               than meeting an empty room — and wherever it can, the database
               refuses the rows too (0123). */}

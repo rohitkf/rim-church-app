@@ -36,10 +36,10 @@ describe('readThemePreference', () => {
     expect(readThemePreference()).toBe('light')
   })
 
-  it('falls back when nothing is stored or the value is junk', () => {
-    expect(readThemePreference()).toBe('dark')
+  it('follows the device when nothing is stored or the value is junk', () => {
+    expect(readThemePreference()).toBe('system')
     window.localStorage.setItem('rim-theme', 'neon')
-    expect(readThemePreference()).toBe('dark')
+    expect(readThemePreference()).toBe('system')
   })
 
   it('survives storage that throws', () => {

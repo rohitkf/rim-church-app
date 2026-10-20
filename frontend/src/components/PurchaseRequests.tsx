@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
-import { Field, Overlay, inputClasses } from './Surface'
+import { Field, Overlay, SegmentedControl, inputClasses } from './Surface'
 import { Select } from './Select'
 import { NumberDial } from './NumberDial'
 import { QueryState } from './QueryState'
@@ -63,10 +63,10 @@ const money = (value: number | string | null | undefined) =>
   value == null || value === '' ? null : `£${Number(value).toFixed(2)}`
 
 const STATUS_TONE: Record<PurchaseRequest['status'], string> = {
-  requested: 'bg-accent-orange/15 text-accent-orange',
-  approved: 'bg-secondary/15 text-secondary',
+  requested: 'bg-accent-orange/15 text-accent-orange-soft',
+  approved: 'bg-secondary/15 text-accent-blue-soft',
   declined: 'bg-error-container text-on-error-container',
-  purchased: 'bg-accent-green/15 text-accent-green',
+  purchased: 'bg-accent-green/15 text-accent-green-soft',
 }
 
 async function fetchRequests(departmentId: string | null): Promise<PurchaseRequest[]> {
@@ -124,7 +124,7 @@ export function PurchaseRequests({
   departmentName?: string
 }) {
   const { session } = useAuth()
-  // Asking and answering are the church's to grant (Settings › Access & privileges).
+  // Asking and answering are the church's to grant (Settings › Access & Privileges).
   const { can } = usePermissions()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -570,20 +570,16 @@ function RequestFields({
       className="grid grid-cols-1 gap-4 sm:grid-cols-2"
     >
       <Field label="Kind" hint="An asset keeps its own tag; a consumable is counted and reordered.">
-        <div className="flex rounded-full p-0.5 ring-1 ring-black/8 dark:ring-white/10">
-          {(['asset', 'consumable'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => set('kind', k)}
-              className={`flex-1 rounded-full px-3 py-1.5 text-body-sm capitalize transition-all duration-500 ease-[var(--ease-glide)] ${
-                draft.kind === k ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-              }`}
-            >
-              {k}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Kind"
+          kind="pressed"
+          value={draft.kind}
+          onChange={(k) => set('kind', k)}
+          options={[
+            { value: 'asset', label: 'Asset' },
+            { value: 'consumable', label: 'Consumable' },
+          ]}
+        />
       </Field>
 
       <Field label="What is needed">
@@ -815,7 +811,7 @@ function RequestRow({
           href={row.product_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1.5 inline-block break-all text-body-sm text-secondary hover:underline"
+          className="mt-1.5 inline-block break-all text-body-sm text-accent-blue-soft hover:underline"
         >
           Product page ↗
         </a>

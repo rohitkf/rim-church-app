@@ -62,7 +62,7 @@ export function AddTimeDialog({
               key={n}
               type="button"
               onClick={() => setMinutes(n)}
-              className={`tap rounded-full px-4 py-2 text-body-sm font-medium transition-all duration-500 ease-[var(--ease-glide)] ${
+              className={`tap rounded-full px-4 py-2 text-body-sm font-medium transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] ${
                 minutes === n ? 'bg-primary text-on-primary' : 'hairline text-on-surface'
               }`}
             >

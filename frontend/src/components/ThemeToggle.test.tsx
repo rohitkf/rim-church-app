@@ -14,11 +14,16 @@ describe('ThemeToggle', () => {
     const user = userEvent.setup()
     render(<ThemeToggle />)
 
-    const toLight = screen.getByRole('button', { name: /switch to light mode/i })
-    await user.click(toLight)
+    // The preference is read once, when the app starts, so what the
+    // toggle faces here is whatever that was: follow it either way.
+    const button = screen.getByRole('button', { name: /switch to (light|dark) mode/i })
+    const goingTo = /light/i.test(button.getAttribute('aria-label') ?? '') ? 'light' : 'dark'
+    await user.click(button)
 
-    expect(document.documentElement.dataset.theme).toBe('light')
-    expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument()
+    expect(document.documentElement.dataset.theme).toBe(goingTo)
+    expect(
+      screen.getByRole('button', { name: new RegExp(`switch to ${goingTo === 'light' ? 'dark' : 'light'} mode`, 'i') }),
+    ).toBeInTheDocument()
   })
 
   it('remembers the choice for next time', async () => {

@@ -237,7 +237,7 @@ export function GuestRollCard() {
                       <button
                         type="button"
                         onClick={() => setLinking(guest)}
-                        className="tap text-label-md text-secondary hover:underline"
+                        className="tap text-label-md text-accent-blue-soft hover:underline"
                       >
                         Now a member
                       </button>

@@ -66,7 +66,7 @@ export function TeamCellPicker({
         aria-label={label}
         value={value ?? ''}
         onChange={(e) => onChange((e.target.value || null) as Reach | null)}
-        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-300 hover:bg-raised-strong ${
+        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-200 hover:bg-raised-strong ${
           unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''
         }`}
       >

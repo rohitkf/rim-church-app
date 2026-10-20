@@ -17,7 +17,7 @@ async function show() {
   return userEvent.setup()
 }
 
-describe('Dashboard & lists', () => {
+describe('Dashboard & Lists', () => {
   it('starts from the app as it is: one service day, open on the day, every panel on, sections folded', async () => {
     await show()
     expect(within(screen.getByRole('radiogroup', { name: 'Service days to list' })).getByRole('radio', { name: '1' })).toBeChecked()

@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, inputClasses } from '../components/Surface'
+import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, SegmentedControl, inputClasses } from '../components/Surface'
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
 import { ItemQrDialog } from '../components/ItemQrDialog'
@@ -72,7 +72,7 @@ export function InventoryPage() {
   const today = todayIso()
 
   // Who keeps the register, and who records what happens to the things on
-  // it, are the church's to say (Settings › Access & privileges).
+  // it, are the church's to say (Settings › Access & Privileges).
   const { can } = usePermissions()
   const canManage = can('inv.items', { departmentId: id ?? null })
   const canStock = can('inv.stock', { departmentId: id ?? null })
@@ -224,7 +224,7 @@ export function InventoryPage() {
     <div>
       <Link
         to="/inventory"
-        className="tap inline-flex items-center text-body-sm text-secondary transition-opacity duration-300 ease-[var(--ease-glide)] hover:opacity-80"
+        className="tap inline-flex items-center text-body-sm text-accent-blue-soft transition-opacity duration-200 ease-[var(--ease-glide)] hover:opacity-80"
       >
         ← All teams
       </Link>
@@ -320,7 +320,7 @@ export function InventoryPage() {
               onClick={() => setFilter(f)}
               title={FILTER_MEANING[f]}
               aria-pressed={filter === f}
-              className={`tap rounded-full px-3.5 py-1.5 text-body-sm transition-all duration-500 ease-[var(--ease-glide)] ${
+              className={`tap rounded-full px-3.5 py-1.5 text-body-sm transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] ${
                 filter === f
                   ? 'bg-primary text-on-primary shadow-[var(--shadow-ambient)]'
                   : 'text-on-surface-variant ring-1 ring-black/8 hover:text-on-surface dark:ring-white/10'
@@ -457,7 +457,7 @@ export function InventoryPage() {
                   <button
                     type="button"
                     onClick={() => setOpenItem(openItem === item.id ? null : item.id)}
-                    className="tap mt-2 block text-left text-body-md text-on-surface transition-colors duration-300 hover:text-secondary"
+                    className="tap mt-2 block text-left text-body-md text-on-surface transition-colors duration-200 hover:text-accent-blue-soft"
                   >
                     {item.name}
                   </button>
@@ -580,7 +580,7 @@ export function InventoryPage() {
                   return (
                     <tr
                       key={item.id}
-                      className="border-b border-black/5 last:border-0 transition-colors duration-300 ease-[var(--ease-glide)] hover:bg-surface-low dark:border-white/8"
+                      className="border-b border-black/5 last:border-0 transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-surface-low dark:border-white/8"
                     >
                       {picking && canManage && (
                         <td className="px-4 py-3 align-top">
@@ -603,7 +603,7 @@ export function InventoryPage() {
                         <button
                           type="button"
                           onClick={() => setOpenItem(openItem === item.id ? null : item.id)}
-                          className="text-left text-body-md text-on-surface transition-colors duration-300 hover:text-secondary"
+                          className="text-left text-body-md text-on-surface transition-colors duration-200 hover:text-accent-blue-soft"
                         >
                           {item.name}
                         </button>
@@ -858,7 +858,7 @@ function RowActions({
   // Link anchor, and vertical padding on an inline element does not grow
   // its line box, so that one sat taller than the buttons beside it.
   const button =
-    'tap inline-flex items-center justify-center rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.98] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
+    'tap inline-flex items-center justify-center rounded-full px-3 py-1.5 text-label-sm text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 active:scale-[0.97] active:duration-[80ms] disabled:opacity-40 dark:ring-white/10 dark:hover:ring-white/25'
 
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
@@ -950,7 +950,7 @@ function RowActions({
         Edit
       </button>
       <button
-        className="tap rounded-full px-3 py-1.5 text-label-sm text-on-surface-variant transition-colors duration-300 hover:text-error"
+        className="tap rounded-full px-3 py-1.5 text-label-sm text-on-surface-variant transition-colors duration-200 hover:text-error"
         onClick={onDelete}
       >
         Delete
@@ -1033,20 +1033,16 @@ function AddItemForm({
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
       >
         <Field label="Kind">
-          <div className="flex rounded-full p-0.5 ring-1 ring-black/8 dark:ring-white/10">
-            {(['asset', 'consumable'] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                className={`flex-1 rounded-full px-3 py-1.5 text-body-sm capitalize transition-all duration-500 ease-[var(--ease-glide)] ${
-                  kind === k ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-                }`}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Kind"
+            kind="pressed"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'asset', label: 'Asset' },
+              { value: 'consumable', label: 'Consumable' },
+            ]}
+          />
         </Field>
 
         <Field label="Name">
@@ -1310,7 +1306,7 @@ function EditItemDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
           >
             Cancel
           </button>
@@ -1378,7 +1374,7 @@ function DeleteItemDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 dark:ring-white/10"
           >
             Cancel
           </button>
@@ -1386,7 +1382,7 @@ function DeleteItemDialog({
             type="button"
             onClick={() => retire.mutate()}
             disabled={busy}
-            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-all duration-500 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
+            className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:ring-black/20 disabled:opacity-50 dark:ring-white/10"
           >
             {retire.isPending ? 'Retiring…' : 'Retire instead'}
           </button>
@@ -1394,7 +1390,7 @@ function DeleteItemDialog({
             type="button"
             onClick={() => remove.mutate()}
             disabled={busy}
-            className="rounded-full bg-error px-5 py-2.5 text-body-sm font-medium text-on-error shadow-[var(--shadow-ambient)] transition-transform duration-500 ease-[var(--ease-glide)] active:scale-[0.98] disabled:opacity-50"
+            className="rounded-full bg-error px-5 py-2.5 text-body-sm font-medium text-on-error shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             {remove.isPending ? 'Deleting…' : 'Delete for good'}
           </button>

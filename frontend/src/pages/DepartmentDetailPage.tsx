@@ -352,7 +352,7 @@ export function DepartmentDetailPage() {
                   onConfirm: () => setRollType.mutate({ rowId: g.id, type: toGuest ? 'guest' : 'core' }),
                 })
               }
-              className={`${quiet} text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60`}
+              className={`${quiet} text-on-surface-faint hover:text-accent-blue-soft hover:underline disabled:opacity-60`}
             >
               {toGuest ? 'Make a guest' : 'Make core'}
             </button>
@@ -577,8 +577,8 @@ export function DepartmentDetailPage() {
                           <span
                             className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
                               rank === 'head'
-                                ? 'bg-primary/15 text-primary'
-                                : 'bg-secondary/15 text-secondary'
+                                ? 'bg-primary/15 text-accent-blue-soft'
+                                : 'bg-secondary/15 text-accent-blue-soft'
                             }`}
                           >
                             {DESIGNATION_BADGE[rank]}
@@ -604,7 +604,7 @@ export function DepartmentDetailPage() {
                           <span className="flex items-center gap-3">
                             {moveButton(
                               m,
-                              'tap text-label-md text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                              'tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline disabled:opacity-60',
                             )}
                             <button
                               onClick={() =>
@@ -675,7 +675,7 @@ export function DepartmentDetailPage() {
                               <span className="inline-flex items-center gap-3">
                                 {moveButton(
                                   m,
-                                  'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                                  'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline disabled:opacity-60',
                                 )}
                                 <button
                                   onClick={() =>
@@ -733,7 +733,7 @@ export function DepartmentDetailPage() {
                   </label>
 
                   {picked && (
-                    <p className="text-label-sm text-secondary">
+                    <p className="text-label-sm text-accent-blue-soft">
                       Adding {picked.first_name} {picked.last_name}
                     </p>
                   )}
@@ -756,7 +756,7 @@ export function DepartmentDetailPage() {
                                 setRollOffer(searchTerm)
                                 setAddError(null)
                               }}
-                              className="tap mt-1 block font-medium text-primary hover:underline"
+                              className="tap mt-1 block font-medium text-accent-blue-soft hover:underline"
                             >
                               Add “{searchTerm}” to the guest roll instead
                             </button>
@@ -874,7 +874,7 @@ export function DepartmentDetailPage() {
                         <span className="flex shrink-0 items-center gap-3">
                           {moveButton(
                             m,
-                            'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-secondary hover:underline disabled:opacity-60',
+                            'tap inline-flex items-center text-body-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline disabled:opacity-60',
                           )}
                           <button
                             onClick={() =>
