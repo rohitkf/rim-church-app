@@ -492,7 +492,13 @@ export function stageMay(
  * Geometry: the workspace is the areas, stacked
  * ------------------------------------------------------------------ */
 
-export const GRID = 10
+/**
+ * The grid a block snaps to, in canvas units — and the spacing of the dots
+ * the canvas draws, so every edge that snaps lands on a dot. It was 10
+ * with dots every 40: three edges in four sat between dots, and a stage
+ * that was lined up read as one that was not.
+ */
+export const GRID = 20
 
 /** The space between one region and the next, in canvas units. */
 export const REGION_GAP = 60
@@ -643,7 +649,7 @@ export function duplicateOf(
   region: { width: number; height: number },
   z: number,
 ): NewStageBlock & { w: number; h: number; z: number } {
-  const box = clampBlock({ x: block.x + 30, y: block.y + 30, w: block.w, h: block.h }, region)
+  const box = clampBlock({ x: block.x + 2 * GRID, y: block.y + 2 * GRID, w: block.w, h: block.h }, region)
   return {
     area_id: block.area_id,
     label: block.label,

@@ -27,9 +27,11 @@ describe('keeping a block on the stage', () => {
     expect(clampBlock({ x: 0, y: 0, w: 5, h: 5 }, stage)).toEqual({ x: 0, y: 0, w: 40, h: 40 })
     expect(clampBlock({ x: 0, y: 0, w: 9000, h: 100 }, stage).w).toBe(1200)
   })
-  it('snaps to the grid', () => {
-    expect(snap(14)).toBe(10)
-    expect(snap(16)).toBe(20)
+  it('snaps to the grid, which is the dots', () => {
+    expect(snap(9)).toBe(0)
+    expect(snap(11)).toBe(20)
+    expect(snap(30)).toBe(40)
+    expect(snap(49)).toBe(40)
   })
 })
 
@@ -124,7 +126,7 @@ describe('a copy of a block', () => {
   const source = { area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 1100, y: 650, w: 160, h: 100, rotation: 90, kind: 'block' as const, seats: 0, corners: 'rounded' as const, icon: null }
   it('lands a step down and right, inside its region, as the top block', () => {
     const copy = duplicateOf({ ...source, x: 100, y: 100 }, { width: 1200, height: 700 }, 7)
-    expect(copy).toMatchObject({ area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 130, y: 130, w: 160, h: 100, rotation: 90, z: 7 })
+    expect(copy).toMatchObject({ area_id: 'A', label: 'Monitor', color: '#8E8E93', x: 140, y: 140, w: 160, h: 100, rotation: 90, z: 7 })
   })
   it('is held inside the region when the original sits at the edge', () => {
     const copy = duplicateOf(source, { width: 1200, height: 700 }, 1)
