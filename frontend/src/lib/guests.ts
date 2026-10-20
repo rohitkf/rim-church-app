@@ -114,7 +114,9 @@ export const departmentGuestSchema = z.object({
 })
 export type DepartmentGuest = z.infer<typeof departmentGuestSchema>
 
-export const departmentGuestsKey = (departmentId: string) => ['department-guests', departmentId]
+// The prefix is a constant of its own: the live map (lib/liveTables) names it.
+export const DEPARTMENT_GUESTS_KEY = ['department-guests'] as const
+export const departmentGuestsKey = (departmentId: string) => [...DEPARTMENT_GUESTS_KEY, departmentId]
 
 export async function fetchDepartmentGuests(departmentId: string): Promise<DepartmentGuest[]> {
   const { data, error } = await supabase

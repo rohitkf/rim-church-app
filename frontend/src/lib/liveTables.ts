@@ -184,6 +184,29 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'team_polls', keys: ['polls'] },
   { table: 'team_poll_options', keys: ['polls'] },
   { table: 'team_poll_votes', keys: ['polls'] },
+
+  /* ---- guests on a team, and what they answered (0166, 0167) ------ */
+  {
+    table: 'department_guests',
+    keys: ['department-guests', 'rota-team-guests', 'availability-team-guests', 'rota', 'availability', 'global-search'],
+  },
+  { table: 'guest_availability', keys: ['availability', 'rota', 'dashboard-rosters'] },
+  { table: 'guest_availability_history', keys: ['availability'] },
+  {
+    table: 'guest_rota_assignments',
+    keys: ['rota', 'rota-assignments', 'dashboard-rota', 'dashboard-rosters', 'checklist-assignments', 'rota-progress'],
+  },
+  { table: 'availability_history', keys: ['availability'] },
+
+  /* ---- families, the permission grid, the tour (0149, 0162, 0153) -- */
+  { table: 'households', keys: ['family'] },
+  { table: 'household_members', keys: ['family'] },
+  { table: 'family_link_requests', keys: ['family'] },
+  // A rule changed in Settings reaches every open page: what a Head may
+  // do, and what a page even shows, follows the grid.
+  { table: 'role_permissions', keys: ['role-permissions'] },
+  { table: 'department_permissions', keys: ['role-permissions'] },
+  { table: 'onboarding', keys: ['onboarding', 'onboarding-people'] },
 ]
 
 /** Every key a change to `table` makes stale. Empty for one we don't watch. */

@@ -419,7 +419,7 @@ describe('a session’s stage', () => {
     await user.click(await screen.findByRole('button', { name: 'Keyboard, Jolsna R' }))
     await user.click(screen.getByRole('button', { name: 'Duplicate' }))
     await waitFor(() => expect(db.added).toEqual(['Keyboard']))
-    expect(db.addedRows[0]).toMatchObject({ area_id: 'A', color: '#30D158', x: 130, y: 130, w: 160, h: 100 })
+    expect(db.addedRows[0]).toMatchObject({ area_id: 'A', color: '#30D158', x: 140, y: 140, w: 160, h: 100 })
     expect(db.addedRows[0]).not.toHaveProperty('person_id')
   })
 
@@ -445,7 +445,7 @@ describe('a session’s stage', () => {
       await user.click(screen.getByRole('radio', { name: 'Green' }))
       await waitFor(() => expect(db.patched).toContainEqual({ id: 'b1', patch: { color: '#30D158' } }))
       fireEvent.keyDown(screen.getByRole('application', { name: 'Stage' }), { key: 'ArrowRight' })
-      await waitFor(() => expect(db.patched).toContainEqual({ id: 'b1', patch: { x: 110, y: 100, w: 160, h: 100, area_id: 'A' } }))
+      await waitFor(() => expect(db.patched).toContainEqual({ id: 'b1', patch: { x: 120, y: 100, w: 160, h: 100, area_id: 'A' } }))
       await user.click(screen.getByRole('button', { name: 'Undo move Keyboard' }))
       await waitFor(() => expect(db.patched.at(-1)).toEqual({ id: 'b1', patch: { x: 100 } }))
       expect(db.toasts).toContain('Undone: move Keyboard')

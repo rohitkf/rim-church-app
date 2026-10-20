@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
+  GRID,
   ZOOM_MAX,
   ZOOM_MIN,
   alignBlock,
@@ -188,6 +189,26 @@ export function StageCanvas({
 
   const blockById = (id: string) => blocks.find((b) => b.id === id)
   const movable = (b: StageBlock) => (canEdit && (canMove ? canMove(b) : true)) || proposing === b.id
+  /** A block's box as it is right now: where the finger has it, else where it is kept. */
+  const boxOf = (b: StageBlock) => {
+    if (live && live.id === b.id) {
+      const r = regions.find((x) => x.area.id === live.box.area_id)
+      return { x: live.box.x + (r?.left ?? 0), y: live.box.y + (r?.top ?? 0), w: live.box.w, h: live.box.h }
+    }
+    return placed(b)
+  }
+  /** Where a block's bottom-right corner is once the block is turned about its centre. */
+  const cornerOf = (box: { x: number; y: number; w: number; h: number }, rotation: number) => {
+    const a = (rotation * Math.PI) / 180
+    const dx = box.w / 2
+    const dy = box.h / 2
+    return {
+      x: box.x + dx + dx * Math.cos(a) - dy * Math.sin(a),
+      y: box.y + dy + dx * Math.sin(a) + dy * Math.cos(a),
+    }
+  }
+  /** A label as big as its block can carry: 20 on a standard block, down to 11 on the smallest. */
+  const labelSize = (w: number, h: number) => Math.max(11, Math.min(20, h / 2.4, w / 5))
 
   const down = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = boxRef.current
@@ -344,7 +365,7 @@ export function StageCanvas({
       return
     }
     if (!movable(b) || proposing === b.id) return
-    const step = e.shiftKey ? 50 : 10
+    const step = e.shiftKey ? GRID * 5 : GRID
     const nudge = (dx: number, dy: number) => {
       e.preventDefault()
       const r = regionOf(b)
@@ -362,6 +383,50 @@ export function StageCanvas({
   }
 
   const percent = Math.round(view.scale * 100)
+
+  /*
+   * The resize handle: a grip on the selected block's bottom-right corner,
+   * outside the block rather than painted over its label, and 28 screen
+   * pixels across whatever the zoom — a thumb's target on a phone, a small
+   * knob on a desk. It follows a turned block round to where its corner
+   * actually is. Pointer handling finds it by `data-handle`.
+   */
+  const selectedBlock = selectedId ? blockById(selectedId) : undefined
+  const handle = (() => {
+    if (!selectedBlock || !movable(selectedBlock)) return null
+    const box = boxOf(selectedBlock)
+    const size = 28 / view.scale
+    const corner = cornerOf(box, selectedBlock.rotation)
+    return (
+      <span
+        data-handle={selectedBlock.id}
+        role="button"
+        aria-label={`Resize ${selectedBlock.label}`}
+        className="absolute flex cursor-nwse-resize items-center justify-center rounded-full bg-white text-primary"
+        style={{
+          left: corner.x - size / 2,
+          top: corner.y - size / 2,
+          width: size,
+          height: size,
+          zIndex: 60,
+          boxShadow: `0 0 0 ${2 / view.scale}px var(--color-primary), 0 2px 8px rgba(0,0,0,0.35)`,
+        }}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ width: size * 0.58, height: size * 0.58 }}
+        >
+          <path d="M7 17 17 7M11 7h6v6M7 11v6h6" />
+        </svg>
+      </span>
+    )
+  })()
 
   return (
     <div className={`relative ${className}`}>
@@ -401,10 +466,12 @@ export function StageCanvas({
                 top: r.top,
                 width: r.width,
                 height: r.height,
+                // One dot per grid step, centred on the step, so a snapped
+                // edge always sits on a line of dots.
                 backgroundImage:
-                  'radial-gradient(circle, color-mix(in oklab, var(--color-on-surface) 14%, transparent) 1.2px, transparent 1.3px)',
-                backgroundSize: '40px 40px',
-                backgroundPosition: '20px 20px',
+                  'radial-gradient(circle, color-mix(in oklab, var(--color-on-surface) 12%, transparent) 1.1px, transparent 1.2px)',
+                backgroundSize: `${GRID}px ${GRID}px`,
+                backgroundPosition: `${GRID / 2}px ${GRID / 2}px`,
               }}
             >
               <div
@@ -439,14 +506,7 @@ export function StageCanvas({
           ))}
 
           {blocks.map((b) => {
-            const own = placed(b)
-            const box =
-              live && live.id === b.id
-                ? (() => {
-                    const r = regions.find((x) => x.area.id === live.box.area_id)
-                    return { x: live.box.x + (r?.left ?? 0), y: live.box.y + (r?.top ?? 0), w: live.box.w, h: live.box.h }
-                  })()
-                : own
+            const box = boxOf(b)
             const selected = b.id === selectedId
             const ink = inkOn(b.color)
             const locked = !!b.locked_at
@@ -464,17 +524,23 @@ export function StageCanvas({
                 aria-label={`${b.kind === 'seats' ? `${b.label}, ${b.seats} seats` : b.person ? `${b.label}, ${personName(b.person)}` : b.label}${locked ? ' (locked)' : ''}`}
                 aria-pressed={selected}
                 className={`absolute flex flex-col items-center justify-center overflow-hidden ${corner} px-2 text-center transition-shadow ${
-                  selected
-                    ? 'shadow-[0_0_0_4px_var(--color-primary),0_12px_30px_rgba(0,0,0,0.35)]'
-                    : icon
-                      ? ''
-                      : 'shadow-[0_8px_20px_rgba(0,0,0,0.3)]'
-                } ${draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${ghost ? 'opacity-70 outline-dashed outline-2 outline-white/80' : ''}`}
+                  draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                } ${ghost ? 'opacity-70 outline-dashed outline-2 outline-white/80' : ''}`}
                 style={{
                   left: box.x,
                   top: box.y,
                   width: box.w,
                   height: box.h,
+                  // The selection is a halo outside the block — a gap the
+                  // colour of the ground, then a line of blue — two screen
+                  // pixels each whatever the zoom. A thick ring in the
+                  // block's own blue read as the block itself growing, and
+                  // a copy came out looking bigger than its original.
+                  boxShadow: selected
+                    ? `0 0 0 ${2 / view.scale}px var(--color-surface-lowest), 0 0 0 ${4 / view.scale}px var(--color-primary), 0 12px 30px rgba(0,0,0,0.35)`
+                    : icon
+                      ? undefined
+                      : '0 8px 20px rgba(0,0,0,0.3)',
                   transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
                   background: icon
                     ? selected
@@ -507,9 +573,13 @@ export function StageCanvas({
                   <SeatRow label={b.label} seats={b.seats} width={box.w} height={box.h} />
                 ) : (
                   <>
-                    <span className="line-clamp-2 break-words text-[20px] font-semibold leading-tight">{b.label}</span>
+                    <span className="line-clamp-2 break-words font-semibold leading-tight" style={{ fontSize: labelSize(box.w, box.h) }}>
+                      {b.label}
+                    </span>
                     {b.person && (
-                      <span className="mt-1 line-clamp-1 text-[15px] opacity-90">{personName(b.person)}</span>
+                      <span className="mt-1 line-clamp-1 opacity-90" style={{ fontSize: Math.max(11, labelSize(box.w, box.h) * 0.75) }}>
+                        {personName(b.person)}
+                      </span>
                     )}
                   </>
                 )}
@@ -521,17 +591,10 @@ export function StageCanvas({
                     </svg>
                   </span>
                 )}
-                {selected && draggable && (
-                  <span
-                    data-handle={b.id}
-                    aria-label={`Resize ${b.label}`}
-                    role="button"
-                    className="absolute bottom-0 right-0 h-7 w-7 cursor-nwse-resize rounded-tl-[12px] bg-white/90 shadow-[inset_0_0_0_2px_var(--color-primary)]"
-                  />
-                )}
               </div>
             )
           })}
+          {handle}
         </div>
       </div>
 
