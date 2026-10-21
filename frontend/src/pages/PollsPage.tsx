@@ -16,7 +16,7 @@ import { Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses,
 import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { optionShare, pollIsOpen, tallyVotes, timeLeft, type ChoiceMode } from '../lib/polls'
+import { optionShare, pollIsOpen, tallyFromRows, timeLeft, type ChoiceMode, type PollTallyRow } from '../lib/polls'
 import { useAppSettings } from '../lib/appSettings'
 import { defaultPollClear, pollClearProblem, untilText } from '../lib/expiry'
 
@@ -29,6 +29,8 @@ const pollSchema = z.object({
   created_by: z.string(),
   question: z.string(),
   choice_mode: z.enum(['single', 'multiple']),
+  /** Whether the names stay with the Owner (0172). */
+  anonymous: z.boolean().default(true),
   closes_at: z.string().nullable(),
   /** When it is deleted with every answer (0128). */
   clears_at: z.string(),
@@ -36,9 +38,26 @@ const pollSchema = z.object({
   department: z.object({ name: z.string() }).nullable().default(null),
   service: z.object({ date: z.string(), service_type: z.string() }).nullable().default(null),
   options: z.array(z.object({ id: z.string(), label: z.string(), sort_order: z.number() })),
-  votes: z.array(z.object({ option_id: z.string(), user_id: z.string() })),
+  /*
+   * The answer rows the database lets this person see (0172): their own,
+   * and everybody's when the poll is named or they may see the names.
+   */
+  votes: z.array(
+    z.object({
+      option_id: z.string(),
+      user_id: z.string(),
+      voter: z.object({ first_name: z.string(), last_name: z.string() }).nullable().default(null),
+    }),
+  ),
 })
-type Poll = z.infer<typeof pollSchema>
+type Poll = z.infer<typeof pollSchema> & { tally: PollTallyRow[] }
+
+const tallySchema = z.object({
+  poll_id: z.string(),
+  option_id: z.string(),
+  votes: z.number(),
+  voters: z.number(),
+})
 
 // The database decides which of these come back: a poll is visible to
 // exactly the people it was addressed to (0114), so this asks for all of
@@ -47,11 +66,18 @@ async function fetchPolls(): Promise<Poll[]> {
   const { data, error } = await supabase
     .from('team_polls')
     .select(
-      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id)',
+      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, anonymous, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id, voter:profiles(first_name, last_name))',
     )
     .order('created_at', { ascending: false })
   if (error) throw error
-  return z.array(pollSchema).parse(data)
+  const polls = z.array(pollSchema).parse(data)
+  if (polls.length === 0) return []
+  // The counts come from the database, which sees every answer; the rows
+  // above are only the ones this person may (0172).
+  const tallies = await supabase.rpc('poll_tallies', { p_polls: polls.map((p) => p.id) })
+  if (tallies.error) throw tallies.error
+  const rows = z.array(tallySchema).parse(tallies.data ?? [])
+  return polls.map((p) => ({ ...p, tally: rows.filter((r) => r.poll_id === p.id) }))
 }
 
 const personSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
@@ -244,11 +270,20 @@ export function PollsPage() {
           {polls.map((poll) => {
             const open = pollIsOpen(poll.closes_at, now)
             const options = [...poll.options].sort((a, b) => a.sort_order - b.sort_order)
-            const { counts, mine, voters } = tallyVotes(
+            const { counts, mine, voters } = tallyFromRows(
               options.map((o) => o.id),
+              poll.tally,
               poll.votes,
               myId,
             )
+            // Names reach the browser only for whoever may see them; on an
+            // anonymous poll that is the Owner and whoever Settings allows.
+            const named = poll.votes.filter((v) => v.voter)
+            const showNames = named.some((v) => v.user_id !== myId)
+            const namesFor = (optionId: string) =>
+              named
+                .filter((v) => v.option_id === optionId)
+                .map((v) => `${v.voter!.first_name} ${v.voter!.last_name}`.trim())
 
             return (
               <li key={poll.id} id={`poll-${poll.id}`}>
@@ -287,6 +322,8 @@ export function PollsPage() {
 
                   <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-label-sm text-on-surface-faint">
                     <span>{poll.choice_mode === 'single' ? 'Pick one' : 'Pick any'}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{poll.anonymous ? 'Anonymous' : 'Named'}</span>
                     <span aria-hidden="true">·</span>
                     <span>
                       {voters} {voters === 1 ? 'answer' : 'answers'}
@@ -341,10 +378,21 @@ export function PollsPage() {
                               </span>
                             )}
                           </button>
+                          {showNames && namesFor(option.id).length > 0 && (
+                            <p className="mt-1 px-3 text-label-sm text-on-surface-variant">
+                              {namesFor(option.id).join(', ')}
+                            </p>
+                          )}
                         </li>
                       )
                     })}
                   </ul>
+
+                  {showNames && poll.anonymous && (
+                    <p className="mt-2 text-label-sm text-on-surface-faint">
+                      Anonymous to everybody else — the names are shown to you as a leader.
+                    </p>
+                  )}
 
                   {!open && (
                     <p className="mt-2 text-label-sm text-on-surface-faint">
@@ -399,6 +447,9 @@ function PollComposer({
   const [question, setQuestion] = useState('')
   const [labels, setLabels] = useState<string[]>(['', ''])
   const [mode, setMode] = useState<ChoiceMode>('single')
+  // Anonymous unless the asker says otherwise: the names stay with the
+  // Owner, and whoever Settings › Polls lets see them (0172).
+  const [anonymous, setAnonymous] = useState(true)
   const [closesAt, setClosesAt] = useState('')
   // Follows the deadline until the asker picks a clear time of their own.
   const clearDays = useAppSettings().poll_retention_days
@@ -441,6 +492,7 @@ function PollComposer({
           created_by: session!.user.id,
           question: question.trim(),
           choice_mode: mode,
+          anonymous,
           // A local datetime-local value carries no zone; treating it as
           // local time is what the person typing it meant.
           closes_at: closesAt ? new Date(closesAt).toISOString() : null,
@@ -656,6 +708,20 @@ function PollComposer({
             />
           </div>
 
+          <div className="flex flex-col gap-1">
+            <Eyebrow>Names</Eyebrow>
+            <SegmentedControl
+              label="Names"
+              kind="pressed"
+              value={anonymous ? 'anonymous' : 'named'}
+              onChange={(v) => setAnonymous(v === 'anonymous')}
+              options={[
+                { value: 'anonymous', label: 'Anonymous' },
+                { value: 'named', label: 'Named' },
+              ]}
+            />
+          </div>
+
           <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
             Deadline (optional)
             <DateTimeField
@@ -683,6 +749,11 @@ function PollComposer({
             `Deleted with every answer ${untilText(clearsAt, now)}${
               chosenClear ? '' : ` — ${clearDays} ${clearDays === 1 ? 'day' : 'days'} after ${closesAt ? 'the deadline' : 'it is posted'}`
             }.`}
+        </p>
+        <p className="mt-1 text-label-sm text-on-surface-faint">
+          {anonymous
+            ? 'Everybody sees the counts and their own answer. The names stay with the Owner, and whoever Settings › Polls lets see them.'
+            : 'Everybody it is for sees who picked what.'}
         </p>
         <p className="mt-1 text-label-sm text-on-surface-faint">
           Everyone it is for is told — their bell and their phone. After the deadline nobody can

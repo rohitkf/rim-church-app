@@ -51,7 +51,7 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Messages | team | everyone · team · leads | the database (`messages`) |
 | Team Chat | team | fixed | the database (it is per team) |
 | Church Updates | everyone | everyone · team · leads | the database (`church_updates`) |
-| Polls | everyone | everyone · team | the database (`team_polls` and its options and votes) |
+| Polls | everyone | everyone · team | the database (`team_polls` and its options and votes; on an anonymous poll the answer rows reach only their own voter and whoever `poll_voters_seen_by` names — the Owner always, 0172) |
 | Events | everyone | everyone · team · leads | the database (`church_events`) |
 | Giving | everyone | everyone · team · leads | the database (the three giving tables and the `giving` bucket) |
 | Teams | everyone | everyone · team | the page |

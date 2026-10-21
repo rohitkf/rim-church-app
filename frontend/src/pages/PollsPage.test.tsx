@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -32,6 +32,20 @@ const state = vi.hoisted(() => ({
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    // The counts come from the database (0172): one row per option that
+    // has a vote, with the number of people who answered the poll.
+    rpc: (_fn: string, args: { p_polls: string[] }) => {
+      const rows: { poll_id: string; option_id: string; votes: number; voters: number }[] = []
+      for (const p of state.polls) {
+        if (!args.p_polls.includes(p.id as string)) continue
+        const votes = p.votes as { option_id: string; user_id: string }[]
+        const voters = new Set(votes.map((v) => v.user_id)).size
+        const byOption = new Map<string, number>()
+        for (const v of votes) byOption.set(v.option_id, (byOption.get(v.option_id) ?? 0) + 1)
+        for (const [option_id, n] of byOption) rows.push({ poll_id: p.id as string, option_id, votes: n, voters })
+      }
+      return Promise.resolve({ data: rows, error: null })
+    },
     from: (table: string) => {
       const builder: Record<string, unknown> = {}
       const rows =
@@ -68,6 +82,7 @@ const poll = (over: Record<string, unknown>) => ({
   created_by: 'someone',
   question: 'Which Sunday suits the picnic?',
   choice_mode: 'single',
+  anonymous: true,
   closes_at: null,
   clears_at: new Date(Date.now() + 6 * 86_400_000).toISOString(),
   created_at: new Date().toISOString(),
@@ -188,6 +203,72 @@ describe('the Polls page', () => {
     await user.click(screen.getByRole('button', { name: 'Post poll' }))
     await waitFor(() => expect(state.inserts).toHaveLength(2))
     expect(state.inserts[0].row).toMatchObject({ audience: 'people', recipient_ids: ['p1'] })
+  })
+
+  it('keeps an anonymous poll to counts, and shows the names it is sent', async () => {
+    state.polls = [
+      poll({
+        id: 'anon',
+        question: 'Anonymous one?',
+        // A member's own row is all the database sends on an anonymous poll.
+        votes: [{ option_id: 'o1', user_id: 'me', voter: { first_name: 'Me', last_name: 'Myself' } }],
+      }),
+      poll({
+        id: 'seen',
+        question: 'Seen by a leader?',
+        votes: [
+          { option_id: 'o1', user_id: 'me', voter: { first_name: 'Me', last_name: 'Myself' } },
+          { option_id: 'o2', user_id: 'g', voter: { first_name: 'Grace', last_name: 'Mensah' } },
+        ],
+      }),
+      poll({
+        id: 'named',
+        question: 'Named one?',
+        anonymous: false,
+        votes: [{ option_id: 'o2', user_id: 'k', voter: { first_name: 'Kofi', last_name: 'Asante' } }],
+      }),
+    ]
+    show()
+    expect(await screen.findByText('Anonymous one?')).toBeInTheDocument()
+    expect(screen.getAllByText('Anonymous')).toHaveLength(2)
+    expect(screen.getByText('Named')).toBeInTheDocument()
+    // Only the person's own row came back: counts, no names, no note.
+    const anon = within(document.getElementById('poll-anon')!)
+    expect(anon.queryByText('Me Myself')).not.toBeInTheDocument()
+    expect(anon.queryByText(/shown to you as a leader/)).not.toBeInTheDocument()
+    // Somebody else's row came back: the database let this person see the
+    // names, their own among them.
+    const seen = within(document.getElementById('poll-seen')!)
+    expect(seen.getByText('Me Myself')).toBeInTheDocument()
+    expect(seen.getByText('Grace Mensah')).toBeInTheDocument()
+    expect(seen.getByText(/shown to you as a leader/)).toBeInTheDocument()
+    // A named poll shows who picked what, and needs no note.
+    expect(screen.getByText('Kofi Asante')).toBeInTheDocument()
+    expect(screen.getAllByText(/shown to you as a leader/)).toHaveLength(1)
+  })
+
+  it('posts a poll as anonymous unless the asker says otherwise', async () => {
+    auth.isAdmin = true
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'New poll' }))
+    expect(screen.getByRole('button', { name: 'Anonymous' })).toHaveAttribute('aria-pressed', 'true')
+    await user.type(screen.getByLabelText('Question'), 'Picnic?')
+    await user.type(screen.getByLabelText('Option 1'), 'Yes')
+    await user.type(screen.getByLabelText('Option 2'), 'No')
+    await user.click(screen.getByRole('button', { name: 'Post poll' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(2))
+    expect(state.inserts[0].row).toMatchObject({ anonymous: true })
+
+    state.inserts = []
+    await user.click(await screen.findByRole('button', { name: 'New poll' }))
+    await user.click(screen.getByRole('button', { name: 'Named' }))
+    expect(screen.getByText(/sees who picked what/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Question'), 'Drive?')
+    await user.type(screen.getByLabelText('Option 1'), 'Yes')
+    await user.type(screen.getByLabelText('Option 2'), 'No')
+    await user.click(screen.getByRole('button', { name: 'Post poll' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(2))
+    expect(state.inserts[0].row).toMatchObject({ anonymous: false })
   })
 
   it('says when each poll clears, and drops one that has', async () => {
