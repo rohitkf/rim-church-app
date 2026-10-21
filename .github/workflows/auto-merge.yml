@@ -54,8 +54,12 @@ jobs:
     # push to main (that is the merge landing) and not a push to anywhere
     # else: CI only runs on main and develop, and only develop has a pull
     # request to merge.
+    # And only this repository's own branches: a pull request from a fork
+    # runs CI here too, with a ci.yml of its author's choosing, and must
+    # never wake a job that holds `contents: write`.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       (github.event.workflow_run.event == 'pull_request' ||
        (github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'develop'))
@@ -93,6 +97,8 @@ jobs:
               if (pr.base.ref !== 'main') { say(`targets ${pr.base.ref}, not main`); continue }
               if (pr.labels.some((l) => l.name === 'do-not-merge')) { say('held by do-not-merge'); continue }
               if (pr.mergeable === false) { say('has a merge conflict'); continue }
+              // Same repository only, whatever the run payload names.
+              if (pr.head.repo?.full_name !== `${owner}/${repo}`) { say('comes from a fork'); continue }
 
               // The CI run that woke this may be stale: judge the head the
               // pull request has now, not the one that was tested.
@@ -133,8 +139,12 @@ jobs:
                 continue
               }
 
+              // Exactly the commit CI tested: a push between the check
+              // above and this call makes GitHub refuse the merge instead
+              // of landing an untested head.
               await github.rest.pulls.merge({
                 owner, repo, pull_number: pr.number,
+                sha: pr.head.sha,
                 merge_method: 'merge',
                 commit_title: `${pr.title} (#${pr.number})`,
               })

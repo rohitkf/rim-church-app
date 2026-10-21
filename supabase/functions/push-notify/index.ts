@@ -117,21 +117,22 @@ Deno.serve(async (req) => {
   // the edge runtime hands back for SUPABASE_SERVICE_ROLE_KEY. Both are the
   // service role. Neither equals the other.
   //
-  // So the question is what the credential *says*, not what it matches.
-  // Either header is read, since a `sb_secret_...` key has to travel on
-  // `apikey` (it is not a JWT and Authorization rejects it), and a caller
-  // is the database if it presents the secret key verbatim, or a JWT
-  // claiming `service_role`. The signature behind that claim is not checked
-  // here because it does not reach here unverified: `verify_jwt` is on, so
-  // the platform has already validated it against the project secret. The
-  // anon key gets through that same door — it is a valid JWT — which is the
-  // whole reason for this check, and it says `anon`.
+  // So the question is what the credential *says*, not what it matches —
+  // but only where somebody has checked that it is telling the truth.
+  // `verify_jwt` validates the Authorization bearer against the project
+  // secret before this runs, so a role claim read from *that* header is
+  // the platform's word; the anon key gets through the same door — it is
+  // a valid JWT — which is the whole reason for this check, and it says
+  // `anon`. The `apikey` header is not verified by anything, so a claim
+  // read from it would be the caller's word: it is accepted only when it
+  // *is* the secret key, verbatim, which is how an `sb_secret_...` key has
+  // to travel (it is not a JWT and Authorization rejects it).
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
   const apikey = req.headers.get('apikey') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  const fromDatabase = [bearer, apikey].some(
-    (c) => c !== '' && ((serviceKey !== '' && c === serviceKey) || jwtRole(c) === 'service_role'),
-  )
+  const isServiceKey = (c: string) => serviceKey !== '' && c !== '' && c === serviceKey
+  const fromDatabase =
+    isServiceKey(bearer) || isServiceKey(apikey) || (bearer !== '' && jwtRole(bearer) === 'service_role')
   if (!fromDatabase) {
     return new Response(JSON.stringify({ error: 'Not allowed.' }), {
       status: 403,
@@ -215,10 +216,10 @@ Deno.serve(async (req) => {
 /**
  * The `role` a JWT claims, or null if the thing is not a JWT at all.
  *
- * Only the payload is read. That is safe precisely because it is not the
- * thing being trusted — `verify_jwt` has already checked the signature by
+ * Only the payload is read. That is safe for the Authorization bearer and
+ * for nothing else — `verify_jwt` has checked that header's signature by
  * the time this runs, so an unsigned token claiming to be the service role
- * never reaches the function body.
+ * never reaches the function body on it. Never call this on `apikey`.
  */
 function jwtRole(token: string): string | null {
   const parts = token.split('.')

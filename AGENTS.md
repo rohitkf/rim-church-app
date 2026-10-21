@@ -324,7 +324,13 @@ Each of these has already cost real time. None of them show up in review.
   an RPC that runs with the owner's rights. Either check `auth.uid()` /
   `may()` inside it, or `revoke all on function … from public, anon,
   authenticated` in the same migration. 0151 closed five that did neither
-  (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …).
+  (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …)
+  and 0169 finished the list after the security audit: every read helper
+  is closed to anon, and the ones only definer code calls
+  (`person_name`, `awaiting_availability`, …) to authenticated as well. A
+  helper a policy evaluates must stay executable by authenticated — a
+  policy runs as the caller — so bind it to `auth.uid()` inside rather
+  than revoking it.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
   `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,

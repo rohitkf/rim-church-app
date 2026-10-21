@@ -89,11 +89,14 @@ Deno.serve(async (req) => {
   }
 
   // Already here? Saying so is kinder than sending an invite that lands on
-  // somebody who has been using the app for a month.
+  // somebody who has been using the app for a month. An exact match, never a
+  // pattern: `profiles.email` is the account's address (0169) and only the
+  // Owner may read it, so this check must answer one question about one
+  // address and nothing about any other.
   const { data: existing } = await admin
     .from('profiles')
     .select('id')
-    .ilike('email', email)
+    .eq('email', email)
     .maybeSingle()
   if (existing) return json({ error: 'That address already has an account.' }, 409)
 
@@ -143,10 +146,15 @@ Deno.serve(async (req) => {
   return json({ ok: true, email })
 })
 
-/** Where the invitation link should land: the app's own sign-up page. */
-function signupRedirect(req: Request): string | undefined {
+/**
+ * Where the invitation link should land: the app's own sign-up page, at the
+ * configured SITE_URL. Never at whatever `Origin` the request claims — that
+ * header is the caller's to write, and this link carries a sign-in token.
+ * With SITE_URL unset the platform's Site URL applies.
+ */
+function signupRedirect(_req: Request): string | undefined {
   const site = Deno.env.get('SITE_URL')
   if (site) return `${site.replace(/\/$/, '')}/reset-password`
-  const origin = req.headers.get('origin')
-  return origin ? `${origin}/reset-password` : undefined
+  console.warn('SITE_URL is not set; the invitation link falls back to the project Site URL')
+  return undefined
 }
