@@ -330,7 +330,12 @@ Each of these has already cost real time. None of them show up in review.
   (`person_name`, `awaiting_availability`, …) to authenticated as well. A
   helper a policy evaluates must stay executable by authenticated — a
   policy runs as the caller — so bind it to `auth.uid()` inside rather
-  than revoking it.
+  than revoking it. What that grant leaves open (any signed-in account
+  asking `POST /rpc/is_dept_member` about anybody) is closed at the door
+  instead: the PostgREST pre-request hook `reject_removed_user` (0070)
+  refuses a request whose `request.path` names one of the database's own
+  helpers (0175, the `helpers` list in its body). A new policy helper
+  belongs on that list; a new RPC the app calls must not be on it.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
   `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,
