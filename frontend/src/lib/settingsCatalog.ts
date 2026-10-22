@@ -566,6 +566,22 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     unit: 'days',
   },
   {
+    ...column('poll_voters_seen_by'),
+    kind: 'choice',
+    style: 'select',
+    label: 'Who sees the names on an anonymous poll',
+    summary: 'The Owner always does. Everybody else sees the counts.',
+    help: 'A poll is anonymous unless whoever asks it says otherwise. On an anonymous poll everybody sees the counts and their own answer, and the Owner sees every name. Choose whether Admins, or Admins and the Head and Assisting Head of the team the poll is for, see the names too. On a named poll everybody it is for sees who picked what. The database enforces the choice, so it is a real rule.',
+    affects: ['/polls'],
+    ariaLabel: 'Who sees the names on an anonymous poll',
+    options: [
+      { value: 'owner', label: 'Only the Owner' },
+      { value: 'admins', label: 'The Owner and Admins' },
+      { value: 'leads', label: 'The Owner, Admins and the team’s Heads' },
+    ],
+    put: (_d, v) => ({ poll_voters_seen_by: v as AppSettings['poll_voters_seen_by'] }),
+  },
+  {
     ...column('service_retention_days'),
     kind: 'dial',
     label: 'Services are kept for',

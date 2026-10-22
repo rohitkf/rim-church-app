@@ -7,6 +7,11 @@ on:
     branches: [main, develop]
   pull_request:
 
+# CI only reads the checkout: it consumes no secret and writes nothing back.
+# The token it holds is read-only whatever the repository's default says.
+permissions:
+  contents: read
+
 jobs:
   frontend:
     runs-on: ubuntu-latest

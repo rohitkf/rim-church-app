@@ -51,13 +51,13 @@ actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
 | Messages | team | everyone · team · leads | the database (`messages`) |
 | Team Chat | team | fixed | the database (it is per team) |
 | Church Updates | everyone | everyone · team · leads | the database (`church_updates`) |
-| Polls | everyone | everyone · team | the database (`team_polls` and its options and votes) |
+| Polls | everyone | everyone · team | the database (`team_polls` and its options and votes; on an anonymous poll the answer rows reach only their own voter and whoever `poll_voters_seen_by` names — the Owner always, 0172) |
 | Events | everyone | everyone · team · leads | the database (`church_events`) |
-| Giving | everyone | everyone · team · leads | the database (the three giving tables) |
+| Giving | everyone | everyone · team · leads | the database (the three giving tables and the `giving` bucket) |
 | Teams | everyone | everyone · team | the page |
 | Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
 | Feedback | team | fixed | the database (0124: anybody on a team sends; only the Owner reads everybody's — 0125) |
-| Inventory | team | team · leads | the database (the four inventory tables) |
+| Inventory | team | team · leads | the database (the four inventory tables and the `inventory-docs` bucket) |
 | Stage Layout | everyone | everyone · team · leads | the database (layouts, blocks, comments, log). Who may *draw* is per team: Settings › Stage Layout (`stage_team_access`, `stage_may()`, 0155) |
 
 SQL: `page_level(text)`, `is_a_lead(uuid)`, `can_open_page(uuid, text)`. The

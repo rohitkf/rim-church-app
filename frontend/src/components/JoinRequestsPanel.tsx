@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
+import { trustedAvatarUrl } from '../lib/trustedImage'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { teamAvatarStyle } from '../lib/teamGradient'
@@ -89,6 +90,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
             ? `${request.requester.first_name} ${request.requester.last_name}`
             : 'Someone'
           const busy = busyId === request.id
+          const avatar = trustedAvatarUrl(request.requester?.avatar_url)
 
           return (
             <li
@@ -96,9 +98,9 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
               className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl bg-surface-low px-4 py-3.5 ring-1 ring-black/5 dark:ring-white/8"
             >
               <span className="flex min-w-0 flex-1 items-center gap-3">
-                {request.requester?.avatar_url ? (
+                {avatar ? (
                   <img
-                    src={request.requester.avatar_url}
+                    src={avatar}
                     alt=""
                     className="h-9 w-9 shrink-0 rounded-full object-cover hairline"
                   />

@@ -67,3 +67,33 @@ export function timeLeft(closesAt: string, now: number): string {
   if (mins > 0) return `${mins}m ${String(s).padStart(2, '0')}s left`
   return `${s}s left`
 }
+
+export interface PollTallyRow {
+  poll_id: string
+  option_id: string
+  votes: number
+  voters: number
+}
+
+/**
+ * The counts the database gives (0172): on an anonymous poll the answer
+ * rows that reach the browser are the person's own, so the numbers come
+ * from poll_tallies() and the ticks from the rows.
+ */
+export function tallyFromRows(
+  optionIds: string[],
+  rows: PollTallyRow[],
+  votes: PollVote[],
+  myId: string | null | undefined,
+): { counts: Record<string, number>; mine: Set<string>; voters: number } {
+  const counts: Record<string, number> = {}
+  for (const id of optionIds) counts[id] = 0
+  let voters = 0
+  for (const r of rows) {
+    if (r.option_id in counts) counts[r.option_id] = r.votes
+    voters = Math.max(voters, r.voters)
+  }
+  const mine = new Set<string>()
+  for (const v of votes) if (myId && v.user_id === myId) mine.add(v.option_id)
+  return { counts, mine, voters }
+}

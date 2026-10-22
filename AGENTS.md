@@ -80,7 +80,7 @@ the thing most likely to waste your time:
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
-| `team_polls` (`audience`: everyone · team · people · service) | the **Polls** page — any audience, not only a team |
+| `team_polls` (`audience`: everyone · team · people · service; `anonymous`, 0172) | the **Polls** page — any audience, not only a team. On an anonymous poll the vote rows reach only their own voter and the Owner (plus Admins, or Admins and the team's Heads, by `app_settings.poll_voters_seen_by`); everybody reads the counts through `poll_tallies()` |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
 | `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage Layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
@@ -324,7 +324,13 @@ Each of these has already cost real time. None of them show up in review.
   an RPC that runs with the owner's rights. Either check `auth.uid()` /
   `may()` inside it, or `revoke all on function … from public, anon,
   authenticated` in the same migration. 0151 closed five that did neither
-  (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …).
+  (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …)
+  and 0169 finished the list after the security audit: every read helper
+  is closed to anon, and the ones only definer code calls
+  (`person_name`, `awaiting_availability`, …) to authenticated as well. A
+  helper a policy evaluates must stay executable by authenticated — a
+  policy runs as the caller — so bind it to `auth.uid()` inside rather
+  than revoking it.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
   `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,
