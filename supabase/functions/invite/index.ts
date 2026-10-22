@@ -89,15 +89,20 @@ Deno.serve(async (req) => {
   }
 
   // Already here? Saying so is kinder than sending an invite that lands on
-  // somebody who has been using the app for a month. An exact match, never a
-  // pattern: `profiles.email` is the account's address (0169) and only the
+  // somebody who has been using the app for a month. One exact address, never
+  // a pattern: `profiles.email` is the account's address (0169) and only the
   // Owner may read it, so this check must answer one question about one
-  // address and nothing about any other.
-  const { data: existing } = await admin
+  // address and nothing about any other. Case-insensitive, because an
+  // address is, with the LIKE characters escaped so that `%` and `_` in the
+  // caller's text mean themselves; and a lookup that fails is a refusal, not
+  // a pass.
+  const literal = email.replace(/[\\%_]/g, (c) => `\\${c}`)
+  const { data: existing, error: existingError } = await admin
     .from('profiles')
     .select('id')
-    .eq('email', email)
+    .ilike('email', literal)
     .maybeSingle()
+  if (existingError) return json({ error: 'Could not check that address.' }, 500)
   if (existing) return json({ error: 'That address already has an account.' }, 409)
 
   const redirectTo = signupRedirect(req)

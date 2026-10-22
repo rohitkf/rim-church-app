@@ -104,7 +104,7 @@ on Tuesdays at 03:30.
 | Services, and everything about them (running order, rota, availability, ticks, set list, readiness, debrief, every issue, polls about the service) | deleted N days after the service date | `service_retention_days` (14) |
 | Debrief minutes | N days after the service — never longer than the service | `debrief_retention_days` (14) |
 | Resolved issues | N days after being marked — never longer than the service | `issue_retention_days` (14) |
-| Bell notifications | each person keeps their newest N (trigger on insert, and nightly) | `notification_keep_count` (10) |
+| Bell notifications | each person keeps their newest N read rows; unread rows stay until read, up to a ceiling of 5×N (never under 50), and only one board-post notice per person (trigger on insert, and nightly) | `notification_keep_count` (10) |
 | …and optionally by age | older than N days | `notification_retention_days` (for ever) |
 | Team chat | each post N days after it was written | `team_chat_retention_days` (30) |
 | Message board + activity feed | weekly, on the clear day | `board_clear_dow` (Tuesday) |
