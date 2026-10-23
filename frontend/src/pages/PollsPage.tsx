@@ -26,6 +26,9 @@ import {
   type PollTallyRow,
 } from '../lib/polls'
 import { useAppSettings } from '../lib/appSettings'
+import { guestCandidates, guestNote, guestPayload, type RotaPlace, type TeamPlace } from '../lib/pollGuests'
+import { PollGuestPicker } from '../components/PollGuestPicker'
+import { REMINDERS_KEY } from '../lib/reminders'
 import { defaultPollClear, pollClearProblem, toLocalInput, untilText } from '../lib/expiry'
 
 const pollSchema = z.object({
@@ -39,6 +42,9 @@ const pollSchema = z.object({
   choice_mode: z.enum(['single', 'multiple']),
   /** Whether the names stay with the Owner (0172). */
   anonymous: z.boolean().default(true),
+  /** Whether guests are asked, and which: null is every one (0177). */
+  include_guests: z.boolean().default(true),
+  guest_ids: z.array(z.string()).nullable().default(null),
   closes_at: z.string().nullable(),
   /** When it is deleted with every answer (0128). */
   clears_at: z.string(),
@@ -89,7 +95,7 @@ async function fetchPolls(): Promise<Poll[]> {
   const { data, error } = await supabase
     .from('team_polls')
     .select(
-      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, anonymous, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id, voter:profiles(first_name, last_name, teams:department_members(member_type, department:departments(name))))',
+      'id, audience, department_id, service_id, recipient_ids, include_guests, guest_ids, created_by, question, choice_mode, anonymous, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id, voter:profiles(first_name, last_name, teams:department_members(member_type, department:departments(name))))',
     )
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -126,6 +132,41 @@ async function fetchUpcomingServices(from: string) {
     .limit(20)
   if (error) throw error
   return z.array(upcomingSchema).parse(data)
+}
+
+const placeSchema = z.object({
+  user_id: z.string(),
+  department_id: z.string(),
+  member_type: z.string(),
+  department: z.object({ name: z.string() }).nullable().default(null),
+  person: z.object({ first_name: z.string(), last_name: z.string() }).nullable().default(null),
+})
+
+/** Every team place the asker can read (0003): an Admin, all; a Head, their own team's. */
+async function fetchTeamPlaces(): Promise<TeamPlace[]> {
+  const { data, error } = await supabase
+    .from('department_members')
+    .select('user_id, department_id, member_type, department:departments(name), person:profiles(first_name, last_name)')
+  if (error) throw error
+  return z
+    .array(placeSchema)
+    .parse(data)
+    .map((p) => ({
+      user_id: p.user_id,
+      department_id: p.department_id,
+      member_type: p.member_type,
+      team: p.department?.name ?? 'A team',
+      name: p.person ? `${p.person.first_name} ${p.person.last_name}`.trim() : 'Somebody',
+    }))
+}
+
+async function fetchServiceRota(serviceId: string): Promise<RotaPlace[]> {
+  const { data, error } = await supabase
+    .from('rota_assignments')
+    .select('user_id, department_id')
+    .eq('service_id', serviceId)
+  if (error) throw error
+  return z.array(z.object({ user_id: z.string(), department_id: z.string() })).parse(data)
 }
 
 const AUDIENCE_TONE: Record<PollAudience, PillTone> = {
@@ -166,9 +207,9 @@ export function PollsPage() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const myId = session?.user.id ?? null
-  // Who may ask, and change or remove anybody's poll, is the church's to
-  // say (Settings › Access & Privileges, msg.polls). Anybody can still
-  // manage a poll they asked.
+  // Who may ask is the church's to say (Settings › Access & Privileges,
+  // msg.polls). Changing or removing a poll is its asker's, or an Admin's —
+  // the Owner is one (0177).
   const { can } = usePermissions()
   const departmentsForAsk = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const canAsk =
@@ -199,12 +240,13 @@ export function PollsPage() {
     document.getElementById(`poll-${openedId}`)?.scrollIntoView?.({ block: 'center' })
   }, [openedId, pollsQuery.data])
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: POLLS_KEY })
+  // An answer also takes the poll off the dashboard's reminders.
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: REMINDERS_KEY })
+    return queryClient.invalidateQueries({ queryKey: POLLS_KEY })
+  }
 
-  const mayManage = (poll: Poll) =>
-    can('msg.polls') ||
-    poll.created_by === myId ||
-    (!!poll.department_id && can('msg.polls', { departmentId: poll.department_id }))
+  const mayManage = (poll: Poll) => isAdmin || poll.created_by === myId
 
   const vote = useMutation({
     mutationFn: async ({ poll, optionId, on }: { poll: Poll; optionId: string; on: boolean }) => {
@@ -315,9 +357,12 @@ export function PollsPage() {
                 <Tile className={openedId === poll.id ? 'ring-2 ring-primary/50' : ''}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <Pill tone={AUDIENCE_TONE[poll.audience]} className="max-w-full">
-                        <span className="truncate">{audienceLabel(poll)}</span>
-                      </Pill>
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <Pill tone={AUDIENCE_TONE[poll.audience]} className="max-w-full">
+                          <span className="truncate">{audienceLabel(poll)}</span>
+                        </Pill>
+                        {guestNote(poll) && <Pill tone="neutral">{guestNote(poll)}</Pill>}
+                      </span>
                       <h2 className="mt-2 break-words text-body-lg font-medium text-on-surface">
                         {poll.question}
                       </h2>
@@ -737,6 +782,12 @@ function PollComposer({
   const [serviceId, setServiceId] = useState('')
   const [personIds, setPersonIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
+  // Guests: asked unless the box is cleared, and then only those ticked —
+  // every one of them until the asker unticks somebody (null).
+  const [includeGuests, setIncludeGuests] = useState(true)
+  // The ticks belong to the audience they were made for: choose another
+  // audience and it starts again from every guest.
+  const [pickedGuests, setPickedGuestsFor] = useState<{ scope: string; ids: Set<string> } | null>(null)
   const [question, setQuestion] = useState('')
   const [labels, setLabels] = useState<string[]>(['', ''])
   const [mode, setMode] = useState<ChoiceMode>('single')
@@ -763,6 +814,32 @@ function PollComposer({
     enabled: everywhere && audience === 'people',
   })
 
+  const placesQuery = useQuery({
+    queryKey: ['poll-team-places'],
+    queryFn: fetchTeamPlaces,
+    enabled: audience !== 'people',
+  })
+  const rotaQuery = useQuery({
+    queryKey: ['poll-service-rota', serviceId],
+    queryFn: () => fetchServiceRota(serviceId),
+    enabled: audience === 'service' && !!serviceId,
+  })
+  const guests = useMemo(
+    () =>
+      guestCandidates(audience, placesQuery.data ?? [], {
+        teamId: teamId || undefined,
+        rota: rotaQuery.data ?? [],
+      }),
+    [audience, placesQuery.data, rotaQuery.data, teamId],
+  )
+  const guestScope = `${audience}:${teamId}:${serviceId}`
+  const picked = useMemo(
+    () =>
+      pickedGuests && pickedGuests.scope === guestScope ? pickedGuests.ids : new Set(guests.map((g) => g.id)),
+    [pickedGuests, guestScope, guests],
+  )
+  const setPickedGuests = (ids: Set<string>) => setPickedGuestsFor({ scope: guestScope, ids })
+
   const people = useMemo(() => peopleQuery.data ?? [], [peopleQuery.data])
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -782,6 +859,9 @@ function PollComposer({
             audience === 'team' || audience === 'service' ? teamId || null : null,
           service_id: audience === 'service' ? serviceId : null,
           recipient_ids: audience === 'people' ? personIds : [],
+          ...(audience === 'people'
+            ? { include_guests: true, guest_ids: null }
+            : guestPayload(includeGuests, picked, guests)),
           created_by: session!.user.id,
           question: question.trim(),
           choice_mode: mode,
@@ -937,6 +1017,17 @@ function PollComposer({
               </ul>
             </QueryState>
           </div>
+        )}
+
+        {audience !== 'people' && (
+          <PollGuestPicker
+            guests={guests}
+            include={includeGuests}
+            onInclude={setIncludeGuests}
+            picked={picked}
+            onPicked={setPickedGuests}
+            loading={placesQuery.isLoading || (audience === 'service' && !!serviceId && rotaQuery.isLoading)}
+          />
         )}
 
         <div className="mt-4">
