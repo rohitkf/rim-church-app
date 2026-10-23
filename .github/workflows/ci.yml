@@ -142,6 +142,10 @@ jobs:
             echo "Applying $f"
             psql -h localhost -U postgres -d church_ci -v ON_ERROR_STOP=1 -f "$f"
           done
+      - name: Every SQL function still matches the schema
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d church_ci -v ON_ERROR_STOP=1 -f supabase/checks/sql_functions_still_match_the_schema.sql
 
   docker:
     needs: changes
