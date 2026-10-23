@@ -297,6 +297,16 @@ skipped:
 
 ## 8. Things that fail silently
 
+- **Dropping or re-signing a function a SQL function calls.** Postgres
+  checks a `language sql` body when it is created and never again, so the
+  drop succeeds and every read through the caller fails later. 0177
+  dropped the five-argument `poll_is_for_me` while `may_see_poll_voters`
+  still called it, and the Polls page failed for everybody until 0180.
+  CI now re-creates every SQL function after the migrations
+  (`supabase/checks/sql_functions_still_match_the_schema.sql`); before
+  applying such a migration to production, grep the migrations and
+  `pg_get_functiondef` for every caller.
+
 Each of these has already cost real time. None of them show up in review.
 
 - **A new table is not live until two lists say so.** Every screen refetches
