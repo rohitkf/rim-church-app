@@ -28,6 +28,8 @@ vi.mock('../lib/queries', () => ({
 const state = vi.hoisted(() => ({
   polls: [] as Record<string, unknown>[],
   inserts: [] as { table: string; row: unknown }[],
+  updates: [] as { table: string; row: unknown }[],
+  deletes: [] as { table: string; ids: unknown }[],
 }))
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -61,7 +63,18 @@ vi.mock('../lib/supabaseClient', () => ({
       builder.gte = () => builder
       builder.limit = () => builder
       builder.eq = () => builder
-      builder.delete = () => builder
+      builder.delete = () => {
+        builder.deleting = true
+        return builder
+      }
+      builder.update = (row: unknown) => {
+        state.updates.push({ table, row })
+        return builder
+      }
+      builder.in = (_col: string, ids: unknown) => {
+        if (builder.deleting) state.deletes.push({ table, ids })
+        return builder
+      }
       builder.insert = (row: unknown) => {
         state.inserts.push({ table, row })
         return builder
@@ -113,6 +126,8 @@ beforeEach(() => {
   auth.ledDepartmentIds = []
   state.polls = []
   state.inserts = []
+  state.updates = []
+  state.deletes = []
 })
 
 describe('who a poll says it is for', () => {
@@ -290,6 +305,72 @@ describe('the Polls page', () => {
     show()
     const list = within(await screen.findByRole('list', { name: 'Who answered' }))
     expect(list.getByText('Church member')).toBeInTheDocument()
+  })
+
+  it('lets whoever asked edit a poll, and nobody else who cannot manage it', async () => {
+    state.polls = [
+      poll({ id: 'mine', question: 'Mine?', created_by: 'me' }),
+      poll({ id: 'theirs', question: 'Theirs?', created_by: 'someone' }),
+    ]
+    show()
+    expect(await screen.findByRole('button', { name: 'Edit poll: Mine?' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit poll: Theirs?' })).not.toBeInTheDocument()
+  })
+
+  it('edits a poll nobody has answered: question, options, answer type and names', async () => {
+    state.polls = [poll({ id: 'mine', question: 'Picnic?', created_by: 'me', votes: [] })]
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Edit poll: Picnic?' }))
+    const form = within(screen.getByRole('form', { name: 'Edit poll' }))
+    await user.clear(form.getByLabelText('Question'))
+    await user.type(form.getByLabelText('Question'), 'Picnic on Sunday?')
+    await user.clear(form.getByLabelText('Option 2'))
+    await user.type(form.getByLabelText('Option 2'), '18 October')
+    await user.click(form.getByRole('button', { name: '+ Add option' }))
+    await user.type(form.getByLabelText('Option 3'), '25 October')
+    await user.click(form.getByRole('button', { name: 'Named' }))
+    await user.click(form.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(1))
+    expect(state.updates[0]).toMatchObject({
+      table: 'team_polls',
+      row: { question: 'Picnic on Sunday?', anonymous: false, choice_mode: 'single' },
+    })
+    expect(state.updates).toContainEqual({ table: 'team_poll_options', row: { label: '18 October', sort_order: 1 } })
+    expect(state.inserts[0]).toEqual({
+      table: 'team_poll_options',
+      row: [{ poll_id: 'mine', label: '25 October', sort_order: 2 }],
+    })
+    expect(state.deletes).toHaveLength(0)
+  })
+
+  it('once answered, keeps the answer type and names, and the picked option, as they are', async () => {
+    auth.isAdmin = true
+    state.polls = [
+      poll({
+        id: 'theirs',
+        question: 'Picnic?',
+        options: [
+          { id: 'o1', label: '4 October', sort_order: 0 },
+          { id: 'o2', label: '11 October', sort_order: 1 },
+          { id: 'o3', label: '18 October', sort_order: 2 },
+        ],
+        votes: [{ option_id: 'o1', user_id: 'x' }],
+      }),
+    ]
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Edit poll: Picnic?' }))
+    const form = within(screen.getByRole('form', { name: 'Edit poll' }))
+    expect(form.queryByRole('button', { name: 'Named' })).not.toBeInTheDocument()
+    expect(form.getByText(/Somebody has answered/)).toBeInTheDocument()
+    // The picked option cannot go; an unpicked one can.
+    expect(form.queryByRole('button', { name: 'Remove option 1' })).not.toBeInTheDocument()
+    await user.click(form.getByRole('button', { name: 'Remove option 3' }))
+    await user.click(form.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.deletes).toHaveLength(1))
+    expect(state.deletes[0]).toEqual({ table: 'team_poll_options', ids: ['o3'] })
+    const pollUpdate = state.updates.find((u) => u.table === 'team_polls')!.row as Record<string, unknown>
+    expect(pollUpdate).not.toHaveProperty('anonymous')
+    expect(pollUpdate).not.toHaveProperty('choice_mode')
   })
 
   it('posts a poll as anonymous unless the asker says otherwise', async () => {

@@ -26,7 +26,7 @@ import {
   type PollTallyRow,
 } from '../lib/polls'
 import { useAppSettings } from '../lib/appSettings'
-import { defaultPollClear, pollClearProblem, untilText } from '../lib/expiry'
+import { defaultPollClear, pollClearProblem, toLocalInput, untilText } from '../lib/expiry'
 
 const pollSchema = z.object({
   id: z.string(),
@@ -177,6 +177,7 @@ export function PollsPage() {
   const openedId = params.get('poll')
 
   const [composing, setComposing] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const pollsQuery = useQuery({ queryKey: POLLS_KEY, queryFn: fetchPolls, enabled: !!myId })
@@ -321,7 +322,16 @@ export function PollsPage() {
                         {poll.question}
                       </h2>
                     </div>
-                    {mayManage(poll) && (
+                    {mayManage(poll) && editingId !== poll.id && (
+                      <div className="flex shrink-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(poll.id)}
+                        aria-label={`Edit poll: ${poll.question}`}
+                        className="tap text-label-sm text-on-surface-faint hover:text-on-surface"
+                      >
+                        Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
@@ -341,9 +351,24 @@ export function PollsPage() {
                       >
                         Delete
                       </button>
+                      </div>
                     )}
                   </div>
 
+                  {editingId === poll.id ? (
+                    <PollEditor
+                      poll={poll}
+                      counts={counts}
+                      answered={voters > 0}
+                      onDone={() => {
+                        setEditingId(null)
+                        invalidate()
+                      }}
+                      onCancel={() => setEditingId(null)}
+                      onError={setError}
+                    />
+                  ) : (
+                  <>
                   <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-label-sm text-on-surface-faint">
                     <span>{poll.choice_mode === 'single' ? 'Pick one' : 'Pick any'}</span>
                     <span aria-hidden="true">·</span>
@@ -444,6 +469,8 @@ export function PollsPage() {
                       The deadline has passed — answers are final.
                     </p>
                   )}
+                  </>
+                  )}
                 </Tile>
               </li>
             )
@@ -453,6 +480,227 @@ export function PollsPage() {
 
       {dialog}
     </div>
+  )
+}
+
+/**
+ * Changing a poll after it is asked: whoever may delete it may edit it
+ * (team_polls_change, 0139). Who it is for stays as asked. Once somebody
+ * has answered, whether it is pick-one and whether it is anonymous stay
+ * too (0173 refuses the second), and an option somebody picked can be
+ * renamed but not removed, since removing it deletes their answer.
+ */
+function PollEditor({
+  poll,
+  counts,
+  answered,
+  onDone,
+  onCancel,
+  onError,
+}: {
+  poll: Poll
+  counts: Record<string, number>
+  answered: boolean
+  onDone: () => void
+  onCancel: () => void
+  onError: (message: string | null) => void
+}) {
+  const errorText = useErrorText()
+  const original = useMemo(() => [...poll.options].sort((a, b) => a.sort_order - b.sort_order), [poll.options])
+  const [question, setQuestion] = useState(poll.question)
+  const [options, setOptions] = useState<{ id: string | null; label: string }[]>(() =>
+    original.map((o) => ({ id: o.id, label: o.label })),
+  )
+  const [mode, setMode] = useState<ChoiceMode>(poll.choice_mode)
+  const [anonymous, setAnonymous] = useState(poll.anonymous)
+  const [closesAt, setClosesAt] = useState(poll.closes_at ? toLocalInput(new Date(poll.closes_at)) : '')
+  const [clearsAt, setClearsAt] = useState(toLocalInput(new Date(poll.clears_at)))
+  const now = useNow(true)
+  const clearProblem = pollClearProblem(closesAt, clearsAt, now)
+
+  const kept = options.filter((o) => o.label.trim())
+  const ready = question.trim().length > 0 && kept.length >= 2 && !clearProblem
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('team_polls')
+        .update({
+          question: question.trim(),
+          closes_at: closesAt ? new Date(closesAt).toISOString() : null,
+          clears_at: new Date(clearsAt).toISOString(),
+          // Sent only while nobody has answered: the database refuses a
+          // change of anonymity after the first answer (0173).
+          ...(answered ? {} : { choice_mode: mode, anonymous }),
+        })
+        .eq('id', poll.id)
+      if (error) throw error
+
+      const keptIds = new Set(kept.filter((o) => o.id).map((o) => o.id!))
+      const removed = original.filter((o) => !keptIds.has(o.id)).map((o) => o.id)
+      if (removed.length > 0) {
+        const { error: e } = await supabase.from('team_poll_options').delete().in('id', removed)
+        if (e) throw e
+      }
+      for (const [i, o] of kept.entries()) {
+        const label = o.label.trim()
+        const was = original.find((x) => x.id === o.id)
+        if (o.id && was && (was.label !== label || was.sort_order !== i)) {
+          const { error: e } = await supabase
+            .from('team_poll_options')
+            .update({ label, sort_order: i })
+            .eq('id', o.id)
+          if (e) throw e
+        }
+      }
+      const added = kept
+        .map((o, i) => ({ o, i }))
+        .filter(({ o }) => !o.id)
+        .map(({ o, i }) => ({ poll_id: poll.id, label: o.label.trim(), sort_order: i }))
+      if (added.length > 0) {
+        const { error: e } = await supabase.from('team_poll_options').insert(added)
+        if (e) throw e
+      }
+    },
+    onSuccess: () => {
+      onError(null)
+      onDone()
+    },
+    onError: (err: unknown) => onError(errorText(err, 'Could not save that poll.')),
+  })
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (ready) save.mutate()
+  }
+
+  return (
+    <form onSubmit={handleSubmit} aria-label="Edit poll" className="mt-3">
+      <Field label="Question">
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          maxLength={300}
+          className={inputClasses}
+        />
+      </Field>
+
+      <div className="mt-3 flex flex-col gap-2">
+        <Eyebrow>Options</Eyebrow>
+        {options.map((option, i) => {
+          const picked = option.id ? (counts[option.id] ?? 0) : 0
+          return (
+            <div key={option.id ?? `new-${i}`} className="flex items-center gap-2">
+              <input
+                value={option.label}
+                onChange={(e) =>
+                  setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, label: e.target.value } : o)))
+                }
+                maxLength={120}
+                placeholder={`Option ${i + 1}`}
+                aria-label={`Option ${i + 1}`}
+                className="min-w-0 flex-1 rounded-full hairline bg-transparent px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {picked > 0 ? (
+                <span className="shrink-0 px-2 font-mono text-label-sm text-on-surface-faint" title="Answered, so it stays">
+                  {picked}
+                </span>
+              ) : (
+                options.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
+                    aria-label={`Remove option ${i + 1}`}
+                    className="tap-square shrink-0 rounded-full px-2 text-label-sm text-on-surface-faint hover:text-error"
+                  >
+                    ✕
+                  </button>
+                )
+              )}
+            </div>
+          )
+        })}
+        <button
+          type="button"
+          onClick={() => setOptions((prev) => [...prev, { id: null, label: '' }])}
+          className="tap self-start text-label-md text-accent-blue-soft hover:underline"
+        >
+          + Add option
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-4">
+        {!answered && (
+          <>
+            <div className="flex flex-col gap-1">
+              <Eyebrow>Answers</Eyebrow>
+              <SegmentedControl
+                label="Answers"
+                kind="pressed"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: 'single', label: 'Pick one' },
+                  { value: 'multiple', label: 'Pick any' },
+                ]}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Eyebrow>Names</Eyebrow>
+              <SegmentedControl
+                label="Names"
+                kind="pressed"
+                value={anonymous ? 'anonymous' : 'named'}
+                onChange={(v) => setAnonymous(v === 'anonymous')}
+                options={[
+                  { value: 'anonymous', label: 'Anonymous' },
+                  { value: 'named', label: 'Named' },
+                ]}
+              />
+            </div>
+          </>
+        )}
+        <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
+          Deadline (optional)
+          <DateTimeField value={closesAt} onChange={setClosesAt} label="Poll deadline" min={todayIso()} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1 text-body-sm text-on-surface-variant">
+          Clears
+          <DateTimeField
+            value={clearsAt}
+            onChange={(next) => next && setClearsAt(next)}
+            label="Poll clears"
+            clearable={false}
+            min={closesAt ? closesAt.slice(0, 10) : todayIso()}
+          />
+        </div>
+      </div>
+
+      {clearProblem && <p className="mt-2 text-label-sm text-error">{clearProblem}</p>}
+      {answered && (
+        <p className="mt-2 text-label-sm text-on-surface-faint">
+          Somebody has answered, so pick-one or pick-any and anonymous or named stay as they are, and an
+          option somebody picked can be renamed but not removed.
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="tap rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!ready || save.isPending}
+          className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+        >
+          {save.isPending ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </form>
   )
 }
 
