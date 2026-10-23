@@ -22,6 +22,35 @@ const granted = new Set(
     .filter(Boolean),
 )
 
+/** The comma-separated names inside the bracket opened just before `start`, nested embeds left out. */
+function topLevelColumns(text: string, start: number): string[] {
+  const columns: string[] = []
+  let depth = 0
+  let current = ''
+  let embed = false
+  const finish = () => {
+    if (!embed && current.trim()) columns.push(current.trim())
+    current = ''
+    embed = false
+  }
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(') {
+      // A segment that opens a bracket embeds another table.
+      if (depth === 0) embed = true
+      depth++
+    } else if (ch === ')') {
+      if (depth === 0) break
+      depth--
+    } else if (depth === 0) {
+      if (ch === ',') finish()
+      else current += ch
+    }
+  }
+  finish()
+  return columns
+}
+
 /** Every column list the app asks of `profiles`, with where it was found. */
 function profileSelects(): { file: string; columns: string[] }[] {
   const out: { file: string; columns: string[] }[] = []
@@ -30,9 +59,12 @@ function profileSelects(): { file: string; columns: string[] }[] {
     for (const m of text.matchAll(/\.from\('profiles'\)\s*\.select\('([^']*)'/g)) {
       out.push({ file, columns: m[1].split(',').map((c) => c.trim()) })
     }
-    // an embed: profiles(a, b), sender:profiles(a, b), profiles!fk(a, b)
-    for (const m of text.matchAll(/\bprofiles(?:![a-z_]+)?\(([^)]*)\)/g)) {
-      out.push({ file, columns: m[1].split(',').map((c) => c.trim()) })
+    // an embed: profiles(a, b), sender:profiles(a, b), profiles!fk(a, b).
+    // The list may itself embed another table — profiles(a, teams:x(y)) —
+    // so read to the matching bracket, and leave nested embeds to their
+    // own tables: only the top-level names are profiles' columns.
+    for (const m of text.matchAll(/\bprofiles(?:![a-z_]+)?\(/g)) {
+      out.push({ file, columns: topLevelColumns(text, m.index! + m[0].length) })
     }
   }
   return out
@@ -43,6 +75,11 @@ describe('what the app reads from profiles (0127)', () => {
     expect(granted).toContain('first_name')
     expect(granted).toContain('dob')
     for (const closed of ['email', 'phone', 'marital_status']) expect(granted).not.toContain(closed)
+  })
+
+  it('reads past a nested embed and still sees every profile column beside it', () => {
+    const text = "voter:profiles(first_name, email, teams:department_members(member_type, department:departments(name)))"
+    expect(topLevelColumns(text, text.indexOf('(') + 1)).toEqual(['first_name', 'email'])
   })
 
   it('finds the selects it is meant to be checking', () => {
