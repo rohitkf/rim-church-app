@@ -97,3 +97,46 @@ export function tallyFromRows(
   for (const v of votes) if (myId && v.user_id === myId) mine.add(v.option_id)
   return { counts, mine, voters }
 }
+
+/** One person who answered a poll, as the list under the poll shows them. */
+export interface PollRespondent {
+  id: string
+  name: string
+  /** The teams this viewer can see them on; " (guest)" marks a guest place. */
+  teams: string[]
+}
+
+interface RespondentVote {
+  user_id: string
+  voter: {
+    first_name: string
+    last_name: string
+    teams?: { member_type: string; department: { name: string } | null }[]
+  } | null
+}
+
+/**
+ * Everybody whose answer row this viewer was sent, once each, by name.
+ * A person who picked several options of a "pick any" poll is one person.
+ * Team names come from the rows the database lets the viewer read, so a
+ * missing team means "not visible to you", not "on no team".
+ */
+export function respondentsFrom(votes: RespondentVote[]): PollRespondent[] {
+  const byId = new Map<string, PollRespondent>()
+  for (const v of votes) {
+    if (!v.voter || byId.has(v.user_id)) continue
+    const teams = [
+      ...new Set(
+        (v.voter.teams ?? [])
+          .filter((t) => t.department)
+          .map((t) => `${t.department!.name}${t.member_type === 'guest' ? ' (guest)' : ''}`),
+      ),
+    ].sort((a, b) => a.localeCompare(b))
+    byId.set(v.user_id, {
+      id: v.user_id,
+      name: `${v.voter.first_name} ${v.voter.last_name}`.trim(),
+      teams,
+    })
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+}

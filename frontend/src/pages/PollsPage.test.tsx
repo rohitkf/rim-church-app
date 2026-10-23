@@ -239,12 +239,57 @@ describe('the Polls page', () => {
     // Somebody else's row came back: the database let this person see the
     // names, their own among them.
     const seen = within(document.getElementById('poll-seen')!)
-    expect(seen.getByText('Me Myself')).toBeInTheDocument()
-    expect(seen.getByText('Grace Mensah')).toBeInTheDocument()
+    // Once under the option they picked, once in the list of who answered.
+    expect(seen.getAllByText('Me Myself')).toHaveLength(2)
+    expect(seen.getAllByText('Grace Mensah')).toHaveLength(2)
     expect(seen.getByText(/shown to you as a leader/)).toBeInTheDocument()
     // A named poll shows who picked what, and needs no note.
-    expect(screen.getByText('Kofi Asante')).toBeInTheDocument()
+    expect(screen.getAllByText('Kofi Asante')).toHaveLength(2)
     expect(screen.getAllByText(/shown to you as a leader/)).toHaveLength(1)
+    // Nobody else's row on the anonymous poll: no list of who answered.
+    expect(anon.queryByRole('list', { name: 'Who answered' })).not.toBeInTheDocument()
+  })
+
+  it('lists who answered once each, with their teams', async () => {
+    const teams = (...names: [string, string][]) =>
+      names.map(([name, member_type]) => ({ member_type, department: { name } }))
+    state.polls = [
+      poll({
+        id: 'who',
+        question: 'Picnic?',
+        choice_mode: 'multiple',
+        anonymous: false,
+        votes: [
+          // Two picks, one person.
+          { option_id: 'o1', user_id: 'g', voter: { first_name: 'Grace', last_name: 'Mensah', teams: teams(['Media', 'core'], ['Choir', 'guest']) } },
+          { option_id: 'o2', user_id: 'g', voter: { first_name: 'Grace', last_name: 'Mensah', teams: teams(['Media', 'core'], ['Choir', 'guest']) } },
+          { option_id: 'o2', user_id: 'k', voter: { first_name: 'Kofi', last_name: 'Asante', teams: [] } },
+        ],
+      }),
+    ]
+    show()
+    const list = within(await screen.findByRole('list', { name: 'Who answered' }))
+    expect(screen.getByText('Who answered · 2')).toBeInTheDocument()
+    expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Grace MensahChoir (guest), Media',
+      // Not an Admin: no team visible may only mean not visible to me.
+      'Kofi Asante',
+    ])
+  })
+
+  it('tells an Admin who is on no team at all', async () => {
+    auth.isAdmin = true
+    state.polls = [
+      poll({
+        id: 'who',
+        question: 'Picnic?',
+        anonymous: false,
+        votes: [{ option_id: 'o1', user_id: 'k', voter: { first_name: 'Kofi', last_name: 'Asante', teams: [] } }],
+      }),
+    ]
+    show()
+    const list = within(await screen.findByRole('list', { name: 'Who answered' }))
+    expect(list.getByText('Church member')).toBeInTheDocument()
   })
 
   it('posts a poll as anonymous unless the asker says otherwise', async () => {

@@ -16,7 +16,15 @@ import { Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses,
 import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { optionShare, pollIsOpen, tallyFromRows, timeLeft, type ChoiceMode, type PollTallyRow } from '../lib/polls'
+import {
+  optionShare,
+  pollIsOpen,
+  respondentsFrom,
+  tallyFromRows,
+  timeLeft,
+  type ChoiceMode,
+  type PollTallyRow,
+} from '../lib/polls'
 import { useAppSettings } from '../lib/appSettings'
 import { defaultPollClear, pollClearProblem, untilText } from '../lib/expiry'
 
@@ -46,7 +54,22 @@ const pollSchema = z.object({
     z.object({
       option_id: z.string(),
       user_id: z.string(),
-      voter: z.object({ first_name: z.string(), last_name: z.string() }).nullable().default(null),
+      voter: z
+        .object({
+          first_name: z.string(),
+          last_name: z.string(),
+          // Only the memberships this viewer may read come back (0003).
+          teams: z
+            .array(
+              z.object({
+                member_type: z.string(),
+                department: z.object({ name: z.string() }).nullable().default(null),
+              }),
+            )
+            .default([]),
+        })
+        .nullable()
+        .default(null),
     }),
   ),
 })
@@ -66,7 +89,7 @@ async function fetchPolls(): Promise<Poll[]> {
   const { data, error } = await supabase
     .from('team_polls')
     .select(
-      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, anonymous, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id, voter:profiles(first_name, last_name))',
+      'id, audience, department_id, service_id, recipient_ids, created_by, question, choice_mode, anonymous, closes_at, clears_at, created_at, department:departments(name), service:services(date, service_type), options:team_poll_options(id, label, sort_order), votes:team_poll_votes(option_id, user_id, voter:profiles(first_name, last_name, teams:department_members(member_type, department:departments(name))))',
     )
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -139,7 +162,7 @@ function useNow(active: boolean): number {
  * are two different promises and both are needed.
  */
 export function PollsPage() {
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const myId = session?.user.id ?? null
@@ -284,6 +307,7 @@ export function PollsPage() {
               named
                 .filter((v) => v.option_id === optionId)
                 .map((v) => `${v.voter!.first_name} ${v.voter!.last_name}`.trim())
+            const respondents = showNames ? respondentsFrom(poll.votes) : []
 
             return (
               <li key={poll.id} id={`poll-${poll.id}`}>
@@ -387,6 +411,27 @@ export function PollsPage() {
                       )
                     })}
                   </ul>
+
+                  {respondents.length > 0 && (
+                    <div className="mt-3">
+                      <Eyebrow>Who answered · {respondents.length}</Eyebrow>
+                      <ul className="mt-1.5 flex flex-col gap-1" aria-label="Who answered">
+                        {respondents.map((r) => {
+                          // An Admin reads every team's roster, so "no team"
+                          // is a fact for them; anybody else may just not see it.
+                          const where = r.teams.length > 0 ? r.teams.join(', ') : isAdmin ? 'Church member' : null
+                          return (
+                            <li key={r.id} className="flex items-baseline justify-between gap-3 text-body-sm">
+                              <span className="min-w-0 truncate text-on-surface">{r.name}</span>
+                              {where && (
+                                <span className="shrink-0 text-label-sm text-on-surface-faint">{where}</span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
 
                   {showNames && poll.anonymous && (
                     <p className="mt-2 text-label-sm text-on-surface-faint">
