@@ -48,6 +48,14 @@ npx vitest run                           # ~865 tests, all must pass
 npm run build                            # catches what tsc alone misses
 ```
 
+CI (`.github/workflows/ci.yml`) runs the same checks, split for speed:
+`frontend` (lint + build), `frontend tests (1/4)`…`(4/4)` (vitest
+`--shard`), `migrations`, and `backend` / `docker` only when their own
+files (or CI itself) change — `changes` works that out, and a skipped job
+counts as green for auto-merge. Keep the job names: auto-merge and any
+required check read them. A newer push cancels the older run of the same
+event and ref.
+
 `npm run lint` (oxlint) exits 0 with ~40 standing warnings. Do not add to
 them; do not fix unrelated ones in a PR about something else.
 
@@ -80,7 +88,7 @@ the thing most likely to waste your time:
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
-| `team_polls` (`audience`: everyone · team · people · service; `anonymous`, 0172) | the **Polls** page — any audience, not only a team. On an anonymous poll the vote rows reach only their own voter and the Owner (plus Admins, or Admins and the team's Heads, by `app_settings.poll_voters_seen_by`); everybody reads the counts through `poll_tallies()`. Changed or deleted only by its asker or an Admin, the Owner included (0177). `include_guests` / `guest_ids` (0177): a guest is somebody in the audience only through a guest place on a team (`poll_person_is_guest`); false leaves them all out, a list asks only those, null asks every guest. Who sees it and who is told are both `poll_admits` inside `poll_is_for_me` and `poll_recipients` |
+| `team_polls` (`audience`: everyone · team · people · service; `anonymous`, 0172) | the **Polls** page — any audience, not only a team. On an anonymous poll the vote rows reach only their own voter and the Owner (plus Admins, or Admins and the team's Heads, by `app_settings.poll_voters_seen_by`); everybody reads the counts through `poll_tallies()`. Changed or deleted only by its asker, an Admin (the Owner included, 0177), or — for a poll with a `department_id` — that team's Head or Assisting Head, who also always see it (0179). `include_guests` / `guest_ids` (0177): a guest is somebody in the audience only through a guest place on a team (`poll_person_is_guest`); false leaves them all out, a list asks only those, null asks every guest. Who sees it and who is told are both `poll_admits` inside `poll_is_for_me` and `poll_recipients` |
 | `my_open_requests()` (0178) | the dashboard's **reminders** — what is waiting on the caller (an unanswered poll, availability not given, an unread mention), worked out from the things themselves so it goes when answered. Shown by `components/ReminderBanner` |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |

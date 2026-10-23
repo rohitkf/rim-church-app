@@ -329,16 +329,20 @@ describe('the Polls page', () => {
     expect(screen.queryByRole('button', { name: 'Edit poll: Theirs?' })).not.toBeInTheDocument()
   })
 
-  it('keeps editing and deleting to the asker and an Admin — not a team Head (0177)', async () => {
+  it("lets a team's Head manage their own team's polls, and no other team's or everyone's (0179)", async () => {
     auth.ledDepartmentIds = ['d1']
     state.polls = [
       poll({ id: 'team', question: 'Team?', audience: 'team', department_id: 'd1', department: { name: 'Media' }, created_by: 'someone' }),
-      poll({ id: 'own', question: 'Own?', audience: 'team', department_id: 'd1', department: { name: 'Media' }, created_by: 'me' }),
+      poll({ id: 'other', question: 'Other?', audience: 'team', department_id: 'd2', department: { name: 'Worship' }, created_by: 'someone' }),
+      poll({ id: 'all', question: 'All?', created_by: 'someone' }),
     ]
     show()
-    expect(await screen.findByRole('button', { name: 'Edit poll: Own?' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Edit poll: Team?' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Delete poll: Team?' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit poll: Team?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete poll: Team?' })).toBeInTheDocument()
+    for (const q of ['Other?', 'All?']) {
+      expect(screen.queryByRole('button', { name: `Edit poll: ${q}` })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: `Delete poll: ${q}` })).not.toBeInTheDocument()
+    }
   })
 
   it('asks every guest by default, only those ticked, or none', async () => {
