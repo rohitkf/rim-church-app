@@ -80,7 +80,8 @@ the thing most likely to waste your time:
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
 | `giving_page`, `giving_links`, `giving_bank_accounts` | the **Giving** page (Tithes & offerings) |
-| `team_polls` (`audience`: everyone · team · people · service; `anonymous`, 0172) | the **Polls** page — any audience, not only a team. On an anonymous poll the vote rows reach only their own voter and the Owner (plus Admins, or Admins and the team's Heads, by `app_settings.poll_voters_seen_by`); everybody reads the counts through `poll_tallies()` |
+| `team_polls` (`audience`: everyone · team · people · service; `anonymous`, 0172) | the **Polls** page — any audience, not only a team. On an anonymous poll the vote rows reach only their own voter and the Owner (plus Admins, or Admins and the team's Heads, by `app_settings.poll_voters_seen_by`); everybody reads the counts through `poll_tallies()`. Changed or deleted only by its asker or an Admin, the Owner included (0177). `include_guests` / `guest_ids` (0177): a guest is somebody in the audience only through a guest place on a team (`poll_person_is_guest`); false leaves them all out, a list asks only those, null asks every guest. Who sees it and who is told are both `poll_admits` inside `poll_is_for_me` and `poll_recipients` |
+| `my_open_requests()` (0178) | the dashboard's **reminders** — what is waiting on the caller (an unanswered poll, availability not given, an unread mention), worked out from the things themselves so it goes when answered. Shown by `components/ReminderBanner` |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
 | `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage Layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
@@ -380,6 +381,13 @@ a step in `lib/tour.ts` for whoever should be shown it (the test holds
 every step to a page and an anchor that exist) →
 a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
 every other page.
+
+**A new kind of dashboard reminder** (something somebody must do, kept in
+sight until done): a branch in `my_open_requests()` (0178, a new
+migration replacing it) returning the same columns, and an entry in
+`REMINDER_KINDS` in `lib/reminders.ts` — what it is called, where it
+links, what the button says. `ReminderBanner` itself knows no kinds; a
+kind the app does not list is left out rather than shown wrong.
 
 **A new notification type**: add it to `NOTIFICATION_TYPES` *and* the map in
 `notificationLink.ts` (the type is exhaustive, so a miss is a compile

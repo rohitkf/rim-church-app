@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { FamilyRequests } from '../components/FamilyCard'
+import { DashboardReminders } from '../components/ReminderBanner'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
@@ -447,6 +448,9 @@ export function DashboardPage() {
         }
       />
       <FamilyRequests />
+      {/* Whatever is waiting on this person — a poll, whether they can
+          serve, a mention — until it is done (0178). */}
+      <DashboardReminders className="mb-6" />
 
       {/* What is on today, before anything about a service: an event
           happens once, and the morning of it is the last useful moment to

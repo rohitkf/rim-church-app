@@ -30,6 +30,7 @@ const state = vi.hoisted(() => ({
   inserts: [] as { table: string; row: unknown }[],
   updates: [] as { table: string; row: unknown }[],
   deletes: [] as { table: string; ids: unknown }[],
+  places: [] as Record<string, unknown>[],
 }))
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -57,7 +58,9 @@ vi.mock('../lib/supabaseClient', () => ({
             ? [{ id: 's1', date: '2026-10-04', service_type: 'English Service' }]
             : table === 'profiles'
               ? [{ id: 'p1', first_name: 'Grace', last_name: 'Mensah' }]
-              : []
+              : table === 'department_members'
+                ? state.places
+                : []
       builder.select = () => builder
       builder.order = () => builder
       builder.gte = () => builder
@@ -128,6 +131,15 @@ beforeEach(() => {
   state.inserts = []
   state.updates = []
   state.deletes = []
+  state.places = []
+})
+
+const guestPlace = (user_id: string, first_name: string, department_id: string, team: string, member_type = 'guest') => ({
+  user_id,
+  department_id,
+  member_type,
+  department: { name: team },
+  person: { first_name, last_name: 'Guest' },
 })
 
 describe('who a poll says it is for', () => {
@@ -315,6 +327,68 @@ describe('the Polls page', () => {
     show()
     expect(await screen.findByRole('button', { name: 'Edit poll: Mine?' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit poll: Theirs?' })).not.toBeInTheDocument()
+  })
+
+  it('keeps editing and deleting to the asker and an Admin — not a team Head (0177)', async () => {
+    auth.ledDepartmentIds = ['d1']
+    state.polls = [
+      poll({ id: 'team', question: 'Team?', audience: 'team', department_id: 'd1', department: { name: 'Media' }, created_by: 'someone' }),
+      poll({ id: 'own', question: 'Own?', audience: 'team', department_id: 'd1', department: { name: 'Media' }, created_by: 'me' }),
+    ]
+    show()
+    expect(await screen.findByRole('button', { name: 'Edit poll: Own?' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit poll: Team?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete poll: Team?' })).not.toBeInTheDocument()
+  })
+
+  it('asks every guest by default, only those ticked, or none', async () => {
+    auth.isAdmin = true
+    state.places = [
+      guestPlace('g1', 'Ama', 'd1', 'Media'),
+      guestPlace('g2', 'Kofi', 'd2', 'Worship'),
+      guestPlace('c1', 'Esi', 'd1', 'Media', 'core'),
+    ]
+    const user = show()
+    const fill = async (q: string) => {
+      await user.type(screen.getByLabelText('Question'), q)
+      await user.type(screen.getByLabelText('Option 1'), 'Yes')
+      await user.type(screen.getByLabelText('Option 2'), 'No')
+    }
+
+    await user.click(await screen.findByRole('button', { name: 'New poll' }))
+    expect(await screen.findByText('2 of 2 guests')).toBeInTheDocument()
+    await fill('All guests?')
+    await user.click(screen.getByRole('button', { name: 'Post poll' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(2))
+    expect(state.inserts[0].row).toMatchObject({ include_guests: true, guest_ids: null })
+
+    // Only Worship's guest: clear them all, then take one team in a tap.
+    state.inserts = []
+    await user.click(await screen.findByRole('button', { name: 'New poll' }))
+    await user.click(await screen.findByRole('button', { name: 'Unselect all' }))
+    expect(screen.getByText('0 of 2 guests')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Worship' }))
+    expect(screen.getByRole('checkbox', { name: /Kofi Guest/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Ama Guest/ })).not.toBeChecked()
+    await fill('Some guests?')
+    await user.click(screen.getByRole('button', { name: 'Post poll' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(2))
+    expect(state.inserts[0].row).toMatchObject({ include_guests: true, guest_ids: ['g2'] })
+
+    state.inserts = []
+    await user.click(await screen.findByRole('button', { name: 'New poll' }))
+    await user.click(await screen.findByLabelText('Include guests'))
+    expect(screen.queryByText(/of 2 guests/)).not.toBeInTheDocument()
+    await fill('No guests?')
+    await user.click(screen.getByRole('button', { name: 'Post poll' }))
+    await waitFor(() => expect(state.inserts).toHaveLength(2))
+    expect(state.inserts[0].row).toMatchObject({ include_guests: false, guest_ids: null })
+  })
+
+  it('says on the card when a poll left guests out', async () => {
+    state.polls = [poll({ include_guests: false })]
+    show()
+    expect(await screen.findByText('No guests')).toBeInTheDocument()
   })
 
   it('edits a poll nobody has answered: question, options, answer type and names', async () => {
