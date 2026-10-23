@@ -203,13 +203,14 @@ function useNow(active: boolean): number {
  * are two different promises and both are needed.
  */
 export function PollsPage() {
-  const { session, isAdmin } = useAuth()
+  const { session, isAdmin, ledDepartmentIds } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const myId = session?.user.id ?? null
   // Who may ask is the church's to say (Settings › Access & Privileges,
-  // msg.polls). Changing or removing a poll is its asker's, or an Admin's —
-  // the Owner is one (0177).
+  // msg.polls). Changing or removing a poll is its asker's, an Admin's —
+  // the Owner is one (0177) — or, for a poll that is a team's own, that
+  // team's Head's or Assisting Head's (0179).
   const { can } = usePermissions()
   const departmentsForAsk = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const canAsk =
@@ -246,7 +247,10 @@ export function PollsPage() {
     return queryClient.invalidateQueries({ queryKey: POLLS_KEY })
   }
 
-  const mayManage = (poll: Poll) => isAdmin || poll.created_by === myId
+  const mayManage = (poll: Poll) =>
+    isAdmin ||
+    poll.created_by === myId ||
+    (!!poll.department_id && ledDepartmentIds.includes(poll.department_id))
 
   const vote = useMutation({
     mutationFn: async ({ poll, optionId, on }: { poll: Poll; optionId: string; on: boolean }) => {
