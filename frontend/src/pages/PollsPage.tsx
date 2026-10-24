@@ -19,6 +19,8 @@ import { useConfirmAction } from '../components/ConfirmAction'
 import {
   optionShare,
   pollIsOpen,
+  topOptions,
+  withTopFirst,
   respondentsFrom,
   tallyFromRows,
   timeLeft,
@@ -247,10 +249,18 @@ export function PollsPage() {
     return queryClient.invalidateQueries({ queryKey: POLLS_KEY })
   }
 
+  // How the church runs its polls (Settings › Page by Page › Polls, 0181).
+  const pollRules = useAppSettings()
+  const leadsTeam = (poll: Poll) => !!poll.department_id && ledDepartmentIds.includes(poll.department_id)
   const mayManage = (poll: Poll) =>
+    isAdmin || poll.created_by === myId || (pollRules.poll_managed_by === 'leads' && leadsTeam(poll))
+  // Who sees the most-picked options lifted and marked. The counts are on
+  // every card anyway; this is only how they are laid out.
+  const seesTop = (poll: Poll) =>
+    pollRules.poll_top_seen_by === 'everyone' ||
     isAdmin ||
     poll.created_by === myId ||
-    (!!poll.department_id && ledDepartmentIds.includes(poll.department_id))
+    (pollRules.poll_top_seen_by === 'leads' && leadsTeam(poll))
 
   const vote = useMutation({
     mutationFn: async ({ poll, optionId, on }: { poll: Poll; optionId: string; on: boolean }) => {
@@ -339,13 +349,15 @@ export function PollsPage() {
         <ul className="mt-4 flex flex-col gap-4">
           {polls.map((poll) => {
             const open = pollIsOpen(poll.closes_at, now)
-            const options = [...poll.options].sort((a, b) => a.sort_order - b.sort_order)
+            const asked = [...poll.options].sort((a, b) => a.sort_order - b.sort_order)
             const { counts, mine, voters } = tallyFromRows(
-              options.map((o) => o.id),
+              asked.map((o) => o.id),
               poll.tally,
               poll.votes,
               myId,
             )
+            const top = seesTop(poll) ? topOptions(counts, pollRules.poll_top_count) : new Set<string>()
+            const options = withTopFirst(asked, top, counts)
             // Names reach the browser only for whoever may see them; on an
             // anonymous poll that is the Owner and whoever Settings allows.
             const named = poll.votes.filter((v) => v.voter)
@@ -444,6 +456,7 @@ export function PollsPage() {
                     {options.map((option) => {
                       const picked = mine.has(option.id)
                       const count = counts[option.id] ?? 0
+                      const isTop = top.has(option.id)
                       return (
                         <li key={option.id}>
                           <button
@@ -452,7 +465,11 @@ export function PollsPage() {
                             aria-pressed={picked}
                             onClick={() => vote.mutate({ poll, optionId: option.id, on: !picked })}
                             className={`tap relative flex w-full items-center gap-3 overflow-hidden rounded-[var(--radius-chip)] px-3 py-2 text-left transition-colors duration-200 ${
-                              picked ? 'hairline-strong' : 'hairline'
+                              isTop
+                                ? 'shadow-[inset_0_0_0_1.5px_var(--color-accent-orange)]'
+                                : picked
+                                  ? 'hairline-strong'
+                                  : 'hairline'
                             } ${open ? 'hover:bg-raised' : 'cursor-default opacity-90'}`}
                           >
                             {/* The bar is behind the label rather than beside
@@ -467,6 +484,11 @@ export function PollsPage() {
                             <span className="relative min-w-0 flex-1 text-body-sm text-on-surface">
                               {option.label}
                             </span>
+                            {isTop && (
+                              <span className="relative shrink-0">
+                                <Pill tone="orange">Top</Pill>
+                              </span>
+                            )}
                             <span className="relative shrink-0 font-mono text-label-sm tabular text-on-surface-variant">
                               {count}
                             </span>

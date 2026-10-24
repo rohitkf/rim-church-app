@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { optionShare, pollIsOpen, tallyVotes, timeLeft } from './polls'
+import { optionShare, pollIsOpen, tallyVotes, timeLeft, topOptions, withTopFirst } from './polls'
 
 describe('tallyVotes', () => {
   const options = ['a', 'b', 'c']
@@ -78,5 +78,27 @@ describe('timeLeft', () => {
 
   it('says so once the deadline is behind us', () => {
     expect(at('2026-08-29T11:00:00Z')).toBe('closed')
+  })
+})
+
+describe('the most-picked options (0181)', () => {
+  const counts = { a: 1, b: 5, c: 3, d: 0 }
+
+  it('marks the top n, ties at the cut-off included, never an unpicked option', () => {
+    expect([...topOptions(counts, 2)].sort()).toEqual(['b', 'c'])
+    expect([...topOptions({ a: 2, b: 5, c: 2, d: 0 }, 2)].sort()).toEqual(['a', 'b', 'c'])
+    expect([...topOptions({ a: 0, b: 1, c: 0 }, 2)]).toEqual(['b'])
+    expect(topOptions({ a: 0, b: 0, c: 0 }, 2).size).toBe(0)
+  })
+
+  it('marks nothing when off, or when every option would be top', () => {
+    expect(topOptions(counts, 0).size).toBe(0)
+    expect(topOptions({ a: 1, b: 2 }, 2).size).toBe(0)
+  })
+
+  it('lifts the top ones, most picked first, and leaves the rest in the order asked', () => {
+    const options = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
+    expect(withTopFirst(options, topOptions(counts, 2), counts).map((o) => o.id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(withTopFirst(options, new Set(), counts)).toBe(options)
   })
 })
