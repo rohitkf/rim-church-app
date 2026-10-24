@@ -17,7 +17,8 @@ import { AlertBanner } from './AlertBanner'
 import { DockNav } from './DockNav'
 import { NAV_ITEMS as navItems } from '../lib/navItems'
 import { usePageAccess } from '../lib/usePageAccess'
-import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout } from '../lib/navLayout'
+import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout, navLabels } from '../lib/navLayout'
+import { NavNamesContext } from '../lib/navNames'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton } from './Surface'
 import { Tour } from './Tour'
@@ -93,8 +94,12 @@ export function AppShell() {
   const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) =>
     item.tabs ? item.tabs.some(canOpen) : canOpen(item.to),
   )
+  // And what the church calls each page, for the page's heading and the
+  // search box to say the same as the menu.
+  const names = navLabels(layoutQuery.data)
 
   return (
+    <NavNamesContext.Provider value={names}>
     <div
       className="flex min-h-[100svh] flex-col bg-background text-on-background"
       style={{ '--wash-hue': washFor(location.pathname) } as React.CSSProperties}
@@ -230,5 +235,6 @@ export function AppShell() {
 
       <Toaster />
     </div>
+    </NavNamesContext.Provider>
   )
 }

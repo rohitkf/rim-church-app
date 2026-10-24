@@ -3,8 +3,9 @@ import { supabase } from './supabaseClient'
 
 /**
  * The church's own arrangement of the menu (0121): which pages sit at the
- * top with no heading, which groups there are, what they are called, and
- * the order of everything. An Admin sets it in App settings; everybody
+ * top with no heading, which groups there are, what they are called, the
+ * order of everything, and any page the church calls by a name of its own
+ * (`labels`, path to name). An Admin sets it in Settings › Menu; everybody
  * sees the same.
  *
  * Kept apart from lib/appSettings on purpose. That card saves its whole
@@ -14,9 +15,14 @@ import { supabase } from './supabaseClient'
 
 export const NAV_LAYOUT_KEY = ['nav-layout']
 
+/** The longest name a page may be given: it has to fit the dock. */
+export const NAV_LABEL_MAX = 30
+
 export const navLayoutSchema = z.object({
   top: z.array(z.string()),
   groups: z.array(z.object({ name: z.string(), items: z.array(z.string()) })),
+  // Optional, so a layout saved before pages could be renamed still reads.
+  labels: z.record(z.string(), z.string()).optional(),
 })
 export type NavLayout = z.infer<typeof navLayoutSchema>
 
@@ -29,10 +35,34 @@ export async function fetchNavLayout(): Promise<NavLayout | null> {
   return parsed.success ? parsed.data : null
 }
 
-/** Null puts the app's own arrangement back. */
+/**
+ * Null puts the app's own arrangement back.
+ *
+ * Asks for the row back: an update the database's rules refuse changes
+ * nothing and reports no error, so without the row there is no telling a
+ * saved menu from one that was quietly turned away.
+ */
 export async function saveNavLayout(layout: NavLayout | null): Promise<void> {
-  const { error } = await supabase.from('app_settings').update({ nav_layout: layout }).eq('id', true)
+  const { data, error } = await supabase
+    .from('app_settings')
+    .update({ nav_layout: layout })
+    .eq('id', true)
+    .select('nav_layout')
   if (error) throw error
+  if (!data || data.length === 0) throw new Error('The menu was not saved — only an Admin can change it.')
+}
+
+/**
+ * The names the church has given pages: only the ones that say something
+ * — trimmed, not blank, not longer than a dock can show.
+ */
+export function navLabels(layout: NavLayout | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [path, name] of Object.entries(layout?.labels ?? {})) {
+    const clean = name.trim().slice(0, NAV_LABEL_MAX)
+    if (clean) out[path] = clean
+  }
+  return out
 }
 
 /** The app's own arrangement, read off the items' default groups. */
@@ -59,12 +89,14 @@ export function defaultNavLayout(items: { to: string; group?: string }[]): NavLa
  * mentions that the app no longer has is dropped. Empty groups are kept
  * in the layout but, having no items, draw no heading.
  */
-export function applyNavLayout<T extends { to: string; group?: string }>(
+export function applyNavLayout<T extends { to: string; group?: string; label?: string }>(
   items: T[],
   layout: NavLayout | null,
 ): T[] {
   if (!layout) return items
-  const byPath = new Map(items.map((i) => [i.to, i]))
+  // A page the church has renamed carries its name everywhere the menu goes.
+  const labels = navLabels(layout)
+  const byPath = new Map(items.map((i) => [i.to, labels[i.to] ? { ...i, label: labels[i.to] } : i]))
   const placed = new Set<string>()
   const take = (path: string, group: string | undefined): T[] => {
     const item = byPath.get(path)
@@ -79,9 +111,10 @@ export function applyNavLayout<T extends { to: string; group?: string }>(
   for (const item of items) {
     if (placed.has(item.to)) continue
     placed.add(item.to)
+    const named = byPath.get(item.to)!
     const home = groups.find((g) => g.name === item.group)
-    if (home) home.items.push({ ...item, group: home.name })
-    else top.push({ ...item, group: undefined })
+    if (home) home.items.push({ ...named, group: home.name })
+    else top.push({ ...named, group: undefined })
   }
   return [...top, ...groups.flatMap((g) => g.items)]
 }

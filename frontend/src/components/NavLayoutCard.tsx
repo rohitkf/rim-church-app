@@ -5,8 +5,10 @@ import { NAV_ITEMS } from '../lib/navItems'
 import {
   NAV_LAYOUT_KEY,
   applyNavLayout,
+  NAV_LABEL_MAX,
   defaultNavLayout,
   fetchNavLayout,
+  navLabels,
   saveNavLayout,
   type NavLayout,
 } from '../lib/navLayout'
@@ -32,11 +34,17 @@ import { QueryState } from './QueryState'
  * up and down, so moving a group never quietly re-files the pages around
  * it. It can be renamed in place, and removed once nothing is under it.
  *
+ * A page can be renamed too: the menu, the dock, the search box and the
+ * page's own heading all say the new name, and the reset puts the app's
+ * name back.
+ *
  * Nothing is written until Save. Who may open each page is unchanged: this
- * only says where a page sits for somebody who can already open it.
+ * only says where a page sits, and what it is called, for somebody who can
+ * already open it.
  */
 
-type Row = { kind: 'item'; id: string; to: string } | { kind: 'group'; id: string; name: string }
+// An item's `label` is the church's own name for it; blank is the app's.
+type Row = { kind: 'item'; id: string; to: string; label: string } | { kind: 'group'; id: string; name: string }
 
 // A heading's id is its place in the saved layout, so re-reading the same
 // layout gives the same ids and nothing being typed in is swapped out from
@@ -49,21 +57,32 @@ function rowsFrom(layout: NavLayout): Row[] {
   // since the layout was saved shows up in the editor where the menu has
   // put it, not missing.
   const placed = applyNavLayout(NAV_ITEMS, layout)
-  const rows: Row[] = placed.filter((i) => !i.group).map((i) => ({ kind: 'item', id: `item:${i.to}`, to: i.to }))
+  const labels = navLabels(layout)
+  const item = (to: string): Row => ({ kind: 'item', id: `item:${to}`, to, label: labels[to] ?? '' })
+  const rows: Row[] = placed.filter((i) => !i.group).map((i) => item(i.to))
   for (const [n, g] of layout.groups.entries()) {
     rows.push(groupRow(g.name, `group:${n}`))
-    for (const i of placed.filter((p) => p.group === g.name)) rows.push({ kind: 'item', id: `item:${i.to}`, to: i.to })
+    for (const i of placed.filter((p) => p.group === g.name)) rows.push(item(i.to))
   }
   return rows
 }
 
 function layoutFrom(rows: Row[]): NavLayout {
   const layout: NavLayout = { top: [], groups: [] }
+  const labels: Record<string, string> = {}
   for (const row of rows) {
-    if (row.kind === 'group') layout.groups.push({ name: row.name.trim() || 'Untitled', items: [] })
-    else if (layout.groups.length === 0) layout.top.push(row.to)
+    if (row.kind === 'group') {
+      layout.groups.push({ name: row.name.trim() || 'Untitled', items: [] })
+      continue
+    }
+    // Only a name that differs from the app's is kept: retyping the
+    // original is the same as resetting it.
+    const name = row.label.trim()
+    if (name && name !== defaultLabel(row.to)) labels[row.to] = name
+    if (layout.groups.length === 0) layout.top.push(row.to)
     else layout.groups[layout.groups.length - 1].items.push(row.to)
   }
+  if (Object.keys(labels).length > 0) layout.labels = labels
   return layout
 }
 
@@ -73,6 +92,8 @@ function blockOf(rows: Row[], index: number): [number, number] {
   while (end < rows.length && rows[end].kind === 'item') end++
   return [index, end]
 }
+
+const defaultLabel = (to: string) => NAV_ITEMS.find((i) => i.to === to)?.label ?? to
 
 const levelShort = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
 
@@ -95,6 +116,11 @@ export function NavLayoutCard() {
   const dirty = draft !== null
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  // The page whose name is being typed, if any, and what is in the box:
+  // its own copy, so clearing the box leaves it clear rather than putting
+  // the old name straight back.
+  const [naming, setNaming] = useState<string | null>(null)
+  const [typed, setTyped] = useState('')
 
   const change = (next: Row[]) => {
     setDraft(next)
@@ -120,10 +146,13 @@ export function NavLayoutCard() {
 
   if (!isAdmin) return null
 
-  const labelOf = (to: string) => NAV_ITEMS.find((i) => i.to === to)?.label ?? to
+  const nameOf = (row: Row) => (row.kind === 'item' && row.label.trim()) || (row.kind === 'item' ? defaultLabel(row.to) : '')
   const iconOf = (to: string) => NAV_ITEMS.find((i) => i.to === to)?.icon
   const names = rows.filter((r) => r.kind === 'group').map((r) => (r as { name: string }).name.trim().toLowerCase())
   const duplicate = names.some((n, i) => names.indexOf(n) !== i)
+  // Two pages called the same thing could not be told apart in the dock.
+  const pageNames = rows.filter((r) => r.kind === 'item').map((r) => nameOf(r).trim().toLowerCase())
+  const samePageName = pageNames.some((n, i) => pageNames.indexOf(n) !== i)
 
   const moveGroup = (index: number, direction: -1 | 1) => {
     const [start, end] = blockOf(ordered.map((id) => byId.get(id)!), index)
@@ -150,13 +179,17 @@ export function NavLayoutCard() {
 
   const remove = (id: string) => change(rows.filter((r) => r.id !== id))
 
+  const renamePage = (id: string, label: string) =>
+    change(rows.map((r) => (r.id === id && r.kind === 'item' ? { ...r, label } : r)))
+
   return (
     <section id="menu" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest p-6 hairline">
       {/* Past a heading puts a page in that group; above the first
           heading puts it at the top with no heading, like Dashboard. A
           group moves with its arrows, taking its pages along. */}
       <p className="text-body-sm text-on-surface-variant">
-        Drag a page by its grip to move it. Who can open each page does not change.
+        Drag a page by its grip to move it, or rename it — the new name shows in the menu, the search box and
+        on the page itself. Who can open each page does not change.
       </p>
 
       <QueryState isLoading={query.isLoading} error={query.error}>
@@ -214,19 +247,67 @@ export function NavLayoutCard() {
             }
             const Icon = iconOf(row.to)
             const item = NAV_ITEMS.find((i) => i.to === row.to)
+            const original = defaultLabel(row.to)
+            const renamed = !!row.label.trim() && row.label.trim() !== original
             return (
               <li
                 key={row.id}
                 {...rowProps(row.id)}
                 className="flex min-h-11 items-center gap-3 rounded-[var(--radius-chip)] px-2 text-body-md text-on-surface"
               >
-                <DragHandle label={labelOf(row.to)} {...handleProps(row.id)} />
+                <DragHandle label={nameOf(row)} {...handleProps(row.id)} />
                 {Icon && <Icon className="shrink-0" width={18} height={18} />}
-                <span className="min-w-0 flex-1 truncate">{labelOf(row.to)}</span>
+                {naming === row.id ? (
+                  <input
+                    autoFocus
+                    value={typed}
+                    placeholder={original}
+                    onChange={(e) => {
+                      const next = e.target.value.slice(0, NAV_LABEL_MAX)
+                      setTyped(next)
+                      renamePage(row.id, next)
+                    }}
+                    onBlur={() => setNaming(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'Escape') setNaming(null)
+                    }}
+                    aria-label={`Name for ${original}`}
+                    className={`${inputClasses} min-w-0 flex-1 px-3 py-1.5`}
+                  />
+                ) : (
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate">{nameOf(row)}</span>
+                    {renamed && <span className="truncate text-label-sm text-on-surface-faint">was {original}</span>}
+                  </span>
+                )}
                 {item && levelOf(item.to, access, settings.issues_raise_scope) !== 'everyone' && (
                   <span className="font-mono text-label-sm text-on-surface-faint">
                     {levelShort(levelOf(item.to, access, settings.issues_raise_scope))}
                   </span>
+                )}
+                {naming !== row.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTyped(row.label || original)
+                      setNaming(row.id)
+                    }}
+                    aria-label={`Rename ${nameOf(row)}`}
+                    className="tap shrink-0 rounded-full px-2 text-label-sm text-accent-blue-soft hover:text-on-surface"
+                  >
+                    Rename
+                  </button>
+                )}
+                {renamed && naming !== row.id && (
+                  <button
+                    type="button"
+                    onClick={() => renamePage(row.id, '')}
+                    aria-label={`Call it ${original} again`}
+                    title={`Call it ${original} again`}
+                    className="tap-square shrink-0 rounded-full px-1.5 text-on-surface-faint hover:text-on-surface"
+                  >
+                    ↺
+                  </button>
                 )}
               </li>
             )
@@ -242,6 +323,9 @@ export function NavLayoutCard() {
         {duplicate && (
           <p className="mt-3 text-body-sm text-error">Two groups have the same name — give each its own.</p>
         )}
+        {samePageName && (
+          <p className="mt-3 text-body-sm text-error">Two pages have the same name — give each its own.</p>
+        )}
         {error && (
           <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
             {error}
@@ -249,7 +333,7 @@ export function NavLayoutCard() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <ActionButton disabled={!dirty || duplicate || save.isPending} onClick={() => save.mutate(layoutFrom(rows))}>
+          <ActionButton disabled={!dirty || duplicate || samePageName || save.isPending} onClick={() => save.mutate(layoutFrom(rows))}>
             {save.isPending ? 'Saving…' : 'Save menu'}
           </ActionButton>
           {dirty && (

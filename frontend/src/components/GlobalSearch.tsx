@@ -9,6 +9,7 @@ import { SearchIcon } from './icons'
 import { formatServiceDay } from '../lib/sunday'
 import { Overlay } from './Surface'
 import { shortcutLabel, shortcutSpoken, thisPlatform } from '../lib/shortcutKey'
+import { useNavNames } from '../lib/navNames'
 
 interface Hit {
   id: string
@@ -65,7 +66,7 @@ function snippet(body: string): string {
  * Each source is queried with the same term and RLS decides what comes
  * back, so nobody is shown the existence of something they could not open.
  */
-async function search(term: string): Promise<Hit[]> {
+async function search(term: string, names: Record<string, string> = {}): Promise<Hit[]> {
   const like = `%${term}%`
 
   const [
@@ -147,8 +148,11 @@ async function search(term: string): Promise<Hit[]> {
 
   const needle = term.toLowerCase()
   for (const page of PAGES) {
-    if (`${page.label} ${page.keywords}`.toLowerCase().includes(needle)) {
-      hits.push({ id: `page-${page.to}`, kind: 'Page', label: page.label, detail: page.detail, to: page.to })
+    // A page the church has renamed is found, and shown, by its new name —
+    // and still by its old one, which is what people will type for a while.
+    const label = names[page.to] ?? page.label
+    if (`${label} ${page.label} ${page.keywords}`.toLowerCase().includes(needle)) {
+      hits.push({ id: `page-${page.to}`, kind: 'Page', label, detail: page.detail, to: page.to })
     }
   }
 
@@ -408,9 +412,10 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
   const debounced = useDebouncedValue(term.trim(), 200)
   const enabled = debounced.length >= MIN_QUERY
 
+  const names = useNavNames()
   const results = useQuery({
-    queryKey: ['global-search', debounced],
-    queryFn: () => search(debounced),
+    queryKey: ['global-search', debounced, names],
+    queryFn: () => search(debounced, names),
     enabled,
   })
 
