@@ -140,3 +140,25 @@ export function respondentsFrom(votes: RespondentVote[]): PollRespondent[] {
   }
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/**
+ * The options to lift to the top and mark (0181): the `n` most picked, and
+ * any tied with the last of them. Nothing when the setting is off, when
+ * the poll has no more options than `n` (they would all be "top"), or for
+ * an option nobody has picked.
+ */
+export function topOptions(counts: Record<string, number>, n: number): Set<string> {
+  const ids = Object.keys(counts)
+  if (n <= 0 || ids.length <= n) return new Set()
+  const sorted = ids.map((id) => counts[id]).sort((a, b) => b - a)
+  // Fewer than n options picked at all: every picked one is in the top n.
+  const cut = Math.max(sorted[n - 1], 1)
+  return new Set(ids.filter((id) => counts[id] >= cut))
+}
+
+/** The options with the top ones first, most picked first; the rest keep their order. */
+export function withTopFirst<T extends { id: string }>(options: T[], top: Set<string>, counts: Record<string, number>): T[] {
+  if (top.size === 0) return options
+  const lifted = options.filter((o) => top.has(o.id)).sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0))
+  return [...lifted, ...options.filter((o) => !top.has(o.id))]
+}

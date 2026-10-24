@@ -12,9 +12,10 @@ const auth = {
   ledDepartmentIds: [] as string[],
 }
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+const settings = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 vi.mock('../lib/appSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/appSettings')>()
-  return { ...actual, useAppSettings: () => actual.DEFAULT_SETTINGS }
+  return { ...actual, useAppSettings: () => ({ ...actual.DEFAULT_SETTINGS, ...settings.current }) }
 })
 
 vi.mock('../lib/queries', () => ({
@@ -132,6 +133,7 @@ beforeEach(() => {
   state.updates = []
   state.deletes = []
   state.places = []
+  settings.current = {}
 })
 
 const guestPlace = (user_id: string, first_name: string, department_id: string, team: string, member_type = 'guest') => ({
@@ -343,6 +345,65 @@ describe('the Polls page', () => {
       expect(screen.queryByRole('button', { name: `Edit poll: ${q}` })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: `Delete poll: ${q}` })).not.toBeInTheDocument()
     }
+  })
+
+  it('lets the church keep editing to the asker and Admins, leaving the team Head out (0181)', async () => {
+    settings.current = { poll_managed_by: 'askers' }
+    auth.ledDepartmentIds = ['d1']
+    state.polls = [
+      poll({ id: 'team', question: 'Team?', audience: 'team', department_id: 'd1', department: { name: 'Media' }, created_by: 'someone' }),
+    ]
+    show()
+    expect(await screen.findByText('Team?')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit poll: Team?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete poll: Team?' })).not.toBeInTheDocument()
+  })
+
+  const fourOptions = {
+    options: [
+      { id: 'o1', label: 'Friday', sort_order: 0 },
+      { id: 'o2', label: 'Saturday', sort_order: 1 },
+      { id: 'o3', label: 'Sunday', sort_order: 2 },
+      { id: 'o4', label: 'Monday', sort_order: 3 },
+    ],
+    votes: [
+      { option_id: 'o3', user_id: 'a' },
+      { option_id: 'o3', user_id: 'b' },
+      { option_id: 'o3', user_id: 'c' },
+      { option_id: 'o2', user_id: 'd' },
+      { option_id: 'o2', user_id: 'e' },
+      { option_id: 'o1', user_id: 'f' },
+    ],
+  }
+  const optionOrder = () =>
+    screen.getAllByRole('button', { pressed: false }).map((b) => b.textContent ?? '').filter((t) => /day/.test(t))
+
+  it('lifts the two most-picked options to the top and marks them, for whoever asked (0181)', async () => {
+    state.polls = [poll({ id: 'mine', question: 'Picnic day?', created_by: 'me', ...fourOptions })]
+    show()
+    await screen.findByText('Picnic day?')
+    const order = optionOrder()
+    expect(order[0]).toMatch(/^Sunday.*Top/)
+    expect(order[1]).toMatch(/^Saturday.*Top/)
+    expect(order.slice(2).map((t) => t.replace(/\d+$/, ''))).toEqual(['Friday', 'Monday'])
+    expect(screen.getAllByText('Top')).toHaveLength(2)
+  })
+
+  it('keeps the order as asked for somebody the setting leaves out, and follows the count it sets', async () => {
+    state.polls = [poll({ id: 'theirs', question: 'Picnic day?', created_by: 'someone', ...fourOptions })]
+    show()
+    await screen.findByText('Picnic day?')
+    expect(optionOrder()[0]).toMatch(/^Friday/)
+    expect(screen.queryByText('Top')).not.toBeInTheDocument()
+  })
+
+  it('shows everybody the top options when the church says so, as many as it says', async () => {
+    settings.current = { poll_top_seen_by: 'everyone', poll_top_count: 1 }
+    state.polls = [poll({ id: 'theirs', question: 'Picnic day?', created_by: 'someone', ...fourOptions })]
+    show()
+    await screen.findByText('Picnic day?')
+    expect(optionOrder()[0]).toMatch(/^Sunday.*Top/)
+    expect(screen.getAllByText('Top')).toHaveLength(1)
   })
 
   it('asks every guest by default, only those ticked, or none', async () => {
