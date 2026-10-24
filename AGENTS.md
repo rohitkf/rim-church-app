@@ -394,7 +394,10 @@ choices, what enforces it — and the same choices in SQL's
 with the default `group` it sits under in the More sheet (Sunday, After the service,
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
-never seen lands in its default group, or at the top →
+never seen lands in its default group, or at the top. It can also rename a page
+(`nav_layout.labels`, path to name): the menu and dock, the search box and the page's
+`PageHeader` say the new name — the heading at the page's own address only, never on
+the dashboard (a greeting) or a page further in →
 a step in `lib/tour.ts` for whoever should be shown it (the test holds
 every step to a page and an anchor that exist) →
 a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like

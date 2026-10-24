@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyNavLayout, defaultNavLayout } from './navLayout'
+import { applyNavLayout, defaultNavLayout, navLabels, navLayoutSchema } from './navLayout'
 
 const items = [
   { to: '/' },
@@ -49,5 +49,34 @@ describe('the church’s menu', () => {
       groups: [{ name: 'Sunday', items: ['/rota', '/set-lists'] }, { name: 'Talk', items: ['/messages'] }],
     })
     expect(shape(out)).toEqual(['-:/', '-:/rota', 'Sunday:/set-lists', 'Talk:/messages'])
+  })
+})
+
+describe('pages the church has renamed', () => {
+  const pages = [
+    { to: '/', label: 'Dashboard' },
+    { to: '/polls', label: 'Polls', group: 'Talk' },
+    { to: '/giving', label: 'Giving', group: 'Church life' },
+  ]
+
+  it('carries the new name into the menu, wherever the page sits', () => {
+    const layout = { top: ['/'], groups: [{ name: 'Talk', items: ['/polls'] }], labels: { '/polls': 'Votes', '/giving': 'Tithes' } }
+    const placed = applyNavLayout(pages, layout)
+    expect(placed.find((p) => p.to === '/polls')?.label).toBe('Votes')
+    // Not in the saved arrangement, so placed by default — still renamed.
+    expect(placed.find((p) => p.to === '/giving')?.label).toBe('Tithes')
+    expect(placed.find((p) => p.to === '/')?.label).toBe('Dashboard')
+  })
+
+  it('keeps only names that say something, no longer than the dock can show', () => {
+    expect(navLabels({ top: [], groups: [], labels: { '/a': '  Votes ', '/b': '   ', '/c': 'x'.repeat(50) } })).toEqual({
+      '/a': 'Votes',
+      '/c': 'x'.repeat(30),
+    })
+    expect(navLabels(null)).toEqual({})
+  })
+
+  it('still reads an arrangement saved before pages could be renamed', () => {
+    expect(navLayoutSchema.safeParse({ top: ['/'], groups: [] }).success).toBe(true)
   })
 })

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { defaultNavLabel, useNavNames } from '../lib/navNames'
 import { createPortal } from 'react-dom'
 import type { ComponentType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
@@ -96,6 +97,16 @@ export function LiveDot({ className = '' }: { className?: string }) {
   )
 }
 
+/** The heading as the church calls the page. */
+function useChurchPageName(title: string): string {
+  const names = useNavNames()
+  // The page's own address: a heading is drawn once per page, so the
+  // address it is drawn at is the page it heads.
+  const path = typeof window === 'undefined' ? '' : window.location.pathname
+  if (path === '/' || !names[path] || !defaultNavLabel(path)) return title
+  return names[path]
+}
+
 /**
  * A page's opening. Every page wears the same one, so moving between them
  * feels like one product rather than a set of screens.
@@ -114,6 +125,10 @@ export function PageHeader({
   description?: ReactNode
   action?: ReactNode
 }) {
+  // A page the church has renamed (Settings › Menu) wears its new name at
+  // its own address — Messages' "Message Board" included. The dashboard
+  // keeps its greeting, and a page further in (a team, an item) its own.
+  const shown = useChurchPageName(title)
   return (
     // `data-tour`: what the tour points at when a step is about the page itself.
     <header data-tour="page-title" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">
@@ -125,7 +140,7 @@ export function PageHeader({
           </span>
         )}
         {/* Apple's Large Title, 34pt bold, on a phone as on a desk. */}
-        <h1 className="mt-2 text-headline-xl">{title}</h1>
+        <h1 className="mt-2 text-headline-xl">{shown}</h1>
         {description && (
           <p className="mt-1.5 text-body-md text-on-surface-variant sm:text-body-lg">{description}</p>
         )}
