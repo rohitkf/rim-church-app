@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PagesCard } from './PagesCard'
+import { NavNamesContext } from '../lib/navNames'
 import { DEFAULT_SETTINGS } from '../lib/appSettings'
 import { SETTINGS_PAGES } from '../lib/pageSettings'
 import { decide, type Holder, type Overrides, type TeamOverrides } from '../lib/permissions'
@@ -69,12 +70,14 @@ beforeEach(() => {
   db.rpc = []
 })
 
-async function show(at = '/settings/pages') {
+async function show(at = '/settings/pages', names: Record<string, string> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[at]}>
-        <PagesCard />
+        <NavNamesContext.Provider value={names}>
+          <PagesCard />
+        </NavNamesContext.Provider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -179,6 +182,18 @@ describe('Page by Page', () => {
     await user.click(await screen.findByRole('option', { name: 'Everyone signed in' }))
     expect(section('Issues')).toHaveTextContent('opens to Everyone')
     expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Who can raise one')
+  })
+
+  it('calls each page what the church renamed it to, with the app’s name under it', async () => {
+    const user = await show('/settings/pages', { '/polls': 'Votes' })
+    const polls = screen.getByRole('button', { name: /^Votes/ })
+    expect(polls).toHaveTextContent('was Polls')
+    expect(screen.queryByRole('button', { name: /^Polls/ })).not.toBeInTheDocument()
+    await user.click(polls)
+    // A setting names the pages it moves by the church's names too.
+    const body = within(document.getElementById('page-polls-body')!)
+    expect(body.getAllByText('Votes', { exact: true }).length).toBeGreaterThan(0)
+    expect(body.queryByText('Polls', { exact: true })).not.toBeInTheDocument()
   })
 
   it('opens the page an anchor names', async () => {
