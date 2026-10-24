@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useNavNames } from '../lib/navNames'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
 import { ACCESS_LEVELS, PAGE_RULES, compactAccess, levelOf, type AccessLevel, type PageAccess } from '../lib/pageAccess'
@@ -287,6 +288,10 @@ function PageSection({
   cellFor: (c: Capability, who: RoleKey, live: boolean) => ReactNode
   onSaved: () => void
 }) {
+  // The name the church gave the page in Settings › Menu, with the app's
+  // own under it so the page can still be told apart.
+  const renamed = useNavNames()[page.to]
+  const label = renamed ?? page.label
   const rule = PAGE_RULES[page.to]
   const rooms = PAGE_ROOMS[page.to] ?? []
   const rows = teamRows(areas)
@@ -314,7 +319,10 @@ function PageSection({
         >
           <IconBadge icon={page.icon as ComponentType<{ className?: string; width?: number; height?: number }>} tone={TONES[page.group] ?? 'blue'} size="sm" />
           <span className="min-w-0 flex-1">
-            <span className="block text-body-md font-medium text-on-surface">{page.label}</span>
+            <span className="block text-body-md font-medium text-on-surface">{label}</span>
+            {renamed && renamed !== page.label && (
+              <span className="block text-label-sm text-on-surface-faint">was {page.label}</span>
+            )}
             <span className="mt-0.5 block text-label-md text-on-surface-faint">{meta || 'Nothing to set'}</span>
           </span>
           <Chevron open={open} />
@@ -365,7 +373,7 @@ function PageSection({
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                   {editable && rule.choices.length > 1 && rule.key ? (
                     <SegmentedControl
-                      label={`Who can open ${page.label}`}
+                      label={`Who can open ${label}`}
                       value={level}
                       onChange={(choice) => chooseOpen(rule.key!, choice)}
                       options={rule.choices.map((choice) => ({ value: choice, label: short(choice) }))}

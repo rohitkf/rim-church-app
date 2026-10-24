@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { pageName, type Draft, type Patch, type SettingEntry as Entry } from '../lib/settingsCatalog'
+import { useNavNames } from '../lib/navNames'
 import { shortDuration } from '../lib/settingsReadout'
 import { NumberDial } from './NumberDial'
 import { TimeField } from './DateTimeFields'
@@ -57,8 +58,10 @@ export function SettingEntryRow({
   open: boolean
   onToggle: () => void
 }) {
+  // The pages a setting moves, by the names the church gave them (Settings › Menu).
+  const names = useNavNames()
   if (entry.when && !entry.when(draft)) return null
-  const affects = entry.affects.map(pageName)
+  const affects = entry.affects.map((ref) => names[ref] ?? pageName(ref))
   const changed = !same(entry.get(draft), entry.get(stored))
 
   if (entry.kind === 'dial') {
