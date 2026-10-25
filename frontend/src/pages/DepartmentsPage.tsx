@@ -44,7 +44,15 @@ export function DepartmentsPage() {
   const joinRequests = joinRequestsQuery.data ?? []
   const myId = session?.user.id
   const myRequests = joinRequests.filter((r) => r.user_id === myId)
-  const waitingOnMe = joinRequests.filter((r) => r.status === 'pending' && r.user_id !== myId)
+  // Only the asks this person can answer — an Admin, or the team's head
+  // (respond_team_join). Overwatch reads everybody's (0187) and answers
+  // none, so the rest are not put in front of it as if they were its to do.
+  const waitingOnMe = joinRequests.filter(
+    (r) =>
+      r.status === 'pending' &&
+      r.user_id !== myId &&
+      (isAdmin || ledDepartmentIds.includes(r.department_id)),
+  )
   const memberDeptIds = useMemo(() => ownDeptsQuery.data ?? [], [ownDeptsQuery.data])
 
   // Everyone can read the department list (the rota needs other teams'
@@ -132,9 +140,10 @@ export function DepartmentsPage() {
         </QueryState>
       </div>
 
-      {/* Every team you are not on, and one verb for it. Admins already
-          see the whole list above, so this is for everyone else. */}
-      {!isAdmin && (
+      {/* Every team you are not on, and one verb for it. Admins and
+          Overwatch already see the whole list above — Overwatch reads every
+          team without joining any — so this is for everyone else. */}
+      {!seesAllTeams && (
         <div className="mt-8">
           <JoinTeamPanel
             departments={allDepartments ?? []}

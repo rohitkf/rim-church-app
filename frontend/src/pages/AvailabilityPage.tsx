@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
+import { useMyTeams } from '../lib/useMyTeams'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { QueryState } from '../components/QueryState'
 import { PageHeader, segmentClasses, segmentTrackClasses, type SegmentTone } from '../components/Surface'
@@ -230,7 +231,7 @@ function AnswerNote({
 }
 
 export function AvailabilityPage() {
-  const { session, isAdmin, seesAllTeams, isDepartmentHead } = useAuth()
+  const { session, isAdmin, isOverwatch, seesAllTeams, isDepartmentHead } = useAuth()
   // What may be done to other people's answers is the church's to say
   // (Settings › Access & Privileges). Admins seeing every team, and not
   // answering for themselves here, stay as they were.
@@ -444,8 +445,9 @@ export function AvailabilityPage() {
    * for somebody who may read some of it, and the database returns only
    * the lines they may.
    */
+  // Overwatch reads every team's log, as it reads every team (0187).
   const seesHistory = (departmentId: string, ownerId: string | undefined) =>
-    can('avail.history', { departmentId, ownerId })
+    isOverwatch || can('avail.history', { departmentId, ownerId })
   const readsHistory = myDepartments.some(
     (d) => can('avail.history', { departmentId: d.id }) || seesHistory(d.id, myId),
   )
@@ -467,8 +469,13 @@ export function AvailabilityPage() {
 
   // Admins are here to watch the numbers, not to answer for themselves:
   // they see every team, and a row of buttons on each one is noise on a
-  // page they use for oversight.
-  const canAnswer = !isAdmin
+  // page they use for oversight. Overwatch watches the same way, and
+  // answers only for a team it is actually on.
+  // The teams they are on — as a preview has them, when it is one.
+  const { teamIds: ownTeamIds } = useMyTeams()
+  const ownDeptIds = useMemo(() => new Set(ownTeamIds), [ownTeamIds])
+  const canAnswerFor = (departmentId: string) =>
+    !isAdmin && (!isOverwatch || ownDeptIds.has(departmentId) || isDepartmentHead(departmentId))
   const [overrideError, setOverrideError] = useState<string | null>(null)
 
   /*
@@ -886,7 +893,7 @@ export function AvailabilityPage() {
                 </div>
               )}
 
-              {canAnswer && !finished && !answersClosed && (
+              {canAnswerFor(dept.id) && !finished && !answersClosed && (
                 <div
                   role="group"
                   aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
@@ -941,7 +948,7 @@ export function AvailabilityPage() {
                   appears once one has been given — and stays readable
                   after the window shuts, when it is the head who needs
                   it most. */}
-              {canAnswer && mine && !finished && (
+              {canAnswerFor(dept.id) && mine && !finished && (
                 <AnswerNote
                   note={myRow(service.id, dept.id)?.note ?? null}
                   busy={setNote.isPending}
@@ -953,7 +960,7 @@ export function AvailabilityPage() {
                 />
               )}
 
-              {canAnswer && seesHistory(dept.id, myId) && (
+              {canAnswerFor(dept.id) && seesHistory(dept.id, myId) && (
                 <AnswerHistory
                   label="Your changes"
                   whose="your answer"
@@ -970,7 +977,7 @@ export function AvailabilityPage() {
                 to know whether they still have twenty minutes, and the
                 answer changes while they read it.
               */}
-              {canAnswer && !finished && !answersClosed && (
+              {canAnswerFor(dept.id) && !finished && !answersClosed && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
                   <ServiceCountdown
                     startsAt={answersClose.toISOString()}
@@ -983,7 +990,7 @@ export function AvailabilityPage() {
               {/* And what happens once it has run out: the answer is no
                   longer yours to change, but it is still yours to ask
                   about. A head's yes is what moves it. */}
-              {canAnswer && answersClosed && !finished && (
+              {canAnswerFor(dept.id) && answersClosed && !finished && (
                 <AskToChangeAnswer
                   answered={mine}
                   pending={pendingFor(requests, myId!, service.id, dept.id)}
@@ -1001,7 +1008,7 @@ export function AvailabilityPage() {
                 />
               )}
 
-              {canAnswer && answersClosed && finished && (
+              {canAnswerFor(dept.id) && answersClosed && finished && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
                   {mine
                     ? `Answers closed the night before — you said ${statusLabel[mine].toLowerCase()}.`
@@ -1019,7 +1026,7 @@ export function AvailabilityPage() {
                 />
               )}
 
-              {(leads || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
+              {(leads || isOverwatch || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
                 <details className="mt-3">
                   <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-200 hover:text-on-surface">
                     Team responses ({coreAnswered}/{coreIds.length})
