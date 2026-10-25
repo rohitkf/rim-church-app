@@ -12,9 +12,11 @@ import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { fetchDepartments } from '../lib/queries'
 import type { AppSettings } from '../lib/appSettings'
+import { NO_CONTROLS } from '../lib/plannerControls'
 import { Chevron } from './Collapsible'
 import { ChevronRightIcon } from './icons'
 import { PageTeamAccess } from './PageTeamAccess'
+import { PlannerControlsCard } from './PlannerControlsCard'
 import { FixedCell, ReachPicker, roleLabel } from './PermissionsCard'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
@@ -37,8 +39,8 @@ import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from
  * draft, one Save: nothing changes for anybody until it is pressed.
  */
 
-/** Every column the catalog writes, and who may open each page. */
-const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG), 'page_access'] as (keyof AppSettings)[]
+/** Every column the catalog writes, who may open each page, and who has the planner's buttons. */
+const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG), 'page_access', 'planner_controls'] as (keyof AppSettings)[]
 
 const TONES: Record<string, BadgeTone> = {
   Home: 'blue',
@@ -97,6 +99,8 @@ export function PagesCard() {
     [draft, storedRow],
   )
   const accessChanged = !!draft && !same(draft.page_access, (storedRow as Partial<AppSettings>).page_access ?? {})
+  const controlsChanged =
+    !!draft && !same(draft.planner_controls ?? NO_CONTROLS, (storedRow as Partial<AppSettings>).planner_controls ?? NO_CONTROLS)
   const changed = pending.length > 0 || room.changed
   const teamName = (id: string) => departments.data?.find((d) => d.id === id)?.name ?? 'that team'
   const actionOf = (key: CapabilityKey) => areas.flatMap((a) => a.capabilities).find((c) => c.key === key)?.action ?? key
@@ -190,6 +194,19 @@ export function PagesCard() {
                     perms={perms}
                     cellFor={cellFor}
                     onSaved={() => setSaved(false)}
+                    extra={
+                      page.to === '/service-planner' ? (
+                        <PlannerControlsCard
+                          value={draft.planner_controls ?? NO_CONTROLS}
+                          onChange={(next) => {
+                            setSaved(false)
+                            room.set('planner_controls', next)
+                          }}
+                          editable={editable}
+                          teams={departments.data ?? []}
+                        />
+                      ) : null
+                    }
                   />
                 ))}
               </ul>
@@ -199,9 +216,9 @@ export function PagesCard() {
           {editable && changed && (
             <Tile tone="warning" as="section">
               <h2 className="text-body-md font-medium text-on-surface">
-                {pending.length + changedSettings.length + (accessChanged ? 1 : 0) === 1
+                {pending.length + changedSettings.length + (accessChanged ? 1 : 0) + (controlsChanged ? 1 : 0) === 1
                   ? 'One change'
-                  : `${pending.length + changedSettings.length + (accessChanged ? 1 : 0)} changes`}{' '}
+                  : `${pending.length + changedSettings.length + (accessChanged ? 1 : 0) + (controlsChanged ? 1 : 0)} changes`}{' '}
                 to save
               </h2>
               <ul aria-label="Changes to save" className="mt-2 flex flex-col gap-1">
@@ -211,6 +228,9 @@ export function PagesCard() {
                   </li>
                 ))}
                 {accessChanged && <li className="text-body-sm text-on-surface-variant">Who can open which pages</li>}
+                {controlsChanged && (
+                  <li className="text-body-sm text-on-surface-variant">Who has the Service Planner’s buttons</li>
+                )}
                 {pending.map((change) => (
                   <li key={`${change.department ?? 'church'}:${change.capability}:${change.role}`} className="text-body-sm text-on-surface-variant">
                     {change.department && <span className="font-medium text-on-surface">{teamName(change.department)} · </span>}
@@ -267,6 +287,7 @@ function PageSection({
   perms,
   cellFor,
   onSaved,
+  extra,
 }: {
   page: SettingsPage
   open: boolean
@@ -287,6 +308,8 @@ function PageSection({
   perms: ReturnType<typeof usePermissionDraft>
   cellFor: (c: Capability, who: RoleKey, live: boolean) => ReactNode
   onSaved: () => void
+  /** Controls of the page's own, drawn after who can open it (the planner's buttons). */
+  extra?: ReactNode
 }) {
   // The name the church gave the page in Settings › Menu, with the app's
   // own under it so the page can still be told apart.
@@ -386,6 +409,8 @@ function PageSection({
                 </div>
               </section>
             )}
+
+            {extra}
 
             {rows.length > 0 && teams.length > 0 && (
               <PageTeamAccess

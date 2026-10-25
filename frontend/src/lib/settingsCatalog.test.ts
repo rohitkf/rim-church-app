@@ -22,8 +22,8 @@ import {
  * page it names wrongly files the setting nowhere.
  */
 
-/** The settings-row columns that are not a setting of their own: the logo, the two objects, the colour, and one nothing reads. */
-const NOT_A_ROW: (keyof AppSettings)[] = ['logo_url', 'page_access', 'display', 'coordinator_color', 'planner_upcoming_limit']
+/** The settings-row columns that are not a setting of their own: the logo, the three objects, the colour, and one nothing reads. */
+const NOT_A_ROW: (keyof AppSettings)[] = ['logo_url', 'page_access', 'display', 'planner_controls', 'coordinator_color', 'planner_upcoming_limit']
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])
 

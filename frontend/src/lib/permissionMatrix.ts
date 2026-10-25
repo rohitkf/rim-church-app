@@ -159,7 +159,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/service-planner'],
         short: 'Manage services',
         can: granted('svc.manage'),
-        note: 'Ending a service early too.',
+        note: 'Ending a service early too, which can also be given on its own in Page by Page › Service Planner › Planner buttons.',
       },
       {
         action: 'Build and edit service templates',
@@ -174,7 +174,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/service-planner'],
         short: 'Run sheet',
         can: granted('svc.sessions'),
-        note: 'Until the service has finished; afterwards it is a record.',
+        note: 'Until the service has finished; afterwards it is a record. Its menu’s buttons — Session started, Add time, Skip and the rest — can also be given one by one to a team or a person, in Page by Page › Service Planner › Planner buttons.',
       },
       {
         action: 'Add a guest to a service',
