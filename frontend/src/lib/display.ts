@@ -26,8 +26,24 @@ export const DASHBOARD_PANELS = [
 
 export type DashboardPanel = (typeof DASHBOARD_PANELS)[number]['key']
 
+/** Birthdays and anniversaries on the Dashboard: whether, where, and how much. */
+export type Celebrations = {
+  show: boolean
+  /** Above the services or below them. */
+  place: 'above' | 'below'
+  /** How many days ahead; 0 is today only. */
+  days: number
+  birthdays: boolean
+  anniversaries: boolean
+  /** "Turns 40", "25 years" — off, it is the name and the day alone. */
+  ages: boolean
+  /** How many are listed before the rest is a count. */
+  limit: number
+}
+
 export type Display = {
   dashboard: { serviceDays: number; openNext: 'auto' | 'always' | 'never'; show: Record<DashboardPanel, boolean> }
+  celebrations: Celebrations
   lists: { upcomingOpen: boolean; finishedOpen: boolean }
   windows: {
     setListDays: number
@@ -43,6 +59,15 @@ export const DISPLAY_DEFAULTS: Display = {
     serviceDays: 1,
     openNext: 'auto',
     show: Object.fromEntries(DASHBOARD_PANELS.map((p) => [p.key, true])) as Record<DashboardPanel, boolean>,
+  },
+  celebrations: {
+    show: true,
+    place: 'above',
+    days: 7,
+    birthdays: true,
+    anniversaries: true,
+    ages: true,
+    limit: 6,
   },
   lists: { upcomingOpen: false, finishedOpen: false },
   windows: {
@@ -75,6 +100,7 @@ export function readDisplay(stored: unknown): Display {
   const d = DISPLAY_DEFAULTS
   const lists = section('lists')
   const windows = section('windows')
+  const cel = section('celebrations')
   const num = (max: number) => z.number().int().min(1).max(max)
 
   return {
@@ -84,6 +110,15 @@ export function readDisplay(stored: unknown): Display {
       show: Object.fromEntries(
         DASHBOARD_PANELS.map((p) => [p.key, pick(z.boolean(), show[p.key], true)]),
       ) as Record<DashboardPanel, boolean>,
+    },
+    celebrations: {
+      show: pick(z.boolean(), cel.show, d.celebrations.show),
+      place: pick(z.enum(['above', 'below']), cel.place, d.celebrations.place),
+      days: pick(z.number().int().min(0).max(60), cel.days, d.celebrations.days),
+      birthdays: pick(z.boolean(), cel.birthdays, d.celebrations.birthdays),
+      anniversaries: pick(z.boolean(), cel.anniversaries, d.celebrations.anniversaries),
+      ages: pick(z.boolean(), cel.ages, d.celebrations.ages),
+      limit: pick(num(20), cel.limit, d.celebrations.limit),
     },
     lists: {
       upcomingOpen: pick(z.boolean(), lists.upcomingOpen, d.lists.upcomingOpen),

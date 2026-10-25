@@ -1,18 +1,15 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
-import { QueryState } from './QueryState'
 import { SectionPanel } from './SectionPanel'
 import { CakeIcon } from './icons'
 import { todayIso } from '../lib/monthGrid'
-import { isMissingColumnError } from '../lib/missingColumn'
 import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
-
-/** How far ahead to look, and how much of it to show at a glance. */
-const WINDOW_DAYS = 60
-const SHOWN = 6
+import type { Celebrations } from '../lib/display'
+import { usePageAccess } from '../lib/usePageAccess'
 
 const personSchema = z.object({
   id: z.string(),
@@ -22,27 +19,22 @@ const personSchema = z.object({
   anniversary: z.string().nullable().optional(),
 })
 
-/**
- * Everyone's dates. Anniversaries arrived in a later migration, so a
- * database that hasn't had it applied yet still gets birthdays rather than
- * an error — with a line saying what is missing.
- */
-async function fetchPeople(): Promise<{
-  people: z.infer<typeof personSchema>[]
-  anniversariesAvailable: boolean
-}> {
-  const withAnniversary = await supabase
-    .from('profiles')
-    .select('id, first_name, last_name, dob, anniversary')
-
-  if (!withAnniversary.error) {
-    return { people: z.array(personSchema).parse(withAnniversary.data), anniversariesAvailable: true }
-  }
-  if (!isMissingColumnError(withAnniversary.error, 'anniversary')) throw withAnniversary.error
-
-  const { data, error } = await supabase.from('profiles').select('id, first_name, last_name, dob')
+/** Everyone's dates, as the Events page reads them. */
+async function fetchPeople() {
+  const { data, error } = await supabase.from('profiles').select('id, first_name, last_name, dob, anniversary')
   if (error) throw error
-  return { people: z.array(personSchema).parse(data), anniversariesAvailable: false }
+  return z.array(personSchema).parse(data)
+}
+
+/**
+ * Who is married to whom (0152), so a couple's anniversary is one line
+ * with both names — the same call, and the same cache, as the Events page.
+ * Without it each person's anniversary is drawn on its own.
+ */
+async function fetchCouples() {
+  const { data, error } = await supabase.rpc('married_couples')
+  if (error) return []
+  return z.array(z.object({ a: z.string(), b: z.string() })).parse(data ?? [])
 }
 
 const KIND = {
@@ -53,13 +45,14 @@ const KIND = {
 function formatDay(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
+    weekday: 'short',
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',
   })
 }
 
-function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) {
+function OccasionRow({ occasion, isMe, ages }: { occasion: Occasion; isMe: boolean; ages: boolean }) {
   const kind = KIND[occasion.kind]
   const today = occasion.daysAway === 0
 
@@ -79,13 +72,11 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
             {isMe && <span className="ml-2 font-mono text-label-sm text-accent-blue-soft">You</span>}
           </span>
           <span className="flex items-center gap-2">
-            <span className={`rounded-full px-1.5 py-0.5 font-mono text-label-sm ${kind.chip}`}>
-              {kind.label}
-            </span>
-            {occasion.years !== null && (
+            <span className={`rounded-full px-1.5 py-0.5 font-mono text-label-sm ${kind.chip}`}>{kind.label}</span>
+            {ages && occasion.years !== null && (
               <span className="text-label-sm text-on-surface-variant">
                 {occasion.kind === 'birthday'
-                  ? `turning ${occasion.years}`
+                  ? `Turns ${occasion.years}`
                   : `${occasion.years} ${occasion.years === 1 ? 'year' : 'years'}`}
               </span>
             )}
@@ -97,62 +88,77 @@ function OccasionRow({ occasion, isMe }: { occasion: Occasion; isMe: boolean }) 
         <span className={`font-mono text-label-sm ${today ? 'text-accent-blue-soft' : 'text-on-surface'}`}>
           {whenLabel(occasion.daysAway)}
         </span>
-        <span className="font-mono text-label-sm text-on-surface-variant">
-          {formatDay(occasion.nextIso)}
-        </span>
+        <span className="font-mono text-label-sm text-on-surface-variant">{formatDay(occasion.nextIso)}</span>
       </span>
     </li>
   )
 }
 
 /**
- * Birthdays and wedding anniversaries coming up, on the dashboard where
- * everyone passes anyway — a list nobody navigates to is a list nobody
- * reads, and missing someone's birthday is the whole failure mode.
+ * Birthdays and wedding anniversaries coming up, on the Dashboard where
+ * everybody passes anyway — a list nobody navigates to is a list nobody
+ * reads, and missing somebody's birthday is the whole failure mode.
+ *
+ * How far ahead it looks, what it lists and how much of it, and whether it
+ * gives ages, are the church's (Settings › Display). Like the day's events
+ * above it, it is not there at all when there is nothing to say.
  */
-export function CelebrationsPanel() {
+export function CelebrationsPanel({ settings, className = '' }: { settings: Celebrations; className?: string }) {
   const { session } = useAuth()
+  const { canOpen } = usePageAccess()
   const today = todayIso()
 
   const peopleQuery = useQuery({ queryKey: ['celebration-people'], queryFn: fetchPeople })
+  const couplesQuery = useQuery({ queryKey: ['married-couples'], queryFn: fetchCouples })
 
   const occasions = useMemo(
-    () => upcomingCelebrations(peopleQuery.data?.people ?? [], today, WINDOW_DAYS),
-    [peopleQuery.data, today],
+    () =>
+      upcomingCelebrations(peopleQuery.data ?? [], today, settings.days, couplesQuery.data ?? []).filter(
+        (o) => (o.kind === 'birthday' ? settings.birthdays : settings.anniversaries),
+      ),
+    [peopleQuery.data, couplesQuery.data, today, settings.days, settings.birthdays, settings.anniversaries],
   )
-  const anniversariesAvailable = peopleQuery.data?.anniversariesAvailable ?? true
-  const shown = occasions.slice(0, SHOWN)
+
+  if (occasions.length === 0) return null
+  const shown = occasions.slice(0, settings.limit)
+  const more = occasions.length - shown.length
+  const myId = session?.user.id
+  const title =
+    settings.birthdays && settings.anniversaries
+      ? 'Birthdays & anniversaries'
+      : settings.birthdays
+        ? 'Birthdays'
+        : 'Anniversaries'
 
   return (
     <SectionPanel
-      title="Celebrations"
+      title={title}
       icon={CakeIcon}
+      className={className}
       aside={
-        occasions.length > shown.length ? (
-          <span className="font-mono text-label-sm text-on-surface-variant">
-            +{occasions.length - shown.length} more
-          </span>
-        ) : null
+        <span className="font-mono text-label-sm text-on-surface-variant">
+          {settings.days === 0 ? 'Today' : `Next ${settings.days} ${settings.days === 1 ? 'day' : 'days'}`}
+        </span>
       }
     >
-      <QueryState
-        isLoading={peopleQuery.isLoading}
-        error={peopleQuery.error}
-        isEmpty={occasions.length === 0}
-        emptyMessage="Nothing in the next two months. Dates come from people's profiles."
-      >
-        <ul className="-mx-2 flex flex-col">
-          {shown.map((o) => (
-            <OccasionRow key={o.id} occasion={o} isMe={o.personId === session?.user.id} />
-          ))}
-        </ul>
-      </QueryState>
-
-      {!anniversariesAvailable && (
-        <p className="mt-3 rounded-sm bg-warning/10 px-2.5 py-1.5 text-label-sm text-on-surface">
-          Birthdays only — anniversaries need one more database migration.
-        </p>
-      )}
+      <ul aria-label={title} className="-mx-2 flex flex-col">
+        {shown.map((o) => (
+          <OccasionRow
+            key={o.id}
+            occasion={o}
+            isMe={!!myId && (o.personId === myId || !!o.couple?.ids.includes(myId))}
+            ages={settings.ages}
+          />
+        ))}
+      </ul>
+      {more > 0 &&
+        (canOpen('/events') ? (
+          <Link to="/events" className="mt-2 inline-block px-1 text-label-md text-accent-blue-soft hover:underline">
+            +{more} more on Events
+          </Link>
+        ) : (
+          <p className="mt-2 px-1 font-mono text-label-sm text-on-surface-variant">+{more} more</p>
+        ))}
     </SectionPanel>
   )
 }

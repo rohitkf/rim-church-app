@@ -74,7 +74,9 @@ interface Base {
 
 interface Dial extends Base {
   kind: 'dial'
-  unit: 'minutes' | 'days' | 'notifications'
+  unit: 'minutes' | 'days' | 'notifications' | 'entries'
+  /** What 0 reads as, when 0 means something of its own ("Today only"). */
+  zeroText?: string
   min: number
   max: number
   /** Where the ruler stops, when the real ceiling is absurd to drag to. */
@@ -406,6 +408,127 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
       affects: ['/'],
     }),
   ),
+
+  /* ---- Birthdays and anniversaries on the Dashboard ---- */
+  {
+    ...display(
+      'display.celebrations.show',
+      (v) => v.celebrations.show,
+      (v, on) => ({ ...v, celebrations: { ...v.celebrations, show: on } }),
+      DISPLAY_DEFAULTS.celebrations.show,
+    ),
+    kind: 'switch',
+    label: 'Birthdays & anniversaries',
+    controlLabel: 'Show birthdays and anniversaries on the Dashboard',
+    summary: 'Who is celebrating, from people’s profiles.',
+    help: 'A card on the Dashboard listing the birthdays and wedding anniversaries coming up, today’s first. It is not there at all when nobody has one in the window. The dates come from each person’s profile; the Events page shows them too, whatever this says.',
+    affects: ['/'],
+  },
+  {
+    ...display<string>(
+      'display.celebrations.place',
+      (v) => v.celebrations.place,
+      (v, place) => ({ ...v, celebrations: { ...v.celebrations, place: place as Display['celebrations']['place'] } }),
+      DISPLAY_DEFAULTS.celebrations.place,
+    ),
+    kind: 'choice',
+    style: 'segmented',
+    label: 'Where it sits',
+    summary: 'Above the services, or below them.',
+    help: 'Above, it is among the first things anybody sees, under the day’s events. Below, the services come first and the card waits under them.',
+    affects: ['/'],
+    ariaLabel: 'Where birthdays and anniversaries sit',
+    options: [
+      { value: 'above', label: 'Above services' },
+      { value: 'below', label: 'Below services' },
+    ],
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
+  {
+    ...display(
+      'display.celebrations.days',
+      (v) => v.celebrations.days,
+      (v, n) => ({ ...v, celebrations: { ...v.celebrations, days: n } }),
+      DISPLAY_DEFAULTS.celebrations.days,
+    ),
+    kind: 'dial',
+    label: 'Looks ahead',
+    summary: '0 is today only.',
+    help: 'Birthdays and anniversaries within this many days are listed, soonest first. At 0 the card shows only today’s, and is gone on a day with none.',
+    affects: ['/'],
+    min: 0,
+    max: 60,
+    majorEvery: 7,
+    unit: 'days',
+    zeroText: 'Today only',
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
+  {
+    ...display(
+      'display.celebrations.birthdays',
+      (v) => v.celebrations.birthdays,
+      (v, on) => ({ ...v, celebrations: { ...v.celebrations, birthdays: on } }),
+      DISPLAY_DEFAULTS.celebrations.birthdays,
+    ),
+    kind: 'switch',
+    compact: true,
+    label: 'Birthdays',
+    controlLabel: 'List birthdays',
+    summary: 'From each person’s date of birth.',
+    help: 'Off, the card lists anniversaries alone.',
+    affects: ['/'],
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
+  {
+    ...display(
+      'display.celebrations.anniversaries',
+      (v) => v.celebrations.anniversaries,
+      (v, on) => ({ ...v, celebrations: { ...v.celebrations, anniversaries: on } }),
+      DISPLAY_DEFAULTS.celebrations.anniversaries,
+    ),
+    kind: 'switch',
+    compact: true,
+    label: 'Wedding anniversaries',
+    controlLabel: 'List wedding anniversaries',
+    summary: 'A married couple once, with both names.',
+    help: 'Off, the card lists birthdays alone.',
+    affects: ['/'],
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
+  {
+    ...display(
+      'display.celebrations.ages',
+      (v) => v.celebrations.ages,
+      (v, on) => ({ ...v, celebrations: { ...v.celebrations, ages: on } }),
+      DISPLAY_DEFAULTS.celebrations.ages,
+    ),
+    kind: 'switch',
+    compact: true,
+    label: 'Ages and years married',
+    controlLabel: 'Show ages and years married',
+    summary: '“Turns 40”, “25 years”.',
+    help: 'Off, the card gives the name and the day and nothing about how many years. Only where the year was filled in; a date saved without one never shows a number.',
+    affects: ['/'],
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
+  {
+    ...display(
+      'display.celebrations.limit',
+      (v) => v.celebrations.limit,
+      (v, n) => ({ ...v, celebrations: { ...v.celebrations, limit: n } }),
+      DISPLAY_DEFAULTS.celebrations.limit,
+    ),
+    kind: 'dial',
+    label: 'Lists at most',
+    summary: 'The rest is a count, and a link to Events.',
+    help: 'How many are listed on the card, soonest first. Beyond that the card says how many more there are and links to the Events page, which has every one.',
+    affects: ['/'],
+    min: 1,
+    max: 20,
+    majorEvery: 5,
+    unit: 'entries',
+    when: (d) => readDisplay(d.display).celebrations.show,
+  },
 
   /* ---- Every page that lists services ---- */
   {

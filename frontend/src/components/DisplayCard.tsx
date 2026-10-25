@@ -58,6 +58,23 @@ export function DisplayCard() {
             <ul className="mt-2 flex flex-col">{rows(DASHBOARD_PANELS.map((p) => `display.dashboard.show.${p.key}`))}</ul>
           </SectionTile>
 
+          <SectionTile
+            title="Birthdays & anniversaries"
+            hint="A card on the Dashboard, from people’s profiles. Gone on a day with none."
+          >
+            <SettingList>
+              {rows([
+                'display.celebrations.show',
+                'display.celebrations.place',
+                'display.celebrations.days',
+                'display.celebrations.limit',
+              ])}
+            </SettingList>
+            <ul className="mt-2 flex flex-col">
+              {rows(['display.celebrations.birthdays', 'display.celebrations.anniversaries', 'display.celebrations.ages'])}
+            </ul>
+          </SectionTile>
+
           <SectionTile title="Folded sections" hint="Every page that lists services: Today, Next, Upcoming, Finished.">
             <SettingList>{rows(['display.lists.upcomingOpen', 'display.lists.finishedOpen'])}</SettingList>
           </SectionTile>
