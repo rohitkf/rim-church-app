@@ -118,6 +118,30 @@ describe('the volunteer workbook', () => {
     expect(sheet(input, 'Volunteers').rows.map((r) => r[1])).toContain('Person')
   })
 
+  // Ticking Media alone exported the whole church: "include people on no
+  // team" took in everybody not on Media, members of every other team too.
+  it('exports only the chosen team, even when people on no team are included', () => {
+    const input = base({
+      people: [...base().people, person('u3', 'New', 'Person'), person('u4', 'Other', 'Team')],
+      memberships: [...base().memberships, membership('u4', 'd3')],
+      teams: [...base().teams, { id: 'd3', name: 'Worship' }],
+      selectedTeamIds: ['d2'],
+      includeUnassigned: true,
+    })
+    expect(sheet(input, 'Volunteers').rows.map((r) => r[1])).toEqual(['Alabi', 'Person'])
+    expect(sheet({ ...input, includeUnassigned: false }, 'Volunteers').rows.map((r) => r[1])).toEqual(['Alabi'])
+  })
+
+  it('counts a team’s Head as one of its people, roster row or not', () => {
+    const input = base({
+      people: [...base().people, person('u5', 'Head', 'Only')],
+      grants: [...base().grants, grant('u5', 'department_head', 'd2')],
+      selectedTeamIds: ['d2'],
+      includeUnassigned: false,
+    })
+    expect(sheet(input, 'Volunteers').rows.map((r) => r[1])).toEqual(['Alabi', 'Only'])
+  })
+
   it('names each person by what they are in that team, team by team', () => {
     const rows = sheet(base(), 'Team members').rows
     expect(rows).toEqual([

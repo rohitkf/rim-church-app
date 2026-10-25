@@ -48,7 +48,8 @@ export function ExportVolunteersDialog({
 }) {
   const errorText = useErrorText()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(departments.map((d) => d.id)))
-  const [includeUnassigned, setIncludeUnassigned] = useState(true)
+  // Off unless asked for: ticking one team should export that team.
+  const [includeUnassigned, setIncludeUnassigned] = useState(false)
   const [includeCompliance, setIncludeCompliance] = useState(false)
   const [includeFamily, setIncludeFamily] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -179,9 +180,9 @@ export function ExportVolunteersDialog({
                 className="mt-0.5 h-4 w-4"
               />
               <span>
-                Include people who aren’t on any of these teams
+                Also include people on no team yet
                 <span className="block text-label-md text-on-surface-faint">
-                  Accounts that exist but haven’t been added to a roster yet.
+                  Accounts that exist but haven’t been added to any team’s roster.
                 </span>
               </span>
             </label>

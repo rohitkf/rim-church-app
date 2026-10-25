@@ -119,9 +119,22 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       .filter(Boolean)
       .sort()
 
-  const onSelectedTeam = new Set(memberships.map((m) => m.user_id))
+  // Whoever is on a chosen team: its roster, and its Heads, who lead it
+  // whether or not anybody also listed them as a member.
+  const onSelectedTeam = new Set([
+    ...memberships.map((m) => m.user_id),
+    ...input.grants
+      .filter((g) => g.department_id && selected.has(g.department_id))
+      .filter((g) => g.role_type === 'department_head' || g.role_type === 'assisting_head')
+      .map((g) => g.user_id),
+  ])
+  // "People on no team" means exactly that — an account nobody has put on
+  // a roster yet. It used to mean everybody not on the chosen teams, so
+  // ticking Media alone (with this on, as it was by default) exported the
+  // whole church.
+  const onAnyTeam = new Set(input.memberships.map((m) => m.user_id))
   const people = input.people
-    .filter((p) => input.includeUnassigned || onSelectedTeam.has(p.id))
+    .filter((p) => onSelectedTeam.has(p.id) || (input.includeUnassigned && !onAnyTeam.has(p.id)))
     .sort(byName)
 
   const roleWords = (userId: string) => {
