@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
+import { isTeamPreview } from './viewAs'
 import { fetchOwnDepartmentIds } from './queries'
 
 /**
@@ -35,8 +36,9 @@ export function useMyTeams() {
   // none — whatever their own roster says. Overwatch is on none but, as
   // below, watches them all.
   if (viewAs) {
-    const previewed = viewAs.as === 'church' || viewAs.as === 'overwatch' ? [] : [viewAs.departmentId]
-    return { teamIds: previewed, onATeam: previewed.length > 0 || viewAs.as === 'overwatch', settled: true }
+    const previewed = isTeamPreview(viewAs) ? [viewAs.departmentId] : []
+    const watches = viewAs.as === 'overwatch' || viewAs.as === 'admin'
+    return { teamIds: previewed, onATeam: previewed.length > 0 || watches, settled: true }
   }
 
   const teamIds = query.data ?? []

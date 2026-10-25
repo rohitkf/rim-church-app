@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth, type ViewAs } from '../auth/AuthContext'
 import { fetchDepartments } from '../lib/queries'
-import { viewAsLabel } from '../lib/viewAs'
+import { viewAsLabel, type TeamPreview } from '../lib/viewAs'
 import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
@@ -38,6 +38,7 @@ function primaryRoleLabel(
   if (roles?.some((r) => r.role_type === 'overwatch')) return 'Overwatch'
   if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
   if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
+  if (viewAs?.as === 'coordinator') return 'Team Coordinator'
   return 'Team Member'
 }
 
@@ -183,13 +184,21 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
  * Seeing the app as somebody else sees it — an Admin checking what a
  * Church Member is offered, what a Head of Media can press, or what
  * Overwatch is shown under Settings › Overwatch, without borrowing their
- * phone. Admins and the owner only; the preview is of the
- * pages and buttons, and the banner it raises says the data is not.
+ * phone. Admins and the owner only — and an Admin preview is the owner's,
+ * since for an Admin it would be themselves. The preview is of the pages
+ * and buttons, and the banner it raises says the data is not.
  */
+const TEAM_PICKS: { as: TeamPreview; chip: string; ask: string }[] = [
+  { as: 'member', chip: 'Team Member…', ask: 'Member of which team?' },
+  { as: 'coordinator', chip: 'Team Coordinator…', ask: 'Coordinator of which team?' },
+  { as: 'assistant', chip: 'Assisting Head…', ask: 'Assisting Head of which team?' },
+  { as: 'head', chip: 'Team Head…', ask: 'Head of which team?' },
+]
+
 function ViewAsSection({ onChosen }: { onChosen: () => void }) {
-  const { viewAs, setViewAs } = useAuth()
+  const { viewAs, setViewAs, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
-  const [picking, setPicking] = useState<'member' | 'head' | null>(null)
+  const [picking, setPicking] = useState<TeamPreview | null>(null)
   const departmentsQuery = useQuery({
     queryKey: ['departments'],
     queryFn: fetchDepartments,
@@ -229,7 +238,7 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
       ) : picking ? (
         <div className="mt-2">
           <p className="text-label-sm text-on-surface-variant">
-            {picking === 'head' ? 'Head of which team?' : 'Member of which team?'}
+            {TEAM_PICKS.find((t) => t.as === picking)?.ask}
           </p>
           <ul className="mt-1.5 flex max-h-40 flex-col gap-1 overflow-y-auto">
             {(departmentsQuery.data ?? []).map((d) => (
@@ -263,15 +272,19 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
           <button type="button" role="menuitem" onClick={() => choose({ as: 'church' })} className={chip}>
             Church Member
           </button>
-          <button type="button" role="menuitem" onClick={() => setPicking('member')} className={chip}>
-            Team Member…
-          </button>
-          <button type="button" role="menuitem" onClick={() => setPicking('head')} className={chip}>
-            Team Head…
-          </button>
+          {TEAM_PICKS.map((t) => (
+            <button key={t.as} type="button" role="menuitem" onClick={() => setPicking(t.as)} className={chip}>
+              {t.chip}
+            </button>
+          ))}
           <button type="button" role="menuitem" onClick={() => choose({ as: 'overwatch' })} className={chip}>
             Overwatch
           </button>
+          {isSuperAdmin && (
+            <button type="button" role="menuitem" onClick={() => choose({ as: 'admin' })} className={chip}>
+              Admin
+            </button>
+          )}
         </div>
       )}
     </div>

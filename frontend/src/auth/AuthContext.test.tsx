@@ -30,6 +30,7 @@ const control = vi.hoisted(() => ({
   // test can fire it the way supabase-js does — from inside its auth lock.
   authCallback: null as null | ((event: string, session: unknown) => void),
   queriedTables: [] as string[],
+  ownerId: null as string | null,
 }))
 
 vi.mock('../lib/supabaseClient', () => {
@@ -62,7 +63,7 @@ vi.mock('../lib/supabaseClient', () => {
         control.queriedTables.push(table)
         if (table === 'profiles') return chain(mockProfile)
         // The app asks who owns it at sign-in; nobody does, in these tests.
-        if (table === 'app_owner') return chain(null)
+        if (table === 'app_owner') return chain(control.ownerId ? { user_id: control.ownerId } : null)
         return chain(mockRoles)
       },
     },
@@ -298,6 +299,81 @@ describe('an Admin previewing the app as somebody else', () => {
     expect(screen.getByTestId('out')).toHaveTextContent('false|true|true|0')
     // And it survives a reload, as the other previews do.
     expect(JSON.parse(sessionStorage.getItem('rim-view-as')!)).toEqual({ as: 'overwatch' })
+  })
+
+  function RolesProbe() {
+    const { loading, isAdmin, isSuperAdmin, ledDepartmentIds, hasRole, previewCoordinates, viewAs, setViewAs } =
+      useAuth()
+    if (loading) return <div>loading</div>
+    return (
+      <div>
+        <div data-testid="out">
+          {[
+            viewAs?.as ?? 'none',
+            isAdmin,
+            isSuperAdmin,
+            ledDepartmentIds.join(','),
+            hasRole('assisting_head', { departmentId: 'dept-audio' }),
+            hasRole('department_head', { departmentId: 'dept-audio' }),
+            previewCoordinates ?? '-',
+          ].join('|')}
+        </div>
+        <button onClick={() => setViewAs({ as: 'assistant', departmentId: 'dept-audio', departmentName: 'Audio' })}>
+          assistant
+        </button>
+        <button onClick={() => setViewAs({ as: 'coordinator', departmentId: 'dept-audio', departmentName: 'Audio' })}>
+          coordinator
+        </button>
+        <button onClick={() => setViewAs({ as: 'admin' })}>admin</button>
+      </div>
+    )
+  }
+
+  it('previews an Assisting Head as assisting, not heading, the one team', async () => {
+    render(
+      <AuthProvider>
+        <RolesProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent(/^none\|true/))
+    act(() => screen.getByText('assistant').click())
+    expect(screen.getByTestId('out')).toHaveTextContent('assistant|false|false|dept-audio|true|false|-')
+  })
+
+  it('previews a Team Coordinator as leading nothing, and coordinating the one team', async () => {
+    render(
+      <AuthProvider>
+        <RolesProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent(/^none\|true/))
+    act(() => screen.getByText('coordinator').click())
+    expect(screen.getByTestId('out')).toHaveTextContent('coordinator|false|false||false|false|dept-audio')
+  })
+
+  it('previews an Admin for the owner, without the owner’s keys', async () => {
+    control.ownerId = 'user-1'
+    render(
+      <AuthProvider>
+        <RolesProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent(/^none\|true\|true/))
+    act(() => screen.getByText('admin').click())
+    expect(screen.getByTestId('out')).toHaveTextContent('admin|true|false||false|false|-')
+    control.ownerId = null
+  })
+
+  it('does not let an Admin who is not the owner preview an Admin', async () => {
+    render(
+      <AuthProvider>
+        <RolesProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent(/^none\|true\|false/))
+    act(() => screen.getByText('admin').click())
+    // The request is refused: still themselves.
+    expect(screen.getByTestId('out')).toHaveTextContent(/^none\|true\|false/)
   })
 })
 

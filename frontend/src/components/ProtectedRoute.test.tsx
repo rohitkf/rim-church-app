@@ -25,6 +25,7 @@ function renderStuck() {
     isOverwatch: false,
     seesAllTeams: false,
     canPreview: false,
+    previewCoordinates: null,
     viewAs: null,
     setViewAs: () => {},
   }
