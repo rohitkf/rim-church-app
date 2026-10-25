@@ -77,7 +77,7 @@ export function TeamChatPage() {
         isLoading={departmentsQuery.isLoading || membershipsQuery.isLoading}
         error={departmentsQuery.error ?? membershipsQuery.error}
         isEmpty={myTeams.length === 0}
-        emptyMessage="You are not on a team yet, so there is no room to show. Ask to join one from the Teams page."
+        emptyMessage="You are not on a team yet, so there is no room to show. A team head adds you to their team."
       >
         {/* One picker for the whole page. It wraps rather than scrolls:
             a strip that slides sideways with its scrollbar hidden is how

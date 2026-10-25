@@ -55,7 +55,7 @@ export const ROLES = [
     key: 'newcomer',
     label: 'Church Member',
     blurb:
-      'Signed in and on no team. They see the church’s shape — the services and the countdown, the diary, the set lists, the teams (to ask to join one) and the Giving page — and none of the teams’ own working: no rota, no register, no boards, no call times, no debriefs. Joining a team makes them a Team Member; an Admin can also make them a Head or an Admin from Volunteers.',
+      'Signed in and on no team. They see the church’s shape — the services and the countdown, the diary, the set lists and the Giving page — and none of the teams’ own working: no rota, no register, no boards, no call times, no debriefs. A team head adding them makes them a Team Member; an Admin can also make them a Head or an Admin from Volunteers.',
   },
 ] as const
 
@@ -274,8 +274,8 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See teams, their roles and their checklists',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
-        note: 'How the church is organised is not private: it is how somebody new finds the team to ask to join.',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        note: 'A Church Member does not see the Teams page out of the box: a team head adds them (0189). Settings › Page by page can open it to everyone, and asking to join with it.',
       },
       {
         action: 'See who heads a team, and who assists',

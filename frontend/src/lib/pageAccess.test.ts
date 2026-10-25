@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 // 0155 redefines both functions (adding the Stage Layout page), so the
 // latest word is read.
 import migration from '../../../supabase/migrations/0155_the_stage_is_laid_out_before_sunday.sql?raw'
+// page_level()'s defaults, as they stand since Teams was kept to teams.
+import levels from '../../../supabase/migrations/0189_nobody_lets_themselves_into_a_team.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,
@@ -27,7 +29,7 @@ function sqlChoices(): Record<string, string[]> {
 
 /** The defaults page_level() falls back on, read out of the SQL. */
 function sqlDefaults(): { everyone: string[] } {
-  const body = migration.slice(migration.indexOf('function public.page_level'))
+  const body = levels.slice(levels.indexOf('function public.page_level'))
   const block = body.slice(0, body.indexOf("else 'team'"))
   return { everyone: [...block.matchAll(/when '([a-z-]+)'\s+then 'everyone'/g)].map((m) => m[1]) }
 }
@@ -89,9 +91,14 @@ describe('who may open what', () => {
       expect(mayOpen(path, 'church', {}), path).toBe(false)
       expect(mayOpen(path, 'member', {}), path).toBe(true)
     }
-    for (const path of ['/', '/service-planner', '/set-lists', '/updates', '/polls', '/events', '/giving', '/departments']) {
+    for (const path of ['/', '/service-planner', '/set-lists', '/updates', '/polls', '/events', '/giving']) {
       expect(mayOpen(path, 'church', {}), path).toBe(true)
     }
+    // Teams is the one that moved (0189): a head adds a Church Member,
+    // who no longer sees the page to ask to join from.
+    expect(mayOpen('/departments', 'church', {})).toBe(false)
+    expect(mayOpen('/departments', 'member', {})).toBe(true)
+    expect(mayOpen('/departments', 'church', { departments: 'everyone' })).toBe(true)
     expect(mayOpen('/volunteers', 'lead', {})).toBe(false)
     expect(mayOpen('/volunteers', 'admin', {})).toBe(true)
   })
