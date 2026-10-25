@@ -8,7 +8,8 @@ import { viewAsLabel } from '../lib/viewAs'
  * It says two things, and the second matters as much as the first. The
  * pages, the dock and the buttons are the ones that person would get. The
  * rows are not: the database still answers with the Admin's own access,
- * so a list may hold more than theirs would. A preview that let an Admin
+ * so a list may hold more than theirs would — and a change made in a
+ * preview is made, as the Admin. A preview that let an Admin
  * believe "they can see this" when only the Admin can is worse than none.
  */
 export function ViewAsBanner() {
@@ -23,8 +24,8 @@ export function ViewAsBanner() {
       <p className="min-w-0 flex-1 text-body-sm text-on-surface">
         <span className="font-medium">Previewing as {viewAsLabel(viewAs)}.</span>{' '}
         <span className="text-on-surface-variant">
-          Pages and buttons are what they would get; the data is still read with your Admin access,
-          so lists can show more than theirs would.
+          Pages and buttons are what they would get; the data is still read with your own access,
+          so lists can show more than theirs would. Anything you save is saved for real, as you.
         </span>
       </p>
       <button

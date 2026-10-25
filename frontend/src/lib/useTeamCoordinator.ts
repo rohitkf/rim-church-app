@@ -18,7 +18,7 @@ export function useTeamCoordinator(
   serviceId: string | null | undefined,
   departmentId: string | null | undefined,
 ): boolean {
-  const { session, isAdmin } = useAuth()
+  const { session, isAdmin, previewCoordinates } = useAuth()
   const myId = session?.user.id
 
   const query = useQuery({
@@ -36,9 +36,11 @@ export function useTeamCoordinator(
       return (data ?? []).some((r) => isCoordinatorRole(r.role_label))
     },
     // Nothing to ask when the answer cannot matter.
-    enabled: !!serviceId && !!departmentId && !!myId && !isAdmin,
+    enabled: !!serviceId && !!departmentId && !!myId && !isAdmin && !previewCoordinates,
   })
 
+  // An Admin previewing a Team Coordinator holds the role at every service.
+  if (previewCoordinates) return !!departmentId && departmentId === previewCoordinates
   return query.data === true
 }
 

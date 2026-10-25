@@ -85,4 +85,8 @@ describe('who may turn a light', () => {
   it('does not let anybody else on the rota', () => {
     expect(ask({})).toBe(false)
   })
+  it('lets a Team Coordinator preview of this team, and only this team', () => {
+    expect(ask({ previewCoordinates: 'media' })).toBe(true)
+    expect(ask({ previewCoordinates: 'audio' })).toBe(false)
+  })
 })

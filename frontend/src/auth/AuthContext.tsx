@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
 import { z } from 'zod'
+import { isTeamPreview } from '../lib/viewAs'
 
 /**
  * Who an Admin is previewing the app as. The pages, the dock and the
@@ -14,8 +15,14 @@ export type ViewAs =
   | { as: 'church' }
   | { as: 'member'; departmentId: string; departmentName: string }
   | { as: 'head'; departmentId: string; departmentName: string }
+  | { as: 'assistant'; departmentId: string; departmentName: string }
+  // On the team, and in its Team Coordinator role at every service — the
+  // rota decides that for real, one service at a time.
+  | { as: 'coordinator'; departmentId: string; departmentName: string }
   // Overwatch on no team of its own (0187).
   | { as: 'overwatch' }
+  // An Admin without the owner's keys — the owner's to take.
+  | { as: 'admin' }
 
 const VIEW_AS_KEY = 'rim-view-as'
 
@@ -24,8 +31,8 @@ function readViewAs(): ViewAs | null {
     const raw = sessionStorage.getItem(VIEW_AS_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as ViewAs
-    if (parsed?.as === 'church' || parsed?.as === 'overwatch') return parsed
-    if ((parsed?.as === 'member' || parsed?.as === 'head') && parsed.departmentId) return parsed
+    if (parsed?.as === 'church' || parsed?.as === 'overwatch' || parsed?.as === 'admin') return parsed
+    if (isTeamPreview(parsed) && parsed.departmentId) return parsed
     return null
   } catch {
     return null
@@ -60,8 +67,10 @@ interface AuthContextValue {
   ledDepartmentIds: string[]
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
-  /** Whether this person may preview the app as somebody else: an Admin. */
+  /** Whether this person may preview the app as somebody else: an Admin, or the owner. */
   canPreview: boolean
+  /** The team a Team Coordinator preview coordinates, at every service. */
+  previewCoordinates: string | null
   /** The preview in force, if any. */
   viewAs: ViewAs | null
   setViewAs: (next: ViewAs | null) => void
@@ -186,7 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const realIsSuperAdmin = !!ownerId && ownerId === session?.user.id
   const canPreview = realIsAdmin || realIsSuperAdmin
   // A preview only ever narrows, and only for somebody allowed to take one.
-  const viewAs = canPreview ? viewAsState : null
+  // Previewing an Admin is the owner's alone: for an Admin it would be
+  // themselves.
+  const viewAs = canPreview && (viewAsState?.as !== 'admin' || realIsSuperAdmin) ? viewAsState : null
 
   function setViewAs(next: ViewAs | null) {
     setViewAsState(next)
@@ -198,23 +209,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // The roles the pages are shown. A Church Member and a Team Member hold
-  // none; a Team Head holds the one team being previewed; Overwatch holds
-  // its one church-wide role, as Volunteers grants it.
+  // The roles the pages are shown. A Church Member, a Team Member and a
+  // Team Coordinator hold none (the coordinator's is the rota's); a Head
+  // or an Assisting Head holds the one team being previewed; Overwatch and
+  // Admin hold their one church-wide role, as Volunteers grants them.
+  const preview = (role_type: RoleType, department_id: string | null = null): UserRole[] => [
+    { id: 'preview', role_type, department_id, service_id: null },
+  ]
   const roles: UserRole[] = !viewAs
     ? realRoles
-    : viewAs.as === 'overwatch'
-      ? [{ id: 'preview', role_type: 'overwatch', department_id: null, service_id: null }]
-      : viewAs.as === 'head'
-      ? [
-          {
-            id: 'preview',
-            role_type: 'department_head',
-            department_id: viewAs.departmentId,
-            service_id: null,
-          },
-        ]
-      : []
+    : viewAs.as === 'admin'
+      ? preview('admin')
+      : viewAs.as === 'overwatch'
+        ? preview('overwatch')
+        : viewAs.as === 'head'
+          ? preview('department_head', viewAs.departmentId)
+          : viewAs.as === 'assistant'
+            ? preview('assisting_head', viewAs.departmentId)
+            : []
+  /** The team a Team Coordinator preview coordinates, at every service. */
+  const previewCoordinates = viewAs?.as === 'coordinator' ? viewAs.departmentId : null
 
   function hasRole(role: RoleType, opts?: { departmentId?: string; serviceId?: string }) {
     return roles.some((r) => {
@@ -268,6 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         signOut,
         canPreview,
+        previewCoordinates,
         viewAs,
         setViewAs,
       }}

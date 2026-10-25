@@ -49,7 +49,7 @@ export function TeamReadinessPanel({
    */
   windowFor?: (departmentId: string) => { open: boolean; clock: string }
 }) {
-  const { session } = useAuth()
+  const { session, previewCoordinates } = useAuth()
   const { can } = usePermissions()
   const myId = session?.user.id
   const queryClient = useQueryClient()
@@ -104,6 +104,7 @@ export function TeamReadinessPanel({
               serviceId,
               departmentId: light.departmentId,
               assignments,
+              previewCoordinates,
             })
           // Shown but held until the team's call time — the switch is there
           // to see, and says when it will answer.

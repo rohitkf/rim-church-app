@@ -91,8 +91,12 @@ export function mayMarkReady(opts: {
   serviceId: string
   departmentId: string
   assignments: { service_id: string; department_id: string; user_id: string; role_label: string }[]
+  /** The team a Team Coordinator preview coordinates — see AuthContext. */
+  previewCoordinates?: string | null
 }): boolean {
-  const coordinating = opts.assignments.some(
+  const coordinating =
+    (!!opts.previewCoordinates && opts.previewCoordinates === opts.departmentId) ||
+    opts.assignments.some(
     (a) =>
       a.service_id === opts.serviceId &&
       a.department_id === opts.departmentId &&

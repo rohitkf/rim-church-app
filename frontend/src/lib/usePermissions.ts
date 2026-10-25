@@ -49,7 +49,8 @@ const NONE: { church: Overrides; teams: TeamOverrides } = { church: {}, teams: {
  * answers: the preview narrows roles and teams, and this reads them.
  */
 export function usePermissions() {
-  const { session, isSuperAdmin, isAdmin, isOverwatch, ledDepartmentIds, isDepartmentHead, roles } = useAuth()
+  const { session, isSuperAdmin, isAdmin, isOverwatch, ledDepartmentIds, isDepartmentHead, roles, previewCoordinates } =
+    useAuth()
   const settings = useAppSettings()
   const { teamIds } = useMyTeams()
   const myId = session?.user.id ?? null
@@ -89,8 +90,11 @@ export function usePermissions() {
       assistTeams: known ? (assisted ? assisted.split('|') : []) : undefined,
       leads: isDepartmentHead,
       memberTeams: member ? member.split('|') : [],
+      // A Team Coordinator preview is coordinating somewhere; a real one
+      // is told so where it matters, by `where.coordinating`.
+      coordinatesAnywhere: !!previewCoordinates,
     }),
-    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead],
+    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates],
   )
 
   /*

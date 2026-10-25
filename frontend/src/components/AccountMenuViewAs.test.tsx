@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
   roles: [{ role_type: 'admin' }],
   isAdmin: true,
   canPreview: true,
+  isSuperAdmin: false,
   viewAs: null as null | Record<string, string>,
   setViewAs: vi.fn(),
 }))
@@ -34,6 +35,7 @@ function show() {
 
 beforeEach(() => {
   auth.canPreview = true
+  auth.isSuperAdmin = false
   auth.viewAs = null
   auth.setViewAs.mockClear()
 })
@@ -65,6 +67,33 @@ describe('View as, in the account menu', () => {
     expect(auth.setViewAs).toHaveBeenCalledWith({ as: 'overwatch' })
   })
 
+  it('asks which team before previewing an Assisting Head or a Team Coordinator', async () => {
+    const user = show()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Assisting Head…' }))
+    expect(screen.getByText('Assisting Head of which team?')).toBeInTheDocument()
+    await user.click(await screen.findByRole('menuitem', { name: 'Media' }))
+    expect(auth.setViewAs).toHaveBeenLastCalledWith({ as: 'assistant', departmentId: 'd1', departmentName: 'Media' })
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Team Coordinator…' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Media' }))
+    expect(auth.setViewAs).toHaveBeenLastCalledWith({ as: 'coordinator', departmentId: 'd1', departmentName: 'Media' })
+  })
+
+  it('offers an Admin preview to the owner only', async () => {
+    let user = show()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument()
+    document.body.innerHTML = ''
+
+    auth.isSuperAdmin = true
+    user = show()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Admin' }))
+    expect(auth.setViewAs).toHaveBeenCalledWith({ as: 'admin' })
+  })
+
   it('says it is previewing Overwatch', () => {
     auth.viewAs = { as: 'overwatch' }
     show()
@@ -84,7 +113,8 @@ describe('View as, in the account menu', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Previewing as a Team Member of Media',
     )
-    expect(screen.getByRole('status')).toHaveTextContent('still read with your Admin access')
+    expect(screen.getByRole('status')).toHaveTextContent('still read with your own access')
+    expect(screen.getByRole('status')).toHaveTextContent('Anything you save is saved for real')
     await user.click(screen.getByRole('button', { name: 'Exit preview' }))
     expect(auth.setViewAs).toHaveBeenCalledWith(null)
   })
