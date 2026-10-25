@@ -6,12 +6,13 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useMyTeams } from '../lib/useMyTeams'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { QueryState } from '../components/QueryState'
 import { PageHeader, segmentClasses, segmentTrackClasses, type SegmentTone } from '../components/Surface'
 import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
-import { formatServiceDay } from '../lib/sunday'
+import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { callTimeRowSchema, serviceDays, type CallTimeRow } from '../lib/callTimes'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { checklistWindow } from '../lib/checklistWindow'
@@ -749,6 +750,9 @@ export function AvailabilityPage() {
       {heading}
     </button>
 
+      <div>
+      {/* Which service this is, once its heading has scrolled away. */}
+      {open && <FloatingServiceTitle title={service.service_type} detail={shortServiceDay(service.date)} />}
       {/* Each team is its own card, so the eye can jump to the one
           that is short rather than reading a column of bars. */}
       <ul
@@ -1175,6 +1179,7 @@ export function AvailabilityPage() {
           )
         })}
       </ul>
+      </div>
     </section>
     )
   }

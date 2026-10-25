@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
+import { shortServiceDay } from '../lib/sunday'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
@@ -252,6 +254,10 @@ export function IssuesPage() {
         </div>
 
         <div id={`issues-${service.id}`} hidden={!open} className="mt-4 flex flex-col gap-3">
+          {/* Which service this is, once its heading has scrolled away. */}
+          {open && (
+            <FloatingServiceTitle title={service.service_type} detail={shortServiceDay(service.date)} className="-mb-3" />
+          )}
           {issues.length === 0 ? (
             <p className="text-body-sm text-on-surface-variant">
               {mineOnly ? 'Nothing for your teams at this service.' : 'Nothing raised at this service.'}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { FloatingServiceTitle } from "../components/FloatingServiceTitle";
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
@@ -10,7 +11,7 @@ import { fetchDepartments, fetchServices } from "../lib/queries";
 import { todayIso } from "../lib/monthGrid";
 import { DayHeading } from "../components/DayHeading";
 import { serviceDays } from "../lib/callTimes";
-import { formatServiceDay } from "../lib/sunday";
+import { formatServiceDay, shortServiceDay } from "../lib/sunday";
 import { useAppSettings, useDisplay } from "../lib/appSettings";
 import { useErrorText } from "../lib/useErrorText";
 import { useConfirmAction } from "../components/ConfirmAction";
@@ -564,6 +565,14 @@ export function DebriefsPage() {
                             </div>
                           )}
 
+                          <div>
+                          {/* Which service this is, once its heading has scrolled away. */}
+                          {open && (
+                            <FloatingServiceTitle
+                              title={service.service_type}
+                              detail={shortServiceDay(service.date)}
+                            />
+                          )}
                           <ul
                             id={`debrief-teams-${service.id}`}
                             hidden={!open}
@@ -726,6 +735,7 @@ export function DebriefsPage() {
                               );
                             })}
                           </ul>
+                          </div>
                         </section>
                       );
                     })}

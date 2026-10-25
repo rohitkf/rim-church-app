@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
@@ -22,7 +23,7 @@ import {
   fetchSetListItems,
 } from '../lib/queries'
 import { todayIso } from '../lib/monthGrid'
-import { formatServiceDay } from '../lib/sunday'
+import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useDisplay } from '../lib/appSettings'
 import { useErrorText } from '../lib/useErrorText'
@@ -249,6 +250,8 @@ export function SetListsPage() {
                   hidden={!open}
                   className="px-5 pb-5 sm:px-7 sm:pb-7"
                 >
+                  {/* Which service this is, once its heading has scrolled away. */}
+                  {open && <FloatingServiceTitle title={service.service_type} detail={shortServiceDay(service.date)} />}
                   {songs.length === 0 ? (
                     <Row variant="dashed" className="text-body-sm">
                       Nothing listed yet.

@@ -40,7 +40,7 @@ import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { TeamTurnoutRow } from '../components/TeamTurnoutRow'
-import { formatServiceDay, shiftSundayIso } from '../lib/sunday'
+import { formatServiceDay, shiftSundayIso, shortServiceDay } from '../lib/sunday'
 import { serviceStanding, type ServiceStanding } from '../lib/serviceState'
 import {
   inStartOrder,
@@ -53,6 +53,7 @@ import {
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useDisplay } from '../lib/appSettings'
 import { usePageAccess } from '../lib/usePageAccess'
 import { DateField } from '../components/DateTimeFields'
@@ -625,7 +626,13 @@ export function DashboardPage() {
                   </Tile>
 
                   {open && (
-                  <div id={`dashboard-service-${service.id}`} className="contents">
+                  <div id={`dashboard-service-${service.id}`} className="lg:col-span-12">
+                  {/* Which service this is, once its own row has scrolled away. */}
+                  <FloatingServiceTitle
+                    title={service.service_type}
+                    detail={[shortServiceDay(service.date), startTime ? formatTime(startTime) : null].filter(Boolean).join(' · ')}
+                  />
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
                   {/* The one thing that is true right now. */}
                   <Tile
                     tone={standing.state === 'done' ? 'success' : 'accent'}
@@ -1035,6 +1042,7 @@ export function DashboardPage() {
                       )}
                     </Tile>
                   )}
+                  </div>
                   </div>
                   )}
 
