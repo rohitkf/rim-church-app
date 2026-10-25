@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { AssigneePill, TimelineCard, TimelineRow } from './Timeline'
+import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from './Timeline'
 import { initialsOf } from '../lib/initials'
 
 describe('TimelineRow', () => {
@@ -129,5 +129,18 @@ describe('AssigneePill', () => {
     render(<AssigneePill name="Grace Mensah" initials="GM" />)
     expect(screen.getByText('Grace Mensah')).toBeInTheDocument()
     expect(screen.getByText('GM')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('RailCountdown', () => {
+  // The last session's gap runs to the End of service node.
+  it('counts down to the end of the service, then up once it is past', () => {
+    const soon = new Date(Date.now() + 5 * 60_000 + 30_000).toISOString()
+    const { unmount } = render(<RailCountdown startsAt={soon} to="end" />)
+    expect(screen.getByLabelText(/^The service ends in 5m/)).toHaveTextContent(/^5m \d\ds$/)
+    unmount()
+    const gone = new Date(Date.now() - 3 * 60_000).toISOString()
+    render(<RailCountdown startsAt={gone} to="end" holding />)
+    expect(screen.getByLabelText(/^Running 3m/)).toHaveTextContent(/^\+3m/)
   })
 })
