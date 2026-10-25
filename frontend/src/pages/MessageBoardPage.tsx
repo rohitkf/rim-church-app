@@ -10,8 +10,6 @@ import { messageRowSchema, type MessageRow } from '../lib/types'
 import { nextBoardClearTime } from '../lib/boardClear'
 import { useAppSettings } from '../lib/appSettings'
 import { Lifespan } from '../components/Lifespan'
-import { teamChipStyle } from '../lib/teamGradient'
-import { useTeamStyle } from '../lib/useTeamStyle'
 import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
 import { idOrNull } from '../lib/selectValue'
 import { usePermissions } from '../lib/usePermissions'
@@ -21,6 +19,7 @@ import { parseMentions, type MentionablePerson } from '../lib/mentions'
 import { useErrorText } from '../lib/useErrorText'
 import { Link } from 'react-router-dom'
 import { Select, selectPillClasses } from '../components/Select'
+import { BoardPostBadge } from '../components/BoardPostBadge'
 
 /**
  * The board's own countdown: to the next clear, on the day App settings
@@ -53,18 +52,6 @@ async function fetchMessages(): Promise<MessageRow[]> {
 }
 
 
-function DeptBadge({ name, color }: { name: string; color: string | null }) {
-  const { teamStyle } = useTeamStyle()
-
-  return (
-    <span
-      className="rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide"
-      style={teamChipStyle(color, teamStyle)}
-    >
-      {name}
-    </span>
-  )
-}
 
 export function MessageBoardPage() {
   const { session, isAdmin, isOverwatch, roles } = useAuth()
@@ -322,15 +309,7 @@ export function MessageBoardPage() {
                     <span className="font-medium text-on-surface">
                       {m.author ? `${m.author.first_name} ${m.author.last_name}` : 'Unknown'}
                     </span>
-                    {m.department ? (
-                      <DeptBadge name={m.department.name} color={m.department.color} />
-                    ) : (
-                      // Only an Admin may post without a team badge, so a
-                      // post with no team is one made as an Admin.
-                      <span className="rounded-full bg-primary px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-primary">
-                        Admin
-                      </span>
-                    )}
+                    <BoardPostBadge message={m} />
                   </span>
                   <span className="flex shrink-0 items-baseline gap-3">
                     <span className="font-mono text-label-sm text-on-surface-variant">
