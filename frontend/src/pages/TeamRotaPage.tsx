@@ -21,7 +21,7 @@ import {
 import { Select, selectPillClasses, type SelectItem } from '../components/Select'
 import { todayIso } from '../lib/monthGrid'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
-import { formatServiceDay } from '../lib/sunday'
+import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
@@ -49,6 +49,7 @@ import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
 import { usePermissions } from '../lib/usePermissions'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
@@ -592,6 +593,9 @@ export function TeamRotaPage() {
                     )}
                   </header>
 
+                  <div>
+                  {/* Which service this is, once its heading has scrolled away. */}
+                  {open && <FloatingServiceTitle title={service.service_type} detail={service.date === today ? 'Today' : shortServiceDay(service.date)} />}
                   {/* One card per team, so a head can find theirs without
                       reading past five others. */}
                   <ul
@@ -1187,6 +1191,7 @@ export function TeamRotaPage() {
                       )
                     })}
                   </ul>
+                  </div>
                 </Tile>
               )
   }

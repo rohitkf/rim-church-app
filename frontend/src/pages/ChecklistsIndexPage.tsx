@@ -22,7 +22,7 @@ import {
 import { todayIso } from '../lib/monthGrid'
 import { servicesToShow } from '../lib/rotaWindow'
 import { useAppSettings } from '../lib/appSettings'
-import { formatServiceDay } from '../lib/sunday'
+import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { nearestServiceDate } from '../lib/nearestService'
 import { TeamMark } from '../components/TeamMark'
 import { NudgeButton } from '../components/NudgeButton'
@@ -30,6 +30,7 @@ import { useFinishedServices } from '../lib/useFinishedServices'
 import { inStartOrder } from '../lib/upcomingServices'
 import { serviceDays } from '../lib/callTimes'
 import { DayHeading } from '../components/DayHeading'
+import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
 import { Chevron, useExpanded } from '../components/Collapsible'
@@ -458,6 +459,9 @@ export function ChecklistsIndexPage() {
                         />
                       )}
 
+                      <div>
+                      {/* Which service this is, once its heading has scrolled away. */}
+                      {open && <FloatingServiceTitle title={service.service_type} detail={shortServiceDay(service.date)} />}
                       <ul
                         id={`checklist-roles-${service.id}`}
                         hidden={!open}
@@ -640,6 +644,7 @@ export function ChecklistsIndexPage() {
                           )
                         })}
                       </ul>
+                      </div>
                     </section>
                   )
   }

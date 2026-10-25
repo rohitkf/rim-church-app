@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useHeaderHeight } from '../lib/useHeaderHeight'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { SparklesIcon } from './icons'
@@ -79,6 +80,8 @@ export function AppShell() {
   const location = useLocation()
   useNotificationRouting()
   const scrolled = useScrolled()
+  // Its height, for what floats beneath it (FloatingServiceTitle).
+  const headerRef = useHeaderHeight<HTMLElement>()
 
   const initials = profile
     ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
@@ -119,6 +122,7 @@ export function AppShell() {
       */}
       <ViewAsBanner />
       <header
+        ref={headerRef}
         className={`sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-[var(--ease-glide)] sm:px-6 lg:px-10 lg:pb-5 lg:pt-5 ${
           scrolled ? 'glass scroll-edge [--glass:var(--color-background)]' : ''
         }`}
