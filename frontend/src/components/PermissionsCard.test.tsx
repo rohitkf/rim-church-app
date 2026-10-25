@@ -97,7 +97,10 @@ describe('PermissionsCard', () => {
     expect(screen.getByText('See the rota')).toBeInTheDocument()
     await user.click(screen.getByRole('checkbox', { name: /Only show what a Church Member can do/ }))
     expect(screen.queryByText('See the rota')).toBeNull()
-    expect(screen.queryAllByText('No').length).toBe(0)
+    // The one No left is a choice the church can still make for them:
+    // asking to join a team, off out of the box (0190).
+    expect(screen.queryAllByText('No').length).toBe(1)
+    expect(screen.getByText('Ask to join a team')).toBeInTheDocument()
   })
 
   it('opens and folds every area at once', async () => {

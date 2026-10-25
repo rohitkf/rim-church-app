@@ -185,6 +185,16 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Asking to join a team (0190): out of the box a Church Member is added
+  // by a head rather than asking.
+  'team.request_join': {
+    admin: fixed(),
+    head: offer('none all', 'all'),
+    assistant: offer('none all', 'all'),
+    coordinator: fixed(),
+    member: offer('none all', 'all'),
+    newcomer: offer('none all', 'none'),
+  },
   'team.members': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
