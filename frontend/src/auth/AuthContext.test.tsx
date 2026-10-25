@@ -276,6 +276,29 @@ describe('an Admin previewing the app as somebody else', () => {
     expect(screen.getByTestId('is-admin')).toHaveTextContent('true')
     expect(screen.getByTestId('view-as')).toHaveTextContent('none')
   })
+
+  it('previews Overwatch as the role alone: every team seen, no team led, no Admin', async () => {
+    function OverwatchProbe() {
+      const { loading, isAdmin, isOverwatch, seesAllTeams, ledDepartmentIds, setViewAs } = useAuth()
+      if (loading) return <div>loading</div>
+      return (
+        <div>
+          <div data-testid="out">{`${isAdmin}|${isOverwatch}|${seesAllTeams}|${ledDepartmentIds.length}`}</div>
+          <button onClick={() => setViewAs({ as: 'overwatch' })}>overwatch</button>
+        </div>
+      )
+    }
+    render(
+      <AuthProvider>
+        <OverwatchProbe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent('true|false|true|'))
+    act(() => screen.getByText('overwatch').click())
+    expect(screen.getByTestId('out')).toHaveTextContent('false|true|true|0')
+    // And it survives a reload, as the other previews do.
+    expect(JSON.parse(sessionStorage.getItem('rim-view-as')!)).toEqual({ as: 'overwatch' })
+  })
 })
 
 describe('somebody who is not an Admin', () => {

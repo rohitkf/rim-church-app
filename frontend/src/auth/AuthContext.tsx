@@ -14,6 +14,8 @@ export type ViewAs =
   | { as: 'church' }
   | { as: 'member'; departmentId: string; departmentName: string }
   | { as: 'head'; departmentId: string; departmentName: string }
+  // Overwatch on no team of its own (0187).
+  | { as: 'overwatch' }
 
 const VIEW_AS_KEY = 'rim-view-as'
 
@@ -22,7 +24,7 @@ function readViewAs(): ViewAs | null {
     const raw = sessionStorage.getItem(VIEW_AS_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as ViewAs
-    if (parsed?.as === 'church') return parsed
+    if (parsed?.as === 'church' || parsed?.as === 'overwatch') return parsed
     if ((parsed?.as === 'member' || parsed?.as === 'head') && parsed.departmentId) return parsed
     return null
   } catch {
@@ -197,10 +199,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // The roles the pages are shown. A Church Member and a Team Member hold
-  // none; a Team Head holds the one team being previewed.
+  // none; a Team Head holds the one team being previewed; Overwatch holds
+  // its one church-wide role, as Volunteers grants it.
   const roles: UserRole[] = !viewAs
     ? realRoles
-    : viewAs.as === 'head'
+    : viewAs.as === 'overwatch'
+      ? [{ id: 'preview', role_type: 'overwatch', department_id: null, service_id: null }]
+      : viewAs.as === 'head'
       ? [
           {
             id: 'preview',
