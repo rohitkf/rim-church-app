@@ -41,4 +41,21 @@ describe('readDisplay', () => {
     expect(d.windows.setListDays).toBe(21)
     expect(d.windows.diaryPastDays).toBe(90)
   })
+
+  it('reads the Dashboard’s birthdays and anniversaries card, today-only included', () => {
+    expect(readDisplay({}).celebrations).toEqual({
+      show: true,
+      place: 'above',
+      days: 7,
+      birthdays: true,
+      anniversaries: true,
+      ages: true,
+      limit: 6,
+    })
+    const chosen = readDisplay({ celebrations: { place: 'below', days: 0, ages: false, limit: 3 } }).celebrations
+    expect(chosen).toMatchObject({ place: 'below', days: 0, ages: false, limit: 3, birthdays: true })
+    // A window past two months, or a list of none, is not one of the choices.
+    const odd = readDisplay({ celebrations: { days: 400, limit: 0, place: 'sideways' } }).celebrations
+    expect(odd).toMatchObject({ days: 7, limit: 6, place: 'above' })
+  })
 })

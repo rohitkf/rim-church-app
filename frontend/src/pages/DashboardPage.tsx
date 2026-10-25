@@ -52,6 +52,7 @@ import {
 } from '../lib/upcomingServices'
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
+import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { useDisplay } from '../lib/appSettings'
 import { DateField } from '../components/DateTimeFields'
 import { turnoutRing } from '../lib/teamTurnout'
@@ -458,6 +459,12 @@ export function DashboardPage() {
           happens once, and the morning of it is the last useful moment to
           be told. Nothing at all on the days there is nothing on. */}
       {show.todayEvents && <TodayEvents events={eventsToday} className="mt-6" />}
+
+      {/* Birthdays and anniversaries, where the church put them
+          (Settings › Display). Nothing at all when nobody has one. */}
+      {display.celebrations.show && display.celebrations.place === 'above' && (
+        <CelebrationsPanel settings={display.celebrations} className="mt-6" />
+      )}
 
       <QueryState isLoading={isLoading} error={error}>
         {services.length === 0 ? (
@@ -1054,6 +1061,10 @@ export function DashboardPage() {
           </div>
         )}
       </QueryState>
+
+      {display.celebrations.show && display.celebrations.place === 'below' && (
+        <CelebrationsPanel settings={display.celebrations} className="mt-8" />
+      )}
     </div>
   )
 }

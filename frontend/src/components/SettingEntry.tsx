@@ -66,7 +66,14 @@ export function SettingEntryRow({
 
   if (entry.kind === 'dial') {
     const value = entry.get(draft)
-    const said = (n: number) => (entry.unit === 'notifications' ? `${n} newest` : shortDuration(n, entry.unit))
+    const said = (n: number) =>
+      n === 0 && entry.zeroText
+        ? entry.zeroText
+        : entry.unit === 'notifications'
+          ? `${n} newest`
+          : entry.unit === 'entries'
+            ? `${n}`
+            : shortDuration(n, entry.unit)
     return (
       <SettingRow
         label={entry.label}
