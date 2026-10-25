@@ -4,8 +4,8 @@ import { chooseOption } from './select'
 
 /**
  * Choosing a date or a time through the app's own fields, the way a
- * person does: open the sheet, pick. The native inputs these replaced
- * could be typed into; these cannot, so tests go through the sheet too.
+ * person does: open the sheet, pick. A time can also be typed in the
+ * sheet's own box; these go through the columns, as most people do.
  */
 
 /** The sheet just opened — the topmost dialog, which may sit on another. */

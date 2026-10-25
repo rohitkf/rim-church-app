@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { monthGrid, todayIso } from '../lib/monthGrid'
 import { Overlay, fieldTriggerClasses, inputClasses } from './Surface'
 import { Select } from './Select'
-import { formatDateValue, formatTimeValue } from '../lib/dateTimeFormat'
+import { formatDateValue, formatTimeValue, parseTypedTime } from '../lib/dateTimeFormat'
 
 /*
  * Date and time fields, drawn by the app.
@@ -394,23 +394,81 @@ function TimeColumns({
   const [h0, m0] = value ? value.split(':').map(Number) : [9, 0]
   const [hour, setHour] = useState(h0)
   const [minute, setMinute] = useState(m0)
+  // What is in the box. Picking from a column rewrites it; typing a time
+  // that reads moves the columns to it. Anything else waits, and Done waits
+  // with it, rather than quietly keeping the last time that did read.
+  const [typed, setTyped] = useState(`${pad(h0)}:${pad(m0)}`)
+  const typedTime = parseTypedTime(typed)
+  const hintId = useId()
 
+  // Any minute can be typed, so whichever is chosen is always in the list.
   const minutes = useMemo(() => {
     const list = new Set<number>()
     for (let m = 0; m < 60; m += Math.max(1, minuteStep)) list.add(m)
-    list.add(m0)
+    list.add(minute)
     return [...list].sort((a, b) => a - b)
-  }, [minuteStep, m0])
+  }, [minuteStep, minute])
+
+  const pick = (h: number, m: number) => {
+    setHour(h)
+    setMinute(m)
+    setTyped(`${pad(h)}:${pad(m)}`)
+  }
+  const type = (text: string) => {
+    setTyped(text)
+    const next = parseTypedTime(text)
+    if (!next) return
+    const [h, m] = next.split(':').map(Number)
+    setHour(h)
+    setMinute(m)
+  }
+  const done = () => {
+    if (typedTime) onDone(typedTime)
+  }
 
   return (
     <div>
       <div className="grid grid-cols-2 gap-3">
-        <Column label="Hour" items={Array.from({ length: 24 }, (_, i) => i)} value={hour} onPick={setHour} />
-        <Column label="Minute" items={minutes} value={minute} onPick={setMinute} />
+        <Column
+          label="Hour"
+          items={Array.from({ length: 24 }, (_, i) => i)}
+          value={hour}
+          onPick={(h) => pick(h, minute)}
+        />
+        <Column label="Minute" items={minutes} value={minute} onPick={(m) => pick(hour, m)} />
       </div>
       <p className="mt-3 text-center font-mono text-headline-md tabular text-on-surface">
         {formatTimeValue(`${pad(hour)}:${pad(minute)}`)}
       </p>
+      <label className="mx-auto mt-2 block max-w-[12rem] text-center">
+        <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-faint">Or type it</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          aria-label="Type a time"
+          aria-invalid={!typedTime}
+          aria-describedby={typedTime ? undefined : hintId}
+          placeholder="09.29"
+          value={typed}
+          onChange={(e) => type(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              done()
+            }
+          }}
+          className={`${inputClasses} mt-1 py-2 text-center font-mono tabular ${
+            typedTime ? '' : 'shadow-[inset_0_0_0_2px_var(--color-error)]'
+          }`}
+        />
+      </label>
+      {!typedTime && (
+        <p id={hintId} role="status" className="mt-1 text-center text-body-sm text-error">
+          Type a time like 09.29, 9:29 or 21.45
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         {onClear ? (
           <button
@@ -433,8 +491,9 @@ function TimeColumns({
           </button>
           <button
             type="button"
-            onClick={() => onDone(`${pad(hour)}:${pad(minute)}`)}
-            className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary"
+            onClick={done}
+            disabled={!typedTime}
+            className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-50"
           >
             Done
           </button>
@@ -456,10 +515,15 @@ function Column({
   onPick: (n: number) => void
 }) {
   const list = useRef<HTMLDivElement>(null)
-  // Open on the chosen one rather than at midnight.
+  const opened = useRef(false)
+  // Open on the chosen one rather than at midnight, centred; after that a
+  // typed time brings it into view without moving what is already showing.
   useEffect(() => {
-    list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'center' })
-  }, [])
+    list.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: opened.current ? 'nearest' : 'center' })
+    opened.current = true
+  }, [value])
   return (
     <div>
       <p className="mb-1 text-center font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-faint">{label}</p>
