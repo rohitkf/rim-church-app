@@ -58,6 +58,55 @@ describe('the app’s own time field', () => {
     const minutes = screen.getByRole('listbox', { name: 'Minute' })
     expect(within(minutes).getByRole('option', { name: '28' })).toHaveAttribute('aria-selected', 'true')
   })
+
+  // The columns step by five; a time like 09:29 is typed instead.
+  it('takes a time typed in, any minute, and moves the columns to it', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<TimeField value="10:00" onChange={onChange} label="Start" />)
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    const box = screen.getByRole('textbox', { name: 'Type a time' })
+    expect(box).toHaveValue('10:00')
+    await user.clear(box)
+    await user.type(box, '09.29')
+    expect(within(screen.getByRole('listbox', { name: 'Hour' })).getByRole('option', { name: '09' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(within(screen.getByRole('listbox', { name: 'Minute' })).getByRole('option', { name: '29' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onChange).toHaveBeenCalledWith('09:29')
+  })
+
+  it('sets a typed time with Enter, and picking from a column rewrites the box', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<TimeField value="10:00" onChange={onChange} label="Start" />)
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    await user.click(within(screen.getByRole('listbox', { name: 'Hour' })).getByRole('option', { name: '18' }))
+    const box = screen.getByRole('textbox', { name: 'Type a time' })
+    expect(box).toHaveValue('18:00')
+    await user.clear(box)
+    await user.type(box, '7.41pm{Enter}')
+    expect(onChange).toHaveBeenCalledWith('19:41')
+  })
+
+  it('will not set a typed time that does not read', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<TimeField value="10:00" onChange={onChange} label="Start" />)
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    const box = screen.getByRole('textbox', { name: 'Type a time' })
+    await user.clear(box)
+    await user.type(box, '25.10{Enter}')
+    expect(box).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('Type a time like 09.29')
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled()
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })
 
 describe('a date and a time together', () => {
