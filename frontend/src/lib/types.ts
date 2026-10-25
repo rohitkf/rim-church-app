@@ -218,6 +218,8 @@ export const messageRowSchema = z.object({
   author: personSummarySchema.nullable(),
   department_id: z.string().nullable(),
   department: z.object({ id: z.string(), name: z.string(), color: z.string().nullable() }).nullable(),
+  /** What a post with no team was made as (0188); the database writes it. */
+  posted_as: z.enum(['admin', 'overwatch']).nullable().optional(),
 })
 export type MessageRow = z.infer<typeof messageRowSchema>
 
