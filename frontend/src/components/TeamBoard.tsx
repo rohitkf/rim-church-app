@@ -342,24 +342,36 @@ export function TeamBoard({
                     </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
+                  /* Not a <button>: a link inside one cannot be followed.
+                     Tapping the bubble still opens its actions; tapping a
+                     link in it opens the link (LinkedText stops the tap). */
+                  <div
+                    role={mayDelete ? 'button' : undefined}
+                    tabIndex={mayDelete ? 0 : undefined}
                     onClick={() =>
                       mayDelete ? setOpenActionsId((id) => (id === message.id ? null : message.id)) : undefined
                     }
+                    onKeyDown={(e) => {
+                      if (!mayDelete || e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setOpenActionsId((id) => (id === message.id ? null : message.id))
+                      }
+                    }}
                     aria-expanded={mayDelete ? openActionsId === message.id : undefined}
-                    className={`block w-full text-left ${mayDelete ? '' : 'cursor-default'}`}
+                    className={`block w-full text-left ${mayDelete ? 'cursor-pointer' : ''}`}
                   >
                     <MessageBody
                       body={message.body}
                       people={people}
+                      onDark={mine}
                       className={`rounded-[18px] px-3.5 py-2.5 text-body-sm ${
                         mine
                           ? 'rounded-br-[6px] bg-primary text-on-primary'
                           : 'rounded-bl-[6px] bg-raised text-on-surface'
                       }`}
                     />
-                  </button>
+                  </div>
                 )}
 
                 {mine && !editing && (
