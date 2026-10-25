@@ -89,7 +89,7 @@ describe('the Teams page', () => {
     expect(screen.queryByText('Asha Mathew')).not.toBeInTheDocument()
   })
 
-  it('still offers a Church Member the teams to ask to join', async () => {
+  it('offers a Church Member the teams to ask to join, wherever the church opens the page to them', async () => {
     show()
     expect((await screen.findAllByRole('button', { name: 'Request to join' })).length).toBeGreaterThan(0)
   })

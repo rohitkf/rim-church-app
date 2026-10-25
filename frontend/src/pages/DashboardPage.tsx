@@ -54,6 +54,7 @@ import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { useDisplay } from '../lib/appSettings'
+import { usePageAccess } from '../lib/usePageAccess'
 import { DateField } from '../components/DateTimeFields'
 import { turnoutRing } from '../lib/teamTurnout'
 import { todayIso } from '../lib/monthGrid'
@@ -141,6 +142,7 @@ export function DashboardPage() {
   const mayAddService = usePermissions().can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
+  const { canOpen } = usePageAccess()
   // What the church has chosen this page shows (Settings › Dashboard & Lists).
   const display = useDisplay()
   const show = display.dashboard.show
@@ -1016,13 +1018,21 @@ export function DashboardPage() {
                         who is on duty, what each team still has to do — arrives once a team head
                         adds you to their team.
                       </p>
-                      <Link
-                        to="/departments"
-                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
-                      >
-                        Find your team and ask to join
-                        <span aria-hidden="true">&rarr;</span>
-                      </Link>
+                      {/* Asking to join is from the Teams page, which is for
+                          people on a team unless the church opens it (0189). */}
+                      {canOpen('/departments') ? (
+                        <Link
+                          to="/departments"
+                          className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
+                        >
+                          Find your team and ask to join
+                          <span aria-hidden="true">&rarr;</span>
+                        </Link>
+                      ) : (
+                        <p className="mt-3 text-body-sm text-on-surface-variant">
+                          Speak to the head of the team you would like to serve on, and they will add you.
+                        </p>
+                      )}
                     </Tile>
                   )}
                   </div>

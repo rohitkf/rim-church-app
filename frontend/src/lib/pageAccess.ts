@@ -150,10 +150,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
   },
   '/departments': {
     key: 'departments',
-    default: 'everyone',
+    // For people on a team (0189): a Church Member is added by a head
+    // rather than asking their way in.
+    default: 'team',
     choices: ['everyone', 'team'],
     enforcement: 'page',
-    note: 'Church Members ask to join a team from here — closing it closes that door.',
+    note: 'Opened to everyone, Church Members can ask to join a team from here. Out of the box a head adds them instead — the database refuses the request too.',
   },
   '/volunteers': {
     default: 'admins',
