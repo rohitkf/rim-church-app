@@ -32,10 +32,11 @@ export function useMyTeams() {
   })
 
   // An Admin previewing the app is on exactly the team they picked, or on
-  // none — whatever their own roster says.
+  // none — whatever their own roster says. Overwatch is on none but, as
+  // below, watches them all.
   if (viewAs) {
-    const previewed = viewAs.as === 'church' ? [] : [viewAs.departmentId]
-    return { teamIds: previewed, onATeam: previewed.length > 0, settled: true }
+    const previewed = viewAs.as === 'church' || viewAs.as === 'overwatch' ? [] : [viewAs.departmentId]
+    return { teamIds: previewed, onATeam: previewed.length > 0 || viewAs.as === 'overwatch', settled: true }
   }
 
   const teamIds = query.data ?? []

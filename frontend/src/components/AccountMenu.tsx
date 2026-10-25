@@ -35,6 +35,7 @@ function primaryRoleLabel(
 ): string {
   if (viewAs?.as === 'church') return 'Church Member'
   if (isAdmin) return 'Admin'
+  if (roles?.some((r) => r.role_type === 'overwatch')) return 'Overwatch'
   if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
   if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
   return 'Team Member'
@@ -180,8 +181,9 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
 
 /**
  * Seeing the app as somebody else sees it — an Admin checking what a
- * Church Member is offered, or what a Head of Media can press, without
- * borrowing their phone. Admins and the owner only; the preview is of the
+ * Church Member is offered, what a Head of Media can press, or what
+ * Overwatch is shown under Settings › Overwatch, without borrowing their
+ * phone. Admins and the owner only; the preview is of the
  * pages and buttons, and the banner it raises says the data is not.
  */
 function ViewAsSection({ onChosen }: { onChosen: () => void }) {
@@ -266,6 +268,9 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
           </button>
           <button type="button" role="menuitem" onClick={() => setPicking('head')} className={chip}>
             Team Head…
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose({ as: 'overwatch' })} className={chip}>
+            Overwatch
           </button>
         </div>
       )}

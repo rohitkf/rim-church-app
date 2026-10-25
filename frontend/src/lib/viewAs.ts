@@ -9,5 +9,7 @@ export function viewAsLabel(viewAs: ViewAs): string {
       return `a Team Member of ${viewAs.departmentName}`
     case 'head':
       return `the Head of ${viewAs.departmentName}`
+    case 'overwatch':
+      return 'Overwatch'
   }
 }

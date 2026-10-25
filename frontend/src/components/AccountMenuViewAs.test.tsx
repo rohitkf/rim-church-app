@@ -58,6 +58,19 @@ describe('View as, in the account menu', () => {
     })
   })
 
+  it('offers an Admin an Overwatch preview, with no team to pick', async () => {
+    const user = show()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Overwatch' }))
+    expect(auth.setViewAs).toHaveBeenCalledWith({ as: 'overwatch' })
+  })
+
+  it('says it is previewing Overwatch', () => {
+    auth.viewAs = { as: 'overwatch' }
+    show()
+    expect(screen.getByRole('status')).toHaveTextContent('Previewing as Overwatch.')
+  })
+
   it('is not there for anybody who cannot preview', async () => {
     auth.canPreview = false
     const user = show()
