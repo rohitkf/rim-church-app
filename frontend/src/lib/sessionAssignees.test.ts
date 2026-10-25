@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { assigneeInitials, assigneeName, namesOn, peopleOn, refOf, saveAssignees } from './sessionAssignees'
+import {
+  assigneeInitials,
+  assigneeName,
+  namesOn,
+  peopleOn,
+  refOf,
+  saveAssignees,
+  substituteNamesOn,
+  substitutesOn,
+} from './sessionAssignees'
 import type { SessionAssignee } from './types'
 
 /*
@@ -39,6 +48,7 @@ const member = (id: string, order: number, first: string, last: string): Session
   user_id: id,
   guest_id: null,
   order_index: order,
+  is_substitute: false,
   profile: { id, first_name: first, last_name: last },
   guest: null,
 })
@@ -48,6 +58,7 @@ const guest = (id: string, order: number, name: string, title?: string): Session
   user_id: null,
   guest_id: id,
   order_index: order,
+  is_substitute: false,
   profile: null,
   guest: { id, name, title: title ?? null, note: null },
 })
@@ -71,7 +82,7 @@ describe('reading who is on a session', () => {
   // A row whose person has been deleted has no name to print, and a blank
   // pill on a running order is worse than one fewer.
   it('has no name for a row whose person is gone, and leaves them off', () => {
-    const orphan: SessionAssignee = { id: 'row-x', user_id: 'u9', guest_id: null, order_index: 0 }
+    const orphan: SessionAssignee = { id: 'row-x', user_id: 'u9', guest_id: null, order_index: 0, is_substitute: false }
     expect(assigneeName(orphan)).toBeNull()
     expect(namesOn({ assignees: [orphan, member('u1', 1, 'Grace', 'Mensah')] })).toEqual(['Grace Mensah'])
   })
@@ -95,7 +106,7 @@ describe('saving who is on a session', () => {
     ])
 
     expect(deletes).toEqual([])
-    expect(inserts).toEqual([[{ session_id: 's1', user_id: 'u2', guest_id: null, order_index: 1 }]])
+    expect(inserts).toEqual([[{ session_id: 's1', user_id: 'u2', guest_id: null, order_index: 1, is_substitute: false }]])
     expect(updates).toEqual([])
   })
 
@@ -111,7 +122,7 @@ describe('saving who is on a session', () => {
 
   it('writes a guest as a guest', async () => {
     await saveAssignees('s1', [], [{ kind: 'guest', id: 'g1' }])
-    expect(inserts).toEqual([[{ session_id: 's1', user_id: null, guest_id: 'g1', order_index: 0 }]])
+    expect(inserts).toEqual([[{ session_id: 's1', user_id: null, guest_id: 'g1', order_index: 0, is_substitute: false }]])
   })
 
   it('clears the lot when nobody is on it any more', async () => {
@@ -146,6 +157,38 @@ describe('saving who is on a session', () => {
     expect(updates).toEqual([
       { patch: { order_index: 1 }, id: 'row-u1' },
       { patch: { order_index: 0 }, id: 'row-u2' },
+    ])
+  })
+})
+
+describe('substitutes (0182)', () => {
+  const sub = (row: SessionAssignee): SessionAssignee => ({ ...row, is_substitute: true })
+
+  it('keeps who is taking a session and who stands in as two lists, each in its own order', () => {
+    const session = {
+      assignees: [
+        sub(member('u3', 1, 'Kofi', 'Asante')),
+        member('u1', 0, 'Grace', 'Mensah'),
+        sub(guest('g1', 0, 'Sam Varghese', 'Pastor')),
+      ],
+    }
+    expect(namesOn(session)).toEqual(['Grace Mensah'])
+    expect(substituteNamesOn(session)).toEqual(['Pastor Sam Varghese', 'Kofi Asante'])
+    expect(peopleOn(session)).toHaveLength(1)
+    expect(substitutesOn(session)).toHaveLength(2)
+  })
+
+  it('counts a session with only a substitute as nobody taking it', () => {
+    expect(peopleOn({ assignees: [sub(member('u1', 0, 'Grace', 'Mensah'))] })).toEqual([])
+  })
+
+  it('writes a substitute as a substitute, numbered within the substitutes', async () => {
+    await saveAssignees('s1', [], [{ kind: 'member', id: 'u2' }, { kind: 'guest', id: 'g1' }], true)
+    expect(inserts).toEqual([
+      [
+        { session_id: 's1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: true },
+        { session_id: 's1', user_id: null, guest_id: 'g1', order_index: 1, is_substitute: true },
+      ],
     ])
   })
 })

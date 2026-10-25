@@ -287,3 +287,41 @@ describe('choosing who is on a session', () => {
     })
   })
 })
+
+describe('choosing a substitute (0182)', () => {
+  it('says No substitute until one is picked, and marks each one Sub', () => {
+    const { rerender } = render(
+      <LeadPicker variant="substitute" label="Substitute for Message" options={options} values={[]} onChange={vi.fn()} />,
+    )
+    expect(screen.getByRole('button', { name: 'Substitute for Message' })).toHaveTextContent('No substitute')
+    rerender(
+      <LeadPicker
+        variant="substitute"
+        label="Substitute for Message"
+        options={options}
+        values={[{ kind: 'member', id: 'u2' }]}
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Tunde Alabi').parentElement).toHaveTextContent('Sub')
+    expect(screen.getByRole('button', { name: 'Substitute for Message' })).toHaveTextContent('Add a substitute')
+  })
+
+  it('never offers somebody already on the session in the other list', async () => {
+    render(
+      <LeadPicker
+        variant="substitute"
+        label="Substitute for Message"
+        options={options}
+        values={[]}
+        exclude={[{ kind: 'member', id: 'u1' }]}
+        onChange={vi.fn()}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Substitute for Message' }))
+    const list = screen.getByRole('listbox', { name: 'Substitute for Message' })
+    expect(within(list).queryByText('Grace Mensah')).not.toBeInTheDocument()
+    expect(within(list).getByText('Tunde Alabi')).toBeInTheDocument()
+    expect(within(list).getByText('No substitute')).toBeInTheDocument()
+  })
+})

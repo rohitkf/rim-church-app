@@ -17,6 +17,8 @@ import {
   peopleOn,
   refOf,
   saveAssignees,
+  substituteNamesOn,
+  substitutesOn,
   type PersonRef,
 } from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
@@ -70,7 +72,7 @@ async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
   const { data, error } = await supabase
     .from('service_sessions')
     .select(
-      '*, assignees:service_session_assignees(id, user_id, guest_id, order_index, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
+      '*, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
     )
     .eq('service_id', serviceId)
     .order('order_index')
@@ -137,6 +139,9 @@ export function ServicePlannerPage() {
   const [confirming, setConfirming] = useState<{ action: RunAction; id: string } | null>(null)
   const [endingService, setEndingService] = useState(false)
   const [addingTimeTo, setAddingTimeTo] = useState<string | null>(null)
+  // Sessions whose substitute row was opened from the menu but has nobody
+  // on it yet. One with a substitute always shows its row.
+  const [substituteOpen, setSubstituteOpen] = useState<Set<string>>(() => new Set())
 
   const updateField = useMutation({
     mutationFn: async ({
@@ -177,9 +182,18 @@ export function ServicePlannerPage() {
    * picker has the list in front of it, and a person removed by mistake is
    * two taps rather than a stack entry.
    */
+  // The same for whoever stands in (0182): a second list on the same rows.
   const setPeople = useMutation({
-    mutationFn: ({ session, next }: { session: ServiceSessionRow; next: PersonRef[] }) =>
-      saveAssignees(session.id, peopleOn(session), next),
+    mutationFn: ({
+      session,
+      next,
+      substitute = false,
+    }: {
+      session: ServiceSessionRow
+      next: PersonRef[]
+      substitute?: boolean
+    }) =>
+      saveAssignees(session.id, substitute ? substitutesOn(session) : peopleOn(session), next, substitute),
     onSuccess: () => invalidate(),
     onError: (err: unknown) => setServiceError(errorText(err, 'Could not save who is on that.')),
   })
@@ -553,6 +567,7 @@ export function ServicePlannerPage() {
         minutes: runsForMinutes(session),
         name: session.session_name,
         leads: namesOn(session),
+        substitutes: substituteNamesOn(session),
       })),
       totalLabel: formatDuration(totalMinutes),
       windowLabel:
@@ -1186,6 +1201,7 @@ export function ServicePlannerPage() {
                      * list can be read by the menu and by a test — and so
                      * a session nobody may edit simply has none.
                      */
+                    const substitutes = substitutesOn(session)
                     const sessionActions: MenuAction[] = skipped
                       ? canEdit
                         ? [
@@ -1249,6 +1265,12 @@ export function ServicePlannerPage() {
                               hint: 'Takes it out of the order without deleting it',
                               disabled: runPlan.isPending,
                               onSelect: () => setConfirming({ action: 'skip', id: session.id }),
+                            },
+                            {
+                              label: 'Assign substitute',
+                              hint: 'Names who steps in if the person on it cannot',
+                              onSelect: () =>
+                                setSubstituteOpen((open) => new Set(open).add(session.id)),
                             },
                             {
                               label: 'Add a session below',
@@ -1391,6 +1413,7 @@ export function ServicePlannerPage() {
                                     label={`Who leads ${session.session_name}`}
                                     options={leadOptions}
                                     values={peopleOn(session).map(refOf)}
+                                    exclude={substitutes.map(refOf)}
                                     onAddGuest={
                                       mayGuests
                                         ? async (name) => {
@@ -1435,6 +1458,63 @@ export function ServicePlannerPage() {
                                   </span>
                                 )}
                               </div>
+
+                              {/* Whoever steps in if the person on it
+                                  cannot (0182): a row of its own, labelled,
+                                  in amber with dashed pills, so it is never
+                                  read as one more person taking it. */}
+                              {(substitutes.length > 0 || (canEdit && substituteOpen.has(session.id))) && (
+                                <div
+                                  className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2"
+                                  aria-label={`Substitute for ${session.session_name}`}
+                                  role="group"
+                                >
+                                  <span className="font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
+                                    Substitute
+                                  </span>
+                                  {canEdit ? (
+                                    <LeadPicker
+                                      variant="substitute"
+                                      label={`Substitute for ${session.session_name}`}
+                                      options={leadOptions}
+                                      values={substitutes.map(refOf)}
+                                      exclude={peopleOn(session).map(refOf)}
+                                      onAddGuest={
+                                        mayGuests
+                                          ? async (name) => {
+                                              const made = await addGuest({ name })
+                                              await queryClient.invalidateQueries({
+                                                queryKey: GUESTS_KEY,
+                                              })
+                                              return { kind: 'guest', id: made.id }
+                                            }
+                                          : undefined
+                                      }
+                                      onChange={(next) => {
+                                        if (next.length === 0)
+                                          setSubstituteOpen((open) => {
+                                            const left = new Set(open)
+                                            left.delete(session.id)
+                                            return left
+                                          })
+                                        setPeople.mutate({ session, next, substitute: true })
+                                      }}
+                                    />
+                                  ) : (
+                                    substitutes.map((person) => {
+                                      const name = assigneeName(person)
+                                      return name ? (
+                                        <AssigneePill
+                                          key={person.id}
+                                          name={name}
+                                          initials={assigneeInitials(person)}
+                                          substitute
+                                        />
+                                      ) : null
+                                    })
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             <ActionMenu

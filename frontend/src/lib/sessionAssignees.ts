@@ -58,20 +58,41 @@ export function assigneeInitials(assignee: SessionAssignee): string {
   return initialsOf(words[0], words[1])
 }
 
-/** Everyone on a session, in the order somebody put them there. */
+/**
+ * Everyone taking a session, in the order somebody put them there.
+ *
+ * Not the substitutes (0182): they are named to step in, not on it, so a
+ * session with only a substitute is still a session nobody is taking.
+ */
 export function peopleOn(session: { assignees?: SessionAssignee[] }): SessionAssignee[] {
-  return [...(session.assignees ?? [])].sort((a, b) => a.order_index - b.order_index)
+  return [...(session.assignees ?? [])]
+    .filter((a) => !a.is_substitute)
+    .sort((a, b) => a.order_index - b.order_index)
 }
 
-/** The same list as names, ready to print. */
+/** Whoever steps in if they cannot, in their own order. */
+export function substitutesOn(session: { assignees?: SessionAssignee[] }): SessionAssignee[] {
+  return [...(session.assignees ?? [])]
+    .filter((a) => a.is_substitute)
+    .sort((a, b) => a.order_index - b.order_index)
+}
+
+const named = (people: SessionAssignee[]) =>
+  people.map(assigneeName).filter((name): name is string => !!name)
+
+/** The people taking it, as names ready to print. */
 export function namesOn(session: { assignees?: SessionAssignee[] }): string[] {
-  return peopleOn(session)
-    .map(assigneeName)
-    .filter((name): name is string => !!name)
+  return named(peopleOn(session))
+}
+
+/** The substitutes, as names ready to print. */
+export function substituteNamesOn(session: { assignees?: SessionAssignee[] }): string[] {
+  return named(substitutesOn(session))
 }
 
 /**
- * Make the session's list of people match `next`.
+ * Make one of the session's two lists — who is taking it, or who stands
+ * in (`substitute`) — match `next`. `current` is that list's rows only.
  *
  * Only the difference is written. Re-inserting the lot on every change
  * would work and would be simpler to read, but every row on this table is
@@ -83,6 +104,7 @@ export async function saveAssignees(
   sessionId: string,
   current: SessionAssignee[],
   next: PersonRef[],
+  substitute = false,
 ): Promise<void> {
   const wanted = new Map(next.map((ref, index) => [keyOf(ref), { ref, index }]))
   const held = new Map(current.map((row) => [keyOf(refOf(row)), row]))
@@ -109,6 +131,7 @@ export async function saveAssignees(
         user_id: ref.kind === 'member' ? ref.id : null,
         guest_id: ref.kind === 'guest' ? ref.id : null,
         order_index: index,
+        is_substitute: substitute,
       })),
     )
     if (error) throw error

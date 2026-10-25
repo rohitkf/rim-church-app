@@ -38,6 +38,55 @@ describe('serviceSheetPage', () => {
     expect(said).toContain('Nobody assigned')
   })
 
+  describe('substitutes (0182)', () => {
+    const withSub = sheet({
+      sessions: [
+        { time: '09:30 AM', minutes: 5, name: 'Welcome & Notices', leads: ['Ama Serwaa'], substitutes: ['Kofi Asante', 'Pastor Sam'] },
+        { time: '09:35 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+      ],
+    })
+
+    it('names whoever stands in under a SUBSTITUTE label, once, only where somebody does', () => {
+      const said = words(serviceSheetPage(withSub))
+      expect(said.filter((t) => t === 'SUBSTITUTE')).toHaveLength(1)
+      expect(said).toContain('Kofi Asante')
+      expect(said).toContain('Pastor Sam')
+      expect(words(serviceSheetPage(sheet()))).not.toContain('SUBSTITUTE')
+    })
+
+    for (const theme of ['dark', 'light'] as const) {
+      it(`draws a substitute's pill in its own colour, readable, in ${theme}`, () => {
+        const page = serviceSheetPage(withSub, 'content', theme)
+        const textAt = (name: string) => page.texts.find((t) => t.text === name)!
+        const pillUnder = (name: string) => {
+          const t = textAt(name)
+          return page.rects
+            .filter((r) => t.x >= r.x && t.x <= r.x + r.w && t.y >= r.y && t.y <= r.y + r.h)
+            .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+        }
+        const lead = pillUnder('Ama Serwaa')
+        const sub = pillUnder('Kofi Asante')
+        expect(sub.color).not.toBe(lead.color)
+        expect(contrastRatio(textAt('Kofi Asante').color!, sub.color!)).toBeGreaterThanOrEqual(4.5)
+        // The label sits on the session's card, not on a pill.
+        const label = textAt('SUBSTITUTE')
+        const card = page.rects
+          .filter((r) => label.x >= r.x && label.x <= r.x + r.w && label.y >= r.y && label.y <= r.y + r.h)
+          .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+        expect(contrastRatio(label.color!, card.color!)).toBeGreaterThanOrEqual(4.5)
+      })
+    }
+
+    it('makes the row tall enough to hold them, pushing the next session down', () => {
+      const plain = serviceSheetPage(sheet({ sessions: withSub.sessions.map((s) => ({ ...s, substitutes: [] })) }), 'content')
+      const subbed = serviceSheetPage(withSub, 'content')
+      const yOf = (page: ReturnType<typeof serviceSheetPage>) => page.texts.find((t) => t.text === 'Worship Set')!.y
+      expect(yOf(subbed)).toBeGreaterThan(yOf(plain))
+      const kofi = subbed.texts.find((t) => t.text === 'Kofi Asante')!
+      expect(kofi.y).toBeLessThan(yOf(subbed))
+    })
+  })
+
   it('says so plainly when nothing is planned yet', () => {
     const said = words(serviceSheetPage(sheet({ sessions: [] })))
     expect(said).toContain('No sessions planned yet.')
