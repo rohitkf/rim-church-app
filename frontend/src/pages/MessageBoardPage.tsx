@@ -67,7 +67,7 @@ function DeptBadge({ name, color }: { name: string; color: string | null }) {
 }
 
 export function MessageBoardPage() {
-  const { session, isAdmin, roles } = useAuth()
+  const { session, isAdmin, isOverwatch, roles } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Who may post for which team, and who may tidy the board, are the
@@ -262,7 +262,9 @@ export function MessageBoardPage() {
                     className={selectPillClasses}
                     aria-label="Post as"
                     options={[
-                      ...(everywhere ? [{ value: '', label: isAdmin ? 'Admin' : 'The whole church' }] : []),
+                      ...(everywhere
+                        ? [{ value: '', label: isAdmin ? 'Admin' : isOverwatch ? 'Overwatch' : 'The whole church' }]
+                        : []),
                       ...postAsOptions.map((o) => ({ value: o.id, label: o.label })),
                     ]}
                   />

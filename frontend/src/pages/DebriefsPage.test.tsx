@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
   teamIds: [] as string[],
   endsAt: {} as Record<string, number>,
   now: Date.parse('2026-09-14T09:00:00Z'),
+  overwatch: false,
 }))
 
 vi.mock('../lib/useMyTeams', () => ({
@@ -46,6 +47,7 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
     isAdmin: false,
+    isOverwatch: state.overwatch,
     isDepartmentHead: () => state.leads,
   }),
 }))
@@ -60,7 +62,12 @@ vi.mock('../lib/appSettings', async () => {
   const { DISPLAY_DEFAULTS } = await import('../lib/display')
   return {
     useDisplay: () => DISPLAY_DEFAULTS,
-    useAppSettings: () => ({ debrief_retention_days: state.retention, debrief_open_minutes_after: 720 }),
+    useAppSettings: () => ({
+      debrief_retention_days: state.retention,
+      debrief_open_minutes_after: 720,
+      overwatch_debriefs: true,
+      overwatch_pages: {},
+    }),
   }
 })
 
@@ -122,6 +129,7 @@ vi.mock('../lib/supabaseClient', () => ({
 }))
 
 beforeEach(() => {
+  state.overwatch = false
   state.extraServices = []
   state.debriefs = []
   state.written = []
@@ -585,6 +593,36 @@ describe('a team writing its own debrief', () => {
  * the shape of the page changed underneath them.
  */
 describe('minutes from the build before this one', () => {
+  // 0187: Overwatch writes its own debrief of the service, beside the teams'.
+  it('gives Overwatch its own write-up, with no team, while the window is open', async () => {
+    state.overwatch = true
+    state.leads = false
+    state.teamIds = []
+    // The defaults: s1 ended at 22:00 last night, and it is 06:00 — inside the twelve hours.
+    const user = userEvent.setup()
+    show()
+    await screen.findByText('English Service')
+    const row = screen.getByRole('listitem', { name: 'Overwatch' })
+    // Never a team's: no box under Media.
+    expect(within(mediaRow()).queryByLabelText('Add a debrief item')).toBeNull()
+    await user.type(within(row).getByLabelText('Add a debrief item'), 'Lights came up late{Enter}')
+    await waitFor(() =>
+      expect(state.written).toContainEqual(
+        expect.objectContaining({
+          table: 'service_debriefs',
+          op: 'insert',
+          row: expect.objectContaining({ service_id: 's1', department_id: null, written_by: 'u1' }),
+        }),
+      ),
+    )
+  })
+
+  it('shows nobody else an empty Overwatch write-up, and everybody one that has something', async () => {
+    show()
+    await screen.findByText('English Service')
+    expect(screen.queryByRole('listitem', { name: 'Overwatch' })).toBeNull()
+  })
+
   it('still shows a paragraph somebody typed into the old box', async () => {
     state.debriefs = [debrief({ items: [], minutes: 'Radio mic died again; batteries on the list.' })]
     show()

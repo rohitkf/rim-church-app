@@ -18,6 +18,7 @@ vi.mock('../auth/AuthContext', () => ({
     session: { user: { id: 'admin' } },
     profile: { id: 'admin', first_name: 'Ada', last_name: 'Grace' },
     isAdmin: true,
+    seesAllTeams: true,
     isSuperAdmin: who.owner,
     ownerId: who.owner ? 'admin' : 'someone-else',
     isDepartmentHead: () => false,

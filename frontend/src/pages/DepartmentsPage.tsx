@@ -16,7 +16,7 @@ import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 
 export function DepartmentsPage() {
-  const { isAdmin, ledDepartmentIds, session } = useAuth()
+  const { isAdmin, seesAllTeams, ledDepartmentIds, session } = useAuth()
   // Making and removing teams, and clearing answered requests, are the
   // church's to grant (Settings › Access & Privileges). Seeing every team
   // stays an Admin's view.
@@ -51,10 +51,10 @@ export function DepartmentsPage() {
   // names), so this page narrows it to the teams you actually belong to
   // or lead. Admins keep the whole list.
   const data = useMemo(() => {
-    if (isAdmin) return allDepartments
+    if (seesAllTeams) return allDepartments
     const mine = new Set([...memberDeptIds, ...ledDepartmentIds])
     return (allDepartments ?? []).filter((d) => mine.has(d.id))
-  }, [allDepartments, memberDeptIds, ledDepartmentIds, isAdmin])
+  }, [allDepartments, memberDeptIds, ledDepartmentIds, seesAllTeams])
 
   return (
     <div>
@@ -81,7 +81,7 @@ export function DepartmentsPage() {
       <div className="mt-8">
         <QueryState isLoading={isLoading} error={error} isEmpty={data?.length === 0}
           emptyMessage={
-            isAdmin ? 'No teams yet.' : "You're not on a team yet — ask to join one below."
+            seesAllTeams ? 'No teams yet.' : "You're not on a team yet — ask to join one below."
           }>
           <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {data?.map((dept) => {

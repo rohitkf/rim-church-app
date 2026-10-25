@@ -107,7 +107,7 @@ describe('Page by Page', () => {
     for (const page of SETTINGS_PAGES) expect(section(page.label)).toHaveAttribute('aria-expanded', 'false')
     for (const heading of ['Home', 'Sunday', 'Talk', 'Everywhere']) expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     expect(section('Team Rota')).toHaveTextContent(/\d+ settings · \d+ rules · opens to Teams/)
-    expect(section('Team Chat')).toHaveTextContent('1 setting · 3 rules')
+    expect(section('Team Chat')).toHaveTextContent('2 settings · 3 rules')
     expect(section('Notifications')).toHaveTextContent('2 settings')
     expect(screen.queryByRole('table')).toBeNull()
   })

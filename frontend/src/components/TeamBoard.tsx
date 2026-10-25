@@ -435,6 +435,13 @@ export function TeamBoard({
         <p className="mx-5 mb-2 text-body-sm text-error">{error}</p>
       )}
 
+      {/* Everybody who sees a room may post in it, but Overwatch reads every
+          room and posts only while the church allows it (0187). */}
+      {departmentId && !can('msg.chat', { departmentId }) ? (
+        <p className="border-t border-border-subtle p-4 text-body-sm text-on-surface-variant">
+          You can read this room. Posting in it isn’t open to you.
+        </p>
+      ) : (
       <div className="border-t border-border-subtle p-3">
         <MentionInput
           value={body}
@@ -460,6 +467,7 @@ export function TeamBoard({
           </button>
         </div>
       </div>
+      )}
     </section>
   )
 }

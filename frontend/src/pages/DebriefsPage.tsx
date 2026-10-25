@@ -20,6 +20,7 @@ import { ServiceSections } from "../components/ServiceSections";
 import { sectionServices } from "../lib/serviceSections";
 import { shiftIsoDays } from "../lib/rotaWindow";
 import { useMyTeams } from "../lib/useMyTeams";
+import { overwatchMay } from "../lib/overwatch";
 import { useFinishedServices } from "../lib/useFinishedServices";
 import { useNow } from "../lib/useNow";
 import { formatMinutes } from "../lib/lifespan";
@@ -292,7 +293,7 @@ function TeamWindowLine({
 }
 
 export function DebriefsPage() {
-  const { session } = useAuth();
+  const { session, isOverwatch } = useAuth();
   // Writing a debrief, and adding to one, are the church's to grant
   // (Settings › Access & Privileges).
   const { can } = usePermissions();
@@ -400,7 +401,7 @@ export function DebriefsPage() {
     mutationFn: (fields: {
       debriefId: string | null;
       serviceId: string;
-      departmentId: string;
+      departmentId: string | null;
       body: string;
       sortOrder: number;
     }) => addDebriefItem({ ...fields, createdBy: myId! }),
@@ -442,6 +443,8 @@ export function DebriefsPage() {
   /** Whoever may add to it otherwise: their own points, in the window. */
   const onTeam = (departmentId: string) =>
     !leads(departmentId) && can("debrief.contribute", { departmentId });
+  /** Overwatch writes its own debrief of each service, in the window (0187). */
+  const watching = isOverwatch && overwatchMay(settings, "debriefs");
 
   return (
     <div>
@@ -566,7 +569,24 @@ export function DebriefsPage() {
                             hidden={!open}
                             className="mt-4 flex flex-col gap-3"
                           >
-                            {(departmentsQuery.data ?? []).map((dept) => {
+                            {[
+                              ...(departmentsQuery.data ?? []).map((d) => ({
+                                id: d.id as string | null,
+                                name: d.name,
+                                color: d.color,
+                              })),
+                              // Overwatch's own write-up, last: shown once it
+                              // has something, and to Overwatch to write it.
+                              { id: null, name: "Overwatch", color: null },
+                            ]
+                              .filter(
+                                (row) =>
+                                  row.id !== null ||
+                                  watching ||
+                                  !!debriefFor(debriefs, service.id, null),
+                              )
+                              .map((dept) => {
+                              const ow = dept.id === null;
                               const debrief = debriefFor(
                                 debriefs,
                                 service.id,
@@ -574,13 +594,19 @@ export function DebriefsPage() {
                               );
                               const items = debrief?.items ?? [];
                               const { done, total } = itemProgress(items);
-                              const lead = leads(dept.id);
-                              const member = onTeam(dept.id);
                               const w = windowOf(service.id);
+                              // Overwatch runs its own write-up, but only
+                              // while the window is open (the database's
+                              // overwatch_may_write_debrief).
+                              const lead = ow
+                                ? watching && w.state === "open"
+                                : leads(dept.id!);
+                              const member = ow ? watching : onTeam(dept.id!);
                               const memberOpen = member && w.state === "open";
                               return (
                                 <li
-                                  key={dept.id}
+                                  key={dept.id ?? "overwatch"}
+                                  aria-label={ow ? "Overwatch" : undefined}
                                   className="rounded-[var(--radius-row)] bg-surface-muted p-3.5 hairline"
                                 >
                                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -656,7 +682,9 @@ export function DebriefsPage() {
                                     <p className="mt-1.5 text-label-md text-on-surface-faint">
                                       {lead || member
                                         ? "Nothing written up yet."
-                                        : `Nothing written up yet — anyone on the team can add to it for ${formatMinutes(settings.debrief_open_minutes_after)} after the service.`}
+                                        : ow
+                                          ? "Nothing from Overwatch yet."
+                                          : `Nothing written up yet — anyone on the team can add to it for ${formatMinutes(settings.debrief_open_minutes_after)} after the service.`}
                                     </p>
                                   )}
 
@@ -674,9 +702,13 @@ export function DebriefsPage() {
                                       shutNote={
                                         lead || memberOpen
                                           ? null
-                                          : w.state === "closed"
-                                            ? "Closed to the team — their Head can still add to it."
-                                            : "You can add to this once the service ends."
+                                          : ow
+                                            ? w.state === "closed"
+                                              ? "Closed to Overwatch."
+                                              : "You can add to this once the service ends."
+                                            : w.state === "closed"
+                                              ? "Closed to the team — their Head can still add to it."
+                                              : "You can add to this once the service ends."
                                       }
                                       adding={add.isPending}
                                       onAdd={(fields) =>

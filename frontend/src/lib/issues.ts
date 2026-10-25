@@ -26,6 +26,8 @@ export const issueSchema = z.object({
   details: z.string().nullable(),
   raised_by: z.string().nullable(),
   raised_by_department_id: z.string().nullable(),
+  /** Raised by somebody as Overwatch rather than as a team (0187). */
+  raised_as_overwatch: z.boolean().optional().default(false),
   created_at: z.string(),
   outcome: z.enum(ISSUE_OUTCOMES).nullable(),
   remarks: z.string().nullable(),
@@ -42,7 +44,7 @@ export async function fetchIssues(): Promise<Issue[]> {
   const { data, error } = await supabase
     .from('service_issues')
     .select(
-      'id, service_id, department_id, title, details, raised_by, raised_by_department_id, created_at, ' +
+      'id, service_id, department_id, title, details, raised_by, raised_by_department_id, raised_as_overwatch, created_at, ' +
         'outcome, remarks, marked_at, marked_by, ' +
         'team:departments!service_issues_department_id_fkey(id, name, color), ' +
         'raiser_team:departments!service_issues_raised_by_department_id_fkey(id, name, color), ' +

@@ -22,6 +22,8 @@ function renderStuck() {
     ledDepartmentIds: [],
     refreshProfile: async () => {},
     signOut: async () => {},
+    isOverwatch: false,
+    seesAllTeams: false,
     canPreview: false,
     viewAs: null,
     setViewAs: () => {},

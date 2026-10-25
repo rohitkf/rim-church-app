@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useMyTeams } from './useMyTeams'
+import { useAppSettings } from './appSettings'
+import { overwatchMay, type OverwatchAct } from './overwatch'
 import {
   decide,
   overridesFrom,
@@ -47,7 +49,8 @@ const NONE: { church: Overrides; teams: TeamOverrides } = { church: {}, teams: {
  * answers: the preview narrows roles and teams, and this reads them.
  */
 export function usePermissions() {
-  const { session, isSuperAdmin, isAdmin, ledDepartmentIds, isDepartmentHead, roles } = useAuth()
+  const { session, isSuperAdmin, isAdmin, isOverwatch, ledDepartmentIds, isDepartmentHead, roles } = useAuth()
+  const settings = useAppSettings()
   const { teamIds } = useMyTeams()
   const myId = session?.user.id ?? null
 
@@ -90,9 +93,27 @@ export function usePermissions() {
     [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead],
   )
 
+  /*
+   * Overwatch holds no column in the grid (0187): what it may do is the
+   * church's five switches, the same `overwatch_may` the policies ask.
+   * Posting on the board is as themselves, never as a team.
+   */
+  const watching = useCallback(
+    (cap: CapabilityKey, where?: Where) => {
+      if (!isOverwatch) return false
+      const act: OverwatchAct | null =
+        cap === 'msg.board_post' ? (where?.departmentId ? null : 'board')
+        : cap === 'msg.chat' ? 'chat'
+        : cap === 'msg.polls' ? 'polls'
+        : null
+      return !!act && overwatchMay(settings, act)
+    },
+    [isOverwatch, settings],
+  )
+
   const can = useCallback(
-    (cap: CapabilityKey, where?: Where) => decide(overrides, holder, cap, where, teams),
-    [overrides, teams, holder],
+    (cap: CapabilityKey, where?: Where) => decide(overrides, holder, cap, where, teams) || watching(cap, where),
+    [overrides, teams, holder, watching],
   )
 
   return { can, overrides, teams, query, holder }

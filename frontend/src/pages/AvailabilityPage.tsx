@@ -230,7 +230,7 @@ function AnswerNote({
 }
 
 export function AvailabilityPage() {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { session, isAdmin, seesAllTeams, isDepartmentHead } = useAuth()
   // What may be done to other people's answers is the church's to say
   // (Settings › Access & Privileges). Admins seeing every team, and not
   // answering for themselves here, stay as they were.
@@ -386,12 +386,13 @@ export function AvailabilityPage() {
   // as "still to check in" with no way to resolve it.
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
-    if (isAdmin) return all
+    // Overwatch reads every team the way an Admin does (0187).
+    if (seesAllTeams) return all
     const mine = new Set(ownDeptsQuery.data ?? [])
     return all.filter(
       (d) => mine.has(d.id) || isDepartmentHead(d.id),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, isAdmin, isDepartmentHead])
+  }, [departmentsQuery.data, ownDeptsQuery.data, seesAllTeams, isDepartmentHead])
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', 'tracker', upcomingIds],
@@ -1176,8 +1177,8 @@ export function AvailabilityPage() {
     <div>
       {dialog}
       <PageHeader
-        eyebrow={isAdmin ? 'All teams' : 'Your answers'}
-        title={isAdmin ? 'Availability Tracker' : 'Can you serve?'}
+        eyebrow={seesAllTeams ? 'All teams' : 'Your answers'}
+        title={seesAllTeams ? 'Availability Tracker' : 'Can you serve?'}
         description={
           isAdmin
             ? 'Who can serve at the services coming up, team by team.'

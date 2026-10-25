@@ -734,6 +734,48 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     fallbackText: `${String(DEFAULT_SETTINGS.stage_clear_hour).padStart(2, '0')}:00`,
     when: (d) => column('stage_clear_dow').get(d) !== null,
   },
+
+  /* ---- Overwatch (0187) ---- */
+  {
+    ...column('overwatch_board_posts'),
+    kind: 'switch',
+    label: 'Overwatch may post on the message board',
+    summary: 'As themselves, never as a team.',
+    help: 'Overwatch reads everything and changes almost nothing. This is one of the five things it may do: post on the message board, under their own name. It needs the Message Board open to Overwatch as well (Settings › Overwatch).',
+    affects: ['/messages'],
+  },
+  {
+    ...column('overwatch_chat_posts'),
+    kind: 'switch',
+    label: 'Overwatch may post in team chats',
+    summary: 'In any team’s chat, which it can already read.',
+    help: 'Overwatch can read every team’s chat. With this on it can also post in any of them, as itself. It cannot remove or edit anybody else’s messages. It needs Team Chat open to Overwatch as well.',
+    affects: ['/team-chat'],
+  },
+  {
+    ...column('overwatch_polls'),
+    kind: 'switch',
+    label: 'Overwatch may ask polls',
+    summary: 'And change or remove its own. It reads every poll either way.',
+    help: 'Overwatch can see every poll and its counts. With this on it can also ask one, of any audience, and change or remove the ones it asked. It never answers a poll that was not asked of it.',
+    affects: ['/polls'],
+  },
+  {
+    ...column('overwatch_issues'),
+    kind: 'switch',
+    label: 'Overwatch may raise issues',
+    summary: 'Filed as raised by Overwatch, in a group of their own.',
+    help: 'Overwatch can raise an issue against any team, inside the same window everybody else raises in. The team is told, and the Issues page gathers these under Overwatch. Overwatch never marks an issue resolved — that stays with the team.',
+    affects: ['/issues'],
+  },
+  {
+    ...column('overwatch_debriefs'),
+    kind: 'switch',
+    label: 'Overwatch may write its own debrief',
+    summary: 'One Overwatch write-up per service, beside every team’s.',
+    help: 'Each service gets an Overwatch debrief next to the teams’ — the points anybody in Overwatch noticed, written while the debrief window is open. It never writes a team’s debrief.',
+    affects: ['/debriefs'],
+  },
 ]
 
 const BY_ID = new Map(SETTINGS_CATALOG.map((e) => [e.id, e]))

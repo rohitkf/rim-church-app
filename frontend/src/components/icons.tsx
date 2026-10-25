@@ -194,6 +194,16 @@ export function MusicIcon(props: IconProps) {
 }
 
 /** Permissions: what each standing is allowed to do. */
+/** Overwatch (0187): sees everything. */
+export function EyeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
 export function ShieldIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

@@ -25,7 +25,7 @@ import { QueryState } from '../components/QueryState'
  * one team's room.
  */
 export function TeamChatPage() {
-  const { session, isAdmin, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
   // Which rooms somebody may read and post in is the church's to say
   // (Settings › Access & Privileges, msg.chat).
   const { can } = usePermissions()
@@ -47,13 +47,14 @@ export function TeamChatPage() {
   // else in their own teams' — whatever the grid has made of that.
   const myTeams = useMemo(() => {
     const all = departmentsQuery.data ?? []
-    if (isAdmin && can('msg.chat')) return all
+    // Overwatch reads every room (0187); whether it may post is TeamBoard's.
+    if ((isAdmin && can('msg.chat')) || isOverwatch) return all
     const mine = new Set([
       ...(membershipsQuery.data ?? []).map((m) => m.department_id),
       ...ledDepartmentIds,
     ])
     return all.filter((d) => (mine.has(d.id) || can('msg.chat')) && can('msg.chat', { departmentId: d.id }))
-  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin, can])
+  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin, isOverwatch, can])
 
   const departmentId =
     selectedId ??

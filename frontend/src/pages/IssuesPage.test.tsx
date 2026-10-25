@@ -11,6 +11,7 @@ import { chooseOption } from '../test/select'
 const auth = vi.hoisted(() => ({
   session: { user: { id: 'me' } },
   isAdmin: false,
+  isOverwatch: false,
   ledDepartmentIds: [] as string[],
 }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
@@ -23,6 +24,8 @@ const settings = vi.hoisted(() => ({
   issue_retention_days: 30,
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
+  overwatch_issues: true,
+  overwatch_pages: {} as Record<string, boolean>,
 }))
 // The pages' display preferences, at the app's own defaults.
 vi.mock('../lib/appSettings', async () => {
@@ -144,7 +147,9 @@ const openCard = async (user: ReturnType<typeof userEvent.setup>, name: string) 
 
 beforeEach(() => {
   auth.isAdmin = false
+  auth.isOverwatch = false
   auth.ledDepartmentIds = []
+  settings.overwatch_issues = true
   teams.teamIds = ['media']
   teams.onATeam = true
   settings.issues_raise_scope = 'team'
@@ -236,8 +241,43 @@ describe('the Issues page', () => {
     await waitFor(() => expect(state.rpc).toHaveLength(1))
     expect(state.rpc[0]).toEqual({
       name: 'raise_issue',
-      args: { service: 's1', team: 'sound', title: 'Projector will not wake', details: null, as_team: 'media' },
+      args: {
+        service: 's1',
+        team: 'sound',
+        title: 'Projector will not wake',
+        details: null,
+        as_team: 'media',
+        as_overwatch: false,
+      },
     })
+  })
+
+  // 0187: Overwatch, on no team, raises as Overwatch, and its issues are a group of their own.
+  it('lets Overwatch raise one as Overwatch, and gathers those under Overwatch', async () => {
+    auth.isOverwatch = true
+    teams.teamIds = []
+    state.issues = [issue(), issue({ id: 'i2', title: 'Lights came up late', raised_as_overwatch: true, raiser_team: null })]
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    const group = within(c).getByRole('group', { name: 'Raised by Overwatch' })
+    expect(within(group).getByText('Lights came up late')).toBeInTheDocument()
+    expect(within(group).queryByText('Mic 2 crackles')).toBeNull()
+    expect(group).toHaveTextContent('Raised by Grace Mensah · Overwatch')
+
+    await chooseOption(user, within(c).getByRole('combobox', { name: 'Team it is for' }), 'Sound')
+    await user.type(within(c).getByPlaceholderText('Mic 2 crackles when it moves'), 'Fog machine too loud')
+    await user.click(within(c).getByRole('button', { name: 'Raise issue' }))
+    await waitFor(() => expect(state.rpc).toHaveLength(1))
+    expect(state.rpc[0].args).toMatchObject({ team: 'sound', as_team: null, as_overwatch: true })
+  })
+
+  it('offers Overwatch no form once the church turns its issues off', async () => {
+    auth.isOverwatch = true
+    teams.teamIds = []
+    settings.overwatch_issues = false
+    const user = show()
+    const c = await openCard(user, 'English Service')
+    expect(within(c).queryByRole('form', { name: 'Raise an issue' })).toBeNull()
   })
 
   it('shows the fields before a service opens, shut until it does', async () => {
