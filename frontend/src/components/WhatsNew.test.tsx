@@ -55,10 +55,13 @@ beforeEach(() => {
   endTour()
   auth.profile = { id: 'me', onboarded_at: '2026-10-01T10:00:00Z' }
   auth.viewAs = null
-  db.seen = {}
+  // The newer card (phones, 0185) has its own test below; these follow Stage Layout's.
+  db.seen = { ...NEWER }
   db.marked = []
   db.canOpen = true
 })
+
+const NEWER = { 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
 
 describe('what is new', () => {
   it('announces the newest release once, and remembers on the account when it is closed', async () => {
@@ -79,7 +82,7 @@ describe('what is new', () => {
   })
 
   it('stays quiet when it has been seen, during the tour, while previewing, and before joining is done', async () => {
-    db.seen = { 'stage-layout': '2026-10-17T10:00:00Z' }
+    db.seen = { ...NEWER, 'stage-layout': '2026-10-17T10:00:00Z' }
     const a = render(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter>
@@ -91,7 +94,7 @@ describe('what is new', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     a.unmount()
 
-    db.seen = {}
+    db.seen = { ...NEWER }
     startTour([TOUR_CHAPTERS[0]], 'manual')
     show()
     await new Promise((r) => setTimeout(r, 50))
@@ -123,5 +126,16 @@ describe('what is new', () => {
     show()
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('tells everybody that board posts and team chat now reach the phone, newest first', async () => {
+    db.seen = {}
+    db.canOpen = false
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('dialog', { name: 'New: Board posts and team chat on your phone' })).toBeInTheDocument()
+    // Nowhere to send them but Settings, so it only closes.
+    await user.click(screen.getByRole('button', { name: 'Got it' }))
+    await waitFor(() => expect(db.marked).toEqual(['talk-on-your-phone']))
   })
 })

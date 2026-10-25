@@ -271,9 +271,13 @@ could hand themselves everything else.
   whether the caller may do it at all. `send_announcement` is the model.
 - A table only ever written through an RPC gets **no insert policy**. That
   is what makes the RPC the only way in.
-- Writing to `notifications` **pushes to that person's phone** (every type
-  except `message`). A new notification type is a new thing that buzzes
-  pockets — decide it on purpose.
+- Writing to `notifications` **pushes to that person's phone** — every
+  type, since 0185 the board's `message` and the team chat's `team_chat`
+  too (one unread line per board and per team's room: each post replaces
+  it, so each post pushes and the bell does not pile up). A person can turn
+  those two off for themselves (`push_preferences`, Settings › Appearance),
+  which push-notify reads; the bell keeps them. A new notification type is
+  a new thing that buzzes pockets — decide it on purpose.
 
 ---
 

@@ -5,6 +5,7 @@ import { AppearanceCard } from './AppearanceCard'
 
 // The push row talks to the browser and the database; its own tests cover it.
 vi.mock('./PushPermission', () => ({ PushPermissionRow: () => <p>push row</p> }))
+vi.mock('./PushPreferences', () => ({ PushPreferences: () => <p>push choices</p> }))
 
 describe('Appearance & Alerts', () => {
   it('chooses the theme from one segmented control, and it takes at once', async () => {
@@ -33,5 +34,6 @@ describe('Appearance & Alerts', () => {
     render(<AppearanceCard />)
     expect(screen.getByRole('heading', { name: 'Phone notifications' })).toBeInTheDocument()
     expect(screen.getByText('push row')).toBeInTheDocument()
+    expect(screen.getByText('push choices')).toBeInTheDocument()
   })
 })

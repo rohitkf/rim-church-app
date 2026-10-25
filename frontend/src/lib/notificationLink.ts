@@ -9,6 +9,7 @@
  */
 export const NOTIFICATION_TYPES = [
   'message',
+  'team_chat',
   'rota_release_request',
   'rota_release_approved',
   'rota_release_denied',
@@ -41,6 +42,8 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> = {
   message: { label: 'New message board post', href: '/messages' },
+  // Its reference is the team (0185), so a tap opens that team's room.
+  team_chat: { label: 'New message in your team chat', href: '/team-chat' },
   rota_release_request: {
     label: 'A team has asked to borrow one of your volunteers',
     href: '/rota',
@@ -112,6 +115,7 @@ export function notificationHref(type: string, referenceId?: string | null): str
   const t = known(type)
   if (!t) return '/'
   if (t === 'team_join_approved' && referenceId) return `/departments/${referenceId}`
+  if (t === 'team_chat' && referenceId) return `/team-chat?team=${referenceId}`
   // A poll's and an update's reference is the thing itself, so the link
   // opens the page at it.
   if (t === 'team_poll' && referenceId) return `/polls?poll=${referenceId}`

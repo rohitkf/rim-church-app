@@ -29,6 +29,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'talk-on-your-phone',
+    date: '2026-10-25',
+    title: 'Board posts and team chat on your phone',
+    lead: 'A new post on the message board, or a message in one of your teams’ chats, now reaches your phone.',
+    points: [
+      'Who posted and what they said, the newest replacing the last — so the bell holds one line per room, not fifty.',
+      'Mentions and team alerts come through as before.',
+      'Too much? Turn either off in Settings › Appearance › Phone notifications. The bell keeps them.',
+    ],
+  },
+  {
     key: 'stage-layout',
     date: '2026-10-17',
     title: 'Stage Layout',
