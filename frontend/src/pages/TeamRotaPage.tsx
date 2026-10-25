@@ -90,7 +90,7 @@ async function fetchReleaseRequests(): Promise<RotaReleaseRequest[]> {
 }
 
 export function TeamRotaPage() {
-  const { session, isAdmin, isDepartmentHead } = useAuth()
+  const { session, seesAllTeams, isDepartmentHead } = useAuth()
   // Who may change the rota is the church's to set (Settings › Access &
   // privileges, 0133); these only decide which buttons to draw.
   const { can } = usePermissions()
@@ -228,7 +228,8 @@ export function TeamRotaPage() {
 
   // Somebody the grid lets change any team's rota sees every team, the
   // way an Admin always has.
-  const everyTeam = isAdmin || can('rota.assign')
+  // way an Admin always has — and so does Overwatch, to read (0187).
+  const everyTeam = seesAllTeams || can('rota.assign')
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
     if (everyTeam) return all

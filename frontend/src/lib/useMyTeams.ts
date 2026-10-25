@@ -22,7 +22,7 @@ import { fetchOwnDepartmentIds } from './queries'
  * Callers wait for it before deciding anything that would flicker.
  */
 export function useMyTeams() {
-  const { session, isAdmin, ledDepartmentIds, viewAs } = useAuth()
+  const { session, isAdmin, isOverwatch, ledDepartmentIds, viewAs } = useAuth()
   const myId = session?.user.id
 
   const query = useQuery({
@@ -41,7 +41,8 @@ export function useMyTeams() {
   const teamIds = query.data ?? []
   // An Admin and a head are attached without a roster row, and neither
   // answer needs the query to have come back.
-  const attachedByRole = isAdmin || (ledDepartmentIds ?? []).length > 0
+  // Overwatch watches every team, so it is never shown the newcomer's page.
+  const attachedByRole = isAdmin || isOverwatch || (ledDepartmentIds ?? []).length > 0
   const settled = attachedByRole || !myId || query.isSuccess || query.isError
 
   return {

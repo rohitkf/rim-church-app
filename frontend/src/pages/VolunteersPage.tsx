@@ -116,7 +116,7 @@ const designationClass: Record<string, string> = {
 }
 
 export function VolunteersPage() {
-  const { isAdmin, isSuperAdmin, ownerId, session } = useAuth()
+  const { isAdmin, isSuperAdmin, seesAllTeams, ownerId, session } = useAuth()
   // Removing an account and inviting are the church's to grant (Settings ›
   // Access & Privileges); who holds Admin or heads a team stays an Admin's.
   const { can } = usePermissions()
@@ -132,16 +132,17 @@ export function VolunteersPage() {
   const volunteersQuery = useQuery({
     queryKey: ['volunteers', isSuperAdmin],
     queryFn: () => fetchVolunteers(isSuperAdmin),
-    enabled: isAdmin,
+    // Overwatch may be given this page to read (0187); every action on it stays an Admin's.
+    enabled: seesAllTeams,
   })
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: isAdmin })
-  const grantsQuery = useQuery({ queryKey: ['all-user-roles'], queryFn: fetchAllGrants, enabled: isAdmin })
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: seesAllTeams })
+  const grantsQuery = useQuery({ queryKey: ['all-user-roles'], queryFn: fetchAllGrants, enabled: seesAllTeams })
 
   const allDeptIds = useMemo(() => (departmentsQuery.data ?? []).map((d) => d.id), [departmentsQuery.data])
   const membersQuery = useQuery({
     queryKey: ['volunteer-memberships', allDeptIds],
     queryFn: () => fetchMembersForDepartments(allDeptIds),
-    enabled: isAdmin && allDeptIds.length > 0,
+    enabled: seesAllTeams && allDeptIds.length > 0,
   })
 
   const refresh = () => {
@@ -231,7 +232,7 @@ export function VolunteersPage() {
   const { ask, dialog } = useConfirmAction()
   const sectionOpen = (id: string) => (id === UNATTACHED) !== isToggled(id)
 
-  if (!isAdmin) return <Navigate to="/" replace />
+  if (!seesAllTeams) return <Navigate to="/" replace />
 
   const grants = grantsQuery.data ?? []
   const memberships = membersQuery.data ?? []
@@ -294,13 +295,18 @@ export function VolunteersPage() {
   const holdsAppWideAdmin = (v: Volunteer) =>
     v.id === ownerId || grants.some((g) => g.user_id === v.id && g.role_type === 'admin')
   const adminsOnNoTeam = unattached.filter(holdsAppWideAdmin)
-  const onNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v))
+  // Overwatch on no team watches every team rather than waiting to join
+  // one, so it is not filed under "Not on a team yet" either (0187).
+  const holdsOverwatch = (v: Volunteer) => grants.some((g) => g.user_id === v.id && g.role_type === 'overwatch')
+  const overwatchOnNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v) && holdsOverwatch(v))
+  const onNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v) && !holdsOverwatch(v))
 
   /** One person's card. The signed-in user's own is tinted and pinned at
    *  the top, and appears again under each team they're on. */
   function renderCard(v: Volunteer, highlight = false) {
     const myGrants = grants.filter((g) => g.user_id === v.id)
     const adminGrant = myGrants.find((g) => g.role_type === 'admin')
+    const overwatchGrant = myGrants.find((g) => g.role_type === 'overwatch')
     const isOwner = v.id === ownerId
     // Ownership carries Admin whether or not a grant row says so, so the
     // owner never shows a "Make admin" button that would do nothing.
@@ -368,6 +374,11 @@ export function VolunteersPage() {
                 Admin
               </span>
             )}
+            {overwatchGrant && (
+              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                Overwatch
+              </span>
+            )}
           </div>
         </div>
 
@@ -407,7 +418,7 @@ export function VolunteersPage() {
                       >
                         {designation}
                       </span>
-                      {leadGrant ? (
+                      {!isAdmin ? null : leadGrant ? (
                         <button
                           onClick={() =>
                             ask({
@@ -486,7 +497,7 @@ export function VolunteersPage() {
             of the card rather than tucked in beside the name. Nothing here
             is reversible by the person it happens to, so it reads as a row
             of decisions and not as part of the heading. */}
-        {(canManageAdmin || canRemove) && (
+        {isAdmin && (canManageAdmin || canRemove) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
             {(() => {
               const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
@@ -523,6 +534,38 @@ export function VolunteersPage() {
                 className={cardActionClasses}
               >
                 Make admin
+              </button>
+            )}
+            {/* Overwatch (0187): sees every team, changes almost nothing.
+                An Admin already sees everything, so it is not offered to one. */}
+            {isAdmin && !holdsAdmin && !overwatchGrant && (
+              <button
+                onClick={() =>
+                  ask({
+                    title: `Make ${v.first_name} ${v.last_name} Overwatch?`,
+                    body: 'They will see every team — rotas, availability, checklists, chats, debriefs and issues — and change almost nothing. What they may post or raise is in Settings › Overwatch.',
+                    confirmLabel: 'Make Overwatch',
+                    onConfirm: () => grantRole.mutate({ userId: v.id, roleType: 'overwatch', departmentId: null }),
+                  })
+                }
+                className={cardActionClasses}
+              >
+                Make Overwatch
+              </button>
+            )}
+            {isAdmin && overwatchGrant && (
+              <button
+                onClick={() =>
+                  ask({
+                    title: `Remove Overwatch from ${v.first_name} ${v.last_name}?`,
+                    body: 'They keep their account and their own teams, and stop seeing everybody else’s.',
+                    confirmLabel: 'Remove Overwatch',
+                    onConfirm: () => revokeRole.mutate(overwatchGrant.id),
+                  })
+                }
+                className={cardDangerClasses}
+              >
+                Remove Overwatch
               </button>
             )}
             {/* Taking Admin away is the owner's, or your own to give up.
@@ -580,9 +623,11 @@ export function VolunteersPage() {
         description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
         action={
           <span className="flex flex-wrap items-center gap-2">
-            <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading} data-tour="people-export">
-              Export
-            </ActionButton>
+            {isAdmin && (
+              <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={isLoading} data-tour="people-export">
+                Export
+              </ActionButton>
+            )}
             {/* Somebody has to be told the app exists before they can appear
                 on this page at all — which is exactly the page you are on
                 when you notice they are missing. */}
@@ -687,6 +732,33 @@ export function VolunteersPage() {
                 className="mt-4 flex flex-col gap-4"
               >
                 {adminsOnNoTeam.map((v) => renderCard(v, v.id === me?.id))}
+              </ul>
+            </section>
+          )}
+
+          {overwatchOnNoTeam.length > 0 && (
+            <section>
+              <button
+                type="button"
+                onClick={() => toggleSection('overwatch')}
+                aria-expanded={sectionOpen('overwatch')}
+                aria-controls="volunteers-overwatch"
+                className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-2 text-left"
+              >
+                <h2 className="text-headline-md">Overwatch</h2>
+                <span className="font-mono text-label-sm text-on-surface-variant">
+                  {overwatchOnNoTeam.length}
+                </span>
+                <span className="ml-auto">
+                  <Chevron open={sectionOpen('overwatch')} />
+                </span>
+              </button>
+              <ul
+                id="volunteers-overwatch"
+                hidden={!sectionOpen('overwatch')}
+                className="mt-4 flex flex-col gap-4"
+              >
+                {overwatchOnNoTeam.map((v) => renderCard(v, v.id === me?.id))}
               </ul>
             </section>
           )}

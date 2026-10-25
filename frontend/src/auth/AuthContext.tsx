@@ -38,6 +38,16 @@ interface AuthContextValue {
   /** Why the session couldn't be read, when it couldn't. */
   authError: string | null
   isAdmin: boolean
+  /**
+   * Overwatch (0187): sees every team, as an Admin does, and may change
+   * almost nothing — what it may do is Settings › Overwatch.
+   */
+  isOverwatch: boolean
+  /**
+   * Whether pages show every team rather than the person's own: an Admin
+   * or Overwatch. Only for what is drawn, never for what may be changed.
+   */
+  seesAllTeams: boolean
   /** The single account that owns the app: it alone may take Admin away. */
   isSuperAdmin: boolean
   ownerId: string | null
@@ -211,6 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isAdmin = hasRole('admin')
+  const isOverwatch = hasRole('overwatch')
+  const seesAllTeams = isAdmin || isOverwatch
   const isSuperAdmin = realIsSuperAdmin && !viewAs
 
   const ledDepartmentIds = roles
@@ -241,6 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         authError,
         isAdmin,
+        isOverwatch,
+        seesAllTeams,
         isSuperAdmin,
         ownerId,
         hasRole,

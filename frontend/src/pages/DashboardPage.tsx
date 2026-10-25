@@ -69,6 +69,7 @@ const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green'> = {
   department_head: 'blue',
   assisting_head: 'blue',
   service_flow_coordinator: 'green',
+  overwatch: 'solid',
 }
 
 /** How far off a service is, in the words a person would use. */
@@ -130,11 +131,12 @@ const roleLabel: Record<RoleType, string> = {
   department_head: 'Department Head',
   assisting_head: 'Assisting Head',
   service_flow_coordinator: 'Service Flow Coordinator',
+  overwatch: 'Overwatch',
 }
 
 
 export function DashboardPage() {
-  const { profile, roles, isAdmin, ledDepartmentIds, session } = useAuth()
+  const { profile, roles, isAdmin, seesAllTeams, ledDepartmentIds, session } = useAuth()
   const mayAddService = usePermissions().can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
@@ -350,10 +352,10 @@ export function DashboardPage() {
   // on. Admins see everything.
   const visibleDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
-    if (isAdmin) return all
+    if (seesAllTeams) return all
     const mine = new Set([...ownMemberships.map((m) => m.department_id), ...ledDepartmentIds])
     return all.filter((d) => mine.has(d.id))
-  }, [departmentsQuery.data, ownMemberships, ledDepartmentIds, isAdmin])
+  }, [departmentsQuery.data, ownMemberships, ledDepartmentIds, seesAllTeams])
 
   const allDeptIds = useMemo(() => visibleDepartments.map((d) => d.id), [visibleDepartments])
   const availabilityQuery = useQuery({

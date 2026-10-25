@@ -5,6 +5,8 @@ export const roleTypeSchema = z.enum([
   'department_head',
   'assisting_head',
   'service_flow_coordinator',
+  // Sees every team, changes almost nothing (0187).
+  'overwatch',
 ])
 export type RoleType = z.infer<typeof roleTypeSchema>
 

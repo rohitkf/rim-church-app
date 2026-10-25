@@ -5,6 +5,7 @@ import {
   ArchiveIcon,
   ChecklistIcon,
   ClipboardUserIcon,
+  EyeIcon,
   GridIcon,
   SparklesIcon,
   GiftHeartIcon,
@@ -170,6 +171,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         tone: 'indigo',
         needs: 'admin',
         keywords: 'permissions roles admin head coordinator member pages profiles church member see hide',
+      },
+      {
+        to: '/settings/overwatch',
+        label: 'Overwatch',
+        blurb: 'Which pages Overwatch sees, and what it may post or raise.',
+        icon: EyeIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'overwatch read only observer elder pastor watch see everything',
       },
       {
         to: '/settings/onboarding',

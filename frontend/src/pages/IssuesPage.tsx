@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useAppSettings } from '../lib/appSettings'
 import { useMyTeams } from '../lib/useMyTeams'
+import { overwatchMay } from '../lib/overwatch'
 import { useErrorText } from '../lib/useErrorText'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useNow } from '../lib/useNow'
@@ -67,7 +68,7 @@ const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
  * decides what to offer.
  */
 export function IssuesPage() {
-  const { session, isAdmin, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
   // Marking and deleting are the church's to grant (Settings › Access & Privileges).
   const { can } = usePermissions()
   const settings = useAppSettings()
@@ -84,11 +85,14 @@ export function IssuesPage() {
   const { ask, dialog } = useConfirmAction()
 
   const myTeamIds = useMemo(() => [...new Set([...teamIds, ...ledDepartmentIds])], [teamIds, ledDepartmentIds])
-  const canRaise = mayRaiseIssue(settings.issues_raise_scope, {
-    isAdmin,
-    onATeam,
-    leadsATeam: ledDepartmentIds.length > 0,
-  })
+  // Overwatch raises as Overwatch, while the church allows it (0187).
+  const raisesAsOverwatch = isOverwatch && overwatchMay(settings, 'issues')
+  const canRaise =
+    mayRaiseIssue(settings.issues_raise_scope, {
+      isAdmin,
+      onATeam: onATeam && !(isOverwatch && myTeamIds.length === 0),
+      leadsATeam: ledDepartmentIds.length > 0,
+    }) || raisesAsOverwatch
   // The window is for the people in the room; an Admin or a Head can
   // write one up whenever they get to it (0119).
   const anyTime = raisesIssuesAnyTime({ isAdmin, leadsATeam: ledDepartmentIds.length > 0 })
@@ -253,8 +257,22 @@ export function IssuesPage() {
               {mineOnly ? 'Nothing for your teams at this service.' : 'Nothing raised at this service.'}
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {issues.map((issue) => (
+            /* The teams' issues, then Overwatch's own group (0187): what the
+               people watching the whole Sunday raised, gathered in one place. */
+            [
+              { key: 'teams', heading: null, list: issues.filter((i) => !i.raised_as_overwatch) },
+              { key: 'overwatch', heading: 'Raised by Overwatch', list: issues.filter((i) => i.raised_as_overwatch) },
+            ]
+              .filter((group) => group.list.length > 0)
+              .map(({ key, heading, list }) => (
+                <div key={key} aria-label={heading ?? undefined} role={heading ? 'group' : undefined}>
+                  {heading && (
+                    <h3 className="mb-2 font-mono text-label-sm uppercase tracking-[0.12em] text-accent-indigo-soft">
+                      {heading}
+                    </h3>
+                  )}
+                  <ul className="flex flex-col gap-3">
+              {list.map((issue) => (
                 <IssueRow
                   key={issue.id}
                   issue={issue}
@@ -276,7 +294,9 @@ export function IssuesPage() {
                   }
                 />
               ))}
-            </ul>
+                  </ul>
+                </div>
+              ))
           )}
           {canRaise && (anyTime || w.state !== 'closed') && (
             <RaiseIssue
@@ -289,6 +309,7 @@ export function IssuesPage() {
               }
               departments={departments}
               myTeamIds={myTeamIds}
+              asOverwatch={raisesAsOverwatch}
               onRaised={invalidate}
               onError={setError}
             />
@@ -448,7 +469,8 @@ function IssueRow({
       )}
       <p className="mt-2 text-label-md text-on-surface-variant">
         Raised by <span className="font-medium text-on-surface">{fullName(issue.raiser, 'Somebody')}</span>
-        {issue.raiser_team && <> · {issue.raiser_team.name}</>} · {formatRelativeTime(issue.created_at)}
+        {issue.raised_as_overwatch ? <> · Overwatch</> : issue.raiser_team && <> · {issue.raiser_team.name}</>} ·{' '}
+        {formatRelativeTime(issue.created_at)}
       </p>
 
       {issue.outcome && issue.marked_at && (
@@ -541,6 +563,7 @@ function RaiseIssue({
   aside,
   departments,
   myTeamIds,
+  asOverwatch = false,
   onRaised,
   onError,
 }: {
@@ -551,6 +574,8 @@ function RaiseIssue({
   aside: string | null
   departments: { id: string; name: string }[]
   myTeamIds: string[]
+  /** May raise it as Overwatch (0187): offered beside their teams, and the default with none. */
+  asOverwatch?: boolean
   onRaised: () => void
   onError: (message: string | null) => void
 }) {
@@ -563,8 +588,14 @@ function RaiseIssue({
   const [details, setDetails] = useState('')
   const [note, setNote] = useState<string | null>(null)
 
-  // Somebody on one team raises as that team without being asked.
-  const chosenAsTeam = asTeam || (myTeams.length === 1 ? myTeams[0].id : '')
+  // Somebody on one team raises as that team without being asked, and
+  // Overwatch on none as Overwatch.
+  const OVERWATCH = 'overwatch'
+  const chosen =
+    asTeam ||
+    (myTeams.length === 1 && !asOverwatch ? myTeams[0].id : myTeams.length === 0 && asOverwatch ? OVERWATCH : '')
+  const chosenAsOverwatch = asOverwatch && chosen === OVERWATCH
+  const chosenAsTeam = chosenAsOverwatch ? '' : chosen
 
   const raise = useMutation({
     mutationFn: async () => {
@@ -574,6 +605,7 @@ function RaiseIssue({
         title: title.trim(),
         details: details.trim() || null,
         as_team: chosenAsTeam || null,
+        as_overwatch: chosenAsOverwatch,
       })
       if (error) throw error
     },
@@ -632,21 +664,24 @@ function RaiseIssue({
           className={inputClasses}
         />
       </Field>
-      {myTeams.length > 1 && (
+      {myTeams.length + (asOverwatch ? 1 : 0) > 1 && (
         <div className="flex min-w-0 flex-col gap-2">
           <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Raised as</span>
           <Select
             aria-label="Raised as"
             disabled={shut}
-            value={chosenAsTeam}
+            value={chosen}
             onChange={setAsTeam}
             placeholder="Which of your teams?"
-            options={myTeams.map((d) => ({ value: d.id, label: d.name }))}
+            options={[
+              ...(asOverwatch ? [{ value: OVERWATCH, label: 'Overwatch' }] : []),
+              ...myTeams.map((d) => ({ value: d.id, label: d.name })),
+            ]}
           />
         </div>
       )}
       <p className="text-label-sm text-on-surface-faint">
-        Your name{chosenAsTeam ? ' and team' : ''} go on it, and the team it is for is told — bell and phone.
+        Your name{chosenAsOverwatch ? ' and Overwatch' : chosenAsTeam ? ' and team' : ''} go on it, and the team it is for is told — bell and phone.
       </p>
       </fieldset>
       <div className="flex flex-wrap items-center gap-3">

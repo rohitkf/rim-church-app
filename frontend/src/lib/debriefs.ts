@@ -51,7 +51,8 @@ export type DebriefItem = z.infer<typeof debriefItemSchema>
 export const debriefSchema = z.object({
   id: z.string(),
   service_id: z.string(),
-  department_id: z.string(),
+  /** The team; null is Overwatch's own write-up of the service (0187). */
+  department_id: z.string().nullable(),
   // Superseded by the items. Still read so minutes typed by the previous
   // build are not silently dropped off the page.
   minutes: z.string().nullable().optional(),
@@ -134,7 +135,7 @@ export function isExpired(serviceDate: string, retentionDays: number, today: str
 async function debriefIdFor(fields: {
   debriefId: string | null
   serviceId: string
-  departmentId: string
+  departmentId: string | null
   writtenBy: string
 }): Promise<string> {
   if (fields.debriefId) return fields.debriefId
@@ -154,7 +155,7 @@ async function debriefIdFor(fields: {
 export async function addDebriefItem(fields: {
   debriefId: string | null
   serviceId: string
-  departmentId: string
+  departmentId: string | null
   body: string
   createdBy: string
   sortOrder: number
@@ -230,7 +231,7 @@ export async function deleteDebrief(id: string): Promise<void> {
 export function debriefFor(
   debriefs: Debrief[],
   serviceId: string,
-  departmentId: string,
+  departmentId: string | null,
 ): Debrief | null {
   return (
     debriefs.find((d) => d.service_id === serviceId && d.department_id === departmentId) ?? null
