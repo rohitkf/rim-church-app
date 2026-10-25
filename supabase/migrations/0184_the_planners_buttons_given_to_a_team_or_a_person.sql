@@ -138,6 +138,7 @@ set search_path = public
 as $$
 declare
   col text;
+  allowed boolean;
 begin
   if pg_trigger_depth() > 1
      or auth.uid() is null
@@ -151,7 +152,8 @@ begin
     where n.value is distinct from (to_jsonb(old) -> n.key)
       and n.key <> 'updated_at'
   loop
-    if not case col
+    -- Worked out first: an IF condition ends at its first THEN, and a CASE has several.
+    allowed := case col
       when 'start_time'    then public.planner_control('start', 'hold', 'add_time', 'skip', 'add_below', 'remove')
       when 'skipped_at'    then public.planner_control('start', 'skip')
       when 'skip_reason'   then public.planner_control('start', 'skip')
@@ -161,7 +163,8 @@ begin
       when 'added_grants'  then public.planner_control('add_time')
       when 'order_index'   then public.planner_control('add_below', 'remove')
       else false
-    end then
+    end;
+    if not allowed then
       raise exception 'Changing % is not one of the planner buttons you have been given.', col
         using errcode = '42501';
     end if;
