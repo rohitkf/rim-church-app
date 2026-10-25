@@ -558,6 +558,9 @@ export function ServicePlannerPage() {
    * session now runs to 08:02. The bounds read the real last end.
    */
   const bounds = useMemo(() => serviceBounds(sessions), [sessions])
+  /** When the last session that runs is due to finish: the End of service node. */
+  const plannedEnd = bounds?.to ?? null
+  const lastLive = [...drawn].reverse().find((s) => !s.skipped_at) ?? null
   /** How long it actually ran, once somebody has called the end. Null until then. */
   const ranMinutes =
     endedAt && bounds ? Math.round((new Date(endedAt).getTime() - bounds.from) / 60_000) : null
@@ -1335,7 +1338,9 @@ export function ServicePlannerPage() {
                     return (
                       <TimelineRow
                         key={`${session.id}-${session.updated_at}`}
-                        last={idx === drawn.length - 1}
+                        // The End of service node follows, so no session's
+                        // rail stops short any more.
+                        last={false}
                         rowRef={dragRowProps(session.id).ref}
                         style={dragRowProps(session.id).style}
                         fill={timing?.fill}
@@ -1392,6 +1397,12 @@ export function ServicePlannerPage() {
                         countdown={
                           onNow && nextUp ? (
                             <RailCountdown startsAt={nextUp.start_time} holding={!!heldBack} />
+                          ) : onNow && session.id === lastLive?.id && plannedEnd !== null && !endedAt ? (
+                            // The last session's gap runs to the End of service
+                            // node. Past it the page calls the service over,
+                            // so the clock stops there rather than counting up
+                            // beside a "Finished" banner.
+                            <RailCountdown startsAt={new Date(plannedEnd).toISOString()} to="end" />
                           ) : undefined
                         }
                       >
@@ -1604,53 +1615,74 @@ export function ServicePlannerPage() {
                       </TimelineRow>
                     )
                   })}
-                </ul>
 
-                {/*
-                  The end of the service, at the end of the running order.
-                  A service used to be over only once the clock passed the
-                  last session's planned end, which is wrong every time one
-                  finishes early — and left the closing session with no way
-                  to record how it ran, because nothing came after it.
-                */}
-                {sessions.length > 0 && ((mayEnd && !locked) || canEdit || endedAt) && (
-                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-black/5 pt-5 dark:border-white/8">
-                    {endedAt ? (
-                      <>
-                        <span className="text-body-sm text-on-surface-variant">
-                          Service ended at{' '}
-                          <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
-                        </span>
-                        {mayEnd && (
-                          <button
-                            type="button"
-                            onClick={() => endService.mutate(null)}
-                            disabled={endService.isPending}
-                            className="tap ml-auto rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface disabled:opacity-50"
-                          >
-                            {endService.isPending ? 'Reopening…' : 'Reopen service'}
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-body-sm text-on-surface-variant">
-                          Closes the running order and records when it really finished.
-                        </span>
-                        {mayEnd && !locked && (
-                        <button
-                          type="button"
-                          onClick={() => setEndingService(true)}
-                          disabled={endService.isPending}
-                          className="tap ml-auto rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline disabled:opacity-50"
-                        >
-                          End service
-                        </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
+                  {/*
+                    The end of the service, as a node of its own at the foot of
+                    the running order, so the last session has a gap to count
+                    down across like every other.
+
+                    A service used to be over only once the clock passed the
+                    last session's planned end, which is wrong every time one
+                    finishes early — and left the closing session with no way
+                    to record how it ran, because nothing came after it. So
+                    ending it lives here too.
+                  */}
+                  {plannedEnd !== null && (
+                    <TimelineRow
+                      last
+                      fill={endedAt || now >= plannedEnd ? 1 : 0}
+                      time={formatTime(endedAt ?? new Date(plannedEnd).toISOString())}
+                      meta={endedAt ? 'ended' : 'planned'}
+                    >
+                      <TimelineCard tone="end">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="min-w-0 flex-1 basis-48">
+                            <span className="block text-body-md font-medium text-on-surface">End of service</span>
+                            <span className="mt-0.5 block text-body-sm text-on-surface-variant">
+                              {endedAt ? (
+                                <>
+                                  Ended at <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
+                                </>
+                              ) : mayEnd && !locked ? (
+                                'Closes the running order and records when it really finished.'
+                              ) : (
+                                <>
+                                  Planned for{' '}
+                                  <span className="font-mono text-on-surface">
+                                    {formatTime(new Date(plannedEnd).toISOString())}
+                                  </span>
+                                  .
+                                </>
+                              )}
+                            </span>
+                          </span>
+                          {endedAt
+                            ? mayEnd && (
+                                <button
+                                  type="button"
+                                  onClick={() => endService.mutate(null)}
+                                  disabled={endService.isPending}
+                                  className="tap rounded-full hairline px-4 py-2 text-body-sm font-medium text-on-surface disabled:opacity-50"
+                                >
+                                  {endService.isPending ? 'Reopening…' : 'Reopen service'}
+                                </button>
+                              )
+                            : mayEnd &&
+                              !locked && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEndingService(true)}
+                                  disabled={endService.isPending}
+                                  className="tap rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline disabled:opacity-50"
+                                >
+                                  End service
+                                </button>
+                              )}
+                        </div>
+                      </TimelineCard>
+                    </TimelineRow>
+                  )}
+                </ul>
               </div>
             </Tile>
 

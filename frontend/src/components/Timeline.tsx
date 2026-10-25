@@ -181,7 +181,7 @@ export function TimelineCard({
   children,
   className = '',
 }: {
-  tone?: 'plain' | 'warning' | 'running' | 'skipped'
+  tone?: 'plain' | 'warning' | 'running' | 'skipped' | 'end'
   children: ReactNode
   className?: string
 }) {
@@ -195,6 +195,8 @@ export function TimelineCard({
       'bg-[color-mix(in_oklab,var(--color-accent-green)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_32%,transparent)]',
     // Dropped: still legible, plainly not part of the service any more.
     skipped: 'bg-transparent hairline opacity-60',
+    // The End of service node: a marker on the rail rather than a session.
+    end: 'bg-transparent border border-dashed border-outline-variant',
   }
   return (
     <div
@@ -264,8 +266,11 @@ export function AssigneePill({
 export function RailCountdown({
   startsAt,
   holding = false,
+  to = 'session',
 }: {
   startsAt: string
+  /** What the gap runs to: the next session, or the end of the service. */
+  to?: 'session' | 'end'
   /**
    * The next session has been marked not started, so this one is still
    * running. Past its planned end the clock counts up rather than sitting
@@ -291,10 +296,14 @@ export function RailCountdown({
       : 'text-accent-orange-soft ring-accent-orange/45'
 
   const label = !over
-    ? `Next session in ${text}`
+    ? to === 'end'
+      ? `The service ends in ${text}`
+      : `Next session in ${text}`
     : holding
       ? `Running ${formatCountdown(-remaining)} over`
-      : 'The next session is due to start'
+      : to === 'end'
+        ? 'The service is due to end'
+        : 'The next session is due to start'
 
   return (
     <span
