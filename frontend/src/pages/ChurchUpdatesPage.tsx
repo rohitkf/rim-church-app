@@ -15,6 +15,7 @@ import { DateTimeField } from '../components/DateTimeFields'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionButton, Eyebrow, Field, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
+import { LinkedText } from '../components/LinkedText'
 
 const TITLE_MAX = 120
 const BODY_MAX = 5000
@@ -183,9 +184,10 @@ export function ChurchUpdatesPage() {
                       {update.title}
                     </h2>
                     {/* Plain text, its line breaks kept: an update is written
-                        like a notice, not formatted like a web page. */}
+                        like a notice, not formatted like a web page — but a
+                        web address in it is a link. */}
                     <p className="mt-2 whitespace-pre-line break-words text-body-md text-on-surface-variant">
-                      {update.body}
+                      <LinkedText text={update.body} />
                     </p>
 
                     {isAdmin && (
