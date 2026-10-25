@@ -8,6 +8,7 @@ import { NavNamesContext } from '../lib/navNames'
 import { DEFAULT_SETTINGS } from '../lib/appSettings'
 import { SETTINGS_PAGES } from '../lib/pageSettings'
 import { decide, type Holder, type Overrides, type TeamOverrides } from '../lib/permissions'
+import { chooseOption } from '../test/select'
 
 /*
  * Settings › Page by Page: each page's settings and rules in one place,
@@ -46,7 +47,17 @@ const db = vi.hoisted(() => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: () => ({
-      select: () => ({ maybeSingle: () => Promise.resolve({ data: { ...db.row }, error: null }) }),
+      select: () => ({
+        maybeSingle: () => Promise.resolve({ data: { ...db.row }, error: null }),
+        order: () =>
+          Promise.resolve({
+            data: [
+              { id: 'p1', first_name: 'Asha', last_name: 'Mathew' },
+              { id: 'p2', first_name: 'Ben', last_name: 'Thomas' },
+            ],
+            error: null,
+          }),
+      }),
       update: (patch: Record<string, unknown>) => ({
         eq: () => {
           db.writes.push(patch)
@@ -201,6 +212,51 @@ describe('Page by Page', () => {
     expect(section('Availability')).toHaveAttribute('aria-expanded', 'true')
     expect(section('Team Rota')).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText('Closes the night before, at')).toBeInTheDocument()
+  })
+
+  // 0184: the person at the desk on a Sunday can press Session started
+  // without being able to rename or delete the plan.
+  it('gives a team and a person some of the planner’s buttons, and saves them with the rest', async () => {
+    const user = await show()
+    await user.click(section('Service Planner'))
+    const card = screen.getByRole('region', { name: 'Planner buttons' })
+    expect(within(card).getByText(/Nobody else yet/)).toBeInTheDocument()
+
+    await chooseOption(user, within(card).getByRole('combobox', { name: 'Add a team' }), 'Media')
+    const media = within(card).getByRole('group', { name: 'Buttons Media may use' })
+    // A new holder starts with the four that run the order.
+    expect(within(media).getByRole('checkbox', { name: /Session started/ })).toBeChecked()
+    expect(within(media).getByRole('checkbox', { name: /Skip/ })).toBeChecked()
+    expect(within(media).getByRole('checkbox', { name: /Remove a session/ })).not.toBeChecked()
+    await user.click(within(media).getByRole('checkbox', { name: /Skip/ }))
+    await user.click(within(media).getByRole('checkbox', { name: /End service/ }))
+
+    await user.type(within(card).getByRole('textbox', { name: 'Add a person' }), 'ash')
+    await user.click(within(card).getByRole('button', { name: 'Add Asha Mathew' }))
+    await user.click(within(card).getByRole('button', { name: 'Give Asha Mathew every button' }))
+
+    expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Who has the Service Planner’s buttons')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.writes).toHaveLength(1))
+    expect(db.writes[0]).toEqual({
+      planner_controls: {
+        teams: { d1: ['start', 'hold', 'add_time', 'end'] },
+        people: { p1: ['start', 'hold', 'add_time', 'skip', 'substitute', 'add_below', 'remove', 'end'] },
+      },
+    })
+  })
+
+  it('takes a holder away again', async () => {
+    db.row = { ...DEFAULT_SETTINGS, planner_controls: { teams: { d2: ['start'] }, people: {} } }
+    const user = await show()
+    await user.click(section('Service Planner'))
+    const card = screen.getByRole('region', { name: 'Planner buttons' })
+    expect(within(card).getByRole('list', { name: 'Who has planner buttons' })).toHaveTextContent('Worship')
+    await user.click(within(card).getByRole('button', { name: 'Remove Worship' }))
+    expect(within(card).getByText(/Nobody else yet/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.writes).toHaveLength(1))
+    expect(db.writes[0]).toEqual({ planner_controls: { teams: {}, people: {} } })
   })
 
   it('offers nothing to save to somebody who may only read it', async () => {

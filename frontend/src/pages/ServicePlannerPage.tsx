@@ -9,6 +9,8 @@ import { ExportServiceDialog } from '../components/ExportServiceDialog'
 import type { SheetSession } from '../lib/serviceSheet'
 import { editingLocked, editingLocksAt, serviceStanding } from '../lib/serviceState'
 import { useAppSettings } from '../lib/appSettings'
+import { RUN_CONTROLS, type PlannerControl } from '../lib/plannerControls'
+import { usePlannerControls } from '../lib/usePlannerControls'
 import { GUESTS_KEY, addGuest, fetchGuests, guestLabel, pickable } from '../lib/guests'
 import {
   assigneeInitials,
@@ -118,6 +120,10 @@ export function ServicePlannerPage() {
   const mayRepeat = can('svc.repeat') && !previewing
   const mayTemplates = can('svc.templates') && !previewing
   const canManage = mayPlan || mayService
+  // Buttons the church gave this person on top of that (Settings › Page by
+  // page › Service Planner, 0184). Preview drops them with the rest.
+  const heldControls = usePlannerControls()
+  const given = previewing ? new Set<PlannerControl>() : heldControls
 
   const serviceQuery = useQuery({
     queryKey: ['service', serviceId],
@@ -129,7 +135,11 @@ export function ServicePlannerPage() {
     queryFn: () => fetchSessions(serviceId!),
     enabled: !!serviceId,
   })
-  const profilesQuery = useQuery({ queryKey: ['profile-options'], queryFn: fetchProfileOptions, enabled: mayPlan })
+  const profilesQuery = useQuery({
+    queryKey: ['profile-options'],
+    queryFn: fetchProfileOptions,
+    enabled: mayPlan || given.has('substitute'),
+  })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['service-sessions', serviceId] })
 
@@ -488,7 +498,12 @@ export function ServicePlannerPage() {
    */
   const graceMs = settings.edit_grace_minutes * 60_000
   const locksAt = editingLocksAt(sessions, endedAt, graceMs)
-  const canEdit = mayPlan && !editingLocked(sessions, clock, endedAt, graceMs)
+  const locked = editingLocked(sessions, clock, endedAt, graceMs)
+  const canEdit = mayPlan && !locked
+  /** A button in a session's menu: everybody who plans, and whoever was given it. */
+  const mayControl = (control: PlannerControl) => canEdit || (!locked && given.has(control))
+  const mayRun = RUN_CONTROLS.some(mayControl)
+  const mayEnd = mayService || given.has('end')
 
   const {
     ordered: sessionOrder,
@@ -849,7 +864,7 @@ export function ServicePlannerPage() {
               running order it is actually for. Adding a session is the
               thing an Admin came to do; the rest is a menu. */}
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            {canEdit && undoStack.length > 0 && (
+            {mayRun && undoStack.length > 0 && (
               <button
                 onClick={() => undo.mutate()}
                 disabled={undo.isPending}
@@ -929,7 +944,7 @@ export function ServicePlannerPage() {
         <ExportServiceDialog sheet={exportSheet} onClose={() => setExporting(false)} />
       )}
 
-      {confirming && canEdit && (() => {
+      {confirming && mayControl(confirming.action) && (() => {
         const index = sessions.findIndex((s) => s.id === confirming.id)
         if (index < 0) return null
         const session = sessions[index]
@@ -975,7 +990,7 @@ export function ServicePlannerPage() {
         )
       })()}
 
-      {addingTimeTo && canEdit && (() => {
+      {addingTimeTo && mayControl('add_time') && (() => {
         const session = sessions.find((s) => s.id === addingTimeTo)
         if (!session) return null
         return (
@@ -997,7 +1012,7 @@ export function ServicePlannerPage() {
         )
       })()}
 
-      {endingService && canEdit && (
+      {endingService && mayEnd && !locked && (
         <Overlay label="End this service" align="sheet" onDismiss={() => setEndingService(false)}>
           <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
             <h2 className="text-headline-md">End the service?</h2>
@@ -1202,94 +1217,120 @@ export function ServicePlannerPage() {
                      * a session nobody may edit simply has none.
                      */
                     const substitutes = substitutesOn(session)
-                    const sessionActions: MenuAction[] = skipped
-                      ? canEdit
-                        ? [
-                            {
-                              label: 'Put it back',
-                              hint: 'Undoes the skip and returns it to the running order',
-                              tone: 'accent',
-                              disabled: runPlan.isPending,
-                              onSelect: () =>
-                                runPlan.mutate({
-                                  label: `un-skipping ${session.session_name}`,
-                                  build: (rows) =>
-                                    unskipPlan(
-                                      rows,
-                                      rows.findIndex((r) => r.id === session.id),
-                                    ),
-                                }),
-                            },
-                          ]
-                        : []
-                      : canEdit
-                        ? [
-                            {
-                              label: 'Session started',
-                              hint: 'Sets this to now and moves everything after it',
-                              tone: 'accent',
-                              disabled: runPlan.isPending,
-                              onSelect: () => setConfirming({ action: 'start', id: session.id }),
-                              badge: isNext ? (
-                                <span className="shrink-0 rounded-full bg-accent-green px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-green-ink">
-                                  Next
-                                </span>
-                              ) : undefined,
-                            },
-                            {
-                              label: held ? 'Still not started' : 'Not started',
-                              hint: held
-                                ? 'Keeps holding: the one before it is still running'
-                                : 'Holds the start until the one before it finishes',
-                              disabled: runPlan.isPending,
-                              onSelect: () =>
-                                runPlan.mutate({
-                                  label: held
-                                    ? `un-holding ${session.session_name}`
-                                    : `holding ${session.session_name}`,
-                                  build: (rows, at) => {
-                                    const i = rows.findIndex((r) => r.id === session.id)
-                                    if (i < 0) return []
-                                    return held ? releasePlan(rows, i) : holdPlan(rows, i, at)
-                                  },
-                                }),
-                            },
-                            {
-                              label: 'Add time',
-                              hint: 'Grants extra minutes and moves the rest down',
-                              disabled: runPlan.isPending,
-                              onSelect: () => setAddingTimeTo(session.id),
-                            },
-                            {
-                              label: 'Skip this session',
-                              hint: 'Takes it out of the order without deleting it',
-                              disabled: runPlan.isPending,
-                              onSelect: () => setConfirming({ action: 'skip', id: session.id }),
-                            },
-                            {
-                              label: 'Assign substitute',
-                              hint: 'Names who steps in if the person on it cannot',
-                              onSelect: () =>
-                                setSubstituteOpen((open) => new Set(open).add(session.id)),
-                            },
-                            {
-                              label: 'Add a session below',
-                              disabled: addSessionAfter.isPending,
-                              onSelect: () => addSessionAfter.mutate(session.id),
-                            },
-                            {
-                              label: 'Remove this session',
-                              tone: 'danger',
-                              onSelect: () =>
-                                ask({
-                                  title: `Remove ${session.session_name}?`,
-                                  body: 'The session and everything written against it go, and the ones after it move up.',
-                                  confirmLabel: 'Remove',
-                                  onConfirm: () => deleteSession.mutate(session.id),
-                                }),
-                            },
-                          ]
-                        : []
+                    const sessionActions: MenuAction[] = (
+                      skipped
+                        ? ([
+                            [
+                              'skip',
+                              {
+                                label: 'Put it back',
+                                hint: 'Undoes the skip and returns it to the running order',
+                                tone: 'accent',
+                                disabled: runPlan.isPending,
+                                onSelect: () =>
+                                  runPlan.mutate({
+                                    label: `un-skipping ${session.session_name}`,
+                                    build: (rows) =>
+                                      unskipPlan(
+                                        rows,
+                                        rows.findIndex((r) => r.id === session.id),
+                                      ),
+                                  }),
+                              },
+                            ],
+                          ] as [PlannerControl, MenuAction][])
+                        : ([
+                            [
+                              'start',
+                              {
+                                label: 'Session started',
+                                hint: 'Sets this to now and moves everything after it',
+                                tone: 'accent',
+                                disabled: runPlan.isPending,
+                                onSelect: () => setConfirming({ action: 'start', id: session.id }),
+                                badge: isNext ? (
+                                  <span className="shrink-0 rounded-full bg-accent-green px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-green-ink">
+                                    Next
+                                  </span>
+                                ) : undefined,
+                              },
+                            ],
+                            [
+                              'hold',
+                              {
+                                label: held ? 'Still not started' : 'Not started',
+                                hint: held
+                                  ? 'Keeps holding: the one before it is still running'
+                                  : 'Holds the start until the one before it finishes',
+                                disabled: runPlan.isPending,
+                                onSelect: () =>
+                                  runPlan.mutate({
+                                    label: held
+                                      ? `un-holding ${session.session_name}`
+                                      : `holding ${session.session_name}`,
+                                    build: (rows, at) => {
+                                      const i = rows.findIndex((r) => r.id === session.id)
+                                      if (i < 0) return []
+                                      return held ? releasePlan(rows, i) : holdPlan(rows, i, at)
+                                    },
+                                  }),
+                              },
+                            ],
+                            [
+                              'add_time',
+                              {
+                                label: 'Add time',
+                                hint: 'Grants extra minutes and moves the rest down',
+                                disabled: runPlan.isPending,
+                                onSelect: () => setAddingTimeTo(session.id),
+                              },
+                            ],
+                            [
+                              'skip',
+                              {
+                                label: 'Skip this session',
+                                hint: 'Takes it out of the order without deleting it',
+                                disabled: runPlan.isPending,
+                                onSelect: () => setConfirming({ action: 'skip', id: session.id }),
+                              },
+                            ],
+                            [
+                              'substitute',
+                              {
+                                label: 'Assign substitute',
+                                hint: 'Names who steps in if the person on it cannot',
+                                onSelect: () =>
+                                  setSubstituteOpen((open) => new Set(open).add(session.id)),
+                              },
+                            ],
+                            [
+                              'add_below',
+                              {
+                                label: 'Add a session below',
+                                disabled: addSessionAfter.isPending,
+                                onSelect: () => addSessionAfter.mutate(session.id),
+                              },
+                            ],
+                            [
+                              'remove',
+                              {
+                                label: 'Remove this session',
+                                tone: 'danger',
+                                onSelect: () =>
+                                  ask({
+                                    title: `Remove ${session.session_name}?`,
+                                    body: 'The session and everything written against it go, and the ones after it move up.',
+                                    confirmLabel: 'Remove',
+                                    onConfirm: () => deleteSession.mutate(session.id),
+                                  }),
+                              },
+                            ],
+                          ] as [PlannerControl, MenuAction][])
+                    )
+                      // Whoever plans has them all; anybody else, the ones
+                      // the church gave them (0184), until the lock.
+                      .filter(([control]) => mayControl(control))
+                      .map(([, action]) => action)
 
                     return (
                       <TimelineRow
@@ -1463,7 +1504,7 @@ export function ServicePlannerPage() {
                                   cannot (0182): a row of its own, labelled,
                                   in amber with dashed pills, so it is never
                                   read as one more person taking it. */}
-                              {(substitutes.length > 0 || (canEdit && substituteOpen.has(session.id))) && (
+                              {(substitutes.length > 0 || (mayControl('substitute') && substituteOpen.has(session.id))) && (
                                 <div
                                   className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2"
                                   aria-label={`Substitute for ${session.session_name}`}
@@ -1472,7 +1513,7 @@ export function ServicePlannerPage() {
                                   <span className="font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
                                     Substitute
                                   </span>
-                                  {canEdit ? (
+                                  {mayControl('substitute') ? (
                                     <LeadPicker
                                       variant="substitute"
                                       label={`Substitute for ${session.session_name}`}
@@ -1572,7 +1613,7 @@ export function ServicePlannerPage() {
                   finishes early — and left the closing session with no way
                   to record how it ran, because nothing came after it.
                 */}
-                {sessions.length > 0 && (canEdit || endedAt) && (
+                {sessions.length > 0 && ((mayEnd && !locked) || canEdit || endedAt) && (
                   <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-black/5 pt-5 dark:border-white/8">
                     {endedAt ? (
                       <>
@@ -1580,7 +1621,7 @@ export function ServicePlannerPage() {
                           Service ended at{' '}
                           <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
                         </span>
-                        {mayService && (
+                        {mayEnd && (
                           <button
                             type="button"
                             onClick={() => endService.mutate(null)}
@@ -1596,7 +1637,7 @@ export function ServicePlannerPage() {
                         <span className="text-body-sm text-on-surface-variant">
                           Closes the running order and records when it really finished.
                         </span>
-                        {mayService && (
+                        {mayEnd && !locked && (
                         <button
                           type="button"
                           onClick={() => setEndingService(true)}

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { readDisplay, type Display } from './display'
 import { z } from 'zod'
+import { plannerControlsSchema } from './plannerControls'
 import { supabase } from './supabaseClient'
 
 /**
@@ -84,6 +85,8 @@ export const appSettingsSchema = z.object({
   poll_top_seen_by: z.enum(['askers', 'leads', 'everyone']).default('askers'),
   /** Who besides the asker and Admins edits or deletes: the poll's team Heads, or nobody (0181). */
   poll_managed_by: z.enum(['askers', 'leads']).default('leads'),
+  /** The planner's buttons given to teams and people beyond who plans (0184); lib/plannerControls. */
+  planner_controls: plannerControlsSchema.default({ teams: {}, people: {} }),
   /** Done and Won't-do feedback, after it was settled (0124). Null is for ever. */
   feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(14),
   /** Each person's bell keeps their newest this many (0128). */
@@ -128,6 +131,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   poll_top_count: 2,
   poll_top_seen_by: 'askers',
   poll_managed_by: 'leads',
+  planner_controls: { teams: {}, people: {} },
   feedback_retention_days: 14,
   notification_keep_count: 10,
   alert_clear_dow: 2,
@@ -142,7 +146,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error
