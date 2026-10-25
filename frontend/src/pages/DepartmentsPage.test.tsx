@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   isOverwatch: false,
   led: [] as string[],
   own: [] as string[],
+  /** The grid's team.request_join for this person (0190). */
+  mayAsk: true,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -27,7 +29,9 @@ vi.mock('../auth/AuthContext', () => ({
     ledDepartmentIds: state.led,
   }),
 }))
-vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => false }) }))
+vi.mock('../lib/usePermissions', () => ({
+  usePermissions: () => ({ can: (cap: string) => cap === 'team.request_join' && state.mayAsk }),
+}))
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'dot' }) }))
 
 const dept = (id: string, name: string) => ({
@@ -77,6 +81,7 @@ beforeEach(() => {
   state.isOverwatch = false
   state.led = []
   state.own = []
+  state.mayAsk = true
 })
 
 describe('the Teams page', () => {
@@ -92,6 +97,14 @@ describe('the Teams page', () => {
   it('offers a Church Member the teams to ask to join, wherever the church opens the page to them', async () => {
     show()
     expect((await screen.findAllByRole('button', { name: 'Request to join' })).length).toBeGreaterThan(0)
+  })
+
+  it('offers nobody the teams to ask to join when the church’s grid says no', async () => {
+    state.mayAsk = false
+    show()
+    // The page has loaded its teams: nobody on any of them yet.
+    expect(await screen.findByText(/not on a team yet/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Request to join' })).not.toBeInTheDocument()
   })
 
   it('puts an ask in front of the head of its team', async () => {

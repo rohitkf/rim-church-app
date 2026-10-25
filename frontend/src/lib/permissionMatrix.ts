@@ -275,7 +275,14 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See teams, their roles and their checklists',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'A Church Member does not see the Teams page out of the box: a team head adds them (0189). Settings › Page by page can open it to everyone, and asking to join with it.',
+        note: 'A Church Member does not see the Teams page out of the box: a team head adds them (0189). Settings › Page by page can open it to everyone.',
+      },
+      {
+        action: 'Ask to join a team',
+        key: 'team.request_join',
+        short: 'Ask to join',
+        can: granted('team.request_join'),
+        note: 'The head of that team says yes or no. The database refuses anybody this says no to, button or not. A Church Member asks from the Teams page, so they need that page opened to them too (Settings › Page by page).',
       },
       {
         action: 'See who heads a team, and who assists',

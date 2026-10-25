@@ -140,7 +140,8 @@ const roleLabel: Record<RoleType, string> = {
 
 export function DashboardPage() {
   const { profile, roles, isAdmin, seesAllTeams, ledDepartmentIds, session } = useAuth()
-  const mayAddService = usePermissions().can('svc.manage')
+  const { can } = usePermissions()
+  const mayAddService = can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
   const { canOpen } = usePageAccess()
@@ -1027,7 +1028,7 @@ export function DashboardPage() {
                       </p>
                       {/* Asking to join is from the Teams page, which is for
                           people on a team unless the church opens it (0189). */}
-                      {canOpen('/departments') ? (
+                      {canOpen('/departments') && can('team.request_join') ? (
                         <Link
                           to="/departments"
                           className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"

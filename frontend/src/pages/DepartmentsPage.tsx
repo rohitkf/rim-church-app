@@ -143,7 +143,9 @@ export function DepartmentsPage() {
       {/* Every team you are not on, and one verb for it. Admins and
           Overwatch already see the whole list above — Overwatch reads every
           team without joining any — so this is for everyone else. */}
-      {!seesAllTeams && (
+      {/* Asking is the church's to allow, role by role (team.request_join,
+          0190); the database refuses whoever it says no to. */}
+      {!seesAllTeams && can('team.request_join') && (
         <div className="mt-8">
           <JoinTeamPanel
             departments={allDepartments ?? []}
