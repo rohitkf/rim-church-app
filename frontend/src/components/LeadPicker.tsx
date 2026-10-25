@@ -39,15 +39,28 @@ function sameName(name: string) {
  */
 export function LeadPicker({
   values,
-  options,
+  options: allOptions,
   onChange,
   label,
   onAddGuest,
+  variant = 'lead',
+  exclude,
 }: {
   values: LeadValue[]
   options: LeadOption[]
   onChange: (next: LeadValue[]) => void
   label: string
+  /**
+   * `substitute` is the same picker for whoever stands in (0182): each
+   * chip is drawn apart — a dashed amber edge and a Sub mark — so it is
+   * never read as one more person taking the session.
+   */
+  variant?: 'lead' | 'substitute'
+  /**
+   * People not to offer: those already in the session's other list. A
+   * person is on a session once, taking it or standing by, never both.
+   */
+  exclude?: LeadValue[]
   /**
    * Put the name that was just typed on the guest roll, and hand back who
    * it became so this picker can assign them on the spot.
@@ -67,6 +80,11 @@ export function LeadPicker({
 
   const keyOf = (value: { kind: string; id: string }) => `${value.kind}:${value.id}`
   const chosenKeys = useMemo(() => new Set(values.map(keyOf)), [values])
+  const options = useMemo(() => {
+    const skip = new Set((exclude ?? []).map(keyOf))
+    return skip.size === 0 ? allOptions : allOptions.filter((o) => !skip.has(keyOf(o)))
+  }, [allOptions, exclude])
+  const sub = variant === 'substitute'
 
   // The people on this session, in the order they were put there, named
   // from the options list — a name that has since gone (a guest removed
@@ -245,9 +263,18 @@ export function LeadPicker({
       {chosen.map((option) => (
         <span
           key={`${option.kind}-${option.id}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-raised-strong py-1 pl-3 pr-1 text-label-md text-on-surface hairline"
+          className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-3 pr-1 text-label-md text-on-surface ${
+            sub
+              ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
+              : 'bg-raised-strong hairline'
+          }`}
         >
           <span className="break-words">{option.name}</span>
+          {sub && (
+            <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-accent-orange-soft">
+              Sub
+            </span>
+          )}
           {option.kind === 'guest' && (
             <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-accent-blue-soft">
               Guest
@@ -280,7 +307,7 @@ export function LeadPicker({
         className="tap flex items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
       >
         <span className="min-w-0 break-words text-left">
-          {chosen.length === 0 ? 'Unassigned' : 'Add someone'}
+          {chosen.length === 0 ? (sub ? 'No substitute' : 'Unassigned') : sub ? 'Add a substitute' : 'Add someone'}
         </span>
         <svg
           className="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
@@ -324,7 +351,7 @@ export function LeadPicker({
                   highlighted === 0 ? 'bg-raised-strong' : ''
                 }`}
               >
-                Unassigned
+                {sub ? 'No substitute' : 'Unassigned'}
               </button>
             </li>
 

@@ -140,6 +140,8 @@ export const sessionAssigneeSchema = z.object({
   user_id: z.string().nullable(),
   guest_id: z.string().nullable(),
   order_index: z.number(),
+  /** Named to step in if the person taking it cannot (0182). */
+  is_substitute: z.boolean().default(false),
   profile: personSummarySchema.nullable().optional(),
   guest: z
     .object({

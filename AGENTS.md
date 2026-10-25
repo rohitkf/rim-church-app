@@ -82,7 +82,7 @@ the thing most likely to waste your time:
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator` |
 | `services` → `service_sessions` | a service and its running order |
-| `service_session_assignees` | who is taking a session — a list, one row per person |
+| `service_session_assignees` | who is taking a session — a list, one row per person. `is_substitute` (0182) marks whoever steps in if they cannot: a second list on the same rows, from the session's ⋯ › Assign substitute, drawn apart (amber, dashed, Sub) on the planner, its Preview and the exported sheet. `peopleOn` is the people taking it only; `substitutesOn` the rest. A person is on a session once, in one list |
 | `announcements` | the alert an Admin sends from Settings |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |

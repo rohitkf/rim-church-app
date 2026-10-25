@@ -22,6 +22,11 @@ export interface SheetSession {
   name: string
   /** Everybody taking it, in the order the planner has them. */
   leads: string[]
+  /**
+   * Whoever steps in if they cannot (0182), drawn apart under a
+   * SUBSTITUTE label in amber, so the two are never confused.
+   */
+  substitutes?: string[]
 }
 
 export interface ServiceSheet {
@@ -77,6 +82,10 @@ interface Palette {
    */
   time: string
   minutes: string
+  /** A substitute's pill and initials disc, and the label above them (0182). */
+  subPill: string
+  subDisc: string
+  subLabel: string
 }
 
 const PALETTES: Record<SheetTheme, Palette> = {
@@ -97,6 +106,9 @@ const PALETTES: Record<SheetTheme, Palette> = {
     windowTile: '#101a26',
     time: '#f5f5f7',
     minutes: '#c7c7cc',
+    subPill: '#33261a',
+    subDisc: '#6b4a1c',
+    subLabel: '#ff9f0a',
   },
   light: {
     backdrop: '#ffffff',
@@ -117,6 +129,9 @@ const PALETTES: Record<SheetTheme, Palette> = {
     windowTile: '#eaf2ff',
     time: '#1c1c1e',
     minutes: '#3a3a3c',
+    subPill: '#fbe9cf',
+    subDisc: '#f0c98f',
+    subLabel: '#8a5200',
   },
 }
 
@@ -179,6 +194,32 @@ const AVATAR = 13
 const AVATAR_INSET = 4
 /** Between one line of pills and the next, when they do not all fit across. */
 const PILL_ROW_GAP = 6
+/** Between the people taking a session and the SUBSTITUTE label under them. */
+const SUB_GAP = 10
+/** The label's own line, above the substitutes' pills. */
+const SUB_LABEL_H = 16
+
+/** Pills laid out in lines across `innerW`, side by side while they fit. */
+function pillLines(pills: Pill[], innerW: number): { rows: Pill[][]; heights: number[]; total: number } {
+  const rows: Pill[][] = []
+  let line: Pill[] = []
+  let lineW = 0
+  for (const pill of pills) {
+    const widthWith = line.length > 0 ? lineW + PILL_GAP + pill.w : pill.w
+    if (line.length > 0 && widthWith > innerW) {
+      rows.push(line)
+      line = [pill]
+      lineW = pill.w
+    } else {
+      line.push(pill)
+      lineW = widthWith
+    }
+  }
+  if (line.length > 0) rows.push(line)
+  const heights = rows.map((row) => Math.max(...row.map((pill) => pill.h)))
+  const total = heights.reduce((sum, h) => sum + h, 0) + Math.max(0, rows.length - 1) * PILL_ROW_GAP
+  return { rows, heights, total }
+}
 
 /** One name's pill, measured before anything is drawn. */
 interface Pill {
@@ -250,6 +291,9 @@ export function serviceSheetPage(
     windowTile: WINDOW_TILE,
     time: TIME_INK,
     minutes: MINUTES_INK,
+    subPill: SUB_PILL,
+    subDisc: SUB_DISC,
+    subLabel: SUB_LABEL,
   } = PALETTES[theme]
 
   const texts: PdfText[] = []
@@ -326,28 +370,15 @@ export function serviceSheetPage(
      * another line when they do not. A pill is never split across lines;
      * a single very long name wraps inside its own pill instead.
      */
-    const pills = (session.leads.length > 0 ? session.leads : [null]).map((lead) =>
-      measurePill(lead, innerW),
+    const leads = pillLines(
+      (session.leads.length > 0 ? session.leads : [null]).map((lead) => measurePill(lead, innerW)),
+      innerW,
     )
-    // Which pills share a line, in order.
-    const pillRows: Pill[][] = []
-    let line: Pill[] = []
-    let lineW = 0
-    for (const pill of pills) {
-      const widthWith = line.length > 0 ? lineW + PILL_GAP + pill.w : pill.w
-      if (line.length > 0 && widthWith > innerW) {
-        pillRows.push(line)
-        line = [pill]
-        lineW = pill.w
-      } else {
-        line.push(pill)
-        lineW = widthWith
-      }
-    }
-    if (line.length > 0) pillRows.push(line)
-    const pillRowHeights = pillRows.map((row) => Math.max(...row.map((pill) => pill.h)))
-    const pillsH =
-      pillRowHeights.reduce((sum, h) => sum + h, 0) + (pillRows.length - 1) * PILL_ROW_GAP
+    // And whoever stands in, under their own label — nothing at all when
+    // nobody does.
+    const subNames = session.substitutes ?? []
+    const subs = subNames.length > 0 ? pillLines(subNames.map((name) => measurePill(name, innerW)), innerW) : null
+    const pillsH = leads.total + (subs ? SUB_GAP + SUB_LABEL_H + subs.total : 0)
 
     // What the row hangs from: the first line of the name, so the clock
     // beside it and the dot on the rail line up with the words rather
@@ -397,9 +428,11 @@ export function serviceSheetPage(
     }
 
     // Who is doing it, on its own line beneath — or the gap, named,
-    // because that is what a planner is scanning for.
+    // because that is what a planner is scanning for. Then, if anybody
+    // stands in, the SUBSTITUTE label and their pills in amber.
     let pillY = pillTop
-    pillRows.forEach((row, rowIndex) => {
+    const drawPills = (lines: ReturnType<typeof pillLines>, substitute: boolean) =>
+      lines.rows.forEach((row, rowIndex) => {
       let pillX = ROW_X + ROW_PAD_X
       for (const pill of row) {
         rects.push({
@@ -407,7 +440,7 @@ export function serviceSheetPage(
           y: pillY,
           w: pill.w,
           h: pill.h,
-          color: pill.lead ? PILL : PILL_EMPTY,
+          color: substitute ? SUB_PILL : pill.lead ? PILL : PILL_EMPTY,
           radius: Math.min(17, pill.h / 2),
         })
         const pillMid = pillY + pill.h / 2
@@ -416,7 +449,7 @@ export function serviceSheetPage(
             cx: pillX + pill.padLeft + AVATAR,
             cy: pillMid,
             r: AVATAR,
-            color: AVATAR_DISC,
+            color: substitute ? SUB_DISC : AVATAR_DISC,
           })
           const ini = initialsOf(pill.lead)
           texts.push({
@@ -441,8 +474,24 @@ export function serviceSheetPage(
         }
         pillX += pill.w + PILL_GAP
       }
-      pillY += pillRowHeights[rowIndex] + PILL_ROW_GAP
+      pillY += lines.heights[rowIndex] + PILL_ROW_GAP
     })
+    drawPills(leads, false)
+    if (subs) {
+      // pillY has stepped one gap past the last line of leads.
+      pillY += SUB_GAP - PILL_ROW_GAP
+      texts.push({
+        x: ROW_X + ROW_PAD_X,
+        y: pillY + EYEBROW_SIZE,
+        size: EYEBROW_SIZE,
+        text: 'SUBSTITUTE',
+        mono: true,
+        bold: true,
+        color: SUB_LABEL,
+      })
+      pillY += SUB_LABEL_H
+      drawPills(subs, true)
+    }
 
     y = top + rowH + ROW_GAP
   })
