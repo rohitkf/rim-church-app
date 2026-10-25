@@ -21,6 +21,9 @@ const state = vi.hoisted(() => ({
   finished: new Set<string>(),
   leads: false,
   admin: false,
+  overwatch: false,
+  /** The teams the signed-in person is on. */
+  ownTeams: ['d1'] as string[],
   /** Every table the page read. */
   read: [] as string[],
   /** Rows the page reads straight from Postgres, by table. */
@@ -35,6 +38,8 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     session: { user: { id: 'u1' } },
     isAdmin: state.admin,
+    isOverwatch: state.overwatch,
+    seesAllTeams: state.admin || state.overwatch,
     isDepartmentHead: () => state.leads,
   }),
 }))
@@ -71,7 +76,7 @@ vi.mock('../lib/queries', () => ({
     ]),
   fetchDepartments: () =>
     Promise.resolve([{ id: 'd1', name: 'Media', color: '#3b82f6', is_worship: false }]),
-  fetchOwnDepartmentIds: () => Promise.resolve(['d1']),
+  fetchOwnDepartmentIds: () => Promise.resolve(state.ownTeams),
 }))
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -151,6 +156,8 @@ beforeEach(() => {
   state.finished = new Set()
   state.leads = false
   state.admin = false
+  state.overwatch = false
+  state.ownTeams = ['d1']
   state.read = []
   state.rows = {}
   state.starts = {}
@@ -869,6 +876,30 @@ describe('the history of somebody’s answer', () => {
       'datetime',
       '2026-09-05T23:40:00Z',
     )
+  })
+
+  it('shows Overwatch on no team the team’s answers and their history, and asks it nothing', async () => {
+    state.overwatch = true
+    state.ownTeams = []
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    // Not a member of Media, so no Yes / Maybe / No of its own.
+    expect(within(card).queryByRole('group', { name: /Can you serve/ })).not.toBeInTheDocument()
+    await userEvent.click(within(card).getByText(/Team responses/))
+    expect(within(card).getByText(/Team responses/)).toHaveTextContent('Team responses (1/1)')
+    await userEvent.click(await within(card).findByRole('button', { name: 'History · 2' }))
+    expect(within(card).getByRole('list', { name: 'History of Joel Skaria’s answer' })).toBeInTheDocument()
+    // Reading is all it does: nobody's answer can be changed from here.
+    expect(within(card).queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('still asks Overwatch about a team it is on', async () => {
+    state.overwatch = true
+    show()
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/Today/) as HTMLElement
+    expect(within(card).getByRole('group', { name: /Can you serve/ })).toBeInTheDocument()
   })
 
   it('is closed to a Head by their own team’s rule, and not even asked for (0162)', async () => {
