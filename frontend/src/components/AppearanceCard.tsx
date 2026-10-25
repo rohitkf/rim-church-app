@@ -4,6 +4,7 @@ import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
 import { PushPermissionRow } from './PushPermission'
+import { PushPreferences } from './PushPreferences'
 import { MoonIcon, SunIcon, BellIcon } from './icons'
 import { SegmentedControl, Tile } from './Surface'
 
@@ -64,11 +65,13 @@ export function AppearanceCard() {
           <div className="min-w-0">
             <h2 className="text-body-md font-medium text-on-surface">Phone notifications</h2>
             <p className="mt-0.5 text-body-sm text-on-surface-variant">
-              Rota changes, alerts and reminders, even while the app is closed. This device only.
+              Rota changes, alerts, reminders, board posts and team chat, even while the app is closed.
+              Turning it on is for this device; what reaches it is for your account.
             </p>
           </div>
         </div>
         <PushPermissionRow />
+        <PushPreferences />
       </Tile>
 
       <p className="px-2 text-label-sm text-on-surface-faint">

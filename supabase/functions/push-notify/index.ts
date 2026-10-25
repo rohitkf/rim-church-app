@@ -33,6 +33,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // the build when the two disagree.
 const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   message: { label: 'New message board post', href: '/messages' },
+  team_chat: { label: 'New message in your team chat', href: '/team-chat' },
   rota_release_request: { label: 'A team has asked to borrow one of your volunteers', href: '/rota' },
   rota_release_approved: { label: 'Your rota release request was approved', href: '/rota' },
   rota_release_denied: { label: 'Your rota release request was denied', href: '/rota' },
@@ -68,21 +69,26 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
 }
 
 /**
- * What is worth a buzz in somebody's pocket, as opposed to a number on the
- * bell when they next look.
+ * What a person may turn off for themselves (`push_preferences`, 0185).
  *
- * Everything aimed at one person is here: a question they have to answer, a
+ * The message board and team chat were bell-only for a long time, for fear
+ * that a church of eighty posting all evening would buzz every phone until
+ * everybody switched notifications off. The church asked for them on
+ * phones anyway, so they push now, with two guards: the database keeps one
+ * unread line per board and per team's room, the newest, so the bell does
+ * not pile up; and each kind is a switch each person can turn off, which
+ * quietens the phone and leaves the bell.
+ *
+ * Everything else is aimed at one person — a question to answer, a
  * decision waiting on them, a job before a service, a head deliberately
- * interrupting them. The public message board is not — a church of eighty
- * people posting to it would make every phone buzz all evening, and the
- * fastest way to have the whole team switch notifications off is to spend
- * them on things nobody needed that minute.
- *
- * A type nobody has listed either way still pushes: a new kind of
- * notification is far more likely to be something that matters than the
- * noticeboard, and silence would be the harder failure to notice.
+ * interrupting them — and always pushes. A type nobody has listed pushes
+ * too: a new kind of notification is far more likely to matter than not,
+ * and silence would be the harder failure to notice.
  */
-const NEVER_PUSHED = new Set(['message'])
+const MUTED_BY: Record<string, 'board' | 'team_chat'> = {
+  message: 'board',
+  team_chat: 'team_chat',
+}
 
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')
@@ -156,23 +162,34 @@ Deno.serve(async (req) => {
   const type: string | undefined = row?.type
   if (!userId || !type) return new Response('ignored', { status: 200 })
 
-  // The bell already has it; this is only about the phone.
-  if (NEVER_PUSHED.has(type)) {
-    return new Response(JSON.stringify({ sent: 0, reason: `${type} is bell-only` }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  // The bell already has it; this is only about the phone, and only if
+  // they have not asked to be left alone for this kind.
+  const muteKey = MUTED_BY[type]
+  if (muteKey) {
+    const { data: prefs } = await supabase
+      .from('push_preferences')
+      .select('board, team_chat')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (prefs && prefs[muteKey] === false) {
+      return new Response(JSON.stringify({ sent: 0, reason: `${type} is turned off for this person` }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
   }
 
   const known = NOTIFICATIONS[type]
   const payload = JSON.stringify({
     title: 'Rehoboth International Ministries',
-    // An alert someone wrote says what they wrote. This is the one thing
-    // that puts author-written text on a lock screen, and it is text a head
-    // deliberately sent to that person's phone.
+    // An alert someone wrote says what they wrote, and so do a board post
+    // and a team chat line ("Name: what they said", 0185) — text written
+    // for the people who can already read it there.
     body: (row?.body as string | null) || known?.label || 'Something needs you in the app.',
     href: deepLink(type, row?.reference_id as string | null | undefined) ?? known?.href ?? '/',
-    tag: type,
+    // One on the lock screen per kind — per team's room for a chat — the
+    // newest replacing the last, as the bell does.
+    tag: type === 'team_chat' && row?.reference_id ? `team_chat:${row.reference_id}` : type,
   })
 
   const { data: subscriptions, error } = await supabase
@@ -240,6 +257,7 @@ function jwtRole(token: string): string | null {
 function deepLink(type: string, referenceId: string | null | undefined): string | null {
   if (!referenceId) return null
   if (type === 'team_join_approved') return `/departments/${referenceId}`
+  if (type === 'team_chat') return `/team-chat?team=${referenceId}`
   // A poll's and an update's reference is the thing itself, so the link
   // opens the page at it.
   if (type === 'team_poll') return `/polls?poll=${referenceId}`
