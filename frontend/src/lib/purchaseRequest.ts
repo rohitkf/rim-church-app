@@ -20,6 +20,9 @@
  * hold every field at once.
  */
 
+import { z } from 'zod'
+import { supabase } from './supabaseClient'
+
 export interface RequestDraft {
   itemName: string
   kind: 'asset' | 'consumable'
@@ -194,4 +197,55 @@ export function groupByTeam<T extends TeamRow>(rows: T[]): TeamGroup<T>[] {
     groups.set(row.department_id, group)
   }
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/*
+ * A team's wishlist: the things asked for and not bought yet, with what
+ * became of each ask. Read by the wishlist itself (components/
+ * PurchaseRequests) and by the inventory export, so both read it the same
+ * way.
+ */
+
+export const requestSchema = z.object({
+  id: z.string(),
+  department_id: z.string(),
+  requested_by: z.string().nullable(),
+  item_name: z.string(),
+  /** Asked at request time now, rather than guessed from the count. */
+  kind: z.enum(['asset', 'consumable']).nullable().optional(),
+  quantity: z.number(),
+  estimated_cost: z.union([z.number(), z.string()]).nullable(),
+  product_url: z.string().nullable(),
+  reason: z.string().nullable(),
+  // The rest of what the shelf will need, asked for once, here.
+  brand: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  serial_number: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  category_id: z.string().nullable().optional(),
+  reorder_level: z.number().nullable().optional(),
+  status: z.enum(['requested', 'approved', 'declined', 'purchased']),
+  decision_note: z.string().nullable(),
+  decided_at: z.string().nullable(),
+  created_at: z.string(),
+  inventory_item_id: z.string().nullable(),
+  requester: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+  decider: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+  department: z.object({ name: z.string(), color: z.string().nullable() }).nullable(),
+})
+export type PurchaseRequest = z.infer<typeof requestSchema>
+
+const REQUEST_COLUMNS =
+  'id, department_id, requested_by, item_name, kind, quantity, estimated_cost, product_url, reason, brand, model, serial_number, location, category, category_id, reorder_level, status, decision_note, decided_at, created_at, inventory_item_id, requester:profiles!purchase_requests_requested_by_fkey(first_name, last_name), decider:profiles!purchase_requests_decided_by_fkey(first_name, last_name), department:departments(name, color)'
+
+export async function fetchRequests(departmentId: string | null): Promise<PurchaseRequest[]> {
+  let query = supabase
+    .from('purchase_requests')
+    .select(REQUEST_COLUMNS)
+    .order('created_at', { ascending: false })
+  if (departmentId) query = query.eq('department_id', departmentId)
+  const { data, error } = await query
+  if (error) throw error
+  return z.array(requestSchema).parse(data)
 }
