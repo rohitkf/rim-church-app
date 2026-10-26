@@ -157,6 +157,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'page',
     note: 'Opened to everyone, Church Members can ask to join a team from here. Out of the box a head adds them instead — the database refuses the request too.',
   },
+  '/clock-in': {
+    default: 'admins',
+    choices: ['admins'],
+    enforcement: 'fixed',
+    note: 'Admins, the Owner and Overwatch, and the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
+  },
   '/volunteers': {
     default: 'admins',
     choices: ['admins'],

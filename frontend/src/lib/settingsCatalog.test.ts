@@ -23,7 +23,18 @@ import {
  */
 
 /** The settings-row columns that are not a setting of their own: the logo, the four objects, the colour, and one nothing reads. */
-const NOT_A_ROW: (keyof AppSettings)[] = ['logo_url', 'page_access', 'display', 'planner_controls', 'overwatch_pages', 'coordinator_color', 'planner_upcoming_limit']
+const NOT_A_ROW: (keyof AppSettings)[] = [
+  'logo_url',
+  'page_access',
+  'display',
+  'planner_controls',
+  'overwatch_pages',
+  'coordinator_color',
+  'planner_upcoming_limit',
+  // Lists of teams and people, edited in Settings › Clock in itself (0191).
+  'clock_in_viewers',
+  'clock_in_approver_teams',
+]
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])
 

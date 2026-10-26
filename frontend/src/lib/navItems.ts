@@ -8,6 +8,7 @@ import {
   NotebookIcon,
   ClipboardUserIcon,
   MusicIcon,
+  MapPinIcon,
   GridIcon,
   IdCardIcon,
   ChatTeamIcon,
@@ -66,6 +67,9 @@ export const NAV_ITEMS: NavItem[] = [
     tabs: SERVING_TABS.map((tab) => tab.to),
   },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
+  // Who has arrived, and when: the watchers' page, not the volunteers'
+  // (they clock in from the Dashboard).
+  { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Sunday' },
   // Where everything stands on the morning, drawn once for everybody.
   { to: '/stage', label: 'Stage Layout', icon: StageIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
