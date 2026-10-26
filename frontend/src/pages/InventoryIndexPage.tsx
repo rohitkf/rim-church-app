@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
-import { Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
+import { ActionButton, Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
+import { ExportInventoryDialog } from '../components/ExportInventoryDialog'
 import { PurchaseRequests } from '../components/PurchaseRequests'
 import { usePermissions } from '../lib/usePermissions'
 import { fetchDepartments } from '../lib/queries'
@@ -13,7 +14,7 @@ import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { formatMoney, needsAttention, totalValue } from '../lib/inventory'
 import { todayIso } from '../lib/monthGrid'
-import { inventoryItemSchema, type InventoryItem } from '../lib/types'
+import { inventoryCategorySchema, inventoryItemSchema, type InventoryItem } from '../lib/types'
 
 /**
  * Every item the viewer is allowed to see, across teams — RLS does the
@@ -21,7 +22,10 @@ import { inventoryItemSchema, type InventoryItem } from '../lib/types'
  * church's.
  */
 async function fetchAllItems(): Promise<InventoryItem[]> {
-  const { data, error } = await supabase.from('inventory_items').select('*')
+  // Who has each thing signed out, for the export's column of it.
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .select('*, holder:profiles!inventory_items_held_by_fkey(id, first_name, last_name)')
   if (error) throw error
   return z.array(inventoryItemSchema).parse(data)
 }
@@ -32,6 +36,17 @@ export function InventoryIndexPage() {
   const { teamStyle } = useTeamStyle()
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const itemsQuery = useQuery({ queryKey: ['inventory-all'], queryFn: fetchAllItems })
+  const [exporting, setExporting] = useState(false)
+  // Every team's shelves, for the export's Shelf column; read only once asked.
+  const categoriesQuery = useQuery({
+    queryKey: ['inventory-categories', 'all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('inventory_categories').select('id, department_id, name, sort_order')
+      if (error) throw error
+      return z.array(inventoryCategorySchema).parse(data)
+    },
+    enabled: exporting,
+  })
 
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
   const byTeam = useMemo(() => {
@@ -51,7 +66,22 @@ export function InventoryIndexPage() {
         eyebrow="Equipment"
         title="Inventory"
         description="Every team's register. Value counts only what is in service — anything retired, missing, on loan or in repair is left out."
+        action={
+          <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={!departmentsQuery.data}>
+            Export
+          </ActionButton>
+        }
       />
+
+      {exporting && departmentsQuery.data && (
+        <ExportInventoryDialog
+          departments={departmentsQuery.data}
+          items={items}
+          categories={categoriesQuery.data ?? []}
+          todayIso={today}
+          onClose={() => setExporting(false)}
+        />
+      )}
 
       {/* Three figures, and the two that carry a judgement wear it: money
           that is actually in service reads as good news, anything flagged

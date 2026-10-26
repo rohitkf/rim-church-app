@@ -13,6 +13,7 @@ import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
 import { ItemQrDialog } from '../components/ItemQrDialog'
 import { LabelSheetDialog } from '../components/LabelSheetDialog'
+import { ExportInventoryDialog } from '../components/ExportInventoryDialog'
 import { QrScanner } from '../components/QrScanner'
 import { Overlay } from '../components/Surface'
 import {
@@ -91,6 +92,7 @@ export function InventoryPage() {
   const [picking, setPicking] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [exporting, setExporting] = useState(false)
   // The item a scan landed on, whether from the camera here or from a
   // phone's own camera opening /inventory/scan/<id>.
   const [scanned, setScanned] = useState<string | null>(null)
@@ -241,6 +243,9 @@ export function InventoryPage() {
           <div className="flex flex-wrap items-center gap-2">
             <ActionButton tone="quiet" onClick={() => setScanning(true)}>
               Scan
+            </ActionButton>
+            <ActionButton tone="quiet" onClick={() => setExporting(true)} disabled={!deptQuery.data}>
+              Export
             </ActionButton>
             {canManage && (
               <ActionButton
@@ -696,6 +701,18 @@ export function InventoryPage() {
 
       {printing && pickedItems.length > 0 && (
         <LabelSheetDialog items={pickedItems} onClose={() => setPrinting(false)} />
+      )}
+
+      {exporting && deptQuery.data && (
+        <ExportInventoryDialog
+          departments={[deptQuery.data]}
+          items={items}
+          categories={categories}
+          todayIso={today}
+          startFilter={filter}
+          startSearch={search}
+          onClose={() => setExporting(false)}
+        />
       )}
 
       {scanning && (
