@@ -189,6 +189,17 @@ describe('the table map', () => {
     }
   })
 
+  it('keeps the Dashboard reminders and anniversaries live', () => {
+    // Every table my_open_requests (0183) reads.
+    for (const table of [
+      'notifications', 'services', 'availability', 'department_members',
+      'departments', 'app_settings', 'team_polls', 'team_poll_votes',
+    ]) {
+      expect(keysFor(table), table).toContain('my-requests')
+    }
+    expect(keysFor('household_members')).toContain('married-couples')
+  })
+
   it('says nothing for a table nobody is watching', () => {
     expect(keysFor('push_subscriptions')).toEqual([])
     expect(keysFor('profile_sensitive')).toEqual([])

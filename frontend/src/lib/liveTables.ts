@@ -37,6 +37,7 @@ export const LIVE_TABLES: LiveTable[] = [
     table: 'services',
     keys: [
       'services',
+      'my-requests',
       'service',
       'my-rota-services',
       'dashboard-service-starts',
@@ -101,7 +102,7 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'checklists', keys: ['checklist-id', 'checklist-items'] },
   {
     table: 'availability',
-    keys: ['availability', 'availability-members', 'dashboard-rosters', 'rota-members'],
+    keys: ['availability', 'availability-members', 'dashboard-rosters', 'rota-members', 'my-requests'],
   },
   { table: 'attendance', keys: ['dashboard-rosters', 'availability'] },
   { table: 'department_call_times', keys: ['call-times'] },
@@ -111,6 +112,7 @@ export const LIVE_TABLES: LiveTable[] = [
     table: 'department_members',
     keys: [
       'department-members',
+      'my-requests',
       'department-members-sensitive',
       'department-core-members',
       'own-memberships',
@@ -122,7 +124,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'volunteers',
     ],
   },
-  { table: 'departments', keys: ['departments', 'department', 'own-departments', 'global-search'] },
+  { table: 'departments', keys: ['departments', 'department', 'own-departments', 'global-search', 'my-requests'] },
   { table: 'department_roles', keys: ['department-roles', 'team-coordinator'] },
   { table: 'department_role_checklist_items', keys: ['role-checklist-items'] },
   { table: 'department_role_groups', keys: ['role-groups'] },
@@ -157,7 +159,7 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'purchase_requests', keys: ['purchase-requests'] },
 
   /* ---- settings everyone reads ------------------------------------ */
-  { table: 'app_settings', keys: ['app-settings', 'nav-layout'] },
+  { table: 'app_settings', keys: ['app-settings', 'nav-layout', 'my-requests'] },
   { table: 'rota_tags', keys: ['rota-tags', 'rota'] },
   { table: 'rota_assignment_tags', keys: ['rota', 'rota-assignments', 'checklist-assignments'] },
   { table: 'service_team_readiness', keys: ['team-readiness'] },
@@ -193,9 +195,9 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'stage_areas', keys: ['stage'] },
   { table: 'stage_move_requests', keys: ['stage'] },
   // A poll, its options and every answer: the bars move as people vote.
-  { table: 'team_polls', keys: ['polls'] },
+  { table: 'team_polls', keys: ['polls', 'my-requests'] },
   { table: 'team_poll_options', keys: ['polls'] },
-  { table: 'team_poll_votes', keys: ['polls'] },
+  { table: 'team_poll_votes', keys: ['polls', 'my-requests'] },
 
   /* ---- guests on a team, and what they answered (0166, 0167) ------ */
   {
@@ -212,7 +214,8 @@ export const LIVE_TABLES: LiveTable[] = [
 
   /* ---- families, the permission grid, the tour (0149, 0162, 0153) -- */
   { table: 'households', keys: ['family'] },
-  { table: 'household_members', keys: ['family'] },
+  // Two people in one household, married: the Dashboard's anniversaries.
+  { table: 'household_members', keys: ['family', 'married-couples'] },
   { table: 'family_link_requests', keys: ['family'] },
   // A rule changed in Settings reaches every open page: what a Head may
   // do, and what a page even shows, follows the grid.
@@ -226,6 +229,13 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'messages', keys: ['messages', 'global-search'] },
   { table: 'service_debriefs', keys: ['service-debriefs'] },
   { table: 'service_debrief_items', keys: ['service-debriefs'] },
+
+  /* ---- the Dashboard's reminders ----------------------------------- */
+  // my_open_requests (0183) reads the tables above that carry
+  // 'my-requests', and this one. The bell keeps its own subscription for
+  // new notifications; this is for the reminder that goes when one is
+  // read or answered. Realtime passes on only this person's own rows.
+  { table: 'notifications', keys: ['my-requests'] },
 ]
 
 /** Every key a change to `table` makes stale. Empty for one we don't watch. */
