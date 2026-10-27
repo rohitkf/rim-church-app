@@ -54,6 +54,7 @@ import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ClockInPanel } from '../components/ClockInPanel'
+import { WhereAmIDot } from '../components/WhereAmIDot'
 import { ClockInRequests } from '../components/ClockInRequests'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useDisplay } from '../lib/appSettings'
@@ -393,7 +394,9 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        live
+        // The dot under the date says whether this phone is at church
+        // (0195); it was a "live" dot with nothing to say.
+        belowEyebrow={<WhereAmIDot />}
         eyebrow={
           adminDate
             ? `${formatServiceDay(adminDate)} · ${

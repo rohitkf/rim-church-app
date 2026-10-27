@@ -98,6 +98,21 @@ export function LiveDot({ className = '' }: { className?: string }) {
   )
 }
 
+/**
+ * A dot that says yes, no or not sure — green, red, or a grey ring. Green
+ * pulses like the live dot; the others hold still. Never the only signal:
+ * whatever uses it says the same in a word beside it.
+ */
+export function StatusDot({ tone, className = '' }: { tone: 'green' | 'red' | 'grey'; className?: string }) {
+  const look =
+    tone === 'green'
+      ? 'bg-accent-green pulse-live'
+      : tone === 'red'
+        ? 'bg-accent-red'
+        : 'bg-transparent ring-[1.5px] ring-inset ring-on-surface-faint'
+  return <span aria-hidden="true" className={`inline-block h-[9px] w-[9px] shrink-0 rounded-full ${look} ${className}`} />
+}
+
 /** The heading as the church calls the page. */
 function useChurchPageName(title: string): string {
   const names = useNavNames()
@@ -115,6 +130,7 @@ function useChurchPageName(title: string): string {
 export function PageHeader({
   eyebrow,
   live,
+  belowEyebrow,
   title,
   description,
   action,
@@ -122,6 +138,8 @@ export function PageHeader({
   eyebrow?: ReactNode
   /** Puts the live dot before the eyebrow. */
   live?: boolean
+  /** A line under the eyebrow, above the title. */
+  belowEyebrow?: ReactNode
   title: string
   description?: ReactNode
   action?: ReactNode
@@ -140,6 +158,7 @@ export function PageHeader({
             <Eyebrow>{eyebrow}</Eyebrow>
           </span>
         )}
+        {belowEyebrow && <div className="mt-2">{belowEyebrow}</div>}
         {/* Apple's Large Title, 34pt bold, on a phone as on a desk. */}
         <h1 className="mt-2 text-headline-xl">{shown}</h1>
         {description && (
