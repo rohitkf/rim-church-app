@@ -102,26 +102,20 @@ export function ServiceCountdown({
           Starts in
         </span>
       )}
-      {/* A day or more out, the line says days and hours and holds still:
-          seconds turning on every card, four days before anything
-          happens, is motion with nothing to say — and a page of them is
-          the kind the HIG asks to keep rare. On the last day the clock
-          runs, because that is when twenty minutes matter. */}
-      {days > 0 ? (
-        <span className="font-mono text-body-md tabular-nums text-on-surface">
-          {days}d {Number(hrs)}h
-        </span>
-      ) : (
-        <span className="flex items-baseline font-mono text-body-md tabular-nums text-on-surface">
-          <RollingDigits value={hrs} />
-          <span className="text-on-surface-variant">:</span>
-          <RollingDigits value={mins} />
-          <span className="text-on-surface-variant">:</span>
-          <span className="text-accent-blue-soft">
-            <RollingDigits value={secs} />
+      <span className="flex items-baseline font-mono text-body-md tabular-nums text-on-surface">
+        {days > 0 && (
+          <span className="mr-1 text-on-surface-variant">
+            <RollingDigits value={String(days)} />d
           </span>
+        )}
+        <RollingDigits value={hrs} />
+        <span className="text-on-surface-variant">:</span>
+        <RollingDigits value={mins} />
+        <span className="text-on-surface-variant">:</span>
+        <span className="text-accent-blue-soft">
+          <RollingDigits value={secs} />
         </span>
-      )}
+      </span>
       {label && (
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           {label}

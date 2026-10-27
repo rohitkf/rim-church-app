@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { Chevron } from './Collapsible'
-import { Eyebrow, Tile } from './Surface'
+import { IconBadge, Tile } from './Surface'
+import { TimerIcon } from './icons'
 import { Select, selectPillClasses, type SelectItem } from './Select'
 import { ServiceCountdown } from './ServiceCountdown'
 import { TeamMark } from './TeamMark'
@@ -15,7 +16,6 @@ import {
   DEFAULT_CALL_TIME,
   callTimeRowSchema,
   effectiveCallTime,
-  myNextCallTime,
   orderTeamsForCallTimes,
   type ServiceDay,
 } from '../lib/callTimes'
@@ -99,7 +99,6 @@ export function CallTimesPanel({
     () => (day ? orderTeamsForCallTimes(teams, rows, myTeamIds, day.date) : teams),
     [teams, rows, myTeamIds, day],
   )
-  const mine = day ? myNextCallTime(rows, myTeamIds, day.date) : null
 
   const save = useMutation({
     mutationFn: async ({ departmentId, clock }: { departmentId: string; clock: string | null }) => {
@@ -132,58 +131,110 @@ export function CallTimesPanel({
     value: d.date,
     label: shortServiceDay(d.date),
   }))
+  const myTeams = ordered.filter((t) => myTeamIds.has(t.id))
+  const others = ordered.filter((t) => !myTeamIds.has(t.id))
+
+  /** Yours: the clock you came for, large, with its countdown. */
+  const mineRow = (team: CallTimesTeam) => {
+    const { clock, at, isDefault } = effectiveCallTime(rows, team.id, day.date)
+    return (
+      <li
+        key={team.id}
+        // `overflow-hidden` so a wash and a long team name both stay inside
+        // the corners.
+        className="min-w-0 overflow-hidden rounded-[var(--radius-row)] bg-surface-lowest p-4 hairline"
+        style={teamWash(team.color, teamStyle)}
+      >
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 shrink-0">
+            <TeamMark color={team.color} />
+          </span>
+          <span className="min-w-0 flex-1 break-words text-body-sm font-medium text-on-surface">{team.name}</span>
+        </div>
+        <p
+          className={`mt-2 font-mono text-[clamp(36px,10vw,52px)] tabular leading-none tracking-[-0.02em] ${
+            isDefault ? 'text-on-surface-variant' : 'text-on-surface'
+          }`}
+        >
+          {clock}
+        </p>
+        <div className="mt-2">
+          <ServiceCountdown startsAt={at} label="until your call" />
+        </div>
+        {isDefault && (
+          <p className="mt-1.5 break-words text-label-sm text-on-surface-faint">
+            The usual {DEFAULT_CALL_TIME} — nobody has set one for this day.
+          </p>
+        )}
+        {canManage(team.id) && (
+          <CallTimeField
+            current={isDefault ? null : clock}
+            busy={save.isPending}
+            teamName={team.name}
+            onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
+          />
+        )}
+      </li>
+    )
+  }
+
+  /** Everybody else's: a name and a time, a row in a list. */
+  const otherRow = (team: CallTimesTeam) => {
+    const { clock, isDefault } = effectiveCallTime(rows, team.id, day.date)
+    return (
+      <li key={team.id} className="min-w-0 py-3">
+        <div className="flex items-center gap-2.5">
+          <TeamMark color={team.color} />
+          <span className="min-w-0 flex-1 break-words text-body-sm text-on-surface">{team.name}</span>
+          <span className={`font-mono text-body-lg tabular ${isDefault ? 'text-on-surface-variant' : 'text-on-surface'}`}>
+            {clock}
+          </span>
+        </div>
+        {isDefault && (
+          <p className="mt-1 break-words pl-[22px] text-label-sm text-on-surface-faint">
+            The usual {DEFAULT_CALL_TIME} — nobody has set one for this day.
+          </p>
+        )}
+        {canManage(team.id) && (
+          <CallTimeField
+            current={isDefault ? null : clock}
+            busy={save.isPending}
+            teamName={team.name}
+            onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
+          />
+        )}
+      </li>
+    )
+  }
 
   return (
-    <Tile as="section" padded={false} className="mb-5 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls="call-times-body"
-        className="flex w-full items-start gap-3 px-5 py-5 text-left sm:px-7"
-      >
-        <div className="min-w-0 flex-1">
-          <Eyebrow>Call times</Eyebrow>
-          <p className="mt-1.5 break-words text-body-md text-on-surface">
-            {formatServiceDay(day.date)}
-          </p>
-
-          {/* The services are context, not a thing to choose between: one
-              call time covers all of them. */}
-          <p className="mt-1 break-words text-label-sm text-on-surface-variant">
-            <span className="text-on-surface-faint">Services this day: </span>
-            {day.services.map((s) => s.service_type).join(' · ')}
-          </p>
-
-          {/* Your own, on its own lines underneath. This used to sit beside
-              the date, which on a phone squeezed the date into a column
-              four words wide and put the clock through it. */}
-          {mine && (
-            <div className="mt-3 border-t border-border-subtle pt-3">
-              <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                Your call time
+    /*
+     * Its own kind of card: tinted blue with a clock on it, so it reads as
+     * "when to be there" before a word of it is read, and never as one more
+     * service in the rota below. Your own teams are open on it; the rest of
+     * the church's are a tap away, because they are for whoever opens up,
+     * not for everybody.
+     */
+    <section aria-label="Call times">
+      <Tile as="div" tone="accent" padded={false} className="mb-5 overflow-hidden">
+        <div className="px-5 pt-5 sm:px-7 sm:pt-6">
+          <div className="flex items-start gap-3">
+            <IconBadge icon={TimerIcon} tone="blue" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-headline-sm text-on-surface">Call times</h2>
+              <p className="mt-0.5 break-words text-body-sm text-on-surface-variant">{formatServiceDay(day.date)}</p>
+              {/* The services are context, not a thing to choose between:
+                  one call time covers all of them. */}
+              <p className="mt-0.5 break-words text-label-sm text-on-surface-variant">
+                <span className="text-on-surface-faint">Services this day: </span>
+                {day.services.map((s) => s.service_type).join(' · ')}
               </p>
-              <p className="mt-0.5 font-mono text-headline-md tabular leading-none text-on-surface">
-                {mine.clock}
-              </p>
-              <div className="mt-1.5">
-                <ServiceCountdown startsAt={mine.at} label="until your call" />
-              </div>
             </div>
-          )}
-        </div>
-        <span className="mt-1 shrink-0">
-          <Chevron open={open} />
-        </span>
-      </button>
+          </div>
 
-      {open && (
-        <div id="call-times-body" className="px-5 pb-6 sm:px-7">
           {days.length > 1 && (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                Day
-              </span>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Day</span>
               <Select
                 value={day.date}
                 onChange={setChosen}
@@ -195,76 +246,48 @@ export function CallTimesPanel({
           )}
 
           {error && (
-            <p className="mb-4 break-words rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            <p className="mt-3 break-words rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
               {error}
             </p>
           )}
-
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {ordered.map((team) => {
-              const { clock, at, isDefault } = effectiveCallTime(rows, team.id, day.date)
-              const isMine = myTeamIds.has(team.id)
-              return (
-                <li
-                  key={team.id}
-                  // Yours runs the full width and carries the big clock —
-                  // it is the one you came for. `overflow-hidden` so a wash
-                  // and a long team name both stay inside the corners.
-                  className={`min-w-0 overflow-hidden rounded-[var(--radius-row)] bg-raised p-4 ${
-                    isMine ? 'sm:col-span-2' : ''
-                  }`}
-                  style={teamWash(team.color, teamStyle)}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 shrink-0">
-                      <TeamMark color={team.color} />
-                    </span>
-                    <span className="min-w-0 flex-1 break-words text-body-sm font-medium text-on-surface">
-                      {team.name}
-                    </span>
-                    {isMine && (
-                      <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                        Yours
-                      </span>
-                    )}
-                  </div>
-
-                  <p
-                    className={`mt-2 font-mono tabular leading-none ${
-                      isMine ? 'text-[clamp(36px,10vw,52px)]' : 'text-[clamp(26px,6vw,32px)]'
-                    } tracking-[-0.02em] ${
-                      isDefault ? 'text-on-surface-variant' : 'text-on-surface'
-                    }`}
-                  >
-                    {clock}
-                  </p>
-
-                  {isMine && (
-                    <div className="mt-2">
-                      <ServiceCountdown startsAt={at} label="until your call" />
-                    </div>
-                  )}
-                  {isDefault && (
-                    <p className="mt-1.5 break-words text-label-sm text-on-surface-faint">
-                      The usual {DEFAULT_CALL_TIME} — nobody has set one for this day.
-                    </p>
-                  )}
-
-                  {canManage(team.id) && (
-                    <CallTimeField
-                      current={isDefault ? null : clock}
-                      busy={save.isPending}
-                      teamName={team.name}
-                      onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
-                    />
-                  )}
-                </li>
-              )
-            })}
-          </ul>
         </div>
-      )}
-    </Tile>
+
+        {myTeams.length > 0 && (
+          <ul aria-label="Your teams" className="mt-4 grid gap-3 px-5 sm:grid-cols-2 sm:px-7">
+            {myTeams.map(mineRow)}
+          </ul>
+        )}
+
+        {others.length > 0 ? (
+          <div className="mt-4 border-t border-border-subtle">
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              aria-controls="call-times-others"
+              className="tap flex w-full items-center gap-3 px-5 py-4 text-left sm:px-7"
+            >
+              <span className="min-w-0 flex-1 text-body-md font-medium text-on-surface">
+                {myTeams.length > 0 ? 'Other teams' : 'Every team'}
+              </span>
+              <span className="rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm tabular text-on-surface-variant">
+                {others.length}
+              </span>
+              <span className="text-body-lg">
+                <Chevron open={open} />
+              </span>
+            </button>
+            {open && (
+              <ul id="call-times-others" className="divide-y divide-border-subtle px-5 pb-3 sm:px-7">
+                {others.map(otherRow)}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <div className="pb-5" />
+        )}
+      </Tile>
+    </section>
   )
 }
 
