@@ -125,12 +125,12 @@ export function PrayerPage() {
         <QueryState isLoading={query.isLoading} error={query.error}>
           {board && sections && (
             <>
-              {/* A section to a row, the width of the page, all of them
-                  together; the one you are in is filled blue and its
-                  requests follow the list. Six labels in one line ran off a
-                  phone, and a row this size is easy to hit. */}
+              {/* A section to a row, the width of the page, all of them in
+                  one grouped list — a menu, drawn unlike the request cards
+                  it leads to; the one you are in is filled blue. Six labels
+                  in one line ran off a phone. */}
               <nav aria-label="Which requests">
-                <ul className="flex flex-col gap-2">
+                <ul className="divide-y divide-border-subtle overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline">
                   {tabs.map((t) => {
                     const on = tab === t.value
                     return (
@@ -140,17 +140,15 @@ export function PrayerPage() {
                           aria-current={on ? 'true' : undefined}
                           aria-controls="prayer-shown"
                           onClick={() => choose(t.value)}
-                          className={`tap flex w-full items-center gap-3 rounded-[var(--radius-row)] px-4 py-3 text-left transition-colors duration-200 ease-[var(--ease-glide)] ${
-                            on
-                              ? 'bg-primary text-on-primary shadow-[var(--shadow-ambient)]'
-                              : 'bg-surface-lowest text-on-surface hairline hover:bg-[color-mix(in_oklab,var(--color-surface-lowest)_92%,var(--color-on-surface))]'
+                          className={`tap flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 ease-[var(--ease-glide)] ${
+                            on ? 'bg-primary text-on-primary' : 'text-on-surface hover:bg-raised'
                           }`}
                         >
                           {/* Semibold on the blue: white on the dark theme's
                               blue is 3.65:1, which the HIG passes for bold. */}
                           <span className="min-w-0 flex-1">
-                            <span className="block text-body-lg font-semibold">{t.label}</span>
-                            <span className={`block text-body-sm ${on ? 'font-semibold' : 'text-on-surface-variant'}`}>{t.hint}</span>
+                            <span className="block text-body-md font-semibold">{t.label}</span>
+                            <span className={`block text-label-md ${on ? 'font-semibold' : 'text-on-surface-variant'}`}>{t.hint}</span>
                           </span>
                           <span
                             className={`min-w-7 rounded-full px-2 py-0.5 text-center font-mono text-label-sm tabular ${
@@ -168,7 +166,18 @@ export function PrayerPage() {
                   })}
                 </ul>
               </nav>
-              <div id="prayer-shown" className="mt-2">
+              {/* What the chosen row holds, under its own heading, so the
+                  list above reads as the way in and this as the thing itself. */}
+              <div id="prayer-shown" className="mt-4">
+                {(() => {
+                  const chosen = tabs.find((t) => t.value === tab)
+                  return chosen ? (
+                    <header className="mb-3 flex items-baseline gap-2.5 px-1">
+                      <h2 className="text-headline-md text-on-surface">{chosen.label}</h2>
+                      <span className="font-mono text-label-sm tabular text-on-surface-variant">{chosen.count}</span>
+                    </header>
+                  ) : null
+                })()}
                 {tab === 'lists' ? (
                   <ListsView board={board} />
                 ) : sections[tab].length === 0 ? (
