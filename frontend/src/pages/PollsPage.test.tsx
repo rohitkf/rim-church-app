@@ -450,6 +450,21 @@ describe('the Polls page', () => {
     expect(state.inserts[0].row).toMatchObject({ include_guests: false, guest_ids: null })
   })
 
+  it('runs a deadline down as a clock, to the second', async () => {
+    const closes = Date.now() + 2 * 86_400_000 + 3 * 3_600_000 + 4 * 60_000 + 30_000
+    state.polls = [poll({ closes_at: new Date(closes).toISOString() })]
+    show()
+    expect(await screen.findByLabelText(/^2 days 03:04:\d\d to answer, closes /)).toBeInTheDocument()
+    expect(screen.queryByText('Closed')).not.toBeInTheDocument()
+  })
+
+  it('says a poll past its deadline is closed, with no clock', async () => {
+    state.polls = [poll({ closes_at: new Date(Date.now() - 60_000).toISOString() })]
+    show()
+    expect(await screen.findByText('Closed')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/to answer/)).not.toBeInTheDocument()
+  })
+
   it('says on the card when a poll left guests out', async () => {
     state.polls = [poll({ include_guests: false })]
     show()
