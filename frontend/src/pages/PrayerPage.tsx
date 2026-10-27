@@ -13,7 +13,6 @@ import { fetchDepartments } from '../lib/queries'
 import { AudienceEditor } from '../components/AudienceEditor'
 import { Select } from '../components/Select'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
-import { Chevron } from '../components/Collapsible'
 import {
   PRAYER_KEY,
   RESPONSES,
@@ -66,18 +65,12 @@ export function PrayerPage() {
   const lists = board?.lists ?? []
   const showAssigned = (sections?.assigned.length ?? 0) > 0
   const showLists = lists.length > 0 || !!board?.may_run_lists
-  // `?tab=` names the open section; `none` is every one shut.
-  const wanted = params.get('tab') ?? 'requests'
-  const tab: Tab | null =
-    wanted === 'none'
-      ? null
-      : (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
-        ? 'requests'
-        : (wanted as Tab)
-  // One open at a time: opening a section shuts the last; tapping the open
-  // one shuts it.
-  const toggle = (next: Tab) =>
-    setParams(next === tab ? { tab: 'none' } : next === 'requests' ? {} : { tab: next }, { replace: true })
+  const wanted = (params.get('tab') as Tab | null) ?? 'requests'
+  const tab: Tab =
+    (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
+      ? 'requests'
+      : wanted
+  const choose = (next: Tab) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })
 
   const tabs: { value: Tab; label: string; hint: string; count: number }[] = sections
     ? [
@@ -132,63 +125,74 @@ export function PrayerPage() {
         <QueryState isLoading={query.isLoading} error={query.error}>
           {board && sections && (
             <>
-              {/* A section to a row, the width of the page, each opening in
-                  place with its requests underneath — six labels in a row
-                  ran off a phone, and a row this size is easy to hit. */}
-              <div className="flex flex-col gap-3">
-                {tabs.map((t) => {
-                  const open = tab === t.value
-                  const items = t.value === 'lists' ? [] : sections[t.value]
-                  return (
-                    <section key={t.value} aria-label={t.label} className="flex flex-col gap-3">
-                      <button
-                        type="button"
-                        aria-expanded={open}
-                        aria-controls={`prayer-${t.value}`}
-                        onClick={() => toggle(t.value)}
-                        className="tap flex w-full items-center gap-3 rounded-[var(--radius-card)] bg-surface-lowest px-5 py-4 text-left hairline transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-[color-mix(in_oklab,var(--color-surface-lowest)_92%,var(--color-on-surface))]"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-body-lg font-semibold text-on-surface">{t.label}</span>
-                          <span className="block text-body-sm text-on-surface-variant">{t.hint}</span>
-                        </span>
-                        <span
-                          className={`min-w-7 rounded-full px-2 py-0.5 text-center font-mono text-label-sm tabular ${
-                            open ? 'bg-primary font-semibold text-on-primary' : 'bg-raised-strong text-on-surface-variant'
+              {/* A section to a row, the width of the page, all of them in
+                  one grouped list — a menu, drawn unlike the request cards
+                  it leads to; the one you are in is filled blue. Six labels
+                  in one line ran off a phone. */}
+              <nav aria-label="Which requests">
+                <ul className="divide-y divide-border-subtle overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline">
+                  {tabs.map((t) => {
+                    const on = tab === t.value
+                    return (
+                      <li key={t.value}>
+                        <button
+                          type="button"
+                          aria-current={on ? 'true' : undefined}
+                          aria-controls="prayer-shown"
+                          onClick={() => choose(t.value)}
+                          className={`tap flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 ease-[var(--ease-glide)] ${
+                            on ? 'bg-primary text-on-primary' : 'text-on-surface hover:bg-raised'
                           }`}
                         >
-                          {t.count}
-                        </span>
-                        <span className="text-headline-sm leading-none">
-                          <Chevron open={open} />
-                        </span>
-                      </button>
-                      {open && (
-                        <div id={`prayer-${t.value}`}>
-                          {t.value === 'lists' ? (
-                            <ListsView board={board} />
-                          ) : items.length === 0 ? (
-                            <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
-                              {EMPTY[t.value]}
-                            </p>
-                          ) : (
-                            <ul aria-label={t.label} className="flex flex-col gap-3">
-                              {items.map((r) => (
-                                <li key={r.id}>
-                                  {t.value === 'testimonies' ? (
-                                    <TestimonyCard request={r} board={board} />
-                                  ) : (
-                                    <RequestCard request={r} board={board} />
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
-                    </section>
-                  )
-                })}
+                          {/* Semibold on the blue: white on the dark theme's
+                              blue is 3.65:1, which the HIG passes for bold. */}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body-md font-semibold">{t.label}</span>
+                            <span className={`block text-label-md ${on ? 'font-semibold' : 'text-on-surface-variant'}`}>{t.hint}</span>
+                          </span>
+                          <span
+                            className={`min-w-7 rounded-full px-2 py-0.5 text-center font-mono text-label-sm tabular ${
+                              on ? 'bg-white/25 font-semibold' : 'bg-raised-strong text-on-surface-variant'
+                            }`}
+                          >
+                            {t.count}
+                          </span>
+                          <span aria-hidden="true" className={`text-headline-sm leading-none ${on ? '' : 'text-on-surface-variant'}`}>
+                            ›
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </nav>
+              {/* What the chosen row holds, under its own heading, so the
+                  list above reads as the way in and this as the thing itself. */}
+              <div id="prayer-shown" className="mt-4">
+                {(() => {
+                  const chosen = tabs.find((t) => t.value === tab)
+                  return chosen ? (
+                    <header className="mb-3 flex items-baseline gap-2.5 px-1">
+                      <h2 className="text-headline-md text-on-surface">{chosen.label}</h2>
+                      <span className="font-mono text-label-sm tabular text-on-surface-variant">{chosen.count}</span>
+                    </header>
+                  ) : null
+                })()}
+                {tab === 'lists' ? (
+                  <ListsView board={board} />
+                ) : sections[tab].length === 0 ? (
+                  <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
+                    {EMPTY[tab]}
+                  </p>
+                ) : (
+                  <ul aria-label={tabs.find((t) => t.value === tab)?.label} className="flex flex-col gap-3">
+                    {sections[tab].map((r) => (
+                      <li key={r.id}>
+                        {tab === 'testimonies' ? <TestimonyCard request={r} board={board} /> : <RequestCard request={r} board={board} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </>
           )}

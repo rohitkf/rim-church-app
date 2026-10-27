@@ -130,24 +130,24 @@ describe('asking for prayer', () => {
 })
 
 describe('the sections', () => {
-  it('opens one at a time, each under its own row, Requests first', async () => {
+  it('lists every section together, the chosen one marked, its requests after the list', async () => {
     const user = show({ requests: [request(), request({ id: 'r2', mine: true, body: 'For peace' })] })
     const requests = await screen.findByRole('button', { name: /^Requests/ })
     const mine = screen.getByRole('button', { name: /^Mine/ })
-    expect(requests).toHaveAttribute('aria-expanded', 'true')
-    expect(mine).toHaveAttribute('aria-expanded', 'false')
-    expect(within(screen.getByRole('region', { name: 'Requests' })).getByText('For my mother’s surgery')).toBeInTheDocument()
+    expect(requests).toHaveAttribute('aria-current', 'true')
+    expect(mine).not.toHaveAttribute('aria-current')
+    expect(within(screen.getByRole('list', { name: 'Requests' })).getByText('For my mother’s surgery')).toBeInTheDocument()
 
     await user.click(mine)
-    expect(mine).toHaveAttribute('aria-expanded', 'true')
-    expect(requests).toHaveAttribute('aria-expanded', 'false')
-    expect(within(screen.getByRole('region', { name: 'Mine' })).getByText('For peace')).toBeInTheDocument()
+    expect(mine).toHaveAttribute('aria-current', 'true')
+    expect(requests).not.toHaveAttribute('aria-current')
+    expect(within(screen.getByRole('list', { name: 'Mine' })).getByText('For peace')).toBeInTheDocument()
     expect(screen.queryByText('For my mother’s surgery')).toBeNull()
 
-    // Tapping the open one shuts it.
-    await user.click(mine)
-    expect(mine).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('For peace')).toBeNull()
+    // The rows stay together, above whatever is shown.
+    const nav = screen.getByRole('navigation', { name: 'Which requests' })
+    expect(within(nav).getAllByRole('button')).toHaveLength(3)
+    expect(nav.compareDocumentPosition(screen.getByRole('list', { name: 'Mine' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
 
