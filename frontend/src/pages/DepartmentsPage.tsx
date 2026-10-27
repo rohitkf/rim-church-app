@@ -10,7 +10,8 @@ import { AnsweredJoinRequests } from '../components/AnsweredJoinRequests'
 import { JoinTeamPanel } from '../components/JoinTeamPanel'
 import { TeamCardActions } from '../components/TeamCardActions'
 import { Card, PageHeader } from '../components/Surface'
-import { fetchDepartments, fetchJoinRequests } from '../lib/queries'
+import { fetchDepartments, fetchJoinRequests, fetchTeamRosterKinds } from '../lib/queries'
+import { NO_ONE, teamHeadcounts, type TeamHeadcount } from '../lib/teamHeadcount'
 import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { TeamAvatar } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
@@ -60,6 +61,15 @@ export function DepartmentsPage() {
     const mine = new Set([...memberDeptIds, ...ledDepartmentIds])
     return (allDepartments ?? []).filter((d) => mine.has(d.id))
   }, [allDepartments, memberDeptIds, ledDepartmentIds, seesAllTeams])
+
+  // How many are on each team shown, core and guests apart.
+  const shownIds = useMemo(() => (data ?? []).map((d) => d.id), [data])
+  const rosterQuery = useQuery({
+    queryKey: ['team-headcounts', shownIds],
+    queryFn: () => fetchTeamRosterKinds(shownIds),
+    enabled: shownIds.length > 0,
+  })
+  const headcounts = useMemo(() => teamHeadcounts(rosterQuery.data ?? []), [rosterQuery.data])
 
   return (
     <div>
@@ -112,6 +122,13 @@ export function DepartmentsPage() {
                       <p className="mt-1.5 text-body-sm text-on-surface-variant">
                         {dept.handbook_url ? 'Handbook on file' : 'No handbook yet'}
                       </p>
+
+                      {/* Who is on it, at a glance: the two kinds of member
+                          apart, then the whole roster. Left out until the
+                          count is in, rather than reading 0 for a moment. */}
+                      {rosterQuery.isSuccess && (
+                        <TeamHeadcountRow counts={headcounts.get(dept.id) ?? NO_ONE} />
+                      )}
                     </Link>
 
                     {dept.is_service_flow && (
@@ -152,5 +169,26 @@ export function DepartmentsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function TeamHeadcountRow({ counts }: { counts: TeamHeadcount }) {
+  const figures: [string, number][] = [
+    ['Core', counts.core],
+    [counts.guest === 1 ? 'Guest' : 'Guests', counts.guest],
+    ['Total', counts.total],
+  ]
+  return (
+    <dl
+      className="mt-4 grid grid-cols-3 gap-2"
+      aria-label={`${counts.core} core, ${counts.guest} ${counts.guest === 1 ? 'guest' : 'guests'}, ${counts.total} in all`}
+    >
+      {figures.map(([label, value]) => (
+        <div key={label} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
+          <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{label}</dt>
+          <dd className="text-body-lg font-medium tabular-nums text-on-surface">{value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

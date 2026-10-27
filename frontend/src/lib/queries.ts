@@ -191,6 +191,25 @@ export async function searchProfiles(term: string, limit = 8): Promise<ProfileSe
   return z.array(profileSearchResultSchema).parse(data)
 }
 
+/**
+ * Every roster row of these teams, just the team and the kind — enough to
+ * count them. RLS (department_members_select) returns only the teams the
+ * caller may see, which is every team the Teams page shows them.
+ */
+export async function fetchTeamRosterKinds(
+  departmentIds: string[],
+): Promise<{ department_id: string; member_type: 'core' | 'guest' }[]> {
+  if (departmentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('department_members')
+    .select('department_id, member_type')
+    .in('department_id', departmentIds)
+  if (error) throw error
+  return z
+    .array(z.object({ department_id: z.string(), member_type: z.enum(['core', 'guest']) }))
+    .parse(data)
+}
+
 /** Own memberships with their kind, for anywhere core and guest differ. */
 export async function fetchOwnMemberships(
   userId: string,

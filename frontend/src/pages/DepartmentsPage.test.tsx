@@ -49,6 +49,15 @@ vi.mock('../lib/queries', () => ({
   fetchDepartments: () => Promise.resolve([dept('media', 'Media'), dept('audio', 'Audio')]),
   fetchOwnMemberships: () =>
     Promise.resolve((state.own).map((department_id: string) => ({ department_id, member_type: 'core' }))),
+  fetchTeamRosterKinds: (ids: string[]) =>
+    Promise.resolve(
+      [
+        { department_id: 'media', member_type: 'core' },
+        { department_id: 'media', member_type: 'core' },
+        { department_id: 'media', member_type: 'guest' },
+        { department_id: 'audio', member_type: 'core' },
+      ].filter((r) => ids.includes(r.department_id)),
+    ),
   fetchJoinRequests: () =>
     Promise.resolve([
       {
@@ -113,5 +122,12 @@ describe('the Teams page', () => {
     state.own = ['media']
     show()
     expect(await screen.findByText('Asha Mathew')).toBeInTheDocument()
+  })
+
+  it('counts each team’s core members, guests and everybody', async () => {
+    state.isOverwatch = true
+    show()
+    expect(await screen.findByLabelText('2 core, 1 guest, 3 in all')).toBeInTheDocument()
+    expect(screen.getByLabelText('1 core, 0 guests, 1 in all')).toBeInTheDocument()
   })
 })

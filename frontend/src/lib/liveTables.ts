@@ -116,6 +116,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'department-members-sensitive',
       'department-core-members',
       'own-memberships',
+      'team-headcounts',
       'volunteer-memberships',
       'rota-members',
       'team-board-roster',
