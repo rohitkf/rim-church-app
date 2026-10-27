@@ -115,6 +115,7 @@ const router = createBrowserRouter(
             <Route path="stage" lazy={page(() => import('./pages/SettingsPage'), 'StageSettingsPane')} />
             <Route path="overwatch" lazy={page(() => import('./pages/SettingsPage'), 'OverwatchSettingsPane')} />
             <Route path="clock-in" lazy={page(() => import('./pages/SettingsPage'), 'ClockInSettingsPane')} />
+            <Route path="prayer" lazy={page(() => import('./pages/SettingsPage'), 'PrayerSettingsPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
             {/* App settings was one room holding four. Its old address,
@@ -136,6 +137,7 @@ const router = createBrowserRouter(
             <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
             <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
             <Route path="/clock-in" lazy={page(() => import('./pages/ClockInPage'), 'ClockInPage')} />
+            <Route path="/prayer" lazy={page(() => import('./pages/PrayerPage'), 'PrayerPage')} />
             <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
             <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
             <Route path="/updates" lazy={page(() => import('./pages/ChurchUpdatesPage'), 'ChurchUpdatesPage')} />

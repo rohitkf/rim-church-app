@@ -112,6 +112,11 @@ export const appSettingsSchema = z.object({
   clock_in_approver_teams: z.array(z.string()).catch([]).default([]),
   clock_in_approvers: z.enum(['leads', 'members']).catch('leads').default('leads'),
   clock_in_retention_days: z.number().int().min(1).max(365).default(30),
+  /** Who besides the Pastors and the Owner reads private prayer requests (0197). */
+  prayer_carers: clockInAudienceSchema.default({ teams: [], people: [] }),
+  prayer_closed_retention_days: z.number().int().min(1).max(365).default(30),
+  /** Null: testimonies are kept until somebody removes them. */
+  prayer_testimony_retention_days: z.number().int().min(1).max(3650).nullable().default(30),
   /** Done and Won't-do feedback, after it was settled (0124). Null is for ever. */
   feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(14),
   /** Each person's bell keeps their newest this many (0128). */
@@ -171,6 +176,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clock_in_approver_teams: [],
   clock_in_approvers: 'leads',
   clock_in_retention_days: 30,
+  prayer_carers: { teams: [], people: [] },
+  prayer_closed_retention_days: 30,
+  prayer_testimony_retention_days: 30,
   feedback_retention_days: 14,
   notification_keep_count: 10,
   alert_clear_dow: 2,
@@ -185,7 +193,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, overwatch_pages, overwatch_board_posts, overwatch_chat_posts, overwatch_polls, overwatch_issues, overwatch_debriefs, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_viewers, clock_in_approver_teams, clock_in_approvers, clock_in_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, overwatch_pages, overwatch_board_posts, overwatch_chat_posts, overwatch_polls, overwatch_issues, overwatch_debriefs, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_viewers, clock_in_approver_teams, clock_in_approvers, clock_in_retention_days, prayer_carers, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error

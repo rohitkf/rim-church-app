@@ -157,6 +157,13 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'page',
     note: 'Opened to everyone, Church Members can ask to join a team from here. Out of the box a head adds them instead — the database refuses the request too.',
   },
+  '/prayer': {
+    key: 'prayer',
+    default: 'everyone',
+    choices: ['everyone', 'team'],
+    enforcement: 'database',
+    note: 'Private requests are only ever the Pastors’ and the Owner’s, whatever this says.',
+  },
   '/clock-in': {
     default: 'admins',
     choices: ['admins'],

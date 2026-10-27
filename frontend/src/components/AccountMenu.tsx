@@ -35,6 +35,7 @@ function primaryRoleLabel(
 ): string {
   if (viewAs?.as === 'church') return 'Church Member'
   if (isAdmin) return 'Admin'
+  if (roles?.some((r) => r.role_type === 'pastor')) return 'Pastor'
   if (roles?.some((r) => r.role_type === 'overwatch')) return 'Overwatch'
   if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
   if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'

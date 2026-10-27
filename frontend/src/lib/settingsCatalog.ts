@@ -975,6 +975,24 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     ...wideDays,
     unit: 'days',
   },
+  {
+    ...column('prayer_closed_retention_days'),
+    kind: 'dial',
+    label: 'Closed prayer requests are kept for',
+    summary: 'Then deleted, with their updates and who prayed.',
+    help: 'A request its author closed as no longer needed is deleted this many days after it was closed. Until then they can reopen it.',
+    affects: ['/prayer'],
+    ...wideDays,
+    unit: 'days',
+  },
+  {
+    ...column('prayer_testimony_retention_days'),
+    kind: 'forever',
+    label: 'Testimonies are kept for',
+    summary: 'Counted from when the request was marked answered.',
+    help: 'An answered request — a testimony — is deleted this many days after it was marked answered, with its updates and who prayed. Keep them for ever to build up a record of what God has done.',
+    affects: ['/prayer'],
+  },
 ]
 
 const BY_ID = new Map(SETTINGS_CATALOG.map((e) => [e.id, e]))

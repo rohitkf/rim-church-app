@@ -9,6 +9,7 @@ import {
   ClipboardUserIcon,
   MusicIcon,
   MapPinIcon,
+  PrayIcon,
   GridIcon,
   IdCardIcon,
   ChatTeamIcon,
@@ -95,6 +96,8 @@ export const NAV_ITEMS: NavItem[] = [
   // fill them, and the cupboard they draw on.
   { to: '/events', label: 'Events', icon: CakeIcon, group: 'Church life' },
   { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
+  // Asking for prayer, praying for each other, and what God has done (0197).
+  { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church life' },
   { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & things' },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, group: 'People & things' },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, group: 'People & things' },
