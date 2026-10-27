@@ -131,7 +131,15 @@ export function ClockInPlaceCard() {
   return (
     <SectionTile
       title="Where the church is"
-      hint="Only the Owner and Admins see this. Phones must be within the circle to clock in."
+      collapsible
+      defaultOpen={false}
+      hint={
+        placeQuery.isLoading
+          ? 'Only the Owner and Admins see this.'
+          : stored
+            ? `${stored.label ?? 'Set'} · within ${settings.clock_in_radius_m} m. Only the Owner and Admins see this.`
+            : 'Not set yet — nobody can clock in until it is. Only the Owner and Admins see this.'
+      }
     >
       <QueryState isLoading={placeQuery.isLoading} error={placeQuery.error}>
         <form

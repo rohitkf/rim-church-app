@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -68,6 +68,13 @@ function show() {
   return userEvent.setup()
 }
 
+/** Shown, and opened: it starts shut. */
+async function showOpen() {
+  const user = show()
+  await user.click(await screen.findByRole('button', { name: /Where the church is/ }))
+  return user
+}
+
 beforeEach(() => {
   state.place = null
   state.saved = []
@@ -76,13 +83,21 @@ beforeEach(() => {
 })
 
 describe('where the church is', () => {
-  it('says nobody can clock in until it is set', async () => {
+  it('starts shut, saying in its heading whether it is set', async () => {
     show()
-    expect(await screen.findByText(/nobody can clock in until it is/)).toBeInTheDocument()
+    const heading = await screen.findByRole('button', { name: /Where the church is/ })
+    expect(heading).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() => expect(heading).toHaveTextContent('Not set yet — nobody can clock in until it is'))
+    expect(screen.queryByRole('textbox', { name: 'Postcode or address of the church' })).toBeNull()
+  })
+
+  it('says nobody can clock in until it is set', async () => {
+    await showOpen()
+    expect(await screen.findByText(/nobody can clock in until it is\. Find/)).toBeInTheDocument()
   })
 
   it('finds it by postcode, lets the pin be moved, and saves where the pin is', async () => {
-    const user = show()
+    const user = await showOpen()
     await user.type(await screen.findByRole('textbox', { name: 'Postcode or address of the church' }), 'sw1a1aa')
     await user.click(screen.getByRole('button', { name: 'Find' }))
     expect(state.found).toEqual(['sw1a1aa'])
@@ -97,7 +112,7 @@ describe('where the church is', () => {
       ok({ coords: { latitude: 51.6, longitude: -0.2, accuracy: 8 } } as GeolocationPosition),
     )
     Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition }, configurable: true })
-    const user = show()
+    const user = await showOpen()
     await user.click(await screen.findByRole('button', { name: 'Use where I am now' }))
     expect(getCurrentPosition.mock.calls[0][2]).toMatchObject({ enableHighAccuracy: true, maximumAge: 0 })
     expect(await screen.findByRole('button', { name: /map at 51.6000,-0.2000/ })).toBeInTheDocument()
@@ -106,7 +121,7 @@ describe('where the church is', () => {
 
   it('shows what is saved, and how far a new pin is from it', async () => {
     state.place = { label: 'Church hall', postcode: 'SW1A 1AA', latitude: 51.501, longitude: -0.1416, updated_at: new Date().toISOString(), updater: { first_name: 'Rohit', last_name: 'K' } }
-    const user = show()
+    const user = await showOpen()
     expect(await screen.findByTestId('place-label')).toHaveTextContent('Church hall')
     expect(screen.getByText(/by Rohit K/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /map at/ }))
@@ -116,7 +131,7 @@ describe('where the church is', () => {
 
   it('sets the radius here too, with the circle following it, and saves only that', async () => {
     state.place = { label: 'Church hall', postcode: 'SW1A 1AA', latitude: 51.501, longitude: -0.1416, updated_at: new Date().toISOString(), updater: null }
-    const user = show()
+    const user = await showOpen()
     const dial = await screen.findByRole('slider', { name: 'Counts as at church within' })
     expect(dial).toHaveAttribute('aria-valuenow', '100')
     dial.focus()
