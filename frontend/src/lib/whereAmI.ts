@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import { reportLocation } from './locationPermission'
 
 /**
  * Am I at church? (0195)
@@ -54,6 +55,7 @@ export function useWhereAmI(enabled: boolean) {
     busyRef.current = true
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        reportLocation('granted')
         try {
           const answer = await askWhereAmI(position.coords.latitude, position.coords.longitude, position.coords.accuracy)
           lastRef.current = Date.now()
@@ -66,6 +68,7 @@ export function useWhereAmI(enabled: boolean) {
       },
       (err) => {
         busyRef.current = false
+        if (err.code === err.PERMISSION_DENIED) reportLocation('denied')
         setStatus(err.code === err.PERMISSION_DENIED ? { at: 'blocked' } : { at: 'unavailable' })
       },
       // A reading a minute old is fine for a dot; "Check again" asks for a new one.

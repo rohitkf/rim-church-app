@@ -20,7 +20,8 @@ import {
   type MyClockIn,
   type Reading,
 } from '../lib/clockIn'
-import { LocationRefused, locationPermission, readBestPosition, type LocationPermission } from '../lib/clockInReading'
+import { LocationRefused, readBestPosition } from '../lib/clockInReading'
+import { useLocationPermission } from '../lib/locationPermission'
 import { ActionButton, inputClasses } from './Surface'
 import { MapPinIcon } from './icons'
 
@@ -46,8 +47,8 @@ const BLOCKED_HELP = [
  * reading; the database says whether that is at church. Once done, it is
  * one quiet line for the rest of the day.
  *
- * Before any of that, somebody on a team who has not yet let the app read
- * their location is asked to — on a weekday, not at the door.
+ * Before any of that, somebody on a team whose phone has refused the
+ * location is told how to allow it — on a weekday, not at the door.
  */
 export function ClockInPanel({ className = '' }: { className?: string }) {
   const { session, isAdmin, isSuperAdmin } = useAuth()
@@ -58,7 +59,7 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
   const errorText = useErrorText()
   const [now, setNow] = useState(() => Date.now())
   const [step, setStep] = useState<Step>({ at: 'idle' })
-  const [permission, setPermission] = useState<LocationPermission>('unknown')
+  const permission = useLocationPermission()
   const cancelRef = useRef<(() => void) | null>(null)
   // What the last failed try had, for asking instead (0194).
   const [lastTry, setLastTry] = useState<{ reading: Reading | null; failedBecause: FailedBecause } | null>(null)
@@ -80,17 +81,6 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
     return () => window.clearInterval(id)
   }, [listening])
 
-  useEffect(() => {
-    let status: PermissionStatus | null = null
-    const follow = () => status && setPermission(status.state)
-    void locationPermission().then((found) => {
-      setPermission(found.state)
-      status = found.status
-      status?.addEventListener('change', follow)
-    })
-    return () => status?.removeEventListener('change', follow)
-  }, [])
-
   useEffect(() => () => cancelRef.current?.(), [])
 
   const phase = clockInPhase(today, now)
@@ -111,7 +101,6 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       if (err instanceof LocationRefused) {
-        if (err.reason === 'blocked') setPermission('denied')
         setLastTry({ reading: null, failedBecause: err.reason === 'blocked' ? 'blocked' : 'nothing' })
         setStep({
           at: 'failed',
@@ -128,7 +117,6 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
     } finally {
       cancelRef.current = null
     }
-    setPermission('granted')
     setStep({ at: 'sending' })
     try {
       const result = await submitClockIn(best)
@@ -144,14 +132,6 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
     } catch (err: unknown) {
       setStep({ at: 'failed', message: errorText(err, 'Could not clock you in. Try again.') })
     }
-  }
-
-  function askForLocation() {
-    navigator.geolocation?.getCurrentPosition(
-      () => setPermission('granted'),
-      (err) => err.code === err.PERMISSION_DENIED && setPermission('denied'),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
-    )
   }
 
   // A press answered "done" keeps its message until the page is left;
@@ -175,7 +155,10 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
   }
 
   const onATeam = teamIds.length > 0 || !!today?.due
-  const askPermission = onATeam && (permission === 'prompt' || permission === 'denied') && phase !== 'open'
+  // Only when the phone itself refused: the dot above has already asked
+  // (on opening the app), and what the browser says on its own is not
+  // to be trusted on an iPhone (lib/locationPermission).
+  const askPermission = onATeam && permission === 'denied' && phase !== 'open'
 
   if (phase !== 'open' && !justClocked && today?.request?.status === 'pending') {
     return (
@@ -196,26 +179,17 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
           <div className="min-w-0 flex-1">
             <p className="text-label-sm font-medium uppercase tracking-wide text-on-surface-variant">Clock in</p>
             <p className="mt-0.5 text-body-sm font-medium text-on-surface">
-              {permission === 'denied'
-                ? 'Location is blocked for this app, so you will not be able to clock in.'
-                : 'Let the app use your location, so you can clock in when you arrive on a day you serve.'}
+              Location is blocked for this app, so you will not be able to clock in.
             </p>
             <p className="mt-0.5 text-label-sm text-on-surface-variant">
-              It is read once, when you press CLOCK IN at church — never in the background.
+              It is read when you open the app and when you press CLOCK IN — never in the background.
             </p>
-            {permission === 'denied' && (
-              <ul className="mt-1 list-disc pl-5 text-label-sm text-on-surface-variant">
-                {BLOCKED_HELP.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            )}
+            <ul className="mt-1 list-disc pl-5 text-label-sm text-on-surface-variant">
+              {BLOCKED_HELP.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
           </div>
-          {permission === 'prompt' && (
-            <ActionButton size="sm" onClick={askForLocation} className="shrink-0 self-start sm:self-center">
-              Allow location
-            </ActionButton>
-          )}
         </div>
       </div>
     )
