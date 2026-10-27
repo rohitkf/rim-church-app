@@ -245,8 +245,11 @@ the same on each:
 - **A choice between a few answers** is a `SegmentedControl` — the
   system's: a grey track, the chosen segment standing up out of it as a
   raised plate with a semibold label, every segment the same width, 32px
-  tall — not a row of separate buttons and not a blue pill. Labels are
-  nouns. An answer that carries a meaning of its own (Yes, No) colours its
+  tall — not a row of separate buttons. Labels are nouns. A row of
+  **tabs** (`kind="tab"`, and the Serving tabs) is the one exception to
+  the grey plate: the tab you are on is filled with the blue the dock uses
+  for the current page, white semibold on it, so where you are reads from
+  across the room. An answer inside a form keeps the plate. An answer that carries a meaning of its own (Yes, No) colours its
   label with `tone`, and only then. The Availability Yes/Maybe/No is the
   one that stands taller (44px), because it is tapped standing up.
 - **On or off** is the `Switch`, and a switch lives in a row with its

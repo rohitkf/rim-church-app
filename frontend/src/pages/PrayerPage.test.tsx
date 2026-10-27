@@ -93,6 +93,13 @@ function show(board: Partial<PrayerBoard>, path = '/prayer') {
   return userEvent.setup()
 }
 
+/** What is done now and then sits behind the card's ⋯. */
+async function fromMenu(user: ReturnType<typeof userEvent.setup>, item: string | RegExp, card?: HTMLElement) {
+  const where = card ? within(card) : screen
+  await user.click(await where.findByRole('button', { name: 'Actions for this request' }))
+  await user.click(screen.getByRole('menuitem', { name: item }))
+}
+
 beforeEach(() => {
   state.calls = []
   state.viewAs = null
@@ -101,15 +108,19 @@ beforeEach(() => {
 describe('asking for prayer', () => {
   it('asks the whole church, anonymously if they choose', async () => {
     const user = show({})
+    await user.click(screen.getByRole('button', { name: 'Ask for prayer' }))
     await user.type(screen.getByRole('textbox', { name: 'What to pray for' }), 'For my job interview')
     await user.click(screen.getByRole('switch', { name: 'Post anonymously' }))
     await user.click(screen.getByRole('button', { name: 'Ask the church' }))
     expect(state.calls).toEqual([['ask', 'general', 'For my job interview', true]])
     expect(await screen.findByText('Shared with the church.')).toBeInTheDocument()
+    // The sheet has gone; the page says what happened.
+    expect(screen.queryByRole('dialog', { name: 'Ask for prayer' })).toBeNull()
   })
 
   it('asks only the pastors, with no anonymous choice', async () => {
     const user = show({})
+    await user.click(screen.getByRole('button', { name: 'Ask for prayer' }))
     await user.click(screen.getByRole('radio', { name: 'Only the pastors' }))
     expect(screen.queryByRole('switch', { name: 'Post anonymously' })).toBeNull()
     await user.type(screen.getByRole('textbox', { name: 'What to pray for' }), 'A family matter')
@@ -119,13 +130,15 @@ describe('asking for prayer', () => {
 })
 
 describe('praying for a request', () => {
-  it('shows the counts and gives one response, changeable and taken back on a second tap', async () => {
+  it('shows the counts on the responses and gives one, changeable and taken back on a second tap', async () => {
     const user = show({ requests: [request(), request({ id: 'r2', my_response: 'praying', body: 'For peace' })] })
-    expect(await screen.findAllByText('3 prayed · 1 still praying')).toHaveLength(2)
-    const first = screen.getByText('For my mother’s surgery').closest('article')!
-    await user.click(within(first).getByRole('button', { name: 'Fasting' }))
+    const first = (await screen.findByText('For my mother’s surgery')).closest('article')!
+    expect(within(first).getByRole('button', { name: 'I prayed, 3' })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(first).getByRole('button', { name: 'Still praying, 1' })).toBeInTheDocument()
+    await user.click(within(first).getByRole('button', { name: 'Fasting, 0' }))
     const second = screen.getByText('For peace').closest('article')!
-    await user.click(within(second).getByRole('button', { name: 'Still praying' }))
+    expect(within(second).getByRole('button', { name: 'Still praying, 1' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(second).getByRole('button', { name: 'Still praying, 1' }))
     expect(state.calls).toEqual([
       ['respond', 'r1', 'fasting'],
       ['respond', 'r2', null],
@@ -136,9 +149,8 @@ describe('praying for a request', () => {
     let release = () => {}
     state.hold = new Promise<void>((resolve) => (release = resolve))
     const user = show({ requests: [request()] })
-    await user.click(await screen.findByRole('button', { name: 'Fasting' }))
-    expect(screen.getByText('3 prayed · 1 still praying · 1 fasting')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fasting' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(await screen.findByRole('button', { name: 'Fasting, 0' }))
+    expect(screen.getByRole('button', { name: 'Fasting, 1' })).toHaveAttribute('aria-pressed', 'true')
     release()
     state.hold = null
   })
@@ -174,7 +186,7 @@ describe('your own requests', () => {
 
   it('can be reopened once answered or closed', async () => {
     const user = show({ requests: [request({ mine: true, status: 'closed' })] }, '/prayer?tab=mine')
-    await user.click(await screen.findByRole('button', { name: 'Reopen' }))
+    await fromMenu(user, 'Reopen')
     expect(state.calls).toEqual([['reopen', 'r1']])
   })
 })
@@ -201,7 +213,7 @@ describe('testimonies and the pastors', () => {
       '/prayer?tab=inbox',
     )
     expect(await screen.findByText('A family matter')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Take down' }))
+    await fromMenu(user, 'Take down')
     await user.click(screen.getByRole('button', { name: 'Take it down' }))
     expect(state.calls).toEqual([['remove', 'r1']])
   })
@@ -213,7 +225,7 @@ describe('praying on the pastors’ behalf', () => {
       { pastoral: true, moderator: true, may_assign: true, requests: [request({ kind: 'private', body: 'A family matter' })] },
       '/prayer?tab=inbox',
     )
-    await user.click(await screen.findByRole('button', { name: 'Ask someone to pray' }))
+    await fromMenu(user, 'Ask someone to pray')
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByRole('switch', { name: 'Show who asked' })).not.toBeChecked()
     await user.type(within(dialog).getByRole('textbox', { name: 'Who to ask: add a person' }), 'Gra')
@@ -269,7 +281,7 @@ describe('prayer lists', () => {
 
     state.calls = []
     await user.click(screen.getByRole('tab', { name: /Requests/ }))
-    await user.click(await screen.findByRole('button', { name: 'Add to a list' }))
+    await fromMenu(user, 'Add to a list')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }))
     expect(state.calls).toEqual([['list-add', 'l1', 'r1', false]])
   })
