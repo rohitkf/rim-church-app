@@ -120,6 +120,8 @@ export function TeamRotaPage() {
   // Finished services fold away: they are a record, not a question, and a
   // page that opens on last Sunday's rota buries next Sunday's.
   const { isExpanded, toggle: toggleService } = useExpanded()
+  // And each team inside a service, folded the same way.
+  const { isExpanded: isTeamToggled, toggle: toggleTeam } = useExpanded()
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   /*
@@ -661,6 +663,12 @@ export function TeamRotaPage() {
                       // page shows for this team.
                       const rolePicker = arrangeRoles({ roles: deptRoles, groups: deptGroups })
                       const formOpen = !!openForm[key]
+                      // A team you are on opens with its service, and so does
+                      // the only one there is; the rest arrive folded, each a
+                      // name and a count. Assigning opens it, so a form is
+                      // never left out of sight.
+                      const iAmOn = deptAssignments.some((a) => a.user_id === myId)
+                      const teamOpen = formOpen || (iAmOn || orderedTeams.length === 1) !== isTeamToggled(key)
 
                       const chosenPerson = draftPerson[key] ?? ''
                       // A conflict is the same person already holding a role
@@ -706,18 +714,29 @@ export function TeamRotaPage() {
                             under it, and the button is always in the same
                             place.
                           */}
-                          <div className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-1">
-                            <TeamMark color={dept.color} />
-                            <div className="min-w-0">
-                              <div className="break-words text-headline-sm leading-tight">
-                                {dept.name}
-                              </div>
-                              <div className="mt-1 font-mono text-label-sm uppercase text-on-surface-faint">
-                                {deptAssignments.length === 0
-                                  ? 'nobody yet'
-                                  : `${deptAssignments.length} assigned`}
-                              </div>
-                            </div>
+                          <div className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleTeam(key)}
+                              aria-expanded={teamOpen}
+                              aria-controls={`rota-team-${key}`}
+                              className="flex min-w-0 items-start gap-3 text-left"
+                            >
+                              <TeamMark color={dept.color} />
+                              <span className="min-w-0">
+                                <span className="flex items-baseline gap-2 break-words text-headline-sm leading-tight">
+                                  {dept.name}
+                                  <span className="text-body-lg">
+                                    <Chevron open={teamOpen} />
+                                  </span>
+                                </span>
+                                <span className="mt-1 block font-mono text-label-sm uppercase text-on-surface-faint">
+                                  {deptAssignments.length === 0
+                                    ? 'nobody yet'
+                                    : `${deptAssignments.length} assigned`}
+                                </span>
+                              </span>
+                            </button>
 
                             {manage ? (
                               <button
@@ -733,6 +752,8 @@ export function TeamRotaPage() {
                               <span />
                             )}
                           </div>
+
+                          <div id={`rota-team-${key}`} hidden={!teamOpen}>
 
                           {deptAssignments.length > 0 && (
                             /* Grouped under the same headings the Teams
@@ -1198,6 +1219,7 @@ export function TeamRotaPage() {
                               )}
                             </div>
                           )}
+                          </div>
                         </li>
                       )
                     })}
