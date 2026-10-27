@@ -13,6 +13,7 @@ import {
   type FoundPlace,
 } from '../lib/clockIn'
 import { NumberDial } from './NumberDial'
+import { reportLocation } from '../lib/locationPermission'
 import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
 import { formatRelativeTime } from '../lib/relativeTime'
@@ -103,6 +104,7 @@ export function ClockInPlaceCard() {
     setError(null)
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        reportLocation('granted')
         setLocating(false)
         setDraft({
           label: shown?.label ?? 'Where I stood',
@@ -118,6 +120,7 @@ export function ClockInPlaceCard() {
       },
       (err) => {
         setLocating(false)
+        if (err.code === err.PERMISSION_DENIED) reportLocation('denied')
         setError(
           err.code === err.PERMISSION_DENIED
             ? 'Location is blocked for this app. Allow it in your browser or phone settings, or find the church by postcode.'

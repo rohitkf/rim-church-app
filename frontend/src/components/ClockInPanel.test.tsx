@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ClockInPanel } from './ClockInPanel'
+import { forgetLocationPermission, reportLocation } from '../lib/locationPermission'
 
 /*
  * CLOCK IN on the Dashboard: there only while it is open, big, honest
@@ -12,7 +13,6 @@ import { ClockInPanel } from './ClockInPanel'
 
 const state = vi.hoisted(() => ({
   today: { due: false } as Record<string, unknown>,
-  permission: 'granted' as string,
   teamIds: [] as string[],
   reading: null as null | { lat: number; lng: number; accuracy: number; at: number },
   readingError: null as unknown,
@@ -50,7 +50,6 @@ vi.mock('../lib/clockIn', async (original) => ({
 }))
 vi.mock('../lib/clockInReading', async (original) => ({
   ...(await original<typeof import('../lib/clockInReading')>()),
-  locationPermission: () => Promise.resolve({ state: state.permission, status: null }),
   readBestPosition: () => ({
     done: state.readingError ? Promise.reject(state.readingError) : Promise.resolve(state.reading),
     cancel: () => undefined,
@@ -86,7 +85,8 @@ const openDay = () => ({
 
 beforeEach(() => {
   state.today = { due: false }
-  state.permission = 'granted'
+  forgetLocationPermission()
+  browserSays('granted')
   state.teamIds = []
   state.reading = { lat: 51.5, lng: -0.1, accuracy: 18, at: Date.now() }
   state.readingError = null
@@ -199,25 +199,45 @@ describe('asking to be clocked in instead', () => {
   })
 })
 
-describe('asking for the location beforehand', () => {
-  it('asks somebody on a team who has not allowed it yet', async () => {
-    state.teamIds = ['media']
-    state.permission = 'prompt'
-    show()
-    expect(await screen.findByRole('button', { name: 'Allow location' })).toBeInTheDocument()
+/** What the browser's own Permissions API claims — which an iPhone gets wrong. */
+function browserSays(state: PermissionState) {
+  Object.defineProperty(navigator, 'permissions', {
+    value: { query: () => Promise.resolve({ state, addEventListener() {}, removeEventListener() {} }) },
+    configurable: true,
   })
+}
 
-  it('says how to unblock it when it is blocked', async () => {
+describe('when location is blocked', () => {
+  it('says how to unblock it once the phone has actually refused', async () => {
     state.teamIds = ['media']
-    state.permission = 'denied'
+    browserSays('prompt')
     show()
+    reportLocation('denied')
     expect(await screen.findByText(/Location is blocked for this app/)).toBeInTheDocument()
   })
 
-  it('says nothing to somebody on no team, or who has allowed it', async () => {
-    state.permission = 'prompt'
+  it('does not believe the browser saying "denied" when the phone hands over its position', async () => {
+    // An iPhone: the Permissions API says denied; the dot above found the phone 5 km out.
+    state.teamIds = ['media']
+    browserSays('denied')
+    show()
+    reportLocation('granted')
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByText(/Location is blocked/)).toBeNull()
+  })
+
+  it('says nothing before the phone has answered, whatever the browser claims', async () => {
+    state.teamIds = ['media']
+    browserSays('denied')
     show()
     await new Promise((r) => setTimeout(r, 30))
-    expect(screen.queryByRole('button', { name: 'Allow location' })).toBeNull()
+    expect(screen.queryByText(/Location is blocked/)).toBeNull()
+  })
+
+  it('says nothing to somebody on no team even when it is blocked', async () => {
+    show()
+    reportLocation('denied')
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByText(/Location is blocked/)).toBeNull()
   })
 })

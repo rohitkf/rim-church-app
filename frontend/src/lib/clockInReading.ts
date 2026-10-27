@@ -1,4 +1,5 @@
 import { betterReading, type Reading } from './clockIn'
+import { reportLocation } from './locationPermission'
 
 /**
  * Where the phone is, as surely as it can say in the time there is.
@@ -77,6 +78,7 @@ export function readBestPosition({
     watch = geolocation.watchPosition(
       (position) => {
         if (finished) return
+        reportLocation('granted')
         const latest: Reading = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -91,6 +93,7 @@ export function readBestPosition({
       (error) => {
         if (finished) return
         if (error.code === error.PERMISSION_DENIED) {
+          reportLocation('denied')
           stop()
           reject(new LocationRefused('blocked'))
         }
@@ -103,20 +106,4 @@ export function readBestPosition({
     if (finished) geolocation.clearWatch(watch)
   })
   return { done, cancel }
-}
-
-export type LocationPermission = 'granted' | 'prompt' | 'denied' | 'unknown'
-
-/**
- * Whether the app may read the location, where the browser will say.
- * Older Safari will not; "unknown" then, and the first clock-in asks.
- */
-export async function locationPermission(): Promise<{ state: LocationPermission; status: PermissionStatus | null }> {
-  try {
-    if (!('permissions' in navigator) || !navigator.permissions?.query) return { state: 'unknown', status: null }
-    const status = await navigator.permissions.query({ name: 'geolocation' })
-    return { state: status.state, status }
-  } catch {
-    return { state: 'unknown', status: null }
-  }
 }
