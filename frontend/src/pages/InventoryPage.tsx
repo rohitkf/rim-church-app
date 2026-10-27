@@ -374,7 +374,7 @@ export function InventoryPage() {
             type="button"
             onClick={() => setPrinting(true)}
             disabled={pickedItems.length === 0}
-            className="tap ml-auto rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-40"
+            className="tap ml-auto rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-40"
           >
             Preview labels
           </button>

@@ -8,7 +8,7 @@ import { NavNamesContext } from '../lib/navNames'
 import { DEFAULT_SETTINGS } from '../lib/appSettings'
 import { SETTINGS_PAGES } from '../lib/pageSettings'
 import { decide, type Holder, type Overrides, type TeamOverrides } from '../lib/permissions'
-import { chooseOption } from '../test/select'
+import { chooseOption, openOptions } from '../test/select'
 
 /*
  * Settings › Page by Page: each page's settings and rules in one place,
@@ -128,7 +128,7 @@ describe('Page by Page', () => {
     expect(teamCard('Worship')).toHaveAttribute('aria-expanded', 'false')
     // And the church-wide grid, a column per profile.
     expect(screen.getByRole('heading', { name: 'For every team — the church’s rule' })).toBeInTheDocument()
-    expect(within(screen.getByRole('rowheader', { name: /Assign somebody to a role/ }).closest('tr')!).getByRole('combobox', { name: /Assisting Head$/ })).toHaveValue('team')
+    expect(within(screen.getByRole('rowheader', { name: /Assign somebody to a role/ }).closest('tr')!).getByRole('combobox', { name: /Assisting Head$/ })).toHaveTextContent(/^Team$/)
   })
 
   it('gives one team a rule of its own, no wider than the team, and saves it with the team', async () => {
@@ -136,11 +136,13 @@ describe('Page by Page', () => {
     await user.click(section('Team Rota'))
     await user.click(teamCard('Worship'))
     const cell = screen.getByRole('combobox', { name: 'Assign roles — Team Member on Worship' })
-    expect(cell).toHaveValue('')
-    expect(within(cell).getAllByRole('option').map((o) => o.textContent)).toEqual(['As the church (No)', 'No', 'Team'])
+    expect(cell).toHaveTextContent(/^As the church \(No\)$/)
+    const list = await openOptions(user, cell)
+    expect(within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)).toEqual(['As the church (No)', 'No', 'Team'])
+    await user.keyboard('{Escape}')
     // Admins are the church’s: no column for them here.
     expect(screen.queryByRole('combobox', { name: /Admin on Worship$/ })).toBeNull()
-    await user.selectOptions(cell, 'team')
+    await chooseOption(user, cell, 'Team')
     expect(teamCard('Worship')).toHaveTextContent('Own rules')
     // Four, not five: deleting a release request is never a member's, so it is not theirs to count.
     expect(teamCard('Worship')).toHaveTextContent('Member 1 of 4')
@@ -161,8 +163,8 @@ describe('Page by Page', () => {
     expect(teamCard('Media')).toHaveTextContent('Asst Head 3 of 5')
     await user.click(teamCard('Media'))
     const cell = screen.getByRole('combobox', { name: 'Assign roles — Assisting Head on Media' })
-    expect(cell).toHaveValue('none')
-    await user.selectOptions(cell, '')
+    expect(cell).toHaveTextContent(/^No$/)
+    await chooseOption(user, cell, /^As the church/)
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(db.rpc).toHaveLength(1))
     expect(db.rpc[0].args).toEqual({ p_changes: [{ role: 'assistant', capability: 'rota.assign', reach: null, department: 'd1' }] })
@@ -174,7 +176,7 @@ describe('Page by Page', () => {
     await user.click(screen.getByRole('switch', { name: 'Always show a service somebody is rostered on' }))
     await user.click(within(screen.getByRole('radiogroup', { name: 'Who can open Team Rota' })).getByRole('radio', { name: 'Everyone' }))
     const row = screen.getByRole('rowheader', { name: /Assign somebody to a role/ }).closest('tr')!
-    await user.selectOptions(within(row).getByRole('combobox', { name: /Team Member$/ }), 'team')
+    await chooseOption(user, within(row).getByRole('combobox', { name: /Team Member$/ }), 'Team')
     const changes = screen.getByRole('list', { name: 'Changes to save' })
     expect(changes).toHaveTextContent('Always show a service somebody is rostered on')
     expect(changes).toHaveTextContent('Who can open which pages')

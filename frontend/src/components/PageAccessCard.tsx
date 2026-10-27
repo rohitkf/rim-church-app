@@ -88,7 +88,7 @@ export function PageAccessCard() {
                   onClick={() => setPreview(s.value)}
                   className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-200 ${
                     preview === s.value
-                      ? 'bg-primary font-medium text-on-primary'
+                      ? 'bg-primary font-semibold text-on-primary'
                       : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
                   }`}
                 >

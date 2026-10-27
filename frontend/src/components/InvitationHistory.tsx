@@ -15,7 +15,7 @@ import {
 import type { Invitation } from "../lib/types";
 import { useDisplay } from "../lib/appSettings";
 import { usePermissions } from "../lib/usePermissions";
-import { Panel, Pill, Row } from "./Surface";
+import { Overlay, Panel, Pill, Row } from "./Surface";
 import { QueryState } from "./QueryState";
 import { TeamMark } from "./TeamMark";
 import { UserCheckIcon } from "./icons";
@@ -313,12 +313,7 @@ export function InvitationHistory() {
       {/* Outside the collapsible region: a dialog opened from the list
           must not vanish because the panel is shut. */}
       {confirmingRevoke && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="revoke-invitation-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-        >
+        <Overlay closable={false} onDismiss={() => setConfirmingRevoke(null)} label={confirmingRevoke.accepted_at ? `Remove the record of inviting ${confirmingRevoke.email}?` : `Remove the invitation to ${confirmingRevoke.email}?`}>
           <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
             <h2 id="revoke-invitation-title" className="text-headline-md">
               {confirmingRevoke.accepted_at
@@ -351,7 +346,7 @@ export function InvitationHistory() {
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </Panel>
   );

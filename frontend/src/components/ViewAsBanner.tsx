@@ -31,7 +31,7 @@ export function ViewAsBanner() {
       <button
         type="button"
         onClick={() => setViewAs(null)}
-        className="tap shrink-0 rounded-full bg-primary px-4 py-1.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+        className="tap shrink-0 rounded-full bg-primary px-4 py-1.5 text-body-sm font-semibold text-on-primary hover:opacity-90"
       >
         Exit preview
       </button>

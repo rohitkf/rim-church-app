@@ -49,7 +49,11 @@ function flatten(items: SelectItem[]): SelectOption[] {
 
 interface Placement {
   left: number
-  top: number
+  /** One of the two: under the field it hangs from its top edge; above it,
+      it stands on its bottom edge, so a short list sits against the field
+      however tall it might have grown. */
+  top?: number
+  bottom?: number
   width: number
   /** What the menu may grow to, so a long option wraps instead of escaping. */
   maxWidth: number
@@ -85,7 +89,10 @@ function placementFor(trigger: HTMLElement): Placement {
     left,
     width,
     maxWidth: room,
-    top: openUp ? rect.top - gap - maxHeight : rect.bottom + gap,
+    // Opening upwards, measured from the bottom of the window: placed by
+    // its top it was put where the tallest list would start, so "No · All"
+    // hung a couple of hundred pixels above the field it belonged to.
+    ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
     maxHeight,
   }
 }
@@ -296,6 +303,7 @@ export function Select({
             style={{
               left: placement.left,
               top: placement.top,
+              bottom: placement.bottom,
               minWidth: placement.width,
               maxWidth: placement.maxWidth,
               maxHeight: placement.maxHeight,
@@ -375,6 +383,10 @@ export function Select({
 /** The trigger, when the caller has no opinion: the shape of a field. */
 export const triggerClasses =
   'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-200 ease-[var(--ease-glide)] focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
+
+/** The compact pill a permission grid's cell is drawn as: many to a row. */
+export const reachPickerClasses =
+  'tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-2 text-label-md text-on-surface hairline transition-shadow duration-200 hover:bg-raised-strong focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
 
 /** The compact trigger, for a picker sitting inside a row of controls. */
 export const selectPillClasses =

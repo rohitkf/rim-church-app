@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { invokeEdgeFunction } from '../lib/edgeFunction'
-import { ActionButton, Field, inputClasses } from './Surface'
+import { ActionButton, Field, Overlay, inputClasses } from './Surface'
 import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
 import { Select } from './Select'
@@ -89,12 +89,7 @@ export function InviteDialog({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="invite-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-    >
+    <Overlay onDismiss={onClose} label="Invite somebody">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
@@ -217,6 +212,6 @@ export function InviteDialog({
           </ActionButton>
         </div>
       </form>
-    </div>
+    </Overlay>
   )
 }

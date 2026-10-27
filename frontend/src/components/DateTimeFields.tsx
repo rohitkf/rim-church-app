@@ -493,7 +493,7 @@ function TimeColumns({
             type="button"
             onClick={done}
             disabled={!typedTime}
-            className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-50"
+            className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-50"
           >
             Done
           </button>

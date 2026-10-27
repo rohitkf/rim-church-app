@@ -73,7 +73,7 @@ export function UpdateRequiredDialog() {
             setReloading(true)
             applyUpdate()
           }}
-          className="mt-6 w-full rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-70"
+          className="mt-6 w-full rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-70"
         >
           {reloading ? 'Reloading…' : 'Reload now'}
         </button>

@@ -742,7 +742,7 @@ export function DashboardPage() {
                       <div className="mt-5 flex flex-wrap gap-2.5">
                         <Link
                           to={`/service-planner/${service.id}`}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
+                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                         >
                           Open running order
                           <span aria-hidden="true">&rarr;</span>
@@ -1044,7 +1044,7 @@ export function DashboardPage() {
                       {canOpen('/departments') && can('team.request_join') ? (
                         <Link
                           to="/departments"
-                          className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
+                          className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
                         >
                           Find your team and ask to join
                           <span aria-hidden="true">&rarr;</span>

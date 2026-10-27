@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, PageHeader } from '../components/Surface'
+import { ActionButton, Overlay, PageHeader } from '../components/Surface'
 import { GuestRollCard } from '../components/GuestRollCard'
 import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
 import { InvitationHistory } from '../components/InvitationHistory'
@@ -933,12 +933,7 @@ function TransferOwnershipDialog({
   })
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="transfer-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-    >
+    <Overlay closable={false} onDismiss={onClose} label={`Offer ownership to ${person.first_name}?`}>
       <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
         <h2 id="transfer-title" className="text-headline-md">
           Offer ownership to {person.first_name}?
@@ -959,12 +954,12 @@ function TransferOwnershipDialog({
             type="button"
             onClick={() => offer.mutate()}
             disabled={offer.isPending}
-            className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
+            className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             {offer.isPending ? 'Sending…' : 'Send the offer'}
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }

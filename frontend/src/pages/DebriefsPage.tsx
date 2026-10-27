@@ -125,7 +125,7 @@ function ItemRow({
               onSave({ body });
               setEditing(false);
             }}
-            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
           >
             Save
           </button>
@@ -252,7 +252,7 @@ function ItemComposer({
         type="button"
         disabled={shut || adding || !body.trim()}
         onClick={submit}
-        className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+        className="shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
       >
         {adding ? "Adding…" : "Add"}
       </button>

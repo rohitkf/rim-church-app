@@ -59,7 +59,7 @@ export function ItemQrDialog({ item, onClose }: { item: InventoryItem; onClose: 
           <button
             type="button"
             onClick={() => setPrinting(true)}
-            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90"
+            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90"
           >
             Preview label
           </button>

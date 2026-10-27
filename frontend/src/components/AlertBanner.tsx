@@ -107,7 +107,7 @@ export function AlertBanner() {
           type="button"
           disabled={acknowledge.isPending}
           onClick={() => acknowledge.mutate(alert.id)}
-          className="mt-5 w-full rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary disabled:opacity-50"
+          className="mt-5 w-full rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary disabled:opacity-50"
         >
           {acknowledge.isPending ? 'One moment…' : 'Okay'}
         </button>

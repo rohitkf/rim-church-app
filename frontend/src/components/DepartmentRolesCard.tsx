@@ -633,7 +633,7 @@ function CopyChecklistFrom({
                 type="button"
                 disabled={!from || picked.size === 0 || copy.isPending}
                 onClick={() => copy.mutate(from)}
-                className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+                className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
               >
                 {copy.isPending
                   ? 'Copying…'

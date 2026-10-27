@@ -178,7 +178,7 @@ function JoinTeamRow({
           type="button"
           onClick={onAsk}
           disabled={busy}
-          className="shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
+          className="shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
         >
           {busy ? 'Sending…' : state === 'declined' ? 'Ask again' : 'Request to join'}
         </button>

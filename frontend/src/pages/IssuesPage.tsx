@@ -505,7 +505,7 @@ function IssueRow({
                 aria-checked={outcome === o}
                 onClick={() => setOutcome(o)}
                 className={`tap rounded-full px-3 py-1.5 text-label-md hairline transition-colors ${
-                  outcome === o ? 'bg-primary font-medium text-on-primary' : 'text-on-surface-variant'
+                  outcome === o ? 'bg-primary font-semibold text-on-primary' : 'text-on-surface-variant'
                 }`}
               >
                 {OUTCOME_LABEL[o]}

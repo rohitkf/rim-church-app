@@ -133,7 +133,7 @@ export function InventoryCategoriesBar({
             <button
               type="submit"
               disabled={!draft.trim() || busy}
-              className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary disabled:opacity-40"
+              className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-semibold text-on-primary disabled:opacity-40"
             >
               Add
             </button>
@@ -172,7 +172,7 @@ export function InventoryCategoriesBar({
             type="button"
             disabled={!renameDraft.trim() || renameDraft.trim() === renaming.name || busy}
             onClick={() => rename.mutate({ id: renaming.id, name: renameDraft.trim() })}
-            className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-medium text-on-primary disabled:opacity-40"
+            className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-semibold text-on-primary disabled:opacity-40"
           >
             Rename
           </button>

@@ -180,7 +180,7 @@ export function AppLogoCard() {
             type="button"
             onClick={() => file.current?.click()}
             disabled={busy}
-            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
+            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             {upload.isPending ? 'Uploading…' : url ? 'Replace logo' : 'Upload a logo'}
           </button>
@@ -236,7 +236,7 @@ export function AppLogoCard() {
                 type="button"
                 autoFocus
                 onClick={() => setTooBig(null)}
-                className="tap rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
+                className="tap rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
               >
                 Pick another
               </button>

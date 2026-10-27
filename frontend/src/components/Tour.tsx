@@ -332,7 +332,7 @@ function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
 const QUIET =
   'tap rounded-full px-3.5 py-2 text-label-md text-on-surface-variant transition-colors hover:text-on-surface'
 const PRIMARY =
-  'tap inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]'
+  'tap inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]'
 
 function SundayList() {
   return (
