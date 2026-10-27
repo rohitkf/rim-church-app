@@ -54,6 +54,7 @@ import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ClockInPanel } from '../components/ClockInPanel'
+import { ClockInRequests } from '../components/ClockInRequests'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useDisplay } from '../lib/appSettings'
 import { usePageAccess } from '../lib/usePageAccess'
@@ -460,6 +461,8 @@ export function DashboardPage() {
           until the day's last service ends (0192) — and, on the days
           before, a word asking them to let the app read their location. */}
       <ClockInPanel className="mb-6" />
+      {/* Requests to be clocked in that this person may answer (0194). */}
+      <ClockInRequests className="mb-6" />
       {/* Whatever is waiting on this person — a poll, whether they can
           serve, a mention — until it is done (0178). */}
       <DashboardReminders className="mb-6" />

@@ -38,6 +38,9 @@ vi.mock('../lib/queries', async (original) => ({
 }))
 vi.mock('../lib/clockIn', async (original) => ({
   ...(await original<typeof import('../lib/clockIn')>()),
+  fetchStillOut: () =>
+    Promise.resolve([{ user_id: 'p2', department_id: 'd-media', call_at: '2026-11-01T09:30:00Z', asked: false }]),
+  fetchClockInRequestsToAnswer: () => Promise.resolve([]),
   fetchClockInTeams: () => Promise.resolve([{ user_id: 'p1', department_id: 'd-welcome' }, { user_id: 'p3', department_id: 'd-media' }]),
   fetchClockIns: () =>
     Promise.resolve([
@@ -133,10 +136,17 @@ describe('the Clock In page', () => {
     show()
     const table = await screen.findByRole('table')
     const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers).toEqual(expect.arrayContaining(['Media1', 'Welcome1']))
+    expect(headers).toEqual(expect.arrayContaining(['Media1 in · 1 to come', 'Welcome1']))
     const groups = table.querySelectorAll('tbody')
     expect(within(groups[0] as HTMLElement).getByText('Grace Mensah')).toBeInTheDocument()
     expect(within(groups[1] as HTMLElement).getByText('Joel Skaria')).toBeInTheDocument()
+  })
+
+  it('says who on each team is still to arrive', async () => {
+    show()
+    const row = await screen.findByText('Still to arrive')
+    expect(row.closest('td')).toHaveTextContent('Ama Owusu (09:30)')
+    expect(screen.getByText(/1 in · 1 to come/)).toBeInTheDocument()
   })
 
   it('gives nobody but the Owner and Admins the church’s spot or a way to change anything', async () => {

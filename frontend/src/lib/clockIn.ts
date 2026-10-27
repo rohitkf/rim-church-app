@@ -216,6 +216,16 @@ export const myClockInSchema = z.object({
   radius_m: z.number().optional(),
   clocked_at: z.string().nullable().optional(),
   method: z.enum(['location', 'request', 'added']).nullable().optional(),
+  /** Their request to be clocked in today, if they made one (0194). */
+  request: z
+    .object({
+      id: z.string(),
+      status: z.enum(['pending', 'approved', 'declined', 'cancelled']),
+      asked_at: z.string(),
+      decision_note: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
 })
 export type MyClockIn = z.infer<typeof myClockInSchema>
 
@@ -413,31 +423,145 @@ export interface ClockInGroup {
   teamId: string | null
   name: string
   rows: ClockIn[]
+  /** On the team's rota that day and not clocked in yet (0194). */
+  stillOut: StillOut[]
 }
 
 /**
- * The day's clock-ins team by team, teams in name order. Somebody on two
- * teams is under both; somebody an Admin added who was on no rota comes
- * last, under "Not on the rota".
+ * The day's clock-ins team by team, teams in name order, each with who on
+ * its rota is still to arrive. Somebody on two teams is under both;
+ * somebody an Admin added who was on no rota comes last, under "Not on the
+ * rota".
  */
 export function groupClockIns(
   rows: readonly ClockIn[],
   teams: readonly { user_id: string; department_id: string }[],
   teamName: (id: string) => string | null,
+  stillOut: readonly StillOut[] = [],
 ): ClockInGroup[] {
-  const groups = new Map<string, ClockIn[]>()
+  const groups = new Map<string, { rows: ClockIn[]; stillOut: StillOut[] }>()
+  const group = (id: string) => {
+    const found = groups.get(id) ?? { rows: [], stillOut: [] }
+    groups.set(id, found)
+    return found
+  }
   const placed = new Set<string>()
   for (const row of rows) {
     for (const t of teams) {
       if (t.user_id !== row.user_id || !teamName(t.department_id)) continue
-      groups.set(t.department_id, [...(groups.get(t.department_id) ?? []), row])
+      group(t.department_id).rows.push(row)
       placed.add(row.id)
     }
   }
+  for (const out of stillOut) {
+    if (teamName(out.department_id)) group(out.department_id).stillOut.push(out)
+  }
   const out: ClockInGroup[] = [...groups.entries()]
-    .map(([teamId, list]) => ({ teamId, name: teamName(teamId)!, rows: list }))
+    .map(([teamId, g]) => ({
+      teamId,
+      name: teamName(teamId)!,
+      rows: g.rows,
+      stillOut: [...g.stillOut].sort((a, b) => a.call_at.localeCompare(b.call_at)),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const elsewhere = rows.filter((r) => !placed.has(r.id))
-  if (elsewhere.length > 0) out.push({ teamId: null, name: 'Not on the rota', rows: elsewhere })
+  if (elsewhere.length > 0) out.push({ teamId: null, name: 'Not on the rota', rows: elsewhere, stillOut: [] })
   return out
+}
+
+// ---------------------------------------------------------------------------
+// Asking to be clocked in (0194)
+// ---------------------------------------------------------------------------
+
+/** Why the phone was not enough, as the request records it. */
+export type FailedBecause = 'too_rough' | 'too_far' | 'blocked' | 'nothing'
+
+/** Ask, with the best reading the failed attempt gave — or none. */
+export async function askToClockIn(ask: { reading: Reading | null; failedBecause: FailedBecause | null; note: string }) {
+  const { reading } = ask
+  const { error } = await supabase.rpc('clock_in_ask', {
+    lat: reading?.lat ?? null,
+    lng: reading?.lng ?? null,
+    accuracy: reading?.accuracy ?? null,
+    read_at: reading ? new Date(reading.at).toISOString() : null,
+    failed_because: ask.failedBecause,
+    note: ask.note.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function cancelClockInAsk(id: string) {
+  const { error } = await supabase.rpc('clock_in_cancel_ask', { request_id: id })
+  if (error) throw error
+}
+
+export const clockInRequestSchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  on_date: z.string(),
+  asked_at: z.string(),
+  note: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  accuracy_m: z.number().nullable(),
+  distance_m: z.number().nullable(),
+  read_at: z.string().nullable(),
+  failed_because: z.enum(['too_rough', 'too_far', 'blocked', 'nothing']).nullable(),
+  address: z.string().nullable(),
+  address_tries: z.number().optional(),
+  person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+})
+export type ClockInRequest = z.infer<typeof clockInRequestSchema>
+
+export const CLOCK_IN_REQUESTS_KEY = ['clock-in-requests'] as const
+
+/**
+ * Requests waiting for an answer that this person may give — the database
+ * shows an approver every one, and anybody else only their own, which is
+ * left out here: nobody answers their own.
+ */
+export async function fetchClockInRequestsToAnswer(myId: string): Promise<ClockInRequest[]> {
+  const { data, error } = await supabase
+    .from('clock_in_requests')
+    .select(
+      'id, user_id, on_date, asked_at, note, latitude, longitude, accuracy_m, distance_m, read_at, failed_because, address, address_tries, person:profiles!clock_in_requests_user_id_fkey(first_name, last_name)',
+    )
+    .eq('status', 'pending')
+    .neq('user_id', myId)
+    .order('asked_at')
+  if (error) throw error
+  return z.array(clockInRequestSchema).parse(data ?? [])
+}
+
+export async function decideClockInRequest(id: string, approve: boolean, note: string) {
+  const { error } = await supabase.rpc('clock_in_decide', {
+    request_id: id,
+    approve,
+    note: note.trim() || null,
+  })
+  if (error) throw error
+}
+
+/** What the phone could not do, for the approver. */
+export const FAILED_BECAUSE_WORDS: Record<FailedBecause, string> = {
+  too_rough: 'Phone was not sure enough of where it was',
+  too_far: 'Phone placed them outside the circle',
+  blocked: 'Location is blocked on their phone',
+  nothing: 'Phone could not find where it was',
+}
+
+export interface StillOut {
+  user_id: string
+  department_id: string
+  call_at: string
+  asked: boolean
+}
+
+/** Everybody due on `onDate` who has not clocked in, team by team (0194). */
+export async function fetchStillOut(onDate: string): Promise<StillOut[]> {
+  const { data, error } = await supabase.rpc('clock_in_still_out', { on_day: onDate })
+  if (error) throw error
+  return z
+    .array(z.object({ user_id: z.string(), department_id: z.string(), call_at: z.string(), asked: z.boolean() }))
+    .parse(data ?? [])
 }

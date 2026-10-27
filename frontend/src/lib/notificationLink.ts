@@ -36,6 +36,9 @@ export const NOTIFICATION_TYPES = [
   'stage_template_decided',
   'stage_move_request',
   'stage_move_decided',
+  'clock_in_reminder',
+  'clock_in_request',
+  'clock_in_decided',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -88,6 +91,11 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
     label: 'Your request to change your answer was answered',
     href: '/availability',
   },
+  // All three carry their own sentence and land on the Dashboard: the
+  // button, the requests to answer, and where yours stands, are all there.
+  clock_in_reminder: { label: 'Clock in when you arrive', href: '/' },
+  clock_in_request: { label: 'Somebody is asking to be clocked in', href: '/' },
+  clock_in_decided: { label: 'Your request to be clocked in was answered', href: '/' },
 }
 
 function known(type: string): NotificationType | null {

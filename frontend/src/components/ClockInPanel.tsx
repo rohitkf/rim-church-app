@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { useAppSettings } from '../lib/appSettings'
 import { useMyTeams } from '../lib/useMyTeams'
 import { useErrorText } from '../lib/useErrorText'
 import {
   MY_CLOCK_IN_KEY,
+  askToClockIn,
+  cancelClockInAsk,
   churchClock,
   clockInPhase,
   fetchMyClockIn,
@@ -14,10 +16,12 @@ import {
   refusalWords,
   submitClockIn,
   type ClockInResult,
+  type FailedBecause,
+  type MyClockIn,
   type Reading,
 } from '../lib/clockIn'
 import { LocationRefused, locationPermission, readBestPosition, type LocationPermission } from '../lib/clockInReading'
-import { ActionButton } from './Surface'
+import { ActionButton, inputClasses } from './Surface'
 import { MapPinIcon } from './icons'
 
 type Step =
@@ -56,6 +60,8 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
   const [step, setStep] = useState<Step>({ at: 'idle' })
   const [permission, setPermission] = useState<LocationPermission>('unknown')
   const cancelRef = useRef<(() => void) | null>(null)
+  // What the last failed try had, for asking instead (0194).
+  const [lastTry, setLastTry] = useState<{ reading: Reading | null; failedBecause: FailedBecause } | null>(null)
 
   const todayQuery = useQuery({
     queryKey: [...MY_CLOCK_IN_KEY, myId],
@@ -106,6 +112,7 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       if (err instanceof LocationRefused) {
         if (err.reason === 'blocked') setPermission('denied')
+        setLastTry({ reading: null, failedBecause: err.reason === 'blocked' ? 'blocked' : 'nothing' })
         setStep({
           at: 'failed',
           blocked: err.reason === 'blocked',
@@ -126,6 +133,9 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
     try {
       const result = await submitClockIn(best)
       setStep({ at: 'answered', result })
+      if (!result.ok && (result.reason === 'too_rough' || result.reason === 'too_far')) {
+        setLastTry({ reading: best, failedBecause: result.reason })
+      }
       if (result.ok) {
         lookUpAddresses()
         await queryClient.invalidateQueries({ queryKey: MY_CLOCK_IN_KEY })
@@ -166,6 +176,14 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
 
   const onATeam = teamIds.length > 0 || !!today?.due
   const askPermission = onATeam && (permission === 'prompt' || permission === 'denied') && phase !== 'open'
+
+  if (phase !== 'open' && !justClocked && today?.request?.status === 'pending') {
+    return (
+      <div className={className}>
+        <AskedLine today={today} timeZone={settings.timezone} />
+      </div>
+    )
+  }
 
   if (phase !== 'open' && !justClocked) {
     if (!askPermission) return null
@@ -271,6 +289,9 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
                 </ActionButton>
               </div>
             )}
+            {today?.request && today.request.status !== 'cancelled' && (
+              <AskedLine today={today} timeZone={timeZone} />
+            )}
             {step.at === 'answered' && !step.result.ok && <Refusal words={refusalWords(step.result, timeZone)} />}
             {step.at === 'failed' && (
               <div role="alert" className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
@@ -284,10 +305,131 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
                 )}
               </div>
             )}
+            {lastTry && !busy && (!today?.request || today.request.status === 'cancelled') && (
+              <AskInstead
+                lastTry={lastTry}
+                onAsked={() => {
+                  setLastTry(null)
+                  setStep({ at: 'idle' })
+                }}
+              />
+            )}
           </>
         )}
       </div>
     </section>
+  )
+}
+
+/** Their request, where it stands — and a way to take it back while it waits. */
+function AskedLine({ today, timeZone }: { today: MyClockIn; timeZone: string }) {
+  const queryClient = useQueryClient()
+  const errorText = useErrorText()
+  const request = today.request!
+  const cancel = useMutation({
+    mutationFn: () => cancelClockInAsk(request.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: MY_CLOCK_IN_KEY }),
+  })
+  const declined = request.status === 'declined'
+  return (
+    <div
+      role="status"
+      className={`mt-3 rounded-[var(--radius-chip)] px-4 py-3 text-body-sm ${
+        declined ? 'bg-error-container text-on-error-container' : 'bg-raised text-on-surface'
+      }`}
+    >
+      {declined ? (
+        <p>
+          Your request to be clocked in was declined{request.decision_note ? `: ${request.decision_note}` : '.'} You
+          can still try CLOCK IN again.
+        </p>
+      ) : request.status === 'pending' ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p>
+            You asked to be clocked in at{' '}
+            <span className="font-mono tabular-nums">{churchClock(request.asked_at, timeZone)}</span> — waiting for
+            approval.
+          </p>
+          <ActionButton tone="ghost" size="sm" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+            {cancel.isPending ? 'Cancelling…' : 'Cancel request'}
+          </ActionButton>
+        </div>
+      ) : null}
+      {cancel.error && <p className="mt-1 text-label-md">{errorText(cancel.error, 'Could not cancel it.')}</p>}
+    </div>
+  )
+}
+
+/**
+ * After a CLOCK IN that did not work: ask instead. The request carries
+ * what the phone gave on that try — or says it gave nothing — so whoever
+ * approves can see where it thought they were.
+ */
+function AskInstead({
+  lastTry,
+  onAsked,
+}: {
+  lastTry: { reading: Reading | null; failedBecause: FailedBecause }
+  onAsked: () => void
+}) {
+  const queryClient = useQueryClient()
+  const errorText = useErrorText()
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const ask = useMutation({
+    mutationFn: () => askToClockIn({ reading: lastTry.reading, failedBecause: lastTry.failedBecause, note }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: MY_CLOCK_IN_KEY })
+      onAsked()
+    },
+  })
+
+  if (!open) {
+    return (
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-center">
+        <span className="text-label-md text-on-surface-variant">At church, and it still will not work?</span>
+        <ActionButton tone="quiet" size="sm" onClick={() => setOpen(true)}>
+          Ask to be clocked in
+        </ActionButton>
+      </div>
+    )
+  }
+  return (
+    <form
+      aria-label="Ask to be clocked in"
+      className="mt-3 flex flex-col gap-2 rounded-[var(--radius-row)] bg-raised px-4 py-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        ask.mutate()
+      }}
+    >
+      <p className="text-body-sm text-on-surface">
+        {lastTry.reading
+          ? 'An approver will see where your phone thought you were, and the time you asked.'
+          : 'Your phone gave no location, so the approver will see only the time you asked.'}
+      </p>
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        maxLength={500}
+        placeholder="Anything they should know (optional)"
+        aria-label="Note for the approver"
+        className={inputClasses}
+      />
+      {ask.error && (
+        <p role="alert" className="text-body-sm text-accent-red-soft">
+          {errorText(ask.error, 'Could not send the request.')}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <ActionButton type="submit" size="sm" disabled={ask.isPending}>
+          {ask.isPending ? 'Sending…' : 'Send request'}
+        </ActionButton>
+        <ActionButton tone="quiet" size="sm" onClick={() => setOpen(false)} disabled={ask.isPending}>
+          Cancel
+        </ActionButton>
+      </div>
+    </form>
   )
 }
 

@@ -55,13 +55,13 @@ beforeEach(() => {
   endTour()
   auth.profile = { id: 'me', onboarded_at: '2026-10-01T10:00:00Z' }
   auth.viewAs = null
-  // The newer card (phones, 0185) has its own test below; these follow Stage Layout's.
+  // The newer cards (phones, 0185; clock in, 0194) have their own tests below; these follow Stage Layout's.
   db.seen = { ...NEWER }
   db.marked = []
   db.canOpen = true
 })
 
-const NEWER = { 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
+const NEWER = { 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
 
 describe('what is new', () => {
   it('announces the newest release once, and remembers on the account when it is closed', async () => {
@@ -128,8 +128,18 @@ describe('what is new', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('tells everybody that board posts and team chat now reach the phone, newest first', async () => {
+  it('tells everybody about clocking in, newest first', async () => {
     db.seen = {}
+    db.canOpen = false
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('dialog', { name: 'New: Clock in when you arrive' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Got it' }))
+    await waitFor(() => expect(db.marked).toEqual(['clock-in']))
+  })
+
+  it('tells everybody that board posts and team chat now reach the phone', async () => {
+    db.seen = { 'clock-in': '2026-10-27T10:00:00Z' }
     db.canOpen = false
     const user = userEvent.setup()
     show()

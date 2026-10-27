@@ -10,26 +10,33 @@ import 'leaflet/dist/leaflet.css'
  * not an image, so nothing goes missing when the app is bundled. The map
  * is shown only to an Owner or Admin setting the spot, which keeps the
  * tiles asked for to a handful.
+ *
+ * With a `reading`, it is also where a phone thought it was (0194): a dot,
+ * and the circle the phone said it was sure to — for an Owner or Admin
+ * deciding a request to be clocked in.
  */
 export function PlaceMap({
   lat,
   lng,
   radius,
   editable,
-  onMove,
+  onMove = () => {},
+  reading = null,
   className = '',
 }: {
   lat: number
   lng: number
   radius: number
   editable: boolean
-  onMove: (to: { lat: number; lng: number }) => void
+  onMove?: (to: { lat: number; lng: number }) => void
+  reading?: { lat: number; lng: number; accuracy: number } | null
   className?: string
 }) {
   const holder = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const pin = useRef<L.Marker | null>(null)
   const ring = useRef<L.Circle | null>(null)
+  const phone = useRef<L.Circle | null>(null)
   // The latest handler, without remaking the map when it changes.
   const moved = useRef(onMove)
   moved.current = onMove
@@ -60,8 +67,31 @@ export function PlaceMap({
       weight: 2,
       fillOpacity: 0.12,
     }).addTo(m)
+    let bounds = circle.getBounds()
+    if (reading) {
+      const orange =
+        getComputedStyle(document.documentElement).getPropertyValue('--color-accent-orange').trim() || '#e8590c'
+      const sure = L.circle([reading.lat, reading.lng], {
+        radius: Math.max(reading.accuracy, 1),
+        color: orange,
+        weight: 1.5,
+        dashArray: '4 4',
+        fillOpacity: 0.1,
+      }).addTo(m)
+      L.circleMarker([reading.lat, reading.lng], {
+        radius: 6,
+        color: 'white',
+        weight: 2,
+        fillColor: orange,
+        fillOpacity: 1,
+      })
+        .bindTooltip('Their phone')
+        .addTo(m)
+      bounds = bounds.extend(sure.getBounds())
+      phone.current = sure
+    }
     // The whole circle in view, with a little of what is around it.
-    m.fitBounds(circle.getBounds(), { padding: [24, 24], maxZoom: 18 })
+    m.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 })
     if (editable) {
       m.on('click', (e: L.LeafletMouseEvent) => moved.current({ lat: e.latlng.lat, lng: e.latlng.lng }))
     }
@@ -84,14 +114,24 @@ export function PlaceMap({
 
   useEffect(() => {
     ring.current?.setRadius(radius)
-    if (map.current && ring.current) map.current.fitBounds(ring.current.getBounds(), { padding: [24, 24], maxZoom: 18 })
+    if (map.current && ring.current) {
+      const bounds = ring.current.getBounds()
+      if (phone.current) bounds.extend(phone.current.getBounds())
+      map.current.fitBounds(bounds, { padding: [24, 24], maxZoom: 18 })
+    }
   }, [radius])
 
   return (
     <div
       ref={holder}
       role="application"
-      aria-label={editable ? 'Map: drag the pin, or tap the map, to the church’s door' : 'Map of the church'}
+      aria-label={
+        editable
+          ? 'Map: drag the pin, or tap the map, to the church’s door'
+          : reading
+            ? 'Map of the church and where their phone was'
+            : 'Map of the church'
+      }
       className={`relative z-0 overflow-hidden rounded-[var(--radius-card)] hairline ${className}`}
     />
   )

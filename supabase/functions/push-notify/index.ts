@@ -66,6 +66,9 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
     label: 'Your request to change your answer was answered',
     href: '/availability',
   },
+  clock_in_reminder: { label: 'Clock in when you arrive', href: '/' },
+  clock_in_request: { label: 'Somebody is asking to be clocked in', href: '/' },
+  clock_in_decided: { label: 'Your request to be clocked in was answered', href: '/' },
 }
 
 /**
