@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ActionButton, IconBadge, SectionTile } from './Surface'
+import { ActionButton, IconBadge, SectionTile, SegmentedControl } from './Surface'
 import { ShieldIcon } from './icons'
 
 describe('the settings primitives', () => {
@@ -28,5 +28,25 @@ describe('the settings primitives', () => {
     const { container } = render(<IconBadge icon={ShieldIcon} tone="red" />)
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
     expect(container.querySelector('svg')).not.toBeNull()
+  })
+})
+
+describe('a segmented control', () => {
+  const options = [
+    { value: 'a', label: 'Requests' },
+    { value: 'b', label: 'Mine' },
+  ]
+  it('marks the chosen tab in blue, where an answer in a form stays a grey plate', () => {
+    render(<SegmentedControl label="Which" kind="tab" value="a" onChange={() => {}} options={options} />)
+    const tab = screen.getByRole('tab', { name: 'Requests' })
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(tab.className).toMatch(/\bbg-primary\b/)
+    expect(tab.className).toMatch(/\btext-on-primary\b/)
+    expect(screen.getByRole('tab', { name: 'Mine' }).className).not.toMatch(/\bbg-primary\b/)
+
+    render(<SegmentedControl label="Who" value="a" onChange={() => {}} options={options} />)
+    const answer = screen.getByRole('radio', { name: 'Requests' })
+    expect(answer.className).toMatch(/\bbg-segment\b/)
+    expect(answer.className).not.toMatch(/\bbg-primary\b/)
   })
 })

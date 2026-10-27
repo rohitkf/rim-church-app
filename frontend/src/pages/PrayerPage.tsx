@@ -12,6 +12,7 @@ import { formatRelativeTime } from '../lib/relativeTime'
 import { fetchDepartments } from '../lib/queries'
 import { AudienceEditor } from '../components/AudienceEditor'
 import { Select } from '../components/Select'
+import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import {
   PRAYER_KEY,
   RESPONSES,
@@ -39,6 +40,7 @@ import {
   type PrayerBoard,
   type PrayerList,
   type PrayerRequest,
+  type PrayerResponse,
 } from '../lib/prayer'
 
 type Tab = 'requests' | 'mine' | 'testimonies' | 'assigned' | 'lists' | 'inbox'
@@ -80,16 +82,35 @@ export function PrayerPage() {
       : []),
   ]
   const shown = sections && tab !== 'lists' ? sections[tab] : []
+  const [asking, setAsking] = useState(false)
+  const [sent, setSent] = useState<string | null>(null)
 
   return (
     <div className="mx-auto w-full max-w-[900px]">
+      {/* Asking is one button, not a form standing over the page: the
+          requests are what most people open it for, and they come first. */}
       <PageHeader
         eyebrow="Pray for one another"
         title="Prayer Requests"
         description="Ask the pastors privately, or ask the whole church. Pray for each other, and see what God has done."
+        action={
+          <ActionButton
+            glyph="+"
+            onClick={() => {
+              setSent(null)
+              setAsking(true)
+            }}
+          >
+            Ask for prayer
+          </ActionButton>
+        }
       />
-      <div className="flex flex-col gap-5">
-        <AskCard />
+      <div className="flex flex-col gap-4">
+        {sent && (
+          <p role="status" className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-accent-green-soft">
+            {sent}
+          </p>
+        )}
         <QueryState isLoading={query.isLoading} error={query.error}>
           {board && sections && (
             <>
@@ -102,7 +123,7 @@ export function PrayerPage() {
                   value={tab}
                   onChange={(next) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })}
                   options={tabs}
-                  className="w-max min-w-full auto-cols-max!"
+                  className="w-max min-w-full auto-cols-max! sm:min-w-0"
                 />
               </div>
               {tab === 'lists' ? (
@@ -128,6 +149,15 @@ export function PrayerPage() {
           )}
         </QueryState>
       </div>
+      {asking && (
+        <AskSheet
+          onClose={() => setAsking(false)}
+          onSent={(message) => {
+            setSent(message)
+            setAsking(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -152,38 +182,34 @@ function usePrayerMutation<T>(run: (arg: T) => Promise<unknown>, onDone?: () => 
   })
 }
 
-function AskCard() {
+function AskSheet({ onClose, onSent }: { onClose: () => void; onSent: (message: string) => void }) {
   const errorText = useErrorText()
   const [kind, setKind] = useState<'general' | 'private'>('general')
   const [body, setBody] = useState('')
   const [anonymous, setAnonymous] = useState(false)
-  const [sent, setSent] = useState<string | null>(null)
   const ask = usePrayerMutation(
     () => askForPrayer(kind, body, kind === 'general' && anonymous),
-    () => {
-      setSent(kind === 'private' ? 'Sent to the pastors. Only they and the Owner can read it.' : 'Shared with the church.')
-      setBody('')
-      setAnonymous(false)
-    },
+    () => onSent(kind === 'private' ? 'Sent to the pastors. Only they and the Owner can read it.' : 'Shared with the church.'),
   )
 
   return (
-    <SectionTile title="Ask for prayer" hint="Everybody here can pray with you — or only the pastors, if you prefer.">
+    <Overlay label="Ask for prayer" align="sheet" onDismiss={onClose}>
       <form
         aria-label="Ask for prayer"
-        className="flex flex-col gap-3"
+        className="flex w-full flex-col gap-3 rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-lg sm:rounded-[var(--radius-card)]"
         onSubmit={(e: FormEvent) => {
           e.preventDefault()
           if (body.trim()) ask.mutate(undefined)
         }}
       >
+        <h2 className="text-headline-sm">Ask for prayer</h2>
+        <p className="-mt-1 text-body-sm text-on-surface-variant">
+          Everybody here can pray with you — or only the pastors, if you prefer.
+        </p>
         <SegmentedControl
           label="Who it is for"
           value={kind}
-          onChange={(next) => {
-            setKind(next)
-            setSent(null)
-          }}
+          onChange={setKind}
           options={[
             { value: 'general', label: 'The church' },
             { value: 'private', label: 'Only the pastors' },
@@ -191,11 +217,9 @@ function AskCard() {
         />
         <textarea
           value={body}
-          onChange={(e) => {
-            setBody(e.target.value.slice(0, 2000))
-            setSent(null)
-          }}
-          rows={3}
+          onChange={(e) => setBody(e.target.value.slice(0, 2000))}
+          autoFocus
+          rows={4}
           aria-label="What to pray for"
           placeholder={kind === 'private' ? 'What would you like the pastors to pray about?' : 'What can the church pray for?'}
           className={inputClasses}
@@ -218,18 +242,16 @@ function AskCard() {
             {errorText(ask.error, 'Could not send it.')}
           </p>
         )}
-        {sent && (
-          <p role="status" className="text-body-sm text-accent-green-soft">
-            {sent}
-          </p>
-        )}
-        <div>
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <ActionButton tone="quiet" onClick={onClose} disabled={ask.isPending}>
+            Cancel
+          </ActionButton>
           <ActionButton type="submit" disabled={ask.isPending || !body.trim()}>
             {ask.isPending ? 'Sending…' : kind === 'private' ? 'Send to the pastors' : 'Ask the church'}
           </ActionButton>
         </div>
       </form>
-    </SectionTile>
+    </Overlay>
   )
 }
 
@@ -280,6 +302,49 @@ function RequestCard({
   const counts = countsLine(r.counts)
   const open = r.status === 'open'
   const mayRemove = r.mine || board.pastoral || (board.moderator && r.kind === 'general')
+  // Somebody else's open request is answered with the chips, which carry
+  // their own counts; anything else just says how many have prayed.
+  const responding = open && !r.mine
+  const busy = editing || updating
+
+  // What is done now and then lives behind ⋯, so the card shows the
+  // request and the one or two things done to it most.
+  const actions: MenuAction[] = []
+  if (r.mine && open && !busy) {
+    actions.push({ label: 'Edit', onSelect: () => setEditing(true) })
+    actions.push({
+      label: 'Close',
+      hint: 'No longer needed',
+      onSelect: () =>
+        confirm.ask({
+          title: 'Close this request?',
+          body: 'For when it is no longer needed. It leaves the list, and is deleted after the days set in Data & Retention. You can reopen it until then.',
+          confirmLabel: 'Close it',
+          onConfirm: () => close.mutate(undefined),
+        }),
+    })
+  }
+  if (r.mine && r.status === 'answered') actions.push({ label: 'Change testimony', onSelect: () => setAnswering(true) })
+  if (r.mine && !open) actions.push({ label: 'Reopen', onSelect: () => reopen.mutate(undefined), disabled: reopen.isPending })
+  if (open && board.may_assign && !r.mine) actions.push({ label: 'Ask someone to pray', onSelect: () => setAssigning(true) })
+  if (open && board.may_run_lists && board.lists.length > 0 && !onList)
+    actions.push({ label: 'Add to a list', onSelect: () => setListing(true) })
+  if (onList && board.may_run_lists)
+    actions.push({ label: 'Take off this list', onSelect: () => unlist.mutate(undefined), disabled: unlist.isPending })
+  if (mayRemove && !onList)
+    actions.push({
+      label: r.mine ? 'Delete' : 'Take down',
+      tone: 'danger',
+      onSelect: () =>
+        confirm.ask({
+          title: r.mine ? 'Delete your request?' : 'Take this request down?',
+          body: r.mine
+            ? 'It is gone for everybody, with its updates and who prayed.'
+            : 'It is deleted for everybody, with its updates and who prayed. The person who asked is not told.',
+          confirmLabel: r.mine ? 'Delete' : 'Take it down',
+          onConfirm: () => remove.mutate(undefined),
+        }),
+    })
 
   return (
     <article className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline sm:p-5">
@@ -289,7 +354,12 @@ function RequestCard({
           pray for this{r.assigned_to_me.note ? `: “${r.assigned_to_me.note}”` : '.'}
         </p>
       )}
-      <Meta request={r} />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <Meta request={r} />
+        </div>
+        {actions.length > 0 && <ActionMenu label="this request" actions={actions} className="-mr-2 -mt-2" />}
+      </div>
       {editing ? (
         <EditForm request={r} onDone={() => setEditing(false)} />
       ) : (
@@ -322,18 +392,10 @@ function RequestCard({
         </ul>
       )}
 
-      {counts && <p className="mt-3 text-label-md text-on-surface-variant">{counts}</p>}
-
-      {open && !r.mine && (
-        <div className="mt-3">
-          <SegmentedControl
-            label="Your response"
-            kind="pressed"
-            value={r.my_response}
-            onChange={(next) => respond.mutate(next === r.my_response ? null : next)}
-            options={RESPONSES.map((k) => ({ value: k, label: RESPONSE_WORDS[k].button }))}
-          />
-        </div>
+      {responding ? (
+        <ResponseChips request={r} onChoose={(next) => respond.mutate(next === r.my_response ? null : next)} />
+      ) : (
+        counts && <p className="mt-3 text-label-md text-on-surface-variant">{counts}</p>
       )}
 
       {r.responders && r.responders.length > 0 && (
@@ -409,83 +471,53 @@ function RequestCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {r.mine && open && !editing && !updating && (
-          <>
-            <ActionButton size="sm" tone="success" onClick={() => setAnswering(true)}>
-              Mark answered
-            </ActionButton>
-            <ActionButton size="sm" tone="quiet" onClick={() => setUpdating(true)}>
-              Add an update
-            </ActionButton>
-            <ActionButton size="sm" tone="ghost" onClick={() => setEditing(true)}>
-              Edit
-            </ActionButton>
-            <ActionButton
-              size="sm"
-              tone="ghost"
-              onClick={() =>
-                confirm.ask({
-                  title: 'Close this request?',
-                  body: 'For when it is no longer needed. It leaves the list, and is deleted after the days set in Data & Retention. You can reopen it until then.',
-                  confirmLabel: 'Close it',
-                  onConfirm: () => close.mutate(undefined),
-                })
-              }
-            >
-              Close
-            </ActionButton>
-          </>
-        )}
-        {r.mine && r.status === 'answered' && (
-          <ActionButton size="sm" tone="quiet" onClick={() => setAnswering(true)}>
-            Change testimony
+      {r.mine && open && !busy && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <ActionButton size="sm" tone="success" onClick={() => setAnswering(true)}>
+            Mark answered
           </ActionButton>
-        )}
-        {r.mine && !open && (
-          <ActionButton size="sm" tone="ghost" onClick={() => reopen.mutate(undefined)} disabled={reopen.isPending}>
-            Reopen
+          <ActionButton size="sm" tone="quiet" onClick={() => setUpdating(true)}>
+            Add an update
           </ActionButton>
-        )}
-        {open && board.may_assign && !r.mine && (
-          <ActionButton size="sm" tone="quiet" onClick={() => setAssigning(true)}>
-            Ask someone to pray
-          </ActionButton>
-        )}
-        {open && board.may_run_lists && board.lists.length > 0 && !onList && (
-          <ActionButton size="sm" tone="quiet" onClick={() => setListing(true)}>
-            Add to a list
-          </ActionButton>
-        )}
-        {onList && board.may_run_lists && (
-          <ActionButton size="sm" tone="ghost" onClick={() => unlist.mutate(undefined)} disabled={unlist.isPending}>
-            Take off this list
-          </ActionButton>
-        )}
-        {mayRemove && !onList && (
-          <ActionButton
-            size="sm"
-            tone="ghost"
-            onClick={() =>
-              confirm.ask({
-                title: r.mine ? 'Delete your request?' : 'Take this request down?',
-                body: r.mine
-                  ? 'It is gone for everybody, with its updates and who prayed.'
-                  : 'It is deleted for everybody, with its updates and who prayed. The person who asked is not told.',
-                confirmLabel: r.mine ? 'Delete' : 'Take it down',
-                onConfirm: () => remove.mutate(undefined),
-              })
-            }
-          >
-            {r.mine ? 'Delete' : 'Take down'}
-          </ActionButton>
-        )}
-      </div>
+        </div>
+      )}
       {answering && <AnswerDialog request={r} onClose={() => setAnswering(false)} />}
       {assigning && <AssignDialog request={r} onClose={() => setAssigning(false)} />}
       {listing && <AddToListDialog request={r} lists={board.lists} onClose={() => setListing(false)} />}
       {confirm.dialog}
     </article>
+  )
+}
+
+/**
+ * I prayed · Still praying · Fasting, as three chips that say how many
+ * have answered each way. Tapping one is your answer; tapping it again
+ * takes it back. Yours is filled blue — the one thing on the card that is
+ * yours to act on.
+ */
+function ResponseChips({ request: r, onChoose }: { request: PrayerRequest; onChoose: (next: PrayerResponse) => void }) {
+  return (
+    <div role="group" aria-label="Your response" className="mt-4 flex flex-wrap gap-2">
+      {RESPONSES.map((k) => {
+        const on = r.my_response === k
+        const n = r.counts[k]
+        return (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={on}
+            aria-label={`${RESPONSE_WORDS[k].button}, ${n}`}
+            onClick={() => onChoose(k)}
+            className={`tap inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-label-md transition-[background-color,color,box-shadow,transform] duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] ${
+              on ? 'bg-primary font-semibold text-on-primary' : 'bg-raised-strong font-medium text-on-surface hairline hover:bg-raised'
+            }`}
+          >
+            {RESPONSE_WORDS[k].button}
+            <span className={`font-mono text-label-sm tabular ${on ? 'text-on-primary' : 'text-on-surface-variant'}`}>{n}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -613,16 +645,37 @@ function TestimonyCard({ request: r, board }: { request: PrayerRequest; board: P
   const mayRemove = r.mine || board.moderator
   return (
     <article className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline sm:p-5">
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-label-md text-on-surface-variant">
-        <Pill tone="green">Answered</Pill>
-        <span className="font-medium text-on-surface">{whoAsked(r)}</span>
-        {r.answered_at && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span>{formatRelativeTime(r.answered_at)}</span>
-          </>
+      <div className="flex items-start gap-2">
+        <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-label-md text-on-surface-variant">
+          <Pill tone="green">Answered</Pill>
+          <span className="font-medium text-on-surface">{whoAsked(r)}</span>
+          {r.answered_at && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{formatRelativeTime(r.answered_at)}</span>
+            </>
+          )}
+        </p>
+        {mayRemove && (
+          <ActionMenu
+            label="this testimony"
+            className="-mr-2 -mt-2"
+            actions={[
+              {
+                label: r.mine ? 'Delete' : 'Take down',
+                tone: 'danger',
+                onSelect: () =>
+                  confirm.ask({
+                    title: r.mine ? 'Delete your testimony?' : 'Take this testimony down?',
+                    body: 'It is deleted for everybody.',
+                    confirmLabel: r.mine ? 'Delete' : 'Take it down',
+                    onConfirm: () => remove.mutate(undefined),
+                  }),
+              },
+            ]}
+          />
         )}
-      </p>
+      </div>
       {r.testimony && <p className="mt-2 whitespace-pre-line break-words text-body-lg text-on-surface">“{r.testimony}”</p>}
       <p className="mt-2 whitespace-pre-line break-words text-body-sm text-on-surface-variant">
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Asked · </span>
@@ -633,24 +686,6 @@ function TestimonyCard({ request: r, board }: { request: PrayerRequest; board: P
         <p role="alert" className="mt-2 text-body-sm text-accent-red-soft">
           {errorText(remove.error, 'Could not do that.')}
         </p>
-      )}
-      {mayRemove && (
-        <div className="mt-3">
-          <ActionButton
-            size="sm"
-            tone="ghost"
-            onClick={() =>
-              confirm.ask({
-                title: r.mine ? 'Delete your testimony?' : 'Take this testimony down?',
-                body: 'It is deleted for everybody.',
-                confirmLabel: r.mine ? 'Delete' : 'Take it down',
-                onConfirm: () => remove.mutate(undefined),
-              })
-            }
-          >
-            {r.mine ? 'Delete' : 'Take down'}
-          </ActionButton>
-        </div>
       )}
       {confirm.dialog}
     </article>

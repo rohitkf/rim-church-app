@@ -38,7 +38,10 @@ export interface MenuAction {
 
 interface Placement {
   left: number
-  top: number
+  /** Under the button it hangs from its top edge; above it, it stands on
+      its bottom edge, so a short menu sits against the button. */
+  top?: number
+  bottom?: number
   minWidth: number
   maxHeight: number
 }
@@ -61,7 +64,9 @@ function placementFor(trigger: HTMLElement, width: number): Placement {
 
   return {
     left,
-    top: openUp ? rect.top - gap - maxHeight : rect.bottom + gap,
+    // Placed by its top, a menu opening upwards started where the tallest
+    // one would, and a three-item menu hung far above its button.
+    ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
     minWidth: menuWidth,
     maxHeight,
   }
@@ -228,6 +233,7 @@ export function ActionMenu({
             style={{
               left: placement.left,
               top: placement.top,
+              bottom: placement.bottom,
               minWidth: placement.minWidth,
               maxHeight: placement.maxHeight,
             }}

@@ -316,12 +316,20 @@ export const segmentTrackClasses =
  * also what lets four of them share a phone's width. `tone` colours the
  * label of a chosen segment whose answer carries a meaning of its own
  * (Yes is green, No is red), and only then.
+ *
+ * A row of tabs — one that switches which part of a page is shown, not an
+ * answer in a form — marks where you are in the blue the dock uses for
+ * the current page: `look: 'tab'`. White on that blue is 3.65:1 on dark,
+ * which holds only because the label is semibold.
  */
-export function segmentClasses(on: boolean, tone?: SegmentTone, padding = 'px-3') {
-  const ink = on ? (tone ? SEGMENT_TONES[tone] : 'text-on-surface') : 'text-on-surface-variant hover:text-on-surface'
+export function segmentClasses(on: boolean, tone?: SegmentTone, padding = 'px-3', look: 'plate' | 'tab' = 'plate') {
+  const chosen =
+    look === 'tab'
+      ? 'bg-primary font-semibold text-on-primary shadow-[0_3px_8px_rgb(0_0_0/0.16),0_3px_1px_rgb(0_0_0/0.04)]'
+      : `bg-segment font-semibold shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)] ${tone ? SEGMENT_TONES[tone] : 'text-on-surface'}`
   return `flex min-h-8 min-w-0 items-center justify-center gap-1.5 truncate rounded-[7px] ${padding} text-[0.8125rem] leading-[1.125rem] font-medium transition-[background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:opacity-60 active:duration-0 disabled:opacity-50 ${
-    on ? 'bg-segment font-semibold shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)]' : ''
-  } ${ink}`
+    on ? chosen : 'text-on-surface-variant hover:text-on-surface'
+  }`
 }
 
 export type SegmentTone = 'green' | 'orange' | 'red' | 'blue'
@@ -340,7 +348,8 @@ const SEGMENT_TONES: Record<SegmentTone, string> = {
  *
  * `kind` is what the choice means to a screen reader: `radio` sets a
  * value, `tab` switches what is shown, `pressed` is a filter that can be
- * read as a set of toggles. The look is the same.
+ * read as a set of toggles. The look is the same, except that the chosen
+ * tab is blue rather than a grey plate.
  */
 export function SegmentedControl<T extends string>({
   label,
@@ -380,7 +389,7 @@ export function SegmentedControl<T extends string>({
             title={o.title}
             disabled={disabled || o.disabled}
             onClick={() => onChange(o.value)}
-            className={segmentClasses(on, o.tone, padding)}
+            className={segmentClasses(on, o.tone, padding, kind === 'tab' ? 'tab' : 'plate')}
             {...state}
           >
             {o.label}
