@@ -7,6 +7,7 @@ import { Switch } from '../components/SettingRows'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
 import { useAuth } from '../auth/AuthContext'
+import { usePrayerLive } from '../lib/usePrayerLive'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { fetchDepartments } from '../lib/queries'
 import { AudienceEditor } from '../components/AudienceEditor'
@@ -53,6 +54,8 @@ type Tab = 'requests' | 'mine' | 'testimonies' | 'assigned' | 'lists' | 'inbox'
 export function PrayerPage() {
   const { viewAs } = useAuth()
   const query = useQuery({ queryKey: PRAYER_KEY, queryFn: fetchPrayerBoard, refetchInterval: 60_000 })
+  // Everybody else's prayers and updates, as they happen (0199).
+  usePrayerLive()
   const [params, setParams] = useSearchParams()
   // Previewing a role: only what that role would be shown (lib/prayer).
   const board = query.data ? previewedBoard(query.data, viewAs) : undefined
@@ -263,7 +266,7 @@ function RequestCard({
   const [updating, setUpdating] = useState(false)
   const [answering, setAnswering] = useState(false)
   const [text, setText] = useState('')
-  const respond = usePrayerMutation((next: PrayerRequest['my_response']) => respondToPrayer(r.id, next))
+  const respond = useRespond(r)
   const update = usePrayerMutation(() => addPrayerUpdate(r.id, text), () => {
     setText('')
     setUpdating(false)
@@ -904,4 +907,37 @@ function ListForm({ list, onDone }: { list?: PrayerList; onDone: () => void }) {
       </div>
     </form>
   )
+}
+
+/**
+ * A response shows the moment it is tapped — the button and the counts —
+ * and the board is asked again once the database has it, which puts it
+ * right if the database said no.
+ */
+function useRespond(r: PrayerRequest) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (next: PrayerRequest['my_response']) => respondToPrayer(r.id, next),
+    onMutate: async (next) => {
+      await queryClient.cancelQueries({ queryKey: PRAYER_KEY })
+      const before = queryClient.getQueryData<PrayerBoard>(PRAYER_KEY)
+      if (before) {
+        queryClient.setQueryData<PrayerBoard>(PRAYER_KEY, {
+          ...before,
+          requests: before.requests.map((x) => {
+            if (x.id !== r.id) return x
+            const counts = { ...x.counts }
+            if (x.my_response) counts[x.my_response] = Math.max(0, counts[x.my_response] - 1)
+            if (next) counts[next] += 1
+            return { ...x, my_response: next, counts }
+          }),
+        })
+      }
+      return { before }
+    },
+    onError: (_err, _next, context) => {
+      if (context?.before) queryClient.setQueryData(PRAYER_KEY, context.before)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: PRAYER_KEY }),
+  })
 }

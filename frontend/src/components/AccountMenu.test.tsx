@@ -12,6 +12,14 @@ vi.mock('../auth/AuthContext', () => ({
   }),
 }))
 
+const pwa = vi.hoisted(() => ({ applied: 0 }))
+vi.mock('../lib/pwa', async (original) => ({
+  ...(await original<typeof import('../lib/pwa')>()),
+  applyUpdate: () => {
+    pwa.applied += 1
+  },
+}))
+
 const renderMenu = (onSignOut = vi.fn()) => {
   render(
     <MemoryRouter>
@@ -29,6 +37,16 @@ describe('AccountMenu', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
     expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument()
+  })
+
+  it('reloads the app — onto a waiting update if there is one — from just above Settings', async () => {
+    const { user } = renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const items = screen.getAllByRole('menuitem').map((i) => i.textContent?.trim())
+    expect(items.indexOf('Reload')).toBe(items.indexOf('Settings') - 1)
+    await user.click(screen.getByRole('menuitem', { name: 'Reload' }))
+    expect(pwa.applied).toBe(1)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('asks the shell to confirm rather than signing out on the spot', async () => {

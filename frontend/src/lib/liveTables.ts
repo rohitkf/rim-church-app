@@ -170,6 +170,18 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'service_issues', keys: ['issues'] },
   // Sent, answered, taken back: the Admins' list moves as it happens.
   { table: 'app_feedback', keys: ['feedback'] },
+  /* ---- clock in (0191–0194, published in 0199) ---------------------- */
+  // A clock-in lands, is put right or approved: the page, the Dashboard's
+  // button and its "still to arrive" move on every screen at once.
+  {
+    table: 'clock_ins',
+    keys: ['clock-ins', 'clock-in-teams', 'clock-in-still-out', 'my-clock-in', 'availability', 'dashboard-rosters'],
+  },
+  { table: 'clock_in_history', keys: ['clock-in-history'] },
+  { table: 'clock_in_requests', keys: ['clock-in-requests', 'my-clock-in', 'clock-in-still-out'] },
+  { table: 'clock_in_place', keys: ['clock-in-place', 'my-clock-in'] },
+  // Prayer's tables are not here: nobody may read them row by row, so they
+  // are live by a broadcast of their own (lib/usePrayerLive, 0199).
   /* ---- the stage (0155) ---------------------------------------------- */
   { table: 'stage_layouts', keys: ['stage'] },
   { table: 'stage_blocks', keys: ['stage'] },
