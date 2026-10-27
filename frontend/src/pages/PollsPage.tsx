@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Lifespan } from '../components/Lifespan'
+import { ServiceCountdown } from '../components/ServiceCountdown'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -438,12 +439,10 @@ export function PollsPage() {
                     <span>
                       {voters} {voters === 1 ? 'answer' : 'answers'}
                     </span>
-                    {poll.closes_at && (
+                    {poll.closes_at && !open && (
                       <>
                         <span aria-hidden="true">·</span>
-                        <span className={open ? 'text-accent-orange-soft' : 'text-on-surface-faint'}>
-                          {open ? timeLeft(poll.closes_at, now) : 'Closed'}
-                        </span>
+                        <span>Closed</span>
                       </>
                     )}
                     <span aria-hidden="true">·</span>
@@ -451,6 +450,25 @@ export function PollsPage() {
                       Clears {untilText(poll.clears_at, now)}
                     </span>
                   </div>
+
+                  {/* A deadline runs down as a clock, the way every other
+                      deadline in the app does, rather than as "4d 7h left"
+                      in the small print: it is the one thing on the card
+                      that changes whether an answer still counts. */}
+                  {poll.closes_at && open && (
+                    <div className="mt-2">
+                      <ServiceCountdown
+                        startsAt={poll.closes_at}
+                        label="to answer"
+                        until="closes"
+                        fallback={
+                          <span className="font-mono text-label-sm text-accent-orange-soft">
+                            {timeLeft(poll.closes_at, now)}
+                          </span>
+                        }
+                      />
+                    </div>
+                  )}
 
                   <ul className="mt-3 flex flex-col gap-2">
                     {options.map((option) => {
