@@ -425,6 +425,16 @@ export function MapPinIcon(props: IconProps) {
   )
 }
 
+/** A circular arrow: load it again. */
+export function ReloadIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v4.5h-4.5" />
+    </svg>
+  )
+}
+
 /** Two hands together, in prayer. */
 export function PrayIcon(props: IconProps) {
   return (

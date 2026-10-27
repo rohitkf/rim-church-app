@@ -8,7 +8,8 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { SettingsIcon, UserCircleIcon } from './icons'
+import { ReloadIcon, SettingsIcon, UserCircleIcon } from './icons'
+import { applyUpdate } from '../lib/pwa'
 import { ageFrom } from '../lib/celebrations'
 
 interface AccountMenuProps {
@@ -158,6 +159,21 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
           </div>
 
           {canPreview && <ViewAsSection onChosen={() => setOpen(false)} />}
+
+          {/* Reload the app — onto the new version, if one has come down. An
+              installed app on a phone has no address bar to pull down on. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              applyUpdate()
+            }}
+            className={itemClasses}
+          >
+            <ReloadIcon width={16} height={16} className="shrink-0" />
+            Reload
+          </button>
 
           <Link to="/settings" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />
