@@ -1,4 +1,4 @@
-/** A team's ready light: green and blinking, or red and still. */
+/** A team's ready light: green and blinking, or amber and still. */
 export function ReadyLight({ ready, size = 12 }: { ready: boolean; size?: number }) {
   return (
     <span

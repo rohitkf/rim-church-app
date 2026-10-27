@@ -139,7 +139,8 @@ export function TeamReadinessPanel({
                   disabled={held || toggle.isPending}
                   onClick={() => toggle.mutate({ departmentId: light.departmentId, ready: !light.ready })}
                   className={`tap relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-60 ${
-                    light.ready ? 'bg-accent-green' : 'bg-accent-red'
+                    // Off is the system's grey, as every switch in the app is.
+                    light.ready ? 'bg-accent-green' : 'bg-switch-off'
                   }`}
                 >
                   <span

@@ -834,8 +834,15 @@ export function TeamRotaPage() {
                                                       include_post: half === 'post' ? !on : a.include_post,
                                                     })
                                                   }
+                                                  // Both halves is the usual case, drawn quietly:
+                                                  // colour is kept for a row that carries only
+                                                  // one, which is the one worth noticing.
                                                   className={`tap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase transition-opacity disabled:cursor-not-allowed ${
-                                                    on
+                                                    on && other
+                                                      ? sky
+                                                        ? 'bg-white/15 text-white/80'
+                                                        : 'bg-raised-strong text-on-surface-variant'
+                                                      : on
                                                       ? half === 'pre'
                                                         ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_22%,transparent)] text-accent-blue-soft'
                                                         : 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft'
@@ -1205,7 +1212,10 @@ export function TeamRotaPage() {
       <PageHeader
         eyebrow="Who is on what"
         title="Team Rota"
-        description="One role per person per service — except Team Coordinator, which sits alongside a job rather than replacing it. Borrowing someone needs their head's approval."
+        // The rules of the rota (one role each, a Coordinator alongside a
+        // job, a borrow needs the other head) are said where a role is
+        // given, not ahead of the rota itself.
+        description="Who is on each service, team by team."
       />
       <Lifespan page="rota" className="mb-4" />
 
