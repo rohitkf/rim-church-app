@@ -47,13 +47,12 @@ export function LabelSheetDialog({
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const origin = window.location.origin
   const pageCount = Math.max(1, Math.ceil(items.length / PER_PAGE))
 
   useEffect(() => {
     let live = true
     setFailed(false)
-    void Promise.all(items.map((item) => qrModules(itemScanUrl(origin, item.id))))
+    void Promise.all(items.map((item) => qrModules(itemScanUrl(item.id))))
       .then((grids) => {
         if (live) setLabels(items.map((item, i) => toLabel(item, grids[i])))
       })
@@ -63,7 +62,7 @@ export function LabelSheetDialog({
     return () => {
       live = false
     }
-  }, [items, origin])
+  }, [items])
 
   // One page painted at a time: a hundred stickers is thirteen pages, and
   // rendering all of them to look at one is work nobody asked for.

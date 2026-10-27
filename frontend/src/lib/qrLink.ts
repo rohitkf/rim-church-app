@@ -7,12 +7,40 @@
  * typed in by hand, should still work.
  */
 
-/** Where a scanned code lands. */
+/**
+ * Where a scanned code lands — and, once a label is printed, a promise.
+ *
+ * Every label already stuck to a flight case says this path. Moving the
+ * Inventory page, renaming it in Settings › Menu or adding a custom domain
+ * changes nothing here, but changing this path or removing its route in
+ * App.tsx would turn every printed label into a dead link, silently: the
+ * label still scans, the phone opens a page that is not there. So it is
+ * pinned by a test (qrLink.test.ts). If a page ever has to move, keep this
+ * route as well and send it on.
+ */
 export const SCAN_PATH = '/inventory/scan'
+
+/**
+ * The address a label is printed with, whichever address it was printed from.
+ *
+ * It was the page's own origin, so a label printed from a preview
+ * deployment, or from a laptop running the app locally, carried an
+ * address that stops working when that preview goes. The project's own
+ * vercel.app address is the one that lasts: it stays attached to the
+ * project for as long as the project exists, custom domain or not.
+ * `VITE_LABEL_ORIGIN` is there for the day the church wants another.
+ */
+export const LABEL_ORIGIN: string =
+  (import.meta.env.VITE_LABEL_ORIGIN as string | undefined)?.trim() || 'https://rim-church-app.vercel.app'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function itemScanUrl(origin: string, itemId: string): string {
+/**
+ * What an item's label says: the lasting address, the pinned path, and the
+ * item's id — its row's primary key, which never changes. Not its name or
+ * its serial number, both of which somebody can edit after the label is on.
+ */
+export function itemScanUrl(itemId: string, origin: string = LABEL_ORIGIN): string {
   return `${origin.replace(/\/+$/, '')}${SCAN_PATH}/${itemId}`
 }
 

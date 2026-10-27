@@ -519,9 +519,12 @@ export function TeamRotaPage() {
               // The service on the platform is the only one anyone cares
               // about while it is on, so it wears the accent tile and says
               // "on now" — and the rest stay quiet rather than competing.
-              // Over means folded: the header still says what happened,
-              // and touching it opens the teams underneath.
-              const open = !finished || isExpanded(service.id)
+              // Every card folds. The one on now arrives open; one still to
+              // come, or over, arrives folded with its header saying how it
+              // stands (and what you are on), and a touch opens it. Touching
+              // the one on now folds it.
+              const open = live !== isExpanded(service.id)
+              const myRoles = serviceAssignments.filter((a) => a.user_id === myId).map((a) => a.role_label)
               const heading = (
                 /*
                   Name on its own line, everything about it on the next.
@@ -560,8 +563,13 @@ export function TeamRotaPage() {
                     <span>
                       {teamsWithPeople}/{myDepartments.length} teams
                     </span>
-                    {finished && <Chevron open={open} />}
+                    <Chevron open={open} />
                   </div>
+                  {myRoles.length > 0 && (
+                    <p className="mt-1.5 break-words text-body-sm text-accent-blue-soft">
+                      You: {myRoles.join(', ')}
+                    </p>
+                  )}
                 </div>
               )
 
@@ -577,20 +585,16 @@ export function TeamRotaPage() {
                       : ''
                   } ${finished ? 'opacity-70' : ''}`}
                 >
-                  <header className="px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
-                    {finished ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleService(service.id)}
-                        aria-expanded={open}
-                        aria-controls={`rota-teams-${service.id}`}
-                        className="flex w-full text-left"
-                      >
-                        {heading}
-                      </button>
-                    ) : (
-                      heading
-                    )}
+                  <header className={`px-5 pt-5 sm:px-7 sm:pt-6 ${open ? 'pb-4' : 'pb-5 sm:pb-6'}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleService(service.id)}
+                      aria-expanded={open}
+                      aria-controls={`rota-teams-${service.id}`}
+                      className="flex w-full text-left"
+                    >
+                      {heading}
+                    </button>
                   </header>
 
                   <div>
