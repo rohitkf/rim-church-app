@@ -74,8 +74,9 @@ function show({ mine = [] as string[], manages = [] as string[] } = {}) {
   return userEvent.setup()
 }
 
+/** The rest of the church's teams, folded under yours. */
 const openPanel = async (user: ReturnType<typeof show>) => {
-  await user.click(screen.getByRole('button', { name: /Call times/ }))
+  await user.click(screen.getByRole('button', { name: /^(Other|Every) team/ }))
 }
 
 const tileFor = (name: string) => screen.getByText(name).closest('li')!
@@ -102,9 +103,20 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('the call times panel', () => {
-  it('starts shut — the rota underneath is what the page is for', () => {
+  it('shows your own teams straight away, and folds the rest of the church’s', async () => {
+    // The rota underneath is what the page is for; your call time is the
+    // one thing on here you came for, and everybody else's is a tap away.
+    show({ mine: ['media'] })
+    expect(await within(screen.getByRole('list', { name: 'Your teams' })).findByText('Media')).toBeInTheDocument()
+    expect(within(tileFor('Media')).getByText(/until your call/)).toBeInTheDocument()
+    expect(screen.queryByText('Worship')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Other teams/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('folds every team when you are on none of them', () => {
     show()
     expect(screen.queryByText('Media')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Every team/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('opens on the next day, and shows every team, not only yours', async () => {
