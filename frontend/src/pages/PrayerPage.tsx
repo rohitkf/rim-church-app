@@ -6,6 +6,7 @@ import { QueryState } from '../components/QueryState'
 import { Switch } from '../components/SettingRows'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
+import { useAuth } from '../auth/AuthContext'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { fetchDepartments } from '../lib/queries'
 import { AudienceEditor } from '../components/AudienceEditor'
@@ -28,6 +29,7 @@ import {
   fetchPrayerBoard,
   markPrayerAnswered,
   prayerSections,
+  previewedBoard,
   removePrayer,
   removePrayerUpdate,
   reopenPrayer,
@@ -49,9 +51,11 @@ type Tab = 'requests' | 'mine' | 'testimonies' | 'assigned' | 'lists' | 'inbox'
  * no longer needed. The pastors read the private requests in their inbox.
  */
 export function PrayerPage() {
+  const { viewAs } = useAuth()
   const query = useQuery({ queryKey: PRAYER_KEY, queryFn: fetchPrayerBoard, refetchInterval: 60_000 })
   const [params, setParams] = useSearchParams()
-  const board = query.data
+  // Previewing a role: only what that role would be shown (lib/prayer).
+  const board = query.data ? previewedBoard(query.data, viewAs) : undefined
   const sections = board ? prayerSections(board) : null
   const lists = board?.lists ?? []
   const showAssigned = (sections?.assigned.length ?? 0) > 0

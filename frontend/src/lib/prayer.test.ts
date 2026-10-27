@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countsLine, prayerSections, whoAsked, type PrayerBoard, type PrayerRequest } from './prayer'
+import { countsLine, prayerSections, previewedBoard, whoAsked, type PrayerBoard, type PrayerRequest } from './prayer'
 
 const request = (over: Partial<PrayerRequest> = {}): PrayerRequest => ({
   id: 'r1',
@@ -79,5 +79,46 @@ describe('what a request says', () => {
     expect(whoAsked(request({ kind: 'private', author: null }))).toBe('Name kept private')
     expect(whoAsked(request({ status: 'answered', author: null }))).toBe('Anonymous')
     expect(whoAsked(request({ status: 'answered', testimony_named: true }))).toBe('Ama Owusu')
+  })
+})
+
+describe('the board while the Owner previews a role', () => {
+  const owners: PrayerBoard = {
+    pastoral: true,
+    moderator: true,
+    may_assign: true,
+    may_run_lists: true,
+    lists: [
+      { id: 'on', name: 'Mine', mine: true, members: { teams: [], people: [] }, items: [] },
+      { id: 'off', name: 'Theirs', mine: false, members: { teams: [], people: [] }, items: [] },
+    ],
+    requests: [
+      request({ id: 'private', kind: 'private' }),
+      request({ id: 'anon', anonymous: true, responders: [{ first_name: 'B', last_name: 'C', kind: 'prayed' }] }),
+      request({ id: 'named' }),
+      request({ id: 'closed', status: 'closed' }),
+      request({ id: 'own', mine: true, kind: 'private' }),
+    ],
+  }
+
+  it('is left alone when nothing is previewed, or a Pastor is', () => {
+    expect(previewedBoard(owners, null)).toBe(owners)
+    expect(previewedBoard(owners, { as: 'pastor' })).toBe(owners)
+  })
+
+  it('takes away the pastors’ view for anybody else: private requests, anonymous names, who prayed, the tools', () => {
+    const b = previewedBoard(owners, { as: 'church' })
+    expect(b).toMatchObject({ pastoral: false, moderator: false, may_assign: false, may_run_lists: false })
+    expect(b.requests.map((r) => r.id)).toEqual(['anon', 'named', 'own'])
+    const anon = b.requests.find((r) => r.id === 'anon')!
+    expect(anon.author).toBeNull()
+    expect(anon.responders).toBeNull()
+    expect(b.requests.find((r) => r.id === 'named')!.author).not.toBeNull()
+    expect(b.lists.map((l) => l.id)).toEqual(['on'])
+    expect(b.lists[0].members).toBeNull()
+  })
+
+  it('keeps an Admin able to take down a general request', () => {
+    expect(previewedBoard(owners, { as: 'admin' }).moderator).toBe(true)
   })
 })

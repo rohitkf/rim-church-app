@@ -21,6 +21,8 @@ export type ViewAs =
   | { as: 'coordinator'; departmentId: string; departmentName: string }
   // Overwatch on no team of its own (0187).
   | { as: 'overwatch' }
+  // A Pastor on no team of its own: reads private prayer requests (0197).
+  | { as: 'pastor' }
   // An Admin without the owner's keys — the owner's to take.
   | { as: 'admin' }
 
@@ -31,7 +33,7 @@ function readViewAs(): ViewAs | null {
     const raw = sessionStorage.getItem(VIEW_AS_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as ViewAs
-    if (parsed?.as === 'church' || parsed?.as === 'overwatch' || parsed?.as === 'admin') return parsed
+    if (parsed?.as === 'church' || parsed?.as === 'overwatch' || parsed?.as === 'pastor' || parsed?.as === 'admin') return parsed
     if (isTeamPreview(parsed) && parsed.departmentId) return parsed
     return null
   } catch {
@@ -211,8 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // The roles the pages are shown. A Church Member, a Team Member and a
   // Team Coordinator hold none (the coordinator's is the rota's); a Head
-  // or an Assisting Head holds the one team being previewed; Overwatch and
-  // Admin hold their one church-wide role, as Volunteers grants them.
+  // or an Assisting Head holds the one team being previewed; Overwatch, a
+  // Pastor and an Admin hold their one church-wide role, as Volunteers
+  // grants them.
   const preview = (role_type: RoleType, department_id: string | null = null): UserRole[] => [
     { id: 'preview', role_type, department_id, service_id: null },
   ]
@@ -222,6 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? preview('admin')
       : viewAs.as === 'overwatch'
         ? preview('overwatch')
+        : viewAs.as === 'pastor'
+          ? preview('pastor')
         : viewAs.as === 'head'
           ? preview('department_head', viewAs.departmentId)
           : viewAs.as === 'assistant'

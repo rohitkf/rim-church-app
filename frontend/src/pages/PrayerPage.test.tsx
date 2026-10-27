@@ -11,7 +11,7 @@ import type { PrayerBoard, PrayerRequest } from '../lib/prayer'
  * own answered as a testimony; the pastors' inbox only for the pastors.
  */
 
-const state = vi.hoisted(() => ({ board: null as unknown, calls: [] as unknown[][] }))
+const state = vi.hoisted(() => ({ board: null as unknown, calls: [] as unknown[][], viewAs: null as unknown }))
 
 vi.mock('../lib/plannerControls', async (original) => ({
   ...(await original<typeof import('../lib/plannerControls')>()),
@@ -21,6 +21,7 @@ vi.mock('../lib/queries', async (original) => ({
   ...(await original<typeof import('../lib/queries')>()),
   fetchDepartments: () => Promise.resolve([{ id: 'd1', name: 'Intercessors' }]),
 }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ viewAs: state.viewAs }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/prayer', async (original) => {
   const real = await original<typeof import('../lib/prayer')>()
@@ -85,6 +86,7 @@ function show(board: Partial<PrayerBoard>, path = '/prayer') {
 
 beforeEach(() => {
   state.calls = []
+  state.viewAs = null
 })
 
 describe('asking for prayer', () => {
@@ -250,5 +252,22 @@ describe('prayer lists', () => {
     await user.click(await screen.findByRole('button', { name: 'Add to a list' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }))
     expect(state.calls).toEqual([['list-add', 'l1', 'r1', false]])
+  })
+})
+
+describe('while the Owner previews a role', () => {
+  it('shows a Church Member no Pastors tab and no private request, though the database said pastoral', async () => {
+    state.viewAs = { as: 'church' }
+    show({ pastoral: true, moderator: true, requests: [request({ kind: 'private', body: 'A family matter' }), request()] }, '/prayer?tab=inbox')
+    await screen.findByRole('tablist')
+    expect(screen.queryByRole('tab', { name: /Pastors/ })).toBeNull()
+    expect(screen.queryByText('A family matter')).toBeNull()
+    expect(screen.getByText('For my mother’s surgery')).toBeInTheDocument()
+  })
+
+  it('shows a Pastor the inbox', async () => {
+    state.viewAs = { as: 'pastor' }
+    show({ pastoral: true, moderator: true, requests: [request({ kind: 'private', body: 'A family matter' })] }, '/prayer?tab=inbox')
+    expect(await screen.findByText('A family matter')).toBeInTheDocument()
   })
 })
