@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionButton, PageHeader, SectionTile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
 import { ClockInPlaceCard } from '../components/ClockInPlaceCard'
+import { ClockInRequests } from '../components/ClockInRequests'
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { Select } from '../components/Select'
 import { useAppSettings } from '../lib/appSettings'
@@ -18,6 +19,7 @@ import {
   fetchClockInHistory,
   fetchClockIns,
   fetchClockInTeams,
+  fetchStillOut,
   formatDistance,
   groupClockIns,
   lookUpAddresses,
@@ -69,7 +71,14 @@ export function ClockInPage() {
       (query.state.data ?? []).some(awaitingAddress) && query.state.dataUpdateCount < 24 ? 5_000 : false,
   })
   const teamsQuery = useQuery({ queryKey: ['clock-in-teams', day], queryFn: () => fetchClockInTeams(day) })
+  const stillOutQuery = useQuery({
+    queryKey: ['clock-in-still-out', day],
+    queryFn: () => fetchStillOut(day),
+    refetchInterval: day === todayIso() ? 60_000 : false,
+  })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  const peopleQuery = useQuery({ queryKey: ['people-options'], queryFn: fetchPeopleOptions })
+  const personName = (id: string) => fullName(peopleQuery.data?.find((p) => p.id === id), 'Somebody')
   const historyQuery = useQuery({ queryKey: ['clock-in-history', day], queryFn: () => fetchClockInHistory(day) })
   const rows = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data])
   const editingRow = rows.find((r) => r.id === editing) ?? null
@@ -77,6 +86,7 @@ export function ClockInPage() {
     rows,
     teamsQuery.data ?? [],
     (id) => departmentsQuery.data?.find((d) => d.id === id)?.name ?? null,
+    stillOutQuery.data ?? [],
   )
 
   // Anything still without an address is asked for once a visit; the
@@ -95,6 +105,7 @@ export function ClockInPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['clock-ins', day] }),
       queryClient.invalidateQueries({ queryKey: ['clock-in-teams', day] }),
+      queryClient.invalidateQueries({ queryKey: ['clock-in-still-out', day] }),
       queryClient.invalidateQueries({ queryKey: ['clock-in-history', day] }),
     ])
   }
@@ -109,6 +120,7 @@ export function ClockInPage() {
 
       <div className="flex flex-col gap-5">
         {runsIt && <ClockInPlaceCard />}
+        <ClockInRequests />
 
         <SectionTile title="Clock-ins" hint={formatServiceDay(day)}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -141,8 +153,8 @@ export function ClockInPage() {
           <QueryState
             isLoading={rowsQuery.isLoading || teamsQuery.isLoading}
             error={rowsQuery.error ?? teamsQuery.error}
-            isEmpty={rows.length === 0}
-            emptyMessage="Nobody has clocked in on this day."
+            isEmpty={groups.length === 0}
+            emptyMessage="Nobody was due, and nobody has clocked in, on this day."
           >
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-left text-body-sm">
@@ -170,6 +182,7 @@ export function ClockInPage() {
                       {group.name}
                       <span className="ml-2 font-mono text-label-sm font-normal text-on-surface-faint">
                         {group.rows.length}
+                        {group.stillOut.length > 0 && ` in · ${group.stillOut.length} to come`}
                       </span>
                     </th>
                   </tr>
@@ -190,7 +203,9 @@ export function ClockInPage() {
                         <td className="min-w-[9rem] py-2.5 pr-3 text-on-surface-variant">
                           {row.address ??
                             (row.latitude === null
-                              ? '—'
+                              ? row.method === 'request'
+                                ? 'No location given'
+                                : '—'
                               : awaitingAddress(row)
                                 ? 'Looking up the address…'
                                 : 'Address not found')}
@@ -217,6 +232,21 @@ export function ClockInPage() {
                       </tr>
                     )
                   })}
+                  {group.stillOut.length > 0 && (
+                    <tr className="border-t border-border-subtle">
+                      <td colSpan={runsIt ? 4 : 3} className="py-2.5 text-label-md text-on-surface-variant">
+                        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                          Still to arrive
+                        </span>{' '}
+                        {group.stillOut
+                          .map((o) => {
+                            const who = personName(o.user_id)
+                            return `${who} (${o.asked ? 'asked' : churchClock(o.call_at, timeZone)})`
+                          })
+                          .join(', ')}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
                 ))}
               </table>

@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
   readingError: null as unknown,
   result: null as unknown,
   sent: [] as unknown[],
+  asked: [] as unknown[],
+  cancelled: [] as unknown[],
   lookedUp: 0,
 }))
 
@@ -36,6 +38,14 @@ vi.mock('../lib/clockIn', async (original) => ({
   },
   lookUpAddresses: () => {
     state.lookedUp += 1
+  },
+  askToClockIn: (a: unknown) => {
+    state.asked.push(a)
+    return Promise.resolve()
+  },
+  cancelClockInAsk: (id: unknown) => {
+    state.cancelled.push(id)
+    return Promise.resolve()
   },
 }))
 vi.mock('../lib/clockInReading', async (original) => ({
@@ -82,6 +92,8 @@ beforeEach(() => {
   state.readingError = null
   state.result = null
   state.sent = []
+  state.asked = []
+  state.cancelled = []
   state.lookedUp = 0
 })
 
@@ -131,6 +143,59 @@ describe('the CLOCK IN button', () => {
     show()
     expect(await screen.findByRole('status')).toHaveTextContent('Clocked in at 09:26')
     expect(screen.queryByRole('button', { name: /clock in/i })).toBeNull()
+  })
+})
+
+describe('asking to be clocked in instead', () => {
+  it('sends the reading from the failed try, with a note', async () => {
+    state.today = openDay()
+    state.result = { ok: false, reason: 'too_far', distance_m: 340, radius_m: 100 }
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /clock in/i }))
+    await user.click(await screen.findByRole('button', { name: 'Ask to be clocked in' }))
+    expect(screen.getByText(/will see where your phone thought you were/)).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: 'Note for the approver' }), 'In the hall')
+    await user.click(screen.getByRole('button', { name: 'Send request' }))
+    expect(state.asked).toEqual([{ reading: state.reading, failedBecause: 'too_far', note: 'In the hall' }])
+  })
+
+  it('can ask with no location when location is blocked', async () => {
+    state.today = openDay()
+    const { LocationRefused } = await import('../lib/clockInReading')
+    state.readingError = new LocationRefused('blocked')
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /clock in/i }))
+    await user.click(await screen.findByRole('button', { name: 'Ask to be clocked in' }))
+    expect(screen.getByText(/gave no location/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send request' }))
+    expect(state.asked).toEqual([{ reading: null, failedBecause: 'blocked', note: '' }])
+  })
+
+  it('is not offered before a try has failed', async () => {
+    state.today = openDay()
+    show()
+    await screen.findByRole('button', { name: /clock in/i })
+    expect(screen.queryByRole('button', { name: 'Ask to be clocked in' })).toBeNull()
+  })
+
+  it('shows a request waiting, and lets them take it back', async () => {
+    state.today = {
+      ...openDay(),
+      request: { id: 'r1', status: 'pending', asked_at: '2026-11-01T09:31:00Z', decision_note: null },
+    }
+    const user = show()
+    expect(await screen.findByText(/waiting for approval/)).toHaveTextContent('09:31')
+    await user.click(screen.getByRole('button', { name: 'Cancel request' }))
+    expect(state.cancelled).toEqual(['r1'])
+  })
+
+  it('says when it was declined, and why', async () => {
+    state.today = {
+      ...openDay(),
+      request: { id: 'r1', status: 'declined', asked_at: '2026-11-01T09:31:00Z', decision_note: 'Not seen at church' },
+    }
+    show()
+    expect(await screen.findByText(/declined: Not seen at church/)).toBeInTheDocument()
   })
 })
 

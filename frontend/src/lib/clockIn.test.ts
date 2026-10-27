@@ -183,3 +183,20 @@ describe('the day’s clock-ins, team by team', () => {
     ])
   })
 })
+
+describe('who is still to arrive, team by team', () => {
+  it('puts them under their teams, by call time, and shows a team nobody has clocked in for yet', () => {
+    const groups = groupClockIns(
+      [],
+      [],
+      (id) => ({ w: 'Welcome', m: 'Media' })[id] ?? null,
+      [
+        { user_id: 'b', department_id: 'w', call_at: '2026-11-01T09:45:00Z', asked: false },
+        { user_id: 'a', department_id: 'w', call_at: '2026-11-01T09:15:00Z', asked: true },
+      ],
+    )
+    expect(groups).toHaveLength(1)
+    expect(groups[0].name).toBe('Welcome')
+    expect(groups[0].stillOut.map((o) => o.user_id)).toEqual(['a', 'b'])
+  })
+})

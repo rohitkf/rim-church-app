@@ -29,6 +29,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'clock-in',
+    date: '2026-10-27',
+    title: 'Clock in when you arrive',
+    lead: 'On a day you serve, a CLOCK IN button appears on your Dashboard a few minutes before your call time.',
+    points: [
+      'Press it at church: your phone is read once, there and then, and you are marked Present on your teams.',
+      'Allow location when the app asks, so it is ready on the day. It is never read in the background.',
+      'If your phone will not place you at church, ask to be clocked in instead — an approver will answer.',
+    ],
+  },
+  {
     key: 'talk-on-your-phone',
     date: '2026-10-25',
     title: 'Board posts and team chat on your phone',
