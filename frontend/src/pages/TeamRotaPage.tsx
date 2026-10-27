@@ -15,9 +15,9 @@ import {
   fetchDepartments,
   fetchAvailabilityFor,
   fetchMembersForDepartments,
-  fetchOwnDepartmentIds,
   fetchServices,
 } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { Select, selectPillClasses, type SelectItem } from '../components/Select'
 import { todayIso } from '../lib/monthGrid'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
@@ -144,11 +144,7 @@ export function TeamRotaPage() {
     enabled: !!myId,
   })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', myId],
-    queryFn: () => fetchOwnDepartmentIds(myId!),
-    enabled: !!myId,
-  })
+  const ownDeptsQuery = useOwnMemberships()
 
   // Everything still to come, out to the look-ahead. Which of these have
   // finished decides the window, so it has to be known before the window is
@@ -236,12 +232,12 @@ export function TeamRotaPage() {
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
     if (everyTeam) return all
-    const mine = new Set(ownDeptsQuery.data ?? [])
+    const mine = new Set(ownDeptsQuery.teamIds)
     return all.filter(
       (d) =>
         mine.has(d.id) || isDepartmentHead(d.id),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, everyTeam, isDepartmentHead])
+  }, [departmentsQuery.data, ownDeptsQuery.teamIds, everyTeam, isDepartmentHead])
   const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
 
   /*
@@ -253,7 +249,7 @@ export function TeamRotaPage() {
    * due. A head who does not serve on their own team gets the times
    * without a clock, which is the honest answer.
    */
-  const myTeamIds = useMemo(() => new Set(ownDeptsQuery.data ?? []), [ownDeptsQuery.data])
+  const myTeamIds = useMemo(() => new Set(ownDeptsQuery.teamIds), [ownDeptsQuery.teamIds])
   const { onATeam } = useMyTeams()
 
   /*

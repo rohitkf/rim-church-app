@@ -14,11 +14,11 @@ import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
 import {
   fetchDepartments,
   fetchRoleChecklistItems,
-  fetchOwnDepartmentIds,
   fetchRotaAssignments,
   fetchRotaProgress,
   fetchServices,
 } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { todayIso } from '../lib/monthGrid'
 import { servicesToShow } from '../lib/rotaWindow'
 import { useAppSettings } from '../lib/appSettings'
@@ -157,14 +157,9 @@ export function ChecklistsIndexPage() {
   // Anyone on the sign-off team sees the whole service's checklists, not
   // only the person rostered on it — the team needs to know how the service
   // is coming along. Giving the signature is still the signer's alone.
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', myId],
-    queryFn: () => fetchOwnDepartmentIds(myId!),
-    enabled: !!myId,
-  })
+  const { teamIds: ownTeamIds } = useOwnMemberships()
   const onSignOffTeam =
-    !!serviceFlowDept &&
-    ((ownDeptsQuery.data ?? []).includes(serviceFlowDept.id) || isDepartmentHead(serviceFlowDept.id))
+    !!serviceFlowDept && (ownTeamIds.includes(serviceFlowDept.id) || isDepartmentHead(serviceFlowDept.id))
   // The final signature belongs to the team that signs checklists off —
   // any of its members, not only whoever the rota happened to put on this
   // service, so a finished list is never left waiting on one person.

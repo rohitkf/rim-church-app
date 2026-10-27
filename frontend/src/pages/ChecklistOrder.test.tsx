@@ -37,7 +37,8 @@ vi.mock('../lib/queries', () => ({
   fetchRotaAssignments: () => Promise.resolve(rota()),
   fetchRoleChecklistItems: () => Promise.resolve([]),
   fetchRotaProgress: () => Promise.resolve([]),
-  fetchOwnDepartmentIds: () => Promise.resolve([MEDIA]),
+  fetchOwnMemberships: () =>
+    Promise.resolve(([MEDIA]).map((department_id: string) => ({ department_id, member_type: 'core' }))),
 }))
 
 vi.mock('../lib/supabaseClient', () => ({

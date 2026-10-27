@@ -4,7 +4,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
-import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
+import { fetchDepartments } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { PageHeader } from '../components/Surface'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamAlertPanel } from '../components/TeamAlertPanel'
@@ -25,7 +26,7 @@ import { QueryState } from '../components/QueryState'
  * one team's room.
  */
 export function TeamChatPage() {
-  const { session, isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
+  const { isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
   // Which rooms somebody may read and post in is the church's to say
   // (Settings › Access & Privileges, msg.chat).
   const { can } = usePermissions()
@@ -36,11 +37,7 @@ export function TeamChatPage() {
   const requestedId = params.get('team')
 
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  const membershipsQuery = useQuery({
-    queryKey: ['own-memberships', session?.user.id],
-    queryFn: () => fetchOwnMemberships(session!.user.id),
-    enabled: !!session,
-  })
+  const membershipsQuery = useOwnMemberships()
 
   // The rooms this person may be in. An Admin, out of the box, is in all
   // of them, because an Admin is answerable for all of them; everybody
@@ -50,11 +47,11 @@ export function TeamChatPage() {
     // Overwatch reads every room (0187); whether it may post is TeamBoard's.
     if ((isAdmin && can('msg.chat')) || isOverwatch) return all
     const mine = new Set([
-      ...(membershipsQuery.data ?? []).map((m) => m.department_id),
+      ...membershipsQuery.teamIds,
       ...ledDepartmentIds,
     ])
     return all.filter((d) => (mine.has(d.id) || can('msg.chat')) && can('msg.chat', { departmentId: d.id }))
-  }, [departmentsQuery.data, membershipsQuery.data, ledDepartmentIds, isAdmin, isOverwatch, can])
+  }, [departmentsQuery.data, membershipsQuery.teamIds, ledDepartmentIds, isAdmin, isOverwatch, can])
 
   const departmentId =
     selectedId ??

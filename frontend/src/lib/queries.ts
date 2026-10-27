@@ -191,16 +191,6 @@ export async function searchProfiles(term: string, limit = 8): Promise<ProfileSe
   return z.array(profileSearchResultSchema).parse(data)
 }
 
-/** Department ids the user is a member of (core or guest). */
-export async function fetchOwnDepartmentIds(userId: string): Promise<string[]> {
-  const { data, error } = await supabase.from('department_members').select('department_id').eq('user_id', userId)
-  if (error) throw error
-  return z
-    .array(z.object({ department_id: z.string() }))
-    .parse(data)
-    .map((r) => r.department_id)
-}
-
 /** Own memberships with their kind, for anywhere core and guest differ. */
 export async function fetchOwnMemberships(
   userId: string,

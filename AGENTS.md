@@ -142,6 +142,10 @@ Other things that are true and not guessable:
   account menu (`viewAs` in `AuthContext`); it narrows `isAdmin`, `roles`
   and `useMyTeams`, but every query still runs with the Admin's own
   access. Never treat it as a permission test — dry-run a policy instead.
+  Which teams a person is on comes from `useOwnMemberships` (or
+  `useMyTeams`), never a page's own `department_members` query by the
+  signed-in id: that one ignores the preview, and is how a Church Member
+  preview showed the Admin's own teams' "3 still to answer".
 - **Whether a service is over is one rule** — `useFinishedServices` (and
   `serviceStanding` with `ended_at`): the planned end of its last session,
   or End service if pressed earlier. Never re-derive it from sessions alone

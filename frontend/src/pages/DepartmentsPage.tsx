@@ -10,7 +10,8 @@ import { AnsweredJoinRequests } from '../components/AnsweredJoinRequests'
 import { JoinTeamPanel } from '../components/JoinTeamPanel'
 import { TeamCardActions } from '../components/TeamCardActions'
 import { Card, PageHeader } from '../components/Surface'
-import { fetchDepartments, fetchJoinRequests, fetchOwnDepartmentIds } from '../lib/queries'
+import { fetchDepartments, fetchJoinRequests } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { TeamAvatar } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -28,11 +29,7 @@ export function DepartmentsPage() {
     queryKey: ['departments'],
     queryFn: fetchDepartments,
   })
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', session?.user.id],
-    queryFn: () => fetchOwnDepartmentIds(session!.user.id),
-    enabled: !!session,
-  })
+  const ownDeptsQuery = useOwnMemberships()
 
   // One query serves both halves of the join flow: RLS returns your own
   // asks plus, for a head or an Admin, the ones waiting on them.
@@ -53,7 +50,7 @@ export function DepartmentsPage() {
       r.user_id !== myId &&
       (isAdmin || ledDepartmentIds.includes(r.department_id)),
   )
-  const memberDeptIds = useMemo(() => ownDeptsQuery.data ?? [], [ownDeptsQuery.data])
+  const memberDeptIds = ownDeptsQuery.teamIds
 
   // Everyone can read the department list (the rota needs other teams'
   // names), so this page narrows it to the teams you actually belong to

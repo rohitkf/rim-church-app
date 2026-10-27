@@ -14,12 +14,12 @@ import {
   fetchAvailabilityFor,
   fetchDepartments,
   fetchMembersForDepartments,
-  fetchOwnMemberships,
   fetchRoleChecklistItems,
   fetchRotaAssignments,
   fetchRotaProgress,
   fetchServices,
 } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { serviceReadiness } from '../lib/readiness'
 import { StatusChip } from '../components/SectionPanel'
 import {
@@ -144,7 +144,7 @@ const roleLabel: Record<RoleType, string> = {
 
 
 export function DashboardPage() {
-  const { profile, roles, isAdmin, seesAllTeams, ledDepartmentIds, session } = useAuth()
+  const { profile, roles, isAdmin, seesAllTeams, ledDepartmentIds } = useAuth()
   const { can } = usePermissions()
   const mayAddService = can('svc.manage')
   // Whether this page has teams to report on at all — see useMyTeams.
@@ -350,12 +350,7 @@ export function DashboardPage() {
   // sees their own teams here and an Admin sees all of them.
   // Memberships, not just their ids: whether someone is core or a guest
   // is what the header calls them when they hold no role.
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-memberships', session?.user.id],
-    queryFn: () => fetchOwnMemberships(session!.user.id),
-    enabled: !!session && !isAdmin,
-  })
-  const ownMemberships = useMemo(() => ownDeptsQuery.data ?? [], [ownDeptsQuery.data])
+  const { memberships: ownMemberships } = useOwnMemberships()
   const personStanding = memberStanding(roles.length > 0, ownMemberships)
 
   // A head sees their own team's stats; a member sees the teams they're
