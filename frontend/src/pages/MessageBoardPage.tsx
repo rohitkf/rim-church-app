@@ -10,7 +10,8 @@ import { messageRowSchema, type MessageRow } from '../lib/types'
 import { nextBoardClearTime } from '../lib/boardClear'
 import { useAppSettings } from '../lib/appSettings'
 import { Lifespan } from '../components/Lifespan'
-import { fetchDepartments, fetchOwnMemberships } from '../lib/queries'
+import { fetchDepartments } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { idOrNull } from '../lib/selectValue'
 import { usePermissions } from '../lib/usePermissions'
 import { MentionInput } from '../components/MentionInput'
@@ -73,17 +74,13 @@ export function MessageBoardPage() {
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  const membershipsQuery = useQuery({
-    queryKey: ['own-memberships', session?.user.id],
-    queryFn: () => fetchOwnMemberships(session!.user.id),
-    enabled: !!session,
-  })
+  const membershipsQuery = useOwnMemberships()
 
   // What this person may put on a post: the teams they belong to (guest
   // memberships included, marked as such), plus the team they head, plus
   // "Admin" for Admins — an Admin speaks for the church, not for a team.
   const roleDeptIds = roles.map((r) => r.department_id).filter((id): id is string => !!id)
-  const memberships = membershipsQuery.data ?? []
+  const memberships = membershipsQuery.memberships
   const guestDeptIds = new Set(
     memberships.filter((m) => m.member_type === 'guest').map((m) => m.department_id),
   )

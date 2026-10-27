@@ -47,7 +47,8 @@ const dept = (id: string, name: string) => ({
 
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () => Promise.resolve([dept('media', 'Media'), dept('audio', 'Audio')]),
-  fetchOwnDepartmentIds: () => Promise.resolve(state.own),
+  fetchOwnMemberships: () =>
+    Promise.resolve((state.own).map((department_id: string) => ({ department_id, member_type: 'core' }))),
   fetchJoinRequests: () =>
     Promise.resolve([
       {

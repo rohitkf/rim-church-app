@@ -76,7 +76,8 @@ vi.mock('../lib/queries', () => ({
     ]),
   fetchDepartments: () =>
     Promise.resolve([{ id: 'd1', name: 'Media', color: '#3b82f6', is_worship: false }]),
-  fetchOwnDepartmentIds: () => Promise.resolve(state.ownTeams),
+  fetchOwnMemberships: () =>
+    Promise.resolve((state.ownTeams).map((department_id: string) => ({ department_id, member_type: 'core' }))),
 }))
 
 vi.mock('../lib/supabaseClient', () => ({

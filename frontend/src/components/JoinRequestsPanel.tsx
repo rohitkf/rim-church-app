@@ -52,7 +52,6 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
       queryClient.invalidateQueries({ queryKey: ['join-requests'] })
       queryClient.invalidateQueries({ queryKey: ['department-members'] })
       queryClient.invalidateQueries({ queryKey: ['own-memberships'] })
-      queryClient.invalidateQueries({ queryKey: ['own-departments'] })
     },
     onError: (err: unknown) => {
       setBusyId(null)

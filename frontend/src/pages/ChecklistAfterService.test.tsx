@@ -63,7 +63,8 @@ vi.mock('../lib/queries', () => ({
       },
     ]),
   fetchRotaProgress: () => Promise.resolve([]),
-  fetchOwnDepartmentIds: () => Promise.resolve([MEDIA]),
+  fetchOwnMemberships: () =>
+    Promise.resolve(([MEDIA]).map((department_id: string) => ({ department_id, member_type: 'core' }))),
 }))
 
 // The call time itself: Media is due at half six that morning.

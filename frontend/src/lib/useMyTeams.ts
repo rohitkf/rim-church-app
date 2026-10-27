@@ -1,7 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
-import { isTeamPreview } from './viewAs'
-import { fetchOwnDepartmentIds } from './queries'
+import { useOwnMemberships } from './useOwnMemberships'
 
 /**
  * Whether this person is part of anything yet.
@@ -26,22 +24,17 @@ export function useMyTeams() {
   const { session, isAdmin, isOverwatch, ledDepartmentIds, viewAs } = useAuth()
   const myId = session?.user.id
 
-  const query = useQuery({
-    queryKey: ['own-departments', myId],
-    queryFn: () => fetchOwnDepartmentIds(myId!),
-    enabled: !!myId,
-  })
+  // A preview is on exactly the team it picked, or on none — whatever the
+  // previewer's own roster says (see useOwnMemberships).
+  const query = useOwnMemberships()
+  const teamIds = query.teamIds
 
-  // An Admin previewing the app is on exactly the team they picked, or on
-  // none — whatever their own roster says. Overwatch is on none but, as
-  // below, watches them all.
+  // Overwatch is on none but, as below, watches them all.
   if (viewAs) {
-    const previewed = isTeamPreview(viewAs) ? [viewAs.departmentId] : []
     const watches = viewAs.as === 'overwatch' || viewAs.as === 'admin'
-    return { teamIds: previewed, onATeam: previewed.length > 0 || watches, settled: true }
+    return { teamIds, onATeam: teamIds.length > 0 || watches, settled: true }
   }
 
-  const teamIds = query.data ?? []
   // An Admin and a head are attached without a roster row, and neither
   // answer needs the query to have come back.
   // Overwatch watches every team, so it is never shown the newcomer's page.

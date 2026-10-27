@@ -10,7 +10,8 @@ import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { QueryState } from '../components/QueryState'
 import { PageHeader, segmentClasses, segmentTrackClasses, type SegmentTone } from '../components/Surface'
-import { fetchDepartments, fetchOwnDepartmentIds, fetchServices } from '../lib/queries'
+import { fetchDepartments, fetchServices } from '../lib/queries'
+import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { callTimeRowSchema, serviceDays, type CallTimeRow } from '../lib/callTimes'
@@ -250,11 +251,7 @@ export function AvailabilityPage() {
 
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  const ownDeptsQuery = useQuery({
-    queryKey: ['own-departments', myId],
-    queryFn: () => fetchOwnDepartmentIds(myId!),
-    enabled: !!myId,
-  })
+  const ownDeptsQuery = useOwnMemberships()
 
   // Everything still to come, out to the look-ahead. Which of these have
   // finished decides the window, so it is worked out on the wider list and
@@ -390,11 +387,11 @@ export function AvailabilityPage() {
     const all = departmentsQuery.data ?? []
     // Overwatch reads every team the way an Admin does (0187).
     if (seesAllTeams) return all
-    const mine = new Set(ownDeptsQuery.data ?? [])
+    const mine = new Set(ownDeptsQuery.teamIds)
     return all.filter(
       (d) => mine.has(d.id) || isDepartmentHead(d.id),
     )
-  }, [departmentsQuery.data, ownDeptsQuery.data, seesAllTeams, isDepartmentHead])
+  }, [departmentsQuery.data, ownDeptsQuery.teamIds, seesAllTeams, isDepartmentHead])
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', 'tracker', upcomingIds],

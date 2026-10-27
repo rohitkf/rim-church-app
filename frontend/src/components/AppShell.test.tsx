@@ -9,7 +9,8 @@ import { AppShell } from './AppShell'
 // teams' own pages at all. Ada is on Media unless a test says otherwise.
 const myTeams = vi.fn(() => ['media'])
 vi.mock('../lib/queries', () => ({
-  fetchOwnDepartmentIds: () => Promise.resolve(myTeams()),
+  fetchOwnMemberships: () =>
+    Promise.resolve((myTeams()).map((department_id: string) => ({ department_id, member_type: 'core' }))),
 }))
 
 // The dock is what this covers; everything hanging off the top strip has

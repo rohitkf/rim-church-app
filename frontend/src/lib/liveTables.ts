@@ -116,7 +116,6 @@ export const LIVE_TABLES: LiveTable[] = [
       'department-members-sensitive',
       'department-core-members',
       'own-memberships',
-      'own-departments',
       'volunteer-memberships',
       'rota-members',
       'team-board-roster',
@@ -124,7 +123,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'volunteers',
     ],
   },
-  { table: 'departments', keys: ['departments', 'department', 'own-departments', 'global-search', 'my-requests'] },
+  { table: 'departments', keys: ['departments', 'department', 'own-memberships', 'global-search', 'my-requests'] },
   { table: 'department_roles', keys: ['department-roles', 'team-coordinator'] },
   { table: 'department_role_checklist_items', keys: ['role-checklist-items'] },
   { table: 'department_role_groups', keys: ['role-groups'] },
@@ -133,7 +132,7 @@ export const LIVE_TABLES: LiveTable[] = [
     // A privilege granted or taken away changes what the page is even
     // allowed to show, so this one matters more than most.
     table: 'user_roles',
-    keys: ['user-roles', 'all-user-roles', 'department-grants', 'own-departments', 'volunteers'],
+    keys: ['user-roles', 'all-user-roles', 'department-grants', 'own-memberships', 'volunteers'],
   },
   {
     table: 'profiles',
