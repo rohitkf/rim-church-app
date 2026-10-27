@@ -25,6 +25,8 @@ export function viewAsLabel(viewAs: ViewAs): string {
       return `the Team Coordinator of ${viewAs.departmentName}`
     case 'overwatch':
       return 'Overwatch'
+    case 'pastor':
+      return 'a Pastor'
     case 'admin':
       return 'an Admin'
   }

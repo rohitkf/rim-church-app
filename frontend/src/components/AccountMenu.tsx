@@ -281,6 +281,9 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
           <button type="button" role="menuitem" onClick={() => choose({ as: 'overwatch' })} className={chip}>
             Overwatch
           </button>
+          <button type="button" role="menuitem" onClick={() => choose({ as: 'pastor' })} className={chip}>
+            Pastor
+          </button>
           {isSuperAdmin && (
             <button type="button" role="menuitem" onClick={() => choose({ as: 'admin' })} className={chip}>
               Admin

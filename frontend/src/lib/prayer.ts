@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import type { ViewAs } from '../auth/AuthContext'
 
 /**
  * Prayer Requests (0197).
@@ -168,4 +169,49 @@ export function whoAsked(r: PrayerRequest): string {
   if (r.anonymous) return name ? `${name} (anonymous to others)` : 'Anonymous'
   // Passed on by a pastor without "Show who asked" (0198).
   return name ?? (r.kind === 'private' ? 'Name kept private' : 'Somebody')
+}
+
+/**
+ * The board as the role being previewed would see it.
+ *
+ * The database answers for whoever is really signed in — and the Owner is
+ * one of the pastors — so an Owner previewing a Church Member would still
+ * be handed the private requests and every anonymous author. This takes
+ * away, on the screen, what that role would not have been given: the
+ * pastors' view stays only for a Pastor preview; an Admin preview keeps
+ * taking down general requests. It cannot add anything the Owner lacks,
+ * and anything done while previewing is still done as the Owner.
+ */
+export function previewedBoard(board: PrayerBoard, viewAs: ViewAs | null | undefined): PrayerBoard {
+  if (!viewAs || viewAs.as === 'pastor') return board
+  const general = (r: PrayerRequest) => r.kind === 'general' || (r.status === 'answered' && r.shared)
+  const kept = board.requests.filter(
+    (r) => r.mine || r.assigned_to_me || (r.status !== 'closed' && general(r)) || board.lists.some((l) => l.mine && l.items.some((i) => i.request_id === r.id)),
+  )
+  return {
+    ...board,
+    pastoral: false,
+    moderator: viewAs.as === 'admin',
+    may_assign: false,
+    may_run_lists: false,
+    lists: board.lists.filter((l) => l.mine).map((l) => ({ ...l, members: null })),
+    requests: kept.map((r) =>
+      r.mine
+        ? r
+        : {
+            ...r,
+            // As the database would have left it for anybody but the pastors.
+            author:
+              r.status === 'answered'
+                ? r.testimony_named
+                  ? r.author
+                  : null
+                : r.kind === 'general' && !r.anonymous
+                  ? r.author
+                  : null,
+            responders: null,
+            assignees: null,
+          },
+    ),
+  }
 }
