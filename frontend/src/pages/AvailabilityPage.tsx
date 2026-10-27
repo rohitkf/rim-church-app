@@ -22,6 +22,7 @@ import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
 import { DayHeading } from '../components/DayHeading'
 import { TeamMark } from '../components/TeamMark'
+import { CountRow } from '../components/CountRow'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings, useDisplay } from '../lib/appSettings'
@@ -878,6 +879,20 @@ export function AvailabilityPage() {
                   }}
                 />
               </div>
+
+              {/* The bar's four parts as numbers, so how the team has
+                  answered can be read without opening Team responses.
+                  The core team only, as the bar and the count above. */}
+              <CountRow
+                className="mt-3"
+                label={`${dept.name}: ${summary.available} yes, ${summary.tentative} maybe, ${summary.unavailable} no, ${summary.noAnswer} not answered`}
+                counts={[
+                  { label: 'Yes', value: summary.available, tone: 'text-accent-green-soft' },
+                  { label: 'Maybe', value: summary.tentative, tone: 'text-accent-orange-soft' },
+                  { label: 'No', value: summary.unavailable, tone: 'text-accent-red-soft' },
+                  { label: 'No answer', value: summary.noAnswer },
+                ]}
+              />
 
               {/* Chasing an answer belongs beside the count of
                   answers still missing, not in a settings page:
