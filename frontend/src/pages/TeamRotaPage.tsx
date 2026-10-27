@@ -25,6 +25,8 @@ import { formatServiceDay, shortServiceDay } from '../lib/sunday'
 import { isLiveNow, serviceWindows } from '../lib/serviceWindow'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings } from '../lib/appSettings'
+import { CallTimesPanel } from '../components/CallTimesPanel'
+import { serviceDays } from '../lib/callTimes'
 import { TeamMark } from '../components/TeamMark'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -45,6 +47,7 @@ import {
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
+import { useMyTeams } from '../lib/useMyTeams'
 import { usePermissions } from '../lib/usePermissions'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -239,6 +242,31 @@ export function TeamRotaPage() {
   }, [departmentsQuery.data, ownDeptsQuery.data, everyTeam, isDepartmentHead])
   const myDepartmentIds = useMemo(() => myDepartments.map((d) => d.id), [myDepartments])
 
+  /*
+   * The teams you actually serve on.
+   *
+   * Deliberately not `myDepartments`, which counts a team you are head of
+   * as yours — an Admin's copy of that list is every team in the church,
+   * and a countdown against all eight says nothing about when *you* are
+   * due. A head who does not serve on their own team gets the times
+   * without a clock, which is the honest answer.
+   */
+  const myTeamIds = useMemo(() => new Set(ownDeptsQuery.data ?? []), [ownDeptsQuery.data])
+  const { onATeam } = useMyTeams()
+
+  /*
+   * The days ahead that have something on, each with everything on it.
+   *
+   * Days rather than services: a team is called once for the morning and
+   * then the day runs, so a Sunday with an English service and a Malayalam
+   * service is one call time, not two. A finished service is a record and
+   * nothing is worth setting on it.
+   */
+  const callTimeDays = useMemo(
+    () => serviceDays(upcoming.filter((s) => !isFinished(s.id))),
+    [upcoming, isFinished],
+  )
+
   const rotaQuery = useQuery({
     queryKey: ['rota', upcomingIds],
     queryFn: () => fetchRota(upcomingIds),
@@ -300,6 +328,9 @@ export function TeamRotaPage() {
     queryClient.invalidateQueries({ queryKey: ['rota'] })
     queryClient.invalidateQueries({ queryKey: ['rota-requests'] })
   }
+
+  // A team's call time is Services & planning's (svc.call_times).
+  const canSetCallTimes = (departmentId: string) => can('svc.call_times', { departmentId })
 
   /*
    * The rota's four questions, each the grid's. "Their team" for a
@@ -488,9 +519,12 @@ export function TeamRotaPage() {
               // The service on the platform is the only one anyone cares
               // about while it is on, so it wears the accent tile and says
               // "on now" — and the rest stay quiet rather than competing.
-              // Over means folded: the header still says what happened,
-              // and touching it opens the teams underneath.
-              const open = !finished || isExpanded(service.id)
+              // Every card folds. The one on now arrives open; one still to
+              // come, or over, arrives folded with its header saying how it
+              // stands (and what you are on), and a touch opens it. Touching
+              // the one on now folds it.
+              const open = live !== isExpanded(service.id)
+              const myRoles = serviceAssignments.filter((a) => a.user_id === myId).map((a) => a.role_label)
               const heading = (
                 /*
                   Name on its own line, everything about it on the next.
@@ -529,8 +563,13 @@ export function TeamRotaPage() {
                     <span>
                       {teamsWithPeople}/{myDepartments.length} teams
                     </span>
-                    {finished && <Chevron open={open} />}
+                    <Chevron open={open} />
                   </div>
+                  {myRoles.length > 0 && (
+                    <p className="mt-1.5 break-words text-body-sm text-accent-blue-soft">
+                      You: {myRoles.join(', ')}
+                    </p>
+                  )}
                 </div>
               )
 
@@ -546,20 +585,16 @@ export function TeamRotaPage() {
                       : ''
                   } ${finished ? 'opacity-70' : ''}`}
                 >
-                  <header className="px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
-                    {finished ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleService(service.id)}
-                        aria-expanded={open}
-                        aria-controls={`rota-teams-${service.id}`}
-                        className="flex w-full text-left"
-                      >
-                        {heading}
-                      </button>
-                    ) : (
-                      heading
-                    )}
+                  <header className={`px-5 pt-5 sm:px-7 sm:pt-6 ${open ? 'pb-4' : 'pb-5 sm:pb-6'}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleService(service.id)}
+                      aria-expanded={open}
+                      aria-controls={`rota-teams-${service.id}`}
+                      className="flex w-full text-left"
+                    >
+                      {heading}
+                    </button>
                   </header>
 
                   <div>
@@ -1192,8 +1227,31 @@ export function TeamRotaPage() {
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>
       )}
 
-      {/* Call times were here; they are Serving's own step now
-          (pages/CallTimesPage), between the rota and the checklists. */}
+      {/*
+        Above the rota, because it is the question asked first. The rota
+        says who is on; this says what time to be there, which is what a
+        volunteer wants on a Saturday night — and every team is in it, not
+        just yours, so the person opening up knows who to expect at the
+        door.
+
+        Not scoped to `myDepartments`: that list is "teams you serve on or
+        run", which is the right audience for the assign forms below and
+        the wrong one here.
+      */}
+      {/* When each team is due in is the teams' own business: somebody who
+          has signed up and not been put on a team yet has no call time of
+          their own and no reason to read everyone else's. The database
+          says the same (0080), so the panel would come back empty anyway. */}
+      {onATeam && (
+      <div className="mt-6">
+        <CallTimesPanel
+          days={callTimeDays}
+          teams={departmentsQuery.data ?? []}
+          myTeamIds={myTeamIds}
+          canManage={canSetCallTimes}
+        />
+      </div>
+      )}
 
       {incoming.length > 0 && (
         /* Surfaced at the top rather than buried in the team it concerns:

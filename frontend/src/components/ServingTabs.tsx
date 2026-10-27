@@ -33,14 +33,13 @@ export function ServingTabs() {
       <ol className={`${segmentTrackClasses} sm:inline-grid sm:w-auto`}>
         {tabs.map((tab, index) => (
           <li key={tab.to} className="min-w-0">
-            {/* Four words have to fit a 360px phone side by side. */}
+            {/* Three words have to fit a 360px phone side by side. */}
             <NavLink to={tab.to} title={tab.hint} className={({ isActive }) => `group ${segmentClasses(isActive, undefined, 'px-1.5 sm:px-4', 'tab')}`}>
               <span
                 aria-hidden="true"
-                // On a phone the words matter more than the numbers: four
-                // steps with numbers cut every label short ("Availa…"). The
-                // order still reads left to right.
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-raised-strong font-mono text-label-sm group-aria-[current=page]:bg-white/25 max-sm:hidden"
+                // On the narrowest phones the words matter more than the
+                // numbers; the order still reads left to right.
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-raised-strong font-mono text-label-sm group-aria-[current=page]:bg-white/25 max-[379px]:hidden"
               >
                 {index + 1}
               </span>

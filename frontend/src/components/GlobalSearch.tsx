@@ -39,7 +39,6 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Checklists', detail: 'Pre-service checks and sign-off', to: '/checklists', keywords: 'checks verify sign off' },
   { label: 'Availability Tracker', detail: 'Who can serve, and who turned up', to: '/availability', keywords: 'available attendance rota answers' },
   { label: 'Team Rota', detail: 'Who is doing what', to: '/rota', keywords: 'assign roles duty' },
-  { label: 'Call Times', detail: 'When each team is due', to: '/call-times', keywords: 'call time arrive arrival when' },
   { label: 'Teams', detail: 'Departments, roles and handbooks', to: '/departments', keywords: 'departments handbook roles' },
   { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
   { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },

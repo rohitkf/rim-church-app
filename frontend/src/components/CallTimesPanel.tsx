@@ -21,7 +21,7 @@ import {
 } from '../lib/callTimes'
 
 /**
- * When each team is due at the building: Serving's Call Times page.
+ * When each team is due at the building, at the top of the rota.
  *
  * The rota answers "who is on". This answers the question a volunteer
  * actually asks on a Saturday night, which is "what time do I need to be
@@ -221,9 +221,8 @@ export function CallTimesPanel({
           <div className="flex items-start gap-3">
             <IconBadge icon={TimerIcon} tone="blue" />
             <div className="min-w-0 flex-1">
-              {/* The page is called Call Times; the card's own heading is
-                  the day it is for. */}
-              <h2 className="break-words text-headline-sm text-on-surface">{formatServiceDay(day.date)}</h2>
+              <h2 className="text-headline-sm text-on-surface">Call times</h2>
+              <p className="mt-0.5 break-words text-body-sm text-on-surface-variant">{formatServiceDay(day.date)}</p>
               {/* The services are context, not a thing to choose between:
                   one call time covers all of them. */}
               <p className="mt-0.5 break-words text-label-sm text-on-surface-variant">

@@ -151,7 +151,6 @@ const router = createBrowserRouter(
             <Route element={<ServingLayout />}>
               <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
               <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
-              <Route path="/call-times" lazy={page(() => import('./pages/CallTimesPage'), 'CallTimesPage')} />
               <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
             </Route>
             <Route path="/checklists/:departmentId/:serviceId" lazy={page(() => import('./pages/DepartmentPrepPage'), 'DepartmentPrepPage')} />
