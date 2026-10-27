@@ -24,7 +24,14 @@ const request = (over: Partial<PrayerRequest> = {}): PrayerRequest => ({
 })
 
 describe('the prayer page’s sections', () => {
-  const board = (requests: PrayerRequest[], pastoral = false): PrayerBoard => ({ pastoral, moderator: pastoral, requests })
+  const board = (requests: PrayerRequest[], pastoral = false): PrayerBoard => ({
+    pastoral,
+    moderator: pastoral,
+    may_assign: pastoral,
+    may_run_lists: pastoral,
+    lists: [],
+    requests,
+  })
 
   it('puts open general requests in Requests, answered shared ones in Testimonies, and your own in Mine', () => {
     const s = prayerSections(
@@ -69,6 +76,7 @@ describe('what a request says', () => {
     // The pastors are given the name of an anonymous request, and told it is hidden from others.
     expect(whoAsked(request({ anonymous: true }))).toBe('Ama Owusu (anonymous to others)')
     expect(whoAsked(request({ mine: true }))).toBe('You')
+    expect(whoAsked(request({ kind: 'private', author: null }))).toBe('Name kept private')
     expect(whoAsked(request({ status: 'answered', author: null }))).toBe('Anonymous')
     expect(whoAsked(request({ status: 'answered', testimony_named: true }))).toBe('Ama Owusu')
   })
