@@ -13,15 +13,29 @@ import { ClockInPlaceCard } from './ClockInPlaceCard'
 const state = vi.hoisted(() => ({
   place: null as null | Record<string, unknown>,
   saved: [] as unknown[],
+  radii: [] as number[],
   found: [] as unknown[],
 }))
 
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
-vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ clock_in_radius_m: 100 }) }))
+vi.mock('../lib/appSettings', async (original) => ({
+  ...(await original<typeof import('../lib/appSettings')>()),
+  useAppSettings: () => ({ clock_in_radius_m: 100 }),
+}))
 vi.mock('./PlaceMap', () => ({
-  PlaceMap: ({ lat, lng, onMove }: { lat: number; lng: number; onMove: (to: { lat: number; lng: number }) => void }) => (
+  PlaceMap: ({
+    lat,
+    lng,
+    radius,
+    onMove,
+  }: {
+    lat: number
+    lng: number
+    radius: number
+    onMove: (to: { lat: number; lng: number }) => void
+  }) => (
     <button type="button" onClick={() => onMove({ lat: lat + 0.0005, lng })}>
-      map at {lat.toFixed(4)},{lng.toFixed(4)}
+      map at {lat.toFixed(4)},{lng.toFixed(4)} circle {radius} m
     </button>
   ),
 }))
@@ -30,6 +44,10 @@ vi.mock('../lib/clockIn', async (original) => ({
   fetchClockInPlace: () => Promise.resolve(state.place),
   saveClockInPlace: (p: unknown) => {
     state.saved.push(p)
+    return Promise.resolve()
+  },
+  saveClockInRadius: (m: number) => {
+    state.radii.push(m)
     return Promise.resolve()
   },
   findPlaces: (q: string) => {
@@ -53,6 +71,7 @@ function show() {
 beforeEach(() => {
   state.place = null
   state.saved = []
+  state.radii = []
   state.found = []
 })
 
@@ -93,5 +112,19 @@ describe('where the church is', () => {
     await user.click(screen.getByRole('button', { name: /map at/ }))
     expect(screen.getByText('56 m from the saved spot')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save the new spot' })).toBeInTheDocument()
+  })
+
+  it('sets the radius here too, with the circle following it, and saves only that', async () => {
+    state.place = { label: 'Church hall', postcode: 'SW1A 1AA', latitude: 51.501, longitude: -0.1416, updated_at: new Date().toISOString(), updater: null }
+    const user = show()
+    const dial = await screen.findByRole('slider', { name: 'Counts as at church within' })
+    expect(dial).toHaveAttribute('aria-valuenow', '100')
+    dial.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(dial).toHaveAttribute('aria-valuenow', '110')
+    expect(screen.getByRole('button', { name: /circle 110 m/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save the radius' }))
+    expect(state.radii).toEqual([110])
+    expect(state.saved).toEqual([])
   })
 })
