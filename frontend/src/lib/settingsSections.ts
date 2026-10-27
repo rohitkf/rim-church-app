@@ -195,7 +195,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/prayer',
         label: 'Prayer',
-        blurb: 'Who reads the private prayer requests, besides the Pastors.',
+        blurb: 'Who reads private requests, asks people to pray, and runs prayer lists.',
         icon: PrayIcon,
         tone: 'indigo',
         needs: 'admin',

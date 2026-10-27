@@ -13,6 +13,14 @@ import type { PrayerBoard, PrayerRequest } from '../lib/prayer'
 
 const state = vi.hoisted(() => ({ board: null as unknown, calls: [] as unknown[][] }))
 
+vi.mock('../lib/plannerControls', async (original) => ({
+  ...(await original<typeof import('../lib/plannerControls')>()),
+  fetchPeopleOptions: () => Promise.resolve([{ id: 'p9', first_name: 'Grace', last_name: 'Mensah' }]),
+}))
+vi.mock('../lib/queries', async (original) => ({
+  ...(await original<typeof import('../lib/queries')>()),
+  fetchDepartments: () => Promise.resolve([{ id: 'd1', name: 'Intercessors' }]),
+}))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/prayer', async (original) => {
   const real = await original<typeof import('../lib/prayer')>()
@@ -32,6 +40,11 @@ vi.mock('../lib/prayer', async (original) => {
     reopenPrayer: record('reopen'),
     removePrayer: record('remove'),
     addPrayerUpdate: record('update'),
+    assignPrayer: record('assign'),
+    unassignPrayer: record('unassign'),
+    addToPrayerList: record('list-add'),
+    removeFromPrayerList: record('list-remove'),
+    savePrayerList: record('list-save'),
   }
 })
 
@@ -58,7 +71,7 @@ const request = (over: Partial<PrayerRequest> = {}): PrayerRequest => ({
 })
 
 function show(board: Partial<PrayerBoard>, path = '/prayer') {
-  state.board = { pastoral: false, moderator: false, requests: [], ...board }
+  state.board = { pastoral: false, moderator: false, may_assign: false, may_run_lists: false, lists: [], requests: [], ...board }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -169,5 +182,73 @@ describe('testimonies and the pastors', () => {
     await user.click(screen.getByRole('button', { name: 'Take down' }))
     await user.click(screen.getByRole('button', { name: 'Take it down' }))
     expect(state.calls).toEqual([['remove', 'r1']])
+  })
+})
+
+describe('praying on the pastors’ behalf', () => {
+  it('asks a member to pray for a private request, keeping the name back unless ticked', async () => {
+    const user = show(
+      { pastoral: true, moderator: true, may_assign: true, requests: [request({ kind: 'private', body: 'A family matter' })] },
+      '/prayer?tab=inbox',
+    )
+    await user.click(await screen.findByRole('button', { name: 'Ask someone to pray' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('switch', { name: 'Show who asked' })).not.toBeChecked()
+    await user.type(within(dialog).getByRole('textbox', { name: 'Who to ask: add a person' }), 'Gra')
+    await user.click(await within(dialog).findByRole('button', { name: 'Add Grace Mensah' }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'A word for them' }), 'This week, please')
+    await user.click(within(dialog).getByRole('button', { name: 'Ask them' }))
+    expect(state.calls).toEqual([['assign', 'r1', ['p9'], false, 'This week, please']])
+  })
+
+  it('shows a member what they were asked to pray for, by whom', async () => {
+    show({
+      requests: [
+        request({
+          kind: 'private',
+          author: null,
+          body: 'A family matter',
+          assigned_to_me: { note: 'This week, please', by: { first_name: 'Pastor', last_name: 'John' }, at: new Date().toISOString() },
+        }),
+      ],
+    }, '/prayer?tab=assigned')
+    expect(await screen.findByText(/Pastor John asked you to pray for this: “This week, please”/)).toBeInTheDocument()
+    expect(screen.getByText('Name kept private')).toBeInTheDocument()
+  })
+
+  it('shows who was asked and how they responded, and lets an assigner take one off', async () => {
+    const user = show({
+      may_assign: true,
+      requests: [request({ assignees: [{ id: 'p9', first_name: 'Grace', last_name: 'Mensah', show_name: false, response: 'praying' }] })],
+    })
+    const asked = await screen.findByRole('list', { name: 'Asked to pray' })
+    expect(asked).toHaveTextContent('Grace Mensah· still praying')
+    await user.click(within(asked).getByRole('button', { name: 'No longer ask Grace Mensah' }))
+    expect(state.calls).toEqual([['unassign', 'r1', 'p9']])
+  })
+})
+
+describe('prayer lists', () => {
+  const list = { id: 'l1', name: 'Friday chain prayer', mine: true, members: null, items: [{ request_id: 'r1', show_name: false }] }
+
+  it('shows the lists somebody is on, with their requests', async () => {
+    const user = show({ lists: [list], requests: [request()] }, '/prayer?tab=lists')
+    await user.click(await screen.findByRole('button', { name: /Friday chain prayer/ }))
+    expect(screen.getByText('For my mother’s surgery')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit list' })).toBeNull()
+  })
+
+  it('lets a runner make a list, and add a request to one', async () => {
+    const user = show({ may_run_lists: true, lists: [{ ...list, items: [], members: { teams: [], people: [] } }], requests: [request()] }, '/prayer?tab=lists')
+    await user.click(await screen.findByRole('button', { name: 'New prayer list' }))
+    await user.type(screen.getByRole('textbox', { name: 'List name' }), 'Sunday intercession')
+    await user.click(screen.getByRole('button', { name: 'Make list' }))
+    expect(state.calls).toEqual([['list-save', null, 'Sunday intercession', { teams: [], people: [] }]])
+
+    state.calls = []
+    await user.click(screen.getByRole('tab', { name: /Requests/ }))
+    await user.click(await screen.findByRole('button', { name: 'Add to a list' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }))
+    expect(state.calls).toEqual([['list-add', 'l1', 'r1', false]])
   })
 })

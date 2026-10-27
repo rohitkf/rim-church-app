@@ -36,6 +36,8 @@ const NOT_A_ROW: (keyof AppSettings)[] = [
   'clock_in_approver_teams',
   // And in Settings › Prayer (0197).
   'prayer_carers',
+  'prayer_assigners',
+  'prayer_list_runners',
 ]
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])

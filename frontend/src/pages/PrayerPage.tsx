@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Overlay, PageHeader, Pill, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
@@ -7,12 +7,21 @@ import { Switch } from '../components/SettingRows'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { fetchDepartments } from '../lib/queries'
+import { AudienceEditor } from '../components/AudienceEditor'
+import { Select } from '../components/Select'
 import {
   PRAYER_KEY,
   RESPONSES,
   RESPONSE_WORDS,
   addPrayerUpdate,
+  addToPrayerList,
   askForPrayer,
+  assignPrayer,
+  deletePrayerList,
+  removeFromPrayerList,
+  savePrayerList,
+  unassignPrayer,
   closePrayer,
   countsLine,
   editPrayer,
@@ -25,10 +34,11 @@ import {
   respondToPrayer,
   whoAsked,
   type PrayerBoard,
+  type PrayerList,
   type PrayerRequest,
 } from '../lib/prayer'
 
-type Tab = 'requests' | 'mine' | 'testimonies' | 'inbox'
+type Tab = 'requests' | 'mine' | 'testimonies' | 'assigned' | 'lists' | 'inbox'
 
 /**
  * Prayer Requests (0197).
@@ -43,18 +53,26 @@ export function PrayerPage() {
   const [params, setParams] = useSearchParams()
   const board = query.data
   const sections = board ? prayerSections(board) : null
+  const lists = board?.lists ?? []
+  const showAssigned = (sections?.assigned.length ?? 0) > 0
+  const showLists = lists.length > 0 || !!board?.may_run_lists
   const wanted = (params.get('tab') as Tab | null) ?? 'requests'
-  const tab: Tab = wanted === 'inbox' && !board?.pastoral ? 'requests' : wanted
+  const tab: Tab =
+    (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
+      ? 'requests'
+      : wanted
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'requests', label: `Requests${sections ? ` · ${sections.requests.length}` : ''}` },
     { value: 'mine', label: `Mine${sections ? ` · ${sections.mine.length}` : ''}` },
     { value: 'testimonies', label: `Testimonies${sections ? ` · ${sections.testimonies.length}` : ''}` },
+    ...(showAssigned ? [{ value: 'assigned' as Tab, label: `Asked of me · ${sections!.assigned.length}` }] : []),
+    ...(showLists ? [{ value: 'lists' as Tab, label: `Lists · ${lists.length}` }] : []),
     ...(board?.pastoral
       ? [{ value: 'inbox' as Tab, label: `Pastors${sections ? ` · ${sections.inbox.filter((r) => r.status === 'open').length}` : ''}` }]
       : []),
   ]
-  const shown = sections ? sections[tab] : []
+  const shown = sections && tab !== 'lists' ? sections[tab] : []
 
   return (
     <div className="mx-auto w-full max-w-[900px]">
@@ -68,14 +86,21 @@ export function PrayerPage() {
         <QueryState isLoading={query.isLoading} error={query.error}>
           {board && sections && (
             <>
-              <SegmentedControl
-                label="Which requests"
-                kind="tab"
-                value={tab}
-                onChange={(next) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })}
-                options={tabs}
-              />
-              {shown.length === 0 ? (
+              {/* Up to six tabs: each as wide as its label, the row sliding
+                  sideways on a phone rather than cutting the labels short. */}
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <SegmentedControl
+                  label="Which requests"
+                  kind="tab"
+                  value={tab}
+                  onChange={(next) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })}
+                  options={tabs}
+                  className="w-max min-w-full auto-cols-max!"
+                />
+              </div>
+              {tab === 'lists' ? (
+                <ListsView board={board} />
+              ) : shown.length === 0 ? (
                 <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
                   {EMPTY[tab]}
                 </p>
@@ -104,6 +129,8 @@ const EMPTY: Record<Tab, string> = {
   requests: 'No requests at the moment. Be the first to ask.',
   mine: 'You have not asked for prayer yet.',
   testimonies: 'No testimonies yet. When a prayer is answered, it is shared here.',
+  assigned: 'Nobody has asked you to pray for anything just now.',
+  lists: '',
   inbox: 'No private requests.',
 }
 
@@ -212,9 +239,22 @@ function Meta({ request: r }: { request: PrayerRequest }) {
   )
 }
 
-function RequestCard({ request: r, board }: { request: PrayerRequest; board: PrayerBoard }) {
+function RequestCard({
+  request: r,
+  board,
+  onList,
+}: {
+  request: PrayerRequest
+  board: PrayerBoard
+  /** Shown on a prayer list: its runners can take it off. */
+  onList?: PrayerList
+}) {
   const errorText = useErrorText()
   const confirm = useConfirmAction()
+  const [assigning, setAssigning] = useState(false)
+  const [listing, setListing] = useState(false)
+  const unassign = usePrayerMutation((person: string) => unassignPrayer(r.id, person))
+  const unlist = usePrayerMutation(() => removeFromPrayerList(onList!.id, r.id))
   const [editing, setEditing] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [answering, setAnswering] = useState(false)
@@ -228,13 +268,20 @@ function RequestCard({ request: r, board }: { request: PrayerRequest; board: Pra
   const reopen = usePrayerMutation(() => reopenPrayer(r.id))
   const remove = usePrayerMutation(() => removePrayer(r.id))
   const removeUpdate = usePrayerMutation((id: string) => removePrayerUpdate(id))
-  const error = respond.error ?? update.error ?? close.error ?? reopen.error ?? remove.error ?? removeUpdate.error
+  const error =
+    respond.error ?? update.error ?? close.error ?? reopen.error ?? remove.error ?? removeUpdate.error ?? unassign.error ?? unlist.error
   const counts = countsLine(r.counts)
   const open = r.status === 'open'
   const mayRemove = r.mine || board.pastoral || (board.moderator && r.kind === 'general')
 
   return (
     <article className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline sm:p-5">
+      {r.assigned_to_me && (
+        <p className="mb-2 rounded-[var(--radius-row)] bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent)] px-3 py-2 text-label-md text-on-surface">
+          {r.assigned_to_me.by ? `${r.assigned_to_me.by.first_name} ${r.assigned_to_me.by.last_name}` : 'A pastor'} asked you to
+          pray for this{r.assigned_to_me.note ? `: “${r.assigned_to_me.note}”` : '.'}
+        </p>
+      )}
       <Meta request={r} />
       {editing ? (
         <EditForm request={r} onDone={() => setEditing(false)} />
@@ -293,6 +340,32 @@ function RequestCard({ request: r, board }: { request: PrayerRequest; board: Pra
             ))}
           </ul>
         </details>
+      )}
+
+      {r.assignees && r.assignees.length > 0 && (
+        <div className="mt-3 text-label-md text-on-surface-variant">
+          <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Asked to pray</span>
+          <ul aria-label="Asked to pray" className="mt-1 flex flex-wrap gap-1.5">
+            {r.assignees.map((p) => (
+              <li key={p.id} className="flex items-center gap-1 rounded-full bg-raised px-3 py-1">
+                <span className="text-on-surface">
+                  {p.first_name} {p.last_name}
+                </span>
+                <span>· {p.response ? RESPONSE_WORDS[p.response].counted : 'not yet'}</span>
+                {board.may_assign && (
+                  <button
+                    type="button"
+                    onClick={() => unassign.mutate(p.id)}
+                    aria-label={`No longer ask ${p.first_name} ${p.last_name}`}
+                    className="tap -mr-1 rounded-full px-1.5 text-on-surface-faint hover:text-accent-red-soft"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {updating && (
@@ -367,7 +440,22 @@ function RequestCard({ request: r, board }: { request: PrayerRequest; board: Pra
             Reopen
           </ActionButton>
         )}
-        {mayRemove && (
+        {open && board.may_assign && !r.mine && (
+          <ActionButton size="sm" tone="quiet" onClick={() => setAssigning(true)}>
+            Ask someone to pray
+          </ActionButton>
+        )}
+        {open && board.may_run_lists && board.lists.length > 0 && !onList && (
+          <ActionButton size="sm" tone="quiet" onClick={() => setListing(true)}>
+            Add to a list
+          </ActionButton>
+        )}
+        {onList && board.may_run_lists && (
+          <ActionButton size="sm" tone="ghost" onClick={() => unlist.mutate(undefined)} disabled={unlist.isPending}>
+            Take off this list
+          </ActionButton>
+        )}
+        {mayRemove && !onList && (
           <ActionButton
             size="sm"
             tone="ghost"
@@ -387,6 +475,8 @@ function RequestCard({ request: r, board }: { request: PrayerRequest; board: Pra
         )}
       </div>
       {answering && <AnswerDialog request={r} onClose={() => setAnswering(false)} />}
+      {assigning && <AssignDialog request={r} onClose={() => setAssigning(false)} />}
+      {listing && <AddToListDialog request={r} lists={board.lists} onClose={() => setListing(false)} />}
       {confirm.dialog}
     </article>
   )
@@ -557,5 +647,257 @@ function TestimonyCard({ request: r, board }: { request: PrayerRequest; board: P
       )}
       {confirm.dialog}
     </article>
+  )
+}
+
+function Sheet({ label, children, onClose, onSubmit }: { label: string; children: ReactNode; onClose: () => void; onSubmit: () => void }) {
+  return (
+    <Overlay label={label} align="sheet" onDismiss={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSubmit()
+        }}
+        className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]"
+      >
+        {children}
+      </form>
+    </Overlay>
+  )
+}
+
+/** Shown when a private request is passed on: whether the people it goes to learn who asked. */
+function ShowNameSwitch({ request: r, on, onChange }: { request: PrayerRequest; on: boolean; onChange: (on: boolean) => void }) {
+  if (r.kind !== 'private') {
+    return r.anonymous ? (
+      <p className="mt-4 text-label-md text-on-surface-variant">It was asked anonymously, so they will not see who asked.</p>
+    ) : null
+  }
+  return (
+    <label className="mt-4 flex items-center justify-between gap-3 text-body-sm text-on-surface">
+      <span>
+        Show who asked
+        <span className="block text-label-sm text-on-surface-variant">Only if they are happy to be named. Off: just the request.</span>
+      </span>
+      <Switch label="Show who asked" checked={on} onChange={onChange} />
+    </label>
+  )
+}
+
+/** Asking members to pray on the pastors' behalf (0198). */
+function AssignDialog({ request: r, onClose }: { request: PrayerRequest; onClose: () => void }) {
+  const errorText = useErrorText()
+  const [people, setPeople] = useState<string[]>([])
+  const [showName, setShowName] = useState(false)
+  const [note, setNote] = useState('')
+  const assign = usePrayerMutation(() => assignPrayer(r.id, people, showName, note), onClose)
+  return (
+    <Sheet label="Ask someone to pray" onClose={onClose} onSubmit={() => people.length > 0 && assign.mutate(undefined)}>
+      <h2 className="text-headline-md">Ask someone to pray</h2>
+      <p className="mt-2 line-clamp-3 text-body-sm text-on-surface-variant">“{r.body}”</p>
+      <div className="mt-4">
+        <AudienceEditor
+          label="Who to ask"
+          teams={[]}
+          people={people}
+          allTeams={[]}
+          withPeople
+          withTeams={false}
+          editable
+          empty="Nobody chosen yet."
+          onChange={(next) => setPeople(next.people)}
+        />
+      </div>
+      <ShowNameSwitch request={r} on={showName} onChange={setShowName} />
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value.slice(0, 500))}
+        placeholder="A word for them (optional)"
+        aria-label="A word for them"
+        className={`${inputClasses} mt-4`}
+      />
+      {assign.error && (
+        <p role="alert" className="mt-3 text-body-sm text-accent-red-soft">
+          {errorText(assign.error, 'Could not ask them.')}
+        </p>
+      )}
+      <div className="mt-6 flex flex-wrap justify-end gap-2">
+        <ActionButton tone="quiet" onClick={onClose} disabled={assign.isPending}>
+          Cancel
+        </ActionButton>
+        <ActionButton type="submit" disabled={assign.isPending || people.length === 0}>
+          {assign.isPending ? 'Asking…' : people.length > 1 ? `Ask ${people.length} people` : 'Ask them'}
+        </ActionButton>
+      </div>
+    </Sheet>
+  )
+}
+
+function AddToListDialog({ request: r, lists, onClose }: { request: PrayerRequest; lists: PrayerList[]; onClose: () => void }) {
+  const errorText = useErrorText()
+  const free = lists.filter((l) => !l.items.some((i) => i.request_id === r.id))
+  const [listId, setListId] = useState(free[0]?.id ?? '')
+  const [showName, setShowName] = useState(false)
+  const add = usePrayerMutation(() => addToPrayerList(listId, r.id, showName), onClose)
+  return (
+    <Sheet label="Add to a prayer list" onClose={onClose} onSubmit={() => listId && add.mutate(undefined)}>
+      <h2 className="text-headline-md">Add to a prayer list</h2>
+      <p className="mt-2 line-clamp-3 text-body-sm text-on-surface-variant">“{r.body}”</p>
+      {free.length === 0 ? (
+        <p className="mt-4 text-body-sm text-on-surface-variant">It is on every list already.</p>
+      ) : (
+        <div className="mt-4">
+          <Select value={listId} onChange={setListId} options={free.map((l) => ({ value: l.id, label: l.name }))} aria-label="Which list" />
+        </div>
+      )}
+      <ShowNameSwitch request={r} on={showName} onChange={setShowName} />
+      <p className="mt-3 text-label-sm text-on-surface-faint">Everybody on the list is told.</p>
+      {add.error && (
+        <p role="alert" className="mt-3 text-body-sm text-accent-red-soft">
+          {errorText(add.error, 'Could not add it.')}
+        </p>
+      )}
+      <div className="mt-6 flex flex-wrap justify-end gap-2">
+        <ActionButton tone="quiet" onClick={onClose} disabled={add.isPending}>
+          Cancel
+        </ActionButton>
+        <ActionButton type="submit" disabled={add.isPending || !listId}>
+          {add.isPending ? 'Adding…' : 'Add'}
+        </ActionButton>
+      </div>
+    </Sheet>
+  )
+}
+
+/**
+ * Prayer lists (0198): a name, the people and teams on it, and the
+ * requests on it, for praying through together. Runners make and fill
+ * them; everybody on one sees it here.
+ */
+function ListsView({ board }: { board: PrayerBoard }) {
+  const [making, setMaking] = useState(false)
+  const byId = new Map(board.requests.map((r) => [r.id, r]))
+  return (
+    <div className="flex flex-col gap-4">
+      {board.may_run_lists &&
+        (making ? (
+          <ListForm onDone={() => setMaking(false)} />
+        ) : (
+          <div>
+            <ActionButton tone="quiet" glyph="+" onClick={() => setMaking(true)}>
+              New prayer list
+            </ActionButton>
+          </div>
+        ))}
+      {board.lists.length === 0 && (
+        <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
+          No prayer lists yet. Make one for a chain prayer, then add requests to it from Requests or the Pastors tab.
+        </p>
+      )}
+      {board.lists.map((l) => (
+        <ListSection key={l.id} list={l} board={board} requests={l.items.flatMap((i) => byId.get(i.request_id) ?? [])} />
+      ))}
+    </div>
+  )
+}
+
+function ListSection({ list: l, board, requests }: { list: PrayerList; board: PrayerBoard; requests: PrayerRequest[] }) {
+  const confirm = useConfirmAction()
+  const [editing, setEditing] = useState(false)
+  const remove = usePrayerMutation(() => deletePrayerList(l.id))
+  const count = (l.members?.teams.length ?? 0) + (l.members?.people.length ?? 0)
+  return (
+    <SectionTile
+      title={l.name}
+      hint={`${requests.length === 1 ? '1 request' : `${requests.length} requests`}${
+        l.members ? ` · ${count === 0 ? 'nobody on it yet' : count === 1 ? '1 team or person on it' : `${count} teams and people on it`}` : ''
+      }`}
+      collapsible
+      defaultOpen={false}
+    >
+      {editing && <ListForm list={l} onDone={() => setEditing(false)} />}
+      {board.may_run_lists && !editing && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <ActionButton size="sm" tone="quiet" onClick={() => setEditing(true)}>
+            Edit list
+          </ActionButton>
+          <ActionButton
+            size="sm"
+            tone="ghost"
+            onClick={() =>
+              confirm.ask({
+                title: `Delete ${l.name}?`,
+                body: 'The list goes. The requests on it stay where they are.',
+                confirmLabel: 'Delete list',
+                onConfirm: () => remove.mutate(undefined),
+              })
+            }
+          >
+            Delete list
+          </ActionButton>
+        </div>
+      )}
+      {requests.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant">Nothing on this list yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {requests.map((r) => (
+            <li key={r.id}>
+              <RequestCard request={r} board={board} onList={l} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {confirm.dialog}
+    </SectionTile>
+  )
+}
+
+function ListForm({ list, onDone }: { list?: PrayerList; onDone: () => void }) {
+  const errorText = useErrorText()
+  const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  const [name, setName] = useState(list?.name ?? '')
+  const [members, setMembers] = useState(list?.members ?? { teams: [], people: [] })
+  const save = usePrayerMutation(() => savePrayerList(list?.id ?? null, name, members), onDone)
+  return (
+    <form
+      aria-label={list ? `Edit ${list.name}` : 'New prayer list'}
+      className="mb-3 flex flex-col gap-3 rounded-[var(--radius-row)] bg-raised p-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (name.trim()) save.mutate(undefined)
+      }}
+    >
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value.slice(0, 80))}
+        placeholder="Name, e.g. Friday chain prayer"
+        aria-label="List name"
+        className={inputClasses}
+      />
+      <AudienceEditor
+        label="Who is on it"
+        teams={members.teams}
+        people={members.people}
+        allTeams={(teamsQuery.data ?? []).map((d) => ({ id: d.id, name: d.name }))}
+        withPeople
+        editable
+        empty="Nobody yet — add teams or people."
+        onChange={setMembers}
+      />
+      {save.error && (
+        <p role="alert" className="text-body-sm text-accent-red-soft">
+          {errorText(save.error, 'Could not save the list.')}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <ActionButton type="submit" size="sm" disabled={save.isPending || !name.trim()}>
+          {save.isPending ? 'Saving…' : list ? 'Save list' : 'Make list'}
+        </ActionButton>
+        <ActionButton tone="quiet" size="sm" onClick={onDone}>
+          Cancel
+        </ActionButton>
+      </div>
+    </form>
   )
 }

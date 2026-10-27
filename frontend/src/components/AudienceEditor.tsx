@@ -17,6 +17,7 @@ export function AudienceEditor({
   people,
   allTeams,
   withPeople,
+  withTeams = true,
   editable,
   empty,
   onChange,
@@ -26,6 +27,8 @@ export function AudienceEditor({
   people?: string[]
   allTeams: { id: string; name: string }[]
   withPeople: boolean
+  /** Off for a list of people alone. */
+  withTeams?: boolean
   editable: boolean
   /** What to say when nobody has been added. */
   empty: string
@@ -95,7 +98,8 @@ export function AudienceEditor({
       )}
 
       {editable && (
-        <div className={`mt-2 grid grid-cols-1 gap-2 ${withPeople ? 'sm:grid-cols-2' : ''}`}>
+        <div className={`mt-2 grid grid-cols-1 gap-2 ${withPeople && withTeams ? 'sm:grid-cols-2' : ''}`}>
+          {withTeams && (
           <Select
             aria-label={`${label}: add a team`}
             placeholder={teamsLeft.length > 0 ? 'Add a team…' : 'Every team is added'}
@@ -104,6 +108,7 @@ export function AudienceEditor({
             options={teamsLeft.map((t) => ({ value: t.id, label: t.name }))}
             onChange={(id) => id && set([...teams, id], chosenPeople)}
           />
+          )}
           {withPeople && (
             <div>
               <input

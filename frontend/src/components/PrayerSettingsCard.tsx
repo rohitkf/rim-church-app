@@ -11,10 +11,11 @@ import { AudienceEditor } from './AudienceEditor'
  * Settings › Prayer (0197).
  *
  * Who reads the private prayer requests besides the Pastors and the Owner,
- * who always do. How long closed requests and testimonies are kept is in
+ * who always do; and who besides them asks members to pray on their
+ * behalf, and runs the prayer lists (0198). How long closed requests and testimonies are kept is in
  * Data & Retention, with everything else deleted on a clock.
  */
-const KEYS = ['prayer_carers'] as const
+const KEYS = ['prayer_carers', 'prayer_assigners', 'prayer_list_runners'] as const
 
 export function PrayerSettingsCard() {
   const { isAdmin } = useAuth()
@@ -50,6 +51,36 @@ export function PrayerSettingsCard() {
               They also see who wrote an anonymous request, and can take any request down. A team means everybody
               on it and its Heads.
             </p>
+          </SectionTile>
+          <SectionTile
+            title="Who asks people to pray"
+            hint="The pastors always can. On any request they can see, they ask members to pray on their behalf."
+          >
+            <AudienceEditor
+              label="Who else asks people to pray"
+              teams={draft.prayer_assigners.teams}
+              people={draft.prayer_assigners.people}
+              allTeams={allTeams}
+              withPeople
+              editable
+              empty="Only the pastors."
+              onChange={(next) => room.set('prayer_assigners', next)}
+            />
+          </SectionTile>
+          <SectionTile
+            title="Who runs prayer lists"
+            hint="The pastors always can. A list is a set of requests seen by the people and teams on it, for chain prayer."
+          >
+            <AudienceEditor
+              label="Who else runs prayer lists"
+              teams={draft.prayer_list_runners.teams}
+              people={draft.prayer_list_runners.people}
+              allTeams={allTeams}
+              withPeople
+              editable
+              empty="Only the pastors."
+              onChange={(next) => room.set('prayer_list_runners', next)}
+            />
           </SectionTile>
           <SaveBar
             changed={room.changed}
