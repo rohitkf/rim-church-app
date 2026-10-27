@@ -219,6 +219,13 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'role_permissions', keys: ['role-permissions'] },
   { table: 'department_permissions', keys: ['role-permissions'] },
   { table: 'onboarding', keys: ['onboarding', 'onboarding-people'] },
+
+  /* ---- the message board and debriefs ------------------------------ */
+  // Both were in the publication all along; nothing on screen was
+  // listening, so a post or a debrief item showed up only on a reload.
+  { table: 'messages', keys: ['messages', 'global-search'] },
+  { table: 'service_debriefs', keys: ['service-debriefs'] },
+  { table: 'service_debrief_items', keys: ['service-debriefs'] },
 ]
 
 /** Every key a change to `table` makes stale. Empty for one we don't watch. */
