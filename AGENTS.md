@@ -276,6 +276,12 @@ could hand themselves everything else.
   whether the caller may do it at all. `send_announcement` is the model.
 - A table only ever written through an RPC gets **no insert policy**. That
   is what makes the RPC the only way in.
+- **A write policy names its commands** — `for insert`, `for update`,
+  `for delete` — never `for all`. A `for all` policy is also a read
+  policy: Postgres ORs it into every select, runs its `may()` on every
+  row, and made reading `service_sessions` 300 times slower than its
+  "signed in" read rule (0200). `policyCommands.test.ts` holds new
+  migrations to it.
 - Writing to `notifications` **pushes to that person's phone** — every
   type, since 0185 the board's `message` and the team chat's `team_chat`
   too (one unread line per board and per team's room: each post replaces
