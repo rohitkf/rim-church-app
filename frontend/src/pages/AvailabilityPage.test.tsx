@@ -291,6 +291,21 @@ describe('present and no-show', () => {
     expect(within(today).getByRole('button', { name: 'Present' })).toBeInTheDocument()
   })
 
+  it('counts how the team has answered without opening its responses', async () => {
+    asHead('09:00')
+    const joel = state.rows.department_members[0] as { profiles: Record<string, unknown> }
+    state.rows.department_members.push({
+      ...joel,
+      id: 'm2',
+      user_id: 'u3',
+      profiles: { ...joel.profiles, id: 'u3', first_name: 'Ann' },
+    })
+    standAt('06:30')
+    show()
+    const today = await todayCard()
+    expect(within(today).getByLabelText('Media: 1 yes, 0 maybe, 0 no, 1 not answered')).toBeInTheDocument()
+  })
+
   it('says nothing about a team where nobody has said yes', async () => {
     asHead('09:00')
     state.rows.availability = [

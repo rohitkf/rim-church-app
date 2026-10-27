@@ -14,6 +14,7 @@ import { fetchDepartments, fetchJoinRequests, fetchTeamRosterKinds } from '../li
 import { NO_ONE, teamHeadcounts, type TeamHeadcount } from '../lib/teamHeadcount'
 import { useOwnMemberships } from '../lib/useOwnMemberships'
 import { TeamAvatar } from '../components/TeamMark'
+import { CountRow } from '../components/CountRow'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 
@@ -173,22 +174,15 @@ export function DepartmentsPage() {
 }
 
 function TeamHeadcountRow({ counts }: { counts: TeamHeadcount }) {
-  const figures: [string, number][] = [
-    ['Core', counts.core],
-    [counts.guest === 1 ? 'Guest' : 'Guests', counts.guest],
-    ['Total', counts.total],
-  ]
+  const guests = counts.guest === 1 ? 'guest' : 'guests'
   return (
-    <dl
-      className="mt-4 grid grid-cols-3 gap-2"
-      aria-label={`${counts.core} core, ${counts.guest} ${counts.guest === 1 ? 'guest' : 'guests'}, ${counts.total} in all`}
-    >
-      {figures.map(([label, value]) => (
-        <div key={label} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
-          <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{label}</dt>
-          <dd className="text-body-lg font-medium tabular-nums text-on-surface">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <CountRow
+      label={`${counts.core} core, ${counts.guest} ${guests}, ${counts.total} in all`}
+      counts={[
+        { label: 'Core', value: counts.core },
+        { label: counts.guest === 1 ? 'Guest' : 'Guests', value: counts.guest },
+        { label: 'Total', value: counts.total },
+      ]}
+    />
   )
 }
