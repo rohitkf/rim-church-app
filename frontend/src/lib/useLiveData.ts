@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabaseClient'
-import { LIVE_TABLES, keysFor } from './liveTables'
+import { keysFor } from './liveTables'
 
 /**
  * One socket, and the whole app stops going stale.
@@ -12,17 +12,21 @@ import { LIVE_TABLES, keysFor } from './liveTables'
  * did not were so confusing. A page you are looking at is exactly the
  * page that never refetches.
  *
- * So the database says when. Postgres publishes its changes, Realtime
- * passes on the ones this person is allowed to see, and each one marks
- * the queries that were reading that table as stale. TanStack does the
- * rest: what is on screen refetches immediately, what is not is refetched
- * whenever it is next needed.
+ * So the database says when. Each live table's trigger broadcasts which
+ * table changed (0202), and each message marks the queries that were
+ * reading that table as stale. TanStack does the rest: what is on screen
+ * refetches immediately, what is not is refetched whenever it is next
+ * needed, and each refetch goes through the table's own policies.
  *
- * One channel with a binding per table, rather than a subscription per
- * component. Three components already had their own — the activity feed,
- * the bell, team chat — and each is filtered to one service, one person
- * or one team, which is worth keeping. This is for everything else, where
- * the question is only "has this table moved".
+ * It used to listen through Postgres Changes, which made Realtime read the
+ * database's change log for as long as anybody was subscribed and ask the
+ * table's read policy, for every person watching, about every changed row
+ * — most of what the database did, to say something the app only ever
+ * used as "this table moved". The broadcast says exactly that, once per
+ * statement, on the private topic `live` that anybody signed in may hear.
+ *
+ * One channel for every table, rather than a subscription per component.
+ * The bell keeps its own (NotificationsBell), because it needs the row.
  *
  * ## Only while somebody is looking
  *
@@ -83,19 +87,12 @@ export function useLiveData() {
 
     const open = () => {
       if (channel) return
-      const opening = supabase.channel('live-data')
-      for (const { table } of LIVE_TABLES) {
-        opening.on(
-          // The client's types describe the filtered form of this call;
-          // the unfiltered one is just as valid and is what "any change
-          // to this table" means.
-          'postgres_changes' as never,
-          { event: '*', schema: 'public', table } as never,
-          (() => stale(table)) as never,
-        )
-      }
-      opening.subscribe()
-      channel = opening
+      channel = supabase
+        .channel('live', { config: { private: true } })
+        .on('broadcast', { event: 'changed' }, ({ payload }: { payload?: { table?: unknown } }) => {
+          if (typeof payload?.table === 'string') stale(payload.table)
+        })
+        .subscribe()
     }
 
     const close = () => {

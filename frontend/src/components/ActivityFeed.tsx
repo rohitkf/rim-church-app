@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Lifespan } from './Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -54,22 +53,9 @@ export function ActivityFeed({ serviceId, className = '' }: { serviceId: string;
     enabled: !!serviceId,
   })
 
-  // Live means live: the same Realtime channel the bell uses, so a tick on
-  // someone else's phone shows up here without a refresh.
-  useEffect(() => {
-    if (!serviceId) return
-    const channel = supabase
-      .channel(`activity-${serviceId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'activity', filter: `service_id=eq.${serviceId}` },
-        () => queryClient.invalidateQueries({ queryKey: ['activity', serviceId] }),
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [serviceId, queryClient])
+  // Live means live, so a tick on someone else's phone shows up here
+  // without a refresh: the app's live channel marks 'activity' stale
+  // whenever the table changes (lib/liveTables.ts, 0202).
 
   const clear = useMutation({
     mutationFn: async () => {

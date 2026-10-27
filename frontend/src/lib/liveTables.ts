@@ -12,7 +12,12 @@
  * Four things were already live (the activity feed, the bell, team chat
  * and the board) because each was written with its own subscription. This
  * is the rest of it, said once: table on the left, the queries that were
- * reading it on the right.
+ * reading it on the right. Since 0202 the activity feed and team chat are
+ * here too; only the bell keeps a channel of its own, because it shows the
+ * notification itself.
+ *
+ * Every table here has a `<table>_live` trigger (0202) that says the
+ * table changed. `liveTriggers.test.ts` checks the two lists agree.
  *
  * Keys are prefixes. TanStack matches them from the front, so `['rota']`
  * covers `['rota', serviceId]` and every other id under it, which is what
@@ -232,10 +237,17 @@ export const LIVE_TABLES: LiveTable[] = [
 
   /* ---- the Dashboard's reminders ----------------------------------- */
   // my_open_requests (0183) reads the tables above that carry
-  // 'my-requests', and this one. The bell keeps its own subscription for
-  // new notifications; this is for the reminder that goes when one is
-  // read or answered. Realtime passes on only this person's own rows.
+  // 'my-requests', and this one. The bell keeps its own channel for new
+  // notifications; this is for the reminder that goes when one is read or
+  // answered.
   { table: 'notifications', keys: ['my-requests'] },
+
+  /* ---- the activity feed and team chat ------------------------------ */
+  // Each had its own subscription, filtered to one service or one team.
+  // The broadcast says only which table moved (0202), so every open feed
+  // and room checks itself; each is one small query.
+  { table: 'activity', keys: ['activity'] },
+  { table: 'team_messages', keys: ['team-messages'] },
 ]
 
 /** Every key a change to `table` makes stale. Empty for one we don't watch. */

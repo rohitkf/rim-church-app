@@ -5,20 +5,25 @@ import type { ReactNode } from 'react'
 import { IDLE_DISCONNECT_MS, useLiveData } from './useLiveData'
 import { LIVE_TABLES, keysFor } from './liveTables'
 
-/** The bindings the hook asked for, and the handler each was given. */
-const bound: { table: string; fire: () => void }[] = []
+/** The channels the hook opened, and what each listened for. */
+const opened: { topic: string; config: unknown }[] = []
+const bound: { type: string; event: string; fire: (message: { payload?: unknown }) => void }[] = []
 const removeChannel = vi.fn()
 const subscribe = vi.fn()
 
 vi.mock('./supabaseClient', () => ({
   supabase: {
-    channel: () => {
+    channel: (topic: string, options?: { config?: unknown }) => {
+      opened.push({ topic, config: options?.config })
       const channel = {
-        on: (_event: string, filter: { table: string }, handler: () => void) => {
-          bound.push({ table: filter.table, fire: handler })
+        on: (type: string, filter: { event: string }, handler: (message: { payload?: unknown }) => void) => {
+          bound.push({ type, event: filter.event, fire: handler })
           return channel
         },
-        subscribe,
+        subscribe: (...args: unknown[]) => {
+          subscribe(...args)
+          return channel
+        },
       }
       return channel
     },
@@ -36,7 +41,8 @@ function harness() {
   return { ...view, invalidate }
 }
 
-const fire = (table: string) => bound.find((b) => b.table === table)!.fire()
+/** What the database's trigger sends when a statement changes `table` (0202). */
+const fire = (table: string) => bound.at(-1)!.fire({ payload: { table } })
 
 /** The first element of every key the client was asked to invalidate. */
 const askedFor = (invalidate: { mock: { calls: unknown[][] } }): string[] =>
@@ -52,6 +58,7 @@ function looking(visible: boolean) {
 }
 
 beforeEach(() => {
+  opened.length = 0
   bound.length = 0
   removeChannel.mockReset()
   subscribe.mockReset()
@@ -63,10 +70,19 @@ beforeEach(() => {
 })
 
 describe('useLiveData', () => {
-  it('listens to every table on one channel, and opens it', () => {
+  it('listens for "this table changed" on the private live topic, and opens it', () => {
     harness()
-    expect(bound.map((b) => b.table).sort()).toEqual(LIVE_TABLES.map((t) => t.table).sort())
+    expect(opened).toEqual([{ topic: 'live', config: { private: true } }])
+    expect(bound).toEqual([expect.objectContaining({ type: 'broadcast', event: 'changed' })])
     expect(subscribe).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a message that does not name a table', async () => {
+    const { invalidate } = harness()
+    bound[0].fire({ payload: {} })
+    bound[0].fire({})
+    await vi.advanceTimersByTimeAsync(200)
+    expect(invalidate).not.toHaveBeenCalled()
   })
 
   it('marks the queries that were reading a table as stale', async () => {

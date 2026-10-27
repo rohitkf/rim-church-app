@@ -335,15 +335,19 @@ Each of these has already cost real time. None of them show up in review.
   vercel.app one, never instead of it. The label carries the item's id
   only, so renaming an item or changing its serial number is safe.
 - **A new table is not live until two lists say so.** Every screen refetches
-  the moment a row changes (`lib/useLiveData.ts`), but Realtime streams
-  only the tables in the `supabase_realtime` publication, and the app
-  refetches only the query keys named for that table in `lib/liveTables.ts`.
-  A table in neither still loads and still saves; it just goes stale on
-  everybody else's screen until they come back to the tab. 0166 and 0167
-  shipped that way, and 0168 is the migration that caught up. A new table
-  needs its `alter publication supabase_realtime add table` (guarded, as in
-  0168) and a `LIVE_TABLES` row; the test in `useLiveData.test.tsx` checks
-  the keys named there exist.
+  the moment a table changes (`lib/useLiveData.ts`): a statement trigger on
+  the table broadcasts `{"table": …}` on the private topic `live` (0202),
+  and the app refetches only the query keys named for that table in
+  `lib/liveTables.ts`. A table with neither still loads and still saves; it
+  just goes stale on everybody else's screen until they come back to the
+  tab. 0166 and 0167 shipped that way, and 0168 is the migration that
+  caught up. A new table needs its `<table>_live` trigger calling
+  `public.live_table_changed()`, as in 0202, and a `LIVE_TABLES` row;
+  `liveTriggers.test.ts` checks the two agree and `useLiveData.test.tsx`
+  that the keys exist. Not the `supabase_realtime` publication: Postgres
+  Changes made Realtime read the change log and ask every watcher's read
+  policy about every changed row, which was most of what the database did
+  (0202). The bell alone hears rows, on `notifications:<user id>`.
 - **A service is deleted 14 days after its date, and takes everything
   hanging off it** (0128, `service_retention_days`) — rota, availability,
   running order, ticks, set lists, debriefs, issues. A new table with a

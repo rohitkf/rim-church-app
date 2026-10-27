@@ -103,21 +103,9 @@ export function TeamBoard({
     [rosterQuery.data],
   )
 
-  // A chat has to arrive without a refresh, or it is a forum.
-  useEffect(() => {
-    if (!departmentId) return
-    const channel = supabase
-      .channel(`team-messages-${departmentId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'team_messages', filter: `department_id=eq.${departmentId}` },
-        () => queryClient.invalidateQueries({ queryKey: ['team-messages', departmentId] }),
-      )
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [departmentId, queryClient])
+  // A chat has to arrive without a refresh, or it is a forum. The app's
+  // live channel marks 'team-messages' stale whenever the table changes
+  // (lib/liveTables.ts, 0202).
 
   // New messages belong at the bottom. The scroller is moved directly
   // rather than with scrollIntoView, which walks up the ancestors and
