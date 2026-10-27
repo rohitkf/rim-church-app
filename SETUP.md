@@ -165,6 +165,17 @@ sign anyone in.
 **Check it worked**: Volunteers → Invite. A failure here is almost always
 the function not being deployed.
 
+## 7b. Street addresses on the Clock In page
+
+```bash
+supabase functions deploy clock-in-address
+```
+
+No secrets: it turns each clock-in's position into a street address with
+OpenStreetMap's Nominatim, one a second, as its terms ask. Skip it and
+clock-ins still work; the Clock In page shows "Looking up the address…"
+under the distance from church.
+
 ## 8. Phone notifications while the app is closed
 
 Skip this and notifications still work *while the app is open* — the bell,

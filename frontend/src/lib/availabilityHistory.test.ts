@@ -60,6 +60,22 @@ describe('a line of somebody’s availability log', () => {
     expect(line.who).toBe('approved by Blessy Jijin')
   })
 
+  it('says a No turned to Yes by clocking in was the clock-in, not a change of mind', () => {
+    const own = describeChange(
+      entry({ kind: 'changed', status: 'available', previous_status: 'unavailable', by_clock_in: true }),
+    )
+    expect(own).toMatchObject({ what: 'Changed to Yes', was: 'was No', who: 'by clocking in' })
+    const added = describeChange(
+      entry({
+        kind: 'answered',
+        by_clock_in: true,
+        changed_by: 'admin',
+        changer: { first_name: 'Grace', last_name: 'Mensah' },
+      }),
+    )
+    expect(added.who).toBe('by Grace Mensah adding a clock-in')
+  })
+
   it('does not pretend to know who did it when the account has gone', () => {
     expect(describeChange(entry({ changed_by: null, changer: null })).who).toBe('by somebody no longer on the app')
   })

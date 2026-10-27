@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { distanceMetres, findPlaces, formatDistance, maySeeClockIns, normalisePostcode } from './clockIn'
+import {
+  betterReading,
+  churchInstant,
+  clockInPhase,
+  distanceMetres,
+  findPlaces,
+  formatDistance,
+  maySeeClockIns,
+  normalisePostcode,
+  refusalWords,
+} from './clockIn'
 
 const none = { teams: [], people: [] }
 
@@ -81,5 +91,70 @@ describe('finding the church', () => {
   it('says so when a finder does not answer', async () => {
     const fetcher = vi.fn(() => reply({}, 503))
     await expect(findPlaces('High Street', fetcher as unknown as typeof fetch)).rejects.toThrow(/did not answer/)
+  })
+})
+
+describe('when the CLOCK IN button is there', () => {
+  const day = {
+    due: true,
+    opens_at: '2026-11-01T09:25:00Z',
+    closes_at: '2026-11-01T13:00:00Z',
+    first_call: '2026-11-01T09:30:00Z',
+    clocked_at: null,
+  }
+  const at = (iso: string) => Date.parse(iso)
+
+  it('is not there for somebody not on the day’s rota', () => {
+    expect(clockInPhase({ due: false }, at('2026-11-01T10:00:00Z'))).toBe('none')
+    expect(clockInPhase(undefined, at('2026-11-01T10:00:00Z'))).toBe('none')
+  })
+
+  it('is not there too early — only from the lead time before the first call', () => {
+    expect(clockInPhase(day, at('2026-11-01T09:24:59Z'))).toBe('early')
+    expect(clockInPhase(day, at('2026-11-01T09:25:00Z'))).toBe('open')
+  })
+
+  it('stays until the day’s last service ends, and goes once they have clocked in', () => {
+    expect(clockInPhase(day, at('2026-11-01T12:59:00Z'))).toBe('open')
+    expect(clockInPhase(day, at('2026-11-01T13:00:00Z'))).toBe('closed')
+    expect(clockInPhase({ ...day, clocked_at: '2026-11-01T09:27:00Z' }, at('2026-11-01T09:28:00Z'))).toBe('done')
+  })
+})
+
+describe('reading the phone', () => {
+  it('keeps the reading the phone is surest of', () => {
+    const rough = { lat: 1, lng: 1, accuracy: 400, at: 1 }
+    const sharp = { lat: 2, lng: 2, accuracy: 12, at: 2 }
+    expect(betterReading(null, rough)).toBe(rough)
+    expect(betterReading(rough, sharp)).toBe(sharp)
+    expect(betterReading(sharp, { ...rough, at: 3 })).toBe(sharp)
+  })
+})
+
+describe('why a clock-in was refused, in words', () => {
+  it('says how sure the phone was and how sure it had to be, with what to try', () => {
+    const words = refusalWords({ ok: false, reason: 'too_rough', accuracy_m: 212.4, needed_m: 50 })
+    expect(words.title).toContain('± 212 m')
+    expect(words.title).toContain('± 50 m')
+    expect(words.tips.some((t) => t.includes('Precise Location'))).toBe(true)
+  })
+
+  it('says how far away they looked and how near they had to be', () => {
+    const words = refusalWords({ ok: false, reason: 'too_far', distance_m: 1450, radius_m: 100 })
+    expect(words.title).toContain('1.4 km')
+    expect(words.title).toContain('100 m')
+  })
+
+  it('says when it opens, on the church’s clock', () => {
+    expect(refusalWords({ ok: false, reason: 'not_yet', opens_at: '2026-07-05T08:55:00Z' }, 'Europe/London').title).toBe(
+      'Clocking in opens at 09:55.',
+    )
+  })
+})
+
+describe('a time on the church’s clock', () => {
+  it('is the right instant in winter and in summer', () => {
+    expect(churchInstant('2026-11-01', '09:41', 'Europe/London').toISOString()).toBe('2026-11-01T09:41:00.000Z')
+    expect(churchInstant('2026-07-05', '09:41', 'Europe/London').toISOString()).toBe('2026-07-05T08:41:00.000Z')
   })
 })

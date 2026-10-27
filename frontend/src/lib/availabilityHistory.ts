@@ -22,6 +22,8 @@ export const availabilityHistorySchema = z.object({
   changed_by: z.string().nullable(),
   by_request: z.boolean(),
   after_close: z.boolean().nullable(),
+  /** Moved by a clock-in (0192): Present, and a No turned to Yes. */
+  by_clock_in: z.boolean().optional(),
   changed_at: z.string(),
   changer: z.object({ first_name: z.string(), last_name: z.string() }).nullable().optional(),
 })
@@ -80,7 +82,11 @@ export function describeChange(entry: AvailabilityHistoryEntry): HistoryLine {
   const name = entry.changer ? `${entry.changer.first_name} ${entry.changer.last_name}`.trim() : null
   const someoneElse = entry.changed_by !== entry.user_id
   const who =
-    entry.kind === 'before_log' || !someoneElse
+    entry.by_clock_in && entry.kind !== 'before_log'
+      ? someoneElse
+        ? `by ${name ?? 'somebody'} adding a clock-in`
+        : 'by clocking in'
+      : entry.kind === 'before_log' || !someoneElse
       ? null
       : entry.by_request
         ? `approved by ${name ?? 'somebody no longer on the app'}`

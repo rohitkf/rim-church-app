@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import { offsetAt } from './availabilityDeadline'
 
 /**
  * Clock in (0191): the shared pieces.
@@ -181,6 +182,8 @@ export const clockInSchema = z.object({
   accuracy_m: z.number().nullable(),
   distance_m: z.number().nullable(),
   address: z.string().nullable(),
+  /** Lookups tried; after three it is given up on (0192). */
+  address_tries: z.number().optional(),
   person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
 })
 export type ClockIn = z.infer<typeof clockInSchema>
@@ -190,10 +193,210 @@ export async function fetchClockIns(onDate: string): Promise<ClockIn[]> {
   const { data, error } = await supabase
     .from('clock_ins')
     .select(
-      'id, user_id, on_date, clocked_at, method, latitude, longitude, accuracy_m, distance_m, address, person:profiles!clock_ins_user_id_fkey(first_name, last_name)',
+      'id, user_id, on_date, clocked_at, method, latitude, longitude, accuracy_m, distance_m, address, address_tries, person:profiles!clock_ins_user_id_fkey(first_name, last_name)',
     )
     .eq('on_date', onDate)
     .order('clocked_at')
   if (error) throw error
   return z.array(clockInSchema).parse(data)
+}
+
+// ---------------------------------------------------------------------------
+// Clocking in (0192)
+// ---------------------------------------------------------------------------
+
+export const myClockInSchema = z.object({
+  due: z.boolean(),
+  on_date: z.string().optional(),
+  first_call: z.string().nullable().optional(),
+  opens_at: z.string().nullable().optional(),
+  closes_at: z.string().nullable().optional(),
+  place_set: z.boolean().optional(),
+  accuracy_m: z.number().optional(),
+  radius_m: z.number().optional(),
+  clocked_at: z.string().nullable().optional(),
+  method: z.enum(['location', 'request', 'added']).nullable().optional(),
+})
+export type MyClockIn = z.infer<typeof myClockInSchema>
+
+export const MY_CLOCK_IN_KEY = ['my-clock-in'] as const
+
+/** Whether the signed-in person clocks in today, from when until when, and whether they have. */
+export async function fetchMyClockIn(): Promise<MyClockIn> {
+  const { data, error } = await supabase.rpc('my_clock_in_today')
+  if (error) throw error
+  return myClockInSchema.parse(data)
+}
+
+export type ClockInPhase = 'none' | 'early' | 'open' | 'closed' | 'done'
+
+/**
+ * Where the day stands for this person: nothing to do, not yet, the
+ * button, too late, or done. The button shows only while it is `open`.
+ */
+export function clockInPhase(today: MyClockIn | undefined, now: number): ClockInPhase {
+  if (!today || !today.due) return 'none'
+  if (today.clocked_at) return 'done'
+  if (today.opens_at && now < Date.parse(today.opens_at)) return 'early'
+  if (today.closes_at && now >= Date.parse(today.closes_at)) return 'closed'
+  return 'open'
+}
+
+export interface Reading {
+  lat: number
+  lng: number
+  /** Metres, as the phone reports it: the true spot is probably within this. */
+  accuracy: number
+  at: number
+}
+
+/** The reading to keep: the one the phone is surest of. */
+export function betterReading(kept: Reading | null, next: Reading): Reading {
+  if (!kept) return next
+  return next.accuracy < kept.accuracy ? next : kept
+}
+
+export const clockInResultSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    clocked_at: z.string(),
+    distance_m: z.number(),
+    marked: z.number(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    reason: z.enum(['already', 'not_due', 'not_yet', 'closed', 'no_place', 'too_rough', 'too_far']),
+    clocked_at: z.string().optional(),
+    opens_at: z.string().optional(),
+    accuracy_m: z.number().optional(),
+    needed_m: z.number().optional(),
+    distance_m: z.number().optional(),
+    radius_m: z.number().optional(),
+  }),
+])
+export type ClockInResult = z.infer<typeof clockInResultSchema>
+export type ClockInRefusal = Extract<ClockInResult, { ok: false }>
+
+/** The phone's reading, to the database, which decides. */
+export async function submitClockIn(reading: Reading): Promise<ClockInResult> {
+  const { data, error } = await supabase.rpc('clock_in', {
+    lat: reading.lat,
+    lng: reading.lng,
+    accuracy: reading.accuracy,
+  })
+  if (error) throw error
+  return clockInResultSchema.parse(data)
+}
+
+export function churchClock(iso: string, timeZone = 'Europe/London'): string {
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone })
+}
+
+/** Why it said no, in words, and what to try. */
+export function refusalWords(refusal: ClockInRefusal, timeZone?: string): { title: string; tips: string[] } {
+  switch (refusal.reason) {
+    case 'already':
+      return { title: 'You have already clocked in today.', tips: [] }
+    case 'not_due':
+      return { title: 'You are not on today’s rota, so there is nothing to clock in for.', tips: [] }
+    case 'not_yet':
+      return {
+        title: refusal.opens_at ? `Clocking in opens at ${churchClock(refusal.opens_at, timeZone)}.` : 'Clocking in is not open yet.',
+        tips: [],
+      }
+    case 'closed':
+      return { title: 'Clocking in has closed for today — the last service has ended.', tips: [] }
+    case 'no_place':
+      return {
+        title: 'Clocking in is not set up yet — the church’s location has not been saved.',
+        tips: ['Tell an Admin; they set it at the top of the Clock In page.'],
+      }
+    case 'too_rough':
+      return {
+        title: `Your phone is only sure of where you are to ± ${Math.round(refusal.accuracy_m ?? 0)} m; it needs to be within ± ${refusal.needed_m ?? 0} m.`,
+        tips: [
+          'Step outside or near a window for a few seconds, then try again.',
+          'Turn on Wi-Fi (you do not need to connect to anything) — it sharpens the position indoors.',
+          'On iPhone: Settings › Privacy & Security › Location Services › your browser › turn on Precise Location.',
+          'On Android: turn on Google Location Accuracy in Settings › Location.',
+        ],
+      }
+    case 'too_far':
+      return {
+        title: `You look to be ${formatDistance(refusal.distance_m ?? 0)} from church; you need to be within ${refusal.radius_m ?? 0} m.`,
+        tips: [
+          'If you are at church, step outside or near a window and try again — indoors a phone can place itself on the wrong street.',
+          'Turn on Wi-Fi and, on iPhone, Precise Location for your browser.',
+        ],
+      }
+  }
+}
+
+/** Ask for the street addresses of new clock-ins; best effort, nobody waits on it. */
+export function lookUpAddresses(): void {
+  void supabase.functions.invoke('clock-in-address', { body: {} }).catch(() => undefined)
+}
+
+// ---------------------------------------------------------------------------
+// Putting it right (0192): the Owner and Admins
+// ---------------------------------------------------------------------------
+
+/** "09:41" on `onDate`, read on the church's clock, as an instant. */
+export function churchInstant(onDate: string, hhmm: string, timeZone = 'Europe/London'): Date {
+  const [year, month, day] = onDate.split('-').map(Number)
+  const [hours, minutes] = hhmm.split(':').map(Number)
+  const wall = Date.UTC(year, month - 1, day, hours, minutes)
+  const guess = wall - offsetAt(new Date(wall), timeZone)
+  return new Date(wall - offsetAt(new Date(guess), timeZone))
+}
+
+export async function changeClockInTime(id: string, at: Date, note: string) {
+  const { error } = await supabase.rpc('clock_in_set_time', {
+    clock_in_id: id,
+    new_at: at.toISOString(),
+    note: note.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function addClockIn(personId: string, at: Date, note: string) {
+  const { error } = await supabase.rpc('clock_in_add', {
+    person: personId,
+    at: at.toISOString(),
+    note: note.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function removeClockIn(id: string, note: string) {
+  const { error } = await supabase.rpc('clock_in_remove', { clock_in_id: id, note: note.trim() || null })
+  if (error) throw error
+}
+
+export const clockInHistorySchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  on_date: z.string(),
+  kind: z.enum(['clocked_in', 'approved', 'added', 'changed', 'removed']),
+  clocked_at: z.string().nullable(),
+  previous_at: z.string().nullable(),
+  note: z.string().nullable(),
+  changed_by: z.string().nullable(),
+  changed_at: z.string(),
+  person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+  changer: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+})
+export type ClockInHistoryEntry = z.infer<typeof clockInHistorySchema>
+
+/** Everything that happened to a day's clock-ins, newest first. */
+export async function fetchClockInHistory(onDate: string): Promise<ClockInHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('clock_in_history')
+    .select(
+      'id, user_id, on_date, kind, clocked_at, previous_at, note, changed_by, changed_at, person:profiles!clock_in_history_user_id_fkey(first_name, last_name), changer:profiles!clock_in_history_changed_by_fkey(first_name, last_name)',
+    )
+    .eq('on_date', onDate)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return z.array(clockInHistorySchema).parse(data)
 }
