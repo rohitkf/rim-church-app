@@ -18,7 +18,8 @@ import type { InventoryItem } from '../lib/types'
 export function ItemQrDialog({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const [modules, setModules] = useState<boolean[][] | null>(null)
   const [printing, setPrinting] = useState(false)
-  const url = itemScanUrl(window.location.origin, item.id)
+  // The lasting address, not this page's — see lib/qrLink.
+  const url = itemScanUrl(item.id)
 
   useEffect(() => {
     let live = true

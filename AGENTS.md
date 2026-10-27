@@ -315,6 +315,15 @@ skipped:
 
 Each of these has already cost real time. None of them show up in review.
 
+- **Printed QR labels are links that cannot be reprinted on their own.**
+  Every inventory label says `https://rim-church-app.vercel.app/inventory/scan/<item id>`
+  (`lib/qrLink.ts`). Changing `SCAN_PATH`, dropping its route in
+  `App.tsx`, or retiring the vercel.app address turns every label already
+  stuck on a case into a dead link, and nothing fails until somebody scans
+  one. `qrLink.test.ts` pins the path and the route. A page that has to
+  move keeps this route and sends it on; a new domain is added beside the
+  vercel.app one, never instead of it. The label carries the item's id
+  only, so renaming an item or changing its serial number is safe.
 - **A new table is not live until two lists say so.** Every screen refetches
   the moment a row changes (`lib/useLiveData.ts`), but Realtime streams
   only the tables in the `supabase_realtime` publication, and the app

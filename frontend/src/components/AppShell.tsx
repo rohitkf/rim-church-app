@@ -42,6 +42,7 @@ const WASH: Record<string, string> = {
   '/checklists': 'var(--color-accent-green)',
   '/availability': 'var(--color-accent-green)',
   '/rota': 'var(--color-accent-blue)',
+  '/call-times': 'var(--color-accent-blue)',
   // Set Lists belongs to the same Sunday as the rota it reads its leaders
   // from, so it is lit the same.
   '/set-lists': 'var(--color-accent-blue)',

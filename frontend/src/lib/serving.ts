@@ -17,6 +17,7 @@ export const SERVING_PATH = '/serving'
 export const SERVING_TABS: { to: string; label: string; hint: string }[] = [
   { to: '/availability', label: 'Availability', hint: 'Who can serve' },
   { to: '/rota', label: 'Team Rota', hint: 'Who is on' },
+  { to: '/call-times', label: 'Call Times', hint: 'When to be there' },
   { to: '/checklists', label: 'Checklists', hint: 'What to do on the day' },
 ]
 

@@ -81,6 +81,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'widen',
     note: 'Opening it lets Church Members read who is serving. Teams always keep it — Availability and Checklists read the same rows.',
   },
+  '/call-times': {
+    default: 'team',
+    choices: ['team'],
+    enforcement: 'fixed',
+    note: 'A call time is a team being called in, so it needs one.',
+  },
   '/checklists': {
     default: 'team',
     choices: ['team'],

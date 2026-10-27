@@ -176,11 +176,13 @@ describe('Serving in the menu opens on the step that is waiting', () => {
     expect(await screen.findByText('dashboard')).toBeInTheDocument()
   })
 
-  it('is one entry standing for all three pages', () => {
-    const entries = NAV_ITEMS.filter((i) => ['/availability', '/rota', '/checklists'].includes(i.to))
+  it('is one entry standing for all four pages', () => {
+    const entries = NAV_ITEMS.filter((i) => ['/availability', '/rota', '/call-times', '/checklists'].includes(i.to))
     expect(entries).toEqual([])
     const serving = NAV_ITEMS.find((i) => i.to === '/serving')
-    expect(serving?.tabs).toEqual(['/availability', '/rota', '/checklists'])
+    // Call Times sits between who is on and what to do on the day.
+    expect(serving?.tabs).toEqual(['/availability', '/rota', '/call-times', '/checklists'])
+    expect(isServingPath('/call-times')).toBe(true)
     expect(isServingPath('/checklists')).toBe(true)
     expect(isServingPath('/set-lists')).toBe(false)
   })
