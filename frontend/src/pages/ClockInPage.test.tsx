@@ -28,8 +28,17 @@ vi.mock('../lib/plannerControls', async (original) => ({
   ...(await original<typeof import('../lib/plannerControls')>()),
   fetchPeopleOptions: () => Promise.resolve([{ id: 'p2', first_name: 'Ama', last_name: 'Owusu' }]),
 }))
+vi.mock('../lib/queries', async (original) => ({
+  ...(await original<typeof import('../lib/queries')>()),
+  fetchDepartments: () =>
+    Promise.resolve([
+      { id: 'd-media', name: 'Media' },
+      { id: 'd-welcome', name: 'Welcome' },
+    ]),
+}))
 vi.mock('../lib/clockIn', async (original) => ({
   ...(await original<typeof import('../lib/clockIn')>()),
+  fetchClockInTeams: () => Promise.resolve([{ user_id: 'p1', department_id: 'd-welcome' }, { user_id: 'p3', department_id: 'd-media' }]),
   fetchClockIns: () =>
     Promise.resolve([
       {
@@ -118,6 +127,16 @@ describe('the Clock In page', () => {
     expect(within(table).getByText('12 High Street, Reading')).toBeInTheDocument()
     expect(within(table).getByText('Looking up the address…')).toBeInTheDocument()
     expect(state.lookups).toBe(1)
+  })
+
+  it('groups them by the team they were on that day', async () => {
+    show()
+    const table = await screen.findByRole('table')
+    const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers).toEqual(expect.arrayContaining(['Media1', 'Welcome1']))
+    const groups = table.querySelectorAll('tbody')
+    expect(within(groups[0] as HTMLElement).getByText('Grace Mensah')).toBeInTheDocument()
+    expect(within(groups[1] as HTMLElement).getByText('Joel Skaria')).toBeInTheDocument()
   })
 
   it('gives nobody but the Owner and Admins the church’s spot or a way to change anything', async () => {

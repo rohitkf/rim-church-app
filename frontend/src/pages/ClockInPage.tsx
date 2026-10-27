@@ -9,6 +9,7 @@ import { Select } from '../components/Select'
 import { useAppSettings } from '../lib/appSettings'
 import { useErrorText } from '../lib/useErrorText'
 import { fetchPeopleOptions } from '../lib/plannerControls'
+import { fetchDepartments } from '../lib/queries'
 import {
   addClockIn,
   changeClockInTime,
@@ -16,7 +17,9 @@ import {
   churchInstant,
   fetchClockInHistory,
   fetchClockIns,
+  fetchClockInTeams,
   formatDistance,
+  groupClockIns,
   lookUpAddresses,
   removeClockIn,
   type ClockIn,
@@ -65,9 +68,16 @@ export function ClockInPage() {
     refetchInterval: (query) =>
       (query.state.data ?? []).some(awaitingAddress) && query.state.dataUpdateCount < 24 ? 5_000 : false,
   })
+  const teamsQuery = useQuery({ queryKey: ['clock-in-teams', day], queryFn: () => fetchClockInTeams(day) })
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const historyQuery = useQuery({ queryKey: ['clock-in-history', day], queryFn: () => fetchClockInHistory(day) })
   const rows = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data])
   const editingRow = rows.find((r) => r.id === editing) ?? null
+  const groups = groupClockIns(
+    rows,
+    teamsQuery.data ?? [],
+    (id) => departmentsQuery.data?.find((d) => d.id === id)?.name ?? null,
+  )
 
   // Anything still without an address is asked for once a visit; the
   // lookup itself goes one a second, whoever starts it.
@@ -84,6 +94,7 @@ export function ClockInPage() {
     setAdding(false)
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['clock-ins', day] }),
+      queryClient.invalidateQueries({ queryKey: ['clock-in-teams', day] }),
       queryClient.invalidateQueries({ queryKey: ['clock-in-history', day] }),
     ])
   }
@@ -128,8 +139,8 @@ export function ClockInPage() {
           )}
 
           <QueryState
-            isLoading={rowsQuery.isLoading}
-            error={rowsQuery.error}
+            isLoading={rowsQuery.isLoading || teamsQuery.isLoading}
+            error={rowsQuery.error ?? teamsQuery.error}
             isEmpty={rows.length === 0}
             emptyMessage="Nobody has clocked in on this day."
           >
@@ -148,8 +159,21 @@ export function ClockInPage() {
                     )}
                   </tr>
                 </thead>
-                <tbody>
-                  {rows.map((row) => {
+                {groups.map((group) => (
+                <tbody key={group.teamId ?? 'none'}>
+                  <tr>
+                    <th
+                      scope="colgroup"
+                      colSpan={runsIt ? 4 : 3}
+                      className="pt-4 pb-1.5 text-left text-label-md font-semibold text-on-surface"
+                    >
+                      {group.name}
+                      <span className="ml-2 font-mono text-label-sm font-normal text-on-surface-faint">
+                        {group.rows.length}
+                      </span>
+                    </th>
+                  </tr>
+                  {group.rows.map((row) => {
                     const name = fullName(row.person)
                     return (
                       <tr
@@ -194,6 +218,7 @@ export function ClockInPage() {
                     )
                   })}
                 </tbody>
+                ))}
               </table>
             </div>
             {runsIt && editingRow && (

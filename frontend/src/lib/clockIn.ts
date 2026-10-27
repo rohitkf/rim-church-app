@@ -400,3 +400,44 @@ export async function fetchClockInHistory(onDate: string): Promise<ClockInHistor
   if (error) throw error
   return z.array(clockInHistorySchema).parse(data)
 }
+
+/** Which teams each person who clocked in on `onDate` was on that day (0193). */
+export async function fetchClockInTeams(onDate: string): Promise<{ user_id: string; department_id: string }[]> {
+  const { data, error } = await supabase.rpc('clock_in_day_teams', { on_day: onDate })
+  if (error) throw error
+  return z.array(z.object({ user_id: z.string(), department_id: z.string() })).parse(data ?? [])
+}
+
+export interface ClockInGroup {
+  /** The team, or null for those on no team's rota that day. */
+  teamId: string | null
+  name: string
+  rows: ClockIn[]
+}
+
+/**
+ * The day's clock-ins team by team, teams in name order. Somebody on two
+ * teams is under both; somebody an Admin added who was on no rota comes
+ * last, under "Not on the rota".
+ */
+export function groupClockIns(
+  rows: readonly ClockIn[],
+  teams: readonly { user_id: string; department_id: string }[],
+  teamName: (id: string) => string | null,
+): ClockInGroup[] {
+  const groups = new Map<string, ClockIn[]>()
+  const placed = new Set<string>()
+  for (const row of rows) {
+    for (const t of teams) {
+      if (t.user_id !== row.user_id || !teamName(t.department_id)) continue
+      groups.set(t.department_id, [...(groups.get(t.department_id) ?? []), row])
+      placed.add(row.id)
+    }
+  }
+  const out: ClockInGroup[] = [...groups.entries()]
+    .map(([teamId, list]) => ({ teamId, name: teamName(teamId)!, rows: list }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const elsewhere = rows.filter((r) => !placed.has(r.id))
+  if (elsewhere.length > 0) out.push({ teamId: null, name: 'Not on the rota', rows: elsewhere })
+  return out
+}

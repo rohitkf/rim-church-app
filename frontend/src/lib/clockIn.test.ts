@@ -6,6 +6,7 @@ import {
   distanceMetres,
   findPlaces,
   formatDistance,
+  groupClockIns,
   maySeeClockIns,
   normalisePostcode,
   refusalWords,
@@ -156,5 +157,29 @@ describe('a time on the church’s clock', () => {
   it('is the right instant in winter and in summer', () => {
     expect(churchInstant('2026-11-01', '09:41', 'Europe/London').toISOString()).toBe('2026-11-01T09:41:00.000Z')
     expect(churchInstant('2026-07-05', '09:41', 'Europe/London').toISOString()).toBe('2026-07-05T08:41:00.000Z')
+  })
+})
+
+describe('the day’s clock-ins, team by team', () => {
+  const row = (id: string, user_id: string) =>
+    ({ id, user_id, on_date: '2026-11-01', clocked_at: '2026-11-01T09:30:00Z', method: 'location', latitude: null, longitude: null, accuracy_m: null, distance_m: null, address: null, person: null }) as const
+  const names: Record<string, string> = { w: 'Welcome', m: 'Media' }
+
+  it('puts somebody on two teams under both, teams by name, and the unrostered last', () => {
+    const groups = groupClockIns(
+      [row('c1', 'ann'), row('c2', 'ben'), row('c3', 'cat')],
+      [
+        { user_id: 'ann', department_id: 'w' },
+        { user_id: 'ann', department_id: 'm' },
+        { user_id: 'ben', department_id: 'w' },
+        { user_id: 'ben', department_id: 'gone' },
+      ],
+      (id) => names[id] ?? null,
+    )
+    expect(groups.map((g) => [g.name, g.rows.map((r) => r.id)])).toEqual([
+      ['Media', ['c1']],
+      ['Welcome', ['c1', 'c2']],
+      ['Not on the rota', ['c3']],
+    ])
   })
 })
