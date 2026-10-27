@@ -16,6 +16,8 @@
 #   - the pull request is open, not a draft, and targets main
 #   - GitHub says it is mergeable with no conflict
 #   - every check run on the head commit has finished and none failed
+#     (asked again every 20 seconds, for up to 5 minutes, while any still
+#     reads as running)
 #   - nobody has requested changes
 # Put a `do-not-merge` label on a pull request to hold it back by hand.
 #
@@ -104,16 +106,29 @@ jobs:
               // pull request has now, not the one that was tested.
               if (pr.head.sha !== run.head_sha) { say('head moved since CI ran'); continue }
 
-              const { data: checks } = await github.rest.checks.listForRef({
-                owner, repo, ref: pr.head.sha, per_page: 100,
-              })
-              // This workflow's own run is in flight and would otherwise
-              // count as unfinished for ever.
-              const others = checks.check_runs.filter((c) => c.name !== context.job)
-              const unfinished = others.filter((c) => c.status !== 'completed')
-              const failed = others.filter(
-                (c) => c.conclusion && !['success', 'neutral', 'skipped'].includes(c.conclusion),
-              )
+              // GitHub can go on reporting a job as unfinished for a while
+              // after its run has finished: both CI runs for #192 had
+              // passed, yet the check runs read "in progress" for another
+              // few minutes, so both chances to merge were spent waiting and
+              // nothing came along to try again. So ask a few more times
+              // before giving up on "waiting" — and the same patience lets
+              // the other CI run finish if it really was still going.
+              let unfinished = []
+              let failed = []
+              for (let attempt = 0; ; attempt++) {
+                const { data: checks } = await github.rest.checks.listForRef({
+                  owner, repo, ref: pr.head.sha, per_page: 100,
+                })
+                // This workflow's own run is in flight and would otherwise
+                // count as unfinished for ever.
+                const others = checks.check_runs.filter((c) => c.name !== context.job)
+                unfinished = others.filter((c) => c.status !== 'completed')
+                failed = others.filter(
+                  (c) => c.conclusion && !['success', 'neutral', 'skipped'].includes(c.conclusion),
+                )
+                if (unfinished.length === 0 || failed.length > 0 || attempt >= 15) break
+                await new Promise((resolve) => setTimeout(resolve, 20_000))
+              }
               if (unfinished.length > 0) {
                 say(`waiting on ${unfinished.map((c) => c.name).join(', ')}`)
                 continue
