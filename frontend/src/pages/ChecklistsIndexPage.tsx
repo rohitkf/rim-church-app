@@ -314,6 +314,8 @@ export function ChecklistsIndexPage() {
   // Nothing in a finished service can be ticked or chased, so it folds
   // away and opens on a touch when somebody wants the record.
   const { isExpanded, toggle: toggleService } = useExpanded()
+  // And each role's checklist inside a service.
+  const { isExpanded: isRoleToggled, toggle: toggleRole } = useExpanded()
   // In the order they happen — by date, then by start time — which is the
   // order every other page reads a Sunday in.
   const orderedServices = useMemo(
@@ -373,41 +375,40 @@ export function ChecklistsIndexPage() {
                     ),
                   ]
 
-                  const open = !finished || isExpanded(service.id)
+                  // Every service folds. Its own day it arrives open, until it
+                  // is over — the "before the service" list is worked through
+                  // before anything starts, so it cannot wait for the start.
+                  // Another day's, or a finished one, arrives folded, and a
+                  // touch opens it.
+                  const open = (!finished && service.date === today) !== isExpanded(service.id)
                   const heading = (
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       {/* The date is the day's heading above. */}
                       <h3 className="text-headline-lg">{service.service_type}</h3>
                       {finished && (
-                        <>
-                          <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
-                            Finished · closed
-                          </span>
-                          <span className="font-mono text-label-sm text-on-surface-faint">
-                            {forService.length} {forService.length === 1 ? 'role' : 'roles'}
-                          </span>
-                          <Chevron open={open} />
-                        </>
+                        <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+                          Finished · closed
+                        </span>
                       )}
+                      <span className="font-mono text-label-sm text-on-surface-faint">
+                        {forService.length} {forService.length === 1 ? 'role' : 'roles'}
+                      </span>
+                      <Chevron open={open} />
                     </div>
                   )
 
                   return (
                     <section key={service.id}>
                       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-                        {finished ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleService(service.id)}
-                            aria-expanded={open}
-                            aria-controls={`checklist-roles-${service.id}`}
-                            className="flex text-left"
-                          >
-                            {heading}
-                          </button>
-                        ) : (
-                          heading
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleService(service.id)}
+                          aria-expanded={open}
+                          aria-controls={`checklist-roles-${service.id}`}
+                          className="flex text-left"
+                        >
+                          {heading}
+                        </button>
 
                         {finished ? null : can('day.nudge') ? (
                           <NudgeButton
@@ -482,6 +483,10 @@ export function ChecklistsIndexPage() {
                           const statusOf = (itemId: string): ChecklistItemStatus =>
                             progress.find((p) => p.assignment_id === assignment.id && p.item_id === itemId)
                               ?.status ?? 'pending'
+                          // Your own list arrives open; the teams you oversee
+                          // arrive folded, each saying how far along it is.
+                          const roleOpen = (rank === 0) !== isRoleToggled(assignment.id)
+                          const ticked = items.filter((i) => statusOf(i.id) !== 'pending').length
 
                           return (
                             <li
@@ -495,8 +500,14 @@ export function ChecklistsIndexPage() {
                                   the same 40 characters and meeting in the
                                   middle. They sit on one line again as soon
                                   as there is room for both. */}
-                              <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2">
-                                <div className="flex min-w-0 items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleRole(assignment.id)}
+                                aria-expanded={roleOpen}
+                                aria-controls={`checklist-role-${assignment.id}`}
+                                className="flex w-full flex-col gap-1 text-left sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2"
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
                                   <TeamMark color={assignment.department?.color ?? null} />
                                   <span className="min-w-0 break-words font-medium text-on-surface">
                                     {assignment.role_label}
@@ -504,8 +515,16 @@ export function ChecklistsIndexPage() {
                                   <span className="shrink-0 text-body-sm text-on-surface-variant">
                                     · {assignment.department?.name}
                                   </span>
-                                </div>
+                                  <span className="text-body-lg">
+                                    <Chevron open={roleOpen} />
+                                  </span>
+                                </span>
                                 <span className="flex flex-wrap items-center gap-2">
+                                  {items.length > 0 && (
+                                    <span className="font-mono text-label-sm tabular text-on-surface-faint">
+                                      {ticked} of {items.length} ticked
+                                    </span>
+                                  )}
                                   {rank === 2 && (
                                     <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-status-coordinator">
                                       {may.sign ? 'For your sign-off' : 'Sign-off team view'}
@@ -519,7 +538,9 @@ export function ChecklistsIndexPage() {
                                         : 'Unassigned'}
                                   </span>
                                 </span>
-                              </div>
+                              </button>
+
+                              <div id={`checklist-role-${assignment.id}`} hidden={!roleOpen}>
 
                               {/*
                                 Why the boxes are dead, and when they will
@@ -639,6 +660,7 @@ export function ChecklistsIndexPage() {
                                 </div>
                                 ))
                               )}
+                              </div>
                             </li>
                           )
                         })}
