@@ -371,10 +371,13 @@ Each of these has already cost real time. None of them show up in review.
   **whole query** — and a new column starts closed until a migration
   grants it. `lib/profileColumns.test.ts` reads every select in `src/`
   against the grant; keep it passing rather than loosening it.
-- **Every new function is callable by anyone, signed in or not.** Postgres
-  grants EXECUTE to PUBLIC and Supabase adds anon and authenticated, so a
-  `security definer` helper meant only for a trigger or a cron job is also
-  an RPC that runs with the owner's rights. Either check `auth.uid()` /
+- **Every new function is callable by anyone signed in.** Since 0206 a
+  new function is closed to anon (and to PUBLIC) by default, and only
+  `reject_removed_user` — the pre-request hook, which runs on signed-out
+  requests too — is open to them; one a signed-out request must call needs
+  its own `grant execute … to anon`. Supabase still grants authenticated,
+  so a `security definer` helper meant only for a trigger or a cron job is
+  also an RPC that runs with the owner's rights. Either check `auth.uid()` /
   `may()` inside it, or `revoke all on function … from public, anon,
   authenticated` in the same migration. 0151 closed five that did neither
   (`join_invited_team`, `clear_message_board_if_due`, `record_activity`, …)
