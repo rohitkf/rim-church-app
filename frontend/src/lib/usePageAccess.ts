@@ -23,7 +23,7 @@ export function usePageAccess(): {
   canOpen: (path: string) => boolean
   settled: boolean
 } {
-  const { session, isAdmin, isSuperAdmin, isOverwatch, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, isSuperAdmin, isOverwatch, ledDepartmentIds, roles } = useAuth()
   const { onATeam, teamIds, settled: teamsSettled } = useMyTeams()
   const { settings, settled: settingsSettled } = useAppSettingsState()
   const standing = standingOf({
@@ -42,6 +42,11 @@ export function usePageAccess(): {
   // Clock In is also open to the people and teams the church named for
   // it (Settings › Clock in, 0191) — a list, not a level.
   const viewers = settings.clock_in_viewers
+  // Prayer Requests is always open to the pastors — the Pastor role, the
+  // Owner, and whoever Settings › Prayer adds (0197) — whatever level
+  // Page by page sets for everybody else.
+  const carers = settings.prayer_carers
+  const isPastor = (roles ?? []).some((r) => r.role_type === 'pastor')
   const myId = session?.user.id
   const canOpen = useCallback(
     (path: string) =>
@@ -55,8 +60,17 @@ export function usePageAccess(): {
           myId,
           teamIds: [...teamIds, ...ledDepartmentIds],
           viewers,
+        })) ||
+      (path === '/prayer' &&
+        maySeeClockIns({
+          isAdmin: false,
+          isOwner: isSuperAdmin || isPastor,
+          watching: false,
+          myId,
+          teamIds: [...teamIds, ...ledDepartmentIds],
+          viewers: carers,
         })),
-    [standing, access, scope, isOverwatch, watched, isAdmin, isSuperAdmin, myId, teamIds, ledDepartmentIds, viewers],
+    [standing, access, scope, isOverwatch, watched, isAdmin, isSuperAdmin, myId, teamIds, ledDepartmentIds, viewers, carers, isPastor],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled }
 }

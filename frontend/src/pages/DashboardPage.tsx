@@ -70,12 +70,13 @@ import { READINESS_KEY, fetchTeamReadiness, servingTeams, teamLights } from '../
 import { ReadyForService, ReadyLight } from '../components/ReadyLight'
 
 
-const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green'> = {
+const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green' | 'indigo'> = {
   admin: 'solid',
   department_head: 'blue',
   assisting_head: 'blue',
   service_flow_coordinator: 'green',
   overwatch: 'solid',
+  pastor: 'indigo',
 }
 
 /** How far off a service is, in the words a person would use. */
@@ -138,6 +139,7 @@ const roleLabel: Record<RoleType, string> = {
   assisting_head: 'Assisting Head',
   service_flow_coordinator: 'Service Flow Coordinator',
   overwatch: 'Overwatch',
+  pastor: 'Pastor',
 }
 
 

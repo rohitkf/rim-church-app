@@ -35,6 +35,8 @@ const KEYS = [
   'alert_clear_dow',
   'feedback_retention_days',
   'clock_in_retention_days',
+  'prayer_closed_retention_days',
+  'prayer_testimony_retention_days',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 const GROUPS: { title: string; hint: string; ids: string[] }[] = [
@@ -55,6 +57,11 @@ const GROUPS: { title: string; hint: string; ids: string[] }[] = [
   },
   { title: 'Feedback', hint: 'What the teams have told you about the app.', ids: ['feedback_retention_days'] },
   { title: 'Clock in', hint: 'Who arrived when, and where they were.', ids: ['clock_in_retention_days'] },
+  {
+    title: 'Prayer',
+    hint: 'Requests closed as no longer needed, and testimonies.',
+    ids: ['prayer_closed_retention_days', 'prayer_testimony_retention_days'],
+  },
 ]
 
 export function RetentionCard() {

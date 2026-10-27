@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-// 0155 redefines both functions (adding the Stage Layout page), so the
+// 0197 redefines both functions (adding the Prayer Requests page), so the
 // latest word is read.
-import migration from '../../../supabase/migrations/0155_the_stage_is_laid_out_before_sunday.sql?raw'
-// page_level()'s defaults, as they stand since Teams was kept to teams.
-import levels from '../../../supabase/migrations/0189_nobody_lets_themselves_into_a_team.sql?raw'
+import migration from '../../../supabase/migrations/0197_prayer_requests.sql?raw'
+// page_level()'s defaults, as they stand since Prayer Requests was added.
+import levels from '../../../supabase/migrations/0197_prayer_requests.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,

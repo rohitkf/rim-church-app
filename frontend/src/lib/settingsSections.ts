@@ -7,6 +7,7 @@ import {
   ClipboardUserIcon,
   EyeIcon,
   MapPinIcon,
+  PrayIcon,
   GridIcon,
   SparklesIcon,
   GiftHeartIcon,
@@ -190,6 +191,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         tone: 'green',
         needs: 'admin',
         keywords: 'clock in attendance arrival location gps geolocation radius present check in',
+      },
+      {
+        to: '/settings/prayer',
+        label: 'Prayer',
+        blurb: 'Who reads the private prayer requests, besides the Pastors.',
+        icon: PrayIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'prayer requests pastor pastors private testimonies chain prayer',
       },
       {
         to: '/settings/onboarding',

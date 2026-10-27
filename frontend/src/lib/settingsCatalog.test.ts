@@ -34,6 +34,8 @@ const NOT_A_ROW: (keyof AppSettings)[] = [
   // Lists of teams and people, edited in Settings › Clock in itself (0191).
   'clock_in_viewers',
   'clock_in_approver_teams',
+  // And in Settings › Prayer (0197).
+  'prayer_carers',
 ]
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])

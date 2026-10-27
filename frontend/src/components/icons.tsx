@@ -425,6 +425,18 @@ export function MapPinIcon(props: IconProps) {
   )
 }
 
+/** Two hands together, in prayer. */
+export function PrayIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 4.5c-.9 1.6-1.4 3.8-1.4 6v5.2L7 19.5" />
+      <path d="M12 4.5c.9 1.6 1.4 3.8 1.4 6v5.2l3.6 3.8" />
+      <path d="M10.6 11 7.8 13.6a2 2 0 0 0-.5 2.2l.7 1.7" />
+      <path d="M13.4 11l2.8 2.6a2 2 0 0 1 .5 2.2l-.7 1.7" />
+    </svg>
+  )
+}
+
 export function ListIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

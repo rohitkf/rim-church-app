@@ -284,6 +284,7 @@ describe('AppShell dock', () => {
       'Feedback',
       'Events',
       'Giving',
+      'Prayer Requests',
       'Teams',
       'Inventory',
     ])

@@ -21,6 +21,7 @@ import { OnboardingCard } from '../components/OnboardingCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
 import { OverwatchCard } from '../components/OverwatchCard'
 import { ClockInCard } from '../components/ClockInCard'
+import { PrayerSettingsCard } from '../components/PrayerSettingsCard'
 import { useAppSettings } from '../lib/appSettings'
 import { withPageAccess } from '../lib/permissionMatrix'
 import type { PageAccess } from '../lib/pageAccess'
@@ -320,6 +321,11 @@ export function OverwatchSettingsPane() {
 /** Clock in: when it opens, how strict, who sees it, who approves (0191). */
 export function ClockInSettingsPane() {
   return <ClockInCard />
+}
+
+/** Who reads the private prayer requests (0197). */
+export function PrayerSettingsPane() {
+  return <PrayerSettingsCard />
 }
 
 /** The church's clocks: when things open, close and clear. */

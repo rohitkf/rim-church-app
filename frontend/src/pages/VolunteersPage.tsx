@@ -307,6 +307,7 @@ export function VolunteersPage() {
     const myGrants = grants.filter((g) => g.user_id === v.id)
     const adminGrant = myGrants.find((g) => g.role_type === 'admin')
     const overwatchGrant = myGrants.find((g) => g.role_type === 'overwatch')
+    const pastorGrant = myGrants.find((g) => g.role_type === 'pastor')
     const isOwner = v.id === ownerId
     // Ownership carries Admin whether or not a grant row says so, so the
     // owner never shows a "Make admin" button that would do nothing.
@@ -377,6 +378,11 @@ export function VolunteersPage() {
             {overwatchGrant && (
               <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
                 Overwatch
+              </span>
+            )}
+            {pastorGrant && (
+              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                Pastor
               </span>
             )}
           </div>
@@ -566,6 +572,38 @@ export function VolunteersPage() {
                 className={cardDangerClasses}
               >
                 Remove Overwatch
+              </button>
+            )}
+            {/* Pastor (0197): reads the private prayer requests, and is who
+                the Prayer Requests page means by "the pastors". */}
+            {isAdmin && !pastorGrant && (
+              <button
+                onClick={() =>
+                  ask({
+                    title: `Make ${v.first_name} ${v.last_name} a Pastor?`,
+                    body: 'They will read the private prayer requests sent to the pastors, see who wrote anonymous ones, and can take down any request. Nothing else changes.',
+                    confirmLabel: 'Make Pastor',
+                    onConfirm: () => grantRole.mutate({ userId: v.id, roleType: 'pastor', departmentId: null }),
+                  })
+                }
+                className={cardActionClasses}
+              >
+                Make Pastor
+              </button>
+            )}
+            {isAdmin && pastorGrant && (
+              <button
+                onClick={() =>
+                  ask({
+                    title: `Remove Pastor from ${v.first_name} ${v.last_name}?`,
+                    body: 'They stop reading private prayer requests. Their own requests and teams stay as they are.',
+                    confirmLabel: 'Remove Pastor',
+                    onConfirm: () => revokeRole.mutate(pastorGrant.id),
+                  })
+                }
+                className={cardDangerClasses}
+              >
+                Remove Pastor
               </button>
             )}
             {/* Taking Admin away is the owner's, or your own to give up.
