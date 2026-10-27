@@ -129,6 +129,28 @@ describe('asking for prayer', () => {
   })
 })
 
+describe('the sections', () => {
+  it('opens one at a time, each under its own row, Requests first', async () => {
+    const user = show({ requests: [request(), request({ id: 'r2', mine: true, body: 'For peace' })] })
+    const requests = await screen.findByRole('button', { name: /^Requests/ })
+    const mine = screen.getByRole('button', { name: /^Mine/ })
+    expect(requests).toHaveAttribute('aria-expanded', 'true')
+    expect(mine).toHaveAttribute('aria-expanded', 'false')
+    expect(within(screen.getByRole('region', { name: 'Requests' })).getByText('For my mother’s surgery')).toBeInTheDocument()
+
+    await user.click(mine)
+    expect(mine).toHaveAttribute('aria-expanded', 'true')
+    expect(requests).toHaveAttribute('aria-expanded', 'false')
+    expect(within(screen.getByRole('region', { name: 'Mine' })).getByText('For peace')).toBeInTheDocument()
+    expect(screen.queryByText('For my mother’s surgery')).toBeNull()
+
+    // Tapping the open one shuts it.
+    await user.click(mine)
+    expect(mine).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('For peace')).toBeNull()
+  })
+})
+
 describe('praying for a request', () => {
   it('shows the counts on the responses and gives one, changeable and taken back on a second tap', async () => {
     const user = show({ requests: [request(), request({ id: 'r2', my_response: 'praying', body: 'For peace' })] })
@@ -203,8 +225,8 @@ describe('testimonies and the pastors', () => {
 
   it('gives the pastors their inbox, and nobody else', async () => {
     show({ requests: [request({ kind: 'private', body: 'A family matter' })] })
-    await screen.findByRole('tablist')
-    expect(screen.queryByRole('tab', { name: /Pastors/ })).toBeNull()
+    await screen.findByRole('button', { name: /^Requests/ })
+    expect(screen.queryByRole('button', { name: /^Pastors/ })).toBeNull()
   })
 
   it('lets the pastors read a private request and take one down', async () => {
@@ -280,7 +302,7 @@ describe('prayer lists', () => {
     expect(state.calls).toEqual([['list-save', null, 'Sunday intercession', { teams: [], people: [] }]])
 
     state.calls = []
-    await user.click(screen.getByRole('tab', { name: /Requests/ }))
+    await user.click(screen.getByRole('button', { name: /^Requests/ }))
     await fromMenu(user, 'Add to a list')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }))
     expect(state.calls).toEqual([['list-add', 'l1', 'r1', false]])
@@ -291,8 +313,8 @@ describe('while the Owner previews a role', () => {
   it('shows a Church Member no Pastors tab and no private request, though the database said pastoral', async () => {
     state.viewAs = { as: 'church' }
     show({ pastoral: true, moderator: true, requests: [request({ kind: 'private', body: 'A family matter' }), request()] }, '/prayer?tab=inbox')
-    await screen.findByRole('tablist')
-    expect(screen.queryByRole('tab', { name: /Pastors/ })).toBeNull()
+    await screen.findByRole('button', { name: /^Requests/ })
+    expect(screen.queryByRole('button', { name: /^Pastors/ })).toBeNull()
     expect(screen.queryByText('A family matter')).toBeNull()
     expect(screen.getByText('For my mother’s surgery')).toBeInTheDocument()
   })
