@@ -26,6 +26,19 @@ const ROWS = [
 
 const updated = vi.fn()
 
+/** The live channel the bell opened, and the handler it gave. */
+const live = vi.hoisted(() => ({
+  topic: '',
+  config: undefined as unknown,
+  event: '',
+  fire: (_message: { payload?: unknown }) => {},
+}))
+const shown = vi.hoisted(() => vi.fn())
+vi.mock('../lib/push', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/push')>()),
+  showLocalNotification: (...args: unknown[]) => shown(...args),
+}))
+
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'u1' } } }) }))
 
 vi.mock('../lib/supabaseClient', () => {
@@ -46,7 +59,17 @@ vi.mock('../lib/supabaseClient', () => {
           },
         }),
       }),
-      channel: () => ({ on: () => ({ subscribe: () => ({}) }) }),
+      channel: (topic: string, options?: { config?: unknown }) => {
+        live.topic = topic
+        live.config = options?.config
+        return {
+          on: (_type: string, filter: { event: string }, handler: (message: { payload?: unknown }) => void) => {
+            live.event = filter.event
+            live.fire = handler
+            return { subscribe: () => ({}) }
+          },
+        }
+      },
       removeChannel: () => {},
     },
   }
@@ -97,5 +120,33 @@ describe('the notifications bell', () => {
 
     expect(updated).toHaveBeenCalledWith({ read_boolean: true }, 'id', 'n1')
     expect(screen.queryByRole('link', { name: /New message board post/ })).not.toBeInTheDocument()
+  })
+
+  // 0202: a new notification arrives on its owner's private topic, with
+  // the row, so the bell can say it when the app is in the background.
+  describe('a new notification', () => {
+    const setVisibility = (state: 'visible' | 'hidden') =>
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+
+    it('is heard on its owner’s private topic', () => {
+      renderBell()
+      expect(live).toMatchObject({ topic: 'notifications:u1', config: { private: true }, event: 'inserted' })
+    })
+
+    it('is shown by the system while the app is out of sight', () => {
+      renderBell()
+      setVisibility('hidden')
+      live.fire({ payload: { type: 'message', reference_id: null, body: 'Rehearsal at 7' } })
+      expect(shown).toHaveBeenCalledWith('message', null, 'Rehearsal at 7')
+      setVisibility('visible')
+    })
+
+    it('is left to the bell while somebody is looking', () => {
+      shown.mockClear()
+      renderBell()
+      setVisibility('visible')
+      live.fire({ payload: { type: 'message', reference_id: null, body: 'Rehearsal at 7' } })
+      expect(shown).not.toHaveBeenCalled()
+    })
   })
 })

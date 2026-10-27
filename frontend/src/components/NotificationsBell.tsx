@@ -43,26 +43,24 @@ export function NotificationsBell() {
   // FR15.2: live updates via Supabase Realtime rather than polling.
   useEffect(() => {
     if (!myId) return
+    // Each new notification is sent to its owner's private topic as it is
+    // inserted (0202), and only that person may listen to it.
     const channel = supabase
-      .channel(`notifications-${myId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${myId}` },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ['notifications', myId] })
-          // Announce it to the system only when the app isn't being looked
-          // at. Buzzing a phone whose screen already shows the bell going
-          // red is how people turn notifications off.
-          if (document.visibilityState !== 'visible') {
-            const row = payload.new as {
-              type?: string
-              reference_id?: string | null
-              body?: string | null
-            }
-            if (row?.type) void showLocalNotification(row.type, row.reference_id, row.body)
+      .channel(`notifications:${myId}`, { config: { private: true } })
+      .on('broadcast', { event: 'inserted' }, ({ payload }) => {
+        queryClient.invalidateQueries({ queryKey: ['notifications', myId] })
+        // Announce it to the system only when the app isn't being looked
+        // at. Buzzing a phone whose screen already shows the bell going
+        // red is how people turn notifications off.
+        if (document.visibilityState !== 'visible') {
+          const row = payload as {
+            type?: string
+            reference_id?: string | null
+            body?: string | null
           }
-        },
-      )
+          if (row?.type) void showLocalNotification(row.type, row.reference_id, row.body)
+        }
+      })
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
