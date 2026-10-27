@@ -31,7 +31,10 @@ export function Lifespan({
 
   return (
     <p
-      className={`flex items-start gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-3.5 py-2.5 text-label-md text-on-surface-variant hairline ${className}`}
+      // Fine print, and drawn as it: a line in the page's quietest ink, not a
+      // boxed notice. In a box it was the first thing on every page, above
+      // the services it is a footnote to.
+      className={`flex items-start gap-2 text-label-md text-on-surface-faint ${className}`}
     >
       <svg
         className="mt-0.5 h-4 w-4 shrink-0 text-on-surface-faint"

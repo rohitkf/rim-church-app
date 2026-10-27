@@ -18,15 +18,14 @@ export function DayHeading({
   count: number
 }) {
   return (
-    // Wraps rather than holding its width: "TODAY · SUNDAY, SEPTEMBER 27,
-    // 2026" in spaced capitals is wider than a 360px phone, and held on one
-    // line it pushed the whole page sideways.
-    <div className="flex items-baseline gap-3">
-      <h2 className="min-w-0 break-words font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">
-        {date === today ? `Today · ${formatServiceDay(date)}` : formatServiceDay(date)}
+    // In the app's own type, not spaced capitals: "TODAY · SUNDAY,
+    // SEPTEMBER 27, 2026" in mono was wider than a phone and broke over two
+    // lines. The day is the heading; how many services it holds sits beside.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+      <h2 className="min-w-0 text-body-lg font-semibold text-on-surface">
+        {date === today ? `Today, ${formatServiceDay(date)}` : formatServiceDay(date)}
       </h2>
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-border-subtle" />
-      <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">
+      <span className="shrink-0 text-label-md text-on-surface-variant">
         {count} {count === 1 ? 'service' : 'services'}
       </span>
     </div>

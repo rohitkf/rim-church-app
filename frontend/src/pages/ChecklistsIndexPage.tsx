@@ -346,7 +346,6 @@ export function ChecklistsIndexPage() {
   }
 
   const daysShown = new Set(dayServices.map((s) => s.date)).size
-  const firstDayShown = dayServices.map((s) => s.date).sort()[0]
 
   /* One service, with my roles on it and the teams I oversee. */
   const renderService = (service: (typeof orderedServices)[number]) => {
@@ -673,13 +672,13 @@ export function ChecklistsIndexPage() {
              "next service day" over a fortnight of them would be a lie the
              page then spends five sections contradicting. */
           daysShown > 1
-            ? `The next ${settings.rota_window_days} days · from ${formatServiceDay(firstDayShown!)}`
+            ? `The next ${settings.rota_window_days} days`
             : dayIso
               ? `${dayIso === today ? 'Today' : dayIso > today ? 'Next service day' : 'Most recent service day'} · ${formatServiceDay(dayIso)}`
               : 'No service day yet'
         }
         title="Checklists"
-        description="Yours first, then the teams you oversee. Every item passes member → head → sign-off."
+        description="Yours first, then the teams you oversee."
       />
       <Lifespan page="checklists" className="mb-4" />
 

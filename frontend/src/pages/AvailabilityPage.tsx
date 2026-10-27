@@ -901,13 +901,9 @@ export function AvailabilityPage() {
                 <div
                   role="group"
                   aria-label={`Can you serve at ${service.service_type} for ${dept.name}?`}
-                  className={`${segmentTrackClasses} mt-3 ${
-                    mine
-                      ? ''
-                      : /* Unanswered is the state that needs chasing,
-                           so the control itself asks for the tap. */
-                        'shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-accent-orange)_35%,transparent)]'
-                  }`}
+                  // The team's amber row already says it is waiting on an
+                  // answer; a second amber ring round the buttons said it twice.
+                  className={`${segmentTrackClasses} mt-3`}
                 >
                   {STATUS_OPTIONS.map((opt) => {
                     const active = mine === opt.value
@@ -970,25 +966,6 @@ export function AvailabilityPage() {
                   whose="your answer"
                   entries={historyOf(history, myId!, service.id, dept.id)}
                 />
-              )}
-
-              {/*
-                How long is left to answer.
-                
-                A deadline nobody can see is a deadline that surprises
-                people, and this one is worth a clock rather than a date:
-                somebody looking at the page on the morning itself wants
-                to know whether they still have twenty minutes, and the
-                answer changes while they read it.
-              */}
-              {canAnswerFor(dept.id) && !finished && !answersClosed && (
-                <p className="mt-2 text-label-sm text-on-surface-faint">
-                  <ServiceCountdown
-                    startsAt={answersClose.toISOString()}
-                    label="left to answer"
-                    until="closes"
-                  />
-                </p>
               )}
 
               {/* And what happens once it has run out: the answer is no

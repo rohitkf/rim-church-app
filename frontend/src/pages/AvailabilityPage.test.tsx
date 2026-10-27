@@ -448,10 +448,12 @@ describe('answering closes the night before', () => {
 
     // The clock is drawn as separate elements — hours, colon, minutes —
     // so the sentence it reads out is what to check.
-    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
+    // Once, beside the service's name — not again under every team.
+    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/\d to answer/)
+    expect(within(cardFor(/Today/) as HTMLElement).queryByLabelText(/left to answer/)).toBeNull()
     // A second or two passes while the page renders, so the minute is
     // what is worth pinning rather than the second.
-    expect(clock).toHaveAccessibleName(/^01:(29|30):\d{2} left to answer/)
+    expect(clock).toHaveAccessibleName(/^01:(29|30):\d{2} to answer/)
   })
 
   /*
@@ -464,7 +466,7 @@ describe('answering closes the night before', () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
 
-    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/left to answer/)
+    const clock = within(cardFor(/Today/) as HTMLElement).getByLabelText(/\d to answer/)
     expect(clock).toHaveAccessibleName(/closes 10:59pm/)
   })
 
@@ -474,7 +476,7 @@ describe('answering closes the night before', () => {
     show()
     await screen.findAllByRole('heading', { name: /Today/ })
 
-    expect(within(cardFor(/Today/) as HTMLElement).queryByText(/left to answer/)).toBeNull()
+    expect(within(cardFor(/Today/) as HTMLElement).queryByLabelText(/\d to answer/)).toBeNull()
   })
 
   /*
@@ -561,7 +563,7 @@ describe('the availability tracker over three weeks', () => {
     expect(later).not.toContainElement(english)
     expect(later).not.toContainElement(malayalam)
     // One heading for the day, not two.
-    expect(screen.getAllByRole('heading', { name: /^Today ·/ })).toHaveLength(1)
+    expect(screen.getAllByRole('heading', { name: /^Today, / })).toHaveLength(1)
   })
 
   /*
