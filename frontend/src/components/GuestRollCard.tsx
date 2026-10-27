@@ -6,6 +6,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { QueryState } from './QueryState'
 import { Chevron, useExpanded } from './Collapsible'
 import { useConfirmAction } from './ConfirmAction'
+import { Overlay } from './Surface'
 import { GUESTS_KEY, addGuest, alreadyOnTheRoll, fetchGuests, guestLabel, type Guest } from '../lib/guests'
 
 /** The designations this church actually uses, as a starting point. It is
@@ -208,7 +209,7 @@ export function GuestRollCard() {
                         type="button"
                         onClick={() => save.mutate(guest.id)}
                         disabled={!draft.name.trim() || save.isPending}
-                        className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+                        className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
                       >
                         {save.isPending ? 'Saving…' : 'Save'}
                       </button>
@@ -330,7 +331,7 @@ export function GuestRollCard() {
             <button
               type="submit"
               disabled={!name.trim() || add.isPending}
-              className="tap shrink-0 rounded-full bg-primary px-5 py-2 text-body-sm font-medium text-on-primary disabled:opacity-40"
+              className="tap shrink-0 rounded-full bg-primary px-5 py-2 text-body-sm font-semibold text-on-primary disabled:opacity-40"
             >
               {add.isPending ? 'Adding…' : 'Add'}
             </button>
@@ -383,13 +384,7 @@ function LinkToMemberDialog({
   }, [peopleQuery.data, query])
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Link ${guestLabel(guest)} to an account`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-[2px]"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <Overlay closable={false} onDismiss={onClose} label={`Link ${guestLabel(guest)} to an account`}>
       <div className="w-full max-w-sm rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
         <h3 className="text-headline-md">{guestLabel(guest)} has an account?</h3>
         <p className="mt-1.5 text-body-sm text-on-surface-variant">
@@ -436,6 +431,6 @@ function LinkToMemberDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }

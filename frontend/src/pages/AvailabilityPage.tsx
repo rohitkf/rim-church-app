@@ -209,7 +209,7 @@ function AnswerNote({
             type="button"
             disabled={busy || !changed}
             onClick={save}
-            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+            className="rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
           >
             Save note
           </button>

@@ -314,7 +314,7 @@ export function PollsPage() {
             <button
               type="button"
               onClick={() => setComposing(true)}
-              className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90"
+              className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90"
             >
               New poll
             </button>
@@ -766,7 +766,7 @@ function PollEditor({
         <button
           type="submit"
           disabled={!ready || save.isPending}
-          className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
         >
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
@@ -1181,7 +1181,7 @@ function PollComposer({
           <button
             type="submit"
             disabled={!ready || create.isPending}
-            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {create.isPending ? 'Posting…' : 'Post poll'}
           </button>

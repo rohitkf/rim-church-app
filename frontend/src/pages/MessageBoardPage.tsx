@@ -260,7 +260,7 @@ export function MessageBoardPage() {
               <button
                 type="submit"
                 disabled={postMessage.isPending}
-                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {postMessage.isPending ? 'Posting…' : 'Post'}
               </button>
@@ -279,7 +279,7 @@ export function MessageBoardPage() {
             </p>
             <Link
               to="/departments"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms]"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-[background-color,color,box-shadow,opacity,transform] duration-200 ease-[var(--ease-glide)] hover:shadow-[var(--shadow-lifted)] active:scale-[0.97] active:duration-[80ms]"
             >
               Find a team to join
               <span aria-hidden="true">&rarr;</span>

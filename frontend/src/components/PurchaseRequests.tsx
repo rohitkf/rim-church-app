@@ -313,7 +313,7 @@ export function PurchaseRequests({
           <button
             type="button"
             onClick={() => setAsking(true)}
-            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90"
+            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90"
           >
             Request something
           </button>
@@ -676,7 +676,7 @@ function RequestFields({
         <button
           type="submit"
           disabled={pending || !draft.itemName.trim()}
-          className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+          className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
         >
           {pending ? pendingLabel : submitLabel}
         </button>
@@ -804,7 +804,7 @@ function RequestRow({
               type="button"
               disabled={busy}
               onClick={() => onPurchased?.()}
-              className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+              className="tap rounded-full bg-primary px-3.5 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
             >
               Bought it — add to inventory
             </button>

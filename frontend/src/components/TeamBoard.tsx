@@ -335,7 +335,7 @@ export function TeamBoard({
                         type="button"
                         disabled={editMessage.isPending || draft.trim().length === 0}
                         onClick={() => editMessage.mutate({ id: message.id, text: draft.trim() })}
-                        className="tap rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+                        className="tap rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
                       >
                         Save
                       </button>
@@ -461,7 +461,7 @@ export function TeamBoard({
             type="button"
             onClick={() => post.mutate()}
             disabled={post.isPending || body.trim().length === 0}
-            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary disabled:opacity-40"
+            className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary disabled:opacity-40"
           >
             Send
           </button>

@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
+import { ActionButton, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -643,12 +643,7 @@ export function EventsPage() {
       </QueryState>
 
       {adding && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-event-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
-        >
+        <Overlay onDismiss={closeForm} label={editing ? 'Edit this event' : 'Add an event'}>
           <form
             onSubmit={handleAdd}
             className="max-h-full w-full max-w-lg overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
@@ -741,7 +736,7 @@ export function EventsPage() {
               </ActionButton>
             </div>
           </form>
-        </div>
+        </Overlay>
       )}
 
       {/*
@@ -753,15 +748,7 @@ export function EventsPage() {
         "anything else", which is usually the part that matters.
        */}
       {reading && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="event-detail-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setReading(null)
-          }}
-        >
+        <Overlay closable={false} onDismiss={() => setReading(null)} label={reading.title}>
           <div className="max-h-full w-full max-w-md overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
             <div className="flex flex-wrap items-center gap-2">
               {reading.department?.color && <TeamMark color={reading.department.color} />}
@@ -859,7 +846,7 @@ export function EventsPage() {
               <ActionButton onClick={() => setReading(null)}>Close</ActionButton>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {dialog}

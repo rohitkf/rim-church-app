@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PermissionsCard } from './PermissionsCard'
 import { PERMISSIONS, ROLES } from '../lib/permissionMatrix'
 import { decide, type Holder, type Overrides } from '../lib/permissions'
+import { chooseOption, openOptions } from '../test/select'
 
 /*
  * Who is looking, and what the church has stored. usePermissions is
@@ -151,15 +152,17 @@ describe('PermissionsCard', () => {
       const user = show()
       await compare(user)
       const assign = within(rowFor('Assign somebody to a role'))
-      const options = (label: string) =>
-        within(assign.getByRole('combobox', { name: `Assign somebody to a role — ${label}` }))
-          .getAllByRole('option')
-          .map((o) => o.textContent)
+      const options = async (label: string) => {
+        const list = await openOptions(user, assign.getByRole('combobox', { name: `Assign somebody to a role — ${label}` }))
+        const shown = within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)
+        await user.keyboard('{Escape}')
+        return shown
+      }
       // Short in the six-column grid; the one-role view says them in full.
-      expect(options('Admin')).toEqual(['No', 'All'])
-      expect(options('Team Head')).toEqual(['No', 'Team', 'All'])
-      expect(options('Coordinator')).toEqual(['No', 'Team'])
-      expect(options('Team Member')).toEqual(['No', 'Team', 'All'])
+      expect(await options('Admin')).toEqual(['No', 'All'])
+      expect(await options('Team Head')).toEqual(['No', 'Team', 'All'])
+      expect(await options('Coordinator')).toEqual(['No', 'Team'])
+      expect(await options('Team Member')).toEqual(['No', 'Team', 'All'])
       // A Church Member and the Owner are not offered a choice at all.
       expect(assign.queryByRole('combobox', { name: /Church Member/ })).toBeNull()
       expect(assign.queryByRole('combobox', { name: /Owner/ })).toBeNull()
@@ -169,10 +172,7 @@ describe('PermissionsCard', () => {
     it('saves nothing until Save, then sends exactly the cells that changed', async () => {
       const user = show()
       await compare(user)
-      await user.selectOptions(
-        screen.getByRole('combobox', { name: 'Assign somebody to a role — Team Member' }),
-        'team',
-      )
+      await chooseOption(user, screen.getByRole('combobox', { name: 'Assign somebody to a role — Team Member' }), 'Team')
       expect(rpc).not.toHaveBeenCalled()
       const pending = screen.getByRole('list', { name: 'Changes to save' })
       expect(within(pending).getByText(/Team Member/)).toBeInTheDocument()
@@ -189,7 +189,7 @@ describe('PermissionsCard', () => {
       const user = show()
       await compare(user)
       const picker = screen.getByRole('combobox', { name: 'Assign somebody to a role — Team Head' })
-      expect(picker).toHaveValue('all')
+      expect(picker).toHaveTextContent(/^All$/)
       expect(within(rowFor('Assign somebody to a role')).getByLabelText('Changed from the app’s default')).toBeInTheDocument()
     })
 
@@ -213,8 +213,9 @@ describe('PermissionsCard', () => {
       await user.click(screen.getByRole('radio', { name: 'Coordinator' }))
       await user.click(screen.getByRole('button', { name: /^Team rota/ }))
       const picker = screen.getByRole('combobox', { name: 'Approve or refuse a release request — Coordinator' })
-      expect(within(picker).getAllByRole('option').map((o) => o.textContent)).toEqual(['No', 'Their team'])
-      await user.selectOptions(picker, 'team')
+      const list = await openOptions(user, picker)
+      expect(within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)).toEqual(['No', 'Their team'])
+      await user.click(within(list).getByRole('option', { name: 'Their team' }))
       expect(screen.getByRole('list', { name: 'Changes to save' })).toBeInTheDocument()
     })
 

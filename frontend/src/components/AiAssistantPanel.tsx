@@ -133,7 +133,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
               <button
                 onClick={() => confirmMutation.mutate(true)}
                 disabled={busy}
-                className="rounded-full bg-primary px-3 py-1.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 Confirm
               </button>
@@ -176,7 +176,7 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
         <button
           type="submit"
           disabled={busy || !!pendingActions || !input.trim()}
-          className="rounded-full bg-primary px-3 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+          className="rounded-full bg-primary px-3 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
         >
           Send
         </button>

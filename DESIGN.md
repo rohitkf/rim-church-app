@@ -251,6 +251,15 @@ the same on each:
   one that stands taller (44px), because it is tapped standing up.
 - **On or off** is the `Switch`, and a switch lives in a row with its
   label, never on its own.
+- **Every button and link can be hit with a thumb.** On a touch screen
+  each one carries an invisible square of at least 44 by 44, centred on
+  it (`index.css`, under "hit area"), so an "Edit" in a row or a 32px pill
+  is a 44pt target without anything moving. Nothing to add per component;
+  `tap` is still how a control is made to *look* 44 tall where it should.
+  Links inside a paragraph are left out, so the words beside them stay
+  words. And a button with white on a colour is semibold: white on the
+  dark theme's blue is 3.65:1, which the HIG passes for bold text only —
+  and white never goes on green (2:1); green carries `accent-green-ink`.
 
 Two rules about overlays. Everything that covers the page goes through
 `Overlay`, which portals to `document.body` — a `fixed` child is measured
@@ -328,7 +337,8 @@ gives both back at the top (`useScrolled`). The dock and an overlay's
 close button are glass too. **Only chrome that floats over content is
 ever glass; content never is.** Somebody who has asked their device for
 less transparency gets the same chrome solid — `prefers-reduced-
-transparency` in `index.css`, nothing per component. And a `backdrop-
+transparency` in `index.css`, nothing per component, and that covers a
+`backdrop-blur` utility as much as `glass`. And a `backdrop-
 filter` makes an element the containing block for any `fixed` descendant,
 which is why nothing inside a tile blurs its backdrop.
 

@@ -24,6 +24,7 @@ import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { Pill, SegmentedControl, Tile } from './Surface'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
+import { Select, reachPickerClasses } from './Select'
 
 /**
  * Who can do what — and, where the church sets it, the place to set it.
@@ -136,20 +137,13 @@ export function ReachPicker({
 }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <select
+      <Select
         aria-label={label}
         value={value}
-        onChange={(e) => onChange(e.target.value as Reach)}
-        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-200 hover:bg-raised-strong ${
-          wide ? 'min-w-32' : ''
-        } ${unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''}`}
-      >
-        {reaches.map((reach) => (
-          <option key={reach} value={reach}>
-            {wide ? REACH_LABEL[reach] : REACH_SHORT[reach]}
-          </option>
-        ))}
-      </select>
+        onChange={(next) => onChange(next as Reach)}
+        options={reaches.map((reach) => ({ value: reach, label: wide ? REACH_LABEL[reach] : REACH_SHORT[reach] }))}
+        className={`${reachPickerClasses} ${wide ? 'min-w-32' : ''} ${unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''}`}
+      />
       {moved && (
         <span
           aria-label="Changed from the app’s default"
@@ -275,7 +269,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                   onClick={() => setRole(r.key)}
                   className={`tap rounded-full px-4 py-2 text-body-sm transition-colors duration-200 ${
                     role === r.key
-                      ? 'bg-primary font-medium text-on-primary'
+                      ? 'bg-primary font-semibold text-on-primary'
                       : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
                   }`}
                 >

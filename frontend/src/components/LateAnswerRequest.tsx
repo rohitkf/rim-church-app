@@ -150,7 +150,7 @@ export function AskToChangeAnswer({
                 setReason('')
               }}
               disabled={busy}
-              className="rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+              className="rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
             >
               Send the request
             </button>

@@ -91,7 +91,7 @@ export function PhoneCheckDialog() {
             type="button"
             onClick={() => void save()}
             disabled={saving || status !== 'valid'}
-            className="rounded-full bg-primary px-5 py-3 text-body-md font-medium text-on-primary hover:opacity-90 disabled:opacity-60"
+            className="rounded-full bg-primary px-5 py-3 text-body-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save number'}
           </button>

@@ -231,7 +231,7 @@ export function ServiceTemplatesPage() {
           <button
             type="submit"
             disabled={saveTemplate.isPending}
-            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {saveTemplate.isPending ? 'Saving…' : editingId ? 'Save changes' : 'Create template'}
           </button>

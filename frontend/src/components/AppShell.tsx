@@ -21,7 +21,7 @@ import { usePageAccess } from '../lib/usePageAccess'
 import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout, navLabels } from '../lib/navLayout'
 import { NavNamesContext } from '../lib/navNames'
 import { useQuery } from '@tanstack/react-query'
-import { ActionButton } from './Surface'
+import { ActionButton, Overlay } from './Surface'
 import { Tour } from './Tour'
 import { PhoneCheckDialog } from './PhoneCheckDialog'
 import { WhatsNew } from './WhatsNew'
@@ -206,12 +206,7 @@ export function AppShell() {
       <AlertBanner />
 
       {confirmSignOut && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="sign-out-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-        >
+        <Overlay closable={false} onDismiss={() => setConfirmSignOut(false)} label="Sign out?">
           <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-7 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)]">
             <h2 id="sign-out-title" className="text-headline-md">
               Sign out?
@@ -228,7 +223,7 @@ export function AppShell() {
               </ActionButton>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {comingSoon && <ComingSoonDialog onClose={() => setComingSoon(false)} />}

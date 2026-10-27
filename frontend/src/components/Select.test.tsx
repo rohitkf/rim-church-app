@@ -127,6 +127,23 @@ describe('Select', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('opens upwards against the field when the window ends below it, however short the list', async () => {
+    const user = show()
+    const trigger = screen.getByRole('combobox')
+    // A field 40px from the bottom of an 800px window.
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(
+      { top: 720, bottom: 760, left: 20, right: 220, width: 200, height: 40, x: 20, y: 720, toJSON: () => ({}) } as DOMRect,
+    )
+    vi.stubGlobal('innerHeight', 800)
+    await user.click(trigger)
+    const menu = screen.getByRole('listbox')
+    // Standing 6px above the field's top edge, not hung from where the
+    // tallest list would have started.
+    expect(menu.style.bottom).toBe('86px')
+    expect(menu.style.top).toBe('')
+    vi.unstubAllGlobals()
+  })
+
   it('says nothing rather than lying when the value matches no option', () => {
     render(
       <Select

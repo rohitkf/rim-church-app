@@ -342,6 +342,40 @@ body {
 }
 
 /*
+ * And the rest: a hit area that reaches 44pt without the control growing.
+ *
+ * `tap` sizes a control; most of the app's small ones were never given it
+ * — the "Edit" and "Remove" words in a row, a chip in a picker, a 32px
+ * pill — and at 20 to 40px tall they sat under the HIG's 44pt default,
+ * the text-only ones under its 28pt floor. Sizing each of them would move
+ * every layout they sit in. So on a touch screen every button and link
+ * carries an invisible square, centred on it, that is at least 44 by 44:
+ * the finger lands on the control without the eye seeing anything change.
+ * A control already that big gets a square exactly its own size.
+ *
+ * In `base` and inside `:where()`, so it weighs nothing: a component that
+ * positions itself (`absolute`, `fixed`, `sticky`) still wins. Links in a
+ * paragraph are left alone — a run of text is not a row of buttons, and
+ * a square around each link would make the words beside it tappable.
+ */
+@layer base {
+  @media (pointer: coarse) {
+    :where(button, [role='button'], summary, a[href]:not(p a)) {
+      position: relative;
+    }
+    :where(button, [role='button'], summary, a[href]:not(p a))::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+/*
  * Pressing.
  *
  * A control answers the finger the moment it lands — a plain button dims,
@@ -603,6 +637,14 @@ body::before {
   }
   .scroll-edge::after {
     background: linear-gradient(to bottom, var(--color-background), transparent);
+  }
+  /* The blurs written as utilities rather than `glass` — a floating
+     title, the quick-nav scrim, a sticky save bar, the sign-in card —
+     obey the same setting; their colour underneath is already nearly
+     solid. */
+  [class*='backdrop-blur'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 

@@ -170,7 +170,7 @@ export function TeamCardActions({
           <button
             type="submit"
             disabled={rename.isPending}
-            className="rounded-full bg-primary px-4 py-1.5 text-body-sm font-medium text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-1.5 text-body-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
           >
             Save
           </button>

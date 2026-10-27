@@ -44,7 +44,7 @@ export function ProtectedRoute() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-5 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary"
+              className="mt-5 rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary"
             >
               Try again
             </button>

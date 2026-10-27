@@ -169,7 +169,7 @@ export function LabelSheetDialog({
             type="button"
             onClick={() => build(printPdf)}
             disabled={!labels || busy}
-            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+            className="tap rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
           >
             {busy ? 'Preparing…' : 'Print'}
           </button>

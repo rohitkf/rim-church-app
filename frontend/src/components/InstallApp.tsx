@@ -202,7 +202,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
                       }}
                       className={`tap rounded-full px-3 py-1.5 text-label-md transition-colors duration-200 ${
                         id === guideId
-                          ? 'bg-primary font-medium text-on-primary'
+                          ? 'bg-primary font-semibold text-on-primary'
                           : 'bg-raised text-on-surface-variant hover:text-on-surface'
                       }`}
                     >

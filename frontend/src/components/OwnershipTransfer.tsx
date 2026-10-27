@@ -115,7 +115,7 @@ export function OwnershipTransfer() {
               type="button"
               onClick={() => respond.mutate(true)}
               disabled={respond.isPending}
-              className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-medium text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
+              className="rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary shadow-[var(--shadow-ambient)] transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50"
             >
               {respond.isPending ? 'Working…' : 'Accept ownership'}
             </button>

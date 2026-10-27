@@ -130,7 +130,7 @@ export function LinkCard({ link }: { link: GivingLink }) {
         href={link.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="tap inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-3 text-body-sm font-medium text-on-primary hover:opacity-90"
+        className="tap inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary hover:opacity-90"
       >
         {link.label} <span aria-hidden="true">↗</span>
       </a>

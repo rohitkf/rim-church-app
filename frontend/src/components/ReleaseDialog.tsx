@@ -42,7 +42,7 @@ export function ReleaseDialog({ release, onClose }: { release: Release; onClose:
                 onClose()
                 navigate(release.link!.to)
               }}
-              className="rounded-full bg-primary px-5 py-3 text-body-md font-medium text-on-primary hover:opacity-90"
+              className="rounded-full bg-primary px-5 py-3 text-body-md font-semibold text-on-primary hover:opacity-90"
             >
               {release.link.label}
             </button>

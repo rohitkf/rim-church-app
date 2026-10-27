@@ -127,7 +127,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
                   aria-pressed={preference === choice.value}
                   className={`flex-1 rounded-sm px-2 py-1 text-label-sm transition-colors ${
                     preference === choice.value
-                      ? 'bg-primary font-medium text-on-primary'
+                      ? 'bg-primary font-semibold text-on-primary'
                       : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
@@ -148,7 +148,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
                   aria-pressed={teamStyle === choice.value}
                   className={`flex-1 rounded-sm px-2 py-1 text-label-sm transition-colors ${
                     teamStyle === choice.value
-                      ? 'bg-primary font-medium text-on-primary'
+                      ? 'bg-primary font-semibold text-on-primary'
                       : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
@@ -247,7 +247,7 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
             type="button"
             role="menuitem"
             onClick={() => choose(null)}
-            className="tap mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-label-md font-medium text-on-primary"
+            className="tap mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary"
           >
             Exit preview
           </button>

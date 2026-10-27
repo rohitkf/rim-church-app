@@ -293,7 +293,7 @@ export function ItemDocuments({
             <button
               type="submit"
               disabled={addDocument.isPending || (!file && !link.trim())}
-              className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-medium text-on-primary disabled:opacity-40"
+              className="tap rounded-full bg-primary px-4 py-1.5 text-label-md font-semibold text-on-primary disabled:opacity-40"
             >
               {addDocument.isPending ? 'Saving…' : 'Save'}
             </button>

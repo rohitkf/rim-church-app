@@ -504,7 +504,7 @@ export function DepartmentDetailPage() {
                 <button
                   type="button"
                   onClick={() => setInviting(true)}
-                  className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90"
+                  className="tap rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90"
                 >
                   Invite someone
                 </button>
@@ -802,7 +802,7 @@ export function DepartmentDetailPage() {
                 <button
                   type="submit"
                   disabled={addMember.isPending}
-                  className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                  className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
                 >
                   {addMember.isPending ? 'Adding…' : 'Add'}
                 </button>
@@ -820,7 +820,7 @@ export function DepartmentDetailPage() {
                     type="button"
                     disabled={addRollGuest.isPending}
                     onClick={() => addRollGuest.mutate({ name: rollOffer, type: addType })}
-                    className="rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                    className="rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
                   >
                     {addRollGuest.isPending ? 'Adding…' : 'Add to the roll'}
                   </button>

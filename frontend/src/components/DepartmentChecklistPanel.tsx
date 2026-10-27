@@ -249,7 +249,7 @@ export function DepartmentChecklistPanel({
               rel="noreferrer"
               className="tap rounded-full hairline bg-surface-lowest px-4 py-2 text-body-sm font-medium text-on-surface hover:border-secondary"
             >
-              Download Handbook PDF
+              Download the handbook (PDF)
             </a>
           )}
         </div>
@@ -278,7 +278,7 @@ export function DepartmentChecklistPanel({
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-          <h4 className="text-headline-md">Pre-Service Tasks</h4>
+          <h4 className="text-headline-md">Before the service</h4>
 
           {checklistIdQuery.data === null && !checklistIdQuery.isLoading && (
             <div className="mt-4">
@@ -287,9 +287,9 @@ export function DepartmentChecklistPanel({
                 <button
                   onClick={() => createChecklist.mutate()}
                   disabled={createChecklist.isPending}
-                  className="mt-3 rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                  className="mt-3 rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
                 >
-                  {createChecklist.isPending ? 'Creating…' : 'Create Checklist'}
+                  {createChecklist.isPending ? 'Creating…' : 'Create the checklist'}
                 </button>
               )}
             </div>
@@ -333,9 +333,9 @@ export function DepartmentChecklistPanel({
                                 },
                               })
                             }
-                            className="rounded-sm bg-status-member px-3 py-1.5 text-body-sm font-medium text-white hover:opacity-90"
+                            className="tap rounded-full px-3.5 py-1.5 text-body-sm font-semibold bg-status-member text-white hover:opacity-90"
                           >
-                            Mark Complete
+                            Mark it done
                           </button>
                         )}
                         {canThisHeadVerify && (
@@ -350,9 +350,9 @@ export function DepartmentChecklistPanel({
                                 },
                               })
                             }
-                            className="rounded-sm bg-status-head px-3 py-1.5 text-body-sm font-medium text-white hover:opacity-90"
+                            className="tap rounded-full px-3.5 py-1.5 text-body-sm font-semibold bg-status-head text-white hover:opacity-90"
                           >
-                            Verify (Head)
+                            Verify as head
                           </button>
                         )}
                         {canThisCoordinatorVerify && (
@@ -367,9 +367,9 @@ export function DepartmentChecklistPanel({
                                 },
                               })
                             }
-                            className="rounded-sm bg-status-coordinator px-3 py-1.5 text-body-sm font-medium text-white hover:opacity-90"
+                            className="tap rounded-full px-3.5 py-1.5 text-body-sm font-semibold bg-status-coordinator text-accent-green-ink hover:opacity-90"
                           >
-                            Verify (Coordinator)
+                            Verify as coordinator
                           </button>
                         )}
                         {canManageChecklist && (
@@ -386,7 +386,7 @@ export function DepartmentChecklistPanel({
                                 onConfirm: () => deleteItem.mutate(item.id),
                               })
                             }
-                            className="ml-auto text-body-sm text-error hover:underline"
+                            className="tap ml-auto px-2 text-body-sm text-error hover:underline"
                           >
                             Delete
                           </button>
@@ -433,7 +433,7 @@ export function DepartmentChecklistPanel({
               <button
                 type="submit"
                 disabled={addItem.isPending}
-                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
               >
                 {addItem.isPending ? 'Adding…' : 'Add'}
               </button>
@@ -448,7 +448,7 @@ export function DepartmentChecklistPanel({
 
         <div className="flex flex-col gap-6">
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-            <h4 className="text-headline-md">Department Readiness</h4>
+            <h4 className="text-headline-md">Department readiness</h4>
             <div className="mt-4">
               <SegmentedProgressBar
                 total={items.length}

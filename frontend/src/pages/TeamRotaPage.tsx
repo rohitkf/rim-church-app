@@ -1142,7 +1142,7 @@ export function TeamRotaPage() {
                               <button
                                 type="submit"
                                 disabled={addAssignment.isPending || !!clash}
-                                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                                className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
                               >
                                 Assign
                               </button>
@@ -1180,7 +1180,7 @@ export function TeamRotaPage() {
                                     })
                                   }
                                   disabled={requestRelease.isPending}
-                                  className="mt-2 rounded-full bg-primary px-4 py-2 text-body-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                                  className="mt-2 rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90 disabled:opacity-50"
                                 >
                                   {requestRelease.isPending ? 'Sending…' : 'Inform department head'}
                                 </button>
@@ -1325,7 +1325,7 @@ export function TeamRotaPage() {
                 type="button"
                 onClick={() => setClashNotice(null)}
                 autoFocus
-                className="tap rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary"
+                className="tap rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary"
               >
                 OK
               </button>

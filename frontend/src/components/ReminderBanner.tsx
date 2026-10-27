@@ -55,7 +55,7 @@ export function ReminderBanner({
         <Link
           to={href}
           onClick={onOpen}
-          className="tap shrink-0 self-start rounded-full bg-primary px-4 py-2 text-label-md font-medium text-on-primary hover:opacity-90 sm:self-center"
+          className="tap shrink-0 self-start rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary hover:opacity-90 sm:self-center"
         >
           {actionLabel}
         </Link>

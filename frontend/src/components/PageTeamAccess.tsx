@@ -14,6 +14,7 @@ import {
 } from '../lib/permissions'
 import type { Allowed, Capability } from '../lib/permissionMatrix'
 import { Chevron } from './Collapsible'
+import { Select, reachPickerClasses } from './Select'
 import { FixedCell, roleLabel } from './PermissionsCard'
 import { TeamMark } from './TeamMark'
 
@@ -62,21 +63,16 @@ export function TeamCellPicker({
 }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <select
+      <Select
         aria-label={label}
         value={value ?? ''}
-        onChange={(e) => onChange((e.target.value || null) as Reach | null)}
-        className={`tap cursor-pointer rounded-full bg-raised py-1 pl-2.5 pr-1 text-label-md text-on-surface hairline transition-shadow duration-200 hover:bg-raised-strong ${
-          unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''
-        }`}
-      >
-        <option value="">As the church ({REACH_SHORT[church]})</option>
-        {teamReaches(capability, role).map((reach) => (
-          <option key={reach} value={reach}>
-            {REACH_SHORT[reach]}
-          </option>
-        ))}
-      </select>
+        onChange={(next) => onChange((next || null) as Reach | null)}
+        options={[
+          { value: '', label: `As the church (${REACH_SHORT[church]})` },
+          ...teamReaches(capability, role).map((reach) => ({ value: reach, label: REACH_SHORT[reach] })),
+        ]}
+        className={`${reachPickerClasses} ${unsaved ? 'outline-2 outline-offset-2 outline-accent-orange' : ''}`}
+      />
       {value && (
         <span
           aria-label="This team’s own rule"
