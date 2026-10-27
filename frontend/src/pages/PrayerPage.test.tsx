@@ -11,7 +11,12 @@ import type { PrayerBoard, PrayerRequest } from '../lib/prayer'
  * own answered as a testimony; the pastors' inbox only for the pastors.
  */
 
-const state = vi.hoisted(() => ({ board: null as unknown, calls: [] as unknown[][], viewAs: null as unknown }))
+const state = vi.hoisted(() => ({
+  board: null as unknown,
+  calls: [] as unknown[][],
+  viewAs: null as unknown,
+  hold: null as null | Promise<void>,
+}))
 
 vi.mock('../lib/plannerControls', async (original) => ({
   ...(await original<typeof import('../lib/plannerControls')>()),
@@ -21,6 +26,7 @@ vi.mock('../lib/queries', async (original) => ({
   ...(await original<typeof import('../lib/queries')>()),
   fetchDepartments: () => Promise.resolve([{ id: 'd1', name: 'Intercessors' }]),
 }))
+vi.mock('../lib/usePrayerLive', () => ({ usePrayerLive: () => undefined }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ viewAs: state.viewAs }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/prayer', async (original) => {
@@ -35,7 +41,10 @@ vi.mock('../lib/prayer', async (original) => {
     ...real,
     fetchPrayerBoard: () => Promise.resolve(state.board),
     askForPrayer: record('ask'),
-    respondToPrayer: record('respond'),
+    respondToPrayer: (...args: unknown[]) => {
+      state.calls.push(['respond', ...args])
+      return state.hold ?? Promise.resolve()
+    },
     markPrayerAnswered: record('answer'),
     closePrayer: record('close'),
     reopenPrayer: record('reopen'),
@@ -121,6 +130,17 @@ describe('praying for a request', () => {
       ['respond', 'r1', 'fasting'],
       ['respond', 'r2', null],
     ])
+  })
+
+  it('shows the response and the counts the moment it is tapped, before the database answers', async () => {
+    let release = () => {}
+    state.hold = new Promise<void>((resolve) => (release = resolve))
+    const user = show({ requests: [request()] })
+    await user.click(await screen.findByRole('button', { name: 'Fasting' }))
+    expect(screen.getByText('3 prayed · 1 still praying · 1 fasting')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fasting' })).toHaveAttribute('aria-pressed', 'true')
+    release()
+    state.hold = null
   })
 
   it('hides who asked an anonymous request', async () => {
