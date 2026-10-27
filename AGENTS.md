@@ -282,6 +282,11 @@ could hand themselves everything else.
   row, and made reading `service_sessions` 300 times slower than its
   "signed in" read rule (0200). `policyCommands.test.ts` holds new
   migrations to it.
+- **A new foreign key gets an index** in the same migration, unless it is
+  a "who did it" column (`created_by`, `updated_by`, `decided_by` …) that
+  nothing filters on. Postgres indexes the parent's key, not the child's
+  column, so without one every lookup by it and every cascade from the
+  parent scans the table (0204).
 - Writing to `notifications` **pushes to that person's phone** — every
   type, since 0185 the board's `message` and the team chat's `team_chat`
   too (one unread line per board and per team's room: each post replaces
