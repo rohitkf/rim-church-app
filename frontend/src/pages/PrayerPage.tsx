@@ -13,6 +13,7 @@ import { fetchDepartments } from '../lib/queries'
 import { AudienceEditor } from '../components/AudienceEditor'
 import { Select } from '../components/Select'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
+import { Chevron } from '../components/Collapsible'
 import {
   PRAYER_KEY,
   RESPONSES,
@@ -65,23 +66,40 @@ export function PrayerPage() {
   const lists = board?.lists ?? []
   const showAssigned = (sections?.assigned.length ?? 0) > 0
   const showLists = lists.length > 0 || !!board?.may_run_lists
-  const wanted = (params.get('tab') as Tab | null) ?? 'requests'
-  const tab: Tab =
-    (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
-      ? 'requests'
-      : wanted
+  // `?tab=` names the open section; `none` is every one shut.
+  const wanted = params.get('tab') ?? 'requests'
+  const tab: Tab | null =
+    wanted === 'none'
+      ? null
+      : (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
+        ? 'requests'
+        : (wanted as Tab)
+  // One open at a time: opening a section shuts the last; tapping the open
+  // one shuts it.
+  const toggle = (next: Tab) =>
+    setParams(next === tab ? { tab: 'none' } : next === 'requests' ? {} : { tab: next }, { replace: true })
 
-  const tabs: { value: Tab; label: string }[] = [
-    { value: 'requests', label: `Requests${sections ? ` · ${sections.requests.length}` : ''}` },
-    { value: 'mine', label: `Mine${sections ? ` · ${sections.mine.length}` : ''}` },
-    { value: 'testimonies', label: `Testimonies${sections ? ` · ${sections.testimonies.length}` : ''}` },
-    ...(showAssigned ? [{ value: 'assigned' as Tab, label: `Asked of me · ${sections!.assigned.length}` }] : []),
-    ...(showLists ? [{ value: 'lists' as Tab, label: `Lists · ${lists.length}` }] : []),
-    ...(board?.pastoral
-      ? [{ value: 'inbox' as Tab, label: `Pastors${sections ? ` · ${sections.inbox.filter((r) => r.status === 'open').length}` : ''}` }]
-      : []),
-  ]
-  const shown = sections && tab !== 'lists' ? sections[tab] : []
+  const tabs: { value: Tab; label: string; hint: string; count: number }[] = sections
+    ? [
+        { value: 'requests', label: 'Requests', hint: 'Open, for the whole church', count: sections.requests.length },
+        { value: 'mine', label: 'Mine', hint: 'Everything you have asked', count: sections.mine.length },
+        { value: 'testimonies', label: 'Testimonies', hint: 'What God has done', count: sections.testimonies.length },
+        ...(showAssigned
+          ? [{ value: 'assigned' as Tab, label: 'Asked of me', hint: 'A pastor asked you to pray', count: sections.assigned.length }]
+          : []),
+        ...(showLists ? [{ value: 'lists' as Tab, label: 'Lists', hint: 'Prayer lists you are on', count: lists.length }] : []),
+        ...(board?.pastoral
+          ? [
+              {
+                value: 'inbox' as Tab,
+                label: 'Pastors',
+                hint: 'Private requests, for the pastors',
+                count: sections.inbox.filter((r) => r.status === 'open').length,
+              },
+            ]
+          : []),
+      ]
+    : []
   const [asking, setAsking] = useState(false)
   const [sent, setSent] = useState<string | null>(null)
 
@@ -114,37 +132,64 @@ export function PrayerPage() {
         <QueryState isLoading={query.isLoading} error={query.error}>
           {board && sections && (
             <>
-              {/* Up to six tabs: each as wide as its label, the row sliding
-                  sideways on a phone rather than cutting the labels short. */}
-              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-                <SegmentedControl
-                  label="Which requests"
-                  kind="tab"
-                  value={tab}
-                  onChange={(next) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })}
-                  options={tabs}
-                  className="w-max min-w-full auto-cols-max! sm:min-w-0"
-                />
-              </div>
-              {tab === 'lists' ? (
-                <ListsView board={board} />
-              ) : shown.length === 0 ? (
-                <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
-                  {EMPTY[tab]}
-                </p>
-              ) : (
-                <ul aria-label={tabs.find((t) => t.value === tab)?.label} className="flex flex-col gap-3">
-                  {shown.map((r) => (
-                    <li key={r.id}>
-                      {tab === 'testimonies' ? (
-                        <TestimonyCard request={r} board={board} />
-                      ) : (
-                        <RequestCard request={r} board={board} />
+              {/* A section to a row, the width of the page, each opening in
+                  place with its requests underneath — six labels in a row
+                  ran off a phone, and a row this size is easy to hit. */}
+              <div className="flex flex-col gap-3">
+                {tabs.map((t) => {
+                  const open = tab === t.value
+                  const items = t.value === 'lists' ? [] : sections[t.value]
+                  return (
+                    <section key={t.value} aria-label={t.label} className="flex flex-col gap-3">
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={`prayer-${t.value}`}
+                        onClick={() => toggle(t.value)}
+                        className="tap flex w-full items-center gap-3 rounded-[var(--radius-card)] bg-surface-lowest px-5 py-4 text-left hairline transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-[color-mix(in_oklab,var(--color-surface-lowest)_92%,var(--color-on-surface))]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-body-lg font-semibold text-on-surface">{t.label}</span>
+                          <span className="block text-body-sm text-on-surface-variant">{t.hint}</span>
+                        </span>
+                        <span
+                          className={`min-w-7 rounded-full px-2 py-0.5 text-center font-mono text-label-sm tabular ${
+                            open ? 'bg-primary font-semibold text-on-primary' : 'bg-raised-strong text-on-surface-variant'
+                          }`}
+                        >
+                          {t.count}
+                        </span>
+                        <span className="text-headline-sm leading-none">
+                          <Chevron open={open} />
+                        </span>
+                      </button>
+                      {open && (
+                        <div id={`prayer-${t.value}`}>
+                          {t.value === 'lists' ? (
+                            <ListsView board={board} />
+                          ) : items.length === 0 ? (
+                            <p className="rounded-[var(--radius-row)] bg-surface-lowest px-4 py-6 text-center text-body-sm text-on-surface-variant hairline">
+                              {EMPTY[t.value]}
+                            </p>
+                          ) : (
+                            <ul aria-label={t.label} className="flex flex-col gap-3">
+                              {items.map((r) => (
+                                <li key={r.id}>
+                                  {t.value === 'testimonies' ? (
+                                    <TestimonyCard request={r} board={board} />
+                                  ) : (
+                                    <RequestCard request={r} board={board} />
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    </section>
+                  )
+                })}
+              </div>
             </>
           )}
         </QueryState>
