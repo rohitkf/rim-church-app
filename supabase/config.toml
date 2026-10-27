@@ -32,3 +32,8 @@ verify_jwt = true
 
 [functions.push-notify]
 verify_jwt = true
+
+# Started by a signed-in phone after it clocks in, or by the Clock In page;
+# it checks the caller and then only works the queue the database gives it.
+[functions.clock-in-address]
+verify_jwt = true

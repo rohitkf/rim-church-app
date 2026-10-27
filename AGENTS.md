@@ -203,7 +203,7 @@ frontend/src/
   test/select.ts             helper for driving the custom Select in tests
   public/sw.js               service worker (hand-written, not generated)
 supabase/migrations/         numbered, immutable once shipped
-supabase/functions/          edge functions (push-notify, invite)
+supabase/functions/          edge functions (push-notify, invite, clock-in-address)
 build/swBuildId.ts           stamps the commit into sw.js at build time
 DESIGN.md                    the design system's rules — read before UI work
 docs/configuration.md        every setting: what it is, where it lives, what enforces it

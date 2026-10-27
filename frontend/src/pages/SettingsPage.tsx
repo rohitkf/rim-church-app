@@ -20,6 +20,7 @@ import { DisplayCard } from '../components/DisplayCard'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
 import { OverwatchCard } from '../components/OverwatchCard'
+import { ClockInCard } from '../components/ClockInCard'
 import { useAppSettings } from '../lib/appSettings'
 import { withPageAccess } from '../lib/permissionMatrix'
 import type { PageAccess } from '../lib/pageAccess'
@@ -314,6 +315,11 @@ export function StageSettingsPane() {
 /** What Overwatch sees, and the five things it may do (0187). */
 export function OverwatchSettingsPane() {
   return <OverwatchCard />
+}
+
+/** Clock in: when it opens, how strict, who sees it, who approves (0191). */
+export function ClockInSettingsPane() {
+  return <ClockInCard />
 }
 
 /** The church's clocks: when things open, close and clear. */

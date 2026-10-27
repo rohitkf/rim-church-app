@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { readDisplay, type Display } from './display'
 import { z } from 'zod'
 import { plannerControlsSchema } from './plannerControls'
+import { clockInAudienceSchema } from './clockIn'
 import { supabase } from './supabaseClient'
 
 /**
@@ -97,6 +98,20 @@ export const appSettingsSchema = z.object({
   overwatch_polls: z.boolean().default(true),
   overwatch_issues: z.boolean().default(true),
   overwatch_debriefs: z.boolean().default(true),
+  /*
+   * Clock in (0191): how early it opens before somebody's call time (and
+   * their reminder goes out), how near and how sure a phone must be, who
+   * clocks in besides the rota, who else sees the page, who approves a
+   * request, and how long it is all kept. lib/clockIn reads them.
+   */
+  clock_in_lead_minutes: z.number().int().min(0).max(240).default(5),
+  clock_in_radius_m: z.number().int().min(20).max(2000).default(100),
+  clock_in_accuracy_m: z.number().int().min(5).max(1000).default(50),
+  clock_in_include_yes: z.boolean().default(false),
+  clock_in_viewers: clockInAudienceSchema.default({ teams: [], people: [] }),
+  clock_in_approver_teams: z.array(z.string()).catch([]).default([]),
+  clock_in_approvers: z.enum(['leads', 'members']).catch('leads').default('leads'),
+  clock_in_retention_days: z.number().int().min(1).max(365).default(30),
   /** Done and Won't-do feedback, after it was settled (0124). Null is for ever. */
   feedback_retention_days: z.number().int().min(1).max(3650).nullable().default(14),
   /** Each person's bell keeps their newest this many (0128). */
@@ -148,6 +163,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   overwatch_polls: true,
   overwatch_issues: true,
   overwatch_debriefs: true,
+  clock_in_lead_minutes: 5,
+  clock_in_radius_m: 100,
+  clock_in_accuracy_m: 50,
+  clock_in_include_yes: false,
+  clock_in_viewers: { teams: [], people: [] },
+  clock_in_approver_teams: [],
+  clock_in_approvers: 'leads',
+  clock_in_retention_days: 30,
   feedback_retention_days: 14,
   notification_keep_count: 10,
   alert_clear_dow: 2,
@@ -162,7 +185,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, overwatch_pages, overwatch_board_posts, overwatch_chat_posts, overwatch_polls, overwatch_issues, overwatch_debriefs, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, overwatch_pages, overwatch_board_posts, overwatch_chat_posts, overwatch_polls, overwatch_issues, overwatch_debriefs, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_viewers, clock_in_approver_teams, clock_in_approvers, clock_in_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error

@@ -73,7 +73,9 @@ export function SettingEntryRow({
           ? `${n} newest`
           : entry.unit === 'entries'
             ? `${n}`
-            : shortDuration(n, entry.unit)
+            : entry.unit === 'metres'
+              ? `${n} m`
+              : shortDuration(n, entry.unit)
     return (
       <SettingRow
         label={entry.label}

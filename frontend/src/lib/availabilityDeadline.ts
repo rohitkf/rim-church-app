@@ -22,7 +22,7 @@
  * were UTC gives the offset without a timezone library — and gets British
  * Summer Time right, which is the whole reason this cannot be a constant.
  */
-function offsetAt(instant: Date, timeZone: string): number {
+export function offsetAt(instant: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     hour12: false,

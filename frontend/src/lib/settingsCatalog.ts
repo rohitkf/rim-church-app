@@ -74,7 +74,7 @@ interface Base {
 
 interface Dial extends Base {
   kind: 'dial'
-  unit: 'minutes' | 'days' | 'notifications' | 'entries'
+  unit: 'minutes' | 'days' | 'notifications' | 'entries' | 'metres'
   /** What 0 reads as, when 0 means something of its own ("Today only"). */
   zeroText?: string
   min: number
@@ -898,6 +898,82 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     summary: 'One Overwatch write-up per service, beside every team’s.',
     help: 'Each service gets an Overwatch debrief next to the teams’ — the points anybody in Overwatch noticed, written while the debrief window is open. It never writes a team’s debrief.',
     affects: ['/debriefs'],
+  },
+
+  /* ---- Clock in (0191) ---- */
+  {
+    ...column('clock_in_lead_minutes'),
+    kind: 'dial',
+    label: 'Clock-in opens',
+    summary: 'Before somebody’s call time — and their reminder goes out then too.',
+    help: 'This many minutes before somebody’s earliest call time of the day, the big CLOCK IN button appears on their Dashboard and their phone is sent a reminder. The two always go together. It stays open until the day’s last service has ended.',
+    affects: ['/', '/clock-in'],
+    min: 0,
+    max: 240,
+    dialMax: 60,
+    majorEvery: 5,
+    unit: 'minutes',
+  },
+  {
+    ...column('clock_in_radius_m'),
+    kind: 'dial',
+    label: 'Counts as at church within',
+    summary: 'Of the pin on the Clock In page.',
+    help: 'A phone further than this from the church’s pin is told it is too far and is not clocked in. About 100 m covers a church and its car park; a bigger site, or one in a dense town centre, may need more.',
+    affects: ['/clock-in'],
+    min: 20,
+    max: 2000,
+    dialMax: 500,
+    dialStep: 10,
+    majorEvery: 50,
+    unit: 'metres',
+  },
+  {
+    ...column('clock_in_accuracy_m'),
+    kind: 'dial',
+    label: 'A reading must be accurate to',
+    summary: 'Either way. A rougher one is not trusted.',
+    help: 'Every position a phone gives comes with how sure it is. A reading rougher than this is refused, and the person is told to turn on Precise Location or step outside for a moment: a rough one could put somebody in the car park inside, or somebody inside out of range.',
+    affects: ['/clock-in'],
+    min: 5,
+    max: 1000,
+    dialMax: 200,
+    dialStep: 5,
+    majorEvery: 25,
+    unit: 'metres',
+  },
+  {
+    ...column('clock_in_include_yes'),
+    kind: 'switch',
+    label: 'People who said Yes clock in too',
+    summary: 'Not only those the rota gave a role.',
+    help: 'Out of the box only people the Team Rota put on a role that day clock in. On, anybody who said Yes on Availability for one of the day’s services does too, with their team’s call time.',
+    affects: ['/', '/clock-in'],
+  },
+  {
+    ...column('clock_in_approvers'),
+    kind: 'choice',
+    style: 'segmented',
+    label: 'In an approving team, who approves',
+    summary: 'A request to be clocked in, when a phone could not.',
+    help: 'When a phone cannot be placed at church, its owner can ask to be clocked in. The Owner and Admins can always approve, and so can the teams chosen below — either their Head and Assisting Head, or anybody on them (a Welcome team at the door, say).',
+    affects: ['/clock-in'],
+    ariaLabel: 'In an approving team, who approves',
+    options: [
+      { value: 'leads', label: 'Heads' },
+      { value: 'members', label: 'Anyone on it' },
+    ],
+    put: (_d, v) => ({ clock_in_approvers: v as AppSettings['clock_in_approvers'] }),
+  },
+  {
+    ...column('clock_in_retention_days'),
+    kind: 'dial',
+    label: 'Clock-ins are kept for',
+    summary: 'Then deleted: the time, the position, the address and its history.',
+    help: 'Each day’s clock-ins, where people were and the street address, and every correction, are deleted this many days after the day. Where somebody was is personal data: keep it no longer than it is useful.',
+    affects: ['/clock-in'],
+    ...wideDays,
+    unit: 'days',
   },
 ]
 

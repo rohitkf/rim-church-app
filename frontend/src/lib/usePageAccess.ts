@@ -4,6 +4,7 @@ import { useMyTeams } from './useMyTeams'
 import { useAppSettingsState } from './appSettings'
 import { mayOpen, standingOf, type PageAccess, type Standing } from './pageAccess'
 import { overwatchOpens } from './overwatch'
+import { maySeeClockIns } from './clockIn'
 
 /**
  * Whether the person in front of the screen may open a page, under this
@@ -22,7 +23,7 @@ export function usePageAccess(): {
   canOpen: (path: string) => boolean
   settled: boolean
 } {
-  const { isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
+  const { session, isAdmin, isSuperAdmin, isOverwatch, ledDepartmentIds } = useAuth()
   const { onATeam, teamIds, settled: teamsSettled } = useMyTeams()
   const { settings, settled: settingsSettled } = useAppSettingsState()
   const standing = standingOf({
@@ -38,9 +39,24 @@ export function usePageAccess(): {
   // Overwatch opens what the church left open to it (Settings ›
   // Overwatch, 0187), and whatever its own teams would open besides.
   const watched = settings.overwatch_pages
+  // Clock In is also open to the people and teams the church named for
+  // it (Settings › Clock in, 0191) — a list, not a level.
+  const viewers = settings.clock_in_viewers
+  const myId = session?.user.id
   const canOpen = useCallback(
-    (path: string) => mayOpen(path, standing, access, scope) || (isOverwatch && overwatchOpens(path, watched)),
-    [standing, access, scope, isOverwatch, watched],
+    (path: string) =>
+      mayOpen(path, standing, access, scope) ||
+      (isOverwatch && overwatchOpens(path, watched)) ||
+      (path === '/clock-in' &&
+        maySeeClockIns({
+          isAdmin,
+          isOwner: isSuperAdmin,
+          watching: false,
+          myId,
+          teamIds: [...teamIds, ...ledDepartmentIds],
+          viewers,
+        })),
+    [standing, access, scope, isOverwatch, watched, isAdmin, isSuperAdmin, myId, teamIds, ledDepartmentIds, viewers],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled }
 }

@@ -6,6 +6,7 @@ import {
   ChecklistIcon,
   ClipboardUserIcon,
   EyeIcon,
+  MapPinIcon,
   GridIcon,
   SparklesIcon,
   GiftHeartIcon,
@@ -180,6 +181,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         tone: 'indigo',
         needs: 'admin',
         keywords: 'overwatch read only observer elder pastor watch see everything',
+      },
+      {
+        to: '/settings/clock-in',
+        label: 'Clock in',
+        blurb: 'When it opens, how near counts, who sees it and who approves.',
+        icon: MapPinIcon,
+        tone: 'green',
+        needs: 'admin',
+        keywords: 'clock in attendance arrival location gps geolocation radius present check in',
       },
       {
         to: '/settings/onboarding',
