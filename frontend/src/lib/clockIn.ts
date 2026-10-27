@@ -171,6 +171,12 @@ export async function saveClockInPlace(place: { label: string | null; postcode: 
   if (error) throw error
 }
 
+/** How near the pin a phone has to be — the same setting as Settings › Clock in. */
+export async function saveClockInRadius(metres: number) {
+  const { error } = await supabase.from('app_settings').update({ clock_in_radius_m: metres }).eq('id', true)
+  if (error) throw error
+}
+
 export const clockInSchema = z.object({
   id: z.string(),
   user_id: z.string(),

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAppSettings } from '../lib/appSettings'
+import { SETTINGS_KEY, useAppSettings } from '../lib/appSettings'
 import { useErrorText } from '../lib/useErrorText'
 import {
   distanceMetres,
@@ -9,15 +9,24 @@ import {
   findPlaces,
   formatDistance,
   saveClockInPlace,
+  saveClockInRadius,
   type FoundPlace,
 } from '../lib/clockIn'
+import { NumberDial } from './NumberDial'
 import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { settingEntry } from '../lib/settingsCatalog'
 
 // The map library is only for whoever sets the spot, so it is fetched
 // only when this card is on screen.
 const PlaceMap = lazy(() => import('./PlaceMap').then((m) => ({ default: m.PlaceMap })))
+
+const RADIUS = (() => {
+  const entry = settingEntry('clock_in_radius_m')
+  if (entry.kind !== 'dial') throw new Error('The radius is a dial')
+  return { min: entry.min, dialMax: entry.dialMax ?? entry.max, dialStep: entry.dialStep ?? 10, majorEvery: entry.majorEvery ?? 50 }
+})()
 
 type Draft = { label: string | null; postcode: string | null; lat: number; lng: number }
 
@@ -40,6 +49,9 @@ export function ClockInPlaceCard() {
   const [finding, setFinding] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [radiusDraft, setRadiusDraft] = useState<number | null>(null)
+  const radius = radiusDraft ?? settings.clock_in_radius_m
+  const radiusMoved = radiusDraft !== null && radiusDraft !== settings.clock_in_radius_m
 
   const stored = placeQuery.data
   const shown: Draft | null =
@@ -47,12 +59,19 @@ export function ClockInPlaceCard() {
   const moved = draft && stored ? distanceMetres({ lat: stored.latitude, lng: stored.longitude }, draft) : null
 
   const save = useMutation({
-    mutationFn: () => saveClockInPlace(draft!),
+    mutationFn: async () => {
+      if (draft) await saveClockInPlace(draft)
+      if (radiusMoved) await saveClockInRadius(radiusDraft!)
+    },
     onSuccess: async () => {
       setDraft(null)
+      setRadiusDraft(null)
       setResults(null)
       setError(null)
-      await queryClient.invalidateQueries({ queryKey: ['clock-in-place'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['clock-in-place'] }),
+        queryClient.invalidateQueries({ queryKey: SETTINGS_KEY }),
+      ])
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save where the church is.')),
   })
@@ -162,7 +181,7 @@ export function ClockInPlaceCard() {
               <PlaceMap
                 lat={shown.lat}
                 lng={shown.lng}
-                radius={settings.clock_in_radius_m}
+                radius={radius}
                 editable
                 onMove={(to) => setDraft({ ...(shown as Draft), ...to })}
                 className="mt-3 h-72"
@@ -181,14 +200,34 @@ export function ClockInPlaceCard() {
               <div>
                 <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Pin</dt>
                 <dd className="font-mono text-label-md text-on-surface-variant">
-                  {shown.lat.toFixed(6)}, {shown.lng.toFixed(6)} · within {settings.clock_in_radius_m} m
+                  {shown.lat.toFixed(6)}, {shown.lng.toFixed(6)} · within {radius} m
                 </dd>
               </div>
             </dl>
+            <div className="mt-4">
+              <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                Counts as at church within
+              </p>
+              <p className="mt-0.5 text-label-sm text-on-surface-variant">
+                A phone further than this from the pin is told it is too far. About 100 m covers a church and its car
+                park.
+              </p>
+              <NumberDial
+                value={radius}
+                onChange={(next) => setRadiusDraft(next)}
+                min={RADIUS.min}
+                max={RADIUS.dialMax}
+                step={RADIUS.dialStep}
+                majorEvery={RADIUS.majorEvery}
+                unit="metres"
+                label="Counts as at church within"
+                className="mt-2"
+              />
+            </div>
             <p className="mt-2 text-label-sm text-on-surface-faint">
               Drag the pin, or tap the map, to put it on the door.{' '}
               <Link to="/settings/clock-in" className="text-accent-blue-soft hover:underline">
-                Change the radius
+                More clock-in settings
               </Link>
               .
             </p>
@@ -207,12 +246,27 @@ export function ClockInPlaceCard() {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {draft && (
+          {(draft || (radiusMoved && stored)) && (
             <>
               <ActionButton onClick={() => save.mutate()} disabled={save.isPending}>
-                {save.isPending ? 'Saving…' : stored ? 'Save the new spot' : 'Save'}
+                {save.isPending
+                  ? 'Saving…'
+                  : !draft
+                    ? 'Save the radius'
+                    : stored
+                      ? radiusMoved
+                        ? 'Save the spot and radius'
+                        : 'Save the new spot'
+                      : 'Save'}
               </ActionButton>
-              <ActionButton tone="quiet" onClick={() => setDraft(null)} disabled={save.isPending}>
+              <ActionButton
+                tone="quiet"
+                onClick={() => {
+                  setDraft(null)
+                  setRadiusDraft(null)
+                }}
+                disabled={save.isPending}
+              >
                 Cancel
               </ActionButton>
               {moved !== null && (
@@ -220,7 +274,7 @@ export function ClockInPlaceCard() {
               )}
             </>
           )}
-          {!draft && stored && (
+          {!draft && !radiusMoved && stored && (
             <span className="text-label-sm text-on-surface-faint">
               Saved {formatRelativeTime(stored.updated_at)}
               {stored.updater ? ` by ${stored.updater.first_name} ${stored.updater.last_name}` : ''}
