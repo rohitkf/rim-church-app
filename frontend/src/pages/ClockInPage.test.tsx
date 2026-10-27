@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -114,6 +114,11 @@ function show() {
   return userEvent.setup()
 }
 
+/** The page's sections start shut; open the ones a test reads. */
+async function open(user: ReturnType<typeof userEvent.setup>, ...names: RegExp[]) {
+  for (const name of names) await user.click(await screen.findByRole('button', { name }))
+}
+
 beforeEach(() => {
   state.admin = false
   state.changed = []
@@ -122,8 +127,18 @@ beforeEach(() => {
 })
 
 describe('the Clock In page', () => {
-  it('shows who arrived, when, and where — and asks for the addresses still missing', async () => {
+  it('starts with every section shut, each saying what is in it', async () => {
     show()
+    const clockIns = await screen.findByRole('button', { name: /^Clock-ins/ })
+    expect(clockIns).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() => expect(clockIns).toHaveTextContent('2 clocked in · 1 still to arrive'))
+    expect(screen.getByRole('button', { name: /^History/ })).toHaveTextContent('1 entry')
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('shows who arrived, when, and where — and asks for the addresses still missing', async () => {
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     const table = await screen.findByRole('table')
     expect(within(table).getByText('Joel Skaria')).toBeInTheDocument()
     expect(within(table).getByText('09:41')).toBeInTheDocument()
@@ -133,7 +148,8 @@ describe('the Clock In page', () => {
   })
 
   it('groups them by the team they were on that day', async () => {
-    show()
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     const table = await screen.findByRole('table')
     const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent)
     expect(headers).toEqual(expect.arrayContaining(['Media1 in · 1 to come', 'Welcome1']))
@@ -143,14 +159,16 @@ describe('the Clock In page', () => {
   })
 
   it('says who on each team is still to arrive', async () => {
-    show()
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     const row = await screen.findByText('Still to arrive')
     expect(row.closest('td')).toHaveTextContent('Ama Owusu (09:30)')
     expect(screen.getByText(/1 in · 1 to come/)).toBeInTheDocument()
   })
 
   it('gives nobody but the Owner and Admins the church’s spot or a way to change anything', async () => {
-    show()
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     await screen.findByRole('table')
     expect(screen.queryByText('Where the church is')).toBeNull()
     expect(screen.queryByRole('button', { name: /Fix Joel/ })).toBeNull()
@@ -160,6 +178,7 @@ describe('the Clock In page', () => {
   it('lets an Admin change a time, with a reason', async () => {
     state.admin = true
     const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     expect(await screen.findByText('Where the church is')).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Fix Joel Skaria’s clock-in' }))
     await pickTime(user, screen.getByRole('button', { name: 'Arrived at' }), '09:30')
@@ -175,6 +194,7 @@ describe('the Clock In page', () => {
   it('lets an Admin remove one, with a reason', async () => {
     state.admin = true
     const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     await user.click(await screen.findByRole('button', { name: 'Fix Grace Mensah’s clock-in' }))
     await user.click(screen.getByRole('button', { name: 'Remove it instead' }))
     await user.type(screen.getByRole('textbox', { name: 'Why' }), 'Not here today')
@@ -183,7 +203,8 @@ describe('the Clock In page', () => {
   })
 
   it('lists every change, with who made it and why', async () => {
-    show()
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
     const history = await screen.findByText('Phone died at the door', { exact: false })
     const line = history.closest('li')!
     expect(line).toHaveTextContent('Joel Skaria time changed')

@@ -122,7 +122,16 @@ export function ClockInPage() {
         {runsIt && <ClockInPlaceCard />}
         <ClockInRequests />
 
-        <SectionTile title="Clock-ins" hint={formatServiceDay(day)}>
+        <SectionTile
+          title="Clock-ins"
+          collapsible
+          defaultOpen={false}
+          hint={`${formatServiceDay(day)} · ${rows.length} clocked in${
+            (stillOutQuery.data ?? []).length > 0
+              ? ` · ${new Set((stillOutQuery.data ?? []).map((o) => o.user_id)).size} still to arrive`
+              : ''
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 text-body-sm text-on-surface-variant">
               <span aria-hidden="true">Day</span>
@@ -267,7 +276,14 @@ export function ClockInPage() {
           </QueryState>
         </SectionTile>
 
-        <SectionTile title="History" hint="Every clock-in, and every change to one, on this day.">
+        <SectionTile
+          title="History"
+          collapsible
+          defaultOpen={false}
+          hint={`Every clock-in, and every change to one, on ${formatServiceDay(day)}${
+            historyQuery.data ? ` · ${historyQuery.data.length} ${historyQuery.data.length === 1 ? 'entry' : 'entries'}` : ''
+          }.`}
+        >
           <QueryState
             isLoading={historyQuery.isLoading}
             error={historyQuery.error}

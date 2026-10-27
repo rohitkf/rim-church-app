@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { defaultNavLabel, useNavNames } from '../lib/navNames'
+import { Chevron } from './Collapsible'
 import { createPortal } from 'react-dom'
 import type { ComponentType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
@@ -510,6 +511,8 @@ export function SectionTile({
   id,
   tone = 'plain',
   className = '',
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: ReactNode
   hint?: ReactNode
@@ -518,17 +521,49 @@ export function SectionTile({
   id?: string
   tone?: TileTone
   className?: string
+  /**
+   * The heading opens and shuts the block. The hint stays in view when it
+   * is shut, so it should say what is inside — a count, a date, a state —
+   * and the body is not drawn at all until it is opened.
+   */
+  collapsible?: boolean
+  defaultOpen?: boolean
 }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const bodyId = useId()
+  const shown = !collapsible || open
+  const heading = (
+    <>
+      <h2 className="text-body-lg font-semibold text-on-surface">{title}</h2>
+      {hint && <p className="mt-0.5 text-body-sm text-on-surface-variant">{hint}</p>}
+    </>
+  )
   return (
     <Tile as="section" tone={tone} className={`scroll-mt-24 ${className}`}>
       <div id={id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-body-lg font-semibold text-on-surface">{title}</h2>
-          {hint && <p className="mt-0.5 text-body-sm text-on-surface-variant">{hint}</p>}
-        </div>
-        {aside}
+        {collapsible ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setOpen((o) => !o)}
+            className="tap -m-2 flex min-w-0 flex-1 items-start gap-3 rounded-[var(--radius-row)] p-2 text-left"
+          >
+            <span className="min-w-0 flex-1">{heading}</span>
+            <span className="mt-0.5 text-body-lg">
+              <Chevron open={open} />
+            </span>
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1">{heading}</div>
+        )}
+        {shown && aside}
       </div>
-      <div className="mt-5">{children}</div>
+      {shown && (
+        <div id={bodyId} className="mt-5">
+          {children}
+        </div>
+      )}
     </Tile>
   )
 }
