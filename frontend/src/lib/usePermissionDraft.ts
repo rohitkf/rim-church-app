@@ -26,7 +26,7 @@ import {
  */
 export function usePermissionDraft() {
   // A caller without the teams' rules (a test double, an older reader) reads as no team having any.
-  const { can, overrides: stored, teams: storedTeams = {} } = usePermissions()
+  const { can, overrides: stored, teams: storedTeams = {}, grants = [] } = usePermissions()
   const editable = can('app.permissions')
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -84,6 +84,8 @@ export function usePermissionDraft() {
     editable,
     stored,
     storedTeams,
+    /** The church's grants (0208), as stored; a room edits its own through set_permission_grants(). */
+    grants,
     working,
     workingTeams,
     pending,

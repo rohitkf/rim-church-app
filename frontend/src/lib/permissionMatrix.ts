@@ -733,6 +733,61 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Service Planner buttons',
+    pages: ['/service-planner'],
+    capabilities: [
+      {
+        action: 'Press “Session started”',
+        key: 'planner.start',
+        short: 'Session started',
+        can: granted('planner.start'),
+        note: 'Each button on its own, without renaming, reordering or deleting the plan. Whoever may plan the running order or run the service has every button already. By name or through a team: Page by Page › Service Planner, or By person.',
+      },
+      {
+        action: 'Press “Not started”',
+        key: 'planner.hold',
+        short: 'Not started',
+        can: granted('planner.hold'),
+      },
+      {
+        action: 'Add time to a session',
+        key: 'planner.add_time',
+        short: 'Add time to a session',
+        can: granted('planner.add_time'),
+      },
+      {
+        action: 'Skip a session, and put it back',
+        key: 'planner.skip',
+        short: 'Skip a session, and put it b',
+        can: granted('planner.skip'),
+      },
+      {
+        action: 'Name a substitute for a session',
+        key: 'planner.substitute',
+        short: 'Name a substitute for a sess',
+        can: granted('planner.substitute'),
+      },
+      {
+        action: 'Add a session below another',
+        key: 'planner.add_below',
+        short: 'Add a session below another',
+        can: granted('planner.add_below'),
+      },
+      {
+        action: 'Remove a session',
+        key: 'planner.remove',
+        short: 'Remove a session',
+        can: granted('planner.remove'),
+      },
+      {
+        action: 'End the service, and reopen it',
+        key: 'planner.end',
+        short: 'End the service, and reopen ',
+        can: granted('planner.end'),
+      },
+    ],
+  },
+  {
     area: 'Clock in',
     pages: ['/clock-in'],
     capabilities: [

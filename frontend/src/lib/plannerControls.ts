@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import type { PermissionGrant } from './permissions'
 
 /**
  * The Service Planner's buttons, given to a team or a person (0184).
@@ -57,6 +58,45 @@ export const plannerControlsSchema = z
   .catch({ teams: {}, people: {} })
 
 export type HolderKind = keyof PlannerControls
+
+/**
+ * The holders and their buttons, as the church's grants say them (0211):
+ * each button is a capability, `planner.<key>`, given to a team or a
+ * person. The room still edits it as holders and ticks.
+ */
+export function controlsFromGrants(grants: readonly PermissionGrant[]): PlannerControls {
+  const out: PlannerControls = { teams: {}, people: {} }
+  for (const g of grants) {
+    if (!g.capability.startsWith('planner.')) continue
+    const control = g.capability.slice('planner.'.length) as PlannerControl
+    if (!CONTROL_KEYS.includes(control)) continue
+    const [kind, id] = g.departmentId ? (['teams', g.departmentId] as const) : (['people', g.userId] as const)
+    if (!id) continue
+    out[kind][id] = CONTROL_KEYS.filter((c) => c === control || (out[kind][id] ?? []).includes(c))
+  }
+  return out
+}
+
+/** The grants to give and take back to turn `stored` into `next`, for set_permission_grants(). */
+export function controlGrantChanges(
+  stored: PlannerControls,
+  next: PlannerControls,
+): { capability: string; team?: string; person?: string; reach: 'all' | null }[] {
+  const changes: { capability: string; team?: string; person?: string; reach: 'all' | null }[] = []
+  for (const kind of ['teams', 'people'] as const) {
+    const who = (id: string) => (kind === 'teams' ? { team: id } : { person: id })
+    const ids = new Set([...Object.keys(stored[kind]), ...Object.keys(next[kind])])
+    for (const id of ids) {
+      const was = stored[kind][id] ?? []
+      const now = next[kind][id] ?? []
+      for (const c of CONTROL_KEYS) {
+        if (now.includes(c) && !was.includes(c)) changes.push({ capability: `planner.${c}`, ...who(id), reach: 'all' })
+        if (was.includes(c) && !now.includes(c)) changes.push({ capability: `planner.${c}`, ...who(id), reach: null })
+      }
+    }
+  }
+  return changes
+}
 
 /** Everything this person may press, on their own name or through a team they are on or head. */
 export function controlsHeld(

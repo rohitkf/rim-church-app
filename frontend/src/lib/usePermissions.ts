@@ -89,8 +89,11 @@ export function usePermissions() {
   const loaded = query.data ?? NONE
   const overrides = loaded.church
   const teams = loaded.teams
-  // A preview is of a profile, not of somebody: nobody's grants come with it.
-  const grants = viewAs ? NONE.grants : (loaded.grants ?? NONE.grants)
+  // A preview is of a profile on a team, not of somebody: its team's grants
+  // come with it, nobody's own name does.
+  const all = loaded.grants ?? NONE.grants
+  const previewing = !!viewAs
+  const grants = useMemo(() => (previewing ? all.filter((g) => !!g.departmentId) : all), [all, previewing])
 
   // Both lists are rebuilt every render; what they hold is what matters.
   const led = (ledDepartmentIds ?? []).join('|')

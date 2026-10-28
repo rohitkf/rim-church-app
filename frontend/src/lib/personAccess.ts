@@ -3,7 +3,6 @@ import type { Allowed, Capability, RoleKey } from './permissionMatrix'
 import { overwatchMay, type OverwatchAct } from './overwatch'
 import { pageOpening, type PageOpening } from './pageOpening'
 import { standingOf } from './pageAccess'
-import { controlsHeld, PLANNER_CONTROLS, type PlannerControls } from './plannerControls'
 import {
   grantedBy,
   type CapabilityKey,
@@ -233,9 +232,8 @@ const STAGE_WORDS: [keyof Omit<StageAccess, 'department_id'>, string][] = [
 
 /**
  * Every list outside the grid that names this person, directly or through
- * a team: Clock in's approvers, the Service Planner's buttons and Stage
- * Layout. (Who sees the clock-ins, and Prayer's three, are the grid's
- * since 0209 and 0210.)
+ * a team: Clock in's approvers and Stage Layout. (Who sees the clock-ins,
+ * Prayer's three and the planner's buttons are the grid's since 0209–0211.)
  * Admins and the Owner are given these by their standing, not by a list,
  * so a list naming them changes nothing and is still said.
  */
@@ -259,14 +257,7 @@ export function namedFor(
   add('Clock in', '/settings/clock-in', 'Approves requests to be clocked in', approverTeam ? `Through ${teamName(approverTeam)}` : null)
 
 
-  const controls = settings.planner_controls as PlannerControls
-  const byName = controlsHeld(controls, { id: person.id, teamIds: [] })
   const teamsCarrying = [...person.memberTeams, ...person.headTeams, ...person.assistTeams]
-  for (const c of PLANNER_CONTROLS) {
-    const team = teamsCarrying.find((id) => (controls.teams[id] ?? []).includes(c.key))
-    add('Page by Page', '/settings/pages', `Presses “${c.label}” on the Service Planner`, byName.has(c.key) ? 'By name' : team ? `Through ${teamName(team)}` : null)
-  }
-
   for (const [flag, words] of STAGE_WORDS) {
     const row = stage.find((r) => r[flag] && teamsCarrying.includes(r.department_id))
     add('Stage Layout', '/settings/stage', `May ${words}`, row ? `Through ${teamName(row.department_id)}` : null)
