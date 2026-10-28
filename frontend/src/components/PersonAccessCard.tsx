@@ -23,6 +23,7 @@ import {
   type Via,
 } from '../lib/personAccess'
 import type { PageOpening } from '../lib/pageOpening'
+import { factsOf, type RoleRow, type RosterRow, type RotaRow } from '../lib/peopleFacts'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
 import { ActionButton, Pill, SectionTile } from './Surface'
@@ -35,8 +36,6 @@ import { roleLabel } from './PermissionsCard'
  * the room that does.
  */
 
-const COORDINATOR_LABELS = ['coordinator', 'team coordinator']
-
 /** Everything the rules ask about one person, read as an Admin reads it. */
 async function fetchPersonFacts(id: string): Promise<{ facts: PersonFacts; guestTeams: string[] }> {
   const [roles, rosters, rota, owner] = await Promise.all([
@@ -47,25 +46,15 @@ async function fetchPersonFacts(id: string): Promise<{ facts: PersonFacts; guest
     supabase.from('app_owner').select('user_id').maybeSingle(),
   ])
   for (const r of [roles, rosters, rota, owner]) if (r.error) throw r.error
-  const grants = (roles.data ?? []) as { role_type: string; department_id: string | null }[]
-  const onTeams = (rosters.data ?? []) as { department_id: string; member_type: string }[]
-  const coordinating = ((rota.data ?? []) as { department_id: string; role_label: string }[]).filter((a) =>
-    COORDINATOR_LABELS.includes(a.role_label.trim().toLowerCase()),
-  )
-  const teamsFor = (type: string) =>
-    grants.filter((g) => g.role_type === type && g.department_id).map((g) => g.department_id as string)
+  const onTeams = (rosters.data ?? []) as RosterRow[]
   return {
-    facts: {
+    facts: factsOf(
       id,
-      owner: (owner.data as { user_id?: string } | null)?.user_id === id,
-      admin: grants.some((g) => g.role_type === 'admin'),
-      overwatch: grants.some((g) => g.role_type === 'overwatch'),
-      pastor: grants.some((g) => g.role_type === 'pastor'),
-      headTeams: teamsFor('department_head'),
-      assistTeams: teamsFor('assisting_head'),
-      memberTeams: onTeams.map((m) => m.department_id),
-      coordinatorTeams: [...new Set(coordinating.map((a) => a.department_id))],
-    },
+      (roles.data ?? []) as RoleRow[],
+      onTeams,
+      (rota.data ?? []) as RotaRow[],
+      (owner.data as { user_id?: string } | null)?.user_id ?? null,
+    ),
     guestTeams: onTeams.filter((m) => m.member_type === 'guest').map((m) => m.department_id),
   }
 }

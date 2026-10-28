@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
 import { ACCESS_LEVELS, PAGE_RULES, levelOf, type AccessLevel } from '../lib/pageAccess'
 import { cellsForLevel, isPageCapability, levelsFrom, pageCapability } from '../lib/pageCells'
-import { ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
+import { PERMISSIONS, ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
 import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GridRole } from '../lib/permissions'
 import { PAGE_ROOMS, SETTINGS_PAGES, capabilitiesFor, pageForSlug, pageSlug, teamRows, type SettingsPage } from '../lib/pageSettings'
 import { APP, SETTINGS_CATALOG, columnsOf, settingsForPage } from '../lib/settingsCatalog'
@@ -24,6 +24,7 @@ import { PageTeamAccess } from './PageTeamAccess'
 import { PlannerControlsCard } from './PlannerControlsCard'
 import { FixedCell, ReachPicker, roleLabel } from './PermissionsCard'
 import { KeptOnPurpose } from './KeptOnPurpose'
+import { ChangeEffects } from './ChangeEffects'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
@@ -99,6 +100,9 @@ export function PagesCard() {
     () => withGrants(withPageAccess(access, scope, overwatchPages), working),
     [access, scope, overwatchPages, working],
   )
+  // The grid as saved and as drafted, for what saving would do to whom.
+  const before = useMemo(() => ({ church: stored, teams: storedTeams }), [stored, storedTeams])
+  const after = useMemo(() => ({ church: working, teams: perms.workingTeams }), [working, perms.workingTeams])
   // A page's own row is its level, chosen above its rules, so it is not drawn again among them.
   const rulesHere = useMemo(
     () => areas.map((a) => ({ ...a, capabilities: a.capabilities.filter((c) => !c.key || !isPageCapability(c.key)) })),
@@ -288,6 +292,13 @@ export function PagesCard() {
                   </li>
                 ))}
               </ul>
+              <ChangeEffects
+                changes={pending}
+                before={before}
+                after={after}
+                grants={perms.grants}
+                actionOf={(cap) => PERMISSIONS.flatMap((a) => a.capabilities).find((c) => c.key === cap)?.action ?? cap}
+              />
             </Tile>
           )}
 
