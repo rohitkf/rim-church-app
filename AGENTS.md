@@ -83,9 +83,9 @@ the thing most likely to waste your time:
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
 | `permission_changes` (0216) | who changed which rule: a row for every insert, change or delete in `role_permissions`, `department_permissions` and `permission_grants`, written by the `log_permission_change()` trigger with `auth.uid()` (none when the app itself did it, in a migration); team and person kept as bare ids so a row outlives them. Read by whoever may change the grid; Access & Privileges › History |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator`, `overwatch`, `pastor` |
-| `role_type = 'overwatch'` (0186, 0187) | **Overwatch** — sees every team as an Admin does (`can_view_department_content` / `may_read_team` say yes, and the reads that ask other things have an `*_overwatch_read` policy beside theirs), changes almost nothing: `may()` gives it nothing. It may do five things, each its cell in the grid's Overwatch column (0214: `msg.board_post`, `msg.chat`, `msg.polls`, and its own `issue.as_overwatch` and `debrief.as_overwatch`, which nobody else may be given) read by `overwatch_may()` — never by `may()`, because each is done as Overwatch, church-wide on the board, as themselves, on a page open to it. The old `app_settings.overwatch_*` switches are read by nothing. It opens the pages `app_settings.overwatch_pages` leaves open (page → open; Volunteers starts closed) through `can_open_page` / `overwatch_sees()`. Its issues carry `raised_as_overwatch`; its debrief is the one with `department_id` null (one per service, `unique nulls not distinct`). Given from Volunteers (Admins), set in Settings › Overwatch (its pages, and the same five cells) or its column in Access & Privileges. On screen `seesAllTeams` (Admin or Overwatch) is for what is drawn only — never for what may be changed. Contacts, compliance and households stay the Owner's |
+| `role_type = 'overwatch'` (0186, 0187) | **Overwatch** — sees every team as an Admin does (`can_view_department_content` / `may_read_team` say yes, and the reads that ask other things have an `*_overwatch_read` policy beside theirs), changes almost nothing: `may()` gives it nothing. It may do five things, each its cell in the grid's Overwatch column (0214: `msg.board_post`, `msg.chat`, `msg.polls`, and its own `issue.as_overwatch` and `debrief.as_overwatch`, which nobody else may be given) read by `overwatch_may()` — never by `may()`, because each is done as Overwatch, church-wide on the board, as themselves, on a page open to it. Until 0214 they were `app_settings.overwatch_*` switches, dropped in 0217. It opens the pages `app_settings.overwatch_pages` leaves open (page → open; Volunteers starts closed) through `can_open_page` / `overwatch_sees()`. Its issues carry `raised_as_overwatch`; its debrief is the one with `department_id` null (one per service, `unique nulls not distinct`). Given from Volunteers (Admins), set in Settings › Overwatch (its pages, and the same five cells) or its column in Access & Privileges. On screen `seesAllTeams` (Admin or Overwatch) is for what is drawn only — never for what may be changed. Contacts, compliance and households stay the Owner's |
 | `services` → `service_sessions` | a service and its running order |
-| `app_settings.planner_controls` (0184) | the planner's **buttons given to a team or a person** — `{teams: {dept: [control]}, people: {profile: [control]}}`, controls `start` `hold` `add_time` `skip` `substitute` `add_below` `remove` `end`. Whoever has `svc.sessions` (or `svc.manage`, for End service) has them all; this only adds. Edited in Settings › Page by Page › Service Planner (`PlannerControlsCard`); read by `planner_control(variadic text[])` in the policies, and by `usePlannerControls` to draw the menu. A guard trigger on `service_sessions` and on `services` refuses any column outside what the holder's buttons write (a holder of Add time cannot rename a session) |
+| `planner.*` (0184, 0211) | the planner's **buttons given to a team or a person** — capabilities `planner.start` `planner.hold` `planner.add_time` `planner.skip` `planner.substitute` `planner.add_below` `planner.remove` `planner.end`, held through the grid or a grant (0208); until 0211 they were `app_settings.planner_controls`, dropped in 0217. Whoever has `svc.sessions` (or `svc.manage`, for End service) has them all; these only add. Edited in Settings › Page by Page › Service Planner (`PlannerControlsCard`, saved as grants); read by `planner_control(variadic text[])` — `may()` for each — in the policies, and by `usePlannerControls` to draw the menu. A guard trigger on `service_sessions` and on `services` refuses any column outside what the holder's buttons write (a holder of Add time cannot rename a session) |
 | `service_session_assignees` | who is taking a session — a list, one row per person. `is_substitute` (0182) marks whoever steps in if they cannot: a second list on the same rows, from the session's ⋯ › Assign substitute, drawn apart (amber, dashed, Sub) on the planner, its Preview and the exported sheet. `peopleOn` is the people taking it only; `substitutesOn` the rest. A person is on a session once, in one list |
 | `announcements` | the alert an Admin sends from Settings |
 | `team_messages` (`kind='alert'`) | a team alert |
@@ -96,7 +96,7 @@ the thing most likely to waste your time:
 | `my_open_requests()` (0178) | the dashboard's **reminders** — what is waiting on the caller (an unanswered poll, availability not given, an unread mention), worked out from the things themselves so it goes when answered. An availability ask for a later day waits while any of today's services has not ended (`service_ended_at`, 0183). Shown by `components/ReminderBanner` |
 | `church_updates` | the **Church Updates** page |
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
-| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is per team in `stage_team_access` (`stage_may()`, Settings › Stage Layout, 0155); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
+| `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is the grid's `stage.add` · `stage.edit` · `stage.delete` · `stage.comment` · `stage.templates` rows, a team given them as grants from Settings › Stage Layout (`stage_may()` asks `may()`, 0212; `stage_team_access`, 0155, dropped in 0217); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
 
 Other things that are true and not guessable:
@@ -127,9 +127,9 @@ Other things that are true and not guessable:
   page with a choice is a grid row, `page.<key>` (hyphens become
   underscores), and its level is two cells — a Church Member's and a Team
   Member's (`lib/pageCells.ts` turns one into the other; Admins and Heads
-  fixed yes, a Coordinator fixed no). `app_settings.page_access` is read by
-  nothing for those pages; `usePageLevels()` gives every page's level from
-  the grid. A grant of `page.<key>` opens that page to one person or a
+  fixed yes, a Coordinator fixed no). `app_settings.page_access`, which
+  held the levels until then, is dropped (0217); `usePageLevels()` gives
+  every page's level from the grid. A grant of `page.<key>` opens that page to one person or a
   team, whatever its level. Admins always may. Out of the box a Church
   Member sees the church's shape, not its teams' working: Dashboard,
   Service Planner, Events, Set Lists, Giving, Church Updates, Polls (the
@@ -139,8 +139,8 @@ Other things that are true and not guessable:
   page)`, which asks `may(uid, 'page.<key>')` for a page with a choice
   (the rota's only widen — Availability and Checklists read the same
   rows). `PAGE_RULES` and the `page.*` cells must agree —
-  `pageCells.test.ts` and `permissionCatalog.test.ts` check — as must
-  `page_access_is_valid()`, which `pageAccess.test.ts` reads. A new team-only
+  `pageCells.test.ts` and `permissionCatalog.test.ts` check — and its
+  defaults `page_level()`'s, which `pageAccess.test.ts` reads. A new team-only
   table that reads `auth.uid() is not null` leaks to Church Members — give
   it `can_open_page` or `is_on_a_team`.
 - **Rota tags are labels, never exemptions.** A tagged assignment is
@@ -449,9 +449,9 @@ Each of these has already cost real time. None of them show up in review.
 
 **A new page**: route in `App.tsx` (inside `PageGate` unless everybody may
 always open it) → a rule in `lib/pageAccess.ts` `PAGE_RULES` (default,
-choices, what enforces it — and, if it has a key, the same choices in
-SQL's `page_access_is_valid` and as its `page.<key>` cells, in a
-migration and in `lib/permissions.ts`'s `CATALOG`) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
+choices, what enforces it — and, if it has a key, the same choices as
+its `page.<key>` cells, in a migration and in `lib/permissions.ts`'s
+`CATALOG`) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
 with the default `group` it sits under in the More sheet (Sunday, After the service,
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-// 0197 redefines both functions (adding the Prayer Requests page), so the
-// latest word is read.
-import migration from '../../../supabase/migrations/0197_prayer_requests.sql?raw'
-// page_level()'s defaults, as they stand since Prayer Requests was added.
-import levels from '../../../supabase/migrations/0197_prayer_requests.sql?raw'
+// page_level()'s defaults, as they stand since 0217 stopped it reading
+// page_access. Which levels each page offers is its page.* cells since
+// 0215 — pageCells.test.ts and permissionCatalog.test.ts hold those to
+// PAGE_RULES and to the database.
+import levels from '../../../supabase/migrations/0217_drop_the_settings_the_grid_replaced.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,
@@ -16,17 +16,6 @@ import {
 import { NAV_ITEMS } from './navItems'
 
 
-/** What page_access_is_valid() accepts for each key, read out of the SQL. */
-function sqlChoices(): Record<string, string[]> {
-  const body = migration.slice(migration.indexOf('function public.page_access_is_valid'))
-  const out: Record<string, string[]> = {}
-  for (const m of body.matchAll(/when '([a-z-]+)'\s+then array\[([^\]]*)\]/g)) {
-    if (m[1] in out) break
-    out[m[1]] = [...m[2].matchAll(/'([a-z]+)'/g)].map((x) => x[1])
-  }
-  return out
-}
-
 /** The defaults page_level() falls back on, read out of the SQL. */
 function sqlDefaults(): { everyone: string[] } {
   const body = levels.slice(levels.indexOf('function public.page_level'))
@@ -35,21 +24,6 @@ function sqlDefaults(): { everyone: string[] } {
 }
 
 describe('the page rules', () => {
-  /*
-   * The app offers the choices; the database decides whether they are
-   * allowed. A choice offered here that the SQL refuses is a Save that
-   * fails for no reason anybody can see.
-   */
-  it('offers exactly the choices the database accepts, page by page', () => {
-    const fromSql = sqlChoices()
-    const fromApp = Object.fromEntries(
-      Object.values(PAGE_RULES)
-        .filter((r) => r.key)
-        .map((r) => [r.key!, r.choices]),
-    )
-    expect(fromApp).toEqual(fromSql)
-  })
-
   it('falls back on the same defaults as the database', () => {
     const everyone = sqlDefaults().everyone.sort()
     const fromApp = Object.values(PAGE_RULES)
