@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { PersonAccessCard } from './PersonAccessCard'
 import { NavNamesContext } from '../lib/navNames'
+import { untilFromDay } from '../lib/grantUntil'
 
 vi.mock('../lib/appSettings', async (original) => {
   const real = await original<typeof import('../lib/appSettings')>()
@@ -206,8 +207,42 @@ describe('Settings › Access › By person', () => {
     await user.click(screen.getByRole('button', { name: 'Give' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
-      p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'all' }],
+      p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'all', until: null }],
+    })
+  })
+
+  it('gives them one thing more until a day, and says until when on what they hold (0218)', async () => {
+    perms.grants = [
+      { id: 'g1', capability: 'set.edit', userId: '33333333-3333-3333-3333-333333333333', departmentId: null, reach: 'all', expiresAt: new Date(2026, 10, 13).toISOString() },
+    ]
+    const { user } = show()
+    await chooseAsha(user)
+    const given = await screen.findByRole('list', { name: 'Given to them' })
+    expect(within(given).getByRole('listitem')).toHaveTextContent(
+      `Until ${new Date(2026, 10, 12, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    )
+    await user.click(await screen.findByRole('combobox', { name: 'Give them' }))
+    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    const day = await chooseTomorrow(user)
+    expect(screen.getByRole('button', { name: 'Until' })).not.toHaveTextContent('For good')
+    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'team', until: untilFromDay(day) }],
     })
   })
 })
+
+/** Opens the Until field and picks tomorrow, whichever month it is in. */
+async function chooseTomorrow(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Until' }))
+  const dialog = screen.getByRole('dialog')
+  const today = new Date()
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const iso = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`
+  if (tomorrow.getMonth() !== today.getMonth()) await user.click(within(dialog).getByRole('button', { name: 'Next month' }))
+  await user.click(within(dialog).getByRole('gridcell', { name: iso }))
+  return iso
+}
 

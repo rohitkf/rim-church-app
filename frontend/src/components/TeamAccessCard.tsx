@@ -29,6 +29,8 @@ import { Select } from './Select'
 import { Switch } from './SettingRows'
 import { ActionButton, Pill, SectionTile } from './Surface'
 import { GrantEffects } from './GrantEffects'
+import { DateField } from './DateTimeFields'
+import { earliestUntilDay, formatUntil, untilFromDay } from '../lib/grantUntil'
 
 /**
  * Settings › Access › By team: one team's whole answer. Who is on it, what
@@ -282,8 +284,11 @@ function GivenToTeam({
   const [cap, setCap] = useState('')
   const [reach, setReach] = useState<GrantReach>('team')
   const [leadsOnly, setLeadsOnly] = useState(false)
+  const [untilDay, setUntilDay] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  // The end, if one is chosen (0218): the moment that day ends, or null for good.
+  const until = untilDay ? untilFromDay(untilDay) : null
 
   const held = grants.filter((g) => g.departmentId === teamId)
   const choices = useMemo(
@@ -297,20 +302,28 @@ function GivenToTeam({
   const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
   // What Give would do, before it is pressed.
   const preview = useMemo(
-    () => (cap ? [{ capability: cap, team: teamId, reach, leads_only: leadsOnly }] : []),
-    [cap, teamId, reach, leadsOnly],
+    () => (cap ? [{ capability: cap, team: teamId, reach, leads_only: leadsOnly, until }] : []),
+    [cap, teamId, reach, leadsOnly, until],
   )
 
   const save = useMutation({
-    mutationFn: async (change: { capability: string; reach: GrantReach | null; leads_only?: boolean }) => {
+    mutationFn: async (change: { capability: string; reach: GrantReach | null; leads_only?: boolean; until?: string | null }) => {
       const { error } = await supabase.rpc('set_permission_grants', {
-        p_changes: [{ capability: change.capability, team: teamId, reach: change.reach, ...(change.reach ? { leads_only: change.leads_only ?? false } : {}) }],
+        p_changes: [
+          {
+            capability: change.capability,
+            team: teamId,
+            reach: change.reach,
+            ...(change.reach ? { leads_only: change.leads_only ?? false, until: change.until ?? null } : {}),
+          },
+        ],
       })
       if (error) throw error
     },
     onSuccess: async () => {
       setError(null)
       setCap('')
+      setUntilDay('')
       setSaved(true)
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
     },
@@ -335,8 +348,9 @@ function GivenToTeam({
                 <span className="block text-body-sm text-on-surface">{actionOf(grant.capability)}</span>
                 <span className="block text-label-sm text-on-surface-faint">{REACH_WORDS[grant.reach]}</span>
               </span>
-              <span className="ml-auto flex items-center gap-2">
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 <Pill tone="blue">{grant.leadsOnly ? 'Its Heads only' : 'Everybody on it'}</Pill>
+                {grant.expiresAt && <Pill>Until {formatUntil(grant.expiresAt)}</Pill>}
                 {editable && (
                   <button
                     type="button"
@@ -383,9 +397,18 @@ function GivenToTeam({
                 <Switch label="For its Heads only" checked={leadsOnly} onChange={setLeadsOnly} />
                 Its Heads only
               </label>
+              <DateField
+                aria-label="Until"
+                label="Until when?"
+                placeholder="For good"
+                min={earliestUntilDay()}
+                clearable
+                value={untilDay}
+                onChange={setUntilDay}
+              />
               <ActionButton
                 tone="quiet"
-                onClick={() => save.mutate({ capability: cap, reach, leads_only: leadsOnly })}
+                onClick={() => save.mutate({ capability: cap, reach, leads_only: leadsOnly, until })}
                 disabled={save.isPending}
               >
                 Give
@@ -406,7 +429,8 @@ function GivenToTeam({
           <p className="text-label-md text-on-surface-faint">
             “Everybody on it” is its roster, its Head and its Assisting Heads; “its Heads only” is the Head and
             Assisting Heads alone (0213). A grant only ever adds, and never reaches further than the grid could
-            give a Team Head or a Team Member. The database follows it at once.
+            give a Team Head or a Team Member. One given until a day ends as that day does, on its own. The
+            database follows it at once.
           </p>
         </div>
       )}

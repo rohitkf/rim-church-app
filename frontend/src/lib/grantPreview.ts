@@ -14,6 +14,8 @@ export interface GrantChange {
   reach: GrantReach | null
   /** A team's grant for its Heads alone (0213). */
   leads_only?: boolean
+  /** When it ends (0218): a time, null for good, or left out to leave the date as it is. */
+  until?: string | null
 }
 
 /** The grants as they would be once these changes are saved. */
@@ -28,6 +30,7 @@ export function applyGrantChanges(grants: readonly PermissionGrant[], changes: r
         departmentId: c.team ?? null,
         reach: c.reach,
         leadsOnly: !!c.team && !!c.leads_only,
+        expiresAt: c.until ?? null,
       })
     }
   }

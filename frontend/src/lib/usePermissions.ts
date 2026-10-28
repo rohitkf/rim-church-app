@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import { inDate } from './grantUntil'
 import { useAuth } from '../auth/AuthContext'
 import { useMyTeams } from './useMyTeams'
 import { useAppSettings } from './appSettings'
@@ -29,6 +30,7 @@ const grantRowSchema = z.object({
   department_id: z.string().nullable(),
   reach: z.enum(['team', 'all']),
   leads_only: z.boolean().default(false),
+  expires_at: z.string().nullable().default(null),
 })
 
 export interface StoredPermissions {
@@ -47,7 +49,7 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
   const [church, teams, grants] = await Promise.all([
     supabase.from('role_permissions').select('role_key, capability, reach'),
     supabase.from('department_permissions').select('department_id, role_key, capability, reach'),
-    supabase.from('permission_grants').select('id, capability, user_id, department_id, reach, leads_only'),
+    supabase.from('permission_grants').select('id, capability, user_id, department_id, reach, leads_only, expires_at'),
   ])
   if (church.error) throw church.error
   if (teams.error) throw teams.error
@@ -55,9 +57,12 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
   return {
     church: overridesFrom(z.array(rowSchema).parse(church.data ?? [])),
     teams: teamOverridesFrom(z.array(teamRowSchema).parse(teams.data ?? [])),
+    // One past its end date (0218) is as if taken back: may() passes it
+    // by already, and the sweep removes its row the next night.
     grants: z
       .array(grantRowSchema)
       .parse(grants.data ?? [])
+      .filter((g) => inDate(g.expires_at))
       .map((g) => ({
         id: g.id,
         capability: g.capability,
@@ -65,6 +70,7 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
         departmentId: g.department_id,
         reach: g.reach,
         leadsOnly: g.leads_only,
+        expiresAt: g.expires_at,
       })),
   }
 }

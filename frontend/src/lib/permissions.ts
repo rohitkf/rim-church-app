@@ -875,6 +875,8 @@ export interface PermissionGrant {
   reach: GrantReach
   /** A team's grant for its Head and Assisting Heads alone, not its roster (0213). */
   leadsOnly?: boolean
+  /** When it ends (0218), or null for good. One past its end is never in the list. */
+  expiresAt?: string | null
 }
 
 /** How far a grant reaches: on the teams they are on (a team's grant, that team), or everywhere. */

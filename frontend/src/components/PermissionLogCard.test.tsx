@@ -18,6 +18,8 @@ const row = (over: Partial<PermissionChangeRow>): PermissionChangeRow => ({
   after: 'team',
   leads_only_before: null,
   leads_only_after: null,
+  until_before: null,
+  until_after: null,
   ...over,
 })
 const person = (id: string) => (id === 'asha' ? 'Asha Mathew' : 'Somebody since removed')
@@ -44,6 +46,27 @@ describe('a change, said as a sentence', () => {
     expect(
       describeChange(row({ kind: 'grant', role_key: null, capability: 'clockin.approve', department_id: 'w', before: 'all', after: null, leads_only_before: true }), person, team),
     ).toBe('Took back “Approve or refuse a request to be clocked in” from the Heads of Worship')
+  })
+
+  it('says a grant’s end date, a change of it, and one that ran out (0218)', () => {
+    const until = new Date(2026, 10, 13).toISOString()
+    const day = new Date(2026, 10, 12, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    const grant = { kind: 'grant' as const, role_key: null, capability: 'rota.assign', user_id: 'asha' }
+    expect(describeChange(row({ ...grant, after: 'team', until_after: until }), person, team)).toBe(
+      `Gave Asha Mathew “Assign somebody to a role”, on their teams until ${day}`,
+    )
+    expect(describeChange(row({ ...grant, before: 'team', after: 'team', until_after: until }), person, team)).toBe(
+      `Changed Asha Mathew’s “Assign somebody to a role” to end on ${day}`,
+    )
+    expect(describeChange(row({ ...grant, before: 'team', after: 'team', until_before: until }), person, team)).toBe(
+      'Changed Asha Mathew’s “Assign somebody to a role” to have no end date',
+    )
+    expect(describeChange(row({ ...grant, before: 'team', after: null, until_before: until, changed_by: null }), person, team)).toBe(
+      '“Assign somebody to a role” for Asha Mathew ran out',
+    )
+    expect(describeChange(row({ ...grant, before: 'team', after: null, until_before: until }), person, team)).toBe(
+      'Took back “Assign somebody to a role” from Asha Mathew',
+    )
   })
 })
 

@@ -29,6 +29,8 @@ import { Select } from './Select'
 import { ActionButton, Pill, SectionTile } from './Surface'
 import { roleLabel } from './PermissionsCard'
 import { GrantEffects } from './GrantEffects'
+import { DateField } from './DateTimeFields'
+import { earliestUntilDay, formatUntil, untilFromDay } from '../lib/grantUntil'
 
 /**
  * Settings › Access › By person: one person's whole answer, read from the
@@ -412,7 +414,10 @@ function GivenMore({
   const errorText = useErrorText()
   const [cap, setCap] = useState('')
   const [reach, setReach] = useState<GrantReach>('team')
+  const [untilDay, setUntilDay] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The end, if one is chosen (0218): the moment that day ends, or null for good.
+  const until = untilDay ? untilFromDay(untilDay) : null
 
   const held = grantsFor(facts, grants)
   const choices = useMemo(
@@ -425,18 +430,21 @@ function GivenMore({
   )
   const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
   // What Give would do, before it is pressed.
-  const preview = useMemo(() => (cap ? [{ capability: cap, person: facts.id, reach }] : []), [cap, facts.id, reach])
+  const preview = useMemo(() => (cap ? [{ capability: cap, person: facts.id, reach, until }] : []), [cap, facts.id, reach, until])
 
   const save = useMutation({
-    mutationFn: async (change: { capability: string; reach: GrantReach | null }) => {
+    mutationFn: async (change: { capability: string; reach: GrantReach | null; until?: string | null }) => {
       const { error } = await supabase.rpc('set_permission_grants', {
-        p_changes: [{ capability: change.capability, person: facts.id, reach: change.reach }],
+        p_changes: [
+          { capability: change.capability, person: facts.id, reach: change.reach, ...(change.reach ? { until: change.until ?? null } : {}) },
+        ],
       })
       if (error) throw error
     },
     onSuccess: async () => {
       setError(null)
       setCap('')
+      setUntilDay('')
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save that.')),
@@ -473,7 +481,7 @@ function GivenMore({
                   {teamId && grant.reach === 'team' ? `On ${teamName(teamId)}` : REACH_WORDS[grant.reach]}
                 </span>
               </span>
-              <span className="ml-auto flex items-center gap-2">
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 {teamId ? (
                   <Link
                     to={`/settings/access?tab=team&team=${teamId}`}
@@ -486,6 +494,7 @@ function GivenMore({
                 ) : (
                   <Pill tone="blue">By name</Pill>
                 )}
+                {grant.expiresAt && <Pill>Until {formatUntil(grant.expiresAt)}</Pill>}
                 {editable && !teamId && (
                   <button
                     type="button"
@@ -524,9 +533,18 @@ function GivenMore({
                 onChange={(next) => setReach(next as GrantReach)}
                 options={reaches.map((r) => ({ value: r, label: REACH_WORDS[r] }))}
               />
+              <DateField
+                aria-label="Until"
+                label="Until when?"
+                placeholder="For good"
+                min={earliestUntilDay()}
+                clearable
+                value={untilDay}
+                onChange={setUntilDay}
+              />
               <ActionButton
                 tone="quiet"
-                onClick={() => save.mutate({ capability: cap, reach })}
+                onClick={() => save.mutate({ capability: cap, reach, until })}
                 disabled={save.isPending}
               >
                 Give
@@ -541,7 +559,8 @@ function GivenMore({
           )}
           <p className="text-label-md text-on-surface-faint">
             A grant only ever adds to what their profiles give, and never reaches further than the grid could
-            give a Team Head or a Team Member. The database follows it at once.
+            give a Team Head or a Team Member. One given until a day ends as that day does, on its own. The
+            database follows it at once.
           </p>
         </div>
       )}
