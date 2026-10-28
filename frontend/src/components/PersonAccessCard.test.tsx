@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -17,7 +17,11 @@ vi.mock('../lib/appSettings', async (original) => {
   }
 })
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, session: { user: { id: 'me' } } }) }))
-vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ overrides: {}, teams: {} }) }))
+const perms = vi.hoisted(() => ({ grants: [] as unknown[], rpc: [] as { fn: string; args: unknown }[] }))
+vi.mock('../lib/usePermissions', () => ({
+  PERMISSIONS_KEY: ['role-permissions'],
+  usePermissions: () => ({ overrides: {}, teams: {}, grants: perms.grants, can: () => true }),
+}))
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () =>
     Promise.resolve([
@@ -46,6 +50,10 @@ const TABLES: Record<string, unknown[]> = {
 }
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string, args: unknown) => {
+      perms.rpc.push({ fn, args })
+      return Promise.resolve({ error: null })
+    },
     from: (table: string) => {
       const result = { data: TABLES[table] ?? [], error: null }
       const chain = {
@@ -62,6 +70,11 @@ vi.mock('../lib/supabaseClient', () => ({
     },
   },
 }))
+
+beforeEach(() => {
+  perms.grants = []
+  perms.rpc = []
+})
 
 function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -137,4 +150,44 @@ describe('Settings › Access › By person', () => {
     await user.click(await screen.findByRole('button', { name: 'By role' }))
     expect(onOpenRoles).toHaveBeenCalled()
   })
+
+  it('says what the church gave them by name, and counts it in their answers', async () => {
+    perms.grants = [
+      { id: 'g1', capability: 'set.edit', userId: '33333333-3333-3333-3333-333333333333', departmentId: null, reach: 'all' },
+      { id: 'g2', capability: 'svc.guests', userId: null, departmentId: '11111111-1111-1111-1111-111111111111', reach: 'team' },
+    ]
+    const { user } = show()
+    await chooseAsha(user)
+    const given = await screen.findByRole('list', { name: 'Given to them' })
+    const items = within(given).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('By name')
+    expect(items[0]).toHaveTextContent('Everywhere')
+    expect(items[1]).toHaveTextContent('Through Welcome')
+    expect(items[1]).toHaveTextContent('On Welcome')
+    // A team's grant is the team's to take back, not one person's.
+    expect(within(items[1]).queryByRole('button', { name: /Take back/ })).toBeNull()
+    await user.click(within(items[0]).getByRole('button', { name: /Take back/ }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0]).toEqual({
+      fn: 'set_permission_grants',
+      args: { p_changes: [{ capability: 'set.edit', person: '33333333-3333-3333-3333-333333333333', reach: null }] },
+    })
+  })
+
+  it('gives them one thing more, only as far as the grid could reach', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    await user.click(await screen.findByRole('combobox', { name: 'Give them' }))
+    // The keys to the app are never on offer.
+    expect(screen.queryByRole('option', { name: 'Change who can do what — this grid' })).toBeNull()
+    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(screen.getByRole('combobox', { name: 'How far' }))
+    await user.click(screen.getByRole('option', { name: 'Everywhere' }))
+    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'all' }],
+    })
+  })
 })
+

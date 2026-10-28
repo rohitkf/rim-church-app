@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  type PermissionGrant,
+  grantableCapabilities,
+  grantIsValid,
+  grantedBy,
   changesBetween,
   decide,
   defaultsOver,
@@ -183,5 +187,68 @@ describe('a team’s own rules (0162)', () => {
       { role: 'member', capability: 'avail.edit_others', reach: null, department: TEAM_A },
       { role: 'head', capability: 'avail.history', reach: 'none', department: TEAM_A },
     ])
+  })
+})
+
+/*
+ * One thing more (0208), as may() asks it: after every rule the grid has,
+ * for a person by name or everybody on a team, on their teams or everywhere.
+ * Proved on production against may() with grants added at random; these
+ * hold the mirror to the same rule.
+ */
+describe('a grant', () => {
+  const asha = (grants: PermissionGrant[], over: Partial<Holder> = {}): Holder => ({
+    myId: 'asha',
+    owner: false,
+    admin: false,
+    ledTeams: [],
+    memberTeams: ['worship'],
+    grants,
+    ...over,
+  })
+  const byName = (reach: 'team' | 'all'): PermissionGrant => ({ capability: 'rota.assign', userId: 'asha', departmentId: null, reach })
+  const toTeam = (team: string, reach: 'team' | 'all'): PermissionGrant => ({ capability: 'rota.assign', userId: null, departmentId: team, reach })
+
+  it('gives nothing when there is none: a Team Member may not assign the rota', () => {
+    expect(decide({}, asha([]), 'rota.assign', { departmentId: 'worship' })).toBe(false)
+  })
+
+  it('by name, everywhere: on any team and on none', () => {
+    const holder = asha([byName('all')])
+    expect(grantedBy({}, holder, 'rota.assign', { departmentId: 'media' })).toBe('grant')
+    expect(decide({}, holder, 'rota.assign', { departmentId: null })).toBe(true)
+  })
+
+  it('by name, on their teams: on a team they are on or lead, and on what is theirs, nowhere else', () => {
+    const holder = asha([byName('team')], { ledTeams: ['welcome'] })
+    expect(decide({}, holder, 'rota.assign', { departmentId: 'worship' })).toBe(true)
+    expect(decide({}, holder, 'rota.assign', { departmentId: 'welcome' })).toBe(true)
+    expect(decide({}, holder, 'rota.assign', { departmentId: 'media' })).toBe(false)
+    expect(decide({}, holder, 'rota.assign', { departmentId: null })).toBe(false)
+    expect(decide({}, holder, 'rota.assign', { ownerId: 'asha' })).toBe(true)
+  })
+
+  it('to a team: its people, on that team — or everywhere when it says so', () => {
+    expect(decide({}, asha([toTeam('worship', 'team')]), 'rota.assign', { departmentId: 'worship' })).toBe(true)
+    expect(decide({}, asha([toTeam('worship', 'team')]), 'rota.assign', { departmentId: 'media' })).toBe(false)
+    expect(decide({}, asha([toTeam('worship', 'all')]), 'rota.assign', { departmentId: 'media' })).toBe(true)
+    // Nobody off the team is carried by it.
+    expect(decide({}, asha([toTeam('media', 'all')]), 'rota.assign', { departmentId: 'media' })).toBe(false)
+    // A Head of the team is on it, as the rooms' lists always meant.
+    expect(decide({}, asha([toTeam('media', 'team')], { memberTeams: [], ledTeams: ['media'] }), 'rota.assign', { departmentId: 'media' })).toBe(true)
+  })
+
+  it('is for its own capability only, and never takes a yes away', () => {
+    expect(decide({}, asha([byName('all')]), 'rota.tag', { departmentId: 'worship' })).toBe(false)
+    const head: Holder = { ...asha([]), ledTeams: ['worship'], headTeams: ['worship'] }
+    expect(grantedBy({}, head, 'rota.assign', { departmentId: 'worship' })).toBe('head')
+  })
+
+  it('may be given only what the grid could give a profile other than Admin', () => {
+    expect(grantIsValid('rota.assign', 'all')).toBe(true)
+    expect(grantIsValid('rota.assign', 'team')).toBe(true)
+    expect(grantIsValid('app.permissions', 'all')).toBe(false)
+    expect(grantableCapabilities().some((cap) => cap.startsWith('app.'))).toBe(false)
+    expect(grantableCapabilities()).toContain('set.edit')
   })
 })

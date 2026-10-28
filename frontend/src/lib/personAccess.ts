@@ -1,5 +1,5 @@
 import type { AppSettings } from './appSettings'
-import type { Allowed, Capability } from './permissionMatrix'
+import type { Allowed, Capability, RoleKey } from './permissionMatrix'
 import { overwatchMay, type OverwatchAct } from './overwatch'
 import { pageOpening, type PageOpening } from './pageOpening'
 import { standingOf } from './pageAccess'
@@ -10,6 +10,7 @@ import {
   type Granter,
   type Holder,
   type Overrides,
+  type PermissionGrant,
   type TeamOverrides,
 } from './permissions'
 
@@ -43,8 +44,8 @@ export interface PersonFacts {
   coordinatorTeams: readonly string[]
 }
 
-/** A person as `decide()` takes them. */
-export function holderOf(p: PersonFacts): Holder {
+/** A person as `decide()` takes them, with the church's grants (0208). */
+export function holderOf(p: PersonFacts, grants: readonly PermissionGrant[] = []): Holder {
   const led = [...new Set([...p.headTeams, ...p.assistTeams])]
   return {
     myId: p.id,
@@ -55,6 +56,7 @@ export function holderOf(p: PersonFacts): Holder {
     assistTeams: p.assistTeams,
     memberTeams: p.memberTeams,
     coordinatesAnywhere: p.coordinatorTeams.length > 0,
+    grants,
   }
 }
 
@@ -96,8 +98,9 @@ export function explainCapability(
   teamRules: TeamOverrides,
   teamIds: readonly string[],
   settings: AppSettings,
+  grants: readonly PermissionGrant[] = [],
 ): Answer {
-  const holder = holderOf(person)
+  const holder = holderOf(person, grants)
   const ask = (departmentId: string | null, extra: { coordinating?: boolean; ownerId?: string } = {}) =>
     grantedBy(overrides, holder, cap, { departmentId, ...extra }, teamRules)
 
@@ -123,8 +126,8 @@ export function explainCapability(
 const RANK: Record<Allowed, number> = { no: 0, own: 1, team: 2, yes: 3 }
 
 /** The profiles a person holds, widest first, as the grid's columns name them. */
-export function profilesOf(p: PersonFacts): Granter[] {
-  const out: Granter[] = []
+export function profilesOf(p: PersonFacts): RoleKey[] {
+  const out: RoleKey[] = []
   if (p.owner) out.push('owner')
   if (p.admin) out.push('admin')
   if (p.headTeams.length > 0) out.push('head')
@@ -272,4 +275,22 @@ export function namedFor(
     add('Stage Layout', '/settings/stage', `May ${words}`, row ? `Through ${teamName(row.department_id)}` : null)
   }
   return out
+}
+
+/** A grant that reaches this person, and whether by name or through a team. */
+export interface HeldGrant {
+  grant: PermissionGrant
+  /** Their own, by name; else the team that carries it to them. */
+  teamId: string | null
+}
+
+/** The church's grants that reach this person (0208): theirs by name, then their teams'. */
+export function grantsFor(person: PersonFacts, grants: readonly PermissionGrant[]): HeldGrant[] {
+  const onTeams = new Set([...person.memberTeams, ...person.headTeams, ...person.assistTeams])
+  return [
+    ...grants.filter((g) => g.userId === person.id).map((grant) => ({ grant, teamId: null })),
+    ...grants
+      .filter((g) => !!g.departmentId && onTeams.has(g.departmentId))
+      .map((grant) => ({ grant, teamId: grant.departmentId })),
+  ]
 }
