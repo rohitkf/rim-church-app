@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAppSettings } from '../lib/appSettings'
 import { fetchDepartments } from '../lib/queries'
@@ -8,11 +8,14 @@ import { fetchPeopleOptions } from '../lib/plannerControls'
 import { STAGE_KEY, fetchStageTeamAccess } from '../lib/stage'
 import { pagesWithRules } from '../lib/pageList'
 import { ACCESS_LEVELS, type PageAccess } from '../lib/pageAccess'
-import { isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
-import { usePermissions } from '../lib/usePermissions'
+import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
+import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
+import { grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
+import { useErrorText } from '../lib/useErrorText'
 import {
   explainCapability,
   explainFixed,
+  grantsFor,
   namedFor,
   openingFor,
   type Answer,
@@ -22,7 +25,7 @@ import {
 import type { PageOpening } from '../lib/pageOpening'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
-import { Pill, SectionTile } from './Surface'
+import { ActionButton, Pill, SectionTile } from './Surface'
 import { roleLabel } from './PermissionsCard'
 
 /**
@@ -67,7 +70,15 @@ async function fetchPersonFacts(id: string): Promise<{ facts: PersonFacts; guest
   }
 }
 
-const viaLabel = (via: Via) => (via === 'overwatch' ? 'Overwatch' : roleLabel(via))
+const viaLabel = (via: Via) => (via === 'overwatch' ? 'Overwatch' : via === 'grant' ? 'a grant' : roleLabel(via))
+
+/** Why, in a few words: "As Team Head", or "Given to them" for a grant. */
+const whyOf = (vias: readonly Via[]) => {
+  const roles = vias.filter((v) => v !== 'grant').map(viaLabel)
+  const given = vias.includes('grant')
+  if (roles.length === 0) return 'Given to them'
+  return `As ${roles.join(', ')}${given ? '; given to them' : ''}`
+}
 
 const levelLabel = (level: string) => ACCESS_LEVELS.find((l) => l.value === level)?.label ?? level
 
@@ -98,13 +109,13 @@ function AnswerPill({
 }) {
   switch (answer.kind) {
     case 'everywhere':
-      return <Reasoned tone="green" label="Everywhere" why={`As ${viaLabel(answer.via)}`} />
+      return <Reasoned tone="green" label="Everywhere" why={whyOf([answer.via])} />
     case 'own':
-      return <Reasoned tone="blue" label="Their own" why={`As ${viaLabel(answer.via)}`} />
+      return <Reasoned tone="blue" label="Their own" why={whyOf([answer.via])} />
     case 'none':
       return <Reasoned tone="neutral" label="No" />
     case 'teams': {
-      const vias = [...new Set(answer.teams.map((t) => t.via))].map(viaLabel).join(', ')
+      const vias = whyOf([...new Set(answer.teams.map((t) => t.via))])
       const left = teamIds.filter((id) => !answer.teams.some((t) => t.id === id))
       if (answer.church) {
         // Allowed church-wide, but some team's own rule keeps its own.
@@ -112,16 +123,16 @@ function AnswerPill({
           <Reasoned
             tone="green"
             label="All but"
-            why={`${left.map(teamName).join(', ')} · their own rule · As ${viaLabel(answer.church)}`}
+            why={`${left.map(teamName).join(', ')} · their own rule · ${whyOf([answer.church])}`}
           />
         )
       }
-      if (left.length === 0) return <Reasoned tone="green" label="Every team" why={`As ${vias}`} />
+      if (left.length === 0) return <Reasoned tone="green" label="Every team" why={vias} />
       return (
         <Reasoned
           tone="blue"
           label={answer.teams.length === 1 ? teamName(answer.teams[0].id) : `${answer.teams.length} teams`}
-          why={`${answer.teams.length === 1 ? '' : `${answer.teams.map((t) => teamName(t.id)).join(', ')} · `}As ${vias}`}
+          why={`${answer.teams.length === 1 ? '' : `${answer.teams.map((t) => teamName(t.id)).join(', ')} · `}${vias}`}
         />
       )
     }
@@ -142,7 +153,7 @@ const FIXED_LABEL: Record<Allowed, string> = { yes: 'Yes', own: 'Their own', tea
 
 export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const settings = useAppSettings()
-  const { overrides, teams: teamRules } = usePermissions()
+  const { overrides, teams: teamRules, grants = [] } = usePermissions()
   const [personId, setPersonId] = useState('')
   const [showNo, setShowNo] = useState(false)
 
@@ -248,7 +259,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                     const live = isLiveArea(area)
                     const rows = area.capabilities.map((c) => {
                       if (c.key && live) {
-                        const answer = explainCapability(facts, c.key, overrides, teamRules, teamIds, settings)
+                        const answer = explainCapability(facts, c.key, overrides, teamRules, teamIds, settings, grants)
                         return { c, no: answer.kind === 'none', cell: <AnswerPill answer={answer} teamName={teamName} teamIds={teamIds} /> }
                       }
                       const fixed = explainFixed(facts, c, settings)
@@ -259,7 +270,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                           <Reasoned
                             tone={FIXED_TONE[fixed.allowed]}
                             label={FIXED_LABEL[fixed.allowed]}
-                            why={fixed.via ? `As ${viaLabel(fixed.via)} · fixed` : undefined}
+                            why={fixed.via ? `${whyOf([fixed.via])} · fixed` : undefined}
                           />
                         ),
                       }
@@ -300,6 +311,8 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                   .
                 </p>
               </SectionTile>
+
+              <GivenMore facts={facts} name={name} grants={grants} teamName={teamName} />
 
               <NamedLists facts={facts} stage={stage.data ?? []} teamName={teamName} />
             </>
@@ -386,6 +399,159 @@ function NamedLists({
             </li>
           ))}
         </ul>
+      )}
+    </SectionTile>
+  )
+}
+
+/** What each grantable capability is called, as the grid says it. */
+const ACTION_OF: Partial<Record<CapabilityKey, string>> = Object.fromEntries(
+  PERMISSIONS.flatMap((area) => area.capabilities).flatMap((c) => (c.key ? [[c.key, c.action]] : [])),
+)
+const actionOf = (cap: string) => ACTION_OF[cap as CapabilityKey] ?? cap
+
+const REACH_WORDS: Record<GrantReach, string> = { team: 'On the teams they are on', all: 'Everywhere' }
+
+/**
+ * One thing more (0208): what the church has given this person by name, or
+ * through a team, beyond what their profiles give — and the place to give
+ * them another, or take one back.
+ */
+function GivenMore({
+  facts,
+  name,
+  grants,
+  teamName,
+}: {
+  facts: PersonFacts
+  name: string
+  grants: readonly PermissionGrant[]
+  teamName: (id: string) => string
+}) {
+  const { can } = usePermissions()
+  const editable = can('app.permissions')
+  const queryClient = useQueryClient()
+  const errorText = useErrorText()
+  const [cap, setCap] = useState('')
+  const [reach, setReach] = useState<GrantReach>('team')
+  const [error, setError] = useState<string | null>(null)
+
+  const held = grantsFor(facts, grants)
+  const choices = useMemo(
+    () =>
+      grantableCapabilities()
+        .filter((key) => !held.some((h) => !h.teamId && h.grant.capability === key))
+        .map((key) => ({ value: key, label: actionOf(key) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [held],
+  )
+  const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
+
+  const save = useMutation({
+    mutationFn: async (change: { capability: string; reach: GrantReach | null }) => {
+      const { error } = await supabase.rpc('set_permission_grants', {
+        p_changes: [{ capability: change.capability, person: facts.id, reach: change.reach }],
+      })
+      if (error) throw error
+    },
+    onSuccess: async () => {
+      setError(null)
+      setCap('')
+      await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not save that.')),
+  })
+
+  // The Owner holds everything, and an Admin everything a grant could give.
+  if (facts.owner || facts.admin) {
+    return (
+      <SectionTile title="Given one thing more" hint="Beyond what their profiles give.">
+        <p className="text-body-sm text-on-surface-variant">
+          {facts.owner ? 'The Owner' : 'An Admin'} may already do everything a grant could give.
+        </p>
+      </SectionTile>
+    )
+  }
+
+  return (
+    <SectionTile
+      title="Given one thing more"
+      hint={`Beyond what their profiles give: something for ${name || 'them'} by name, or for everybody on one of their teams.`}
+    >
+      {held.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant">Nothing more, by name or through a team.</p>
+      ) : (
+        <ul aria-label="Given to them" className="flex flex-col gap-1">
+          {held.map(({ grant, teamId }) => (
+            <li
+              key={grant.id ?? `${grant.capability}:${teamId ?? 'me'}`}
+              className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-[var(--radius-row)] px-2 py-2.5 odd:bg-raised"
+            >
+              <span className="min-w-0 flex-1 basis-48">
+                <span className="block text-body-sm text-on-surface">{actionOf(grant.capability)}</span>
+                <span className="block text-label-sm text-on-surface-faint">
+                  {teamId && grant.reach === 'team' ? `On ${teamName(teamId)}` : REACH_WORDS[grant.reach]}
+                </span>
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <Pill tone="blue">{teamId ? `Through ${teamName(teamId)}` : 'By name'}</Pill>
+                {editable && !teamId && (
+                  <button
+                    type="button"
+                    onClick={() => save.mutate({ capability: grant.capability, reach: null })}
+                    disabled={save.isPending}
+                    aria-label={`Take back: ${actionOf(grant.capability)}`}
+                    className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:text-error"
+                  >
+                    Take back
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editable && (
+        <div className="mt-4 flex flex-col gap-2">
+          <Select
+            aria-label="Give them"
+            placeholder="Give them one thing more…"
+            value={cap}
+            onChange={(next) => {
+              setCap(next)
+              const offered = (['team', 'all'] as const).filter((r) => grantIsValid(next as CapabilityKey, r))
+              if (!offered.includes(reach)) setReach(offered[0] ?? 'team')
+            }}
+            options={choices}
+          />
+          {cap && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                aria-label="How far"
+                value={reach}
+                onChange={(next) => setReach(next as GrantReach)}
+                options={reaches.map((r) => ({ value: r, label: REACH_WORDS[r] }))}
+              />
+              <ActionButton
+                tone="quiet"
+                onClick={() => save.mutate({ capability: cap, reach })}
+                disabled={save.isPending}
+              >
+                Give
+              </ActionButton>
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="text-body-sm text-error">
+              {error}
+            </p>
+          )}
+          <p className="text-label-md text-on-surface-faint">
+            A grant only ever adds to what their profiles give, and never reaches further than the grid could
+            give a Team Head or a Team Member. The database follows it at once.
+          </p>
+        </div>
       )}
     </SectionTile>
   )

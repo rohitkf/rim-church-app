@@ -228,6 +228,7 @@ export const LIVE_TABLES: LiveTable[] = [
   // do, and what a page even shows, follows the grid.
   { table: 'role_permissions', keys: ['role-permissions'] },
   { table: 'department_permissions', keys: ['role-permissions'] },
+  { table: 'permission_grants', keys: ['role-permissions', 'person-access'] },
   { table: 'onboarding', keys: ['onboarding', 'onboarding-people'] },
 
   /* ---- the message board and debriefs ------------------------------ */

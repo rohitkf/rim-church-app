@@ -669,6 +669,45 @@ export interface Holder {
   memberTeams: readonly string[]
   /** Whether the rota has them in Team Coordinator anywhere. */
   coordinatesAnywhere?: boolean
+  /**
+   * The church's grants (0208): one thing more, for a person by name or
+   * for everybody on a team. Left out, none.
+   */
+  grants?: readonly PermissionGrant[]
+}
+
+/**
+ * One thing more (0208): a capability for a person by name, or for
+ * everybody on a team — its roster, its Head and Assisting Heads — on the
+ * teams they are on, or everywhere. `may()` asks these after every rule the
+ * grid has, so a grant only ever adds.
+ */
+export interface PermissionGrant {
+  id?: string
+  capability: string
+  userId: string | null
+  departmentId: string | null
+  reach: GrantReach
+}
+
+/** How far a grant reaches: on the teams they are on (a team's grant, that team), or everywhere. */
+export type GrantReach = 'team' | 'all'
+
+/**
+ * Whether this may be granted at this reach — `permission_grant_is_valid()`:
+ * a capability the church could give some profile other than Admin, at a
+ * reach such a profile may be offered. Never the keys to the app.
+ */
+export function grantIsValid(cap: CapabilityKey, reach: GrantReach): boolean {
+  return (['head', 'assistant', 'coordinator', 'member', 'newcomer'] as const).some((role) => {
+    const { reaches } = ruleFor(cap, role)
+    return reaches.length > 1 && reaches.includes(reach)
+  })
+}
+
+/** Every capability that may be granted, at some reach. */
+export function grantableCapabilities(): CapabilityKey[] {
+  return (Object.keys(CATALOG) as CapabilityKey[]).filter((cap) => grantIsValid(cap, 'team') || grantIsValid(cap, 'all'))
 }
 
 /** Where the thing being done sits. */
@@ -680,8 +719,8 @@ export interface Where {
   ownerId?: string | null
 }
 
-/** Who gave a yes: the Owner, or the profile whose reach covered it. */
-export type Granter = 'owner' | GrantRole
+/** Who gave a yes: the Owner, the profile whose reach covered it, or a grant (0208). */
+export type Granter = 'owner' | GrantRole | 'grant'
 
 /**
  * Which of this person's profiles lets them do this, here — the first, in
@@ -740,6 +779,17 @@ export function grantedBy(
   if (reach !== 'none') {
     if ((reach === 'team' || reach === 'all') && !!dept && where.coordinating) return 'coordinator'
     if ((reach === 'all' || mine) && (holder.coordinatesAnywhere || where.coordinating)) return 'coordinator'
+  }
+
+  // A grant, asked last as may() asks it (0208): theirs by name, or their
+  // team's; everywhere, on what is theirs, or on a team they are on.
+  const onTeam = (id: string) => holder.memberTeams.includes(id) || holder.ledTeams.includes(id)
+  for (const grant of holder.grants ?? []) {
+    if (grant.capability !== cap) continue
+    const held = grant.userId ? grant.userId === holder.myId : !!grant.departmentId && onTeam(grant.departmentId)
+    if (!held) continue
+    if (grant.reach === 'all' || mine) return 'grant'
+    if (dept && (grant.departmentId === dept || (!!grant.userId && onTeam(dept)))) return 'grant'
   }
 
   return null

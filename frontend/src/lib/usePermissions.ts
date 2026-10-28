@@ -13,6 +13,7 @@ import {
   type CapabilityKey,
   type Holder,
   type Overrides,
+  type PermissionGrant,
   type TeamOverrides,
   type Where,
 } from './permissions'
@@ -21,22 +22,46 @@ export const PERMISSIONS_KEY = ['role-permissions'] as const
 
 const rowSchema = z.object({ role_key: z.string(), capability: z.string(), reach: z.string() })
 const teamRowSchema = rowSchema.extend({ department_id: z.string() })
+const grantRowSchema = z.object({
+  id: z.string(),
+  capability: z.string(),
+  user_id: z.string().nullable(),
+  department_id: z.string().nullable(),
+  reach: z.enum(['team', 'all']),
+})
 
-/** The cells the church changed, and the teams' own (0162). Everybody may read them; only set_permissions() writes. */
-export async function fetchOverrides(): Promise<{ church: Overrides; teams: TeamOverrides }> {
-  const [church, teams] = await Promise.all([
+export interface StoredPermissions {
+  church: Overrides
+  teams: TeamOverrides
+  /** One thing more, for a person or a team (0208). */
+  grants: PermissionGrant[]
+}
+
+/**
+ * The cells the church changed, the teams' own (0162), and the grants
+ * (0208). Everybody may read them; only set_permissions() and
+ * set_permission_grants() write.
+ */
+export async function fetchOverrides(): Promise<StoredPermissions> {
+  const [church, teams, grants] = await Promise.all([
     supabase.from('role_permissions').select('role_key, capability, reach'),
     supabase.from('department_permissions').select('department_id, role_key, capability, reach'),
+    supabase.from('permission_grants').select('id, capability, user_id, department_id, reach'),
   ])
   if (church.error) throw church.error
   if (teams.error) throw teams.error
+  if (grants.error) throw grants.error
   return {
     church: overridesFrom(z.array(rowSchema).parse(church.data ?? [])),
     teams: teamOverridesFrom(z.array(teamRowSchema).parse(teams.data ?? [])),
+    grants: z
+      .array(grantRowSchema)
+      .parse(grants.data ?? [])
+      .map((g) => ({ id: g.id, capability: g.capability, userId: g.user_id, departmentId: g.department_id, reach: g.reach })),
   }
 }
 
-const NONE: { church: Overrides; teams: TeamOverrides } = { church: {}, teams: {} }
+const NONE: StoredPermissions = { church: {}, teams: {}, grants: [] }
 
 /**
  * The church's permissions, and `can()` for the signed-in person.
@@ -49,7 +74,7 @@ const NONE: { church: Overrides; teams: TeamOverrides } = { church: {}, teams: {
  * answers: the preview narrows roles and teams, and this reads them.
  */
 export function usePermissions() {
-  const { session, isSuperAdmin, isAdmin, isOverwatch, ledDepartmentIds, isDepartmentHead, roles, previewCoordinates } =
+  const { session, isSuperAdmin, isAdmin, isOverwatch, ledDepartmentIds, isDepartmentHead, roles, previewCoordinates, viewAs } =
     useAuth()
   const settings = useAppSettings()
   const { teamIds } = useMyTeams()
@@ -64,6 +89,8 @@ export function usePermissions() {
   const loaded = query.data ?? NONE
   const overrides = loaded.church
   const teams = loaded.teams
+  // A preview is of a profile, not of somebody: nobody's grants come with it.
+  const grants = viewAs ? NONE.grants : (loaded.grants ?? NONE.grants)
 
   // Both lists are rebuilt every render; what they hold is what matters.
   const led = (ledDepartmentIds ?? []).join('|')
@@ -93,8 +120,9 @@ export function usePermissions() {
       // A Team Coordinator preview is coordinating somewhere; a real one
       // is told so where it matters, by `where.coordinating`.
       coordinatesAnywhere: !!previewCoordinates,
+      grants,
     }),
-    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates],
+    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, grants],
   )
 
   /*
@@ -120,5 +148,5 @@ export function usePermissions() {
     [overrides, teams, holder, watching],
   )
 
-  return { can, overrides, teams, query, holder }
+  return { can, overrides, teams, grants, query, holder }
 }
