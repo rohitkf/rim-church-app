@@ -21,6 +21,7 @@ let storedTeams: TeamOverrides = {}
 let storedGrants: PermissionGrant[] = []
 
 vi.mock('../lib/usePermissions', () => ({
+  PERMISSIONS_KEY: ['role-permissions'],
   usePermissions: () => ({
     can: (cap: Parameters<typeof decide>[2], where?: Parameters<typeof decide>[3]) =>
       decide(stored, viewer, cap, where, storedTeams),
