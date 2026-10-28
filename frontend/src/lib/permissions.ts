@@ -58,6 +58,16 @@ const offer = (reaches: string, byDefault: Reach): Rule => ({
 })
 const fixed = (reach: Reach = 'none'): Rule => ({ reaches: [reach], byDefault: reach })
 
+/** One Stage Layout switch (0212): Admins always; anybody else as the church gives it. */
+const STAGE_RULE = {
+  admin: fixed('all'),
+  head: offer('none all', 'none'),
+  assistant: offer('none all', 'none'),
+  coordinator: offer('none all', 'none'),
+  member: offer('none all', 'none'),
+  newcomer: fixed(),
+}
+
 /** One planner button (0211): nobody's out of the box, anybody's but a Church Member's to be given. */
 const PLANNER_RULE = {
     admin: offer('none all', 'none'),
@@ -242,6 +252,12 @@ export const CATALOG = {
   'planner.add_below': PLANNER_RULE,
   'planner.remove': PLANNER_RULE,
   'planner.end': PLANNER_RULE,
+  // What may be done to a stage layout (0212), each switch a capability.
+  'stage.add': STAGE_RULE,
+  'stage.edit': STAGE_RULE,
+  'stage.delete': STAGE_RULE,
+  'stage.comment': STAGE_RULE,
+  'stage.templates': STAGE_RULE,
   // Asking to join a team (0190): out of the box a Church Member is added
   // by a head rather than asking.
   'team.request_join': {

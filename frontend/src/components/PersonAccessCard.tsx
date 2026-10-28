@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabaseClient'
 import { useAppSettings } from '../lib/appSettings'
 import { fetchDepartments } from '../lib/queries'
 import { fetchPeopleOptions } from '../lib/plannerControls'
-import { STAGE_KEY, fetchStageTeamAccess } from '../lib/stage'
 import { pagesWithRules } from '../lib/pageList'
 import { ACCESS_LEVELS, type PageAccess } from '../lib/pageAccess'
 import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
@@ -160,7 +159,6 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
 
   const people = useQuery({ queryKey: ['people-options'], queryFn: fetchPeopleOptions })
   const teams = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  const stage = useQuery({ queryKey: [...STAGE_KEY, 'team-access'], queryFn: fetchStageTeamAccess })
   const person = useQuery({
     queryKey: ['person-access', personId],
     queryFn: () => fetchPersonFacts(personId),
@@ -315,7 +313,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
 
               <GivenMore facts={facts} name={name} grants={grants} teamName={teamName} />
 
-              <NamedLists facts={facts} stage={stage.data ?? []} teamName={teamName} />
+              <NamedLists facts={facts} teamName={teamName} />
             </>
           )}
         </QueryState>
@@ -372,17 +370,9 @@ function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
 }
 
 /** The lists outside the grid that name them: Clock in, Prayer, the planner's buttons, the stage. */
-function NamedLists({
-  facts,
-  stage,
-  teamName,
-}: {
-  facts: PersonFacts
-  stage: Parameters<typeof namedFor>[2]
-  teamName: (id: string) => string
-}) {
+function NamedLists({ facts, teamName }: { facts: PersonFacts; teamName: (id: string) => string }) {
   const settings = useAppSettings()
-  const named = namedFor(facts, settings, stage, teamName)
+  const named = namedFor(facts, settings, teamName)
   return (
     <SectionTile
       title="Named on a list"

@@ -34,10 +34,6 @@ vi.mock('../lib/plannerControls', async (original) => ({
   fetchPeopleOptions: () =>
     Promise.resolve([{ id: '33333333-3333-3333-3333-333333333333', first_name: 'Asha', last_name: 'Mathew' }]),
 }))
-vi.mock('../lib/stage', async (original) => ({
-  ...(await original<typeof import('../lib/stage')>()),
-  fetchStageTeamAccess: () => Promise.resolve([]),
-}))
 
 /* Asha heads Media and is a guest on Welcome; the rota has her coordinating nowhere. */
 const TABLES: Record<string, unknown[]> = {

@@ -12,7 +12,8 @@ import {
   logSentence,
   placeNewBlock,
   snap,
-  stageMay,
+  stageAccessFromGrants,
+  stageGrantChanges,
   type StageLogLine,
 } from './stage'
 
@@ -56,17 +57,31 @@ describe('fitting the stage in its box', () => {
   })
 })
 
-describe('who may', () => {
-  const access = [{ department_id: 'd1', can_add: true, can_edit: true, can_delete: false, can_comment: true, can_templates: false }]
-  it('is always yes for an Admin', () => {
-    expect(stageMay('delete', { isAdmin: true, teamIds: [] }, access)).toBe(true)
+/*
+ * Who may draw is the grid's since 0212: each switch a capability, each
+ * team with it on a grant. The room still draws a row a team.
+ */
+describe('who may, as grants', () => {
+  it('reads a team’s row from the grants it holds', () => {
+    expect(
+      stageAccessFromGrants([
+        { capability: 'stage.add', department_id: 'd1' },
+        { capability: 'stage.comment', department_id: 'd1' },
+        { capability: 'rota.assign', department_id: 'd1' },
+        { capability: 'stage.fly', department_id: 'd2' },
+      ]),
+    ).toEqual([{ department_id: 'd1', can_add: true, can_edit: false, can_delete: false, can_comment: true, can_templates: false }])
   })
-  it('follows the team’s ticks for everybody else', () => {
-    const me = { isAdmin: false, teamIds: ['d1'] }
-    expect(stageMay('add', me, access)).toBe(true)
-    expect(stageMay('delete', me, access)).toBe(false)
-    expect(stageMay('templates', me, access)).toBe(false)
-    expect(stageMay('add', { isAdmin: false, teamIds: ['d2'] }, access)).toBe(false)
+  it('says every switch of a row, on or off, and clears a team taken off', () => {
+    const row = { department_id: 'd1', can_add: true, can_edit: false, can_delete: false, can_comment: false, can_templates: true }
+    expect(stageGrantChanges([row], ['d2'])).toEqual([
+      { capability: 'stage.add', team: 'd1', reach: 'all' },
+      { capability: 'stage.edit', team: 'd1', reach: null },
+      { capability: 'stage.delete', team: 'd1', reach: null },
+      { capability: 'stage.comment', team: 'd1', reach: null },
+      { capability: 'stage.templates', team: 'd1', reach: 'all' },
+      ...['add', 'edit', 'delete', 'comment', 'templates'].map((p) => ({ capability: `stage.${p}`, team: 'd2', reach: null })),
+    ])
   })
 })
 
