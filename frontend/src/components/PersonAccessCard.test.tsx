@@ -66,12 +66,12 @@ beforeEach(() => {
   perms.rpc = []
 })
 
-function show() {
+function show(at = '/settings/access') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const onOpenRoles = vi.fn()
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[at]}>
         <NavNamesContext.Provider value={{}}>
           <PersonAccessCard onOpenRoles={onOpenRoles} />
         </NavNamesContext.Provider>
@@ -91,6 +91,11 @@ describe('Settings › Access › By person', () => {
     show()
     expect(await screen.findByRole('combobox', { name: 'Person' })).toBeInTheDocument()
     expect(screen.queryByText('Pages they can open')).not.toBeInTheDocument()
+  })
+
+  it('opens on the person a link names (?person=…), as Volunteers and History link', async () => {
+    show('/settings/access?tab=person&person=33333333-3333-3333-3333-333333333333')
+    expect(await screen.findByRole('list', { name: 'What Asha Mathew is' })).toBeInTheDocument()
   })
 
   it('says what they are, team by team', async () => {

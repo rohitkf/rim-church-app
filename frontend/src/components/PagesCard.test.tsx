@@ -184,6 +184,8 @@ describe('Page by Page', () => {
     const changes = screen.getByRole('list', { name: 'Changes to save' })
     expect(changes).toHaveTextContent('Always show a service somebody is rostered on')
     expect(changes).toHaveTextContent('Who can open which pages')
+    // A page's level is a cell in the grid, but one change to the reader.
+    expect(screen.getByRole('heading', { name: '3 changes to save' })).toBeInTheDocument()
     expect(changes).toHaveTextContent('Team Member · Assign somebody to a role: No → Their team')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))

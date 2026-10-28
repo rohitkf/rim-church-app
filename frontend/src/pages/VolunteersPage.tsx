@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -357,6 +357,16 @@ export function VolunteersPage() {
                 <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
                   You
                 </span>
+              )}
+              {/* Everything they can open and do, and why: Access & Privileges › By person. */}
+              {isAdmin && (
+                <Link
+                  to={`/settings/access?tab=person&person=${v.id}`}
+                  aria-label={`What ${v.first_name} ${v.last_name} can do`}
+                  className="text-label-md text-accent-blue-soft hover:text-on-surface"
+                >
+                  What they can do
+                </Link>
               )}
             </div>
             {/* The Owner's alone: nobody else is sent it. */}
