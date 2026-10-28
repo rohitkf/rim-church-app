@@ -2,8 +2,6 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { readDisplay, type Display } from './display'
 import { z } from 'zod'
-import { plannerControlsSchema } from './plannerControls'
-import { clockInAudienceSchema } from './clockIn'
 import { supabase } from './supabaseClient'
 
 /**
@@ -61,12 +59,6 @@ export const appSettingsSchema = z.object({
   availability_closes_time: z.string(),
   /** The Team Coordinator's row on the rota. Null is the night sky. */
   coordinator_color: z.string().nullable().default(null),
-  /*
-   * Who may open each page (0123): a page key to the lowest level that
-   * may. Read by nothing since each page's level became its cells in the
-   * grid (0215, lib/pageCells), until a later release drops it.
-   */
-  page_access: z.record(z.string(), z.string()).catch({}).default({}),
   /** Preferences only the screens read (0123); lib/display reads it. */
   display: z.unknown().default({}),
   /* How long things are kept, in days (0123). Null is for ever. */
@@ -87,39 +79,24 @@ export const appSettingsSchema = z.object({
   poll_top_seen_by: z.enum(['askers', 'leads', 'everyone']).default('askers'),
   /** Who besides the asker and Admins edits or deletes: the poll's team Heads, or nobody (0181). */
   poll_managed_by: z.enum(['askers', 'leads']).default('leads'),
-  /** The planner's buttons given to teams and people beyond who plans (0184); lib/plannerControls. */
-  planner_controls: plannerControlsSchema.default({ teams: {}, people: {} }),
   /*
    * Overwatch (0187): which pages it may open (page → open; a page not
-   * named is open), which lib/overwatch reads. The five things it may do
-   * after them are read by nothing since they became Overwatch's cells in
-   * the grid (0214), until a later release drops them.
+   * named is open), which lib/overwatch reads. What it may do is its
+   * cells in the grid (0214).
    */
   overwatch_pages: z.record(z.string(), z.boolean()).catch({ volunteers: false }).default({ volunteers: false }),
-  overwatch_board_posts: z.boolean().default(true),
-  overwatch_chat_posts: z.boolean().default(true),
-  overwatch_polls: z.boolean().default(true),
-  overwatch_issues: z.boolean().default(true),
-  overwatch_debriefs: z.boolean().default(true),
   /*
    * Clock in (0191): how early it opens before somebody's call time (and
    * their reminder goes out), how near and how sure a phone must be, who
-   * clocks in besides the rota, who else sees the page, who approves a
-   * request, and how long it is all kept. lib/clockIn reads them.
+   * clocks in besides the rota, and how long it is all kept. lib/clockIn
+   * reads them. Who sees the page and who approves are the grid's (0209,
+   * 0213).
    */
   clock_in_lead_minutes: z.number().int().min(0).max(240).default(5),
   clock_in_radius_m: z.number().int().min(20).max(2000).default(100),
   clock_in_accuracy_m: z.number().int().min(5).max(1000).default(50),
   clock_in_include_yes: z.boolean().default(false),
-  clock_in_viewers: clockInAudienceSchema.default({ teams: [], people: [] }),
-  clock_in_approver_teams: z.array(z.string()).catch([]).default([]),
-  clock_in_approvers: z.enum(['leads', 'members']).catch('leads').default('leads'),
   clock_in_retention_days: z.number().int().min(1).max(365).default(30),
-  /** Who besides the Pastors and the Owner reads private prayer requests (0197). */
-  prayer_carers: clockInAudienceSchema.default({ teams: [], people: [] }),
-  /** Who besides the pastors asks members to pray, and runs prayer lists (0198). */
-  prayer_assigners: clockInAudienceSchema.default({ teams: [], people: [] }),
-  prayer_list_runners: clockInAudienceSchema.default({ teams: [], people: [] }),
   prayer_closed_retention_days: z.number().int().min(1).max(365).default(30),
   /** Null: testimonies are kept until somebody removes them. */
   prayer_testimony_retention_days: z.number().int().min(1).max(3650).nullable().default(30),
@@ -157,7 +134,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timezone: 'Europe/London',
   availability_closes_time: '23:59:00',
   coordinator_color: null,
-  page_access: {},
   display: {},
   notification_retention_days: null,
   team_chat_retention_days: 30,
@@ -167,24 +143,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   poll_top_count: 2,
   poll_top_seen_by: 'askers',
   poll_managed_by: 'leads',
-  planner_controls: { teams: {}, people: {} },
   overwatch_pages: { volunteers: false },
-  overwatch_board_posts: true,
-  overwatch_chat_posts: true,
-  overwatch_polls: true,
-  overwatch_issues: true,
-  overwatch_debriefs: true,
   clock_in_lead_minutes: 5,
   clock_in_radius_m: 100,
   clock_in_accuracy_m: 50,
   clock_in_include_yes: false,
-  clock_in_viewers: { teams: [], people: [] },
-  clock_in_approver_teams: [],
-  clock_in_approvers: 'leads',
   clock_in_retention_days: 30,
-  prayer_carers: { teams: [], people: [] },
-  prayer_assigners: { teams: [], people: [] },
-  prayer_list_runners: { teams: [], people: [] },
   prayer_closed_retention_days: 30,
   prayer_testimony_retention_days: 30,
   feedback_retention_days: 14,
@@ -201,7 +165,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, page_access, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, planner_controls, overwatch_pages, overwatch_board_posts, overwatch_chat_posts, overwatch_polls, overwatch_issues, overwatch_debriefs, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_viewers, clock_in_approver_teams, clock_in_approvers, clock_in_retention_days, prayer_carers, prayer_assigners, prayer_list_runners, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, overwatch_pages, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_retention_days, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error

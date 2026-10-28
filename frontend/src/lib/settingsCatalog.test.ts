@@ -22,30 +22,13 @@ import {
  * page it names wrongly files the setting nowhere.
  */
 
-/** The settings-row columns that are not a setting of their own: the logo, the four objects, the colour, and one nothing reads. */
+/** The settings-row columns that are not a setting of their own: the logo, the two objects, the colour, and one nothing reads. */
 const NOT_A_ROW: (keyof AppSettings)[] = [
   'logo_url',
-  'page_access',
   'display',
-  'planner_controls',
   'overwatch_pages',
   'coordinator_color',
   'planner_upcoming_limit',
-  // Lists of teams and people, edited in Settings › Clock in itself (0191).
-  'clock_in_viewers',
-  'clock_in_approver_teams',
-  // Read by nothing since approving became the grid's (0213).
-  'clock_in_approvers',
-  // And in Settings › Prayer (0197).
-  'prayer_carers',
-  'prayer_assigners',
-  'prayer_list_runners',
-  // Read by nothing since Overwatch's five became its cells in the grid (0214).
-  'overwatch_board_posts',
-  'overwatch_chat_posts',
-  'overwatch_polls',
-  'overwatch_issues',
-  'overwatch_debriefs',
 ]
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])
