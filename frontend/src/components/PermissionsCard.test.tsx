@@ -53,6 +53,11 @@ const rowFor = (action: string | RegExp) =>
 const compare = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('radio', { name: 'Compare all' }))
 
+/** Unfold, area by area, the rows nobody can change. */
+const unfoldFixed = async (user: ReturnType<typeof userEvent.setup>) => {
+  for (const button of screen.getAllByRole('button', { name: /the app sets$/ })) await user.click(button)
+}
+
 describe('PermissionsCard', () => {
   /*
    * Thirteen six-column tables, open at once, were twenty screens of
@@ -133,12 +138,28 @@ describe('PermissionsCard', () => {
   it('still offers the whole grid: a table per area, with a column per standing', async () => {
     const user = show()
     await compare(user)
+    await unfoldFixed(user)
     expect(screen.getAllByRole('table')).toHaveLength(PERMISSIONS.length)
     for (const role of ROLES) {
       expect(screen.getAllByRole('columnheader', { name: role.label }).length).toBe(
         PERMISSIONS.length,
       )
     }
+  })
+
+  it('shows the church’s choices first, and folds the rows the app sets', async () => {
+    const user = show()
+    await compare(user)
+    // A row with a choice is there, its fixed cells (the Owner's, a Church
+    // Member's) said plainly — no padlock, as if a setting were switched off.
+    const assign = rowFor('Assign somebody to a role')
+    expect(within(assign).getAllByText('(fixed)')).toHaveLength(2)
+    expect(assign.querySelector('svg rect')).toBeNull()
+    // A row nobody can change waits a tap away.
+    expect(screen.queryByRole('rowheader', { name: /See visa, DBS and safeguarding details/ })).toBeNull()
+    await unfoldFixed(user)
+    expect(rowFor('See visa, DBS and safeguarding details')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Hide what the app sets' }).length).toBeGreaterThan(0)
   })
 
   it('admits the areas still written down can go stale', () => {
@@ -241,7 +262,9 @@ describe('PermissionsCard', () => {
       // Verified against production (0126 dry run): a Head, and an Admin
       // who is not the Owner, reading profile_sensitive get exactly their
       // own row and zero of anybody else's; the Owner gets every row.
-      await compare(show())
+      const user = show()
+      await compare(user)
+      await unfoldFixed(user)
       const row = rowFor('See visa, DBS and safeguarding details')
       const cells = within(row).getAllByRole('cell')
       expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
@@ -252,7 +275,9 @@ describe('PermissionsCard', () => {
     })
 
     it('keeps email addresses and phone numbers to their owner and the Owner', async () => {
-      await compare(show())
+      const user = show()
+      await compare(user)
+      await unfoldFixed(user)
       const row = rowFor('See somebody’s email address and phone number')
       const cells = within(row).getAllByRole('cell')
       expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner

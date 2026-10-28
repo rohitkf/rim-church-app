@@ -13,6 +13,7 @@ import {
 import {
   REACH_LABEL,
   REACH_SHORT,
+  GRANT_ROLES,
   isFixed,
   reachOf,
   ruleFor,
@@ -155,16 +156,24 @@ export function ReachPicker({
   )
 }
 
-/** A cell nobody can change: what it says, and a lock where it is a choice that isn't offered. */
+/**
+ * A cell nobody can change: what it says, as plain text. A third of the
+ * grid is these, and drawn with a lock each they read as settings somebody
+ * had switched off; quieter, they read as what they are.
+ */
 export function FixedCell({ value, locked }: { value: Allowed; locked: boolean }) {
   if (!locked) return <Cell value={value} />
   return (
-    <span className="inline-flex items-center gap-1 text-on-surface-faint" title="Fixed">
+    <span className="inline-flex items-center opacity-70" title="Set by the app">
       <Cell value={value} />
       <span className="sr-only">(fixed)</span>
-      <LockGlyph />
     </span>
   )
+}
+
+/** Whether the church may set any cell in this row. */
+function hasChoice(c: Capability, live: boolean): boolean {
+  return live && !!c.key && GRANT_ROLES.some((role) => !isFixed(c.key!, role))
 }
 
 export const roleLabel = (key: RoleKey) => ROLES.find((r) => r.key === key)!.label
@@ -174,6 +183,8 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
   const [role, setRole] = useState<RoleKey>('member')
   const [open, setOpen] = useState<Set<string>>(() => new Set())
   const [onlyAllowed, setOnlyAllowed] = useState(false)
+  // Areas whose rows the app sets are unfolded in Compare all.
+  const [showFixed, setShowFixed] = useState<Set<string>>(() => new Set())
 
   // The church's changes as they would be after Save (lib/usePermissionDraft).
   const perms = usePermissionDraft()
@@ -379,7 +390,6 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                                 cellFor(capability, role, live, true)
                               ) : (
                                 <Pill tone={answer.tone} className="mt-0.5">
-                                  {live && capability.key && <LockGlyph />}
                                   {answer.label}
                                 </Pill>
                               )}
@@ -416,6 +426,11 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
             {shown.map((area) => {
               const live = isLiveArea(area)
               const editing = live && editable
+              // What the church sets comes first; what the app sets is a
+              // tap away, so the grid shows choices rather than reference.
+              const fixedCount = area.capabilities.filter((c) => !hasChoice(c, live)).length
+              const unfolded = showFixed.has(area.area)
+              const rows = unfolded ? area.capabilities : area.capabilities.filter((c) => hasChoice(c, live))
               return (
                 <section key={area.area}>
                   <h3 className="flex flex-wrap items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
@@ -428,47 +443,68 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       device instead of one. It scrolls inside itself — and is
                       positioned, so the hidden "(fixed)" labels scroll with
                       it instead of stretching the page. */}
-                  <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
-                    <table
-                      className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[40rem]' : 'min-w-[34rem]'}`}
-                    >
-                      <thead>
-                        <tr>
-                          <th className="w-[38%] min-w-48 px-2 pb-2 text-left font-normal text-on-surface-faint">
-                            <span className="sr-only">Action</span>
-                          </th>
-                          {ROLES.map((r) => (
-                            <th
-                              key={r.key}
-                              scope="col"
-                              className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
-                            >
-                              {r.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {area.capabilities.map((capability) => (
-                          <tr key={capability.action} className="border-t border-border-subtle align-top">
-                            <th scope="row" className="px-2 py-2 text-left font-normal text-on-surface">
-                              {capability.action}
-                              {capability.note && (
-                                <span className="mt-0.5 block text-label-sm text-on-surface-faint">
-                                  {capability.note}
-                                </span>
-                              )}
+                  {rows.length > 0 && (
+                    <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
+                      <table
+                        className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[40rem]' : 'min-w-[34rem]'}`}
+                      >
+                        <thead>
+                          <tr>
+                            <th className="w-[38%] min-w-48 px-2 pb-2 text-left font-normal text-on-surface-faint">
+                              <span className="sr-only">Action</span>
                             </th>
                             {ROLES.map((r) => (
-                              <td key={r.key} className="px-2 py-2 text-center">
-                                {cellFor(capability, r.key, live)}
-                              </td>
+                              <th
+                                key={r.key}
+                                scope="col"
+                                className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                              >
+                                {r.label}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {rows.map((capability) => (
+                            <tr key={capability.action} className="border-t border-border-subtle align-top">
+                              <th scope="row" className="px-2 py-2 text-left font-normal text-on-surface">
+                                {capability.action}
+                                {capability.note && (
+                                  <span className="mt-0.5 block text-label-sm text-on-surface-faint">
+                                    {capability.note}
+                                  </span>
+                                )}
+                              </th>
+                              {ROLES.map((r) => (
+                                <td key={r.key} className="px-2 py-2 text-center">
+                                  {cellFor(capability, r.key, live)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {fixedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowFixed((current) => {
+                          const next = new Set(current)
+                          if (next.has(area.area)) next.delete(area.area)
+                          else next.add(area.area)
+                          return next
+                        })
+                      }
+                      aria-expanded={unfolded}
+                      className="tap mt-2 rounded-full px-2 py-1 text-label-md text-accent-blue-soft hover:text-on-surface"
+                    >
+                      {unfolded
+                        ? 'Hide what the app sets'
+                        : `Show ${fixedCount === 1 ? 'one row' : `${fixedCount} rows`} the app sets`}
+                    </button>
+                  )}
                 </section>
               )
             })}
