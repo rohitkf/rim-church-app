@@ -34,6 +34,8 @@ const NOT_A_ROW: (keyof AppSettings)[] = [
   // Lists of teams and people, edited in Settings › Clock in itself (0191).
   'clock_in_viewers',
   'clock_in_approver_teams',
+  // Read by nothing since approving became the grid's (0213).
+  'clock_in_approvers',
   // And in Settings › Prayer (0197).
   'prayer_carers',
   'prayer_assigners',

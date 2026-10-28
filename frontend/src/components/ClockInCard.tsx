@@ -4,7 +4,7 @@ import { fetchDepartments } from '../lib/queries'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { settingEntry, type Patch } from '../lib/settingsCatalog'
 import { QueryState } from './QueryState'
-import { SectionTile } from './Surface'
+import { SectionTile, SegmentedControl } from './Surface'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
 import { AudienceEditor } from './AudienceEditor'
@@ -29,14 +29,13 @@ const KEYS = [
   'clock_in_radius_m',
   'clock_in_accuracy_m',
   'clock_in_include_yes',
-  'clock_in_approver_teams',
-  'clock_in_approvers',
 ] as const
 
 export function ClockInCard() {
   const { isAdmin } = useAuth()
   const room = useSettingsDraft(KEYS)
   const viewers = useGrantList('clockin.view')
+  const approvers = useGrantList('clockin.approve', { withLeads: true })
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   if (!isAdmin) return null
 
@@ -94,31 +93,48 @@ export function ClockInCard() {
           >
             <AudienceEditor
               label="Teams that approve requests"
-              teams={draft.clock_in_approver_teams}
+              teams={approvers.working.teams}
               allTeams={allTeams}
               withPeople={false}
               editable
               empty="Only the Owner and Admins approve."
-              onChange={(next) => room.set('clock_in_approver_teams', next.teams)}
+              onChange={(next) => approvers.set({ teams: next.teams, people: approvers.working.people })}
             />
-            <div className="mt-3">
-              <SettingList>{rows(['clock_in_approvers'])}</SettingList>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
+              <span className="text-body-sm text-on-surface">In an approving team, who approves</span>
+              <SegmentedControl
+                label="In an approving team, who approves"
+                value={approvers.leadsOnly ? 'leads' : 'members'}
+                onChange={(next) => approvers.setLeadsOnly(next === 'leads')}
+                options={[
+                  { value: 'leads', label: 'Heads' },
+                  { value: 'members', label: 'Anyone on it' },
+                ]}
+              />
             </div>
+            <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
+              The Owner and Admins can always approve. Heads means a team’s Head and Assisting Heads; anyone on it
+              is a Welcome team at the door, say. To give it to every Team Head at once, set “Approve clock-in
+              requests” in Access &amp; Privileges.
+            </p>
           </SectionTile>
 
           <SaveBar
-            changed={room.changed || viewers.changed}
-            saving={room.saving || viewers.saving}
-            saved={room.saved && !viewers.changed}
-            error={room.error ?? viewers.error}
+            changed={room.changed || viewers.changed || approvers.changed}
+            saving={room.saving || viewers.saving || approvers.saving}
+            saved={room.saved && !viewers.changed && !approvers.changed}
+            error={room.error ?? viewers.error ?? approvers.error}
             onSave={() => {
-              // Who may see first: a refused grant leaves the settings unsaved too.
-              viewers
-                .save()
-                .then(() => {
-                  if (room.changed) room.save()
-                })
-                .catch(() => {})
+              // The grants first: a refused grant leaves the settings unsaved too.
+              void (async () => {
+                try {
+                  if (viewers.changed) await viewers.save()
+                  if (approvers.changed) await approvers.save()
+                } catch {
+                  return
+                }
+                if (room.changed) room.save()
+              })()
             }}
             label="Save"
           />

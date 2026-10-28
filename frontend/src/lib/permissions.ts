@@ -205,6 +205,17 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Who approves a request to be clocked in (0213): Admins always;
+  // anybody else as the church says, or by a grant — a team's, perhaps for
+  // its Heads alone.
+  'clockin.approve': {
+    admin: fixed('all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   // Who sees the Clock In page and every clock-in (0209): Admins always;
   // anybody else as the church says, or by a grant (0208).
   'clockin.view': {
@@ -761,6 +772,8 @@ export interface PermissionGrant {
   userId: string | null
   departmentId: string | null
   reach: GrantReach
+  /** A team's grant for its Head and Assisting Heads alone, not its roster (0213). */
+  leadsOnly?: boolean
 }
 
 /** How far a grant reaches: on the teams they are on (a team's grant, that team), or everywhere. */
@@ -859,7 +872,10 @@ export function grantedBy(
   const onTeam = (id: string) => holder.memberTeams.includes(id) || holder.ledTeams.includes(id)
   for (const grant of holder.grants ?? []) {
     if (grant.capability !== cap) continue
-    const held = grant.userId ? grant.userId === holder.myId : !!grant.departmentId && onTeam(grant.departmentId)
+    const held = grant.userId
+      ? grant.userId === holder.myId
+      : !!grant.departmentId &&
+        (grant.leadsOnly ? holder.ledTeams.includes(grant.departmentId) : onTeam(grant.departmentId))
     if (!held) continue
     if (grant.reach === 'all' || mine) return 'grant'
     if (dept && (grant.departmentId === dept || (!!grant.userId && onTeam(dept)))) return 'grant'

@@ -950,21 +950,6 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     affects: ['/', '/clock-in'],
   },
   {
-    ...column('clock_in_approvers'),
-    kind: 'choice',
-    style: 'segmented',
-    label: 'In an approving team, who approves',
-    summary: 'A request to be clocked in, when a phone could not.',
-    help: 'When a phone cannot be placed at church, its owner can ask to be clocked in. The Owner and Admins can always approve, and so can the teams chosen below — either their Head and Assisting Head, or anybody on them (a Welcome team at the door, say).',
-    affects: ['/clock-in'],
-    ariaLabel: 'In an approving team, who approves',
-    options: [
-      { value: 'leads', label: 'Heads' },
-      { value: 'members', label: 'Anyone on it' },
-    ],
-    put: (_d, v) => ({ clock_in_approvers: v as AppSettings['clock_in_approvers'] }),
-  },
-  {
     ...column('clock_in_retention_days'),
     kind: 'dial',
     label: 'Clock-ins are kept for',

@@ -238,6 +238,12 @@ describe('a grant', () => {
     expect(decide({}, asha([toTeam('media', 'team')], { memberTeams: [], ledTeams: ['media'] }), 'rota.assign', { departmentId: 'media' })).toBe(true)
   })
 
+  it('to a team’s Heads alone: its Head and Assisting Heads, not its roster (0213)', () => {
+    const headsOnly: PermissionGrant = { ...toTeam('worship', 'all'), leadsOnly: true }
+    expect(decide({}, asha([headsOnly]), 'rota.assign', { departmentId: 'media' })).toBe(false)
+    expect(decide({}, asha([headsOnly], { ledTeams: ['worship'] }), 'rota.assign', { departmentId: 'media' })).toBe(true)
+  })
+
   it('is for its own capability only, and never takes a yes away', () => {
     expect(decide({}, asha([byName('all')]), 'rota.tag', { departmentId: 'worship' })).toBe(false)
     const head: Holder = { ...asha([]), ledTeams: ['worship'], headTeams: ['worship'] }

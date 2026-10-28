@@ -137,12 +137,17 @@ describe('Settings › Access › By person', () => {
     expect(within(keys).getByText('No')).toBeInTheDocument()
   })
 
-  it('names the lists outside the grid that carry them', async () => {
+  it('says a team’s grant for its Heads alone as theirs, through the team’s Heads (0213)', async () => {
+    perms.grants = [
+      { id: 'g9', capability: 'clockin.approve', userId: null, departmentId: '22222222-2222-2222-2222-222222222222', reach: 'all', leadsOnly: true },
+    ]
     const { user } = show()
     await chooseAsha(user)
-    const lists = await screen.findByRole('list', { name: 'Lists that name them' })
-    expect(within(lists).getByText('Approves requests to be clocked in')).toBeInTheDocument()
-    expect(within(lists).getByText('Through Media')).toBeInTheDocument()
+    const given = await screen.findByRole('list', { name: 'Given to them' })
+    expect(within(given).getByText('Approve or refuse a request to be clocked in')).toBeInTheDocument()
+    expect(within(given).getByText('Through Media’s Heads')).toBeInTheDocument()
+    // No room keeps a list of its own any more.
+    expect(screen.queryByText('Named on a list')).toBeNull()
   })
 
   it('sends a change of reach to By role', async () => {

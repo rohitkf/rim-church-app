@@ -28,6 +28,7 @@ const grantRowSchema = z.object({
   user_id: z.string().nullable(),
   department_id: z.string().nullable(),
   reach: z.enum(['team', 'all']),
+  leads_only: z.boolean().default(false),
 })
 
 export interface StoredPermissions {
@@ -46,7 +47,7 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
   const [church, teams, grants] = await Promise.all([
     supabase.from('role_permissions').select('role_key, capability, reach'),
     supabase.from('department_permissions').select('department_id, role_key, capability, reach'),
-    supabase.from('permission_grants').select('id, capability, user_id, department_id, reach'),
+    supabase.from('permission_grants').select('id, capability, user_id, department_id, reach, leads_only'),
   ])
   if (church.error) throw church.error
   if (teams.error) throw teams.error
@@ -57,7 +58,14 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
     grants: z
       .array(grantRowSchema)
       .parse(grants.data ?? [])
-      .map((g) => ({ id: g.id, capability: g.capability, userId: g.user_id, departmentId: g.department_id, reach: g.reach })),
+      .map((g) => ({
+        id: g.id,
+        capability: g.capability,
+        userId: g.user_id,
+        departmentId: g.department_id,
+        reach: g.reach,
+        leadsOnly: g.leads_only,
+      })),
   }
 }
 
