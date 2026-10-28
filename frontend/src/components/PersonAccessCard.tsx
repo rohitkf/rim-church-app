@@ -10,12 +10,13 @@ import { pagesWithRules } from '../lib/pageList'
 import { ACCESS_LEVELS, type PageAccess } from '../lib/pageAccess'
 import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
 import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
-import { grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
+import { decide, grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
 import { useErrorText } from '../lib/useErrorText'
 import {
   explainCapability,
   explainFixed,
   grantsFor,
+  holderOf,
   namedFor,
   openingFor,
   type Answer,
@@ -89,7 +90,7 @@ function openingWhy(opening: PageOpening): string {
     case 'overwatch':
       return 'Left open to Overwatch'
     case 'clock-in':
-      return 'Named in Clock in'
+      return 'Given “See clock-ins”'
     case 'pastoral':
       return 'A pastor'
     default:
@@ -326,7 +327,10 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
 /** Every page, open or closed to them, and why. */
 function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
   const settings = useAppSettings()
-  const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings) }))
+  const { overrides, teams, grants = [] } = usePermissions()
+  // Clock In opens to whoever the grid gives clockin.view (0209), grants included.
+  const clockInViewer = decide(overrides, holderOf(facts, grants), 'clockin.view', {}, teams)
+  const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings, clockInViewer) }))
   const open = pages.filter((p) => p.opening.open).length
   return (
     <SectionTile

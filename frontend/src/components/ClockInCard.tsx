@@ -8,6 +8,7 @@ import { SectionTile } from './Surface'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
 import { AudienceEditor } from './AudienceEditor'
+import { useGrantList } from '../lib/useGrantList'
 
 /**
  * Settings › Clock in (0191).
@@ -16,15 +17,18 @@ import { AudienceEditor } from './AudienceEditor'
  * in; who besides Admins and Overwatch sees the Clock In page; and who
  * approves a request when a phone cannot be placed at church. Where the
  * church is lives on the Clock In page itself, where it can be checked
- * against the people arriving. How long it is all kept is in Data &
- * Retention, with everything else that is deleted on a clock.
+ * against the people arriving. How long it is all kept is in Page by
+ * Page, with everything else that is deleted on a clock.
+ *
+ * Who else sees the page is the grid's `clockin.view` since 0209: the
+ * teams and people listed here are its grants, saved with the rest of
+ * the room, and By person shows them like any other.
  */
 const KEYS = [
   'clock_in_lead_minutes',
   'clock_in_radius_m',
   'clock_in_accuracy_m',
   'clock_in_include_yes',
-  'clock_in_viewers',
   'clock_in_approver_teams',
   'clock_in_approvers',
 ] as const
@@ -32,6 +36,7 @@ const KEYS = [
 export function ClockInCard() {
   const { isAdmin } = useAuth()
   const room = useSettingsDraft(KEYS)
+  const viewers = useGrantList('clockin.view')
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   if (!isAdmin) return null
 
@@ -68,17 +73,18 @@ export function ClockInCard() {
           >
             <AudienceEditor
               label="Who else sees Clock In"
-              teams={draft.clock_in_viewers.teams}
-              people={draft.clock_in_viewers.people}
+              teams={viewers.working.teams}
+              people={viewers.working.people}
               allTeams={allTeams}
               withPeople
               editable
               empty="Nobody else yet."
-              onChange={(next) => room.set('clock_in_viewers', next)}
+              onChange={viewers.set}
             />
             <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
-              A team means everybody on it and its Heads. They see every clock-in: names, times and where each
-              person was.
+              A team means everybody on it, its Head and its Assisting Heads. They see every clock-in: names,
+              times and where each person was. To give it to every Team Head or Team Member at once, set
+              “See clock-ins” in Access &amp; Privileges.
             </p>
           </SectionTile>
 
@@ -101,11 +107,19 @@ export function ClockInCard() {
           </SectionTile>
 
           <SaveBar
-            changed={room.changed}
-            saving={room.saving}
-            saved={room.saved}
-            error={room.error}
-            onSave={room.save}
+            changed={room.changed || viewers.changed}
+            saving={room.saving || viewers.saving}
+            saved={room.saved && !viewers.changed}
+            error={room.error ?? viewers.error}
+            onSave={() => {
+              // Who may see first: a refused grant leaves the settings unsaved too.
+              viewers
+                .save()
+                .then(() => {
+                  if (room.changed) room.save()
+                })
+                .catch(() => {})
+            }}
             label="Save"
           />
         </div>

@@ -20,9 +20,22 @@ vi.mock('../lib/plannerControls', async (original) => ({
     Promise.resolve([{ id: '33333333-3333-3333-3333-333333333333', first_name: 'Asha', last_name: 'Mathew' }]),
 }))
 
-const db = vi.hoisted(() => ({ row: {} as Record<string, unknown>, writes: [] as Record<string, unknown>[] }))
+const db = vi.hoisted(() => ({
+  row: {} as Record<string, unknown>,
+  writes: [] as Record<string, unknown>[],
+  rpc: [] as { fn: string; args: unknown }[],
+  grants: [] as unknown[],
+}))
+vi.mock('../lib/usePermissions', () => ({
+  PERMISSIONS_KEY: ['role-permissions'],
+  usePermissions: () => ({ grants: db.grants, can: () => true }),
+}))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string, args: unknown) => {
+      db.rpc.push({ fn, args })
+      return Promise.resolve({ error: null })
+    },
     from: () => ({
       select: () => ({ maybeSingle: () => Promise.resolve({ data: { ...db.row }, error: null }) }),
       update: (patch: Record<string, unknown>) => ({
@@ -38,6 +51,8 @@ vi.mock('../lib/supabaseClient', () => ({
 beforeEach(() => {
   db.row = { ...DEFAULT_SETTINGS }
   db.writes = []
+  db.rpc = []
+  db.grants = []
 })
 
 function show() {
@@ -78,14 +93,40 @@ describe('Settings › Clock in', () => {
     await user.click(screen.getByRole('radio', { name: 'Anyone on it' }))
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Who may see is the grid's clockin.view (0209): grants, not a list.
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    expect(db.rpc[0]).toEqual({
+      fn: 'set_permission_grants',
+      args: {
+        p_changes: [
+          { capability: 'clockin.view', team: '11111111-1111-1111-1111-111111111111', reach: 'all' },
+          { capability: 'clockin.view', person: '33333333-3333-3333-3333-333333333333', reach: 'all' },
+        ],
+      },
+    })
     await waitFor(() => expect(db.writes).toHaveLength(1))
     expect(db.writes[0]).toEqual({
-      clock_in_viewers: {
-        teams: ['11111111-1111-1111-1111-111111111111'],
-        people: ['33333333-3333-3333-3333-333333333333'],
-      },
       clock_in_approver_teams: ['22222222-2222-2222-2222-222222222222'],
       clock_in_approvers: 'members',
     })
+  })
+
+  it('shows who the grid’s grants already let in, and takes one back', async () => {
+    db.grants = [
+      { id: 'g1', capability: 'clockin.view', userId: null, departmentId: '22222222-2222-2222-2222-222222222222', reach: 'all' },
+      { id: 'g2', capability: 'set.edit', userId: '33333333-3333-3333-3333-333333333333', departmentId: null, reach: 'all' },
+    ]
+    const user = show()
+    const viewers = await screen.findByRole('list', { name: 'Who else sees Clock In' })
+    expect(within(viewers).getByText('Media')).toBeInTheDocument()
+    // Another capability's grant is not this list's.
+    expect(within(viewers).queryByText('Asha Mathew')).toBeNull()
+    await user.click(within(viewers).getByRole('button', { name: 'Remove Media' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    expect(db.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'clockin.view', team: '22222222-2222-2222-2222-222222222222', reach: null }],
+    })
+    expect(db.writes).toHaveLength(0)
   })
 })

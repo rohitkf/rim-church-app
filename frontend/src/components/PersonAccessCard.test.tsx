@@ -12,7 +12,7 @@ vi.mock('../lib/appSettings', async (original) => {
     ...real,
     useAppSettings: () => ({
       ...real.DEFAULT_SETTINGS,
-      clock_in_viewers: { teams: ['22222222-2222-2222-2222-222222222222'], people: [] },
+      clock_in_approver_teams: ['22222222-2222-2222-2222-222222222222'],
     }),
   }
 })
@@ -114,13 +114,18 @@ describe('Settings › Access › By person', () => {
   })
 
   it('lists the pages they can open, and why', async () => {
+    // Media is given clockin.view (0209), and Asha heads it.
+    perms.grants = [{ id: 'g0', capability: 'clockin.view', userId: null, departmentId: '22222222-2222-2222-2222-222222222222', reach: 'all' }]
     const { user } = show()
     await chooseAsha(user)
     const pages = await screen.findByRole('list', { name: 'Pages Asha Mathew can open' })
     expect(within(pages).getByRole('listitem', { name: 'Team Rota: can open' })).toBeInTheDocument()
-    // Clock In opens to her through Media, which the church named for it.
+    // Clock In opens to her through Media's grant.
     const clockIn = within(pages).getByRole('listitem', { name: 'Clock In: can open' })
-    expect(within(clockIn).getByText('Named in Clock in')).toBeInTheDocument()
+    expect(within(clockIn).getByText('Given “See clock-ins”')).toBeInTheDocument()
+    const given = screen.getByRole('list', { name: 'Given to them' })
+    expect(within(given).getByText('See the Clock In page and every clock-in')).toBeInTheDocument()
+    expect(within(given).getByText('Through Media')).toBeInTheDocument()
   })
 
   it('answers each action with where it reaches and which profile gives it', async () => {
@@ -140,7 +145,7 @@ describe('Settings › Access › By person', () => {
     const { user } = show()
     await chooseAsha(user)
     const lists = await screen.findByRole('list', { name: 'Lists that name them' })
-    expect(within(lists).getByText('Sees the Clock In page and every clock-in')).toBeInTheDocument()
+    expect(within(lists).getByText('Approves requests to be clocked in')).toBeInTheDocument()
     expect(within(lists).getByText('Through Media')).toBeInTheDocument()
   })
 

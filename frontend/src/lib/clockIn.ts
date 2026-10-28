@@ -41,14 +41,13 @@ export function maySeeClockIns(who: {
   isOwner: boolean
   /** Overwatch, with the page left open to it (Settings › Overwatch). */
   watching: boolean
-  myId: string | null | undefined
-  /** Teams they are on or lead. */
-  teamIds: readonly string[]
-  viewers: ClockInAudience
+  /**
+   * The grid's `clockin.view` (0209): a profile the church gave it, or a
+   * grant by name or through a team.
+   */
+  granted: boolean
 }): boolean {
-  if (who.isAdmin || who.isOwner || who.watching) return true
-  if (who.myId && who.viewers.people.includes(who.myId)) return true
-  return who.teamIds.some((id) => who.viewers.teams.includes(id))
+  return who.isAdmin || who.isOwner || who.watching || who.granted
 }
 
 /** Metres between two points on the Earth — the database works it out the same way. */

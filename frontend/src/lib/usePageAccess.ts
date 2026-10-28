@@ -4,6 +4,7 @@ import { useMyTeams } from './useMyTeams'
 import { useAppSettingsState } from './appSettings'
 import { standingOf, type Standing } from './pageAccess'
 import { pageOpening } from './pageOpening'
+import { usePermissions } from './usePermissions'
 
 /**
  * Whether the person in front of the screen may open a page, under this
@@ -34,6 +35,11 @@ export function usePageAccess(): {
     onATeam: isOverwatch && !isAdmin ? teamIds.length > 0 || ledDepartmentIds.some((id) => !!id) : onATeam,
   })
   const isPastor = (roles ?? []).some((r) => r.role_type === 'pastor')
+  // Clock In opens to whoever the grid gives clockin.view (0209), grants
+  // included, so the menu waits for the grid as well.
+  const { can, query: permissions } = usePermissions()
+  const clockInViewer = can('clockin.view')
+  const permissionsSettled = !permissions || !permissions.isLoading
   const myId = session?.user.id
   const canOpen = useCallback(
     (path: string) =>
@@ -47,10 +53,11 @@ export function usePageAccess(): {
           isOverwatch,
           isPastor,
           teamIds: [...teamIds, ...ledDepartmentIds],
+          clockInViewer,
         },
         settings,
       ).open,
-    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings],
+    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, clockInViewer],
   )
-  return { standing, canOpen, settled: teamsSettled && settingsSettled }
+  return { standing, canOpen, settled: teamsSettled && settingsSettled && permissionsSettled }
 }

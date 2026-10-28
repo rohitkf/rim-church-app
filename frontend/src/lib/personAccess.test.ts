@@ -130,12 +130,12 @@ describe('the pages they can open', () => {
     })
   })
 
-  it('opens Clock In to somebody named for it', () => {
-    const named = settings({ clock_in_viewers: { teams: [], people: ['p1'] } })
-    expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', named)).toMatchObject({
+  it('opens Clock In to whoever the grid gives clockin.view (0209), and not otherwise', () => {
+    expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings(), true)).toMatchObject({
       open: true,
       via: 'clock-in',
     })
+    expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings())).toMatchObject({ open: false })
   })
 
   it('opens Prayer Requests to a Pastor, whatever its level', () => {
@@ -151,6 +151,7 @@ describe('the pages they can open', () => {
 describe('the lists outside the grid', () => {
   it('names each list that carries them, and how', () => {
     const s = settings({
+      // The grid's since 0209, so no longer a list said here.
       clock_in_viewers: { teams: [WORSHIP], people: [] },
       prayer_assigners: { teams: [], people: ['p1'] },
       planner_controls: { teams: { [WORSHIP]: ['start'] }, people: {} },
@@ -171,7 +172,6 @@ describe('the lists outside the grid', () => {
       name,
     )
     expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual([
-      'Sees the Clock In page and every clock-in — Through Worship',
       'Asks people to pray for a request — By name',
       'Presses “Session started” on the Service Planner — Through Worship',
       'May add to the stage — Through Worship',
