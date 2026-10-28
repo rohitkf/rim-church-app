@@ -25,6 +25,7 @@ import { PlannerControlsCard } from './PlannerControlsCard'
 import { FixedCell, ReachPicker, roleLabel } from './PermissionsCard'
 import { KeptOnPurpose } from './KeptOnPurpose'
 import { ChangeEffects } from './ChangeEffects'
+import { CopyTeamRules } from './CopyTeamRules'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
@@ -262,6 +263,17 @@ export function PagesCard() {
               </ul>
             </section>
           ))}
+
+          {editable && (
+            <CopyTeamRules
+              teams={departments.data ?? []}
+              rules={perms.workingTeams}
+              onCopy={(from, to) => {
+                setSaved(false)
+                perms.copyTeam(from, to)
+              }}
+            />
+          )}
 
           {editable && changed && (
             <Tile tone="warning" as="section">
