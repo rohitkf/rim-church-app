@@ -28,6 +28,7 @@ import { QueryState } from './QueryState'
 import { Select } from './Select'
 import { Switch } from './SettingRows'
 import { ActionButton, Pill, SectionTile } from './Surface'
+import { GrantEffects } from './GrantEffects'
 
 /**
  * Settings › Access › By team: one team's whole answer. Who is on it, what
@@ -294,6 +295,11 @@ function GivenToTeam({
     [held],
   )
   const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
+  // What Give would do, before it is pressed.
+  const preview = useMemo(
+    () => (cap ? [{ capability: cap, team: teamId, reach, leads_only: leadsOnly }] : []),
+    [cap, teamId, reach, leadsOnly],
+  )
 
   const save = useMutation({
     mutationFn: async (change: { capability: string; reach: GrantReach | null; leads_only?: boolean }) => {
@@ -386,6 +392,7 @@ function GivenToTeam({
               </ActionButton>
             </div>
           )}
+          <GrantEffects changes={preview} />
           {saved && !error && (
             <p role="status" className="text-label-md text-on-surface-variant">
               Saved. The database follows it already.

@@ -28,6 +28,7 @@ import { QueryState } from './QueryState'
 import { Select } from './Select'
 import { ActionButton, Pill, SectionTile } from './Surface'
 import { roleLabel } from './PermissionsCard'
+import { GrantEffects } from './GrantEffects'
 
 /**
  * Settings › Access › By person: one person's whole answer, read from the
@@ -423,6 +424,8 @@ function GivenMore({
     [held],
   )
   const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
+  // What Give would do, before it is pressed.
+  const preview = useMemo(() => (cap ? [{ capability: cap, person: facts.id, reach }] : []), [cap, facts.id, reach])
 
   const save = useMutation({
     mutationFn: async (change: { capability: string; reach: GrantReach | null }) => {
@@ -530,6 +533,7 @@ function GivenMore({
               </ActionButton>
             </div>
           )}
+          <GrantEffects changes={preview} />
           {error && (
             <p role="alert" className="text-body-sm text-error">
               {error}

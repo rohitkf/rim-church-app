@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient'
 import { useErrorText } from './useErrorText'
 import { PERMISSIONS_KEY, usePermissions } from './usePermissions'
 import type { CapabilityKey, GrantReach } from './permissions'
+import type { GrantChange } from './grantPreview'
 
 /** Teams and people, by id — the shape the rooms' editors draw. */
 export interface GrantList {
@@ -53,18 +54,22 @@ export function useGrantList(
   const leadsChanged = withLeads && leadsDraft !== null && leadsDraft !== storedLeadsOnly && working.teams.length > 0
   const changed = (!!draft && (!same(draft.teams, stored.teams) || !same(draft.people, stored.people))) || leadsChanged
 
+  // What Save would send: the preview reads it too.
+  const changes: GrantChange[] = useMemo(() => {
+    const next = draft ?? stored
+    // A change of Heads-or-everybody is said again for every team kept.
+    const teamAdds = leadsChanged ? next.teams : next.teams.filter((id) => !stored.teams.includes(id))
+    const leads = withLeads ? { leads_only: leadsOnly } : {}
+    return [
+      ...teamAdds.map((team) => ({ capability, team, reach, ...leads })),
+      ...stored.teams.filter((id) => !next.teams.includes(id)).map((team) => ({ capability, team, reach: null })),
+      ...next.people.filter((id) => !stored.people.includes(id)).map((person) => ({ capability, person, reach })),
+      ...stored.people.filter((id) => !next.people.includes(id)).map((person) => ({ capability, person, reach: null })),
+    ]
+  }, [draft, stored, leadsChanged, withLeads, leadsOnly, capability, reach])
+
   const save = useMutation({
     mutationFn: async () => {
-      const next = draft ?? stored
-      // A change of Heads-or-everybody is said again for every team kept.
-      const teamAdds = leadsChanged ? next.teams : next.teams.filter((id) => !stored.teams.includes(id))
-      const leads = withLeads ? { leads_only: leadsOnly } : {}
-      const changes = [
-        ...teamAdds.map((team) => ({ capability, team, reach, ...leads })),
-        ...stored.teams.filter((id) => !next.teams.includes(id)).map((team) => ({ capability, team, reach: null })),
-        ...next.people.filter((id) => !stored.people.includes(id)).map((person) => ({ capability, person, reach })),
-        ...stored.people.filter((id) => !next.people.includes(id)).map((person) => ({ capability, person, reach: null })),
-      ]
       if (changes.length === 0) return
       const { error } = await supabase.rpc('set_permission_grants', { p_changes: changes })
       if (error) throw error
@@ -82,6 +87,7 @@ export function useGrantList(
   return {
     working,
     changed,
+    changes,
     set: (next: GrantList) => {
       setSaved(false)
       setDraft(next)

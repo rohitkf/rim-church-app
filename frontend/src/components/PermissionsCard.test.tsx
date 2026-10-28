@@ -58,6 +58,13 @@ const unfoldFixed = async (user: ReturnType<typeof userEvent.setup>) => {
   for (const button of screen.getAllByRole('button', { name: /the app sets$/ })) await user.click(button)
 }
 
+/**
+ * The whole grid open is thirteen tables of eighty-odd rows, eight
+ * selects each: three seconds here, and past the usual five on a runner
+ * sharing its cores. The two tests that open it all get the room.
+ */
+const WHOLE_GRID = { timeout: 30_000 }
+
 describe('PermissionsCard', () => {
   /*
    * Thirteen six-column tables, open at once, were twenty screens of
@@ -139,7 +146,7 @@ describe('PermissionsCard', () => {
     expect(screen.queryByText('Coming soon')).toBeNull()
   })
 
-  it('still offers the whole grid: a table per area, with a column per standing', async () => {
+  it('still offers the whole grid: a table per area, with a column per standing', { ...WHOLE_GRID }, async () => {
     const user = show()
     await compare(user)
     await unfoldFixed(user)
@@ -151,7 +158,7 @@ describe('PermissionsCard', () => {
     }
   })
 
-  it('shows the church’s choices first, and folds the rows the app sets', async () => {
+  it('shows the church’s choices first, and folds the rows the app sets', { ...WHOLE_GRID }, async () => {
     const user = show()
     await compare(user)
     // A row with a choice is there, its fixed cells (the Owner's, a Church

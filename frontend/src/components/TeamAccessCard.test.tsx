@@ -135,7 +135,11 @@ describe('Settings › Access › By team', () => {
     const user = show(`/settings/access?tab=team&team=${WORSHIP}`)
     await user.click(await screen.findByRole('combobox', { name: 'Give the team' }))
     await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    // Asha heads Worship and assigns there already; Ben, a Member, would gain.
+    const preview = await screen.findByRole('list', { name: 'What saving would do' })
+    expect(preview).toHaveTextContent('Lets one more person do it, or do it further: Ben Joseph.')
     await user.click(screen.getByRole('switch', { name: 'For its Heads only' }))
+    await waitFor(() => expect(preview).toHaveTextContent('— nobody’s answer changes.'))
     await user.click(screen.getByRole('button', { name: 'Give' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({

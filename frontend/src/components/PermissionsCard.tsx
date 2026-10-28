@@ -27,6 +27,7 @@ import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
 import { Select, reachPickerClasses } from './Select'
 import { ChangeEffects } from './ChangeEffects'
+import { capabilitiesIn } from '../lib/changePreview'
 import { PRESETS, presetOver } from '../lib/presets'
 
 /**
@@ -202,8 +203,15 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
 
   const shown = useMemo(() => withGrants(areas, working), [areas, working])
   // The grid as saved and as drafted, for what saving would do to whom.
-  const before = useMemo(() => ({ church: stored, teams: perms.storedTeams }), [stored, perms.storedTeams])
-  const after = useMemo(() => ({ church: working, teams: perms.workingTeams }), [working, perms.workingTeams])
+  const before = useMemo(
+    () => ({ church: stored, teams: perms.storedTeams, grants: perms.grants }),
+    [stored, perms.storedTeams, perms.grants],
+  )
+  const after = useMemo(
+    () => ({ church: working, teams: perms.workingTeams, grants: perms.grants }),
+    [working, perms.workingTeams, perms.grants],
+  )
+  const touched = useMemo(() => capabilitiesIn(pending), [pending])
 
   const choose = (capability: CapabilityKey, who: GridRole, reach: Reach) => {
     setSaved(false)
@@ -570,7 +578,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               </li>
             ))}
           </ul>
-          <ChangeEffects changes={pending} before={before} after={after} grants={perms.grants} actionOf={actionOf} />
+          <ChangeEffects touched={touched} before={before} after={after} actionOf={actionOf} />
         </Tile>
       )}
 

@@ -25,6 +25,7 @@ import {
 } from '../lib/stage'
 import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
+import { GrantEffects } from './GrantEffects'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
 import { TeamMark } from './TeamMark'
@@ -102,6 +103,22 @@ export function StageSettingsCard() {
       ;(row as Record<string, unknown>)[column] = !row[column]
       return { ...(d ?? {}), [id]: row }
     })
+
+  // The ticks that moved, as the grants Save would make of them — for
+  // what saving would do to whom. Save itself says every tick again.
+  const gridChanges = useMemo(() => {
+    if (!draft || !gridChanged) return []
+    const ids = new Set([...Object.keys(draft), ...Object.keys(stored)])
+    return [...ids].flatMap((id) => {
+      const was = stored[id] ?? blank(id)
+      const now = draft[id] ?? blank(id)
+      return PRIVILEGES.filter((p) => !!was[p.column] !== !!now[p.column]).map((p) => ({
+        capability: `stage.${p.key}`,
+        team: id,
+        reach: now[p.column] ? ('all' as const) : null,
+      }))
+    })
+  }, [draft, stored, gridChanged])
 
   const saveGrid = useMutation({
     mutationFn: async () => {
@@ -182,6 +199,7 @@ export function StageSettingsCard() {
               </li>
             ))}
           </ul>
+          <GrantEffects changes={gridChanges} />
           <div className="mt-4 flex items-center gap-3">
             <ActionButton onClick={() => saveGrid.mutate()} disabled={!gridChanged || saveGrid.isPending}>
               {saveGrid.isPending ? 'Saving…' : 'Save who may draw'}

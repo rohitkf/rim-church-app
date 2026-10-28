@@ -17,10 +17,11 @@ import type { CapabilityKey, Overrides, PermissionChange, PermissionGrant, TeamO
  * appears.
  */
 
-/** The grid as it is, or as it would be. */
+/** The grid as it is, or as it would be: the church's cells, the teams' own (0162) and the grants (0208). */
 export interface GridState {
   church: Overrides
   teams: TeamOverrides
+  grants: readonly PermissionGrant[]
 }
 
 /** One action's effect: who gains, who loses, by name. */
@@ -45,23 +46,22 @@ export function capabilitiesIn(changes: readonly PermissionChange[]): Capability
   return [...new Set(changes.map((c) => c.capability))]
 }
 
-/** For each action the changes touch, who could do more of it, and who less. */
+/** For each action touched, who could do more of it, and who less. */
 export function changeEffects(
   people: readonly PersonEntry[],
   before: GridState,
   after: GridState,
-  changes: readonly PermissionChange[],
+  touched: readonly CapabilityKey[],
   teamIds: readonly string[],
   settings: AppSettings,
-  grants: readonly PermissionGrant[] = [],
 ): ChangeEffect[] {
-  return capabilitiesIn(changes).map((capability) => {
+  return touched.map((capability) => {
     const more: PersonEntry[] = []
     const less: PersonEntry[] = []
     for (const person of people) {
       if (person.facts.owner) continue
-      const was = placesOf(person.facts, capability, before.church, before.teams, teamIds, settings, grants)
-      const now = placesOf(person.facts, capability, after.church, after.teams, teamIds, settings, grants)
+      const was = placesOf(person.facts, capability, before.church, before.teams, teamIds, settings, before.grants)
+      const now = placesOf(person.facts, capability, after.church, after.teams, teamIds, settings, after.grants)
       if ([...now].some((p) => !was.has(p))) more.push(person)
       if ([...was].some((p) => !now.has(p))) less.push(person)
     }
