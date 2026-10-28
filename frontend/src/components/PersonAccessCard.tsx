@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAppSettings } from '../lib/appSettings'
@@ -147,7 +147,20 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const { overrides, teams: teamRules, grants = [] } = usePermissions()
   // Every page's level, as the grid has it (0215).
   const levels = useMemo(() => levelsFrom(overrides), [overrides])
-  const [personId, setPersonId] = useState('')
+  // The person lives in the address, so a link can open their answer.
+  const [params, setParams] = useSearchParams()
+  const personId = params.get('person') ?? ''
+  const setPersonId = (id: string) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p)
+        n.set('tab', 'person')
+        if (id) n.set('person', id)
+        else n.delete('person')
+        return n
+      },
+      { replace: true },
+    )
   const [showNo, setShowNo] = useState(false)
 
   const people = useQuery({ queryKey: ['people-options'], queryFn: fetchPeopleOptions })
@@ -440,7 +453,7 @@ function GivenMore({
   return (
     <SectionTile
       title="Given one thing more"
-      hint={`Beyond what their profiles give: something for ${name || 'them'} by name, or for everybody on one of their teams.`}
+      hint={`Beyond what their profiles give: something for ${name || 'them'} by name. What one of their teams has been given shows here too.`}
     >
       {held.length === 0 ? (
         <p className="text-body-sm text-on-surface-variant">Nothing more, by name or through a team.</p>

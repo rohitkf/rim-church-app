@@ -198,7 +198,6 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'stage_layout_log', keys: ['stage'] },
   { table: 'stage_templates', keys: ['stage'] },
   { table: 'stage_template_requests', keys: ['stage'] },
-  { table: 'stage_team_access', keys: ['stage'] },
   { table: 'stage_areas', keys: ['stage'] },
   { table: 'stage_move_requests', keys: ['stage'] },
   // A poll, its options and every answer: the bars move as people vote.

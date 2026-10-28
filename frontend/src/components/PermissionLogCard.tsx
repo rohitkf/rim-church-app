@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { fetchDepartments } from '../lib/queries'
 import { fetchPeopleOptions } from '../lib/plannerControls'
 import { SHOWN, describeChange, fetchChanges } from '../lib/permissionLog'
@@ -44,6 +45,17 @@ export function PermissionLogCard() {
                 <span className="text-body-sm text-on-surface">{describeChange(row, personName, teamName)}</span>
                 <span className="font-mono text-label-sm text-on-surface-faint">
                   {WHEN.format(new Date(row.changed_at))} · {row.changed_by ? personName(row.changed_by) : 'The app itself'}
+                  {row.user_id && (
+                    <>
+                      {' · '}
+                      <Link
+                        to={`/settings/access?tab=person&person=${row.user_id}`}
+                        className="text-accent-blue-soft hover:text-on-surface"
+                      >
+                        What they can do now
+                      </Link>
+                    </>
+                  )}
                 </span>
               </li>
             ))}

@@ -30,6 +30,20 @@ const row = (label: string) =>
     .find((li) => li.closest('ul')?.getAttribute('aria-label') === null)!
 
 describe('who sees what', () => {
+  it('previews Overwatch and a Pastor too, through what opens the menu (0214)', async () => {
+    settingsRow.reset({ ...DEFAULT_SETTINGS, overwatch_pages: { volunteers: false, inventory: false } })
+    const user = await show()
+    await user.click(screen.getByRole('radio', { name: 'Overwatch' }))
+    const pages = screen.getByRole('list', { name: 'Pages Overwatch can open' })
+    expect(within(pages).getByRole('listitem', { name: 'Team Rota: can open' })).toBeInTheDocument()
+    expect(within(pages).getByRole('listitem', { name: 'Inventory: cannot open' })).toBeInTheDocument()
+    expect(within(pages).getByRole('listitem', { name: 'Volunteers: cannot open' })).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Pastor' }))
+    const prayer = within(screen.getByRole('list', { name: 'Pages a Pastor can open' }))
+    expect(prayer.getByRole('listitem', { name: 'Prayer Requests: can open' })).toBeInTheDocument()
+    expect(prayer.getByRole('listitem', { name: 'Team Rota: cannot open' })).toBeInTheDocument()
+  })
+
   it('previews a Church Member’s pages, as the app has them out of the box', async () => {
     await show()
     expect(tile('Giving')).toHaveAccessibleName('Giving: can open')
@@ -43,7 +57,7 @@ describe('who sees what', () => {
     expect(tile('Team Rota')).toHaveAccessibleName('Team Rota: can open')
     expect(tile('Volunteers')).toHaveAccessibleName('Volunteers: cannot open')
     await user.click(screen.getByRole('radio', { name: 'Admin' }))
-    for (const item of within(screen.getByRole('list', { name: /Pages a Admin can open/ })).getAllByRole('listitem')) {
+    for (const item of within(screen.getByRole('list', { name: /Pages an Admin can open/ })).getAllByRole('listitem')) {
       expect(item.getAttribute('aria-label')).toMatch(/can open$/)
     }
   })

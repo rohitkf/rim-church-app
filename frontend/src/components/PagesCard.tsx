@@ -135,6 +135,12 @@ export function PagesCard() {
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const changed = pending.length > 0 || room.changed || controlsChanged
+  // A page's level is cells in the grid (0215), said once as "who can open which pages".
+  const changeCount =
+    pending.filter((c) => !isPageCapability(c.capability)).length +
+    changedSettings.length +
+    (accessChanged ? 1 : 0) +
+    (controlsChanged ? 1 : 0)
   const teamName = (id: string) => departments.data?.find((d) => d.id === id)?.name ?? 'that team'
   const actionOf = (key: CapabilityKey) => areas.flatMap((a) => a.capabilities).find((c) => c.key === key)?.action ?? key
 
@@ -278,10 +284,7 @@ export function PagesCard() {
           {editable && changed && (
             <Tile tone="warning" as="section">
               <h2 className="text-body-md font-medium text-on-surface">
-                {pending.length + changedSettings.length + (accessChanged ? 1 : 0) + (controlsChanged ? 1 : 0) === 1
-                  ? 'One change'
-                  : `${pending.length + changedSettings.length + (accessChanged ? 1 : 0) + (controlsChanged ? 1 : 0)} changes`}{' '}
-                to save
+                {changeCount === 1 ? 'One change' : `${changeCount} changes`} to save
               </h2>
               <ul aria-label="Changes to save" className="mt-2 flex flex-col gap-1">
                 {changedSettings.map((e) => (

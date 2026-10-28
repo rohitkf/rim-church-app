@@ -31,9 +31,18 @@ const triggeredLater = () =>
       ),
     )
 
+/** Tables a later migration drops, trigger and all (stage_team_access, 0217). */
+const droppedLater = () =>
+  new Set(
+    Object.entries(migrations)
+      .filter(([path]) => Number(path.match(/\/(\d{4})_/)?.[1]) > 202)
+      .flatMap(([, sql]) => [...sql.matchAll(/drop table (?:if exists )?public\.(\w+)/g)].map(([, table]) => table)),
+  )
+
 describe('live tables', () => {
   it('each has the trigger that says it changed, and nothing else does', () => {
     const watched = LIVE_TABLES.map((t) => t.table).sort()
-    expect([...triggered(), ...triggeredLater()].sort()).toEqual(watched)
+    const gone = droppedLater()
+    expect([...triggered(), ...triggeredLater()].filter((t) => !gone.has(t)).sort()).toEqual(watched)
   })
 })

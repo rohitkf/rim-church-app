@@ -156,6 +156,15 @@ describe('the volunteers page', () => {
    * Admin puts them on a team from their card rather than hunting for
    * their email on the team's own page.
    */
+  it('links each person to what they can do, in Access & Privileges', async () => {
+    show()
+    const list = await waitFor(() => listUnder(/Not on a team yet/))
+    expect(within(list).getByRole('link', { name: 'What Nimmy Thomas can do' })).toHaveAttribute(
+      'href',
+      '/settings/access?tab=person&person=newbie',
+    )
+  })
+
   it('puts a Church Member on a team from their card', async () => {
     const user = show()
     const list = await waitFor(() => listUnder(/Not on a team yet/))

@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { Eyebrow, IconBadge, PageHeader, SegmentedControl, Tile } from '../components/Surface'
@@ -258,8 +257,25 @@ export function PagesPane() {
  * stories; a page at a time, with a team's own rules (0162), is Page by
  * page.
  */
+const ACCESS_TABS = ['rules', 'person', 'pages', 'history'] as const
+type AccessTab = (typeof ACCESS_TABS)[number]
+
 export function AccessSettingsPane() {
-  const [tab, setTab] = useState<'rules' | 'person' | 'pages' | 'history'>('rules')
+  // The tab, and By person's person, live in the address — so Volunteers
+  // and History can open one person's answer (?tab=person&person=<id>).
+  const [params, setParams] = useSearchParams()
+  const asked = params.get('tab') as AccessTab | null
+  const tab: AccessTab = asked && ACCESS_TABS.includes(asked) ? asked : 'rules'
+  const setTab = (next: AccessTab) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p)
+        n.set('tab', next)
+        if (next !== 'person') n.delete('person')
+        return n
+      },
+      { replace: true },
+    )
   const settings = useAppSettings()
   const levels = usePageLevels()
   const areas = withPageAccess(levels, settings.issues_raise_scope, settings.overwatch_pages)

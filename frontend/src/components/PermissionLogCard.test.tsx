@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { PermissionLogCard } from './PermissionLogCard'
 import { describeChange, type PermissionChangeRow } from '../lib/permissionLog'
 
@@ -62,7 +63,9 @@ function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <PermissionLogCard />
+      <MemoryRouter>
+        <PermissionLogCard />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -77,6 +80,11 @@ describe('Access › History', () => {
     expect(items[0]).toHaveTextContent('Rohit K')
     expect(items[1]).toHaveTextContent('Gave Asha Mathew “Open Inventory”')
     expect(items[1]).toHaveTextContent('The app itself')
+    expect(within(items[1]).getByRole('link', { name: 'What they can do now' })).toHaveAttribute(
+      'href',
+      '/settings/access?tab=person&person=asha',
+    )
+    expect(within(items[0]).queryByRole('link')).toBeNull()
   })
 
   it('says when nothing has changed', async () => {

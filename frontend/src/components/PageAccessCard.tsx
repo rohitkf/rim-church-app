@@ -2,14 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { pagesWithRules } from '../lib/pageList'
-import {
-  ACCESS_LEVELS,
-  STANDINGS,
-  levelOf,
-  standingMayOpen,
-  type AccessLevel,
-  type Standing,
-} from '../lib/pageAccess'
+import { ACCESS_LEVELS, STANDINGS, levelOf, type AccessLevel, type Standing } from '../lib/pageAccess'
+import { pageOpening, type PageWho } from '../lib/pageOpening'
+import { ROLE_NAME } from '../lib/roleNames'
 import { useAppSettingsState } from '../lib/appSettings'
 import { usePageLevels } from '../lib/usePageLevels'
 import { pageSlug } from '../lib/pageSettings'
@@ -43,10 +38,48 @@ const ENFORCEMENT: Record<string, { label: string; tone: 'green' | 'blue' | 'neu
 
 const short = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
 
+/**
+ * Everybody the menu might be drawn for: the four standings, and the two
+ * church-wide standings with pages of their own (0214). Each is asked of
+ * `pageOpening()` as the menu asks it, so the preview cannot say
+ * something the menu does not.
+ */
+type Preview = Standing | 'overwatch' | 'pastor'
+const PREVIEWS: { value: Preview; label: string; blurb: string }[] = [
+  ...STANDINGS,
+  {
+    value: 'overwatch',
+    label: ROLE_NAME.overwatch,
+    blurb: 'On no team: what Settings › Overwatch leaves open to it, and every page open to everyone.',
+  },
+  { value: 'pastor', label: ROLE_NAME.pastor, blurb: 'On no team: what a Church Member opens, and Prayer Requests always.' },
+]
+const NOBODY: PageWho = {
+  myId: 'preview',
+  standing: 'church',
+  isAdmin: false,
+  isOwner: false,
+  isOverwatch: false,
+  isPastor: false,
+  teamIds: [],
+  clockInViewer: false,
+  prayerCarer: false,
+}
+const WHO: Record<Preview, Partial<PageWho>> = {
+  church: {},
+  member: { standing: 'member' },
+  lead: { standing: 'lead' },
+  admin: { standing: 'admin', isAdmin: true },
+  overwatch: { isOverwatch: true },
+  pastor: { isPastor: true },
+}
+const somebody = (p: { value: Preview; label: string }) =>
+  p.value === 'overwatch' ? p.label : /^[AEIOU]/.test(p.label) ? `an ${p.label}` : `a ${p.label}`
+
 export function PageAccessCard() {
   const { isAdmin } = useAuth()
   const { settings, settled } = useAppSettingsState()
-  const [preview, setPreview] = useState<Standing>('church')
+  const [preview, setPreview] = useState<Preview>('church')
   // Each page's level, as the grid holds it (0215).
   const access = usePageLevels()
 
@@ -56,7 +89,9 @@ export function PageAccessCard() {
   const scope = settings.issues_raise_scope
   // Serving's three tabs are listed each on its own.
   const pages = pagesWithRules()
-  const open = pages.filter((p) => standingMayOpen(preview, levelOf(p.item.to, access, scope)))
+  const opens = (path: string) => pageOpening(path, { ...NOBODY, ...WHO[preview] }, settings, access).open
+  const open = pages.filter((p) => opens(p.item.to))
+  const current = PREVIEWS.find((s) => s.value === preview)!
   const groups = [...new Set(pages.map((p) => p.item.group ?? ''))]
 
   return (
@@ -64,7 +99,7 @@ export function PageAccessCard() {
       <div className="flex flex-col gap-4">
         <SectionTile title="See it as…" hint="Pick a profile to light up the pages it can open.">
           <div role="radiogroup" aria-label="Preview as" className="flex flex-wrap gap-2">
-            {STANDINGS.map((s) => (
+            {PREVIEWS.map((s) => (
               <button
                 key={s.value}
                 type="button"
@@ -82,17 +117,17 @@ export function PageAccessCard() {
             ))}
           </div>
           <p className="mt-3 text-body-sm text-on-surface-variant">
-            {STANDINGS.find((s) => s.value === preview)?.blurb}{' '}
+            {current.blurb}{' '}
             <span className="font-mono text-label-sm text-on-surface-faint" data-testid="preview-count">
               {open.length} of {pages.length} pages
             </span>
           </p>
           <ul
-            aria-label={`Pages a ${STANDINGS.find((s) => s.value === preview)?.label} can open`}
+            aria-label={`Pages ${somebody(current)} can open`}
             className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
           >
             {pages.map(({ item }) => {
-              const yes = standingMayOpen(preview, levelOf(item.to, access, scope))
+              const yes = opens(item.to)
               const Icon = item.icon
               return (
                 <li
