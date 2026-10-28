@@ -1,7 +1,7 @@
 import type { AppSettings } from './appSettings'
 import { levelOf, standingMayOpen, type AccessLevel, type PageAccess, type Standing } from './pageAccess'
 import { overwatchOpens } from './overwatch'
-import { maySeeClockIns, type ClockInAudience } from './clockIn'
+import { maySeeClockIns } from './clockIn'
 
 /** Who is asking, for the purpose of opening pages. */
 export interface PageWho {
@@ -16,12 +16,8 @@ export interface PageWho {
   teamIds: readonly string[]
   /** The grid's answer for `clockin.view` (0209): a profile given it, or a grant. */
   clockInViewer: boolean
-}
-
-/** Named, or on a team named, in one of the rooms' lists. */
-function inList(who: PageWho, list: ClockInAudience): boolean {
-  if (who.myId && list.people.includes(who.myId)) return true
-  return who.teamIds.some((id) => list.teams.includes(id))
+  /** The grid's answer for `prayer.pastoral` (0210). */
+  prayerCarer: boolean
 }
 
 /** Why a page opens to somebody, or what it waits for when it does not. */
@@ -31,7 +27,7 @@ export type PageOpening =
   | { open: true; via: 'overwatch'; level: AccessLevel }
   /** Given `clockin.view`: in the grid, or by a grant (0209). */
   | { open: true; via: 'clock-in'; level: AccessLevel }
-  /** A pastor: the Pastor role, the Owner, or named in Settings › Prayer. */
+  /** A pastor: the Pastor role, the Owner, or given `prayer.pastoral` (0210). */
   | { open: true; via: 'pastoral'; level: AccessLevel }
   | { open: false; level: AccessLevel }
 
@@ -57,7 +53,7 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings): 
   // Prayer Requests is always open to the pastors — the Pastor role, the
   // Owner, and whoever Settings › Prayer adds (0197) — whatever level
   // Page by page sets for everybody else.
-  if (path === '/prayer' && (who.isOwner || who.isPastor || inList(who, settings.prayer_carers))) {
+  if (path === '/prayer' && (who.isOwner || who.isPastor || who.prayerCarer)) {
     return { open: true, via: 'pastoral', level }
   }
   return { open: false, level }

@@ -195,6 +195,32 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
+  // Prayer's three (0210): the Pastors and the Owner always; anybody else
+  // as the church says, or by a grant. Admins are not pastors by default.
+  'prayer.pastoral': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'prayer.assign': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
+  'prayer.lists': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   // Asking to join a team (0190): out of the box a Church Member is added
   // by a head rather than asking.
   'team.request_join': {

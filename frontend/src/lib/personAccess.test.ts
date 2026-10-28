@@ -131,7 +131,7 @@ describe('the pages they can open', () => {
   })
 
   it('opens Clock In to whoever the grid gives clockin.view (0209), and not otherwise', () => {
-    expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings(), true)).toMatchObject({
+    expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings(), { clockInViewer: true })).toMatchObject({
       open: true,
       via: 'clock-in',
     })
@@ -143,6 +143,12 @@ describe('the pages they can open', () => {
     expect(openingFor(person({ pastor: true }), '/prayer', closed)).toMatchObject({ open: true, via: 'pastoral' })
   })
 
+  it('opens Prayer Requests to whoever the grid gives prayer.pastoral (0210)', () => {
+    const closed = settings({ page_access: { prayer: 'team' } })
+    expect(openingFor(person(), '/prayer', closed, { prayerCarer: true })).toMatchObject({ open: true, via: 'pastoral' })
+    expect(openingFor(person(), '/prayer', closed)).toMatchObject({ open: false })
+  })
+
   it('opens to Overwatch what the church left open to it', () => {
     expect(openingFor(person({ overwatch: true }), '/rota', settings())).toMatchObject({ open: true, via: 'overwatch' })
   })
@@ -151,9 +157,11 @@ describe('the pages they can open', () => {
 describe('the lists outside the grid', () => {
   it('names each list that carries them, and how', () => {
     const s = settings({
-      // The grid's since 0209, so no longer a list said here.
+      // The grid's since 0209 and 0210, so no longer lists said here.
       clock_in_viewers: { teams: [WORSHIP], people: [] },
       prayer_assigners: { teams: [], people: ['p1'] },
+      clock_in_approver_teams: [WORSHIP],
+      clock_in_approvers: 'members',
       planner_controls: { teams: { [WORSHIP]: ['start'] }, people: {} },
     })
     const named = namedFor(
@@ -172,7 +180,7 @@ describe('the lists outside the grid', () => {
       name,
     )
     expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual([
-      'Asks people to pray for a request — By name',
+      'Approves requests to be clocked in — Through Worship',
       'Presses “Session started” on the Service Planner — Through Worship',
       'May add to the stage — Through Worship',
       'May comment on it — Through Worship',

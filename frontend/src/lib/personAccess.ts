@@ -166,10 +166,16 @@ export function explainFixed(
 }
 
 /**
- * Whether a page opens to this person, and why. `clockInViewer` is the
- * grid's answer for `clockin.view` (0209), grants included.
+ * Whether a page opens to this person, and why. `granted` is the grid's
+ * answer, grants included, for the two pages that open by a capability as
+ * well as by their level: Clock In (0209) and Prayer (0210).
  */
-export function openingFor(person: PersonFacts, path: string, settings: AppSettings, clockInViewer = false): PageOpening {
+export function openingFor(
+  person: PersonFacts,
+  path: string,
+  settings: AppSettings,
+  granted: { clockInViewer?: boolean; prayerCarer?: boolean } = {},
+): PageOpening {
   const led = [...person.headTeams, ...person.assistTeams]
   const onATeam = person.memberTeams.length > 0 || led.length > 0 || person.admin
   return pageOpening(
@@ -189,7 +195,8 @@ export function openingFor(person: PersonFacts, path: string, settings: AppSetti
       isOverwatch: person.overwatch,
       isPastor: person.pastor,
       teamIds: [...person.memberTeams, ...led],
-      clockInViewer,
+      clockInViewer: !!granted.clockInViewer,
+      prayerCarer: !!granted.prayerCarer,
     },
     settings,
   )
@@ -204,18 +211,6 @@ export interface NamedFor {
   what: string
   /** "By name", or the team that carries them onto it. */
   because: string
-}
-
-/** One of the audience lists (Clock in, Prayer): named, or on a team named. */
-function inAudience(
-  person: PersonFacts,
-  audience: { teams: readonly string[]; people: readonly string[] },
-  teamName: (id: string) => string,
-): string | null {
-  if (audience.people.includes(person.id)) return 'By name'
-  const mine = [...person.memberTeams, ...person.headTeams, ...person.assistTeams]
-  const team = audience.teams.find((id) => mine.includes(id))
-  return team ? `Through ${teamName(team)}` : null
 }
 
 /** What a team's row in Stage Layout lets everybody on it do. */
@@ -238,8 +233,9 @@ const STAGE_WORDS: [keyof Omit<StageAccess, 'department_id'>, string][] = [
 
 /**
  * Every list outside the grid that names this person, directly or through
- * a team: Clock in's approvers, Prayer, the Service Planner's buttons and
- * Stage Layout. (Who sees the clock-ins is the grid's since 0209.)
+ * a team: Clock in's approvers, the Service Planner's buttons and Stage
+ * Layout. (Who sees the clock-ins, and Prayer's three, are the grid's
+ * since 0209 and 0210.)
  * Admins and the Owner are given these by their standing, not by a list,
  * so a list naming them changes nothing and is still said.
  */
@@ -262,9 +258,6 @@ export function namedFor(
   )
   add('Clock in', '/settings/clock-in', 'Approves requests to be clocked in', approverTeam ? `Through ${teamName(approverTeam)}` : null)
 
-  add('Prayer', '/settings/prayer', 'Reads private prayer requests', person.pastor ? 'As a Pastor' : inAudience(person, settings.prayer_carers, teamName))
-  add('Prayer', '/settings/prayer', 'Asks people to pray for a request', inAudience(person, settings.prayer_assigners, teamName))
-  add('Prayer', '/settings/prayer', 'Runs prayer lists', inAudience(person, settings.prayer_list_runners, teamName))
 
   const controls = settings.planner_controls as PlannerControls
   const byName = controlsHeld(controls, { id: person.id, teamIds: [] })

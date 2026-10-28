@@ -328,9 +328,13 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
 function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
   const settings = useAppSettings()
   const { overrides, teams, grants = [] } = usePermissions()
-  // Clock In opens to whoever the grid gives clockin.view (0209), grants included.
-  const clockInViewer = decide(overrides, holderOf(facts, grants), 'clockin.view', {}, teams)
-  const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings, clockInViewer) }))
+  // Clock In and Prayer open by the grid's answer too (0209, 0210), grants included.
+  const holder = holderOf(facts, grants)
+  const granted = {
+    clockInViewer: decide(overrides, holder, 'clockin.view', {}, teams),
+    prayerCarer: decide(overrides, holder, 'prayer.pastoral', {}, teams),
+  }
+  const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings, granted) }))
   const open = pages.filter((p) => p.opening.open).length
   return (
     <SectionTile
