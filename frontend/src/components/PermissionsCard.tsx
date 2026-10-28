@@ -26,6 +26,7 @@ import { Pill, SegmentedControl, Tile } from './Surface'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
 import { Select, reachPickerClasses } from './Select'
+import { ChangeEffects } from './ChangeEffects'
 
 /**
  * Who can do what — and, where the church sets it, the place to set it.
@@ -199,6 +200,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
   const [saved, setSaved] = useState(false)
 
   const shown = useMemo(() => withGrants(areas, working), [areas, working])
+  // The grid as saved and as drafted, for what saving would do to whom.
+  const before = useMemo(() => ({ church: stored, teams: perms.storedTeams }), [stored, perms.storedTeams])
+  const after = useMemo(() => ({ church: working, teams: perms.workingTeams }), [working, perms.workingTeams])
 
   const choose = (capability: CapabilityKey, who: GridRole, reach: Reach) => {
     setSaved(false)
@@ -537,6 +541,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               </li>
             ))}
           </ul>
+          <ChangeEffects changes={pending} before={before} after={after} grants={perms.grants} actionOf={actionOf} />
         </Tile>
       )}
 
