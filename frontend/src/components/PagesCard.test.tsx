@@ -197,6 +197,30 @@ describe('Page by Page', () => {
     })
   })
 
+  it('copies one team’s rules to another as a draft, and saves them as that team’s', async () => {
+    // Worship keeps the rota's assigning to its own Head and lets its members tick checklists.
+    storedTeams = { d2: { 'rota.assign': { member: 'none' }, 'day.verify': { member: 'team' } } }
+    const user = await show()
+    await chooseOption(user, screen.getByRole('combobox', { name: 'Copy the rules of' }), 'Worship')
+    expect(screen.getByText(/Worship has 2 rules of its own/)).toBeInTheDocument()
+    await chooseOption(user, screen.getByRole('combobox', { name: 'Copy them to' }), 'Media')
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Worship’s rules are now Media’s, in the draft.')
+    expect(db.rpc).toEqual([])
+    const changes = screen.getByRole('list', { name: 'Changes to save' })
+    expect(changes).toHaveTextContent('Media · Team Member')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    const sent = (db.rpc[0].args as { p_changes: unknown[] }).p_changes
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        { role: 'member', capability: 'rota.assign', reach: 'none', department: 'd1' },
+        { role: 'member', capability: 'day.verify', reach: 'team', department: 'd1' },
+      ]),
+    )
+    expect(sent).toHaveLength(2)
+  })
+
   it('relights Issues’ opening rule as soon as everyone may raise one, before Save', async () => {
     const user = await show()
     expect(section('Issues')).toHaveTextContent('opens to Teams')

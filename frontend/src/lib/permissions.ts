@@ -719,6 +719,15 @@ export function teamChoice(teams: TeamOverrides, dept: string | null | undefined
   return chosen && teamReaches(cap, role).includes(chosen) ? chosen : null
 }
 
+/** How many cells a team has set for itself (0162) — the ones the catalog still lets it. */
+export function ownRuleCount(teams: TeamOverrides, dept: string): number {
+  let n = 0
+  for (const cap of CAPABILITY_KEYS) {
+    for (const role of TEAM_ROLES) if (isTeamSettable(cap, role) && teamChoice(teams, dept, cap, role)) n += 1
+  }
+  return n
+}
+
 /**
  * The reach in force on one team: the team's own rule where it made one,
  * otherwise the church's. The same order `permission_reach(role, cap, dept)`

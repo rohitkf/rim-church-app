@@ -75,6 +75,13 @@ export function usePermissionDraft() {
       return { ...base, [dept]: mine }
     })
 
+  /** One team's own rules made another's, all of them, in the draft until saved. */
+  const copyTeam = (from: string, to: string) =>
+    setTeamDraft((d) => {
+      const base = d ?? storedTeams
+      return { ...base, [to]: { ...(base[from] ?? {}) } }
+    })
+
   /** The church's cells as a whole, in the draft: a preset (lib/presets), until saved. */
   const draftChurch = (next: Overrides) => setDraft(next)
 
@@ -97,6 +104,7 @@ export function usePermissionDraft() {
     chooseTeam,
     restoreDefaults,
     draftChurch,
+    copyTeam,
     /** Sends what is pending. Resolves once the grid has been re-read. */
     commit: () => save.mutateAsync(pending),
     saving: save.isPending,
