@@ -84,4 +84,10 @@ describe('how long things last', () => {
     expect(lifespanOf('feedback', settings)).toContain('deleted 14 days after it was settled')
     expect(lifespanOf('feedback', { ...settings, feedback_retention_days: 90 })).toContain('deleted 90 days after it was settled')
   })
+
+  it('says when a church event goes, or that events stay (0219)', () => {
+    expect(lifespanOf('events', {})).toContain('deleted 60 days after its last day')
+    expect(lifespanOf('events', { church_event_retention_days: 90 })).toContain('90 days')
+    expect(lifespanOf('events', { church_event_retention_days: null })).toContain('stay until they are deleted')
+  })
 })

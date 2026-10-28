@@ -619,7 +619,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     kind: 'dial',
     label: 'Events keeps past events for',
     summary: 'How far back the diary’s Past events go on screen.',
-    help: 'Only what is drawn: the events themselves are not deleted.',
+    help: 'Only what is drawn. How long the events themselves are kept is the next setting.',
     affects: ['/events'],
     min: 1,
     max: 3650,
@@ -666,6 +666,14 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     summary: 'Each post goes this long after it was written.',
     help: 'Every post older than this, in every team’s chat, is deleted each night — alerts and mentions included. A chat never empties all at once: each post has its own clock.',
     affects: ['/team-chat'],
+  },
+  {
+    ...column('church_event_retention_days'),
+    kind: 'forever',
+    label: 'Church events are kept for',
+    summary: 'Each event goes this long after its last day.',
+    help: 'Every night, an event whose last day was longer ago than this is deleted. Birthdays, anniversaries and services in the diary are not events and are not touched by this.',
+    affects: ['/events'],
   },
   {
     ...column('church_update_retention_days'),

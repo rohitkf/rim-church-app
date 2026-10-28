@@ -29,6 +29,7 @@ type Settings = Pick<
   | 'availability_closes_time'
   | 'team_chat_retention_days'
   | 'church_update_retention_days'
+  | 'church_event_retention_days'
   | 'poll_retention_days'
   | 'feedback_retention_days'
   | 'service_retention_days'
@@ -61,6 +62,7 @@ const FALLBACK: Settings = {
   availability_closes_time: '23:59:00',
   team_chat_retention_days: 30,
   church_update_retention_days: 30,
+  church_event_retention_days: 60,
   poll_retention_days: 7,
   feedback_retention_days: 14,
   service_retention_days: 14,
@@ -106,6 +108,7 @@ export type LifespanPage =
   | 'notifications'
   | 'alerts'
   | 'stage'
+  | 'events'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -115,7 +118,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     if (given[key] !== undefined && given[key] !== null) (s as Record<string, unknown>)[key] = given[key]
   }
   // For these, null is a choice ("never", "for ever"), not a gap to fill.
-  for (const key of ['alert_clear_dow', 'stage_clear_dow', 'team_chat_retention_days', 'feedback_retention_days'] as const) {
+  for (const key of ['alert_clear_dow', 'stage_clear_dow', 'team_chat_retention_days', 'feedback_retention_days', 'church_event_retention_days'] as const) {
     if (given[key] === null) (s as Record<string, unknown>)[key] = null
   }
   // A service takes its debrief, issues, rota and the rest with it, so no
@@ -149,6 +152,10 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
       return s.team_chat_retention_days === null
         ? 'Nothing here clears on its own — messages stay until they are deleted.'
         : `Messages are deleted ${days(s.team_chat_retention_days)} after they are posted.`
+    case 'events':
+      return s.church_event_retention_days === null
+        ? 'Church events stay until they are deleted. Birthdays, anniversaries and services come and go with their own records.'
+        : `A church event is deleted ${days(s.church_event_retention_days)} after its last day. Birthdays, anniversaries and services come and go with their own records.`
     case 'feedback':
       return s.feedback_retention_days === null
         ? 'Feedback stays until it is taken back or an Admin clears it.'

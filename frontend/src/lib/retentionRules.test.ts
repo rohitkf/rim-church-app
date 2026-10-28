@@ -4,6 +4,7 @@ import hourly from '../../../supabase/migrations/0129_timed_posts_expire_on_the_
 import alerts from '../../../supabase/migrations/0130_sent_alerts_clear_on_their_day.sql?raw'
 import nightly from '../../../supabase/migrations/0131_services_go_after_two_weeks.sql?raw'
 import weekly from '../../../supabase/migrations/0132_supabase_logs_and_upload_limits.sql?raw'
+import events from '../../../supabase/migrations/0219_church_events_go_sixty_days_after_they_end.sql?raw'
 import { DEFAULT_SETTINGS } from './appSettings'
 import { UPLOAD_LIMIT_BYTES } from './uploadLimits'
 
@@ -15,7 +16,7 @@ import { UPLOAD_LIMIT_BYTES } from './uploadLimits'
  */
 
 // The five run as one change, split only so each could be applied alone.
-const migration = [rules, hourly, alerts, nightly, weekly].join('\n')
+const migration = [rules, hourly, alerts, nightly, weekly, events].join('\n')
 
 const columnDefault = (column: string) =>
   Number(migration.match(new RegExp(`alter column ${column} set default (\\d+)`))?.[1] ??
@@ -37,6 +38,11 @@ describe('the church’s clocks (0128–0132)', () => {
     expect(columnDefault('issue_retention_days')).toBe(DEFAULT_SETTINGS.issue_retention_days)
     expect(columnDefault('church_update_retention_days')).toBe(DEFAULT_SETTINGS.church_update_retention_days)
     expect(columnDefault('poll_retention_days')).toBe(DEFAULT_SETTINGS.poll_retention_days)
+    expect(columnDefault('church_event_retention_days')).toBe(DEFAULT_SETTINGS.church_event_retention_days)
+  })
+
+  it('deletes a church event that long after its last day, and keeps them all when set to for ever (0219)', () => {
+    expect(events).toMatch(/if s\.church_event_retention_days is not null then\s+delete from public\.church_events\s+where coalesce\(ends_on, event_date\) < today - s\.church_event_retention_days;/)
   })
 
   it('is what the church asked for', () => {
@@ -49,6 +55,7 @@ describe('the church’s clocks (0128–0132)', () => {
       alert_clear_dow: 2, // Tuesday
       church_update_retention_days: 30,
       feedback_retention_days: 14,
+      church_event_retention_days: 60,
     })
   })
 
