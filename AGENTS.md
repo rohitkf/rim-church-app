@@ -506,8 +506,10 @@ in `lib/permissionMatrix.ts`, or its own `at` when the area spans several,
 and a `short` name for the team-by-team grids. `settingsCatalog.test.ts`
 checks every row lands on a page.
 
-**Who can open which pages** is Access & Privileges › Pages
-(`PageAccessCard`), and each page's own row in Page by Page.
+**Who can open which pages** is chosen in Page by Page, under each page.
+Access & Privileges › Pages (`PageAccessCard`) only shows it — a preview
+per profile and each page's level, linking to its section — so the
+choice has one home and one Save.
 
 **A new way in** to a page or an action — a list in some room that names
 people or teams, an Overwatch switch — is also said in
