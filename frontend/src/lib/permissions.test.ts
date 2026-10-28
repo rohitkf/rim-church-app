@@ -297,3 +297,20 @@ describe('Overwatch and a Pastor, as columns of their own (0214)', () => {
     expect(teamReaches('prayer.pastoral', 'pastor')).toEqual([])
   })
 })
+
+describe('opening a page, as a capability (0215)', () => {
+  it('may be given to somebody everywhere, and never "on their teams"', () => {
+    expect(grantIsValid('page.inventory', 'all')).toBe(true)
+    expect(grantIsValid('page.inventory', 'team')).toBe(false)
+    expect(grantableCapabilities()).toContain('page.rota')
+  })
+
+  it('opens to a Team Member at the default level, and to a Church Member only by a grant', () => {
+    expect(decide({}, memberOfA, 'page.inventory')).toBe(true)
+    expect(decide({}, nobody, 'page.inventory')).toBe(false)
+    const given: PermissionGrant = { capability: 'page.inventory', userId: 'me', departmentId: null, reach: 'all' }
+    expect(decide({}, { ...nobody, grants: [given] }, 'page.inventory')).toBe(true)
+    // A Coordinator opens a page as the Team Member they are, not as a Coordinator.
+    expect(decide({}, { ...nobody, coordinatesAnywhere: true }, 'page.inventory')).toBe(false)
+  })
+})

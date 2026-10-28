@@ -6,7 +6,8 @@ import { useAppSettings } from '../lib/appSettings'
 import { fetchDepartments } from '../lib/queries'
 import { fetchPeopleOptions } from '../lib/plannerControls'
 import { pagesWithRules } from '../lib/pageList'
-import { ACCESS_LEVELS, type PageAccess } from '../lib/pageAccess'
+import { ACCESS_LEVELS } from '../lib/pageAccess'
+import { isPageCapability, levelsFrom } from '../lib/pageCells'
 import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
 import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
 import { decide, grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
@@ -91,6 +92,8 @@ function openingWhy(opening: PageOpening): string {
       return 'Given “See clock-ins”'
     case 'pastoral':
       return 'A pastor'
+    case 'grant':
+      return 'Given to them'
     default:
       return levelLabel(opening.level)
   }
@@ -153,6 +156,8 @@ const FIXED_LABEL: Record<Allowed, string> = { yes: 'Yes', own: 'Their own', tea
 export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const settings = useAppSettings()
   const { overrides, teams: teamRules, grants = [] } = usePermissions()
+  // Every page's level, as the grid has it (0215).
+  const levels = useMemo(() => levelsFrom(overrides), [overrides])
   const [personId, setPersonId] = useState('')
   const [showNo, setShowNo] = useState(false)
 
@@ -168,8 +173,12 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const teamIds = useMemo(() => teamList.map((t) => t.id), [teamList])
   const teamName = (id: string) => teamList.find((t) => t.id === id)?.name ?? 'A team since removed'
   const areas = useMemo(
-    () => withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope, settings.overwatch_pages),
-    [settings.page_access, settings.issues_raise_scope, settings.overwatch_pages],
+    () =>
+      // Opening a page is answered above, under Pages they can open, grants and all.
+      withPageAccess(levels, settings.issues_raise_scope, settings.overwatch_pages).filter(
+        (area) => !area.capabilities.every((c) => !!c.key && isPageCapability(c.key)),
+      ),
+    [levels, settings.issues_raise_scope, settings.overwatch_pages],
   )
 
   const facts = person.data?.facts
@@ -260,7 +269,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                         const answer = explainCapability(facts, c.key, overrides, teamRules, teamIds, settings, grants)
                         return { c, no: answer.kind === 'none', cell: <AnswerPill answer={answer} teamName={teamName} teamIds={teamIds} /> }
                       }
-                      const fixed = explainFixed(facts, c, settings)
+                      const fixed = explainFixed(facts, c, settings, levels)
                       return {
                         c,
                         no: fixed.allowed === 'no',
@@ -329,6 +338,9 @@ function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
   const granted = {
     clockInViewer: decide(overrides, holder, 'clockin.view', {}, teams),
     prayerCarer: decide(overrides, holder, 'prayer.pastoral', {}, teams),
+    // Every page's level is the grid's, and a page may be given (0215).
+    levels: levelsFrom(overrides),
+    opens: (cap: CapabilityKey) => decide(overrides, holder, cap, {}, teams),
   }
   const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings, granted) }))
   const open = pages.filter((p) => p.opening.open).length

@@ -18,17 +18,23 @@ import type { AppSettings } from '../lib/appSettings'
 export const settingsRow = {
   row: {} as AppSettings,
   writes: [] as Record<string, unknown>[],
-  reset(row: AppSettings) {
+  /** The grid's changed cells (role_permissions) — a page's level among them since 0215. */
+  cells: [] as { role_key: string; capability: string; reach: string }[],
+  reset(row: AppSettings, cells: { role_key: string; capability: string; reach: string }[] = []) {
     this.row = { ...row }
     this.writes = []
+    this.cells = cells
   },
 }
 
 export function settingsRowMock() {
   return {
     supabase: {
-      from: () => ({
-        select: () => ({ maybeSingle: () => Promise.resolve({ data: { ...settingsRow.row }, error: null }) }),
+      from: (table: string) => ({
+        select: () =>
+          table === 'role_permissions'
+            ? Promise.resolve({ data: settingsRow.cells, error: null })
+            : { maybeSingle: () => Promise.resolve({ data: { ...settingsRow.row }, error: null }) },
         update: (patch: Record<string, unknown>) => ({
           eq: () => {
             settingsRow.writes.push(patch)

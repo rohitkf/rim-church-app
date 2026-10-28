@@ -122,16 +122,24 @@ Other things that are true and not guessable:
 - **Who opens which page is the church's choice, within limits the
   database can honour** (0123, `docs/configuration.md`). Each page in
   `lib/pageAccess.ts` `PAGE_RULES` has a default and the levels it may be
-  set to — `everyone`, `team`, `leads` (Heads), `admins` — stored in
-  `app_settings.page_access`. Admins always may. Out of the box a Church
+  set to — `everyone`, `team`, `leads` (Heads), `admins`. Since 0215 a
+  page with a choice is a grid row, `page.<key>` (hyphens become
+  underscores), and its level is two cells — a Church Member's and a Team
+  Member's (`lib/pageCells.ts` turns one into the other; Admins and Heads
+  fixed yes, a Coordinator fixed no). `app_settings.page_access` is read by
+  nothing for those pages; `usePageLevels()` gives every page's level from
+  the grid. A grant of `page.<key>` opens that page to one person or a
+  team, whatever its level. Admins always may. Out of the box a Church
   Member sees the church's shape, not its teams' working: Dashboard,
   Service Planner, Events, Set Lists, Giving, Church Updates, Polls (the
   ones addressed to them) and Teams (to ask to join one). Gated routes sit
   behind `PageGate`; the menu, search and gate all ask `usePageAccess()`.
   The tables follow too: their select policies call `can_open_page(uid,
-  page)` (the rota's only widen — Availability and Checklists read the
-  same rows). `page_access_is_valid()` in SQL and `PAGE_RULES` must agree;
-  `pageAccess.test.ts` reads the migration and checks. A new team-only
+  page)`, which asks `may(uid, 'page.<key>')` for a page with a choice
+  (the rota's only widen — Availability and Checklists read the same
+  rows). `PAGE_RULES` and the `page.*` cells must agree —
+  `pageCells.test.ts` and `permissionCatalog.test.ts` check — as must
+  `page_access_is_valid()`, which `pageAccess.test.ts` reads. A new team-only
   table that reads `auth.uid() is not null` leaks to Church Members — give
   it `can_open_page` or `is_on_a_team`.
 - **Rota tags are labels, never exemptions.** A tagged assignment is
@@ -440,8 +448,9 @@ Each of these has already cost real time. None of them show up in review.
 
 **A new page**: route in `App.tsx` (inside `PageGate` unless everybody may
 always open it) → a rule in `lib/pageAccess.ts` `PAGE_RULES` (default,
-choices, what enforces it — and the same choices in SQL's
-`page_access_is_valid`, in a migration, if it has a key) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
+choices, what enforces it — and, if it has a key, the same choices in
+SQL's `page_access_is_valid` and as its `page.<key>` cells, in a
+migration and in `lib/permissions.ts`'s `CATALOG`) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
 with the default `group` it sits under in the More sheet (Sunday, After the service,
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has

@@ -17,8 +17,9 @@
  * editable when a release converts it.
  */
 
-import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
+import { PAGE_RULES, levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
 import { OVERWATCH_READS, overwatchOpens } from './overwatch'
+import { PAGE_CAPABILITIES, PASTORS_OPEN } from './pageCells'
 import {
   GRANT_ROLES,
   GRID_ROLES,
@@ -137,6 +138,8 @@ export interface PermissionArea {
    * team starts with.
    */
   perTeam?: string
+  /** Said once for the whole area, when every row would otherwise say it. */
+  about?: string
 }
 
 const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
@@ -154,8 +157,27 @@ const granted = (key: CapabilityKey, overrides: Overrides = {}): Record<RoleKey,
     Allowed
   >),
   overwatch: hasCell(key, 'overwatch') ? ALLOWED[reachOf(overrides, key, 'overwatch')] : OVERWATCH_READS[key] ? 'yes' : 'no',
-  pastor: ALLOWED[reachOf(overrides, key, 'pastor')],
+  // Prayer Requests opens to the Pastors whatever its level — not a cell.
+  pastor: key === PASTORS_OPEN ? 'yes' : ALLOWED[reachOf(overrides, key, 'pastor')],
 })
+
+/** Each page with a choice of who may open it, as the grid's row (0215). */
+const PAGE_ROW: Record<string, string> = {
+  '/service-planner': 'Open the Service Planner',
+  '/rota': 'Open the Team Rota',
+  '/set-lists': 'Open Set Lists',
+  '/debriefs': 'Open Debriefs',
+  '/messages': 'Open the message board',
+  '/updates': 'Open Church Updates',
+  '/polls': 'Open Polls',
+  '/events': 'Open Events, the church diary',
+  '/giving': 'Open Giving',
+  '/departments': 'Open the Teams page',
+  '/prayer': 'Open Prayer Requests',
+  '/stage': 'Open Stage Layout',
+  '/inventory': 'Open Inventory',
+}
+
 
 const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allowed> => ({
   owner: 'yes',
@@ -179,6 +201,20 @@ const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allo
 })
 
 export const PERMISSIONS: PermissionArea[] = [
+  {
+    area: 'Opening pages',
+    pages: PAGE_CAPABILITIES.map((p) => p.path),
+    about:
+      'A page’s level in Settings › Page by Page is these two cells: a Church Member’s and a Team Member’s. Admins and every team’s Heads always open them; a Team Coordinator opens one as the Team Member they are; Overwatch, what Settings › Overwatch leaves open. Give one page to somebody by name, whatever its level, from By person.',
+    capabilities: PAGE_CAPABILITIES.map(({ path, capability }) => ({
+      action: PAGE_ROW[path] ?? `Open ${path}`,
+      key: capability,
+      at: [path],
+      short: 'Open the page',
+      can: granted(capability),
+      note: PAGE_RULES[path].note,
+    })),
+  },
   {
     area: 'Services & planning',
     pages: ['/service-planner', '/events'],

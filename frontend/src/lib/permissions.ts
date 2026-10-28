@@ -105,6 +105,23 @@ const OVERWATCH_ONLY = {
   overwatch: offer('none all', 'all'),
 }
 
+/**
+ * Who may open a page (0215): its level in Settings › Page by Page, as
+ * cells. Admins and the leads are let in at every level a page offers; a
+ * Team Member's cell is a choice only where the page can be kept to Heads,
+ * a Church Member's only where it can be opened to everyone; a Team
+ * Coordinator opens a page as the Team Member they are. `levels` is the
+ * page's choices, `open` its default.
+ */
+const page = (levels: 'everyone team' | 'everyone team leads' | 'team leads', open: 'everyone' | 'team') => ({
+  admin: fixed('all'),
+  head: fixed('all'),
+  assistant: fixed('all'),
+  coordinator: fixed(),
+  member: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
+  newcomer: levels.includes('everyone') ? offer('none all', open === 'everyone' ? 'all' : 'none') : fixed(),
+})
+
 /*
  * One entry per capability, five profiles each — the same as the
  * migration's insert, cell for cell. A new area's capabilities arrive here
@@ -616,6 +633,20 @@ export const CATALOG = {
     member: fixed(),
     newcomer: fixed(),
   },
+  // Opening a page (0215), one per page with a choice of who may.
+  'page.service_planner': page('everyone team leads', 'everyone'),
+  'page.rota': page('everyone team', 'team'),
+  'page.set_lists': page('everyone team leads', 'everyone'),
+  'page.debriefs': page('team leads', 'team'),
+  'page.messages': page('everyone team leads', 'team'),
+  'page.updates': page('everyone team leads', 'everyone'),
+  'page.polls': page('everyone team', 'everyone'),
+  'page.events': page('everyone team leads', 'everyone'),
+  'page.giving': page('everyone team leads', 'everyone'),
+  'page.departments': page('everyone team', 'team'),
+  'page.prayer': page('everyone team', 'everyone'),
+  'page.stage': page('everyone team leads', 'everyone'),
+  'page.inventory': page('team leads', 'team'),
 } as const satisfies Record<string, Record<GrantRole, Rule> & Partial<Record<StandingRole, Rule>>>
 
 export type CapabilityKey = keyof typeof CATALOG

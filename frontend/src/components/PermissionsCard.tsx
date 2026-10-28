@@ -363,6 +363,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                     {isOpen && area.perTeam && (
                       <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.perTeam}</p>
                     )}
+                    {isOpen && area.about && (
+                      <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.about}</p>
+                    )}
                     {isOpen && area.fixed && (
                       <p className="px-5 pb-2 text-label-sm text-on-surface-faint">{area.fixed}</p>
                     )}
@@ -445,6 +448,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                     <AreaStatus area={area} />
                   </h3>
                   {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
+                  {area.about && <p className="mt-1 text-label-sm text-on-surface-faint">{area.about}</p>}
                   {/* Nine columns will not fit a phone, and shrinking them to
                       make them fit is how a table becomes unreadable on every
                       device instead of one. It scrolls inside itself — and is
