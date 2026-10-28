@@ -12,22 +12,18 @@ import {
   refusalWords,
 } from './clockIn'
 
-const none = { teams: [], people: [] }
-
 describe('who may see the Clock In page', () => {
-  const base = { isAdmin: false, isOwner: false, watching: false, myId: 'me', teamIds: [], viewers: none }
+  const base = { isAdmin: false, isOwner: false, watching: false, granted: false }
 
   it('is the Owner, Admins and Overwatch out of the box, and nobody else', () => {
     expect(maySeeClockIns({ ...base, isAdmin: true })).toBe(true)
     expect(maySeeClockIns({ ...base, isOwner: true })).toBe(true)
     expect(maySeeClockIns({ ...base, watching: true })).toBe(true)
-    expect(maySeeClockIns({ ...base, teamIds: ['media'] })).toBe(false)
+    expect(maySeeClockIns(base)).toBe(false)
   })
 
-  it('opens to a named person, and to everybody on a named team', () => {
-    expect(maySeeClockIns({ ...base, viewers: { teams: [], people: ['me'] } })).toBe(true)
-    expect(maySeeClockIns({ ...base, teamIds: ['welcome'], viewers: { teams: ['welcome'], people: [] } })).toBe(true)
-    expect(maySeeClockIns({ ...base, teamIds: ['media'], viewers: { teams: ['welcome'], people: ['you'] } })).toBe(false)
+  it('opens to whoever the grid gives clockin.view — a profile, a name or a team (0209)', () => {
+    expect(maySeeClockIns({ ...base, granted: true })).toBe(true)
   })
 })
 

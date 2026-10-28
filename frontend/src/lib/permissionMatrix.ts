@@ -733,6 +733,19 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Clock in',
+    pages: ['/clock-in'],
+    capabilities: [
+      {
+        action: 'See the Clock In page and every clock-in',
+        key: 'clockin.view',
+        short: 'See clock-ins',
+        can: granted('clockin.view'),
+        note: 'Names, times and where each person was. The Owner always does, and Overwatch unless Settings › Overwatch closes it. Anybody else by name or through a team: Settings › Clock in, or By person.',
+      },
+    ],
+  },
+  {
     area: 'Stage Layout',
     pages: ['/stage'],
     fixed: 'Set per team rather than per profile: Settings › Stage Layout says which teams may add, edit, delete, comment and keep templates. Admins and the Owner always may.',

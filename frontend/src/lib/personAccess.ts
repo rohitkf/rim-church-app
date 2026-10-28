@@ -165,8 +165,11 @@ export function explainFixed(
   return best
 }
 
-/** Whether a page opens to this person, and why. */
-export function openingFor(person: PersonFacts, path: string, settings: AppSettings): PageOpening {
+/**
+ * Whether a page opens to this person, and why. `clockInViewer` is the
+ * grid's answer for `clockin.view` (0209), grants included.
+ */
+export function openingFor(person: PersonFacts, path: string, settings: AppSettings, clockInViewer = false): PageOpening {
   const led = [...person.headTeams, ...person.assistTeams]
   const onATeam = person.memberTeams.length > 0 || led.length > 0 || person.admin
   return pageOpening(
@@ -186,6 +189,7 @@ export function openingFor(person: PersonFacts, path: string, settings: AppSetti
       isOverwatch: person.overwatch,
       isPastor: person.pastor,
       teamIds: [...person.memberTeams, ...led],
+      clockInViewer,
     },
     settings,
   )
@@ -234,7 +238,8 @@ const STAGE_WORDS: [keyof Omit<StageAccess, 'department_id'>, string][] = [
 
 /**
  * Every list outside the grid that names this person, directly or through
- * a team: Clock in, Prayer, the Service Planner's buttons and Stage Layout.
+ * a team: Clock in's approvers, Prayer, the Service Planner's buttons and
+ * Stage Layout. (Who sees the clock-ins is the grid's since 0209.)
  * Admins and the Owner are given these by their standing, not by a list,
  * so a list naming them changes nothing and is still said.
  */
@@ -249,7 +254,6 @@ export function namedFor(
     if (because) out.push({ room, to, what, because })
   }
 
-  add('Clock in', '/settings/clock-in', 'Sees the Clock In page and every clock-in', inAudience(person, settings.clock_in_viewers, teamName))
   const approverTeam = settings.clock_in_approver_teams.find(
     (id) =>
       person.headTeams.includes(id) ||

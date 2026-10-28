@@ -185,6 +185,16 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Who sees the Clock In page and every clock-in (0209): Admins always;
+  // anybody else as the church says, or by a grant (0208).
+  'clockin.view': {
+    admin: fixed('all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   // Asking to join a team (0190): out of the box a Church Member is added
   // by a head rather than asking.
   'team.request_join': {
