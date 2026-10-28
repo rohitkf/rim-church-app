@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient'
 import { PERMISSIONS, ROLES, type RoleKey } from './permissionMatrix'
-import { REACH_LABEL, isCapabilityKey, ruleFor, type GridRole, type Reach } from './permissions'
-import { formatUntil } from './grantUntil'
+import { GRID_ROLES, REACH_LABEL, isCapabilityKey, ruleFor, type GridRole, type Reach } from './permissions'
+import { formatUntil, inDate } from './grantUntil'
 
 /**
  * Who changed which rule (0216): `permission_changes`, a row for every
@@ -28,6 +28,16 @@ export interface PermissionChangeRow {
 
 /** How many of the latest changes are read. */
 export const SHOWN = 200
+
+export type ChangeKind = PermissionChangeRow['kind']
+
+/** The three kinds of change, as the History filter offers them. */
+export const CHANGE_KINDS: { value: ChangeKind | ''; label: string }[] = [
+  { value: '', label: 'Every change' },
+  { value: 'cell', label: 'The church’s cells' },
+  { value: 'team', label: 'Teams’ own rules' },
+  { value: 'grant', label: 'Grants' },
+]
 
 export async function fetchChanges(): Promise<PermissionChangeRow[]> {
   const { data, error } = await supabase
@@ -79,4 +89,55 @@ export function describeChange(
     return `Changed ${team}’s “${action}” to ${row.leads_only_after ? 'its Heads only' : 'everybody on it'}${until}`
   }
   return `Changed ${who}’s “${action}” to ${row.until_after ? `end on ${formatUntil(row.until_after)}` : 'have no end date'}`
+}
+
+/** Whether a change reads as `query` says — its sentence, or who made it. */
+export function changeMatches(
+  row: PermissionChangeRow,
+  query: string,
+  personName: (id: string) => string,
+  teamName: (id: string) => string,
+): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const by = row.changed_by ? personName(row.changed_by) : 'the app itself'
+  return `${describeChange(row, personName, teamName)} ${by}`.toLowerCase().includes(q)
+}
+
+/** The call that undoes one change: the rule as it was before, said again. */
+export type PutBack =
+  | { fn: 'set_permissions'; args: { p_changes: { role: string; capability: string; reach: string | null; department?: string }[] } }
+  | {
+      fn: 'set_permission_grants'
+      args: { p_changes: { capability: string; person?: string; team?: string; reach: string | null; leads_only?: boolean; until?: string | null }[] }
+    }
+
+/**
+ * How to put a change back — or null when it cannot be: a cell or a
+ * profile the grid no longer has, or a grant that ran out (giving it
+ * again with its old date would be refused; By person gives it anew).
+ */
+export function putBack(row: PermissionChangeRow): PutBack | null {
+  if (row.kind === 'grant') {
+    if (row.before && row.until_before && !inDate(row.until_before)) return null
+    if (!row.user_id && !row.department_id) return null
+    const who = row.user_id ? { person: row.user_id } : { team: row.department_id! }
+    if (!row.before) return { fn: 'set_permission_grants', args: { p_changes: [{ capability: row.capability, ...who, reach: null }] } }
+    const leads = row.department_id ? { leads_only: row.leads_only_before ?? false } : {}
+    return {
+      fn: 'set_permission_grants',
+      args: { p_changes: [{ capability: row.capability, ...who, reach: row.before, ...leads, until: row.until_before }] },
+    }
+  }
+  if (!row.role_key || !isCapabilityKey(row.capability) || !GRID_ROLES.includes(row.role_key as GridRole)) return null
+  if (row.kind === 'team') {
+    if (!row.department_id) return null
+    return {
+      fn: 'set_permissions',
+      args: { p_changes: [{ role: row.role_key, capability: row.capability, reach: row.before, department: row.department_id }] },
+    }
+  }
+  // A church cell with no row before was at the app's default: set_permissions() keeps it so when told that reach.
+  const reach = row.before ?? ruleFor(row.capability, row.role_key as GridRole).byDefault
+  return { fn: 'set_permissions', args: { p_changes: [{ role: row.role_key, capability: row.capability, reach }] } }
 }
