@@ -161,7 +161,7 @@ describe('PermissionsCard', () => {
       // Short in the six-column grid; the one-role view says them in full.
       expect(await options('Admin')).toEqual(['No', 'All'])
       expect(await options('Team Head')).toEqual(['No', 'Team', 'All'])
-      expect(await options('Coordinator')).toEqual(['No', 'Team'])
+      expect(await options('Team Coordinator')).toEqual(['No', 'Team'])
       expect(await options('Team Member')).toEqual(['No', 'Team', 'All'])
       // A Church Member and the Owner are not offered a choice at all.
       expect(assign.queryByRole('combobox', { name: /Church Member/ })).toBeNull()
@@ -210,9 +210,9 @@ describe('PermissionsCard', () => {
 
     it('lets the chosen role be edited on a phone, without the grid', async () => {
       const user = show()
-      await user.click(screen.getByRole('radio', { name: 'Coordinator' }))
+      await user.click(screen.getByRole('radio', { name: 'Team Coordinator' }))
       await user.click(screen.getByRole('button', { name: /^Team rota/ }))
-      const picker = screen.getByRole('combobox', { name: 'Approve or refuse a release request — Coordinator' })
+      const picker = screen.getByRole('combobox', { name: 'Approve or refuse a release request — Team Coordinator' })
       const list = await openOptions(user, picker)
       expect(within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)).toEqual(['No', 'Their team'])
       await user.click(within(list).getByRole('option', { name: 'Their team' }))

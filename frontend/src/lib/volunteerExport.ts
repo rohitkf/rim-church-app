@@ -18,6 +18,7 @@ import type { UserRole } from '../auth/types'
 import type { Household, HouseholdMember } from './family'
 import { ageFrom } from './celebrations'
 import { formatPhoneInternational } from './phone'
+import { ROLE_NAME } from './roleNames'
 
 export interface ExportPerson {
   id: string
@@ -88,12 +89,12 @@ export function designationIn(
   teamId: string,
 ): string {
   if (grants.some((g) => g.role_type === 'department_head' && g.department_id === teamId)) {
-    return 'Department Head'
+    return ROLE_NAME.head
   }
   if (grants.some((g) => g.role_type === 'assisting_head' && g.department_id === teamId)) {
-    return 'Assisting Head'
+    return ROLE_NAME.assistant
   }
-  return 'Team Member'
+  return ROLE_NAME.member
 }
 
 const byName = (a: { last_name: string; first_name: string }, b: typeof a) =>
@@ -139,13 +140,13 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
 
   const roleWords = (userId: string) => {
     const words: string[] = []
-    if (input.ownerId === userId) words.push('Owner')
-    if (input.adminIds.has(userId)) words.push('Admin')
+    if (input.ownerId === userId) words.push(ROLE_NAME.owner)
+    if (input.adminIds.has(userId)) words.push(ROLE_NAME.admin)
     for (const grant of grantsBy.get(userId) ?? []) {
       const where = grant.department_id ? ` (${teamName.get(grant.department_id) ?? '—'})` : ''
-      if (grant.role_type === 'department_head') words.push(`Department Head${where}`)
-      if (grant.role_type === 'assisting_head') words.push(`Assisting Head${where}`)
-      if (grant.role_type === 'service_flow_coordinator') words.push('Service Flow Coordinator')
+      if (grant.role_type === 'department_head') words.push(`${ROLE_NAME.head}${where}`)
+      if (grant.role_type === 'assisting_head') words.push(`${ROLE_NAME.assistant}${where}`)
+      if (grant.role_type === 'service_flow_coordinator') words.push(ROLE_NAME.serviceFlow)
     }
     return [...new Set(words)].join(', ')
   }

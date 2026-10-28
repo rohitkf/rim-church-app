@@ -76,7 +76,7 @@ describe('the role badge', () => {
     await user.click(screen.getByRole('button', { name: /account/i }))
     // The sidebar used to say this under the church's name; when the
     // sidebar went, the app stopped telling anyone their own role.
-    expect(screen.getByText('Department Head')).toBeInTheDocument()
+    expect(screen.getByText('Team Head')).toBeInTheDocument()
   })
 
   it('offers the two ways of drawing a team, remembering the choice', async () => {

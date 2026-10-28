@@ -1,4 +1,5 @@
 import type { Standing } from './pageAccess'
+import { ROLE_NAME } from './roleNames'
 
 /*
  * The tour: the app, walked page by page, in chapters cut by standing.
@@ -27,11 +28,11 @@ export type TourStanding = Standing | 'owner'
 export const TOUR_LADDER: readonly TourStanding[] = ['church', 'member', 'lead', 'admin', 'owner']
 
 export const TOUR_STANDING_LABEL: Record<TourStanding, string> = {
-  church: 'Church Member',
-  member: 'Team Member',
-  lead: 'Team Head',
-  admin: 'Admin',
-  owner: 'Owner',
+  church: ROLE_NAME.newcomer,
+  member: ROLE_NAME.member,
+  lead: ROLE_NAME.head,
+  admin: ROLE_NAME.admin,
+  owner: ROLE_NAME.owner,
 }
 
 /** What the steps may ask about the person in front of the screen. */

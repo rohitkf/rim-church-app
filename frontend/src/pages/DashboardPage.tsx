@@ -68,6 +68,7 @@ import { memberStanding, memberStandingLabel } from '../lib/memberStanding'
 import type { RoleType } from '../auth/types'
 import { READINESS_KEY, fetchTeamReadiness, servingTeams, teamLights } from '../lib/teamReadiness'
 import { ReadyForService, ReadyLight } from '../components/ReadyLight'
+import { ROLE_NAME } from '../lib/roleNames'
 
 
 const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green' | 'indigo'> = {
@@ -134,12 +135,12 @@ function TurnoutLegend({ className = '' }: { className?: string }) {
 }
 
 const roleLabel: Record<RoleType, string> = {
-  admin: 'Admin',
-  department_head: 'Department Head',
-  assisting_head: 'Assisting Head',
-  service_flow_coordinator: 'Service Flow Coordinator',
-  overwatch: 'Overwatch',
-  pastor: 'Pastor',
+  admin: ROLE_NAME.admin,
+  department_head: ROLE_NAME.head,
+  assisting_head: ROLE_NAME.assistant,
+  service_flow_coordinator: ROLE_NAME.serviceFlow,
+  overwatch: ROLE_NAME.overwatch,
+  pastor: ROLE_NAME.pastor,
 }
 
 

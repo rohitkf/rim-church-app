@@ -11,6 +11,9 @@
  * Anyone with a role already wears it. Adding "team member" underneath
  * would say less than the pill above it and take a line to do it.
  */
+
+import { ROLE_NAME } from './roleNames'
+
 export type MemberStanding = 'team-member' | 'guest' | null
 
 export function memberStanding(
@@ -24,6 +27,6 @@ export function memberStanding(
 }
 
 export const memberStandingLabel: Record<Exclude<MemberStanding, null>, string> = {
-  'team-member': 'Team Member',
+  'team-member': ROLE_NAME.member,
   guest: 'Guest',
 }

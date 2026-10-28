@@ -11,6 +11,7 @@ import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
 import { ReloadIcon, SettingsIcon, UserCircleIcon } from './icons'
 import { applyUpdate } from '../lib/pwa'
 import { ageFrom } from '../lib/celebrations'
+import { ROLE_NAME } from '../lib/roleNames'
 
 interface AccountMenuProps {
   initials: string
@@ -34,14 +35,14 @@ function primaryRoleLabel(
   roles?: { role_type: string }[],
   viewAs?: ViewAs | null,
 ): string {
-  if (viewAs?.as === 'church') return 'Church Member'
-  if (isAdmin) return 'Admin'
-  if (roles?.some((r) => r.role_type === 'pastor')) return 'Pastor'
-  if (roles?.some((r) => r.role_type === 'overwatch')) return 'Overwatch'
-  if (roles?.some((r) => r.role_type === 'department_head')) return 'Department Head'
-  if (roles?.some((r) => r.role_type === 'assisting_head')) return 'Assisting Head'
-  if (viewAs?.as === 'coordinator') return 'Team Coordinator'
-  return 'Team Member'
+  if (viewAs?.as === 'church') return ROLE_NAME.newcomer
+  if (isAdmin) return ROLE_NAME.admin
+  if (roles?.some((r) => r.role_type === 'pastor')) return ROLE_NAME.pastor
+  if (roles?.some((r) => r.role_type === 'overwatch')) return ROLE_NAME.overwatch
+  if (roles?.some((r) => r.role_type === 'department_head')) return ROLE_NAME.head
+  if (roles?.some((r) => r.role_type === 'assisting_head')) return ROLE_NAME.assistant
+  if (viewAs?.as === 'coordinator') return ROLE_NAME.coordinator
+  return ROLE_NAME.member
 }
 
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
@@ -206,10 +207,10 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
  * and buttons, and the banner it raises says the data is not.
  */
 const TEAM_PICKS: { as: TeamPreview; chip: string; ask: string }[] = [
-  { as: 'member', chip: 'Team Member…', ask: 'Member of which team?' },
-  { as: 'coordinator', chip: 'Team Coordinator…', ask: 'Coordinator of which team?' },
-  { as: 'assistant', chip: 'Assisting Head…', ask: 'Assisting Head of which team?' },
-  { as: 'head', chip: 'Team Head…', ask: 'Head of which team?' },
+  { as: 'member', chip: `${ROLE_NAME.member}…`, ask: 'Member of which team?' },
+  { as: 'coordinator', chip: `${ROLE_NAME.coordinator}…`, ask: 'Coordinator of which team?' },
+  { as: 'assistant', chip: `${ROLE_NAME.assistant}…`, ask: 'Assisting Head of which team?' },
+  { as: 'head', chip: `${ROLE_NAME.head}…`, ask: 'Head of which team?' },
 ]
 
 function ViewAsSection({ onChosen }: { onChosen: () => void }) {

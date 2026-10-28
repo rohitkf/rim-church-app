@@ -21,6 +21,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { Select, selectPillClasses } from '../components/Select'
+import { ROLE_NAME } from '../lib/roleNames'
 
 /**
  * The one section that is open when the page loads.
@@ -82,12 +83,12 @@ async function fetchAllGrants(): Promise<Grant[]> {
 /** Designation shown per team, in descending authority. */
 function designationFor(grants: UserRole[], departmentId: string): string {
   if (grants.some((g) => g.role_type === 'department_head' && g.department_id === departmentId)) {
-    return 'Department Head'
+    return ROLE_NAME.head
   }
   if (grants.some((g) => g.role_type === 'assisting_head' && g.department_id === departmentId)) {
-    return 'Assisting Head'
+    return ROLE_NAME.assistant
   }
-  return 'Team Member'
+  return ROLE_NAME.member
 }
 
 /**
@@ -110,9 +111,9 @@ function initialsOf(v: { first_name: string; last_name: string }): string {
 }
 
 const designationClass: Record<string, string> = {
-  'Department Head': 'bg-status-head/15 text-status-head',
-  'Assisting Head': 'bg-status-coordinator/15 text-status-coordinator',
-  'Team Member': 'bg-surface-container text-on-surface-variant',
+  [ROLE_NAME.head]: 'bg-status-head/15 text-status-head',
+  [ROLE_NAME.assistant]: 'bg-status-coordinator/15 text-status-coordinator',
+  [ROLE_NAME.member]: 'bg-surface-container text-on-surface-variant',
 }
 
 export function VolunteersPage() {
