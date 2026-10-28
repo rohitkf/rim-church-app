@@ -8,13 +8,7 @@ import { NavNamesContext } from '../lib/navNames'
 
 vi.mock('../lib/appSettings', async (original) => {
   const real = await original<typeof import('../lib/appSettings')>()
-  return {
-    ...real,
-    useAppSettings: () => ({
-      ...real.DEFAULT_SETTINGS,
-      clock_in_approver_teams: ['22222222-2222-2222-2222-222222222222'],
-    }),
-  }
+  return { ...real, useAppSettings: () => real.DEFAULT_SETTINGS }
 })
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, session: { user: { id: 'me' } } }) }))
 const perms = vi.hoisted(() => ({ grants: [] as unknown[], rpc: [] as { fn: string; args: unknown }[] }))

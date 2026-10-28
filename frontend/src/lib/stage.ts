@@ -10,8 +10,8 @@ import { supabase } from './supabaseClient'
  * and a colour, every change written to a log by the database rather
  * than by the app. What is read
  * and written here; how it is drawn is components/StageCanvas; who may
- * do what is the church's (Settings › Stage Layout) and asked of
- * `stage_team_access` through useStageAccess below.
+ * do what is the church's (Settings › Stage Layout): the grid's
+ * `stage.*` rows (0212), asked through useStageAccess.
  */
 
 export const STAGE_KEY = ['stage'] as const
