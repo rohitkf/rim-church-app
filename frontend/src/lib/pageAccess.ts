@@ -13,6 +13,8 @@
  * migration and checks.
  */
 
+import { ROLE_NAME } from './roleNames'
+
 export type AccessLevel = 'everyone' | 'team' | 'leads' | 'admins'
 
 /** Who somebody is, for the purpose of opening pages. */
@@ -26,10 +28,10 @@ export const ACCESS_LEVELS: { value: AccessLevel; label: string; short: string }
 ]
 
 export const STANDINGS: { value: Standing; label: string; blurb: string }[] = [
-  { value: 'church', label: 'Church Member', blurb: 'Signed in, on no team yet.' },
-  { value: 'member', label: 'Team Member', blurb: 'On at least one team.' },
-  { value: 'lead', label: 'Team Head', blurb: 'Head or Assisting Head of a team.' },
-  { value: 'admin', label: 'Admin', blurb: 'Everything, everywhere. Always.' },
+  { value: 'church', label: ROLE_NAME.newcomer, blurb: 'Signed in, on no team yet.' },
+  { value: 'member', label: ROLE_NAME.member, blurb: 'On at least one team.' },
+  { value: 'lead', label: ROLE_NAME.head, blurb: 'Head or Assisting Head of a team.' },
+  { value: 'admin', label: ROLE_NAME.admin, blurb: 'Everything, everywhere. Always.' },
 ]
 
 /**

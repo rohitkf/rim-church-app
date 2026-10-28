@@ -79,7 +79,7 @@ describe('the volunteer workbook', () => {
       '',
       'Audio',
       '',
-      'Department Head (Audio)',
+      'Team Head (Audio)',
     ])
   })
 
@@ -146,7 +146,7 @@ describe('the volunteer workbook', () => {
     const rows = sheet(base(), 'Team members').rows
     expect(rows).toEqual([
       ['Audio', 'Guest', 'Team Member', 'Tunde', 'Alabi', 'tunde@rim.org', ''],
-      ['Audio', 'Core', 'Department Head', 'Grace', 'Mensah', 'grace@rim.org', '07000'],
+      ['Audio', 'Core', 'Team Head', 'Grace', 'Mensah', 'grace@rim.org', '07000'],
       ['Media', 'Core', 'Team Member', 'Tunde', 'Alabi', 'tunde@rim.org', ''],
     ])
   })

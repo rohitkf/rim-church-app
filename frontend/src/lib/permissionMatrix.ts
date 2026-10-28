@@ -19,6 +19,7 @@
 
 import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
 import { GRANT_ROLES, isFixed, reachOf, type CapabilityKey, type Overrides, type Reach } from './permissions'
+import { ROLE_NAME } from './roleNames'
 
 export const CHECKED_ON = '10 October 2026'
 
@@ -26,34 +27,34 @@ export const CHECKED_ON = '10 October 2026'
 export const ROLES = [
   {
     key: 'owner',
-    label: 'Owner',
+    label: ROLE_NAME.owner,
     blurb: 'The one account that cannot be removed, and the only one that can hand ownership on.',
   },
-  { key: 'admin', label: 'Admin', blurb: 'Runs the church’s app. Everything below, everywhere.' },
+  { key: 'admin', label: ROLE_NAME.admin, blurb: 'Runs the church’s app. Everything below, everywhere.' },
   {
     key: 'head',
-    label: 'Team Head',
+    label: ROLE_NAME.head,
     blurb: 'The Head of a team. Their own team only.',
   },
   {
     key: 'assistant',
-    label: 'Assisting Head',
+    label: ROLE_NAME.assistant,
     blurb:
       'The Head’s deputy. Given the same as the Head out of the box, and their own column here since October 2026, so a church can set the two apart. Their own team only.',
   },
   {
     key: 'coordinator',
-    label: 'Coordinator',
+    label: ROLE_NAME.coordinator,
     blurb: 'Whoever the rota puts in Team Coordinator, for that service only. Not a standing rank.',
   },
   {
     key: 'member',
-    label: 'Team Member',
+    label: ROLE_NAME.member,
     blurb: 'On at least one team — and a Church Member too, as everybody signed in is.',
   },
   {
     key: 'newcomer',
-    label: 'Church Member',
+    label: ROLE_NAME.newcomer,
     blurb:
       'Signed in and on no team. They see the church’s shape — the services and the countdown, the diary, the set lists and the Giving page — and none of the teams’ own working: no rota, no register, no boards, no call times, no debriefs. A team head adding them makes them a Team Member; an Admin can also make them a Head or an Admin from Volunteers.',
   },

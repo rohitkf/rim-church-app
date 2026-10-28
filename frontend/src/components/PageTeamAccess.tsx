@@ -17,6 +17,7 @@ import { Chevron } from './Collapsible'
 import { Select, reachPickerClasses } from './Select'
 import { FixedCell, roleLabel } from './PermissionsCard'
 import { TeamMark } from './TeamMark'
+import { ROLE_SHORT } from '../lib/roleNames'
 
 /**
  * One page's rules, team by team.
@@ -33,14 +34,6 @@ import { TeamMark } from './TeamMark'
 
 const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
 
-const ROLE_SHORT: Record<GrantRole, string> = {
-  admin: 'Admin',
-  head: 'Head',
-  assistant: 'Asst Head',
-  coordinator: 'Coordinator',
-  member: 'Member',
-  newcomer: 'Church Member',
-}
 
 /** One team cell: the team's own choice, or the church's rule it follows. */
 export function TeamCellPicker({

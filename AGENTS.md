@@ -78,7 +78,7 @@ the thing most likely to waste your time:
 |---|---|
 | `departments` | **Teams** |
 | `department_members` | who is on a team — `core` or `guest` |
-| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by Page (a page at a time, team by team), or Access & Privileges (by role, or by page-opening rule) |
+| `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Team Coordinator, Team Member, Church Member), what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by Page (a page at a time, team by team), or Access & Privileges (by role, by person, or by page-opening rule) |
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator`, `overwatch` |
 | `role_type = 'overwatch'` (0186, 0187) | **Overwatch** — sees every team as an Admin does (`can_view_department_content` / `may_read_team` say yes, and the reads that ask other things have an `*_overwatch_read` policy beside theirs), changes almost nothing: no column in the grid, so `may()` gives it nothing. It may do five things, each an `app_settings` switch (`overwatch_board_posts`, `_chat_posts`, `_polls`, `_issues`, `_debriefs`) read by `overwatch_may()`, and opens the pages `app_settings.overwatch_pages` leaves open (page → open; Volunteers starts closed) through `can_open_page` / `overwatch_sees()`. Its issues carry `raised_as_overwatch`; its debrief is the one with `department_id` null (one per service, `unique nulls not distinct`). Given from Volunteers (Admins), set in Settings › Overwatch. On screen `seesAllTeams` (Admin or Overwatch) is for what is drawn only — never for what may be changed. Contacts, compliance and households stay the Owner's |
@@ -245,6 +245,10 @@ are separate and neither is automatic — is [SETUP.md](./SETUP.md).
   which the app cannot style — on a dark card it arrives as a white Windows
   list. Use `Select.tsx`.
 - **Every button is a pill, and one primary per screen.**
+- **A standing is called what `lib/roleNames.ts` calls it** — Team Head
+  (never "Department Head"), Assisting Head, Team Coordinator, Team
+  Member, Church Member. Read `ROLE_NAME` / `ROLE_SHORT`; do not type the
+  words. `roleNames.test.ts` fails on "Department Head" anywhere in `src/`.
 - Server state is TanStack Query. Invalidate by key after a mutation.
 - Tests sit beside what they test and are named for the behaviour a person
   would notice. Reach for `getByRole`.

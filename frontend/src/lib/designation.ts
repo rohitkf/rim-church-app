@@ -1,4 +1,5 @@
 import type { UserRole } from '../auth/types'
+import { ROLE_NAME } from './roleNames'
 
 export type Designation = 'head' | 'assisting' | 'member'
 
@@ -14,9 +15,9 @@ export function designationOn(grants: UserRole[], departmentId: string): Designa
 }
 
 export const DESIGNATION_LABEL: Record<Designation, string> = {
-  head: 'Department Head',
-  assisting: 'Assisting Head',
-  member: 'Team Member',
+  head: ROLE_NAME.head,
+  assisting: ROLE_NAME.assistant,
+  member: ROLE_NAME.member,
 }
 
 /** The short form, for a badge that sits beside a name. */
