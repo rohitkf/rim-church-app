@@ -194,6 +194,11 @@ frontend/src/
   lib/availabilityHistory.ts the log behind each availability answer (0145):
                              written by a trigger only, read per `avail.history`
   lib/pageAccess.ts          who may open each page (PAGE_RULES), mirrored in SQL
+  lib/pageOpening.ts         whether a page opens to somebody, and why: the
+                             menu's answer (usePageAccess) and By person's
+  lib/personAccess.ts        one person's answers, with the profile behind
+                             each — Access & Privileges › By person. It asks
+                             grantedBy() and pageOpening(), never its own copy
   lib/tour.ts                the tour: chapters by standing, as data; what is due
   lib/onboarding.ts          what the account remembers of it (0153): seen, sent
   components/Tour.tsx        the engine: walks the pages, points at `data-tour`
@@ -500,6 +505,11 @@ checks every row lands on a page.
 
 **Who can open which pages** is Access & Privileges › Pages
 (`PageAccessCard`), and each page's own row in Page by Page.
+
+**A new way in** to a page or an action — a list in some room that names
+people or teams, an Overwatch switch — is also said in
+`lib/personAccess.ts` (`namedFor()`, or `explainCapability()`'s Overwatch
+map), or By person will tell an Admin somebody can't do what they can.
 
 **A new Settings room**: an entry in `SETTINGS_GROUPS`
 (`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child

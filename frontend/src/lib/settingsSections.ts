@@ -172,7 +172,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ShieldIcon,
         tone: 'indigo',
         needs: 'admin',
-        keywords: 'permissions roles admin head coordinator member pages profiles church member see hide',
+        keywords: 'permissions roles admin head coordinator member pages profiles church member see hide person someone why',
       },
       {
         to: '/settings/overwatch',

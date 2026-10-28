@@ -1,0 +1,275 @@
+import type { AppSettings } from './appSettings'
+import type { Allowed, Capability } from './permissionMatrix'
+import { overwatchMay, type OverwatchAct } from './overwatch'
+import { pageOpening, type PageOpening } from './pageOpening'
+import { standingOf } from './pageAccess'
+import { controlsHeld, PLANNER_CONTROLS, type PlannerControls } from './plannerControls'
+import {
+  grantedBy,
+  type CapabilityKey,
+  type Granter,
+  type Holder,
+  type Overrides,
+  type TeamOverrides,
+} from './permissions'
+
+/**
+ * What one person may do, and why — Settings › Access › By person.
+ *
+ * The question an Owner brings is about somebody: "can Asha change the
+ * rota?". The grid answers it a profile at a time, the page rules a page
+ * at a time, and five rooms keep lists of their own, so the answer used to
+ * be the sum of eight screens. This works it out once, from the same
+ * functions the buttons and the menu ask (`grantedBy()` is `decide()`,
+ * `pageOpening()` is the menu's), so it cannot say something they don't.
+ *
+ * It reads; it changes nothing.
+ */
+
+/** Everything about a person that the rules ask. */
+export interface PersonFacts {
+  id: string
+  owner: boolean
+  admin: boolean
+  overwatch: boolean
+  pastor: boolean
+  /** Teams they head. */
+  headTeams: readonly string[]
+  /** Teams they assist, as Assisting Head. */
+  assistTeams: readonly string[]
+  /** Teams whose roster they are on, as core or guest. */
+  memberTeams: readonly string[]
+  /** Teams the rota has them in Team Coordinator for, at some service. */
+  coordinatorTeams: readonly string[]
+}
+
+/** A person as `decide()` takes them. */
+export function holderOf(p: PersonFacts): Holder {
+  const led = [...new Set([...p.headTeams, ...p.assistTeams])]
+  return {
+    myId: p.id,
+    owner: p.owner,
+    admin: p.admin,
+    ledTeams: led,
+    headTeams: p.headTeams,
+    assistTeams: p.assistTeams,
+    memberTeams: p.memberTeams,
+    coordinatesAnywhere: p.coordinatorTeams.length > 0,
+  }
+}
+
+/** Who gave a yes, as By person says it. */
+export type Via = Granter | 'overwatch'
+
+/** How far one action reaches for one person. */
+export type Answer =
+  /** Every team, and anything that belongs to none. */
+  | { kind: 'everywhere'; via: Via }
+  /**
+   * Some teams. `church` is set when they may also do it where no team is
+   * involved, but some team's own rule narrows them there.
+   */
+  | { kind: 'teams'; teams: { id: string; via: Via }[]; church: Via | null }
+  /** Only on what is theirs. */
+  | { kind: 'own'; via: Via }
+  | { kind: 'none' }
+
+/*
+ * Overwatch holds no column in the grid (0187); usePermissions adds its
+ * three switches to the grid's answer, and so does this. Posting on the
+ * board is as themselves, never as a team.
+ */
+const OVERWATCH_ACT: Partial<Record<CapabilityKey, OverwatchAct>> = {
+  'msg.board_post': 'board',
+  'msg.chat': 'chat',
+  'msg.polls': 'polls',
+}
+
+/**
+ * One action, for one person: everywhere, on some teams, only their own,
+ * or not at all, with the profile that gave each yes.
+ */
+export function explainCapability(
+  person: PersonFacts,
+  cap: CapabilityKey,
+  overrides: Overrides,
+  teamRules: TeamOverrides,
+  teamIds: readonly string[],
+  settings: AppSettings,
+): Answer {
+  const holder = holderOf(person)
+  const ask = (departmentId: string | null, extra: { coordinating?: boolean; ownerId?: string } = {}) =>
+    grantedBy(overrides, holder, cap, { departmentId, ...extra }, teamRules)
+
+  const act = OVERWATCH_ACT[cap]
+  const watched = person.overwatch && act && overwatchMay(settings, act) ? ('overwatch' as const) : null
+
+  const church: Via | null = ask(null) ?? watched
+  const perTeam = teamIds.map((id) => ({
+    id,
+    via: (ask(id, { coordinating: person.coordinatorTeams.includes(id) }) ??
+      (act === 'board' ? null : watched)) as Via | null,
+  }))
+  const granted = perTeam.filter((t): t is { id: string; via: Via } => t.via !== null)
+
+  if (church && granted.length === perTeam.length) return { kind: 'everywhere', via: church }
+  if (granted.length > 0) return { kind: 'teams', teams: granted, church }
+  if (church) return { kind: 'everywhere', via: church }
+  const own = ask(null, { ownerId: person.id })
+  if (own) return { kind: 'own', via: own }
+  return { kind: 'none' }
+}
+
+const RANK: Record<Allowed, number> = { no: 0, own: 1, team: 2, yes: 3 }
+
+/** The profiles a person holds, widest first, as the grid's columns name them. */
+export function profilesOf(p: PersonFacts): Granter[] {
+  const out: Granter[] = []
+  if (p.owner) out.push('owner')
+  if (p.admin) out.push('admin')
+  if (p.headTeams.length > 0) out.push('head')
+  if (p.assistTeams.length > 0) out.push('assistant')
+  if (p.coordinatorTeams.length > 0) out.push('coordinator')
+  if (p.memberTeams.length > 0) out.push('member')
+  out.push('newcomer')
+  return out
+}
+
+/**
+ * A row the grid does not set (what anybody can see, your own things, the
+ * keys to the app): the widest answer any profile they hold has, and
+ * which profile that is.
+ *
+ * A row that is a page ("See the rota") follows whether the page opens to
+ * them — `row` as withPageAccess() drew it — and Overwatch, which no
+ * column stands for, gets a yes where the church left the page open to it.
+ */
+export function explainFixed(
+  person: PersonFacts,
+  row: Capability,
+  settings?: AppSettings,
+): { allowed: Allowed; via: Via | null } {
+  let best: { allowed: Allowed; via: Via | null } = { allowed: 'no', via: null }
+  for (const profile of profilesOf(person)) {
+    const allowed = row.can[profile]
+    if (RANK[allowed] > RANK[best.allowed]) best = { allowed, via: profile }
+  }
+  if (row.page && settings) {
+    const opening = openingFor(person, row.page, settings)
+    if (!opening.open) return { allowed: 'no', via: null }
+    if (best.allowed === 'no' && opening.via === 'overwatch') return { allowed: 'yes', via: 'overwatch' }
+  }
+  return best
+}
+
+/** Whether a page opens to this person, and why. */
+export function openingFor(person: PersonFacts, path: string, settings: AppSettings): PageOpening {
+  const led = [...person.headTeams, ...person.assistTeams]
+  const onATeam = person.memberTeams.length > 0 || led.length > 0 || person.admin
+  return pageOpening(
+    path,
+    {
+      myId: person.id,
+      // As usePageAccess: Overwatch counts as on a team only where it
+      // really is on a roster, or the pages the church closed to it would
+      // open anyway.
+      standing: standingOf({
+        isAdmin: person.admin || person.owner,
+        isLead: led.length > 0,
+        onATeam: person.overwatch && !person.admin ? person.memberTeams.length > 0 || led.length > 0 : onATeam,
+      }),
+      isAdmin: person.admin,
+      isOwner: person.owner,
+      isOverwatch: person.overwatch,
+      isPastor: person.pastor,
+      teamIds: [...person.memberTeams, ...led],
+    },
+    settings,
+  )
+}
+
+/** A list the church named somebody on, outside the grid. */
+export interface NamedFor {
+  /** The room the list lives in, as Settings names it. */
+  room: string
+  /** Its path, to go and change it. */
+  to: string
+  what: string
+  /** "By name", or the team that carries them onto it. */
+  because: string
+}
+
+/** One of the audience lists (Clock in, Prayer): named, or on a team named. */
+function inAudience(
+  person: PersonFacts,
+  audience: { teams: readonly string[]; people: readonly string[] },
+  teamName: (id: string) => string,
+): string | null {
+  if (audience.people.includes(person.id)) return 'By name'
+  const mine = [...person.memberTeams, ...person.headTeams, ...person.assistTeams]
+  const team = audience.teams.find((id) => mine.includes(id))
+  return team ? `Through ${teamName(team)}` : null
+}
+
+/** What a team's row in Stage Layout lets everybody on it do. */
+export interface StageAccess {
+  department_id: string
+  can_add: boolean
+  can_edit: boolean
+  can_delete: boolean
+  can_comment: boolean
+  can_templates: boolean
+}
+
+const STAGE_WORDS: [keyof Omit<StageAccess, 'department_id'>, string][] = [
+  ['can_add', 'add to the stage'],
+  ['can_edit', 'move and change what is on it'],
+  ['can_delete', 'take things off it'],
+  ['can_comment', 'comment on it'],
+  ['can_templates', 'save and use templates'],
+]
+
+/**
+ * Every list outside the grid that names this person, directly or through
+ * a team: Clock in, Prayer, the Service Planner's buttons and Stage Layout.
+ * Admins and the Owner are given these by their standing, not by a list,
+ * so a list naming them changes nothing and is still said.
+ */
+export function namedFor(
+  person: PersonFacts,
+  settings: AppSettings,
+  stage: readonly StageAccess[],
+  teamName: (id: string) => string,
+): NamedFor[] {
+  const out: NamedFor[] = []
+  const add = (room: string, to: string, what: string, because: string | null) => {
+    if (because) out.push({ room, to, what, because })
+  }
+
+  add('Clock in', '/settings/clock-in', 'Sees the Clock In page and every clock-in', inAudience(person, settings.clock_in_viewers, teamName))
+  const approverTeam = settings.clock_in_approver_teams.find(
+    (id) =>
+      person.headTeams.includes(id) ||
+      person.assistTeams.includes(id) ||
+      (settings.clock_in_approvers === 'members' && person.memberTeams.includes(id)),
+  )
+  add('Clock in', '/settings/clock-in', 'Approves requests to be clocked in', approverTeam ? `Through ${teamName(approverTeam)}` : null)
+
+  add('Prayer', '/settings/prayer', 'Reads private prayer requests', person.pastor ? 'As a Pastor' : inAudience(person, settings.prayer_carers, teamName))
+  add('Prayer', '/settings/prayer', 'Asks people to pray for a request', inAudience(person, settings.prayer_assigners, teamName))
+  add('Prayer', '/settings/prayer', 'Runs prayer lists', inAudience(person, settings.prayer_list_runners, teamName))
+
+  const controls = settings.planner_controls as PlannerControls
+  const byName = controlsHeld(controls, { id: person.id, teamIds: [] })
+  const teamsCarrying = [...person.memberTeams, ...person.headTeams, ...person.assistTeams]
+  for (const c of PLANNER_CONTROLS) {
+    const team = teamsCarrying.find((id) => (controls.teams[id] ?? []).includes(c.key))
+    add('Page by Page', '/settings/pages', `Presses “${c.label}” on the Service Planner`, byName.has(c.key) ? 'By name' : team ? `Through ${teamName(team)}` : null)
+  }
+
+  for (const [flag, words] of STAGE_WORDS) {
+    const row = stage.find((r) => r[flag] && teamsCarrying.includes(r.department_id))
+    add('Stage Layout', '/settings/stage', `May ${words}`, row ? `Through ${teamName(row.department_id)}` : null)
+  }
+  return out
+}

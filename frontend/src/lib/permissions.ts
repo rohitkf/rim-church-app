@@ -680,29 +680,36 @@ export interface Where {
   ownerId?: string | null
 }
 
+/** Who gave a yes: the Owner, or the profile whose reach covered it. */
+export type Granter = 'owner' | GrantRole
+
 /**
- * May this person do this, here? Mirrors `may()` in SQL: the Owner always;
- * otherwise any profile they hold that reaches this far — on this team
- * by the team's own rule where it made one (0162), else the church's.
+ * Which of this person's profiles lets them do this, here — the first, in
+ * `may()`'s own order — or null when none does. `decide()` is this, asked
+ * as a yes or no; Settings › Access › By person asks it for the reason.
+ *
+ * Mirrors `may()` in SQL: the Owner always; otherwise any profile they
+ * hold that reaches this far — on this team by the team's own rule where
+ * it made one (0162), else the church's.
  */
-export function decide(
+export function grantedBy(
   overrides: Overrides,
   holder: Holder,
   cap: CapabilityKey,
   where: Where = {},
   teams: TeamOverrides = {},
-): boolean {
-  if (!holder.myId) return false
-  if (holder.owner) return true
+): Granter | null {
+  if (!holder.myId) return null
+  if (holder.owner) return 'owner'
   const mine = !!where.ownerId && where.ownerId === holder.myId
   const dept = where.departmentId ?? null
   const on = (role: GrantRole) => reachOn(overrides, teams, dept, cap, role)
 
   let reach = reachOf(overrides, cap, 'newcomer')
-  if (reach === 'all' || (reach !== 'none' && mine)) return true
+  if (reach === 'all' || (reach !== 'none' && mine)) return 'newcomer'
 
   reach = reachOf(overrides, cap, 'admin')
-  if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return true
+  if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return 'admin'
 
   // The Head and the Assisting Head: two profiles since 0162, the same
   // rules unless the church says otherwise. A holder that does not say
@@ -715,27 +722,38 @@ export function decide(
 
   reach = on('head')
   if (reach !== 'none' && (headTeams.length > 0 || headsHere)) {
-    if (reach === 'all' || mine || (reach === 'team' && headsHere)) return true
+    if (reach === 'all' || mine || (reach === 'team' && headsHere)) return 'head'
   }
 
   reach = on('assistant')
   if (reach !== 'none' && (assistTeams.length > 0 || assistsHere)) {
-    if (reach === 'all' || mine || (reach === 'team' && assistsHere)) return true
+    if (reach === 'all' || mine || (reach === 'team' && assistsHere)) return 'assistant'
   }
 
   reach = on('member')
   if (reach !== 'none') {
-    if (reach === 'team' && !!dept && holder.memberTeams.includes(dept)) return true
-    if ((reach === 'all' || mine) && holder.memberTeams.length > 0) return true
+    if (reach === 'team' && !!dept && holder.memberTeams.includes(dept)) return 'member'
+    if ((reach === 'all' || mine) && holder.memberTeams.length > 0) return 'member'
   }
 
   reach = on('coordinator')
   if (reach !== 'none') {
-    if ((reach === 'team' || reach === 'all') && !!dept && where.coordinating) return true
-    if ((reach === 'all' || mine) && (holder.coordinatesAnywhere || where.coordinating)) return true
+    if ((reach === 'team' || reach === 'all') && !!dept && where.coordinating) return 'coordinator'
+    if ((reach === 'all' || mine) && (holder.coordinatesAnywhere || where.coordinating)) return 'coordinator'
   }
 
-  return false
+  return null
+}
+
+/** May this person do this, here? `grantedBy()`, as a yes or no. */
+export function decide(
+  overrides: Overrides,
+  holder: Holder,
+  cap: CapabilityKey,
+  where: Where = {},
+  teams: TeamOverrides = {},
+): boolean {
+  return grantedBy(overrides, holder, cap, where, teams) !== null
 }
 
 /**
