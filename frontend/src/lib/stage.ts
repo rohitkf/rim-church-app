@@ -297,10 +297,41 @@ export async function fetchStageTemplateRequests(): Promise<StageTemplateRequest
   return z.array(stageTemplateRequestSchema).parse(data ?? [])
 }
 
+/**
+ * Which teams may do what to a layout. Since 0212 each switch is a
+ * capability, `stage.<key>`, and a team with it on holds a grant of it
+ * (0208); the room still draws a row a team and five switches.
+ */
 export async function fetchStageTeamAccess(): Promise<StageTeamAccess[]> {
-  const { data, error } = await supabase.from('stage_team_access').select('*')
+  const { data, error } = await supabase
+    .from('permission_grants')
+    .select('capability, department_id')
+    .like('capability', 'stage.%')
+    .not('department_id', 'is', null)
   if (error) throw error
-  return z.array(stageTeamAccessSchema).parse(data ?? [])
+  return stageAccessFromGrants(
+    z.array(z.object({ capability: z.string(), department_id: z.string() })).parse(data ?? []),
+  )
+}
+
+/** The teams' rows, from their grants: a switch is on where the team holds `stage.<key>`. */
+export function stageAccessFromGrants(grants: readonly { capability: string; department_id: string }[]): StageTeamAccess[] {
+  const rows = new Map<string, StageTeamAccess>()
+  for (const g of grants) {
+    const priv = PRIVILEGES.find((p) => `stage.${p.key}` === g.capability)
+    if (!priv) continue
+    const row = rows.get(g.department_id) ?? {
+      department_id: g.department_id,
+      can_add: false,
+      can_edit: false,
+      can_delete: false,
+      can_comment: false,
+      can_templates: false,
+    }
+    ;(row as Record<string, unknown>)[priv.column] = true
+    rows.set(g.department_id, row)
+  }
+  return [...rows.values()]
 }
 
 /* ------------------------------------------------------------------ *
@@ -463,29 +494,21 @@ export async function deleteStageArea(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function setStageTeamAccess(rows: StageTeamAccess[], removeIds: string[]): Promise<void> {
-  if (removeIds.length > 0) {
-    const { error } = await supabase.from('stage_team_access').delete().in('department_id', removeIds)
-    if (error) throw error
-  }
-  if (rows.length > 0) {
-    const { error } = await supabase.from('stage_team_access').upsert(rows, { onConflict: 'department_id' })
-    if (error) throw error
-  }
+/** The grants that make these rows so, and clear these teams (0212): every switch said, on or off. */
+export function stageGrantChanges(rows: StageTeamAccess[], removeIds: string[]) {
+  return [
+    ...rows.flatMap((r) =>
+      PRIVILEGES.map((p) => ({ capability: `stage.${p.key}`, team: r.department_id, reach: r[p.column] ? ('all' as const) : null })),
+    ),
+    ...removeIds.flatMap((id) => PRIVILEGES.map((p) => ({ capability: `stage.${p.key}`, team: id, reach: null }))),
+  ]
 }
 
-/* ------------------------------------------------------------------ *
- * Who may: the app's copy of stage_may(), for drawing the buttons
- * ------------------------------------------------------------------ */
-
-export function stageMay(
-  priv: StagePrivilege,
-  who: { isAdmin: boolean; teamIds: string[] },
-  access: StageTeamAccess[],
-): boolean {
-  if (who.isAdmin) return true
-  const column = PRIVILEGES.find((p) => p.key === priv)!.column
-  return access.some((a) => who.teamIds.includes(a.department_id) && a[column] === true)
+export async function setStageTeamAccess(rows: StageTeamAccess[], removeIds: string[]): Promise<void> {
+  const changes = stageGrantChanges(rows, removeIds)
+  if (changes.length === 0) return
+  const { error } = await supabase.rpc('set_permission_grants', { p_changes: changes })
+  if (error) throw error
 }
 
 /* ------------------------------------------------------------------ *

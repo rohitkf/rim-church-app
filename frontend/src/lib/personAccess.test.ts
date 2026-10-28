@@ -155,38 +155,26 @@ describe('the pages they can open', () => {
 })
 
 describe('the lists outside the grid', () => {
-  it('names each list that carries them, and how', () => {
+  it('names the list still kept in a room, and how', () => {
     const s = settings({
-      // The grid's since 0209 and 0210, so no longer lists said here.
+      // The grid's since 0209–0212, so no longer lists said here.
       clock_in_viewers: { teams: [WORSHIP], people: [] },
       prayer_assigners: { teams: [], people: ['p1'] },
+      planner_controls: { teams: { [WORSHIP]: ['start'] }, people: {} },
       clock_in_approver_teams: [WORSHIP],
       clock_in_approvers: 'members',
-      planner_controls: { teams: { [WORSHIP]: ['start'] }, people: {} },
     })
-    const named = namedFor(
-      person({ memberTeams: [WORSHIP] }),
-      s,
-      [
-        {
-          department_id: WORSHIP,
-          can_add: true,
-          can_edit: false,
-          can_delete: false,
-          can_comment: true,
-          can_templates: false,
-        },
-      ],
-      name,
-    )
-    expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual([
-      'Approves requests to be clocked in — Through Worship',
-      'May add to the stage — Through Worship',
-      'May comment on it — Through Worship',
-    ])
+    const named = namedFor(person({ memberTeams: [WORSHIP] }), s, name)
+    expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual(['Approves requests to be clocked in — Through Worship'])
+  })
+
+  it('carries only a team’s Heads onto the approvers when the church says Heads only', () => {
+    const s = settings({ clock_in_approver_teams: [WORSHIP], clock_in_approvers: 'leads' })
+    expect(namedFor(person({ memberTeams: [WORSHIP] }), s, name)).toEqual([])
+    expect(namedFor(person({ headTeams: [WORSHIP], memberTeams: [WORSHIP] }), s, name)).toHaveLength(1)
   })
 
   it('is empty for somebody no list names', () => {
-    expect(namedFor(person(), settings(), [], name)).toEqual([])
+    expect(namedFor(person(), settings(), name)).toEqual([])
   })
 })

@@ -212,37 +212,15 @@ export interface NamedFor {
   because: string
 }
 
-/** What a team's row in Stage Layout lets everybody on it do. */
-export interface StageAccess {
-  department_id: string
-  can_add: boolean
-  can_edit: boolean
-  can_delete: boolean
-  can_comment: boolean
-  can_templates: boolean
-}
-
-const STAGE_WORDS: [keyof Omit<StageAccess, 'department_id'>, string][] = [
-  ['can_add', 'add to the stage'],
-  ['can_edit', 'move and change what is on it'],
-  ['can_delete', 'take things off it'],
-  ['can_comment', 'comment on it'],
-  ['can_templates', 'save and use templates'],
-]
-
 /**
  * Every list outside the grid that names this person, directly or through
- * a team: Clock in's approvers and Stage Layout. (Who sees the clock-ins,
- * Prayer's three and the planner's buttons are the grid's since 0209–0211.)
+ * a team: Clock in's approvers. (Who sees the clock-ins, Prayer's three,
+ * the planner's buttons and the stage's switches are the grid's since
+ * 0209–0212, and By person says them under what the grid gives.)
  * Admins and the Owner are given these by their standing, not by a list,
  * so a list naming them changes nothing and is still said.
  */
-export function namedFor(
-  person: PersonFacts,
-  settings: AppSettings,
-  stage: readonly StageAccess[],
-  teamName: (id: string) => string,
-): NamedFor[] {
+export function namedFor(person: PersonFacts, settings: AppSettings, teamName: (id: string) => string): NamedFor[] {
   const out: NamedFor[] = []
   const add = (room: string, to: string, what: string, because: string | null) => {
     if (because) out.push({ room, to, what, because })
@@ -257,11 +235,6 @@ export function namedFor(
   add('Clock in', '/settings/clock-in', 'Approves requests to be clocked in', approverTeam ? `Through ${teamName(approverTeam)}` : null)
 
 
-  const teamsCarrying = [...person.memberTeams, ...person.headTeams, ...person.assistTeams]
-  for (const [flag, words] of STAGE_WORDS) {
-    const row = stage.find((r) => r[flag] && teamsCarrying.includes(r.department_id))
-    add('Stage Layout', '/settings/stage', `May ${words}`, row ? `Through ${teamName(row.department_id)}` : null)
-  }
   return out
 }
 

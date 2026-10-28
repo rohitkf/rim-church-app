@@ -1,30 +1,18 @@
-import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
-import { useMyTeams } from './useMyTeams'
-import { STAGE_KEY, fetchStageTeamAccess, stageMay, type StagePrivilege } from './stage'
+import { usePermissions } from './usePermissions'
+import type { CapabilityKey } from './permissions'
+import type { StagePrivilege } from './stage'
 
 /**
  * What this person may do to a stage layout, for drawing the buttons.
  *
- * The database decides for real (`stage_may`, 0155); this reads the same
- * table so a button is drawn only where pressing it would work. Admins
- * and the Owner always may; everybody else through a team they are on or
- * lead that the church has given it to.
+ * The database decides for real (`stage_may`, which asks the grid since
+ * 0212); this asks the app's copy of the same grid, so a button is drawn
+ * only where pressing it would work. Admins and the Owner always may;
+ * everybody else as the church gives `stage.<key>` — to a profile, a team
+ * they are on or lead, or them by name.
  */
 export function useStageAccess() {
-  const { isAdmin, ledDepartmentIds, session } = useAuth()
-  const { teamIds } = useMyTeams()
-  const query = useQuery({
-    queryKey: [...STAGE_KEY, 'team-access'],
-    queryFn: fetchStageTeamAccess,
-    enabled: !!session,
-    staleTime: 60_000,
-  })
-  const mine = [...new Set([...teamIds, ...(ledDepartmentIds ?? [])])]
-  const may = (priv: StagePrivilege) => stageMay(priv, { isAdmin, teamIds: mine }, query.data ?? [])
-  return {
-    may,
-    settled: isAdmin || query.isSuccess || query.isError,
-    access: query.data ?? [],
-  }
+  const { can, query } = usePermissions()
+  const may = (priv: StagePrivilege) => can(`stage.${priv}` as CapabilityKey)
+  return { may, settled: !query || !query.isLoading }
 }
