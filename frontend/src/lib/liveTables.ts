@@ -99,6 +99,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'service-flow-assignment',
       'team-coordinator',
       'global-search',
+      'person-access',
     ],
   },
   { table: 'rota_release_requests', keys: ['rota-requests'] },
@@ -127,6 +128,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'team-board-roster',
       'dashboard-rosters',
       'volunteers',
+      'person-access',
     ],
   },
   { table: 'departments', keys: ['departments', 'department', 'own-memberships', 'global-search', 'my-requests'] },
@@ -138,7 +140,7 @@ export const LIVE_TABLES: LiveTable[] = [
     // A privilege granted or taken away changes what the page is even
     // allowed to show, so this one matters more than most.
     table: 'user_roles',
-    keys: ['user-roles', 'all-user-roles', 'department-grants', 'own-memberships', 'volunteers'],
+    keys: ['user-roles', 'all-user-roles', 'department-grants', 'own-memberships', 'volunteers', 'person-access'],
   },
   {
     table: 'profiles',

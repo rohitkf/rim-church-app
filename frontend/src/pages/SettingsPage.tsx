@@ -15,6 +15,7 @@ import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { PageAccessCard } from '../components/PageAccessCard'
+import { PersonAccessCard } from '../components/PersonAccessCard'
 import { RetentionCard } from '../components/RetentionCard'
 import { DisplayCard } from '../components/DisplayCard'
 import { OnboardingCard } from '../components/OnboardingCard'
@@ -260,7 +261,7 @@ export function PagesPane() {
  * page.
  */
 export function AccessSettingsPane() {
-  const [tab, setTab] = useState<'rules' | 'pages'>('rules')
+  const [tab, setTab] = useState<'rules' | 'person' | 'pages'>('rules')
   const settings = useAppSettings()
   const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope)
   return (
@@ -279,11 +280,18 @@ export function AccessSettingsPane() {
         onChange={setTab}
         options={[
           { value: 'rules', label: 'By role' },
+          { value: 'person', label: 'By person' },
           { value: 'pages', label: 'Pages' },
         ]}
         className="self-start"
       />
-      {tab === 'pages' ? <PageAccessCard /> : <PermissionsCard areas={areas} />}
+      {tab === 'pages' ? (
+        <PageAccessCard />
+      ) : tab === 'person' ? (
+        <PersonAccessCard onOpenRoles={() => setTab('rules')} />
+      ) : (
+        <PermissionsCard areas={areas} />
+      )}
     </div>
   )
 }

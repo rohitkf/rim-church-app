@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { NAV_ITEMS } from '../lib/navItems'
-import { SERVING_TABS } from '../lib/serving'
+import { pagesWithRules } from '../lib/pageList'
 import {
   ACCESS_LEVELS,
-  PAGE_RULES,
   STANDINGS,
   compactAccess,
   levelOf,
@@ -58,15 +56,8 @@ export function PageAccessCard() {
   const choose = (key: string, level: AccessLevel) =>
     room.set('page_access', compactAccess({ ...access, [key]: level }) as Record<string, string>)
 
-  // Serving is one menu entry but three pages with three different rules,
-  // so each of its tabs is listed — and set — on its own.
-  const pages = NAV_ITEMS.flatMap((item) =>
-    item.tabs
-      ? item.tabs.map((to) => ({ ...item, to, tabs: undefined, label: SERVING_TABS.find((t) => t.to === to)?.label ?? to }))
-      : [item],
-  )
-    .map((item) => ({ item, rule: PAGE_RULES[item.to] }))
-    .filter((p) => p.rule)
+  // Serving's three tabs are listed — and set — each on its own.
+  const pages = pagesWithRules()
   const open = pages.filter((p) => standingMayOpen(preview, levelOf(p.item.to, access, scope)))
   const groups = [...new Set(pages.map((p) => p.item.group ?? ''))]
 

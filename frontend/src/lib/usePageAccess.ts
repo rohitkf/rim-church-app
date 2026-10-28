@@ -2,9 +2,8 @@ import { useCallback } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useMyTeams } from './useMyTeams'
 import { useAppSettingsState } from './appSettings'
-import { mayOpen, standingOf, type PageAccess, type Standing } from './pageAccess'
-import { overwatchOpens } from './overwatch'
-import { maySeeClockIns } from './clockIn'
+import { standingOf, type Standing } from './pageAccess'
+import { pageOpening } from './pageOpening'
 
 /**
  * Whether the person in front of the screen may open a page, under this
@@ -34,43 +33,24 @@ export function usePageAccess(): {
     // church closed to Overwatch would open anyway.
     onATeam: isOverwatch && !isAdmin ? teamIds.length > 0 || ledDepartmentIds.some((id) => !!id) : onATeam,
   })
-  const access = settings.page_access as PageAccess
-  const scope = settings.issues_raise_scope
-  // Overwatch opens what the church left open to it (Settings ›
-  // Overwatch, 0187), and whatever its own teams would open besides.
-  const watched = settings.overwatch_pages
-  // Clock In is also open to the people and teams the church named for
-  // it (Settings › Clock in, 0191) — a list, not a level.
-  const viewers = settings.clock_in_viewers
-  // Prayer Requests is always open to the pastors — the Pastor role, the
-  // Owner, and whoever Settings › Prayer adds (0197) — whatever level
-  // Page by page sets for everybody else.
-  const carers = settings.prayer_carers
   const isPastor = (roles ?? []).some((r) => r.role_type === 'pastor')
   const myId = session?.user.id
   const canOpen = useCallback(
     (path: string) =>
-      mayOpen(path, standing, access, scope) ||
-      (isOverwatch && overwatchOpens(path, watched)) ||
-      (path === '/clock-in' &&
-        maySeeClockIns({
+      pageOpening(
+        path,
+        {
+          myId,
+          standing,
           isAdmin,
           isOwner: isSuperAdmin,
-          watching: false,
-          myId,
+          isOverwatch,
+          isPastor,
           teamIds: [...teamIds, ...ledDepartmentIds],
-          viewers,
-        })) ||
-      (path === '/prayer' &&
-        maySeeClockIns({
-          isAdmin: false,
-          isOwner: isSuperAdmin || isPastor,
-          watching: false,
-          myId,
-          teamIds: [...teamIds, ...ledDepartmentIds],
-          viewers: carers,
-        })),
-    [standing, access, scope, isOverwatch, watched, isAdmin, isSuperAdmin, myId, teamIds, ledDepartmentIds, viewers, carers, isPastor],
+        },
+        settings,
+      ).open,
+    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled }
 }

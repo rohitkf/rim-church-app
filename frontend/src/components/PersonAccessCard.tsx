@@ -1,0 +1,392 @@
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabaseClient'
+import { useAppSettings } from '../lib/appSettings'
+import { fetchDepartments } from '../lib/queries'
+import { fetchPeopleOptions } from '../lib/plannerControls'
+import { STAGE_KEY, fetchStageTeamAccess } from '../lib/stage'
+import { pagesWithRules } from '../lib/pageList'
+import { ACCESS_LEVELS, type PageAccess } from '../lib/pageAccess'
+import { isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
+import { usePermissions } from '../lib/usePermissions'
+import {
+  explainCapability,
+  explainFixed,
+  namedFor,
+  openingFor,
+  type Answer,
+  type PersonFacts,
+  type Via,
+} from '../lib/personAccess'
+import type { PageOpening } from '../lib/pageOpening'
+import { QueryState } from './QueryState'
+import { Select } from './Select'
+import { Pill, SectionTile } from './Surface'
+import { roleLabel } from './PermissionsCard'
+
+/**
+ * Settings › Access › By person: one person's whole answer, read from the
+ * same rules the buttons and the menu ask — pages, actions, and the lists
+ * outside the grid that name them. It changes nothing; each part links to
+ * the room that does.
+ */
+
+const COORDINATOR_LABELS = ['coordinator', 'team coordinator']
+
+/** Everything the rules ask about one person, read as an Admin reads it. */
+async function fetchPersonFacts(id: string): Promise<{ facts: PersonFacts; guestTeams: string[] }> {
+  const [roles, rosters, rota, owner] = await Promise.all([
+    supabase.from('user_roles').select('role_type, department_id').eq('user_id', id),
+    supabase.from('department_members').select('department_id, member_type').eq('user_id', id),
+    // As may() asks it (0207): the label, trimmed, in either case.
+    supabase.from('rota_assignments').select('department_id, role_label').eq('user_id', id).ilike('role_label', '%coordinator%'),
+    supabase.from('app_owner').select('user_id').maybeSingle(),
+  ])
+  for (const r of [roles, rosters, rota, owner]) if (r.error) throw r.error
+  const grants = (roles.data ?? []) as { role_type: string; department_id: string | null }[]
+  const onTeams = (rosters.data ?? []) as { department_id: string; member_type: string }[]
+  const coordinating = ((rota.data ?? []) as { department_id: string; role_label: string }[]).filter((a) =>
+    COORDINATOR_LABELS.includes(a.role_label.trim().toLowerCase()),
+  )
+  const teamsFor = (type: string) =>
+    grants.filter((g) => g.role_type === type && g.department_id).map((g) => g.department_id as string)
+  return {
+    facts: {
+      id,
+      owner: (owner.data as { user_id?: string } | null)?.user_id === id,
+      admin: grants.some((g) => g.role_type === 'admin'),
+      overwatch: grants.some((g) => g.role_type === 'overwatch'),
+      pastor: grants.some((g) => g.role_type === 'pastor'),
+      headTeams: teamsFor('department_head'),
+      assistTeams: teamsFor('assisting_head'),
+      memberTeams: onTeams.map((m) => m.department_id),
+      coordinatorTeams: [...new Set(coordinating.map((a) => a.department_id))],
+    },
+    guestTeams: onTeams.filter((m) => m.member_type === 'guest').map((m) => m.department_id),
+  }
+}
+
+const viaLabel = (via: Via) => (via === 'overwatch' ? 'Overwatch' : roleLabel(via))
+
+const levelLabel = (level: string) => ACCESS_LEVELS.find((l) => l.value === level)?.label ?? level
+
+/** Why a page opens, or what it waits for. */
+function openingWhy(opening: PageOpening): string {
+  if (!opening.open) return `Open to ${levelLabel(opening.level).toLowerCase()}`
+  switch (opening.via) {
+    case 'overwatch':
+      return 'Left open to Overwatch'
+    case 'clock-in':
+      return 'Named in Clock in'
+    case 'pastoral':
+      return 'A pastor'
+    default:
+      return levelLabel(opening.level)
+  }
+}
+
+/** One action's answer, as a pill and a reason. */
+function AnswerPill({
+  answer,
+  teamName,
+  teamIds,
+}: {
+  answer: Answer
+  teamName: (id: string) => string
+  teamIds: readonly string[]
+}) {
+  switch (answer.kind) {
+    case 'everywhere':
+      return <Reasoned tone="green" label="Everywhere" why={`As ${viaLabel(answer.via)}`} />
+    case 'own':
+      return <Reasoned tone="blue" label="Their own" why={`As ${viaLabel(answer.via)}`} />
+    case 'none':
+      return <Reasoned tone="neutral" label="No" />
+    case 'teams': {
+      const vias = [...new Set(answer.teams.map((t) => t.via))].map(viaLabel).join(', ')
+      const left = teamIds.filter((id) => !answer.teams.some((t) => t.id === id))
+      if (answer.church) {
+        // Allowed church-wide, but some team's own rule keeps its own.
+        return (
+          <Reasoned
+            tone="green"
+            label="All but"
+            why={`${left.map(teamName).join(', ')} · their own rule · As ${viaLabel(answer.church)}`}
+          />
+        )
+      }
+      if (left.length === 0) return <Reasoned tone="green" label="Every team" why={`As ${vias}`} />
+      return (
+        <Reasoned
+          tone="blue"
+          label={answer.teams.length === 1 ? teamName(answer.teams[0].id) : `${answer.teams.length} teams`}
+          why={`${answer.teams.length === 1 ? '' : `${answer.teams.map((t) => teamName(t.id)).join(', ')} · `}As ${vias}`}
+        />
+      )
+    }
+  }
+}
+
+function Reasoned({ tone, label, why }: { tone: 'green' | 'blue' | 'neutral'; label: string; why?: string }) {
+  return (
+    <span className="ml-auto flex max-w-full flex-col items-end gap-1 text-right">
+      <Pill tone={tone}>{label}</Pill>
+      {why && <span className="text-label-sm text-on-surface-faint">{why}</span>}
+    </span>
+  )
+}
+
+const FIXED_TONE: Record<Allowed, 'green' | 'blue' | 'neutral'> = { yes: 'green', own: 'blue', team: 'blue', no: 'neutral' }
+const FIXED_LABEL: Record<Allowed, string> = { yes: 'Yes', own: 'Their own', team: 'Their team', no: 'No' }
+
+export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
+  const settings = useAppSettings()
+  const { overrides, teams: teamRules } = usePermissions()
+  const [personId, setPersonId] = useState('')
+  const [showNo, setShowNo] = useState(false)
+
+  const people = useQuery({ queryKey: ['people-options'], queryFn: fetchPeopleOptions })
+  const teams = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
+  const stage = useQuery({ queryKey: [...STAGE_KEY, 'team-access'], queryFn: fetchStageTeamAccess })
+  const person = useQuery({
+    queryKey: ['person-access', personId],
+    queryFn: () => fetchPersonFacts(personId),
+    enabled: !!personId,
+  })
+
+  const teamList = useMemo(() => teams.data ?? [], [teams.data])
+  const teamIds = useMemo(() => teamList.map((t) => t.id), [teamList])
+  const teamName = (id: string) => teamList.find((t) => t.id === id)?.name ?? 'A team since removed'
+  const areas = useMemo(
+    () => withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope),
+    [settings.page_access, settings.issues_raise_scope],
+  )
+
+  const facts = person.data?.facts
+  const guestTeams = person.data?.guestTeams ?? []
+  const chosen = people.data?.find((p) => p.id === personId)
+  const name = chosen ? `${chosen.first_name} ${chosen.last_name}`.trim() : ''
+
+  const standing = facts
+    ? [
+        facts.owner && 'Owner',
+        facts.admin && 'Admin',
+        facts.overwatch && 'Overwatch',
+        facts.pastor && 'Pastor',
+        ...facts.headTeams.map((id) => `Team Head · ${teamName(id)}`),
+        ...facts.assistTeams.map((id) => `Assisting Head · ${teamName(id)}`),
+        ...facts.memberTeams.map((id) => `Team Member · ${teamName(id)}${guestTeams.includes(id) ? ' (guest)' : ''}`),
+        ...facts.coordinatorTeams.map((id) => `Coordinator · ${teamName(id)}`),
+      ].filter((s): s is string => !!s)
+    : []
+
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTile
+        title="Who are you asking about?"
+        hint="Everything one person can open and do, and why — from the same rules the app follows. Nothing here changes anything."
+      >
+        <QueryState isLoading={people.isLoading} error={people.error}>
+          <Select
+            aria-label="Person"
+            placeholder="Choose somebody…"
+            value={personId}
+            onChange={setPersonId}
+            options={(people.data ?? []).map((p) => ({ value: p.id, label: `${p.first_name} ${p.last_name}`.trim() }))}
+          />
+        </QueryState>
+        {facts && (
+          <ul aria-label={`What ${name} is`} className="mt-4 flex flex-wrap gap-2">
+            {standing.length === 0 ? (
+              <li>
+                <Pill>Church Member</Pill>
+              </li>
+            ) : (
+              standing.map((s) => (
+                <li key={s}>
+                  <Pill tone="indigo">{s}</Pill>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+        {facts && (
+          <p className="mt-3 text-label-md text-on-surface-faint">
+            To change what they are, open{' '}
+            <Link to="/volunteers" className="text-accent-blue-soft hover:underline">
+              Volunteers
+            </Link>
+            .
+          </p>
+        )}
+      </SectionTile>
+
+      {personId && (
+        <QueryState isLoading={person.isLoading || teams.isLoading} error={person.error ?? teams.error}>
+          {facts && (
+            <>
+              <PagesFor facts={facts} name={name} />
+
+              <SectionTile
+                title="What they can do"
+                hint="Where it reaches, and which of their profiles gives it."
+                aside={
+                  <label className="flex items-center gap-2 text-label-md text-on-surface-variant">
+                    <input
+                      type="checkbox"
+                      checked={showNo}
+                      onChange={(e) => setShowNo(e.target.checked)}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    Show what they can’t
+                  </label>
+                }
+              >
+                <div className="flex flex-col gap-6">
+                  {areas.map((area) => {
+                    const live = isLiveArea(area)
+                    const rows = area.capabilities.map((c) => {
+                      if (c.key && live) {
+                        const answer = explainCapability(facts, c.key, overrides, teamRules, teamIds, settings)
+                        return { c, no: answer.kind === 'none', cell: <AnswerPill answer={answer} teamName={teamName} teamIds={teamIds} /> }
+                      }
+                      const fixed = explainFixed(facts, c, settings)
+                      return {
+                        c,
+                        no: fixed.allowed === 'no',
+                        cell: (
+                          <Reasoned
+                            tone={FIXED_TONE[fixed.allowed]}
+                            label={FIXED_LABEL[fixed.allowed]}
+                            why={fixed.via ? `As ${viaLabel(fixed.via)} · fixed` : undefined}
+                          />
+                        ),
+                      }
+                    })
+                    const shown = showNo ? rows : rows.filter((r) => !r.no)
+                    if (shown.length === 0) return null
+                    return (
+                      <section key={area.area}>
+                        <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">{area.area}</h3>
+                        <ul className="mt-2 flex flex-col gap-1">
+                          {shown.map(({ c, no, cell }) => (
+                            <li
+                              key={c.action}
+                              className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-[var(--radius-row)] px-2 py-2.5 odd:bg-raised"
+                            >
+                              <span
+                                className={`min-w-0 flex-1 basis-48 text-body-sm ${no ? 'text-on-surface-faint' : 'text-on-surface'}`}
+                              >
+                                {c.action}
+                              </span>
+                              {cell}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )
+                  })}
+                </div>
+                <p className="mt-4 text-label-md text-on-surface-faint">
+                  To change a profile’s reach, open{' '}
+                  <button type="button" onClick={onOpenRoles} className="text-accent-blue-soft hover:underline">
+                    By role
+                  </button>
+                  ; for one team’s own rules, open{' '}
+                  <Link to="/settings/pages" className="text-accent-blue-soft hover:underline">
+                    Page by Page
+                  </Link>
+                  .
+                </p>
+              </SectionTile>
+
+              <NamedLists facts={facts} stage={stage.data ?? []} teamName={teamName} />
+            </>
+          )}
+        </QueryState>
+      )}
+    </div>
+  )
+}
+
+/** Every page, open or closed to them, and why. */
+function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
+  const settings = useAppSettings()
+  const pages = pagesWithRules().map(({ item }) => ({ item, opening: openingFor(facts, item.to, settings) }))
+  const open = pages.filter((p) => p.opening.open).length
+  return (
+    <SectionTile
+      title="Pages they can open"
+      aside={
+        <span className="font-mono text-label-sm text-on-surface-faint" data-testid="person-page-count">
+          {open} of {pages.length}
+        </span>
+      }
+    >
+      <ul aria-label={`Pages ${name} can open`} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {pages.map(({ item, opening }) => {
+          const Icon = item.icon
+          return (
+            <li
+              key={item.to}
+              aria-label={`${item.label}: ${opening.open ? 'can open' : 'cannot open'}`}
+              className={`flex items-center gap-2 rounded-[var(--radius-row)] px-3 py-2.5 text-body-sm ${
+                opening.open
+                  ? 'bg-[color-mix(in_oklab,var(--color-accent-green)_14%,transparent)] text-on-surface'
+                  : 'bg-raised text-on-surface-faint'
+              }`}
+            >
+              <Icon width={16} height={16} className="shrink-0" aria-hidden="true" />
+              <span className={`min-w-0 flex-1 truncate ${opening.open ? '' : 'line-through decoration-on-surface-faint/40'}`}>
+                {item.label}
+              </span>
+              <span className="shrink-0 text-label-sm text-on-surface-faint">{openingWhy(opening)}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </SectionTile>
+  )
+}
+
+/** The lists outside the grid that name them: Clock in, Prayer, the planner's buttons, the stage. */
+function NamedLists({
+  facts,
+  stage,
+  teamName,
+}: {
+  facts: PersonFacts
+  stage: Parameters<typeof namedFor>[2]
+  teamName: (id: string) => string
+}) {
+  const settings = useAppSettings()
+  const named = namedFor(facts, settings, stage, teamName)
+  return (
+    <SectionTile
+      title="Named on a list"
+      hint="Lists kept in other rooms, outside the grid. Admins and the Owner hold these anyway."
+    >
+      {named.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant">No list names them, by name or through a team.</p>
+      ) : (
+        <ul aria-label="Lists that name them" className="flex flex-col gap-1">
+          {named.map((n) => (
+            <li
+              key={`${n.room}:${n.what}`}
+              className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-[var(--radius-row)] px-2 py-2.5 odd:bg-raised"
+            >
+              <span className="min-w-0 flex-1 basis-48 text-body-sm text-on-surface">{n.what}</span>
+              <span className="ml-auto flex flex-col items-end gap-1 text-right">
+                <Pill tone="blue">{n.because}</Pill>
+                <Link to={n.to} className="text-label-sm text-accent-blue-soft hover:underline">
+                  {n.room}
+                </Link>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionTile>
+  )
+}
