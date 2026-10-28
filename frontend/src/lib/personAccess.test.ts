@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, type AppSettings } from './appSettings'
-import { explainCapability, explainFixed, namedFor, openingFor, profilesOf, type PersonFacts } from './personAccess'
+import { explainCapability, explainFixed, grantsFor, openingFor, profilesOf, type PersonFacts } from './personAccess'
+import type { PermissionGrant } from './permissions'
 import type { Capability } from './permissionMatrix'
 
 const WORSHIP = 'worship'
@@ -21,7 +22,6 @@ const person = (over: Partial<PersonFacts> = {}): PersonFacts => ({
 })
 
 const settings = (over: Partial<AppSettings> = {}): AppSettings => ({ ...DEFAULT_SETTINGS, ...over })
-const name = (id: string) => (id === WORSHIP ? 'Worship' : 'Media')
 
 describe('what one person may do, and why', () => {
   it('is everything, everywhere, for the Owner', () => {
@@ -154,27 +154,18 @@ describe('the pages they can open', () => {
   })
 })
 
-describe('the lists outside the grid', () => {
-  it('names the list still kept in a room, and how', () => {
-    const s = settings({
-      // The grid's since 0209–0212, so no longer lists said here.
-      clock_in_viewers: { teams: [WORSHIP], people: [] },
-      prayer_assigners: { teams: [], people: ['p1'] },
-      planner_controls: { teams: { [WORSHIP]: ['start'] }, people: {} },
-      clock_in_approver_teams: [WORSHIP],
-      clock_in_approvers: 'members',
-    })
-    const named = namedFor(person({ memberTeams: [WORSHIP] }), s, name)
-    expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual(['Approves requests to be clocked in — Through Worship'])
+describe('the grants that reach somebody', () => {
+  const g = (over: Partial<PermissionGrant>): PermissionGrant => ({ capability: 'clockin.approve', userId: null, departmentId: WORSHIP, reach: 'all', ...over })
+  it('carries a team’s grant to everybody on it, and a Heads-only one to its Heads alone (0213)', () => {
+    const member = person({ memberTeams: [WORSHIP] })
+    const head = person({ headTeams: [WORSHIP], memberTeams: [WORSHIP] })
+    expect(grantsFor(member, [g({})])).toHaveLength(1)
+    expect(grantsFor(member, [g({ leadsOnly: true })])).toEqual([])
+    expect(grantsFor(head, [g({ leadsOnly: true })])).toHaveLength(1)
+    expect(grantsFor(person({ assistTeams: [WORSHIP] }), [g({ leadsOnly: true })])).toHaveLength(1)
   })
-
-  it('carries only a team’s Heads onto the approvers when the church says Heads only', () => {
-    const s = settings({ clock_in_approver_teams: [WORSHIP], clock_in_approvers: 'leads' })
-    expect(namedFor(person({ memberTeams: [WORSHIP] }), s, name)).toEqual([])
-    expect(namedFor(person({ headTeams: [WORSHIP], memberTeams: [WORSHIP] }), s, name)).toHaveLength(1)
-  })
-
-  it('is empty for somebody no list names', () => {
-    expect(namedFor(person(), settings(), name)).toEqual([])
+  it('says a grant by name before a team’s', () => {
+    const asha = person({ memberTeams: [WORSHIP] })
+    expect(grantsFor(asha, [g({}), g({ userId: 'p1', departmentId: null })]).map((h) => h.teamId)).toEqual([null, WORSHIP])
   })
 })

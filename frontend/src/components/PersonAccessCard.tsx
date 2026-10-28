@@ -16,7 +16,6 @@ import {
   explainFixed,
   grantsFor,
   holderOf,
-  namedFor,
   openingFor,
   type Answer,
   type PersonFacts,
@@ -313,7 +312,6 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
 
               <GivenMore facts={facts} name={name} grants={grants} teamName={teamName} />
 
-              <NamedLists facts={facts} teamName={teamName} />
             </>
           )}
         </QueryState>
@@ -365,39 +363,6 @@ function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
           )
         })}
       </ul>
-    </SectionTile>
-  )
-}
-
-/** The lists outside the grid that name them: Clock in, Prayer, the planner's buttons, the stage. */
-function NamedLists({ facts, teamName }: { facts: PersonFacts; teamName: (id: string) => string }) {
-  const settings = useAppSettings()
-  const named = namedFor(facts, settings, teamName)
-  return (
-    <SectionTile
-      title="Named on a list"
-      hint="Lists kept in other rooms, outside the grid. Admins and the Owner hold these anyway."
-    >
-      {named.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant">No list names them, by name or through a team.</p>
-      ) : (
-        <ul aria-label="Lists that name them" className="flex flex-col gap-1">
-          {named.map((n) => (
-            <li
-              key={`${n.room}:${n.what}`}
-              className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-[var(--radius-row)] px-2 py-2.5 odd:bg-raised"
-            >
-              <span className="min-w-0 flex-1 basis-48 text-body-sm text-on-surface">{n.what}</span>
-              <span className="ml-auto flex flex-col items-end gap-1 text-right">
-                <Pill tone="blue">{n.because}</Pill>
-                <Link to={n.to} className="text-label-sm text-accent-blue-soft hover:underline">
-                  {n.room}
-                </Link>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </SectionTile>
   )
 }
@@ -492,7 +457,9 @@ function GivenMore({
                 </span>
               </span>
               <span className="ml-auto flex items-center gap-2">
-                <Pill tone="blue">{teamId ? `Through ${teamName(teamId)}` : 'By name'}</Pill>
+                <Pill tone="blue">
+                  {teamId ? `Through ${teamName(teamId)}${grant.leadsOnly ? '’s Heads' : ''}` : 'By name'}
+                </Pill>
                 {editable && !teamId && (
                   <button
                     type="button"

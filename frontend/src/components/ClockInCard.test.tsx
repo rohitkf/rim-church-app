@@ -93,8 +93,9 @@ describe('Settings › Clock in', () => {
     await user.click(screen.getByRole('radio', { name: 'Anyone on it' }))
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    // Who may see is the grid's clockin.view (0209): grants, not a list.
-    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    // Who may see is the grid's clockin.view (0209), who approves its
+    // clockin.approve (0213): grants, not lists.
+    await waitFor(() => expect(db.rpc).toHaveLength(2))
     expect(db.rpc[0]).toEqual({
       fn: 'set_permission_grants',
       args: {
@@ -104,10 +105,36 @@ describe('Settings › Clock in', () => {
         ],
       },
     })
-    await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(db.writes[0]).toEqual({
-      clock_in_approver_teams: ['22222222-2222-2222-2222-222222222222'],
-      clock_in_approvers: 'members',
+    expect(db.rpc[1].args).toEqual({
+      p_changes: [{ capability: 'clockin.approve', team: '22222222-2222-2222-2222-222222222222', reach: 'all', leads_only: false }],
+    })
+    // Nothing of either goes into the settings row.
+    expect(db.writes).toHaveLength(0)
+  })
+
+  it('gives a new approving team to its Heads, as the room starts', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('combobox', { name: 'Teams that approve requests: add a team' }))
+    await user.click(screen.getByRole('option', { name: 'Media' }))
+    expect(screen.getByRole('radio', { name: 'Heads' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    expect(db.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'clockin.approve', team: '22222222-2222-2222-2222-222222222222', reach: 'all', leads_only: true }],
+    })
+  })
+
+  it('says Heads or anyone again for every approving team when the choice changes', async () => {
+    db.grants = [
+      { id: 'g1', capability: 'clockin.approve', userId: null, departmentId: '11111111-1111-1111-1111-111111111111', reach: 'all', leadsOnly: false },
+    ]
+    const user = show()
+    expect(await screen.findByRole('radio', { name: 'Anyone on it' })).toBeChecked()
+    await user.click(screen.getByRole('radio', { name: 'Heads' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    expect(db.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'clockin.approve', team: '11111111-1111-1111-1111-111111111111', reach: 'all', leads_only: true }],
     })
   })
 

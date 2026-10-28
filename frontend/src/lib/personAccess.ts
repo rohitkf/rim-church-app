@@ -201,43 +201,6 @@ export function openingFor(
   )
 }
 
-/** A list the church named somebody on, outside the grid. */
-export interface NamedFor {
-  /** The room the list lives in, as Settings names it. */
-  room: string
-  /** Its path, to go and change it. */
-  to: string
-  what: string
-  /** "By name", or the team that carries them onto it. */
-  because: string
-}
-
-/**
- * Every list outside the grid that names this person, directly or through
- * a team: Clock in's approvers. (Who sees the clock-ins, Prayer's three,
- * the planner's buttons and the stage's switches are the grid's since
- * 0209–0212, and By person says them under what the grid gives.)
- * Admins and the Owner are given these by their standing, not by a list,
- * so a list naming them changes nothing and is still said.
- */
-export function namedFor(person: PersonFacts, settings: AppSettings, teamName: (id: string) => string): NamedFor[] {
-  const out: NamedFor[] = []
-  const add = (room: string, to: string, what: string, because: string | null) => {
-    if (because) out.push({ room, to, what, because })
-  }
-
-  const approverTeam = settings.clock_in_approver_teams.find(
-    (id) =>
-      person.headTeams.includes(id) ||
-      person.assistTeams.includes(id) ||
-      (settings.clock_in_approvers === 'members' && person.memberTeams.includes(id)),
-  )
-  add('Clock in', '/settings/clock-in', 'Approves requests to be clocked in', approverTeam ? `Through ${teamName(approverTeam)}` : null)
-
-
-  return out
-}
-
 /** A grant that reaches this person, and whether by name or through a team. */
 export interface HeldGrant {
   grant: PermissionGrant
@@ -247,11 +210,12 @@ export interface HeldGrant {
 
 /** The church's grants that reach this person (0208): theirs by name, then their teams'. */
 export function grantsFor(person: PersonFacts, grants: readonly PermissionGrant[]): HeldGrant[] {
-  const onTeams = new Set([...person.memberTeams, ...person.headTeams, ...person.assistTeams])
+  const leads = new Set([...person.headTeams, ...person.assistTeams])
+  const onTeams = new Set([...person.memberTeams, ...leads])
   return [
     ...grants.filter((g) => g.userId === person.id).map((grant) => ({ grant, teamId: null })),
     ...grants
-      .filter((g) => !!g.departmentId && onTeams.has(g.departmentId))
+      .filter((g) => !!g.departmentId && (g.leadsOnly ? leads : onTeams).has(g.departmentId))
       .map((grant) => ({ grant, teamId: grant.departmentId })),
   ]
 }

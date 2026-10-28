@@ -798,6 +798,13 @@ export const PERMISSIONS: PermissionArea[] = [
         can: granted('clockin.view'),
         note: 'Names, times and where each person was. The Owner always does, and Overwatch unless Settings › Overwatch closes it. Anybody else by name or through a team: Settings › Clock in, or By person.',
       },
+      {
+        action: 'Approve or refuse a request to be clocked in',
+        key: 'clockin.approve',
+        short: 'Approve clock-in requests',
+        can: granted('clockin.approve'),
+        note: 'When a phone could not be placed at church. Approvers are told of each request. A team: Settings › Clock in, for its Heads or for everybody on it.',
+      },
     ],
   },
   {
