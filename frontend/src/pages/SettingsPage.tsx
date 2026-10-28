@@ -14,6 +14,7 @@ import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { PageAccessCard } from '../components/PageAccessCard'
+import { PermissionLogCard } from '../components/PermissionLogCard'
 import { PersonAccessCard } from '../components/PersonAccessCard'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
@@ -258,7 +259,7 @@ export function PagesPane() {
  * page.
  */
 export function AccessSettingsPane() {
-  const [tab, setTab] = useState<'rules' | 'person' | 'pages'>('rules')
+  const [tab, setTab] = useState<'rules' | 'person' | 'pages' | 'history'>('rules')
   const settings = useAppSettings()
   const levels = usePageLevels()
   const areas = withPageAccess(levels, settings.issues_raise_scope, settings.overwatch_pages)
@@ -280,10 +281,13 @@ export function AccessSettingsPane() {
           { value: 'rules', label: 'By role' },
           { value: 'person', label: 'By person' },
           { value: 'pages', label: 'Pages' },
+          { value: 'history', label: 'History' },
         ]}
         className="self-start"
       />
-      {tab === 'pages' ? (
+      {tab === 'history' ? (
+        <PermissionLogCard />
+      ) : tab === 'pages' ? (
         <PageAccessCard />
       ) : tab === 'person' ? (
         <PersonAccessCard onOpenRoles={() => setTab('rules')} />
