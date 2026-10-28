@@ -49,6 +49,9 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Appearance & Alerts', detail: 'Theme, team style and phone notifications', to: '/settings/appearance', keywords: 'theme dark light mode appearance notifications push' },
   { label: 'Page by Page', detail: 'Each page’s clocks, what it keeps, and its rules, team by team', to: '/settings/pages', keywords: 'page settings access team rules head timings clocks window clear deadline retention delete keep dashboard display' },
   { label: 'Access & Privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
+  { label: 'By person', detail: 'Everything one person can open and do, and why', to: '/settings/access?tab=person', keywords: 'person permissions what can they do access grant' },
+  { label: 'By team', detail: 'What a team’s people may do, and what the team has been given', to: '/settings/access?tab=team', keywords: 'team permissions rules grant access' },
+  { label: 'Permissions history', detail: 'Who changed which rule, and when', to: '/settings/access?tab=history', keywords: 'history log audit changed rule who when' },
 ]
 
 const MIN_QUERY = 2

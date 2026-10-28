@@ -471,9 +471,18 @@ function GivenMore({
                 </span>
               </span>
               <span className="ml-auto flex items-center gap-2">
-                <Pill tone="blue">
-                  {teamId ? `Through ${teamName(teamId)}${grant.leadsOnly ? '’s Heads' : ''}` : 'By name'}
-                </Pill>
+                {teamId ? (
+                  <Link
+                    to={`/settings/access?tab=team&team=${teamId}`}
+                    aria-label={`Through ${teamName(teamId)}${grant.leadsOnly ? '’s Heads' : ''} — open By team`}
+                    className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] px-2.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft hover:text-on-surface"
+                  >
+                    Through {teamName(teamId)}
+                    {grant.leadsOnly ? '’s Heads' : ''}
+                  </Link>
+                ) : (
+                  <Pill tone="blue">By name</Pill>
+                )}
                 {editable && !teamId && (
                   <button
                     type="button"

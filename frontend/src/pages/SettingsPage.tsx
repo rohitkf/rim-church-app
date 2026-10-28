@@ -14,6 +14,7 @@ import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { PageAccessCard } from '../components/PageAccessCard'
 import { PermissionLogCard } from '../components/PermissionLogCard'
+import { TeamAccessCard } from '../components/TeamAccessCard'
 import { PersonAccessCard } from '../components/PersonAccessCard'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
@@ -257,7 +258,7 @@ export function PagesPane() {
  * stories; a page at a time, with a team's own rules (0162), is Page by
  * page.
  */
-const ACCESS_TABS = ['rules', 'person', 'pages', 'history'] as const
+const ACCESS_TABS = ['rules', 'person', 'team', 'pages', 'history'] as const
 type AccessTab = (typeof ACCESS_TABS)[number]
 
 export function AccessSettingsPane() {
@@ -272,6 +273,7 @@ export function AccessSettingsPane() {
         const n = new URLSearchParams(p)
         n.set('tab', next)
         if (next !== 'person') n.delete('person')
+        if (next !== 'team') n.delete('team')
         return n
       },
       { replace: true },
@@ -296,6 +298,7 @@ export function AccessSettingsPane() {
         options={[
           { value: 'rules', label: 'By role' },
           { value: 'person', label: 'By person' },
+          { value: 'team', label: 'By team' },
           { value: 'pages', label: 'Pages' },
           { value: 'history', label: 'History' },
         ]}
@@ -303,6 +306,8 @@ export function AccessSettingsPane() {
       />
       {tab === 'history' ? (
         <PermissionLogCard />
+      ) : tab === 'team' ? (
+        <TeamAccessCard />
       ) : tab === 'pages' ? (
         <PageAccessCard />
       ) : tab === 'person' ? (
