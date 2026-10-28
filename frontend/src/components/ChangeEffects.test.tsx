@@ -13,15 +13,15 @@ vi.mock('../lib/peopleFacts', () => ({
 }))
 vi.mock('../lib/queries', () => ({ fetchDepartments: () => Promise.resolve([{ id: 'w', name: 'Worship' }]) }))
 
-function show(changes: Parameters<typeof ChangeEffects>[0]['changes'], after: Parameters<typeof ChangeEffects>[0]['after']) {
+type Props = Parameters<typeof ChangeEffects>[0]
+function show(touched: Props['touched'], after: Omit<Props['after'], 'grants'> & { grants?: Props['after']['grants'] }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <ChangeEffects
-        changes={changes}
-        before={{ church: {}, teams: {} }}
-        after={after}
-        grants={[]}
+        touched={touched}
+        before={{ church: {}, teams: {}, grants: [] }}
+        after={{ grants: [], ...after }}
         actionOf={(cap) => (cap === 'rota.assign' ? 'Assign somebody to a role' : cap)}
       />
     </QueryClientProvider>,
@@ -30,7 +30,7 @@ function show(changes: Parameters<typeof ChangeEffects>[0]['changes'], after: Pa
 
 describe('what saving would do', () => {
   it('names, before Save, who a change lets do more', async () => {
-    show([{ role: 'member', capability: 'rota.assign', reach: 'team' }], { church: { 'rota.assign': { member: 'team' } }, teams: {} })
+    show(['rota.assign'], { church: { 'rota.assign': { member: 'team' } }, teams: {} })
     const list = await screen.findByRole('list', { name: 'What saving would do' })
     const row = within(list).getByRole('listitem')
     expect(row).toHaveTextContent('Assign somebody to a role')
@@ -41,12 +41,22 @@ describe('what saving would do', () => {
 
   it('says so when nobody’s answer changes', async () => {
     // Heads already assign their own team's rota.
-    show([{ role: 'head', capability: 'rota.assign', reach: 'team' }], { church: { 'rota.assign': { head: 'team' } }, teams: {} })
+    show(['rota.assign'], { church: { 'rota.assign': { head: 'team' } }, teams: {} })
     expect(await screen.findByText('— nobody’s answer changes.')).toBeInTheDocument()
   })
 
   it('says nothing while nothing is pending', () => {
     show([], { church: {}, teams: {} })
     expect(screen.queryByText(/saving would do/)).toBeNull()
+  })
+
+  it('reads a grant not yet sent, with the default action names', async () => {
+    show(['rota.assign'], {
+      church: {},
+      teams: {},
+      grants: [{ capability: 'rota.assign', userId: 'a', departmentId: null, reach: 'team', leadsOnly: false }],
+    })
+    const row = within(await screen.findByRole('list', { name: 'What saving would do' })).getByRole('listitem')
+    expect(row).toHaveTextContent('Lets one more person do it, or do it further: Asha Mathew.')
   })
 })

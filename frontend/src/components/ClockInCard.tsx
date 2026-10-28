@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { fetchDepartments } from '../lib/queries'
@@ -9,6 +10,7 @@ import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
 import { AudienceEditor } from './AudienceEditor'
 import { useGrantList } from '../lib/useGrantList'
+import { GrantEffects } from './GrantEffects'
 
 /**
  * Settings › Clock in (0191).
@@ -36,6 +38,7 @@ export function ClockInCard() {
   const room = useSettingsDraft(KEYS)
   const viewers = useGrantList('clockin.view')
   const approvers = useGrantList('clockin.approve', { withLeads: true })
+  const grantChanges = useMemo(() => [...viewers.changes, ...approvers.changes], [viewers.changes, approvers.changes])
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   if (!isAdmin) return null
 
@@ -119,6 +122,7 @@ export function ClockInCard() {
             </p>
           </SectionTile>
 
+          <GrantEffects changes={grantChanges} />
           <SaveBar
             changed={room.changed || viewers.changed || approvers.changed}
             saving={room.saving || viewers.saving || approvers.saving}

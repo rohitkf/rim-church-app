@@ -3,35 +3,38 @@ import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
 import { changeEffects, namesOf, type GridState } from '../lib/changePreview'
 import { fetchEveryonesFacts } from '../lib/peopleFacts'
+import { PERMISSIONS } from '../lib/permissionMatrix'
 import { fetchDepartments } from '../lib/queries'
-import type { CapabilityKey, PermissionChange, PermissionGrant } from '../lib/permissions'
+import type { CapabilityKey } from '../lib/permissions'
+
+const defaultActionOf = (cap: CapabilityKey) => PERMISSIONS.flatMap((a) => a.capabilities).find((c) => c.key === cap)?.action ?? cap
 
 /**
  * Before Save, what saving would do: for each action a pending change
  * touches, who could then do more of it and who less, by name. It reads
- * everybody's standings once, only while something is pending.
+ * everybody's standings once, only while something is pending. The grid
+ * as saved and as drafted — the church's cells, the teams' own and the
+ * grants — are `before` and `after`; `touched` is the actions to ask about.
  */
 export function ChangeEffects({
-  changes,
+  touched,
   before,
   after,
-  grants,
-  actionOf,
+  actionOf = defaultActionOf,
 }: {
-  changes: readonly PermissionChange[]
+  touched: readonly CapabilityKey[]
   before: GridState
   after: GridState
-  grants: readonly PermissionGrant[]
-  actionOf: (cap: CapabilityKey) => string
+  actionOf?: (cap: CapabilityKey) => string
 }) {
   const settings = useAppSettings()
-  const pending = changes.length > 0
+  const pending = touched.length > 0
   const people = useQuery({ queryKey: ['everyone-access'], queryFn: fetchEveryonesFacts, enabled: pending, staleTime: 60_000 })
   const teams = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: pending })
   const teamIds = useMemo(() => (teams.data ?? []).map((t) => t.id), [teams.data])
   const effects = useMemo(
-    () => (people.data ? changeEffects(people.data, before, after, changes, teamIds, settings, grants) : []),
-    [people.data, before, after, changes, teamIds, settings, grants],
+    () => (people.data ? changeEffects(people.data, before, after, touched, teamIds, settings) : []),
+    [people.data, before, after, touched, teamIds, settings],
   )
 
   if (!pending) return null

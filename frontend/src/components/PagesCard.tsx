@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
 import { ACCESS_LEVELS, PAGE_RULES, levelOf, type AccessLevel } from '../lib/pageAccess'
 import { cellsForLevel, isPageCapability, levelsFrom, pageCapability } from '../lib/pageCells'
-import { PERMISSIONS, ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
+import { ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
+import { capabilitiesIn } from '../lib/changePreview'
+import { applyGrantChanges, touchedBy } from '../lib/grantPreview'
 import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GridRole } from '../lib/permissions'
 import { PAGE_ROOMS, SETTINGS_PAGES, capabilitiesFor, pageForSlug, pageSlug, teamRows, type SettingsPage } from '../lib/pageSettings'
 import { APP, SETTINGS_CATALOG, columnsOf, settingsForPage } from '../lib/settingsCatalog'
@@ -101,9 +103,6 @@ export function PagesCard() {
     () => withGrants(withPageAccess(access, scope, overwatchPages), working),
     [access, scope, overwatchPages, working],
   )
-  // The grid as saved and as drafted, for what saving would do to whom.
-  const before = useMemo(() => ({ church: stored, teams: storedTeams }), [stored, storedTeams])
-  const after = useMemo(() => ({ church: working, teams: perms.workingTeams }), [working, perms.workingTeams])
   // A page's own row is its level, chosen above its rules, so it is not drawn again among them.
   const rulesHere = useMemo(
     () => areas.map((a) => ({ ...a, capabilities: a.capabilities.filter((c) => !c.key || !isPageCapability(c.key)) })),
@@ -131,6 +130,14 @@ export function PagesCard() {
   const controls = controlsDraft ?? storedControls
   const controlChanges = useMemo(() => controlGrantChanges(storedControls, controls), [storedControls, controls])
   const controlsChanged = controlChanges.length > 0
+  // The grid as saved and as drafted — the planner's buttons, saved as
+  // grants, among them — for what saving would do to whom.
+  const before = useMemo(() => ({ church: stored, teams: storedTeams, grants: perms.grants }), [stored, storedTeams, perms.grants])
+  const after = useMemo(
+    () => ({ church: working, teams: perms.workingTeams, grants: applyGrantChanges(perms.grants, controlChanges) }),
+    [working, perms.workingTeams, perms.grants, controlChanges],
+  )
+  const touched = useMemo(() => [...capabilitiesIn(pending), ...touchedBy(controlChanges)], [pending, controlChanges])
   const [controlsError, setControlsError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -307,13 +314,7 @@ export function PagesCard() {
                   </li>
                 ))}
               </ul>
-              <ChangeEffects
-                changes={pending}
-                before={before}
-                after={after}
-                grants={perms.grants}
-                actionOf={(cap) => PERMISSIONS.flatMap((a) => a.capabilities).find((c) => c.key === cap)?.action ?? cap}
-              />
+              <ChangeEffects touched={touched} before={before} after={after} />
             </Tile>
           )}
 

@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { fetchDepartments } from '../lib/queries'
 import { useGrantList } from '../lib/useGrantList'
+import { GrantEffects } from './GrantEffects'
 import { SectionTile } from './Surface'
 import { SaveBar } from './SettingRows'
 import { AudienceEditor } from './AudienceEditor'
@@ -25,6 +27,10 @@ export function PrayerSettingsCard() {
   const carers = useGrantList('prayer.pastoral')
   const assigners = useGrantList('prayer.assign')
   const runners = useGrantList('prayer.lists')
+  const grantChanges = useMemo(
+    () => [...carers.changes, ...assigners.changes, ...runners.changes],
+    [carers.changes, assigners.changes, runners.changes],
+  )
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   if (!isAdmin) return null
   const allTeams = (teamsQuery.data ?? []).map((d) => ({ id: d.id, name: d.name }))
@@ -90,6 +96,7 @@ export function PrayerSettingsCard() {
         To give one of these to every Team Head or Team Member at once, set it under Prayer in Access &amp;
         Privileges.
       </p>
+      <GrantEffects changes={grantChanges} />
       <SaveBar
         changed={changed}
         saving={lists.some((l) => l.saving)}

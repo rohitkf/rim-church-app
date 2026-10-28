@@ -23,6 +23,17 @@ vi.mock('../lib/queries', () => ({
       { id: '22222222-2222-2222-2222-222222222222', name: 'Media' },
     ]),
 }))
+vi.mock('../lib/peopleFacts', async (original) => ({
+  ...(await original<typeof import('../lib/peopleFacts')>()),
+  fetchEveryonesFacts: () =>
+    Promise.resolve([
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        name: 'Asha Mathew',
+        facts: { id: '33333333-3333-3333-3333-333333333333', owner: false, admin: false, overwatch: false, pastor: false, headTeams: ['22222222-2222-2222-2222-222222222222'], assistTeams: [], memberTeams: ['22222222-2222-2222-2222-222222222222'], coordinatorTeams: [] },
+      },
+    ]),
+}))
 vi.mock('../lib/plannerControls', async (original) => ({
   ...(await original<typeof import('../lib/plannerControls')>()),
   fetchPeopleOptions: () =>
@@ -186,8 +197,12 @@ describe('Settings › Access › By person', () => {
     // The keys to the app are never on offer.
     expect(screen.queryByRole('option', { name: 'Change who can do what — this grid' })).toBeNull()
     await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    // She heads Media, so on her team she assigns already: nothing moves yet.
+    expect(await screen.findByText('— nobody’s answer changes.')).toBeInTheDocument()
     await user.click(screen.getByRole('combobox', { name: 'How far' }))
     await user.click(screen.getByRole('option', { name: 'Everywhere' }))
+    const preview = await screen.findByRole('list', { name: 'What saving would do' })
+    await waitFor(() => expect(preview).toHaveTextContent('Lets one more person do it, or do it further: Asha Mathew.'))
     await user.click(screen.getByRole('button', { name: 'Give' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
