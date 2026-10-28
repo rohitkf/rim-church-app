@@ -8,7 +8,6 @@ import { AdminResetCard } from '../components/AdminResetCard'
 import { RotaLookCard } from '../components/RotaLookCard'
 import { GivingSettingsCard } from '../components/GivingSettingsCard'
 import { NavLayoutCard } from '../components/NavLayoutCard'
-import { AppSettingsCard } from '../components/AppSettingsCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { PagesCard } from '../components/PagesCard'
 import { SendAlertCard } from '../components/SendAlertCard'
@@ -16,8 +15,6 @@ import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { PageAccessCard } from '../components/PageAccessCard'
 import { PersonAccessCard } from '../components/PersonAccessCard'
-import { RetentionCard } from '../components/RetentionCard'
-import { DisplayCard } from '../components/DisplayCard'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
 import { OverwatchCard } from '../components/OverwatchCard'
@@ -296,16 +293,6 @@ export function AccessSettingsPane() {
   )
 }
 
-/** How long each page keeps things. */
-export function RetentionSettingsPane() {
-  return <RetentionCard />
-}
-
-/** What the pages show, and what starts open. */
-export function DisplaySettingsPane() {
-  return <DisplayCard />
-}
-
 /** The loudest thing the app can do, and who it is aimed at. */
 export function SendAlertPane() {
   return <SendAlertCard />
@@ -334,11 +321,6 @@ export function ClockInSettingsPane() {
 /** Who reads the private prayer requests (0197). */
 export function PrayerSettingsPane() {
   return <PrayerSettingsCard />
-}
-
-/** The church's clocks: when things open, close and clear. */
-export function TimingsSettingsPane() {
-  return <AppSettingsCard />
 }
 
 /** The rota's tags and the Coordinator's colour. */

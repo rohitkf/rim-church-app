@@ -103,9 +103,12 @@ const router = createBrowserRouter(
             <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
             <Route path="pages" lazy={page(() => import('./pages/SettingsPage'), 'PagesPane')} />
             <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
-            <Route path="timings" lazy={page(() => import('./pages/SettingsPage'), 'TimingsSettingsPane')} />
-            <Route path="retention" lazy={page(() => import('./pages/SettingsPage'), 'RetentionSettingsPane')} />
-            <Route path="display" lazy={page(() => import('./pages/SettingsPage'), 'DisplaySettingsPane')} />
+            {/* Timings, Data & Retention and Dashboard & Lists were rooms
+                of their own, each a second way to rows Page by Page holds
+                under their pages. Their addresses still land there. */}
+            <Route path="timings" element={<Navigate to="/settings/pages" replace />} />
+            <Route path="retention" element={<Navigate to="/settings/pages" replace />} />
+            <Route path="display" element={<Navigate to="/settings/pages#dashboard" replace />} />
             <Route path="rota" lazy={page(() => import('./pages/SettingsPage'), 'RotaSettingsPane')} />
             <Route path="giving" lazy={page(() => import('./pages/SettingsPage'), 'GivingSettingsPane')} />
             <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
@@ -124,7 +127,7 @@ const router = createBrowserRouter(
             <Route path="*" element={<Navigate to="/settings" replace />} />
           </Route>
           {/* Issues decides for itself: teams always, everybody when the
-              church lets everybody raise one (Settings › Timings). */}
+              church lets everybody raise one (Settings › Page by Page). */}
           <Route path="/issues" lazy={page(() => import('./pages/IssuesPage'), 'IssuesPage')} />
           {/* Every other page a church can open or close to some of its
               people (Settings › Access & Privileges, lib/pageAccess).

@@ -8,10 +8,9 @@ import { SERVING_TABS } from './serving'
  *
  * Each entry says what it is called, what it does in a line and in full,
  * which pages move when it moves, and how to read and write it on the
- * settings row. The rooms (Timings, Dashboard & Lists, Data & Retention,
- * Stage layout) draw their rows from here, and so does Page by Page,
- * which shows each page the settings that are its own — so a setting
- * cannot be worded one way in its room and another on its page, or be in
+ * settings row. Page by Page draws its rows from here, showing each page
+ * the settings that are its own, and so does Stage layout — so a setting
+ * cannot be worded one way in one room and another in the next, or be in
  * one and missing from the other.
  *
  * A setting with controls of its own (the rota's tags, the Giving links,

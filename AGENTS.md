@@ -490,11 +490,10 @@ per key), no migration → read it with `useDisplay()`. Either way, **one
 entry in `lib/settingsCatalog.ts`**: its name, one line, the long
 explanation (behind "How this works"), the pages it moves (`affects`:
 routes, or `BELL`/`ALERTS`/`APP`/`SERVICE_PAGES_REF`), and how to read and
-write it. Then add its id to the room it belongs to — Timings
-(`AppSettingsCard`) for when things open and close, Data & Retention
-(`RetentionCard`) for what is deleted and when, Dashboard & Lists
-(`DisplayCard`) for what is drawn — and Page by Page shows it under its
-pages by itself. `settingsCatalog.test.ts` fails if a column or a display
+write it. Page by Page shows it under its pages by itself — it is the
+one room for a page's clocks, what it keeps and what it shows (Timings,
+Data & Retention and Dashboard & Lists folded into it; do not bring a
+second room for the same rows back). `settingsCatalog.test.ts` fails if a column or a display
 key is missing from the catalog, or a page it names does not exist. Rooms
 save through `useSettingsDraft(keys)`, which sends only the columns that
 moved, so no room can undo another. A new clock needs its sentence in

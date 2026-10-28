@@ -7,6 +7,6 @@ import { Navigate, useLocation } from 'react-router-dom'
  */
 export function ChurchSettingsRedirect() {
   const { hash } = useLocation()
-  const room = ({ '#rota': 'rota', '#giving': 'giving', '#menu': 'menu' } as Record<string, string>)[hash] ?? 'timings'
+  const room = ({ '#rota': 'rota', '#giving': 'giving', '#menu': 'menu' } as Record<string, string>)[hash] ?? 'pages'
   return <Navigate to={`/settings/${room}`} replace />
 }

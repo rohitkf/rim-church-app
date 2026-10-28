@@ -1,6 +1,6 @@
 /**
  * A setting's value said the way somebody would say it aloud, for the
- * Timings rows: "12 h" rather than "720 minutes", which is the number the
+ * settings rows: "12 h" rather than "720 minutes", which is the number the
  * database keeps and nobody thinks in.
  *
  *   shortDuration(45, 'minutes')   → "45 min"

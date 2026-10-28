@@ -47,9 +47,8 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Settings', detail: 'Your account, and how the church’s app behaves', to: '/settings', keywords: 'settings preferences account' },
   { label: 'Profile', detail: 'Your name, contact details and dates', to: '/settings/profile', keywords: 'profile account name phone birthday password' },
   { label: 'Appearance & Alerts', detail: 'Theme, team style and phone notifications', to: '/settings/appearance', keywords: 'theme dark light mode appearance notifications push' },
-  { label: 'Page by Page', detail: 'Each page’s settings and rules, team by team', to: '/settings/pages', keywords: 'page settings access team rules head' },
+  { label: 'Page by Page', detail: 'Each page’s clocks, what it keeps, and its rules, team by team', to: '/settings/pages', keywords: 'page settings access team rules head timings clocks window clear deadline retention delete keep dashboard display' },
   { label: 'Access & Privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
-  { label: 'Timings', detail: 'The church’s clocks and windows', to: '/settings/timings', keywords: 'app settings timings rota window clear deadline' },
 ]
 
 const MIN_QUERY = 2

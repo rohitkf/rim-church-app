@@ -330,9 +330,9 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       },
       {
         path: '/settings',
-        target: 'settings:/settings/timings',
-        title: 'Timings',
-        body: 'When answers close, when checklists open, how long things stay before they go.',
+        target: 'settings:/settings/pages',
+        title: 'Page by Page',
+        body: 'Every page’s clocks and what it keeps — when answers close, when checklists open, how long things stay — and who may do what on it, team by team.',
       },
       {
         path: '/settings',

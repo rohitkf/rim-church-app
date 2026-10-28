@@ -83,7 +83,7 @@ export function opensOnItsOwn(date: string, focusDate: string, state: ServiceSta
 
 /**
  * Whether a service's card opens by itself, under the church's choice
- * (Settings › Dashboard & Lists): on its day (the default), always, or
+ * (Settings › Page by Page › Dashboard): on its day (the default), always, or
  * never. A finished one stays shut whatever was chosen — it is a record.
  */
 export function opensByChoice(
