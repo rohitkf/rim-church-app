@@ -7,7 +7,7 @@ import { PagesCard } from './PagesCard'
 import { NavNamesContext } from '../lib/navNames'
 import { DEFAULT_SETTINGS } from '../lib/appSettings'
 import { SETTINGS_PAGES } from '../lib/pageSettings'
-import { decide, type Holder, type Overrides, type TeamOverrides } from '../lib/permissions'
+import { decide, type Holder, type Overrides, type PermissionGrant, type TeamOverrides } from '../lib/permissions'
 import { chooseOption, openOptions } from '../test/select'
 
 /*
@@ -18,6 +18,7 @@ import { chooseOption, openOptions } from '../test/select'
 let viewer: Holder = { myId: 'me', owner: false, admin: true, ledTeams: [], memberTeams: [] }
 let stored: Overrides = {}
 let storedTeams: TeamOverrides = {}
+let storedGrants: PermissionGrant[] = []
 
 vi.mock('../lib/usePermissions', () => ({
   usePermissions: () => ({
@@ -25,6 +26,7 @@ vi.mock('../lib/usePermissions', () => ({
       decide(stored, viewer, cap, where, storedTeams),
     overrides: stored,
     teams: storedTeams,
+    grants: storedGrants,
   }),
 }))
 vi.mock('../auth/AuthContext', () => ({
@@ -76,6 +78,7 @@ beforeEach(() => {
   viewer = { myId: 'me', owner: false, admin: true, ledTeams: [], memberTeams: [] }
   stored = {}
   storedTeams = {}
+  storedGrants = []
   db.row = { ...DEFAULT_SETTINGS }
   db.writes = []
   db.rpc = []
@@ -239,17 +242,23 @@ describe('Page by Page', () => {
 
     expect(screen.getByRole('list', { name: 'Changes to save' })).toHaveTextContent('Who has the Service Planner’s buttons')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(db.writes[0]).toEqual({
-      planner_controls: {
-        teams: { d1: ['start', 'hold', 'add_time', 'end'] },
-        people: { p1: ['start', 'hold', 'add_time', 'skip', 'substitute', 'add_below', 'remove', 'end'] },
-      },
-    })
+    // Each button is a capability since 0211, each holder's tick a grant.
+    await waitFor(() => expect(db.rpc.some((c) => c.fn === 'set_permission_grants')).toBe(true))
+    const sent = db.rpc.find((c) => c.fn === 'set_permission_grants')!.args as { p_changes: unknown[] }
+    expect(sent.p_changes).toEqual([
+      ...['start', 'hold', 'add_time', 'end'].map((c) => ({ capability: `planner.${c}`, team: 'd1', reach: 'all' })),
+      ...['start', 'hold', 'add_time', 'skip', 'substitute', 'add_below', 'remove', 'end'].map((c) => ({
+        capability: `planner.${c}`,
+        person: 'p1',
+        reach: 'all',
+      })),
+    ])
+    // And nothing of it goes into the settings row.
+    expect(db.writes).toHaveLength(0)
   })
 
   it('takes a holder away again', async () => {
-    db.row = { ...DEFAULT_SETTINGS, planner_controls: { teams: { d2: ['start'] }, people: {} } }
+    storedGrants = [{ id: 'g1', capability: 'planner.start', userId: null, departmentId: 'd2', reach: 'all' }]
     const user = await show()
     await user.click(section('Service Planner'))
     const card = screen.getByRole('region', { name: 'Planner buttons' })
@@ -257,8 +266,11 @@ describe('Page by Page', () => {
     await user.click(within(card).getByRole('button', { name: 'Remove Worship' }))
     expect(within(card).getByText(/Nobody else yet/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(db.writes[0]).toEqual({ planner_controls: { teams: {}, people: {} } })
+    await waitFor(() => expect(db.rpc).toHaveLength(1))
+    expect(db.rpc[0]).toEqual({
+      fn: 'set_permission_grants',
+      args: { p_changes: [{ capability: 'planner.start', team: 'd2', reach: null }] },
+    })
   })
 
   it('offers nothing to save to somebody who may only read it', async () => {

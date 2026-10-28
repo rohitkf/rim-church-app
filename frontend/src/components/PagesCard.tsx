@@ -12,7 +12,11 @@ import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { fetchDepartments } from '../lib/queries'
 import type { AppSettings } from '../lib/appSettings'
-import { NO_CONTROLS } from '../lib/plannerControls'
+import { controlGrantChanges, controlsFromGrants, type PlannerControls } from '../lib/plannerControls'
+import { PERMISSIONS_KEY } from '../lib/usePermissions'
+import { useErrorText } from '../lib/useErrorText'
+import { supabase } from '../lib/supabaseClient'
+import { useQueryClient } from '@tanstack/react-query'
 import { Chevron } from './Collapsible'
 import { ChevronRightIcon } from './icons'
 import { PageTeamAccess } from './PageTeamAccess'
@@ -42,7 +46,7 @@ import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from
  */
 
 /** Every column the catalog writes, who may open each page, and who has the planner's buttons. */
-const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG), 'page_access', 'planner_controls'] as (keyof AppSettings)[]
+const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG), 'page_access'] as (keyof AppSettings)[]
 
 const TONES: Record<string, BadgeTone> = {
   Home: 'blue',
@@ -101,14 +105,32 @@ export function PagesCard() {
     [draft, storedRow],
   )
   const accessChanged = !!draft && !same(draft.page_access, (storedRow as Partial<AppSettings>).page_access ?? {})
-  const controlsChanged =
-    !!draft && !same(draft.planner_controls ?? NO_CONTROLS, (storedRow as Partial<AppSettings>).planner_controls ?? NO_CONTROLS)
-  const changed = pending.length > 0 || room.changed
+  // The planner's buttons are the grid's since 0211: each a capability,
+  // its holders grants. Edited here as holders and ticks, saved as grants.
+  const storedControls = useMemo(() => controlsFromGrants(perms.grants), [perms.grants])
+  const [controlsDraft, setControlsDraft] = useState<PlannerControls | null>(null)
+  const controls = controlsDraft ?? storedControls
+  const controlChanges = useMemo(() => controlGrantChanges(storedControls, controls), [storedControls, controls])
+  const controlsChanged = controlChanges.length > 0
+  const [controlsError, setControlsError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const errorText = useErrorText()
+  const changed = pending.length > 0 || room.changed || controlsChanged
   const teamName = (id: string) => departments.data?.find((d) => d.id === id)?.name ?? 'that team'
   const actionOf = (key: CapabilityKey) => areas.flatMap((a) => a.capabilities).find((c) => c.key === key)?.action ?? key
 
   const saveAll = async () => {
     setSaved(false)
+    if (controlsChanged) {
+      const { error } = await supabase.rpc('set_permission_grants', { p_changes: controlChanges })
+      if (error) {
+        setControlsError(errorText(error, 'Could not save who has the planner’s buttons.'))
+        return
+      }
+      setControlsError(null)
+      await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
+      setControlsDraft(null)
+    }
     try {
       await perms.commit()
     } catch {
@@ -202,10 +224,10 @@ export function PagesCard() {
                     extra={
                       page.to === '/service-planner' ? (
                         <PlannerControlsCard
-                          value={draft.planner_controls ?? NO_CONTROLS}
+                          value={controls}
                           onChange={(next) => {
                             setSaved(false)
-                            room.set('planner_controls', next)
+                            setControlsDraft(next)
                           }}
                           editable={editable}
                           teams={departments.data ?? []}
@@ -257,7 +279,7 @@ export function PagesCard() {
               changed={changed}
               saving={perms.saving || room.saving}
               saved={(saved || room.saved) && !changed}
-              error={perms.error ?? room.error}
+              error={controlsError ?? perms.error ?? room.error}
               onSave={saveAll}
               label="Save"
             />

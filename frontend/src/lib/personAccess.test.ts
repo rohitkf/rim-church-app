@@ -181,7 +181,6 @@ describe('the lists outside the grid', () => {
     )
     expect(named.map((n) => `${n.what} — ${n.because}`)).toEqual([
       'Approves requests to be clocked in — Through Worship',
-      'Presses “Session started” on the Service Planner — Through Worship',
       'May add to the stage — Through Worship',
       'May comment on it — Through Worship',
     ])

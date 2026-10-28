@@ -1,24 +1,18 @@
 import { useMemo } from 'react'
-import { useAuth } from '../auth/AuthContext'
-import { useAppSettings } from './appSettings'
-import { controlsHeld, type PlannerControl } from './plannerControls'
-import { useMyTeams } from './useMyTeams'
+import { CONTROL_KEYS, type PlannerControl } from './plannerControls'
+import { usePermissions } from './usePermissions'
+import type { CapabilityKey } from './permissions'
 
 /**
- * The planner buttons the church gave this person beyond what their
- * profile plans (0184): on their own name, or through a team they are on
- * or head. While an Admin views the app as somebody else, only the team
- * they picked counts — their own name is not the previewed person's.
+ * The planner buttons this person may press on their own (0211): each is
+ * a capability in the grid — given to a profile, a team they are on or
+ * head, or them by name — beyond what planning the running order or
+ * running the service already gives. A preview counts the previewed
+ * team's grants, not the Admin's own name.
  */
 export function usePlannerControls(): Set<PlannerControl> {
-  const { planner_controls } = useAppSettings()
-  const { session, ledDepartmentIds, viewAs } = useAuth()
-  const { teamIds } = useMyTeams()
-  const myId = viewAs ? null : session?.user.id
-  const led = ledDepartmentIds ?? []
-  const key = [...teamIds, ...led].join('|')
-  return useMemo(
-    () => controlsHeld(planner_controls, { id: myId, teamIds: key ? key.split('|') : [] }),
-    [planner_controls, myId, key],
-  )
+  const { can } = usePermissions()
+  const held = CONTROL_KEYS.filter((c) => can(`planner.${c}` as CapabilityKey))
+  const key = held.join('|')
+  return useMemo(() => new Set(key ? (key.split('|') as PlannerControl[]) : []), [key])
 }

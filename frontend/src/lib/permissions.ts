@@ -58,6 +58,16 @@ const offer = (reaches: string, byDefault: Reach): Rule => ({
 })
 const fixed = (reach: Reach = 'none'): Rule => ({ reaches: [reach], byDefault: reach })
 
+/** One planner button (0211): nobody's out of the box, anybody's but a Church Member's to be given. */
+const PLANNER_RULE = {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  }
+
 /*
  * One entry per capability, five profiles each — the same as the
  * migration's insert, cell for cell. A new area's capabilities arrive here
@@ -221,6 +231,17 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
+  // The Service Planner's buttons on their own (0211): whoever plans the
+  // running order or runs the service has them all through svc.sessions
+  // and svc.manage; these give one without the rest.
+  'planner.start': PLANNER_RULE,
+  'planner.hold': PLANNER_RULE,
+  'planner.add_time': PLANNER_RULE,
+  'planner.skip': PLANNER_RULE,
+  'planner.substitute': PLANNER_RULE,
+  'planner.add_below': PLANNER_RULE,
+  'planner.remove': PLANNER_RULE,
+  'planner.end': PLANNER_RULE,
   // Asking to join a team (0190): out of the box a Church Member is added
   // by a head rather than asking.
   'team.request_join': {
