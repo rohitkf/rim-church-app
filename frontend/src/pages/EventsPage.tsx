@@ -29,6 +29,7 @@ import { TimeField } from '../components/DateTimeFields'
 import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
+import { Lifespan } from '../components/Lifespan'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -498,6 +499,7 @@ export function EventsPage() {
           )
         }
       />
+      <Lifespan page="events" className="mb-4" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">

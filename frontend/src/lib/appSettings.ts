@@ -70,6 +70,7 @@ export const appSettingsSchema = z.object({
    * own time; these only fill the form.
    */
   church_update_retention_days: z.number().int().min(1).max(365).default(30),
+  church_event_retention_days: z.number().int().min(1).max(3650).nullable().default(60),
   poll_retention_days: z.number().int().min(1).max(365).default(7),
   /** Who sees the names on an anonymous poll, besides the Owner (0172). */
   poll_voters_seen_by: z.enum(['owner', 'admins', 'leads']).default('owner'),
@@ -138,6 +139,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notification_retention_days: null,
   team_chat_retention_days: 30,
   church_update_retention_days: 30,
+  church_event_retention_days: 60,
   poll_retention_days: 7,
   poll_voters_seen_by: 'owner',
   poll_top_count: 2,
@@ -165,7 +167,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
     .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, overwatch_pages, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_retention_days, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
+      'rota_window_days, always_show_my_services, planner_upcoming_limit, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, timezone, availability_closes_time, coordinator_color, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, church_event_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, overwatch_pages, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_retention_days, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, notification_keep_count, alert_clear_dow, service_retention_days',
     )
     .maybeSingle()
   if (error) throw error
