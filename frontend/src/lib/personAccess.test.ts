@@ -189,15 +189,27 @@ describe('the pages they can open', () => {
     expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings())).toMatchObject({ open: false })
   })
 
+  // A page's level is the grid's (0215), passed in as the levels.
+  const closed = { levels: { prayer: 'team' as const } }
+
   it('opens Prayer Requests to a Pastor, whatever its level', () => {
-    const closed = settings({ page_access: { prayer: 'team' } })
-    expect(openingFor(person({ pastor: true }), '/prayer', closed)).toMatchObject({ open: true, via: 'pastoral' })
+    expect(openingFor(person({ pastor: true }), '/prayer', settings(), closed)).toMatchObject({ open: true, via: 'pastoral' })
   })
 
   it('opens Prayer Requests to whoever the grid gives prayer.pastoral (0210)', () => {
-    const closed = settings({ page_access: { prayer: 'team' } })
-    expect(openingFor(person(), '/prayer', closed, { prayerCarer: true })).toMatchObject({ open: true, via: 'pastoral' })
-    expect(openingFor(person(), '/prayer', closed)).toMatchObject({ open: false })
+    expect(openingFor(person(), '/prayer', settings(), { ...closed, prayerCarer: true })).toMatchObject({
+      open: true,
+      via: 'pastoral',
+    })
+    expect(openingFor(person(), '/prayer', settings(), closed)).toMatchObject({ open: false })
+  })
+
+  it('opens a page given to them by name, whatever its level (0215)', () => {
+    const opens = (cap: string) => cap === 'page.inventory'
+    expect(openingFor(person(), '/inventory', settings(), { opens })).toMatchObject({ open: true, via: 'grant' })
+    expect(openingFor(person(), '/rota', settings(), { opens })).toMatchObject({ open: false })
+    // A page without a choice is never a grant's.
+    expect(openingFor(person(), '/volunteers', settings(), { opens: () => true })).toMatchObject({ open: false })
   })
 
   it('opens to Overwatch what the church left open to it', () => {

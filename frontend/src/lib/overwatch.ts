@@ -1,4 +1,5 @@
 import { reachOf, type CapabilityKey, type Overrides } from './permissions'
+import { PAGE_CAPABILITIES } from './pageCells'
 import { ruleFor } from './pageAccess'
 
 /**
@@ -63,4 +64,6 @@ export function overwatchMay(overrides: Overrides, pages: Record<string, boolean
 export const OVERWATCH_READS: Partial<Record<CapabilityKey, string>> = {
   'clockin.view': '/clock-in',
   'avail.history': '/availability',
+  // And every page with a level (0215): Overwatch opens what its room leaves open.
+  ...Object.fromEntries(PAGE_CAPABILITIES.map(({ capability, path }) => [capability, path])),
 }

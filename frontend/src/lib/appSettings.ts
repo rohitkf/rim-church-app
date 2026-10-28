@@ -63,7 +63,8 @@ export const appSettingsSchema = z.object({
   coordinator_color: z.string().nullable().default(null),
   /*
    * Who may open each page (0123): a page key to the lowest level that
-   * may. lib/pageAccess reads it, and drops any value it does not know.
+   * may. Read by nothing since each page's level became its cells in the
+   * grid (0215, lib/pageCells), until a later release drops it.
    */
   page_access: z.record(z.string(), z.string()).catch({}).default({}),
   /** Preferences only the screens read (0123); lib/display reads it. */

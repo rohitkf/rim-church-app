@@ -22,7 +22,7 @@ database** or **Hides the page**, so nobody mistakes the second for the first.
 Admins (and the Owner) can always open everything. No setting can lock an Admin
 out of a page, because an Admin is how a wrong setting gets put right.
 
-## 1. Profiles and pages — `app_settings.page_access`
+## 1. Profiles and pages — the grid's `page.*` rows
 
 Four profiles, the same four "View as" previews:
 
@@ -33,10 +33,17 @@ Four profiles, the same four "View as" previews:
 | `leads` | Head or Assisting Head of any team |
 | `admins` | Admins and the Owner only |
 
-`page_access` maps a page key to the lowest level that may open it. A missing
-key means the page's default. Each page allows only the levels the database can
-actually honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by
-`page_access_is_valid()` in SQL):
+Each page with a choice is a row of the permission grid since 0215,
+`page.<key>` (a hyphen becomes an underscore), and its level is two cells: a
+Church Member's (open to everyone) and a Team Member's (open to teams); Admins
+and every team's Heads are always let in, and a Team Coordinator opens a page as
+the Team Member they are. Page by Page still offers levels and writes the
+cells; `can_open_page()` asks `may()`, so a grant of `page.<key>` opens a page
+to one person or a whole team whatever its level. Until 0215 the levels were
+`app_settings.page_access` (a page key to the lowest level that may open it),
+read by nothing now. Each page allows only the levels the database can actually
+honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by the `page.*` cells and
+by `page_access_is_valid()` in SQL):
 
 | Page | Default | Choices | Enforced by |
 |---|---|---|---|

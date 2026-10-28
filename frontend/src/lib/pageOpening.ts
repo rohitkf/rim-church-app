@@ -2,6 +2,8 @@ import type { AppSettings } from './appSettings'
 import { levelOf, standingMayOpen, type AccessLevel, type PageAccess, type Standing } from './pageAccess'
 import { overwatchOpens } from './overwatch'
 import { maySeeClockIns } from './clockIn'
+import { pageCapability } from './pageCells'
+import type { CapabilityKey } from './permissions'
 
 /** Who is asking, for the purpose of opening pages. */
 export interface PageWho {
@@ -18,6 +20,11 @@ export interface PageWho {
   clockInViewer: boolean
   /** The grid's answer for `prayer.pastoral` (0210). */
   prayerCarer: boolean
+  /**
+   * The grid's answer for a page's own capability (0215), grants
+   * included — what opens a page to somebody its level does not.
+   */
+  opens?: (cap: CapabilityKey) => boolean
 }
 
 /** Why a page opens to somebody, or what it waits for when it does not. */
@@ -29,15 +36,22 @@ export type PageOpening =
   | { open: true; via: 'clock-in'; level: AccessLevel }
   /** A pastor: the Pastor role, the Owner, or given `prayer.pastoral` (0210). */
   | { open: true; via: 'pastoral'; level: AccessLevel }
+  /** Given the page itself, by name or through a team (0215). */
+  | { open: true; via: 'grant'; level: AccessLevel }
   | { open: false; level: AccessLevel }
 
 /**
  * Whether this person may open this page, and why — the one answer the
  * menu (usePageAccess) and Settings › Access › By person both read.
+ * `levels` is every page's level, as the grid has it (usePageLevels).
  */
-export function pageOpening(path: string, who: PageWho, settings: AppSettings): PageOpening {
-  const level = levelOf(path, settings.page_access as PageAccess, settings.issues_raise_scope)
+export function pageOpening(path: string, who: PageWho, settings: AppSettings, levels: PageAccess): PageOpening {
+  const level = levelOf(path, levels, settings.issues_raise_scope)
   if (standingMayOpen(who.standing, level)) return { open: true, via: 'level', level }
+  // A page given to them by name or through a team (0215), whatever its
+  // level — the same may() can_open_page asks.
+  const cap = pageCapability(path)
+  if (cap && who.opens?.(cap)) return { open: true, via: 'grant', level }
   // Overwatch opens what the church left open to it (Settings ›
   // Overwatch, 0187), and whatever its own teams would open besides.
   if (who.isOverwatch && overwatchOpens(path, settings.overwatch_pages)) return { open: true, via: 'overwatch', level }

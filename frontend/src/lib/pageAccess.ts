@@ -7,10 +7,12 @@
  * Admin is how a wrong setting gets put right.
  *
  * PAGE_RULES is mirrored by `page_access_is_valid()` and `page_level()` in
- * migration 0123. The two must agree: a choice offered here that SQL
- * refuses is a Save that fails; a choice SQL allows that this does not
- * offer is a setting nobody can reach. `pageAccess.test.ts` reads the
- * migration and checks.
+ * migration 0123, and — since a page's level became two cells in the grid
+ * (0215) — by its `page.<key>` cells in lib/permissions.ts and the
+ * catalog. They must agree: a choice offered here that SQL refuses is a
+ * Save that fails; a choice SQL allows that this does not offer is a
+ * setting nobody can reach. `pageAccess.test.ts` and `pageCells.test.ts`
+ * check.
  */
 
 import { ROLE_NAME } from './roleNames'
@@ -47,7 +49,7 @@ export const STANDINGS: { value: Standing; label: string; blurb: string }[] = [
 export type Enforcement = 'database' | 'widen' | 'page' | 'fixed'
 
 export interface PageRule {
-  /** The key in app_settings.page_access, when it has one. */
+  /** The page's key, when it has a choice: its capability is `page.<key>` (0215). */
   key?: string
   default: AccessLevel
   choices: AccessLevel[]

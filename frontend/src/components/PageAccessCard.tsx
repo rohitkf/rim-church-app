@@ -8,10 +8,10 @@ import {
   levelOf,
   standingMayOpen,
   type AccessLevel,
-  type PageAccess,
   type Standing,
 } from '../lib/pageAccess'
 import { useAppSettingsState } from '../lib/appSettings'
+import { usePageLevels } from '../lib/usePageLevels'
 import { pageSlug } from '../lib/pageSettings'
 import { QueryState } from './QueryState'
 import { Pill, SectionTile } from './Surface'
@@ -47,10 +47,11 @@ export function PageAccessCard() {
   const { isAdmin } = useAuth()
   const { settings, settled } = useAppSettingsState()
   const [preview, setPreview] = useState<Standing>('church')
+  // Each page's level, as the grid holds it (0215).
+  const access = usePageLevels()
 
   if (!isAdmin) return null
 
-  const access = settings.page_access as PageAccess
   // Issues follows "Who can raise one" in Page by Page.
   const scope = settings.issues_raise_scope
   // Serving's three tabs are listed each on its own.

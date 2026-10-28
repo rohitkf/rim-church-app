@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { useNavNames } from '../lib/navNames'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
-import { ACCESS_LEVELS, PAGE_RULES, compactAccess, levelOf, type AccessLevel, type PageAccess } from '../lib/pageAccess'
+import { ACCESS_LEVELS, PAGE_RULES, levelOf, type AccessLevel } from '../lib/pageAccess'
+import { cellsForLevel, isPageCapability, levelsFrom, pageCapability } from '../lib/pageCells'
 import { ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
 import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GridRole } from '../lib/permissions'
 import { PAGE_ROOMS, SETTINGS_PAGES, capabilitiesFor, pageForSlug, pageSlug, teamRows, type SettingsPage } from '../lib/pageSettings'
@@ -45,8 +46,11 @@ import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from
  * draft, one Save: nothing changes for anybody until it is pressed.
  */
 
-/** Every column the catalog writes, who may open each page, and who has the planner's buttons. */
-const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG), 'page_access'] as (keyof AppSettings)[]
+/**
+ * Every column the catalog writes. Who may open each page is the grid's
+ * since 0215 — two cells a page — and so are the planner's buttons (0211).
+ */
+const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG)] as (keyof AppSettings)[]
 
 const TONES: Record<string, BadgeTone> = {
   Home: 'blue',
@@ -85,7 +89,8 @@ export function PagesCard() {
 
   const draft = room.draft
   const storedRow = room.query.data ?? {}
-  const access = (draft?.page_access ?? {}) as PageAccess
+  // Each page's level, as the draft of the grid has it (0215).
+  const access = useMemo(() => levelsFrom(working), [working])
   // Issues opens to whoever may raise one, so a change to that here
   // relights its row before it is saved, like any other choice.
   const scope = draft?.issues_raise_scope ?? settings.issues_raise_scope
@@ -93,6 +98,11 @@ export function PagesCard() {
   const areas = useMemo(
     () => withGrants(withPageAccess(access, scope, overwatchPages), working),
     [access, scope, overwatchPages, working],
+  )
+  // A page's own row is its level, chosen above its rules, so it is not drawn again among them.
+  const rulesHere = useMemo(
+    () => areas.map((a) => ({ ...a, capabilities: a.capabilities.filter((c) => !c.key || !isPageCapability(c.key)) })),
+    [areas],
   )
 
   const toggleIn = (set: (f: (s: Set<string>) => Set<string>) => void, id: string) =>
@@ -108,7 +118,7 @@ export function PagesCard() {
     () => (draft ? SETTINGS_CATALOG.filter((e) => !same(e.get(draft), e.get(storedRow))) : []),
     [draft, storedRow],
   )
-  const accessChanged = !!draft && !same(draft.page_access, (storedRow as Partial<AppSettings>).page_access ?? {})
+  const accessChanged = pending.some((c) => isPageCapability(c.capability))
   // The planner's buttons are the grid's since 0211: each a capability,
   // its holders grants. Edited here as holders and ticks, saved as grants.
   const storedControls = useMemo(() => controlsFromGrants(perms.grants), [perms.grants])
@@ -204,7 +214,7 @@ export function PagesCard() {
                     open={open.has(page.to)}
                     onToggle={() => toggleIn(setOpen, page.to)}
                     entries={settingsForPage(page.to)}
-                    areas={capabilitiesFor(areas, page.to)}
+                    areas={capabilitiesFor(rulesHere, page.to)}
                     draft={draft}
                     stored={storedRow}
                     set={(patch) => {
@@ -216,7 +226,10 @@ export function PagesCard() {
                     level={levelOf(page.to, access, scope)}
                     chooseOpen={(key, level) => {
                       setSaved(false)
-                      room.set('page_access', compactAccess({ ...access, [key]: level }) as Record<string, string>)
+                      // A level is the page's two cells in the grid (0215).
+                      const cap = pageCapability(key)
+                      if (!cap) return
+                      for (const { role, reach } of cellsForLevel(cap, level)) perms.chooseChurch(cap, role, reach)
                     }}
                     editable={editable}
                     teams={departments.data ?? []}
@@ -264,7 +277,7 @@ export function PagesCard() {
                 {controlsChanged && (
                   <li className="text-body-sm text-on-surface-variant">Who has the Service Planner’s buttons</li>
                 )}
-                {pending.map((change) => (
+                {pending.filter((change) => !isPageCapability(change.capability)).map((change) => (
                   <li key={`${change.department ?? 'church'}:${change.capability}:${change.role}`} className="text-body-sm text-on-surface-variant">
                     {change.department && <span className="font-medium text-on-surface">{teamName(change.department)} · </span>}
                     <span className="font-medium text-on-surface">{roleLabel(change.role)}</span> · {actionOf(change.capability)}:{' '}

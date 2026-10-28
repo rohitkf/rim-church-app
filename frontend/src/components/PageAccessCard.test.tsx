@@ -49,7 +49,8 @@ describe('who sees what', () => {
   })
 
   it('arrives with the church’s saved choices, and marks what moved from the app’s own', async () => {
-    settingsRow.reset({ ...DEFAULT_SETTINGS, page_access: { rota: 'everyone' } })
+    // A page's level is its cells in the grid (0215): the Rota opened to Church Members.
+    settingsRow.reset({ ...DEFAULT_SETTINGS }, [{ role_key: 'newcomer', capability: 'page.rota', reach: 'all' }])
     await show()
     await waitFor(() => expect(tile('Team Rota')).toHaveAccessibleName('Team Rota: can open'))
     const rota = row('Team Rota')

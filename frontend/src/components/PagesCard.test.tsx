@@ -187,8 +187,14 @@ describe('Page by Page', () => {
     expect(changes).toHaveTextContent('Team Member · Assign somebody to a role: No → Their team')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(db.writes[0]).toEqual({ always_show_my_services: false, page_access: { rota: 'everyone' } })
-    expect(db.rpc[0].args).toEqual({ p_changes: [{ role: 'member', capability: 'rota.assign', reach: 'team' }] })
+    expect(db.writes[0]).toEqual({ always_show_my_services: false })
+    // A page's level is its cells in the grid (0215), saved with the rest of the grid.
+    expect(db.rpc[0].args).toEqual({
+      p_changes: [
+        { role: 'member', capability: 'rota.assign', reach: 'team' },
+        { role: 'newcomer', capability: 'page.rota', reach: 'all' },
+      ],
+    })
   })
 
   it('relights Issues’ opening rule as soon as everyone may raise one, before Save', async () => {

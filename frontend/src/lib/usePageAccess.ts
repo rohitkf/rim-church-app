@@ -5,6 +5,7 @@ import { useAppSettingsState } from './appSettings'
 import { standingOf, type Standing } from './pageAccess'
 import { pageOpening } from './pageOpening'
 import { usePermissions } from './usePermissions'
+import { usePageLevels } from './usePageLevels'
 
 /**
  * Whether the person in front of the screen may open a page, under this
@@ -41,6 +42,8 @@ export function usePageAccess(): {
   const clockInViewer = can('clockin.view')
   const prayerCarer = can('prayer.pastoral')
   const permissionsSettled = !permissions || !permissions.isLoading
+  // Every page's level is the grid's too (0215), and a grant opens a page.
+  const levels = usePageLevels()
   const myId = session?.user.id
   const canOpen = useCallback(
     (path: string) =>
@@ -56,10 +59,12 @@ export function usePageAccess(): {
           teamIds: [...teamIds, ...ledDepartmentIds],
           clockInViewer,
           prayerCarer,
+          opens: can,
         },
         settings,
+        levels,
       ).open,
-    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, clockInViewer, prayerCarer],
+    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, levels, clockInViewer, prayerCarer, can],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled && permissionsSettled }
 }

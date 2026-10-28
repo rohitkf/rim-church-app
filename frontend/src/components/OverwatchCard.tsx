@@ -4,7 +4,8 @@ import { useNavNames } from '../lib/navNames'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { pageName } from '../lib/settingsCatalog'
 import { SETTINGS_PAGES } from '../lib/pageSettings'
-import { levelOf, type PageAccess } from '../lib/pageAccess'
+import { levelOf } from '../lib/pageAccess'
+import { levelsFrom } from '../lib/pageCells'
 import { OVERWATCH_ACTS, overwatchOpens, overwatchPageKey, type OverwatchAct } from '../lib/overwatch'
 import { reachOf } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
@@ -61,13 +62,15 @@ const ACTS: { act: OverwatchAct; label: string; summary: string; help: string }[
   },
 ]
 
-const KEYS = ['overwatch_pages', 'page_access', 'issues_raise_scope'] as const
+const KEYS = ['overwatch_pages', 'issues_raise_scope'] as const
 
 export function OverwatchCard() {
   const room = useSettingsDraft(KEYS)
   // The five, as Overwatch's cells in the grid (0214).
   const perms = usePermissionDraft()
   const [cellsSaved, setCellsSaved] = useState(false)
+  // Each page's level, as the grid holds it (0215).
+  const levels = useMemo(() => levelsFrom(perms.working), [perms.working])
   const names = useNavNames()
   const draft = room.draft
 
@@ -106,8 +109,7 @@ export function OverwatchCard() {
           <SectionTile title="Pages it can open" hint="Turn a page off and Overwatch no longer sees it in the menu or opens it.">
             <ul aria-label="Pages Overwatch can open" className="-mx-2 flex flex-col">
               {pages.map((page) => {
-                const everyone =
-                  levelOf(page.to, draft.page_access as PageAccess, draft.issues_raise_scope) === 'everyone'
+                const everyone = levelOf(page.to, levels, draft.issues_raise_scope) === 'everyone'
                 const open = everyone || overwatchOpens(page.to, draft.overwatch_pages)
                 const label = names[page.to] ?? page.label
                 return (

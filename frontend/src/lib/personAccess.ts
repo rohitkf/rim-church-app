@@ -2,7 +2,7 @@ import type { AppSettings } from './appSettings'
 import type { Allowed, Capability, RoleKey } from './permissionMatrix'
 import { OVERWATCH_READS, overwatchActOf, overwatchMay, overwatchOpens } from './overwatch'
 import { pageOpening, type PageOpening } from './pageOpening'
-import { standingOf } from './pageAccess'
+import { standingOf, type PageAccess } from './pageAccess'
 import {
   grantedBy,
   isOverwatchOnly,
@@ -153,6 +153,7 @@ export function explainFixed(
   person: PersonFacts,
   row: Capability,
   settings?: AppSettings,
+  levels: PageAccess = {},
 ): { allowed: Allowed; via: Via | null } {
   let best: { allowed: Allowed; via: Via | null } = { allowed: 'no', via: null }
   for (const profile of profilesOf(person)) {
@@ -160,7 +161,7 @@ export function explainFixed(
     if (RANK[allowed] > RANK[best.allowed]) best = { allowed, via: profile }
   }
   if (row.page && settings) {
-    const opening = openingFor(person, row.page, settings)
+    const opening = openingFor(person, row.page, settings, { levels })
     if (!opening.open) return { allowed: 'no', via: null }
     if (best.allowed === 'no' && opening.via === 'overwatch') return { allowed: 'yes', via: 'overwatch' }
   }
@@ -169,14 +170,21 @@ export function explainFixed(
 
 /**
  * Whether a page opens to this person, and why. `granted` is the grid's
- * answer, grants included, for the two pages that open by a capability as
- * well as by their level: Clock In (0209) and Prayer (0210).
+ * answer, grants included: for the two pages that open by a capability as
+ * well as by their level, Clock In (0209) and Prayer (0210); every page's
+ * level (0215, each page's default when left out); and a page's own
+ * capability, which a grant may give them.
  */
 export function openingFor(
   person: PersonFacts,
   path: string,
   settings: AppSettings,
-  granted: { clockInViewer?: boolean; prayerCarer?: boolean } = {},
+  granted: {
+    clockInViewer?: boolean
+    prayerCarer?: boolean
+    levels?: PageAccess
+    opens?: (cap: CapabilityKey) => boolean
+  } = {},
 ): PageOpening {
   const led = [...person.headTeams, ...person.assistTeams]
   const onATeam = person.memberTeams.length > 0 || led.length > 0 || person.admin
@@ -199,8 +207,10 @@ export function openingFor(
       teamIds: [...person.memberTeams, ...led],
       clockInViewer: !!granted.clockInViewer,
       prayerCarer: !!granted.prayerCarer,
+      opens: granted.opens,
     },
     settings,
+    granted.levels ?? {},
   )
 }
 

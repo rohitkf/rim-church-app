@@ -15,7 +15,8 @@ import {
 import { useDragReorder } from '../lib/useDragReorder'
 import { useErrorText } from '../lib/useErrorText'
 import { useAppSettings } from '../lib/appSettings'
-import { ACCESS_LEVELS, levelOf, type AccessLevel, type PageAccess } from '../lib/pageAccess'
+import { usePageLevels } from '../lib/usePageLevels'
+import { ACCESS_LEVELS, levelOf, type AccessLevel } from '../lib/pageAccess'
 import { ActionButton, inputClasses } from './Surface'
 import { DragHandle } from './DragHandle'
 import { QueryState } from './QueryState'
@@ -99,9 +100,10 @@ const levelShort = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value ===
 
 export function NavLayoutCard() {
   const { isAdmin } = useAuth()
-  // Who each page is open to, beside its name: the church's own choice.
+  // Who each page is open to, beside its name: the church's own choice,
+  // as the grid holds it (0215).
   const settings = useAppSettings()
-  const access = settings.page_access as PageAccess
+  const access = usePageLevels()
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const query = useQuery({ queryKey: NAV_LAYOUT_KEY, queryFn: fetchNavLayout, enabled: isAdmin })
