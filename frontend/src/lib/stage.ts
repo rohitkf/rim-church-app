@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import { inDate } from './grantUntil'
 
 /*
  * The stage, laid out before Sunday (0155).
@@ -305,12 +306,15 @@ export async function fetchStageTemplateRequests(): Promise<StageTemplateRequest
 export async function fetchStageTeamAccess(): Promise<StageTeamAccess[]> {
   const { data, error } = await supabase
     .from('permission_grants')
-    .select('capability, department_id')
+    .select('capability, department_id, expires_at')
     .like('capability', 'stage.%')
     .not('department_id', 'is', null)
   if (error) throw error
   return stageAccessFromGrants(
-    z.array(z.object({ capability: z.string(), department_id: z.string() })).parse(data ?? []),
+    z
+      .array(z.object({ capability: z.string(), department_id: z.string(), expires_at: z.string().nullable().default(null) }))
+      .parse(data ?? [])
+      .filter((g) => inDate(g.expires_at)),
   )
 }
 

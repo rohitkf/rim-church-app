@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { TeamAccessCard } from './TeamAccessCard'
 import type { PersonFacts } from '../lib/personAccess'
+import { untilFromDay } from '../lib/grantUntil'
 
 const WORSHIP = '22222222-2222-2222-2222-222222222222'
 const MEDIA = '11111111-1111-1111-1111-111111111111'
@@ -143,8 +144,34 @@ describe('Settings › Access › By team', () => {
     await user.click(screen.getByRole('button', { name: 'Give' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
-      p_changes: [{ capability: 'rota.assign', team: WORSHIP, reach: 'team', leads_only: true }],
+      p_changes: [{ capability: 'rota.assign', team: WORSHIP, reach: 'team', leads_only: true, until: null }],
     })
     expect(await screen.findByRole('status')).toHaveTextContent('Saved.')
+  })
+
+  it('gives the team one thing more until a day, and says until when on what it holds (0218)', async () => {
+    perms.grants = [
+      { id: 'g1', capability: 'clockin.approve', userId: null, departmentId: WORSHIP, reach: 'all', leadsOnly: true, expiresAt: new Date(2026, 10, 13).toISOString() },
+    ]
+    const user = show(`/settings/access?tab=team&team=${WORSHIP}`)
+    const given = await screen.findByRole('list', { name: 'Given to Worship' })
+    expect(within(given).getByRole('listitem')).toHaveTextContent(
+      `Until ${new Date(2026, 10, 12, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    )
+    await user.click(await screen.findByRole('combobox', { name: 'Give the team' }))
+    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(screen.getByRole('button', { name: 'Until' }))
+    const dialog = screen.getByRole('dialog')
+    const today = new Date()
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const day = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`
+    if (tomorrow.getMonth() !== today.getMonth()) await user.click(within(dialog).getByRole('button', { name: 'Next month' }))
+    await user.click(within(dialog).getByRole('gridcell', { name: day }))
+    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'rota.assign', team: WORSHIP, reach: 'team', leads_only: false, until: untilFromDay(day) }],
+    })
   })
 })

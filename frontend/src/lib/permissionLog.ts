@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { PERMISSIONS, ROLES, type RoleKey } from './permissionMatrix'
 import { REACH_LABEL, isCapabilityKey, ruleFor, type GridRole, type Reach } from './permissions'
+import { formatUntil } from './grantUntil'
 
 /**
  * Who changed which rule (0216): `permission_changes`, a row for every
@@ -21,6 +22,8 @@ export interface PermissionChangeRow {
   after: string | null
   leads_only_before: boolean | null
   leads_only_after: boolean | null
+  until_before: string | null
+  until_after: string | null
 }
 
 /** How many of the latest changes are read. */
@@ -29,7 +32,9 @@ export const SHOWN = 200
 export async function fetchChanges(): Promise<PermissionChangeRow[]> {
   const { data, error } = await supabase
     .from('permission_changes')
-    .select('id, changed_at, changed_by, kind, capability, role_key, department_id, user_id, before, after, leads_only_before, leads_only_after')
+    .select(
+      'id, changed_at, changed_by, kind, capability, role_key, department_id, user_id, before, after, leads_only_before, leads_only_after, until_before, until_after',
+    )
     .order('changed_at', { ascending: false })
     .limit(SHOWN)
   if (error) throw error
@@ -65,8 +70,13 @@ export function describeChange(
   const team = row.department_id ? teamName(row.department_id) : 'a team'
   const who = row.user_id ? personName(row.user_id) : leads ? `the Heads of ${team}` : `everybody on ${team}`
   const how = (reach: string | null) => (reach === 'team' ? 'on their teams' : 'everywhere')
-  if (!row.before) return `Gave ${who} “${action}”, ${how(row.after)}`
-  if (!row.after) return `Took back “${action}” from ${who}`
-  if (row.before !== row.after) return `Changed ${who}’s “${action}”: ${how(row.before)} → ${how(row.after)}`
-  return `Changed ${team}’s “${action}” to ${row.leads_only_after ? 'its Heads only' : 'everybody on it'}`
+  const until = row.until_after ? ` until ${formatUntil(row.until_after)}` : ''
+  if (!row.before) return `Gave ${who} “${action}”, ${how(row.after)}${until}`
+  // A dated grant the app removed on its own had run out (0218).
+  if (!row.after) return !row.changed_by && row.until_before ? `“${action}” for ${who} ran out` : `Took back “${action}” from ${who}`
+  if (row.before !== row.after) return `Changed ${who}’s “${action}”: ${how(row.before)} → ${how(row.after)}${until}`
+  if (row.leads_only_before !== row.leads_only_after) {
+    return `Changed ${team}’s “${action}” to ${row.leads_only_after ? 'its Heads only' : 'everybody on it'}${until}`
+  }
+  return `Changed ${who}’s “${action}” to ${row.until_after ? `end on ${formatUntil(row.until_after)}` : 'have no end date'}`
 }

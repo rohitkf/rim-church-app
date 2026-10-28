@@ -15,8 +15,8 @@ describe('a grant not yet sent', () => {
       { capability: 'rota.assign', team: W, reach: 'all', leads_only: true },
     ])
     expect(out).toHaveLength(4)
-    expect(out[2]).toEqual({ capability: 'rota.assign', userId: 'ben', departmentId: null, reach: 'team', leadsOnly: false })
-    expect(out[3]).toEqual({ capability: 'rota.assign', userId: null, departmentId: W, reach: 'all', leadsOnly: true })
+    expect(out[2]).toEqual({ capability: 'rota.assign', userId: 'ben', departmentId: null, reach: 'team', leadsOnly: false, expiresAt: null })
+    expect(out[3]).toEqual({ capability: 'rota.assign', userId: null, departmentId: W, reach: 'all', leadsOnly: true, expiresAt: null })
   })
 
   it('replaces one said again, and drops one taken back', () => {
@@ -24,7 +24,12 @@ describe('a grant not yet sent', () => {
       { capability: 'clockin.approve', team: W, reach: 'team', leads_only: false },
       { capability: 'set.edit', person: 'asha', reach: null },
     ])
-    expect(out).toEqual([{ capability: 'clockin.approve', userId: null, departmentId: W, reach: 'team', leadsOnly: false }])
+    expect(out).toEqual([{ capability: 'clockin.approve', userId: null, departmentId: W, reach: 'team', leadsOnly: false, expiresAt: null }])
+  })
+
+  it('keeps an end date given with it (0218)', () => {
+    const [out] = applyGrantChanges([], [{ capability: 'rota.assign', person: 'ben', reach: 'team', until: '2026-11-13T00:00:00.000Z' }])
+    expect(out.expiresAt).toBe('2026-11-13T00:00:00.000Z')
   })
 
   it('leaves the grants as stored alone', () => {
