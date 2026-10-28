@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
 import { ACCESS_LEVELS, PAGE_RULES, compactAccess, levelOf, type AccessLevel, type PageAccess } from '../lib/pageAccess'
 import { ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
-import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GrantRole } from '../lib/permissions'
+import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GridRole } from '../lib/permissions'
 import { PAGE_ROOMS, SETTINGS_PAGES, capabilitiesFor, pageForSlug, pageSlug, teamRows, type SettingsPage } from '../lib/pageSettings'
 import { APP, SETTINGS_CATALOG, columnsOf, settingsForPage } from '../lib/settingsCatalog'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
@@ -89,7 +89,11 @@ export function PagesCard() {
   // Issues opens to whoever may raise one, so a change to that here
   // relights its row before it is saved, like any other choice.
   const scope = draft?.issues_raise_scope ?? settings.issues_raise_scope
-  const areas = useMemo(() => withGrants(withPageAccess(access, scope), working), [access, scope, working])
+  const overwatchPages = settings.overwatch_pages
+  const areas = useMemo(
+    () => withGrants(withPageAccess(access, scope, overwatchPages), working),
+    [access, scope, overwatchPages, working],
+  )
 
   const toggleIn = (set: (f: (s: Set<string>) => Set<string>) => void, id: string) =>
     set((current) => {
@@ -145,7 +149,7 @@ export function PagesCard() {
     const value = c.can[who]
     const key = c.key
     if (!key || who === 'owner' || !live) return <FixedCell value={value} locked={live && !!key} />
-    const role = who as GrantRole
+    const role = who as GridRole
     if (!editable || isFixed(key, role)) return <FixedCell value={value} locked={isFixed(key, role)} />
     const reach = reachOf(working, key, role)
     return (
@@ -479,9 +483,9 @@ function PageSection({
                         </h4>
                       )}
                       {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
-                      {/* Seven columns will not fit a phone; it scrolls inside itself. */}
+                      {/* Nine columns will not fit a phone; it scrolls inside itself. */}
                       <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
-                        <table className="w-full min-w-[44rem] border-collapse text-body-sm">
+                        <table className="w-full min-w-[54rem] border-collapse text-body-sm">
                           <thead>
                             <tr>
                               <th className="w-[34%] min-w-48 px-2 pb-2 text-left font-normal text-on-surface-faint">

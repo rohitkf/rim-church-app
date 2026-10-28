@@ -100,9 +100,12 @@ describe('overrides and saving', () => {
         { role_key: 'member', capability: 'rota.assign', reach: 'team' },
         { role_key: 'member', capability: 'rota.nonsense', reach: 'team' },
         { role_key: 'pastor', capability: 'rota.assign', reach: 'team' },
+        { role_key: 'deacon', capability: 'rota.assign', reach: 'team' },
         { role_key: 'head', capability: 'rota.tag', reach: 'sometimes' },
+        // Overwatch's own cell (0214) is read; a Pastor has none on the rota.
+        { role_key: 'overwatch', capability: 'msg.chat', reach: 'none' },
       ]),
-    ).toEqual({ 'rota.assign': { member: 'team' } })
+    ).toEqual({ 'rota.assign': { member: 'team' }, 'msg.chat': { overwatch: 'none' } })
   })
 
   it('sends only the cells whose answer would change', () => {
@@ -256,5 +259,41 @@ describe('a grant', () => {
     expect(grantIsValid('app.permissions', 'all')).toBe(false)
     expect(grantableCapabilities().some((cap) => cap.startsWith('app.'))).toBe(false)
     expect(grantableCapabilities()).toContain('set.edit')
+  })
+})
+
+describe('Overwatch and a Pastor, as columns of their own (0214)', () => {
+  const pastor: Holder = { ...nobody, pastor: true }
+  const watcher: Holder = { ...nobody }
+
+  it('gives a Pastor the three prayer rows, always, and nothing else', () => {
+    for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
+      expect(grantedBy({}, pastor, cap), cap).toBe('pastor')
+      expect(decide({}, nobody, cap), cap).toBe(false)
+    }
+    expect(decide({}, pastor, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    // A Pastor's cell is fixed: a stored change to it is not one the catalog offers.
+    expect(decide({ 'prayer.pastoral': { pastor: 'none' } }, pastor, 'prayer.pastoral')).toBe(true)
+  })
+
+  it('leaves Overwatch’s cells out of may(), which does not read them', () => {
+    // overwatch_may() reads them, as the policies for things done as Overwatch do.
+    expect(decide({}, watcher, 'msg.chat', { departmentId: TEAM_A })).toBe(false)
+    expect(decide({}, owner, 'issue.as_overwatch')).toBe(true)
+    expect(grantIsValid('issue.as_overwatch', 'all')).toBe(false)
+    expect(grantableCapabilities()).not.toContain('debrief.as_overwatch')
+  })
+
+  it('saves a change to an Overwatch cell like any other, and restores it', () => {
+    const next: Overrides = { 'msg.polls': { overwatch: 'none' } }
+    expect(changesBetween({}, next)).toEqual([{ role: 'overwatch', capability: 'msg.polls', reach: 'none' }])
+    expect(changesBetween(next, defaultsOver(next))).toEqual([{ role: 'overwatch', capability: 'msg.polls', reach: 'all' }])
+    expect(reachOf({}, 'msg.polls', 'overwatch')).toBe('all')
+    expect(reachOf({}, 'rota.assign', 'overwatch')).toBe('none')
+  })
+
+  it('never offers a team a rule for Overwatch or a Pastor', () => {
+    expect(teamReaches('msg.chat', 'overwatch')).toEqual([])
+    expect(teamReaches('prayer.pastoral', 'pastor')).toEqual([])
   })
 })

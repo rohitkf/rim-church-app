@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from './appSettings'
-import { overwatchMay, overwatchOpens, overwatchPageKey } from './overwatch'
+import { overwatchActOf, overwatchMay, overwatchOpens, overwatchPageKey } from './overwatch'
 
 describe('what Overwatch sees and may do', () => {
   it('names a page by its route, as the database does, and never the dashboard', () => {
@@ -17,11 +16,19 @@ describe('what Overwatch sees and may do', () => {
     expect(overwatchOpens('/team-chat', { 'team-chat': false })).toBe(false)
   })
 
-  it('may do one of its five things only with the switch on and the page open', () => {
-    const settings = { ...DEFAULT_SETTINGS }
-    expect(overwatchMay(settings, 'chat')).toBe(true)
-    expect(overwatchMay({ ...settings, overwatch_chat_posts: false }, 'chat')).toBe(false)
-    expect(overwatchMay({ ...settings, overwatch_pages: { 'team-chat': false } }, 'chat')).toBe(false)
-    expect(overwatchMay({ ...settings, overwatch_pages: { 'team-chat': false } }, 'board')).toBe(true)
+  it('may do one of its five things only with its cell on and the page open (0214)', () => {
+    expect(overwatchMay({}, {}, 'chat')).toBe(true)
+    expect(overwatchMay({ 'msg.chat': { overwatch: 'none' } }, {}, 'chat')).toBe(false)
+    // Another profile's cell on the same row is not Overwatch's.
+    expect(overwatchMay({ 'msg.chat': { member: 'none' } }, {}, 'chat')).toBe(true)
+    expect(overwatchMay({}, { 'team-chat': false }, 'chat')).toBe(false)
+    expect(overwatchMay({}, { 'team-chat': false }, 'board')).toBe(true)
+    expect(overwatchMay({ 'issue.as_overwatch': { overwatch: 'none' } }, {}, 'issues')).toBe(false)
+  })
+
+  it('knows which row each of the five is', () => {
+    expect(overwatchActOf('msg.board_post')).toBe('board')
+    expect(overwatchActOf('debrief.as_overwatch')).toBe('debriefs')
+    expect(overwatchActOf('rota.assign')).toBeNull()
   })
 })

@@ -9,6 +9,7 @@ import {
   teamChangesBetween,
   type CapabilityKey,
   type GrantRole,
+  type GridRole,
   type Overrides,
   type PermissionChange,
   type Reach,
@@ -56,7 +57,7 @@ export function usePermissionDraft() {
     onError: (err: unknown) => setError(errorText(err, 'Could not save the permissions.')),
   })
 
-  const chooseChurch = (capability: CapabilityKey, who: GrantRole, reach: Reach) =>
+  const chooseChurch = (capability: CapabilityKey, who: GridRole, reach: Reach) =>
     setDraft((d) => {
       const base = d ?? stored
       return { ...base, [capability]: { ...base[capability], [who]: reach } }

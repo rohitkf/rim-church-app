@@ -168,8 +168,8 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const teamIds = useMemo(() => teamList.map((t) => t.id), [teamList])
   const teamName = (id: string) => teamList.find((t) => t.id === id)?.name ?? 'A team since removed'
   const areas = useMemo(
-    () => withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope),
-    [settings.page_access, settings.issues_raise_scope],
+    () => withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope, settings.overwatch_pages),
+    [settings.page_access, settings.issues_raise_scope, settings.overwatch_pages],
   )
 
   const facts = person.data?.facts

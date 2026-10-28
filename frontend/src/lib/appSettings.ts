@@ -90,7 +90,9 @@ export const appSettingsSchema = z.object({
   planner_controls: plannerControlsSchema.default({ teams: {}, people: {} }),
   /*
    * Overwatch (0187): which pages it may open (page → open; a page not
-   * named is open), and the five things it may do. lib/overwatch reads them.
+   * named is open), which lib/overwatch reads. The five things it may do
+   * after them are read by nothing since they became Overwatch's cells in
+   * the grid (0214), until a later release drops them.
    */
   overwatch_pages: z.record(z.string(), z.boolean()).catch({ volunteers: false }).default({ volunteers: false }),
   overwatch_board_posts: z.boolean().default(true),

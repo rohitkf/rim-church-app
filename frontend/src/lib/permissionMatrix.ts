@@ -18,7 +18,18 @@
  */
 
 import { levelOf, standingMayOpen, type PageAccess, type Standing } from './pageAccess'
-import { GRANT_ROLES, isFixed, reachOf, type CapabilityKey, type Overrides, type Reach } from './permissions'
+import { OVERWATCH_READS, overwatchOpens } from './overwatch'
+import {
+  GRANT_ROLES,
+  GRID_ROLES,
+  hasCell,
+  isFixed,
+  isOverwatchOnly,
+  reachOf,
+  type CapabilityKey,
+  type Overrides,
+  type Reach,
+} from './permissions'
 import { ROLE_NAME } from './roleNames'
 
 export const CHECKED_ON = '10 October 2026'
@@ -31,6 +42,18 @@ export const ROLES = [
     blurb: 'The one account that cannot be removed, and the only one that can hand ownership on.',
   },
   { key: 'admin', label: ROLE_NAME.admin, blurb: 'Runs the church’s app. Everything below, everywhere.' },
+  {
+    key: 'overwatch',
+    label: ROLE_NAME.overwatch,
+    blurb:
+      'Sees every team — rotas, availability, checklists, chats, debriefs and issues — on the pages Settings › Overwatch leaves open to it, and changes almost nothing. Its five cells here are what it may do, each as itself and only on a page open to it. Made from Volunteers.',
+  },
+  {
+    key: 'pastor',
+    label: ROLE_NAME.pastor,
+    blurb:
+      'Reads private prayer requests, asks people to pray and runs prayer lists — always. Everything else a Pastor may do comes from their other profiles. Made from Volunteers.',
+  },
   {
     key: 'head',
     label: ROLE_NAME.head,
@@ -118,13 +141,20 @@ export interface PermissionArea {
 
 const ALLOWED: Record<Reach, Allowed> = { none: 'no', own: 'own', team: 'team', all: 'yes' }
 
-/** A row the church sets: the Owner always, everybody else as the grid says. */
+/**
+ * A row the church sets: the Owner always, everybody else as the grid
+ * says. Overwatch's cell is its own where the row has one (0214), else a
+ * yes only where it reads the row's answer through its own pages; a
+ * thing done as Overwatch is not the Owner's.
+ */
 const granted = (key: CapabilityKey, overrides: Overrides = {}): Record<RoleKey, Allowed> => ({
-  owner: 'yes',
+  owner: isOverwatchOnly(key) ? 'no' : 'yes',
   ...(Object.fromEntries(GRANT_ROLES.map((role) => [role, ALLOWED[reachOf(overrides, key, role)]])) as Record<
-    Exclude<RoleKey, 'owner'>,
+    Exclude<RoleKey, 'owner' | 'overwatch' | 'pastor'>,
     Allowed
   >),
+  overwatch: hasCell(key, 'overwatch') ? ALLOWED[reachOf(overrides, key, 'overwatch')] : OVERWATCH_READS[key] ? 'yes' : 'no',
+  pastor: ALLOWED[reachOf(overrides, key, 'pastor')],
 })
 
 const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allowed> => ({
@@ -140,6 +170,11 @@ const all = (over: Partial<Record<RoleKey, Allowed>> = {}): Record<RoleKey, Allo
   // A new account can do none of it until somebody puts them on a team;
   // the handful of things they can see say so row by row.
   newcomer: 'no',
+  // Overwatch and a Pastor are somebody signed in, as a Church Member is:
+  // what one may do, they may. What Overwatch reads besides says so row
+  // by row.
+  overwatch: over.newcomer ?? 'no',
+  pastor: over.newcomer ?? 'no',
   ...over,
 })
 
@@ -224,7 +259,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See the rota',
         page: '/rota',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'Anybody on a team sees every team’s Sunday. It was open to anybody signed in until September 2026.',
       },
       {
@@ -275,7 +310,7 @@ export const PERMISSIONS: PermissionArea[] = [
     capabilities: [
       {
         action: 'See teams, their roles and their checklists',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'A Church Member does not see the Teams page out of the box: a team head adds them (0189). Settings › Page by page can open it to everyone.',
       },
       {
@@ -287,7 +322,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See who heads a team, and who assists',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'team' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'team', overwatch: 'yes' }),
         note: 'Your own teams. Until September 2026 only an Admin could see this, so the roster showed no Head at all to the people on it.',
       },
       {
@@ -387,7 +422,7 @@ export const PERMISSIONS: PermissionArea[] = [
       },
       {
         action: 'See what a team has answered',
-        can: all({ head: 'team', coordinator: 'team' }),
+        can: all({ head: 'team', coordinator: 'team', overwatch: 'yes' }),
       },
       {
         action: 'Change somebody else’s answer, and mark who turned up',
@@ -436,7 +471,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See the register and its documents',
         page: '/inventory',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'Any team’s, by anybody on a team. Somebody on no team sees none of it.',
       },
       {
@@ -475,7 +510,7 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Read the message board',
         at: ['/messages'],
         page: '/messages',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'The church-wide board, for anybody on a team.',
       },
       {
@@ -484,7 +519,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/messages'],
         short: 'Post',
         can: granted('msg.board_post'),
-        note: '“Their team” is a post attached to one of their own teams. A church-wide post takes “Everywhere”.',
+        note: '“Their team” is a post attached to one of their own teams. A church-wide post takes “Everywhere”. Overwatch posts church-wide only, as themselves.',
       },
       {
         action: 'Delete anybody’s message board post, or clear the board',
@@ -500,7 +535,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/team-chat'],
         short: 'Chat',
         can: granted('msg.chat'),
-        note: 'Your own teams only.',
+        note: 'Your own teams only. Overwatch reads every team’s chat either way; its cell is whether it may post in any of them, as itself.',
       },
       {
         action: 'Delete anybody’s post in a team’s chat',
@@ -516,7 +551,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/polls'],
         short: 'Ask polls',
         can: granted('msg.polls'),
-        note: '“Their team” asks their own team, whole or only its people at one service. Asking everyone, or people by name, takes “Everywhere”. Anybody can change or remove a poll they asked.',
+        note: '“Their team” asks their own team, whole or only its people at one service. Asking everyone, or people by name, takes “Everywhere”. Anybody can change or remove a poll they asked. Overwatch asks of any audience, and changes or removes only its own.',
       },
       {
         action: 'See and answer a poll',
@@ -529,8 +564,9 @@ export const PERMISSIONS: PermissionArea[] = [
           coordinator: 'own',
           member: 'own',
           newcomer: 'own',
+          overwatch: 'yes',
         }),
-        note: 'Only the polls addressed to you — everyone, a team you are on, you by name, or a service the rota has you on. An Admin can see every poll.',
+        note: 'Only the polls addressed to you — everyone, a team you are on, you by name, or a service the rota has you on. An Admin and Overwatch can see every poll.',
       },
       {
         action: 'Read the church updates',
@@ -574,8 +610,15 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in Settings › Page by Page). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. Settings › Page by Page can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
       },
       {
+        action: 'Raise an issue as Overwatch',
+        key: 'issue.as_overwatch',
+        short: 'Raise as Overwatch',
+        can: granted('issue.as_overwatch'),
+        note: 'Against any team, inside the same window everybody else raises in, filed as raised by Overwatch in a group of its own. The team is told. Overwatch never marks one resolved — that stays with the team.',
+      },
+      {
         action: 'See the issues',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'Every team’s. Church Members see them only when Settings › Page by Page lets everyone raise one.',
       },
       {
@@ -619,7 +662,7 @@ export const PERMISSIONS: PermissionArea[] = [
         action: 'Read a team’s debrief',
         at: ['/debriefs'],
         page: '/debriefs',
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'Anybody on a team. It was readable by anybody signed in until 27 September 2026 (0109).',
       },
       {
@@ -639,9 +682,17 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'From when the service ends until the window in Settings › Page by Page closes. A point somebody else has ticked or assigned is not theirs to change.',
       },
       {
+        action: 'Write Overwatch’s own debrief of a service',
+        key: 'debrief.as_overwatch',
+        at: ['/debriefs'],
+        short: 'Overwatch’s debrief',
+        can: granted('debrief.as_overwatch'),
+        note: 'One Overwatch write-up per service, beside every team’s — the points anybody in Overwatch noticed, while the debrief window is open. It never writes a team’s.',
+      },
+      {
         action: 'See the activity feed',
         at: ['/'],
-        can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', overwatch: 'yes' }),
         note: 'Who was assigned and taken off, as it happens — the rota a line at a time, so it is closed to the same people the rota is (0109).',
       },
     ],
@@ -796,7 +847,7 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'clockin.view',
         short: 'See clock-ins',
         can: granted('clockin.view'),
-        note: 'Names, times and where each person was. The Owner always does, and Overwatch unless Settings › Overwatch closes it. Anybody else by name or through a team: Settings › Clock in, or By person.',
+        note: 'Names, times and where each person was. The Owner always does, and Overwatch unless Settings › Overwatch closes the page to it. Anybody else by name or through a team: Settings › Clock in, or By person.',
       },
       {
         action: 'Approve or refuse a request to be clocked in',
@@ -932,9 +983,11 @@ export const PERMISSIONS: PermissionArea[] = [
 ]
 
 /** The page standing each column is, for the purpose of opening pages. */
-const COLUMN_STANDING: Record<RoleKey, Standing> = {
+const COLUMN_STANDING: Record<Exclude<RoleKey, 'overwatch'>, Standing> = {
   owner: 'admin',
   admin: 'admin',
+  // A Pastor opens what a Church Member does, and Prayer Requests always.
+  pastor: 'church',
   head: 'lead',
   assistant: 'lead',
   coordinator: 'member',
@@ -946,17 +999,28 @@ const COLUMN_STANDING: Record<RoleKey, Standing> = {
  * The grid as this church has set it: every row tied to a page reads
  * "yes" for a standing the page is now open to, and "no" for one it is
  * closed to. A narrower answer that still holds ("own", "team") is kept,
- * because opening the page does not widen it.
+ * because opening the page does not widen it. Overwatch opens what
+ * Settings › Overwatch leaves open (`overwatchPages`), and whatever is
+ * open to everyone signed in.
  */
-export function withPageAccess(access: PageAccess, issuesScope?: string): PermissionArea[] {
+export function withPageAccess(
+  access: PageAccess,
+  issuesScope?: string,
+  overwatchPages: Record<string, boolean> = {},
+): PermissionArea[] {
   return PERMISSIONS.map((area) => ({
     ...area,
     capabilities: area.capabilities.map((c) => {
       if (!c.page) return c
-      const level = levelOf(c.page, access, issuesScope)
+      const page = c.page
+      const level = levelOf(page, access, issuesScope)
+      const opens = (role: RoleKey) =>
+        role === 'overwatch'
+          ? level === 'everyone' || overwatchOpens(page, overwatchPages)
+          : standingMayOpen(COLUMN_STANDING[role], level) || (role === 'pastor' && page === '/prayer')
       const can = Object.fromEntries(
         (Object.keys(c.can) as RoleKey[]).map((role) => {
-          const open = standingMayOpen(COLUMN_STANDING[role], level)
+          const open = opens(role)
           const was = c.can[role]
           return [role, !open ? 'no' : was === 'no' ? 'yes' : was]
         }),
@@ -985,5 +1049,5 @@ export function isLiveArea(area: PermissionArea): boolean {
 /** A row with at least one cell the church can change. */
 export function isEditable(c: Capability): boolean {
   const key = c.key
-  return !!key && GRANT_ROLES.some((role) => !isFixed(key, role))
+  return !!key && GRID_ROLES.some((role) => !isFixed(key, role))
 }

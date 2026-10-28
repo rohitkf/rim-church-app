@@ -1,10 +1,11 @@
 import type { AppSettings } from './appSettings'
 import type { Allowed, Capability, RoleKey } from './permissionMatrix'
-import { overwatchMay, type OverwatchAct } from './overwatch'
+import { OVERWATCH_READS, overwatchActOf, overwatchMay, overwatchOpens } from './overwatch'
 import { pageOpening, type PageOpening } from './pageOpening'
 import { standingOf } from './pageAccess'
 import {
   grantedBy,
+  isOverwatchOnly,
   type CapabilityKey,
   type Granter,
   type Holder,
@@ -55,6 +56,7 @@ export function holderOf(p: PersonFacts, grants: readonly PermissionGrant[] = []
     assistTeams: p.assistTeams,
     memberTeams: p.memberTeams,
     coordinatesAnywhere: p.coordinatorTeams.length > 0,
+    pastor: p.pastor,
     grants,
   }
 }
@@ -75,17 +77,6 @@ export type Answer =
   | { kind: 'own'; via: Via }
   | { kind: 'none' }
 
-/*
- * Overwatch holds no column in the grid (0187); usePermissions adds its
- * three switches to the grid's answer, and so does this. Posting on the
- * board is as themselves, never as a team.
- */
-const OVERWATCH_ACT: Partial<Record<CapabilityKey, OverwatchAct>> = {
-  'msg.board_post': 'board',
-  'msg.chat': 'chat',
-  'msg.polls': 'polls',
-}
-
 /**
  * One action, for one person: everywhere, on some teams, only their own,
  * or not at all, with the profile that gave each yes.
@@ -103,8 +94,18 @@ export function explainCapability(
   const ask = (departmentId: string | null, extra: { coordinating?: boolean; ownerId?: string } = {}) =>
     grantedBy(overrides, holder, cap, { departmentId, ...extra }, teamRules)
 
-  const act = OVERWATCH_ACT[cap]
-  const watched = person.overwatch && act && overwatchMay(settings, act) ? ('overwatch' as const) : null
+  // Overwatch's cells (0214) are what overwatch_may() reads, not may(), so
+  // they are added here as usePermissions adds them. Posting on the board
+  // is as themselves, never as a team.
+  const act = overwatchActOf(cap)
+  const reads = OVERWATCH_READS[cap]
+  const watched =
+    person.overwatch &&
+    ((act && overwatchMay(overrides, settings.overwatch_pages, act)) ||
+      (!!reads && overwatchOpens(reads, settings.overwatch_pages)))
+      ? ('overwatch' as const)
+      : null
+  if (isOverwatchOnly(cap)) return watched ? { kind: 'everywhere', via: 'overwatch' } : { kind: 'none' }
 
   const church: Via | null = ask(null) ?? watched
   const perTeam = teamIds.map((id) => ({
@@ -129,6 +130,8 @@ export function profilesOf(p: PersonFacts): RoleKey[] {
   const out: RoleKey[] = []
   if (p.owner) out.push('owner')
   if (p.admin) out.push('admin')
+  if (p.overwatch) out.push('overwatch')
+  if (p.pastor) out.push('pastor')
   if (p.headTeams.length > 0) out.push('head')
   if (p.assistTeams.length > 0) out.push('assistant')
   if (p.coordinatorTeams.length > 0) out.push('coordinator')
@@ -143,8 +146,8 @@ export function profilesOf(p: PersonFacts): RoleKey[] {
  * which profile that is.
  *
  * A row that is a page ("See the rota") follows whether the page opens to
- * them — `row` as withPageAccess() drew it — and Overwatch, which no
- * column stands for, gets a yes where the church left the page open to it.
+ * them — `row` as withPageAccess() drew it — and Overwatch gets a yes
+ * where the church left the page open to it.
  */
 export function explainFixed(
   person: PersonFacts,

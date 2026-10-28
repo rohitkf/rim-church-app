@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, type Reach } from './permissions'
+import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, GRID_ROLES, hasCell, ruleFor, type Reach } from './permissions'
 import { PERMISSIONS } from './permissionMatrix'
 
 /*
@@ -38,10 +38,11 @@ const catalogInSql = () => {
 describe('the permission catalog', () => {
   it('is the same in the app as in the database, cell for cell', () => {
     const inSql = catalogInSql()
+    // Overwatch's and a Pastor's cells (0214) only where a capability names them.
     const inApp = new Map(
       CAPABILITY_KEYS.flatMap((cap) =>
-        GRANT_ROLES.map((role) => {
-          const rule = CATALOG[cap][role]
+        GRID_ROLES.filter((role) => hasCell(cap, role)).map((role) => {
+          const rule = ruleFor(cap, role)
           return [`${cap}/${role}`, { reaches: [...rule.reaches], byDefault: rule.byDefault }] as const
         }),
       ),
@@ -52,11 +53,23 @@ describe('the permission catalog', () => {
   it('offers its reaches narrowest first, and only reaches that exist', () => {
     const order: Reach[] = ['none', 'own', 'team', 'all']
     for (const cap of CAPABILITY_KEYS) {
-      for (const role of GRANT_ROLES) {
-        const { reaches, byDefault } = CATALOG[cap][role]
+      for (const role of GRID_ROLES) {
+        const { reaches, byDefault } = ruleFor(cap, role)
         expect(reaches, `${cap} / ${role}`).toEqual([...reaches].sort((a, b) => order.indexOf(a) - order.indexOf(b)))
         expect(reaches, `${cap} / ${role}`).toContain(byDefault)
       }
+    }
+  })
+
+  it('gives Overwatch its five cells and a Pastor the three prayer rows, and nothing more (0214)', () => {
+    const cells = (role: 'overwatch' | 'pastor') => CAPABILITY_KEYS.filter((cap) => hasCell(cap, role)).sort()
+    expect(cells('overwatch')).toEqual(['debrief.as_overwatch', 'issue.as_overwatch', 'msg.board_post', 'msg.chat', 'msg.polls'])
+    for (const cap of cells('overwatch')) expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
+    expect(cells('pastor')).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral'])
+    for (const cap of cells('pastor')) expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['all'], byDefault: 'all' })
+    // A thing done as Overwatch is nobody else's to be given.
+    for (const cap of ['issue.as_overwatch', 'debrief.as_overwatch'] as const) {
+      for (const role of GRANT_ROLES) expect(CATALOG[cap][role].reaches, `${cap} / ${role}`).toEqual(['none'])
     }
   })
 

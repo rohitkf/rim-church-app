@@ -260,7 +260,7 @@ export function PagesPane() {
 export function AccessSettingsPane() {
   const [tab, setTab] = useState<'rules' | 'person' | 'pages'>('rules')
   const settings = useAppSettings()
-  const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope)
+  const areas = withPageAccess(settings.page_access as PageAccess, settings.issues_raise_scope, settings.overwatch_pages)
   return (
     <div className="flex flex-col gap-4">
       <p className="px-1 text-body-sm text-on-surface-variant">

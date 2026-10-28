@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useMyTeams } from './useMyTeams'
 import { useAppSettings } from './appSettings'
-import { overwatchMay, type OverwatchAct } from './overwatch'
+import { overwatchActOf, overwatchMay, type OverwatchAct } from './overwatch'
 import {
   decide,
   overridesFrom,
@@ -118,6 +118,7 @@ export function usePermissions() {
     .filter((r) => r.role_type === 'assisting_head' && r.department_id)
     .map((r) => r.department_id as string)
     .join('|')
+  const pastor = (roles ?? []).some((r) => r.role_type === 'pastor')
   const holder: Holder = useMemo(
     () => ({
       myId,
@@ -131,27 +132,31 @@ export function usePermissions() {
       // A Team Coordinator preview is coordinating somewhere; a real one
       // is told so where it matters, by `where.coordinating`.
       coordinatesAnywhere: !!previewCoordinates,
+      pastor,
       grants,
     }),
-    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, grants],
+    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, pastor, grants],
   )
 
   /*
-   * Overwatch holds no column in the grid (0187): what it may do is the
-   * church's five switches, the same `overwatch_may` the policies ask.
-   * Posting on the board is as themselves, never as a team.
+   * One of the five things Overwatch may do (0214): its cell in the grid,
+   * which may() does not read — the same `overwatch_may` the policies ask.
    */
+  const pages = settings.overwatch_pages
+  const watches = useCallback(
+    (act: OverwatchAct) => isOverwatch && overwatchMay(overrides, pages, act),
+    [isOverwatch, overrides, pages],
+  )
+
+  /* Overwatch's three on the grid's own rows. Posting on the board is as themselves, never as a team. */
   const watching = useCallback(
     (cap: CapabilityKey, where?: Where) => {
-      if (!isOverwatch) return false
-      const act: OverwatchAct | null =
-        cap === 'msg.board_post' ? (where?.departmentId ? null : 'board')
-        : cap === 'msg.chat' ? 'chat'
-        : cap === 'msg.polls' ? 'polls'
-        : null
-      return !!act && overwatchMay(settings, act)
+      const act = overwatchActOf(cap)
+      if (act !== 'board' && act !== 'chat' && act !== 'polls') return false
+      if (act === 'board' && where?.departmentId) return false
+      return watches(act)
     },
-    [isOverwatch, settings],
+    [watches],
   )
 
   const can = useCallback(
@@ -159,5 +164,5 @@ export function usePermissions() {
     [overrides, teams, holder, watching],
   )
 
-  return { can, overrides, teams, grants, query, holder }
+  return { can, watches, overrides, teams, grants, query, holder }
 }
