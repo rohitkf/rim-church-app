@@ -270,3 +270,104 @@ describe('Page by Page', () => {
     expect(screen.queryAllByRole('combobox')).toHaveLength(0)
   })
 })
+
+/*
+ * Timings, Data & Retention and Dashboard & Lists were rooms of their own,
+ * drawing the same rows; they folded in here, and so did what their tests
+ * held them to.
+ */
+describe('a setting’s row on its page', () => {
+  /** Type a number into a setting's dial, the way somebody does: tap the number, type, Enter. */
+  async function typeInto(user: ReturnType<typeof userEvent.setup>, label: string, value: string) {
+    const row = screen.getByRole('button', { name: new RegExp(`^${label}`) })
+    if (row.getAttribute('aria-expanded') !== 'true') await user.click(row)
+    const dial = screen.getByRole('slider', { name: label }).closest('.select-none') as HTMLElement
+    await user.click(within(dial).getByTitle('Type a value'))
+    const field = within(dial).getByRole('spinbutton', { name: label })
+    await user.clear(field)
+    await user.type(field, `${value}{Enter}`)
+  }
+  const save = () => screen.getByRole('button', { name: 'Save' })
+
+  it('offers nothing to save until something has changed, and sits still at the end until then', async () => {
+    await show('/settings/pages#checklists')
+    expect(save()).toBeDisabled()
+    expect(save().parentElement?.className).not.toMatch(/sticky/)
+  })
+
+  it('says a change is not saved yet, keeps Save in reach, and sends only the number typed', async () => {
+    const user = await show('/settings/pages#checklists')
+    await typeInto(user, 'Editing stays open for', '720')
+    expect(screen.getByText(/Not saved yet/)).toBeInTheDocument()
+    expect(db.writes).toHaveLength(0)
+    // Sticky, clear of the dock, so a phone need not scroll to find it.
+    expect(save().parentElement?.className).toMatch(/sticky/)
+    expect(save().parentElement?.className).toMatch(/bottom-\[calc\(5rem/)
+    await user.click(save())
+    await waitFor(() => expect(db.writes).toHaveLength(1))
+    // Only the column that moved, so no stale copy undoes a choice made since.
+    expect(db.writes[0]).toEqual({ edit_grace_minutes: 720 })
+  })
+
+  it('is one row, its value said as a person would, opening to its dial one at a time', async () => {
+    const user = await show('/settings/pages#debriefs')
+    expect(screen.queryByRole('slider')).toBeNull()
+    const row = screen.getByRole('button', { name: /^Teams can write their debrief for/ })
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    expect(within(row).getByText('12 h')).toBeInTheDocument()
+    await user.click(row)
+    expect(screen.getByRole('slider', { name: 'Teams can write their debrief for' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Debrief minutes are kept for/ }))
+    expect(screen.getByRole('slider', { name: 'Debrief minutes are kept for' })).toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: 'Teams can write their debrief for' })).toBeNull()
+  })
+
+  it('marks a moved setting until it is saved, and offers its default back', async () => {
+    const user = await show('/settings/pages#checklists')
+    await typeInto(user, 'Editing stays open for', '720')
+    const row = screen.getByRole('button', { name: /^Editing stays open for/ })
+    expect(within(row).getByLabelText('Changed, not saved yet')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Use default' }))
+    expect(within(row).queryByLabelText('Changed, not saved yet')).toBeNull()
+    expect(save()).toBeDisabled()
+  })
+
+  it('keeps the long explanation folded until asked for', async () => {
+    await show('/settings/pages#rota')
+    expect(screen.getAllByText('How this works').length).toBeGreaterThan(0)
+    expect(screen.getByText(/A safety net over the window above/)).not.toBeVisible()
+  })
+
+  it('can stop the sent-alerts record clearing at all', async () => {
+    const user = await show('/settings/pages#alerts')
+    await chooseOption(user, screen.getByRole('combobox', { name: 'Day the sent-alerts record clears' }), 'Never')
+    await user.click(save())
+    await waitFor(() => expect(db.writes).toHaveLength(1))
+    expect(db.writes[0]).toEqual({ alert_clear_dow: null })
+  })
+
+  it('sends what the Dashboard shows as one object, and nothing else', async () => {
+    const user = await show('/settings/pages#dashboard')
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Service days to list' })).getByRole('radio', { name: '3' }))
+    await user.click(save())
+    await waitFor(() => expect(db.writes).toHaveLength(1))
+    const sent = db.writes[0] as { display: { dashboard: { serviceDays: number } } }
+    expect(Object.keys(sent)).toEqual(['display'])
+    expect(sent.display.dashboard.serviceDays).toBe(3)
+  })
+
+  it('says what is kept with no clock, and the upload limits, under the app itself', async () => {
+    await show('/settings/pages#app')
+    const kept = screen.getByRole('region', { name: 'Kept until somebody deletes them' })
+    expect(within(kept).getByText('Inventory')).toBeInTheDocument()
+    const limits = screen.getByRole('region', { name: 'Uploads and the app’s own logs' })
+    expect(within(limits).getByText('Team handbook').closest('li')).toHaveTextContent('10 MB')
+    expect(within(limits).getByText(/keep one week, cleared every Tuesday/)).toBeInTheDocument()
+  })
+
+  it('says plainly that a clock deletes, and that what a page shows is not who may see it', async () => {
+    await show()
+    expect(screen.getByText(/deletes them when it runs out — it does not hide them/)).toBeInTheDocument()
+    expect(screen.getByText(/changes only what is drawn, never who may see it/)).toBeInTheDocument()
+  })
+})

@@ -342,7 +342,7 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'See your own checklist and tick it off',
         can: all({ head: 'own', coordinator: 'own', member: 'own' }),
-        note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless Settings › Timings says otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
+        note: 'From your team’s call time on the day of the service until the service finishes — not before. The “After the service” half stays open for a while after the end (two hours unless Settings › Page by Page says otherwise), because that is when it is done. A box ticked at home says nothing about whether the thing was done. An Admin can put a service right either side of that.',
       },
       {
         action: 'Tick off and verify somebody else’s checklist',
@@ -571,12 +571,12 @@ export const PERMISSIONS: PermissionArea[] = [
       {
         action: 'Raise an issue seen at a service',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in Settings › Timings). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. Settings › Timings can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
+        note: 'For any team, under the service it was seen at, and only while that service is taking issues — from an hour before it starts until two hours after it ends (both in Settings › Page by Page). Heads, Assisting Heads and Admins can raise one at any time. Your name and the team you raise it as go on it, and the team it is for is told. Settings › Page by Page can open this to everyone signed in (Church Members too) or close it to Heads and Admins.',
       },
       {
         action: 'See the issues',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes' }),
-        note: 'Every team’s. Church Members see them only when Settings › Timings lets everyone raise one.',
+        note: 'Every team’s. Church Members see them only when Settings › Page by Page lets everyone raise one.',
       },
       {
         action: 'Mark an issue resolved, not resolved or persistent, with remarks — or reopen it',
@@ -590,7 +590,7 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'issue.delete',
         short: 'Delete issues',
         can: granted('issue.delete'),
-        note: 'Whoever raised one can take it back until it has been marked. Resolved issues are deleted on their own after the number of days in Settings › Data & Retention.',
+        note: 'Whoever raised one can take it back until it has been marked. Resolved issues are deleted on their own after the number of days in Settings › Page by Page.',
       },
     ],
   },
@@ -636,7 +636,7 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/debriefs'],
         short: 'Add points',
         can: granted('debrief.contribute'),
-        note: 'From when the service ends until the window in Settings › Timings closes. A point somebody else has ticked or assigned is not theirs to change.',
+        note: 'From when the service ends until the window in Settings › Page by Page closes. A point somebody else has ticked or assigned is not theirs to change.',
       },
       {
         action: 'See the activity feed',

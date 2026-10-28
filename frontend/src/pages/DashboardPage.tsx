@@ -151,7 +151,7 @@ export function DashboardPage() {
   // Whether this page has teams to report on at all — see useMyTeams.
   const { onATeam, settled } = useMyTeams()
   const { canOpen } = usePageAccess()
-  // What the church has chosen this page shows (Settings › Dashboard & Lists).
+  // What the church has chosen this page shows (Settings › Page by Page › Dashboard).
   const display = useDisplay()
   const show = display.dashboard.show
   const serviceDaysAhead = display.dashboard.serviceDays

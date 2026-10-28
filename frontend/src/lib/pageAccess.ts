@@ -107,7 +107,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'team',
     choices: ['team'],
     enforcement: 'fixed',
-    note: 'Follows “Who can raise one” in Timings — Everyone signed in opens it to Church Members too.',
+    note: 'Follows “Who can raise one”, under Issues in Page by Page — Everyone signed in opens it to Church Members too.',
   },
   '/messages': {
     key: 'messages',

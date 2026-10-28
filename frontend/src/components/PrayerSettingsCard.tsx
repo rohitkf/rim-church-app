@@ -13,7 +13,7 @@ import { AudienceEditor } from './AudienceEditor'
  * Who reads the private prayer requests besides the Pastors and the Owner,
  * who always do; and who besides them asks members to pray on their
  * behalf, and runs the prayer lists (0198). How long closed requests and testimonies are kept is in
- * Data & Retention, with everything else deleted on a clock.
+ * Page by Page, with everything else deleted on a clock.
  */
 const KEYS = ['prayer_carers', 'prayer_assigners', 'prayer_list_runners'] as const
 

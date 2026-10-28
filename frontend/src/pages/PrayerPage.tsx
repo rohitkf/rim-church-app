@@ -367,7 +367,7 @@ function RequestCard({
       onSelect: () =>
         confirm.ask({
           title: 'Close this request?',
-          body: 'For when it is no longer needed. It leaves the list, and is deleted after the days set in Data & Retention. You can reopen it until then.',
+          body: 'For when it is no longer needed. It leaves the list, and is deleted after the days set in Settings › Page by Page. You can reopen it until then.',
           confirmLabel: 'Close it',
           onConfirm: () => close.mutate(undefined),
         }),

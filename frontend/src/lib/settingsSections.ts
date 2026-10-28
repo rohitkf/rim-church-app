@@ -2,13 +2,11 @@ import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
 import {
-  ArchiveIcon,
   ChecklistIcon,
   ClipboardUserIcon,
   EyeIcon,
   MapPinIcon,
   PrayIcon,
-  GridIcon,
   SparklesIcon,
   GiftHeartIcon,
   ImageIcon,
@@ -17,7 +15,6 @@ import {
   PaletteIcon,
   ShieldIcon,
   StageIcon,
-  TimerIcon,
   TrashIcon,
   UserCircleIcon,
 } from '../components/icons'
@@ -29,8 +26,10 @@ import {
  * room cannot be added to one of them and forgotten in the others.
  *
  * Grouped by whose it is rather than by what kind of control it holds:
- * yours, the church's set-up, the people tools an Admin reaches for, and
- * the two that belong to the owner alone.
+ * yours, the church's set-up, who may do what, the tools an Admin reaches
+ * for, and the two that belong to the owner alone. Each choice lives in
+ * one room: a page's clocks, what it keeps and what it shows are its own,
+ * in Page by Page, not a second room each.
  */
 
 export type SettingsNeeds = 'admin' | 'owner'
@@ -90,38 +89,14 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/pages',
         label: 'Page by Page',
-        blurb: 'Each page’s settings, and who may do what on it — team by team.',
+        blurb: 'Each page’s clocks, what it keeps and shows, and who may do what on it — team by team.',
         icon: ChecklistIcon,
         tone: 'indigo',
         needs: 'admin',
-        keywords: 'page settings access team rules head assisting member rota availability dashboard planner',
-      },
-      {
-        to: '/settings/timings',
-        label: 'Timings',
-        blurb: 'When things open, close and clear.',
-        icon: TimerIcon,
-        tone: 'green',
-        needs: 'admin',
-        keywords: 'app settings clocks windows rota window grace debrief issues availability deadline timezone',
-      },
-      {
-        to: '/settings/retention',
-        label: 'Data & Retention',
-        blurb: 'How long each page keeps things, and when it clears.',
-        icon: ArchiveIcon,
-        tone: 'orange',
-        needs: 'admin',
-        keywords: 'retention delete clear keep history notifications chat polls updates debriefs issues board',
-      },
-      {
-        to: '/settings/display',
-        label: 'Dashboard & Lists',
-        blurb: 'What the Dashboard shows, and what starts open.',
-        icon: GridIcon,
-        tone: 'blue',
-        needs: 'admin',
-        keywords: 'dashboard display collapsed expanded folded open services days window',
+        // Timings, Data & Retention and Dashboard & Lists were rooms of
+        // their own, each a second way to the same rows; they live here now.
+        keywords:
+          'page settings access team rules head assisting member rota availability dashboard planner timings clocks windows grace debrief issues deadline timezone retention delete clear keep history notifications chat polls updates board display collapsed expanded folded open services days',
       },
       {
         to: '/settings/rota',
@@ -163,7 +138,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    heading: 'People',
+    heading: 'People & permissions',
     sections: [
       {
         to: '/settings/access',
@@ -201,6 +176,11 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         needs: 'admin',
         keywords: 'prayer requests pastor pastors private testimonies chain prayer',
       },
+    ],
+  },
+  {
+    heading: 'Tools',
+    sections: [
       {
         to: '/settings/onboarding',
         label: 'Onboarding',

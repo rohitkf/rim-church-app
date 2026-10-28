@@ -22,7 +22,6 @@ vi.mock('../lib/usePermissions', async () => {
 })
 
 vi.mock('../components/PermissionsCard', () => ({ PermissionsCard: () => <p>permissions</p> }))
-vi.mock('../components/AppSettingsCard', () => ({ AppSettingsCard: () => <p>app settings</p> }))
 vi.mock('../components/AdminResetCard', () => ({ AdminResetCard: () => <p>erase</p> }))
 
 function Where() {
@@ -75,16 +74,19 @@ describe('the Settings hall', () => {
     expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
   })
 
-  it('gives an Admin the church’s set-up and people tools, but not the owner’s', () => {
+  it('gives an Admin the church’s set-up, permissions and tools, but not the owner’s', () => {
     show('/settings', { isAdmin: true })
-    for (const heading of ['You', 'Church set-up', 'People']) {
+    for (const heading of ['You', 'Church set-up', 'People & permissions', 'Tools']) {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
     expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
     const hrefs = roomLinks().map((a) => a.getAttribute('href'))
     expect(hrefs).toEqual(
-      expect.arrayContaining(['/settings/timings', '/settings/rota', '/settings/giving', '/settings/menu']),
+      expect.arrayContaining(['/settings/pages', '/settings/rota', '/settings/giving', '/settings/menu']),
     )
+    // A page's clocks, what it keeps and what it shows are Page by Page's,
+    // not a second room each.
+    for (const folded of ['/settings/timings', '/settings/retention', '/settings/display']) expect(hrefs).not.toContain(folded)
     expect(hrefs).not.toContain('/settings/data')
     expect(hrefs).not.toContain('/settings/logo')
   })
@@ -100,7 +102,9 @@ describe('the Settings hall', () => {
   it('says what each room is for in a line', () => {
     show('/settings', { isAdmin: true })
     expect(
-      within(screen.getByRole('link', { name: /Timings/ })).getByText('When things open, close and clear.'),
+      within(screen.getByRole('link', { name: /Page by Page/ })).getByText(
+        'Each page’s clocks, what it keeps and shows, and who may do what on it — team by team.',
+      ),
     ).toBeInTheDocument()
   })
 })
@@ -127,9 +131,9 @@ describe('a Settings room', () => {
   })
 
   it('sends somebody without the key back to the hall rather than an empty room', () => {
-    show('/settings/timings')
+    show('/settings/pages')
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/settings$/)
-    expect(screen.queryByText('Timings pane')).toBeNull()
+    expect(screen.queryByText('Page by Page pane')).toBeNull()
   })
 
   it('keeps the erase room to the Owner, whatever an Admin types', () => {
@@ -140,7 +144,7 @@ describe('a Settings room', () => {
 
 describe('the old App settings address', () => {
   it.each([
-    ['/settings/church', '/settings/timings'],
+    ['/settings/church', '/settings/pages'],
     ['/settings/church#rota', '/settings/rota'],
     ['/settings/church#giving', '/settings/giving'],
     ['/settings/church#menu', '/settings/menu'],

@@ -45,7 +45,7 @@ const short = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === leve
 export function PageAccessCard() {
   const { isAdmin } = useAuth()
   const room = useSettingsDraft(['page_access'] as const)
-  // Issues follows Timings' "Who can raise one"; shown here, owned there.
+  // Issues follows "Who can raise one" in Page by Page; shown here, owned there.
   const scope = useAppSettings().issues_raise_scope
   const [preview, setPreview] = useState<Standing>('church')
 

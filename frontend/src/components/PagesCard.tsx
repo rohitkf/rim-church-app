@@ -7,7 +7,7 @@ import { ACCESS_LEVELS, PAGE_RULES, compactAccess, levelOf, type AccessLevel, ty
 import { ROLES, isLiveArea, withGrants, withPageAccess, type Capability, type RoleKey } from '../lib/permissionMatrix'
 import { REACH_LABEL, isFixed, reachOf, ruleFor, teamChoice, type CapabilityKey, type GrantRole } from '../lib/permissions'
 import { PAGE_ROOMS, SETTINGS_PAGES, capabilitiesFor, pageForSlug, pageSlug, teamRows, type SettingsPage } from '../lib/pageSettings'
-import { SETTINGS_CATALOG, columnsOf, settingsForPage } from '../lib/settingsCatalog'
+import { APP, SETTINGS_CATALOG, columnsOf, settingsForPage } from '../lib/settingsCatalog'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { fetchDepartments } from '../lib/queries'
@@ -18,6 +18,7 @@ import { ChevronRightIcon } from './icons'
 import { PageTeamAccess } from './PageTeamAccess'
 import { PlannerControlsCard } from './PlannerControlsCard'
 import { FixedCell, ReachPicker, roleLabel } from './PermissionsCard'
+import { KeptOnPurpose } from './KeptOnPurpose'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
@@ -32,9 +33,10 @@ import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from
  * team's profiles may do on it — a team at a time, then a profile — and
  * the church-wide rule every team follows unless it sets its own.
  *
- * The settings are the catalog's rows (lib/settingsCatalog), the same
- * ones the Timings, Dashboard & Lists and Data & Retention rooms draw, so
- * a setting reads the same here as there. The rules are the grid's
+ * The settings are the catalog's rows (lib/settingsCatalog), and this is
+ * their one room: Timings, Dashboard & Lists and Data & Retention were
+ * rooms drawing the same rows, a second way to each choice, and folded in
+ * here. The rules are the grid's
  * (lib/permissionMatrix), read by the database on every request. One
  * draft, one Save: nothing changes for anybody until it is pressed.
  */
@@ -148,8 +150,11 @@ export function PagesCard() {
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3 px-1">
             <p className="text-body-sm text-on-surface-variant">
-              Every page, with everything the church can set about it: its clocks and windows, who can open
-              it, and what each team’s Heads and members may do on it. Nothing changes for anybody until Save.
+              Every page, with everything the church can set about it: its clocks and windows, what it keeps,
+              what it shows, who can open it, and what each team’s Heads and members may do on it. A clock that
+              keeps things deletes them when it runs out — it does not hide them; anything “For ever” is never
+              cleared. What a page shows changes only what is drawn, never who may see it. Nothing changes for
+              anybody until Save.
             </p>
             <button
               type="button"
@@ -205,6 +210,8 @@ export function PagesCard() {
                           editable={editable}
                           teams={departments.data ?? []}
                         />
+                      ) : page.to === APP ? (
+                        <KeptOnPurpose />
                       ) : null
                     }
                   />
