@@ -22,11 +22,12 @@ import {
   type Reach,
 } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
-import { Pill, SegmentedControl, Tile } from './Surface'
+import { ActionButton, Pill, SegmentedControl, Tile } from './Surface'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
 import { Select, reachPickerClasses } from './Select'
 import { ChangeEffects } from './ChangeEffects'
+import { PRESETS, presetOver } from '../lib/presets'
 
 /**
  * Who can do what — and, where the church sets it, the place to set it.
@@ -524,6 +525,34 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               )
             })}
           </div>
+        </Tile>
+      )}
+
+      {editable && (
+        <Tile as="section">
+          <h2 className="text-body-md font-medium text-on-surface">Start from a preset</h2>
+          <p className="mt-1 text-body-sm text-on-surface-variant">
+            Sets every row for Team Heads, Assisting Heads, Coordinators, Team Members and Church Members at once — as a
+            draft, so you can see what it would do before saving. Admins, Overwatch, Pastors, who opens which page and each
+            team’s own rules stay as they are.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {PRESETS.map((preset) => (
+              <li key={preset.key} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <ActionButton
+                  tone="quiet"
+                  size="sm"
+                  onClick={() => {
+                    setSaved(false)
+                    perms.draftChurch(presetOver(preset.key, stored))
+                  }}
+                >
+                  {preset.label}
+                </ActionButton>
+                <span className="min-w-0 flex-1 basis-48 text-body-sm text-on-surface-variant">{preset.blurb}</span>
+              </li>
+            ))}
+          </ul>
         </Tile>
       )}
 

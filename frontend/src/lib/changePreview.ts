@@ -1,6 +1,6 @@
 import type { AppSettings } from './appSettings'
 import type { PersonEntry } from './peopleFacts'
-import { explainCapability, type Answer } from './personAccess'
+import { placesFor } from './personAccess'
 import type { CapabilityKey, Overrides, PermissionChange, PermissionGrant, TeamOverrides } from './permissions'
 
 /**
@@ -8,10 +8,13 @@ import type { CapabilityKey, Overrides, PermissionChange, PermissionGrant, TeamO
  * it touches, who could then do more of it and who less — "this lets six
  * people change answers in Worship".
  *
- * It asks the same question By person does (`explainCapability()`, which
- * is `decide()` with the teams' rules, grants and Overwatch's cells), of
- * everybody, once with the grid as saved and once as drafted. The Owner
- * holds everything either way, so never appears.
+ * It asks the same question By person does (`placesFor()`, under
+ * `explainCapability()`: `decide()` with the teams' rules, grants and
+ * Overwatch's cells), of everybody, once with the grid as saved and once
+ * as drafted, place by place — where no team is involved, each team, and
+ * their own. Somebody gains a place, or loses one; somebody who does both
+ * is named under each. The Owner holds everything either way, so never
+ * appears.
  */
 
 /** The grid as it is, or as it would be. */
@@ -27,18 +30,14 @@ export interface ChangeEffect {
   less: PersonEntry[]
 }
 
-/** How far an answer reaches, as a number to compare: nothing, their own, some teams, everywhere. */
-function breadth(answer: Answer): number {
-  switch (answer.kind) {
-    case 'none':
-      return 0
-    case 'own':
-      return 1
-    case 'teams':
-      return 2 + answer.teams.length + (answer.church ? 0.5 : 0)
-    case 'everywhere':
-      return 10_000
-  }
+/** Every place somebody may do it: "church", a team's id, or "own". */
+function placesOf(...args: Parameters<typeof placesFor>): Set<string> {
+  const { church, perTeam, own } = placesFor(...args)
+  const out = new Set<string>()
+  if (church) out.add('church')
+  for (const t of perTeam) if (t.via) out.add(t.id)
+  if (own || church) out.add('own')
+  return out
 }
 
 /** The actions a list of changes touches, each once, in the order first touched. */
@@ -61,10 +60,10 @@ export function changeEffects(
     const less: PersonEntry[] = []
     for (const person of people) {
       if (person.facts.owner) continue
-      const was = breadth(explainCapability(person.facts, capability, before.church, before.teams, teamIds, settings, grants))
-      const now = breadth(explainCapability(person.facts, capability, after.church, after.teams, teamIds, settings, grants))
-      if (now > was) more.push(person)
-      else if (now < was) less.push(person)
+      const was = placesOf(person.facts, capability, before.church, before.teams, teamIds, settings, grants)
+      const now = placesOf(person.facts, capability, after.church, after.teams, teamIds, settings, grants)
+      if ([...now].some((p) => !was.has(p))) more.push(person)
+      if ([...was].some((p) => !now.has(p))) less.push(person)
     }
     return { capability, more, less }
   })

@@ -75,6 +75,9 @@ export function usePermissionDraft() {
       return { ...base, [dept]: mine }
     })
 
+  /** The church's cells as a whole, in the draft: a preset (lib/presets), until saved. */
+  const draftChurch = (next: Overrides) => setDraft(next)
+
   /** Every cell back to the app's default, every team back to the church's — in the draft, until saved. */
   const restoreDefaults = () => {
     setDraft(defaultsOver(stored))
@@ -93,6 +96,7 @@ export function usePermissionDraft() {
     chooseChurch,
     chooseTeam,
     restoreDefaults,
+    draftChurch,
     /** Sends what is pending. Resolves once the grid has been re-read. */
     commit: () => save.mutateAsync(pending),
     saving: save.isPending,

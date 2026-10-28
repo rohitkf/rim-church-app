@@ -215,6 +215,18 @@ describe('PermissionsCard', () => {
       })
     })
 
+    it('starts from a preset as a draft, sending nothing until Save', async () => {
+      const user = show()
+      await user.click(screen.getByRole('button', { name: 'Open' }))
+      expect(rpc).not.toHaveBeenCalled()
+      const pending = screen.getByRole('list', { name: 'Changes to save' })
+      expect(within(pending).getAllByText(/Assign somebody to a role/).length).toBeGreaterThan(0)
+      await user.click(screen.getByRole('button', { name: 'Save permissions' }))
+      const sent = rpc.mock.calls[0][1] as { p_changes: { role: string; capability: string; reach: string }[] }
+      expect(sent.p_changes).toContainEqual({ role: 'member', capability: 'rota.assign', reach: 'team' })
+      expect(sent.p_changes.some((c) => c.role === 'admin' || c.capability.startsWith('page.'))).toBe(false)
+    })
+
     it('saves nothing until Save, then sends exactly the cells that changed', async () => {
       const user = show()
       await compare(user)

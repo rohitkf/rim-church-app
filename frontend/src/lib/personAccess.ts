@@ -90,6 +90,31 @@ export function explainCapability(
   settings: AppSettings,
   grants: readonly PermissionGrant[] = [],
 ): Answer {
+  const { only, church, perTeam, own } = placesFor(person, cap, overrides, teamRules, teamIds, settings, grants)
+  if (only !== undefined) return only ? { kind: 'everywhere', via: only } : { kind: 'none' }
+  const granted = perTeam.filter((t): t is { id: string; via: Via } => t.via !== null)
+
+  if (church && granted.length === perTeam.length) return { kind: 'everywhere', via: church }
+  if (granted.length > 0) return { kind: 'teams', teams: granted, church }
+  if (church) return { kind: 'everywhere', via: church }
+  if (own) return { kind: 'own', via: own }
+  return { kind: 'none' }
+}
+
+/**
+ * The places one person may do one thing, each with who gave the yes:
+ * where no team is involved, on each team, and on what is their own. A
+ * thing only Overwatch does is `only` — Overwatch's, or nobody's.
+ */
+export function placesFor(
+  person: PersonFacts,
+  cap: CapabilityKey,
+  overrides: Overrides,
+  teamRules: TeamOverrides,
+  teamIds: readonly string[],
+  settings: AppSettings,
+  grants: readonly PermissionGrant[] = [],
+): { only?: Via | null; church: Via | null; perTeam: { id: string; via: Via | null }[]; own: Via | null } {
   const holder = holderOf(person, grants)
   const ask = (departmentId: string | null, extra: { coordinating?: boolean; ownerId?: string } = {}) =>
     grantedBy(overrides, holder, cap, { departmentId, ...extra }, teamRules)
@@ -105,7 +130,7 @@ export function explainCapability(
       (!!reads && overwatchOpens(reads, settings.overwatch_pages)))
       ? ('overwatch' as const)
       : null
-  if (isOverwatchOnly(cap)) return watched ? { kind: 'everywhere', via: 'overwatch' } : { kind: 'none' }
+  if (isOverwatchOnly(cap)) return { only: watched, church: watched, perTeam: [], own: null }
 
   const church: Via | null = ask(null) ?? watched
   const perTeam = teamIds.map((id) => ({
@@ -113,14 +138,7 @@ export function explainCapability(
     via: (ask(id, { coordinating: person.coordinatorTeams.includes(id) }) ??
       (act === 'board' ? null : watched)) as Via | null,
   }))
-  const granted = perTeam.filter((t): t is { id: string; via: Via } => t.via !== null)
-
-  if (church && granted.length === perTeam.length) return { kind: 'everywhere', via: church }
-  if (granted.length > 0) return { kind: 'teams', teams: granted, church }
-  if (church) return { kind: 'everywhere', via: church }
-  const own = ask(null, { ownerId: person.id })
-  if (own) return { kind: 'own', via: own }
-  return { kind: 'none' }
+  return { church, perTeam, own: ask(null, { ownerId: person.id }) }
 }
 
 const RANK: Record<Allowed, number> = { no: 0, own: 1, team: 2, yes: 3 }
