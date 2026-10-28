@@ -22,6 +22,19 @@ export type GrantRole = 'admin' | 'head' | 'assistant' | 'coordinator' | 'member
 export const GRANT_ROLES: readonly GrantRole[] = ['admin', 'head', 'assistant', 'coordinator', 'member', 'newcomer']
 
 /**
+ * Overwatch and Pastor (0214): church-wide standings with columns of their
+ * own, though only a handful of cells each. A capability that names
+ * neither gives them a fixed No. They are never a team's to set, and
+ * nothing is granted through them.
+ */
+export type StandingRole = 'overwatch' | 'pastor'
+
+/** Every column the church sets a cell in. */
+export type GridRole = GrantRole | StandingRole
+
+export const GRID_ROLES: readonly GridRole[] = [...GRANT_ROLES, 'overwatch', 'pastor']
+
+/**
  * The profiles a team can set its own rules for (0162): the ones whose
  * "team" is a particular team. An Admin's reach is the church's; a Church
  * Member is everybody.
@@ -77,6 +90,20 @@ const PLANNER_RULE = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   }
+
+/**
+ * A thing only Overwatch does, as Overwatch (0214): every other profile's
+ * cell a fixed No, so nothing may be granted of it.
+ */
+const OVERWATCH_ONLY = {
+  admin: fixed(),
+  head: fixed(),
+  assistant: fixed(),
+  coordinator: fixed(),
+  member: fixed(),
+  newcomer: fixed(),
+  overwatch: offer('none all', 'all'),
+}
 
 /*
  * One entry per capability, five profiles each — the same as the
@@ -226,8 +253,9 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
-  // Prayer's three (0210): the Pastors and the Owner always; anybody else
-  // as the church says, or by a grant. Admins are not pastors by default.
+  // Prayer's three (0210): the Pastors (their own column since 0214) and
+  // the Owner always; anybody else as the church says, or by a grant.
+  // Admins are not pastors by default.
   'prayer.pastoral': {
     admin: offer('none all', 'none'),
     head: offer('none all', 'none'),
@@ -235,6 +263,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
+    pastor: fixed('all'),
   },
   'prayer.assign': {
     admin: offer('none all', 'none'),
@@ -243,6 +272,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
+    pastor: fixed('all'),
   },
   'prayer.lists': {
     admin: offer('none all', 'none'),
@@ -251,6 +281,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none all', 'none'),
     newcomer: fixed(),
+    pastor: fixed('all'),
   },
   // The Service Planner's buttons on their own (0211): whoever plans the
   // running order or runs the service has them all through svc.sessions
@@ -423,6 +454,9 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Overwatch's three switches on these rows (0214) are things done as
+  // Overwatch, read by overwatch_may() rather than may(): the church-wide
+  // board only, as themselves, on a page open to Overwatch.
   'msg.board_post': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
@@ -430,6 +464,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
+    overwatch: offer('none all', 'all'),
   },
   'msg.board_moderate': {
     admin: offer('none all', 'all'),
@@ -446,6 +481,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none team all', 'team'),
     newcomer: fixed(),
+    overwatch: offer('none all', 'all'),
   },
   'msg.chat_moderate': {
     admin: offer('none all', 'all'),
@@ -462,6 +498,7 @@ export const CATALOG = {
     coordinator: fixed(),
     member: offer('none team all', 'none'),
     newcomer: fixed(),
+    overwatch: offer('none all', 'all'),
   },
   'msg.updates': {
     admin: offer('none all', 'all'),
@@ -503,6 +540,8 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Overwatch's alone (0214): raised as Overwatch, in a group of their own.
+  'issue.as_overwatch': OVERWATCH_ONLY,
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
@@ -527,6 +566,8 @@ export const CATALOG = {
     member: offer('none team all', 'team'),
     newcomer: fixed(),
   },
+  // Overwatch's alone (0214): its own write-up of a service, beside every team's.
+  'debrief.as_overwatch': OVERWATCH_ONLY,
   'give.edit': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
@@ -575,7 +616,7 @@ export const CATALOG = {
     member: fixed(),
     newcomer: fixed(),
   },
-} as const satisfies Record<string, Record<GrantRole, Rule>>
+} as const satisfies Record<string, Record<GrantRole, Rule> & Partial<Record<StandingRole, Rule>>>
 
 export type CapabilityKey = keyof typeof CATALOG
 
@@ -585,16 +626,31 @@ export function isCapabilityKey(value: string): value is CapabilityKey {
   return Object.prototype.hasOwnProperty.call(CATALOG, value)
 }
 
-export function ruleFor(cap: CapabilityKey, role: GrantRole): Rule {
-  return CATALOG[cap][role]
+const NO_CELL: Rule = fixed()
+
+/** One cell's rule. A column a capability does not name (Overwatch's, a Pastor's) is a fixed No. */
+export function ruleFor(cap: CapabilityKey, role: GridRole): Rule {
+  const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
+  return entry[role] ?? NO_CELL
 }
 
-export function isFixed(cap: CapabilityKey, role: GrantRole): boolean {
+export function isFixed(cap: CapabilityKey, role: GridRole): boolean {
   return ruleFor(cap, role).reaches.length === 1
 }
 
+/** Whether this capability names its own rule for Overwatch or a Pastor (0214). */
+export function hasCell(cap: CapabilityKey, role: GridRole): boolean {
+  const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
+  return !!entry[role]
+}
+
+/** A thing only Overwatch does, as Overwatch: nobody else's to be given (0214). */
+export function isOverwatchOnly(cap: CapabilityKey): boolean {
+  return hasCell(cap, 'overwatch') && GRANT_ROLES.every((role) => isFixed(cap, role) && ruleFor(cap, role).byDefault === 'none')
+}
+
 /** The church's changes, cell by cell. A cell it never touched is absent. */
-export type Overrides = Partial<Record<CapabilityKey, Partial<Record<GrantRole, Reach>>>>
+export type Overrides = Partial<Record<CapabilityKey, Partial<Record<GridRole, Reach>>>>
 
 /**
  * One team's own rules (0162), by team id: the cells it set differently
@@ -606,27 +662,27 @@ export type TeamOverrides = Record<string, Overrides>
  * The reach in force: the church's choice if it is still on offer,
  * otherwise the default. The same order `permission_reach()` uses.
  */
-export function reachOf(overrides: Overrides, cap: CapabilityKey, role: GrantRole): Reach {
+export function reachOf(overrides: Overrides, cap: CapabilityKey, role: GridRole): Reach {
   const rule = ruleFor(cap, role)
   const chosen = overrides[cap]?.[role]
   return chosen && rule.reaches.includes(chosen) ? chosen : rule.byDefault
 }
 
 /** The reaches a team may set for this profile: the catalog's, no wider than the team. */
-export function teamReaches(cap: CapabilityKey, role: GrantRole): readonly Reach[] {
-  if (!TEAM_ROLES.includes(role)) return []
+export function teamReaches(cap: CapabilityKey, role: GridRole): readonly Reach[] {
+  if (!(TEAM_ROLES as readonly GridRole[]).includes(role)) return []
   const rule = ruleFor(cap, role)
   if (!rule.reaches.includes('team')) return []
   return rule.reaches.filter((r) => r !== 'all')
 }
 
 /** Whether a team can set this cell for itself at all. */
-export function isTeamSettable(cap: CapabilityKey, role: GrantRole): boolean {
+export function isTeamSettable(cap: CapabilityKey, role: GridRole): boolean {
   return teamReaches(cap, role).length > 1
 }
 
 /** What this team set for the cell, if it set anything the catalog still offers. */
-export function teamChoice(teams: TeamOverrides, dept: string | null | undefined, cap: CapabilityKey, role: GrantRole): Reach | null {
+export function teamChoice(teams: TeamOverrides, dept: string | null | undefined, cap: CapabilityKey, role: GridRole): Reach | null {
   if (!dept) return null
   const chosen = teams[dept]?.[cap]?.[role]
   return chosen && teamReaches(cap, role).includes(chosen) ? chosen : null
@@ -652,9 +708,12 @@ export function overridesFrom(rows: { role_key: string; capability: string; reac
   const out: Overrides = {}
   for (const row of rows) {
     if (!isCapabilityKey(row.capability)) continue
-    if (!(GRANT_ROLES as readonly string[]).includes(row.role_key)) continue
+    if (!(GRID_ROLES as readonly string[]).includes(row.role_key)) continue
     if (!(REACHES as readonly string[]).includes(row.reach)) continue
-    out[row.capability] = { ...out[row.capability], [row.role_key as GrantRole]: row.reach as Reach }
+    // Overwatch and a Pastor have cells only where a capability names them.
+    const role = row.role_key as GridRole
+    if (!(GRANT_ROLES as readonly string[]).includes(role) && !hasCell(row.capability, role)) continue
+    out[row.capability] = { ...out[row.capability], [role]: row.reach as Reach }
   }
   return out
 }
@@ -680,7 +739,7 @@ export function teamOverridesFrom(
  * that team's own rule; `reach: null` there means "as the church".
  */
 export interface PermissionChange {
-  role: GrantRole
+  role: GridRole
   capability: CapabilityKey
   reach: Reach | null
   department?: string | null
@@ -693,7 +752,7 @@ export interface PermissionChange {
 export function changesBetween(stored: Overrides, next: Overrides): PermissionChange[] {
   const out: PermissionChange[] = []
   for (const capability of CAPABILITY_KEYS) {
-    for (const role of GRANT_ROLES) {
+    for (const role of GRID_ROLES) {
       if (isFixed(capability, role)) continue
       const before = reachOf(stored, capability, role)
       const after = reachOf(next, capability, role)
@@ -727,7 +786,7 @@ export function teamChangesBetween(stored: TeamOverrides, next: TeamOverrides): 
 export function defaultsOver(stored: Overrides): Overrides {
   const out: Overrides = {}
   for (const capability of CAPABILITY_KEYS) {
-    for (const role of GRANT_ROLES) {
+    for (const role of GRID_ROLES) {
       if (stored[capability]?.[role] !== undefined) {
         out[capability] = { ...out[capability], [role]: ruleFor(capability, role).byDefault }
       }
@@ -753,6 +812,8 @@ export interface Holder {
   memberTeams: readonly string[]
   /** Whether the rota has them in Team Coordinator anywhere. */
   coordinatesAnywhere?: boolean
+  /** Whether they are a Pastor (0214). Left out, not. */
+  pastor?: boolean
   /**
    * The church's grants (0208): one thing more, for a person by name or
    * for everybody on a team. Left out, none.
@@ -806,7 +867,7 @@ export interface Where {
 }
 
 /** Who gave a yes: the Owner, the profile whose reach covered it, or a grant (0208). */
-export type Granter = 'owner' | GrantRole | 'grant'
+export type Granter = 'owner' | GrantRole | 'pastor' | 'grant'
 
 /**
  * Which of this person's profiles lets them do this, here — the first, in
@@ -835,6 +896,11 @@ export function grantedBy(
 
   reach = reachOf(overrides, cap, 'admin')
   if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return 'admin'
+
+  // A Pastor (0214), church-wide as an Admin is. Overwatch is not asked
+  // here: its cells are what overwatch_may() reads, not may().
+  reach = reachOf(overrides, cap, 'pastor')
+  if (reach !== 'none' && holder.pastor && (reach === 'all' || mine)) return 'pastor'
 
   // The Head and the Assisting Head: two profiles since 0162, the same
   // rules unless the church says otherwise. A holder that does not say

@@ -24,7 +24,6 @@ const settings = vi.hoisted(() => ({
   issue_retention_days: 30,
   issue_open_minutes_before: 60,
   issue_close_minutes_after: 120,
-  overwatch_issues: true,
   overwatch_pages: {} as Record<string, boolean>,
 }))
 // The pages' display preferences, at the app's own defaults.
@@ -88,6 +87,8 @@ vi.mock('../lib/queries', () => ({
 const state = vi.hoisted(() => ({
   issues: [] as Record<string, unknown>[],
   rpc: [] as { name: string; args: Record<string, unknown> }[],
+  // The grid's changed cells (role_permissions): Overwatch's five are among them (0214).
+  cells: [] as { role_key: string; capability: string; reach: string }[],
 }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -95,9 +96,9 @@ vi.mock('../lib/supabaseClient', () => ({
       state.rpc.push({ name, args })
       return Promise.resolve({ data: null, error: null })
     },
-    from: () => {
+    from: (table: string) => {
       const b: Record<string, unknown> = {}
-      b.select = () => b
+      b.select = () => (table === 'role_permissions' ? Promise.resolve({ data: state.cells, error: null }) : b)
       b.order = () => Promise.resolve({ data: state.issues, error: null })
       b.delete = () => b
       b.eq = () => Promise.resolve({ error: null })
@@ -149,7 +150,7 @@ beforeEach(() => {
   auth.isAdmin = false
   auth.isOverwatch = false
   auth.ledDepartmentIds = []
-  settings.overwatch_issues = true
+  state.cells = []
   teams.teamIds = ['media']
   teams.onATeam = true
   settings.issues_raise_scope = 'team'
@@ -274,7 +275,7 @@ describe('the Issues page', () => {
   it('offers Overwatch no form once the church turns its issues off', async () => {
     auth.isOverwatch = true
     teams.teamIds = []
-    settings.overwatch_issues = false
+    state.cells = [{ role_key: 'overwatch', capability: 'issue.as_overwatch', reach: 'none' }]
     const user = show()
     const c = await openCard(user, 'English Service')
     expect(within(c).queryByRole('form', { name: 'Raise an issue' })).toBeNull()

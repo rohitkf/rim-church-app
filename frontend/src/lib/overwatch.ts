@@ -1,4 +1,4 @@
-import type { AppSettings } from './appSettings'
+import { reachOf, type CapabilityKey, type Overrides } from './permissions'
 import { ruleFor } from './pageAccess'
 
 /**
@@ -30,16 +30,37 @@ export function overwatchOpens(path: string, pages: Record<string, boolean>): bo
 
 export type OverwatchAct = 'board' | 'chat' | 'polls' | 'issues' | 'debriefs'
 
-const SWITCH: Record<OverwatchAct, { column: keyof AppSettings; page: string }> = {
-  board: { column: 'overwatch_board_posts', page: '/messages' },
-  chat: { column: 'overwatch_chat_posts', page: '/team-chat' },
-  polls: { column: 'overwatch_polls', page: '/polls' },
-  issues: { column: 'overwatch_issues', page: '/issues' },
-  debriefs: { column: 'overwatch_debriefs', page: '/debriefs' },
+/**
+ * Each of the five things Overwatch may do is its cell in the grid (0214)
+ * — Settings › Access & Privileges, Overwatch's column — on the row it is
+ * about, and the page it needs open. `overwatch_may()` reads the same.
+ */
+export const OVERWATCH_ACTS: Record<OverwatchAct, { capability: CapabilityKey; page: string }> = {
+  board: { capability: 'msg.board_post', page: '/messages' },
+  chat: { capability: 'msg.chat', page: '/team-chat' },
+  polls: { capability: 'msg.polls', page: '/polls' },
+  issues: { capability: 'issue.as_overwatch', page: '/issues' },
+  debriefs: { capability: 'debrief.as_overwatch', page: '/debriefs' },
 }
 
-/** One of the five things Overwatch may do: switched on, on a page open to it. */
-export function overwatchMay(settings: AppSettings, act: OverwatchAct): boolean {
-  const { column, page } = SWITCH[act]
-  return settings[column] === true && overwatchOpens(page, settings.overwatch_pages)
+/** Which of the five a capability is, if it is one. */
+export function overwatchActOf(cap: CapabilityKey): OverwatchAct | null {
+  const found = (Object.keys(OVERWATCH_ACTS) as OverwatchAct[]).find((act) => OVERWATCH_ACTS[act].capability === cap)
+  return found ?? null
+}
+
+/** One of the five things Overwatch may do: its cell at Everywhere, on a page open to it. */
+export function overwatchMay(overrides: Overrides, pages: Record<string, boolean>, act: OverwatchAct): boolean {
+  const { capability, page } = OVERWATCH_ACTS[act]
+  return reachOf(overrides, capability, 'overwatch') !== 'none' && overwatchOpens(page, pages)
+}
+
+/**
+ * Rows of the grid whose answer Overwatch has without a cell of its own:
+ * it reads them through its pages (`overwatch_sees`), not through may(),
+ * so the church opens or closes them in Settings › Overwatch.
+ */
+export const OVERWATCH_READS: Partial<Record<CapabilityKey, string>> = {
+  'clockin.view': '/clock-in',
+  'avail.history': '/availability',
 }

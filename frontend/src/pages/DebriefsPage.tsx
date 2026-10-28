@@ -21,7 +21,6 @@ import { ServiceSections } from "../components/ServiceSections";
 import { sectionServices } from "../lib/serviceSections";
 import { shiftIsoDays } from "../lib/rotaWindow";
 import { useMyTeams } from "../lib/useMyTeams";
-import { overwatchMay } from "../lib/overwatch";
 import { useFinishedServices } from "../lib/useFinishedServices";
 import { useNow } from "../lib/useNow";
 import { formatMinutes } from "../lib/lifespan";
@@ -294,10 +293,10 @@ function TeamWindowLine({
 }
 
 export function DebriefsPage() {
-  const { session, isOverwatch } = useAuth();
+  const { session } = useAuth();
   // Writing a debrief, and adding to one, are the church's to grant
   // (Settings › Access & Privileges).
-  const { can } = usePermissions();
+  const { can, watches } = usePermissions();
   const { teamIds } = useMyTeams();
   const settings = useAppSettings();
   // How far ahead services are listed — the church's choice.
@@ -444,8 +443,8 @@ export function DebriefsPage() {
   /** Whoever may add to it otherwise: their own points, in the window. */
   const onTeam = (departmentId: string) =>
     !leads(departmentId) && can("debrief.contribute", { departmentId });
-  /** Overwatch writes its own debrief of each service, in the window (0187). */
-  const watching = isOverwatch && overwatchMay(settings, "debriefs");
+  /** Overwatch writes its own debrief of each service, in the window (0187), as its cell in the grid says (0214). */
+  const watching = watches("debriefs");
 
   return (
     <div>

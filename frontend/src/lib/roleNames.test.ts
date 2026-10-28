@@ -16,6 +16,8 @@ describe('one name for each standing', () => {
     expect(ROLES.map((r) => r.label)).toEqual([
       ROLE_NAME.owner,
       ROLE_NAME.admin,
+      ROLE_NAME.overwatch,
+      ROLE_NAME.pastor,
       ROLE_NAME.head,
       ROLE_NAME.assistant,
       ROLE_NAME.coordinator,

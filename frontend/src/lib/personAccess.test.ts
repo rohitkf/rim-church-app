@@ -73,22 +73,62 @@ describe('what one person may do, and why', () => {
     expect(explainCapability(person(), 'rota.assign', {}, {}, TEAMS, settings())).toEqual({ kind: 'none' })
   })
 
-  it('counts Overwatch’s own switches, as Overwatch', () => {
+  it('counts Overwatch’s own cells, as Overwatch (0214)', () => {
     const watcher = person({ overwatch: true })
     expect(explainCapability(watcher, 'msg.chat', {}, {}, TEAMS, settings())).toEqual({
       kind: 'everywhere',
       via: 'overwatch',
     })
-    expect(explainCapability(watcher, 'msg.chat', {}, {}, TEAMS, settings({ overwatch_chat_posts: false }))).toEqual({
+    expect(explainCapability(watcher, 'msg.chat', { 'msg.chat': { overwatch: 'none' } }, {}, TEAMS, settings())).toEqual({
       kind: 'none',
     })
+    // A page closed to Overwatch closes its cell with it.
+    expect(
+      explainCapability(watcher, 'msg.chat', {}, {}, TEAMS, settings({ overwatch_pages: { 'team-chat': false } })),
+    ).toEqual({ kind: 'none' })
+  })
+
+  it('gives a thing done as Overwatch to Overwatch alone, not even the Owner', () => {
+    expect(explainCapability(person({ overwatch: true }), 'issue.as_overwatch', {}, {}, TEAMS, settings())).toEqual({
+      kind: 'everywhere',
+      via: 'overwatch',
+    })
+    expect(explainCapability(person({ owner: true }), 'issue.as_overwatch', {}, {}, TEAMS, settings())).toEqual({
+      kind: 'none',
+    })
+  })
+
+  it('says what Overwatch reads through its pages, without a cell of its own', () => {
+    const watcher = person({ overwatch: true })
+    expect(explainCapability(watcher, 'clockin.view', {}, {}, TEAMS, settings())).toEqual({ kind: 'everywhere', via: 'overwatch' })
+    expect(
+      explainCapability(watcher, 'clockin.view', {}, {}, TEAMS, settings({ overwatch_pages: { 'clock-in': false } })),
+    ).toEqual({ kind: 'none' })
+  })
+
+  it('counts a Pastor’s column, as Pastor (0214)', () => {
+    expect(explainCapability(person({ pastor: true }), 'prayer.pastoral', {}, {}, TEAMS, settings())).toEqual({
+      kind: 'everywhere',
+      via: 'pastor',
+    })
+    expect(explainCapability(person({ pastor: true }), 'rota.assign', {}, {}, TEAMS, settings())).toEqual({ kind: 'none' })
   })
 })
 
 describe('a row the grid does not set', () => {
   const row: Capability = {
     action: 'See their team’s register',
-    can: { owner: 'yes', admin: 'yes', head: 'team', assistant: 'team', coordinator: 'no', member: 'own', newcomer: 'no' },
+    can: {
+      owner: 'yes',
+      admin: 'yes',
+      overwatch: 'no',
+      pastor: 'no',
+      head: 'team',
+      assistant: 'team',
+      coordinator: 'no',
+      member: 'own',
+      newcomer: 'no',
+    },
   }
 
   it('takes the widest answer of the profiles they hold, and names it', () => {
@@ -104,7 +144,17 @@ describe('a row the grid does not set', () => {
     const rota: Capability = {
       action: 'See the rota',
       page: '/rota',
-      can: { owner: 'yes', admin: 'yes', head: 'yes', assistant: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'no' },
+      can: {
+        owner: 'yes',
+        admin: 'yes',
+        overwatch: 'yes',
+        pastor: 'no',
+        head: 'yes',
+        assistant: 'yes',
+        coordinator: 'yes',
+        member: 'yes',
+        newcomer: 'no',
+      },
     }
     expect(explainFixed(person(), rota, settings())).toEqual({ allowed: 'no', via: null })
     expect(explainFixed(person({ memberTeams: [WORSHIP] }), rota, settings())).toEqual({ allowed: 'yes', via: 'member' })
@@ -117,6 +167,7 @@ describe('a row the grid does not set', () => {
 
   it('lists a person’s profiles widest first, a Church Member always last', () => {
     expect(profilesOf(person({ admin: true, memberTeams: [WORSHIP] }))).toEqual(['admin', 'member', 'newcomer'])
+    expect(profilesOf(person({ overwatch: true, pastor: true }))).toEqual(['overwatch', 'pastor', 'newcomer'])
   })
 })
 

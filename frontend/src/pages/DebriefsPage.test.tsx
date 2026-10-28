@@ -65,7 +65,6 @@ vi.mock('../lib/appSettings', async () => {
     useAppSettings: () => ({
       debrief_retention_days: state.retention,
       debrief_open_minutes_after: 720,
-      overwatch_debriefs: true,
       overwatch_pages: {},
     }),
   }

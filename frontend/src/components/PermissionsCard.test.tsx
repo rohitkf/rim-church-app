@@ -151,9 +151,10 @@ describe('PermissionsCard', () => {
     const user = show()
     await compare(user)
     // A row with a choice is there, its fixed cells (the Owner's, a Church
-    // Member's) said plainly — no padlock, as if a setting were switched off.
+    // Member's, and Overwatch's and a Pastor's, who have no say in the
+    // rota) said plainly — no padlock, as if a setting were switched off.
     const assign = rowFor('Assign somebody to a role')
-    expect(within(assign).getAllByText('(fixed)')).toHaveLength(2)
+    expect(within(assign).getAllByText('(fixed)')).toHaveLength(4)
     expect(assign.querySelector('svg rect')).toBeNull()
     // A row nobody can change waits a tap away.
     expect(screen.queryByRole('rowheader', { name: /See visa, DBS and safeguarding details/ })).toBeNull()
@@ -187,7 +188,27 @@ describe('PermissionsCard', () => {
       // A Church Member and the Owner are not offered a choice at all.
       expect(assign.queryByRole('combobox', { name: /Church Member/ })).toBeNull()
       expect(assign.queryByRole('combobox', { name: /Owner/ })).toBeNull()
-      expect(assign.getAllByText('(fixed)')).toHaveLength(2)
+      expect(assign.queryByRole('combobox', { name: /Overwatch|Pastor/ })).toBeNull()
+      expect(assign.getAllByText('(fixed)')).toHaveLength(4)
+    })
+
+    it('gives Overwatch its own cells, and a Pastor the prayer rows, fixed (0214)', async () => {
+      const user = show()
+      await compare(user)
+      const chat = within(rowFor('Read and post in a team’s chat'))
+      const list = await openOptions(user, chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Overwatch' }))
+      expect(within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)).toEqual(['No', 'All'])
+      await user.keyboard('{Escape}')
+      expect(chat.queryByRole('combobox', { name: /Pastor/ })).toBeNull()
+      const prayer = within(rowFor('Read private prayer requests'))
+      expect(prayer.queryByRole('combobox', { name: /Pastor/ })).toBeNull()
+      expect(prayer.queryByRole('combobox', { name: /Overwatch/ })).toBeNull()
+
+      await chooseOption(user, chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Overwatch' }), 'No')
+      await user.click(screen.getByRole('button', { name: 'Save permissions' }))
+      expect(rpc).toHaveBeenCalledWith('set_permissions', {
+        p_changes: [{ role: 'overwatch', capability: 'msg.chat', reach: 'none' }],
+      })
     })
 
     it('saves nothing until Save, then sends exactly the cells that changed', async () => {

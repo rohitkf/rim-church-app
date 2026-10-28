@@ -13,12 +13,12 @@ import {
 import {
   REACH_LABEL,
   REACH_SHORT,
-  GRANT_ROLES,
+  GRID_ROLES,
   isFixed,
   reachOf,
   ruleFor,
   type CapabilityKey,
-  type GrantRole,
+  type GridRole,
   type Reach,
 } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
@@ -124,7 +124,7 @@ export function ReachPicker({
   reaches = ruleFor(capability, role).reaches,
 }: {
   capability: CapabilityKey
-  role: GrantRole
+  role: GridRole
   value: Reach
   /** Differs from what is saved. */
   unsaved: boolean
@@ -173,10 +173,17 @@ export function FixedCell({ value, locked }: { value: Allowed; locked: boolean }
 
 /** Whether the church may set any cell in this row. */
 function hasChoice(c: Capability, live: boolean): boolean {
-  return live && !!c.key && GRANT_ROLES.some((role) => !isFixed(c.key!, role))
+  return live && !!c.key && GRID_ROLES.some((role) => !isFixed(c.key!, role))
 }
 
 export const roleLabel = (key: RoleKey) => ROLES.find((r) => r.key === key)!.label
+
+/** "a Team Head", "an Admin" — and Overwatch, a body of people, bare. */
+const somebody = (key: RoleKey) => {
+  const label = roleLabel(key)
+  if (key === 'overwatch') return label
+  return /^[AEIOU]/.test(label) ? `an ${label}` : `a ${label}`
+}
 
 export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionArea[] } = {}) {
   const [view, setView] = useState<'role' | 'compare'>('role')
@@ -193,7 +200,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
 
   const shown = useMemo(() => withGrants(areas, working), [areas, working])
 
-  const choose = (capability: CapabilityKey, who: GrantRole, reach: Reach) => {
+  const choose = (capability: CapabilityKey, who: GridRole, reach: Reach) => {
     setSaved(false)
     perms.chooseChurch(capability, who, reach)
   }
@@ -207,7 +214,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
     if (!key || who === 'owner' || !live) {
       return <FixedCell value={value} locked={live && !!key} />
     }
-    const grantRole = who as GrantRole
+    const grantRole = who as GridRole
     if (!editable || isFixed(key, grantRole)) {
       return <FixedCell value={value} locked={isFixed(key, grantRole)} />
     }
@@ -296,7 +303,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                 onChange={(e) => setOnlyAllowed(e.target.checked)}
                 className="h-4 w-4 shrink-0"
               />
-              Only show what a {chosen.label} can do
+              Only show what {somebody(chosen.key)} can do
             </label>
           </Tile>
 
@@ -311,7 +318,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
             </button>
           </div>
 
-          <ul className="flex flex-col gap-2" aria-label={`What a ${chosen.label} can do`}>
+          <ul className="flex flex-col gap-2" aria-label={`What ${somebody(chosen.key)} can do`}>
             {shown.map((area) => {
               const live = isLiveArea(area)
               const allowed = area.capabilities.filter((c) => c.can[role] !== 'no').length
@@ -320,7 +327,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               // A row this role can be given stays put even at "No":
               // hiding it the moment it is set would take the control with it.
               const settable = (c: Capability) =>
-                editable && live && !!c.key && role !== 'owner' && !isFixed(c.key, role as GrantRole)
+                editable && live && !!c.key && role !== 'owner' && !isFixed(c.key, role as GridRole)
               const rows = onlyAllowed
                 ? area.capabilities.filter((c) => c.can[role] !== 'no' || settable(c))
                 : area.capabilities
@@ -362,7 +369,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                     {isOpen && (
                       <ul id={panel} className="flex flex-col gap-1 px-3 pb-3">
                         {rows.length === 0 && (
-                          <li className="px-2 py-2 text-body-sm text-on-surface-faint">Nothing here for a {chosen.label}.</li>
+                          <li className="px-2 py-2 text-body-sm text-on-surface-faint">Nothing here for {somebody(chosen.key)}.</li>
                         )}
                         {rows.map((capability) => {
                           const answer = ANSWER[capability.can[role]]
@@ -438,7 +445,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                     <AreaStatus area={area} />
                   </h3>
                   {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
-                  {/* Six columns will not fit a phone, and shrinking them to
+                  {/* Nine columns will not fit a phone, and shrinking them to
                       make them fit is how a table becomes unreadable on every
                       device instead of one. It scrolls inside itself — and is
                       positioned, so the hidden "(fixed)" labels scroll with
@@ -446,7 +453,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                   {rows.length > 0 && (
                     <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
                       <table
-                        className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[40rem]' : 'min-w-[34rem]'}`}
+                        className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[50rem]' : 'min-w-[42rem]'}`}
                       >
                         <thead>
                           <tr>

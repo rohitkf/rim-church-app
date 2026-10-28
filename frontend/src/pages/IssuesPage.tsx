@@ -8,7 +8,6 @@ import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useAppSettings } from '../lib/appSettings'
 import { useMyTeams } from '../lib/useMyTeams'
-import { overwatchMay } from '../lib/overwatch'
 import { useErrorText } from '../lib/useErrorText'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useNow } from '../lib/useNow'
@@ -72,7 +71,7 @@ const OUTCOME_TONE: Record<IssueOutcome, PillTone> = {
 export function IssuesPage() {
   const { session, isAdmin, isOverwatch, ledDepartmentIds } = useAuth()
   // Marking and deleting are the church's to grant (Settings › Access & Privileges).
-  const { can } = usePermissions()
+  const { can, watches } = usePermissions()
   const settings = useAppSettings()
   const { teamIds, onATeam, settled } = useMyTeams()
   const errorText = useErrorText()
@@ -87,8 +86,8 @@ export function IssuesPage() {
   const { ask, dialog } = useConfirmAction()
 
   const myTeamIds = useMemo(() => [...new Set([...teamIds, ...ledDepartmentIds])], [teamIds, ledDepartmentIds])
-  // Overwatch raises as Overwatch, while the church allows it (0187).
-  const raisesAsOverwatch = isOverwatch && overwatchMay(settings, 'issues')
+  // Overwatch raises as Overwatch, while the church allows it (0187) — its cell in the grid (0214).
+  const raisesAsOverwatch = watches('issues')
   const canRaise =
     mayRaiseIssue(settings.issues_raise_scope, {
       isAdmin,

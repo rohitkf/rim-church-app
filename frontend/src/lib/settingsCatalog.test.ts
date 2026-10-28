@@ -40,6 +40,12 @@ const NOT_A_ROW: (keyof AppSettings)[] = [
   'prayer_carers',
   'prayer_assigners',
   'prayer_list_runners',
+  // Read by nothing since Overwatch's five became its cells in the grid (0214).
+  'overwatch_board_posts',
+  'overwatch_chat_posts',
+  'overwatch_polls',
+  'overwatch_issues',
+  'overwatch_debriefs',
 ]
 
 const KNOWN_PAGES = new Set([...SETTINGS_PAGES.map((p) => p.to), SERVICE_PAGES_REF])
@@ -99,7 +105,7 @@ describe('the settings catalog', () => {
       expect.arrayContaining(['rota_window_days', 'always_show_my_services', 'lead_in_minutes', 'edit_grace_minutes', 'display.lists.upcomingOpen', 'service_retention_days']),
     )
     expect(rota).not.toContain('issue_open_minutes_before')
-    expect(settingsForPage('/team-chat').map((e) => e.id)).toEqual(['team_chat_retention_days', 'overwatch_chat_posts'])
+    expect(settingsForPage('/team-chat').map((e) => e.id)).toEqual(['team_chat_retention_days'])
     expect(settingsForPage(BELL).map((e) => e.id)).toEqual(['notification_keep_count', 'notification_retention_days'])
     for (const page of SERVICE_PAGES) expect(settingsForPage(page).map((e) => e.id)).toContain('display.lists.finishedOpen')
   })
