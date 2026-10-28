@@ -39,6 +39,7 @@ export function usePageAccess(): {
   // included, so the menu waits for the grid as well.
   const { can, query: permissions } = usePermissions()
   const clockInViewer = can('clockin.view')
+  const prayerCarer = can('prayer.pastoral')
   const permissionsSettled = !permissions || !permissions.isLoading
   const myId = session?.user.id
   const canOpen = useCallback(
@@ -54,10 +55,11 @@ export function usePageAccess(): {
           isPastor,
           teamIds: [...teamIds, ...ledDepartmentIds],
           clockInViewer,
+          prayerCarer,
         },
         settings,
       ).open,
-    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, clockInViewer],
+    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, clockInViewer, prayerCarer],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled && permissionsSettled }
 }

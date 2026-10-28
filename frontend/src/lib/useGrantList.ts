@@ -33,6 +33,7 @@ export function useGrantList(capability: CapabilityKey, reach: GrantReach = 'all
   }, [grants, capability])
   const [draft, setDraft] = useState<GrantList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
   const working = draft ?? stored
   const changed = !!draft && (!same(draft.teams, stored.teams) || !same(draft.people, stored.people))
 
@@ -53,6 +54,7 @@ export function useGrantList(capability: CapabilityKey, reach: GrantReach = 'all
       setError(null)
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
       setDraft(null)
+      setSaved(true)
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save who may.')),
   })
@@ -60,9 +62,13 @@ export function useGrantList(capability: CapabilityKey, reach: GrantReach = 'all
   return {
     working,
     changed,
-    set: (next: GrantList) => setDraft(next),
+    set: (next: GrantList) => {
+      setSaved(false)
+      setDraft(next)
+    },
     save: () => save.mutateAsync(),
     saving: save.isPending,
+    saved,
     error,
   }
 }

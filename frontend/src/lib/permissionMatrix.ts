@@ -746,6 +746,33 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Prayer',
+    pages: ['/prayer'],
+    capabilities: [
+      {
+        action: 'Read private prayer requests, and who wrote an anonymous one',
+        key: 'prayer.pastoral',
+        short: 'Read private requests',
+        can: granted('prayer.pastoral'),
+        note: 'And take any request down, ask people to pray and run prayer lists. The Pastors and the Owner always may; an Admin only if given it. By name or through a team: Settings › Prayer, or By person.',
+      },
+      {
+        action: 'Ask people to pray for a request',
+        key: 'prayer.assign',
+        short: 'Ask people to pray',
+        can: granted('prayer.assign'),
+        note: 'On any request they can see. The pastors always may.',
+      },
+      {
+        action: 'Run prayer lists',
+        key: 'prayer.lists',
+        short: 'Run prayer lists',
+        can: granted('prayer.lists'),
+        note: 'A list is a set of requests seen by the people and teams on it, for chain prayer. The pastors always may.',
+      },
+    ],
+  },
+  {
     area: 'Stage Layout',
     pages: ['/stage'],
     fixed: 'Set per team rather than per profile: Settings › Stage Layout says which teams may add, edit, delete, comment and keep templates. Admins and the Owner always may.',
