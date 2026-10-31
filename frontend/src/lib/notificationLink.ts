@@ -61,6 +61,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   team_join_requested: { label: 'Someone has asked to join your team', href: '/departments' },
   team_join_approved: { label: 'You have been added to a team', href: '/departments' },
   team_join_declined: { label: 'Your request to join a team was declined', href: '/departments' },
+  // The reminder itself names the service and the teams waiting (0220); this is only the fallback.
   availability_reminder: { label: 'Can you serve? Your team is waiting on you', href: '/availability' },
   checklist_reminder: { label: 'Your service checklist still has something on it', href: '/checklists' },
   team_alert: { label: 'A message from your team', href: '/messages' },

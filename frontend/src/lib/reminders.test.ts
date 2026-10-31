@@ -25,7 +25,9 @@ describe('what the dashboard reminds somebody of (0178)', () => {
     )
     expect(poll).toMatchObject({ eyebrow: 'A poll for you', href: '/polls?poll=p1', actionLabel: 'Answer', detail: 'Closes in 2 days' })
     expect(avail).toMatchObject({ eyebrow: 'Can you serve?', href: '/availability', title: 'English Service' })
-    expect(avail.detail).toContain('Media')
+    expect(avail.detail).toContain('Not yet answered for Media')
+    const [two] = toReminders([row({ kind: 'availability', ref_id: 's2', detail: 'Audio, Media, Worship', on_date: '2026-10-25' })], now)
+    expect(two.detail).toContain('Not yet answered for Audio, Media and Worship')
     expect(mention).toMatchObject({ eyebrow: 'You were mentioned', readsOnOpen: 'mention' })
   })
 

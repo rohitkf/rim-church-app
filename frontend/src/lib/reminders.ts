@@ -61,6 +61,18 @@ type KindEntry = {
   readsOnOpen?: string
 }
 
+/**
+ * The teams still waiting on an answer, said as such: somebody on two
+ * teams who has answered for one is asked only for the other, and "Media"
+ * on its own read as if the whole service were still unanswered.
+ */
+function stillFor(teams: string | null): string | null {
+  const names = (teams ?? '').split(', ').filter(Boolean)
+  if (names.length === 0) return null
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return `Not yet answered for ${list}`
+}
+
 export const REMINDER_KINDS: Record<string, KindEntry> = {
   poll: {
     eyebrow: 'A poll for you',
@@ -73,7 +85,7 @@ export const REMINDER_KINDS: Record<string, KindEntry> = {
     action: 'Give availability',
     href: () => '/availability',
     detail: (r, now) =>
-      [r.on_date ? formatServiceDay(r.on_date) : null, r.detail, r.due_at ? `answers close ${untilText(r.due_at, now)}` : null]
+      [r.on_date ? formatServiceDay(r.on_date) : null, stillFor(r.detail), r.due_at ? `answers close ${untilText(r.due_at, now)}` : null]
         .filter(Boolean)
         .join(' · '),
   },
