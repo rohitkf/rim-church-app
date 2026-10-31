@@ -751,6 +751,16 @@ export function AvailabilityPage() {
       <div>
       {/* Which service this is, once its heading has scrolled away. */}
       {open && <FloatingServiceTitle title={service.service_type} detail={shortServiceDay(service.date)} />}
+      {/* Every team at once, for whoever may remind everywhere (0221) —
+          the Owner and Admins out of the box. Each person gets one
+          reminder naming the teams still waiting on them. */}
+      {open && !finished && can('avail.nudge', { departmentId: null }) && (
+        <div className="mt-4">
+          <NudgeButton rpc="nudge_availability_all" args={{ svc_id: service.id }} nobodyLabel="Everyone has answered, or has a reminder already">
+            Remind everyone who hasn&rsquo;t answered
+          </NudgeButton>
+        </div>
+      )}
       {/* Each team is its own card, so the eye can jump to the one
           that is short rather than reading a column of bars. */}
       <ul
