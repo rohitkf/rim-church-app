@@ -320,16 +320,19 @@ export function ServicePlannerIndexPage() {
   // The four sections every page with services uses. Finished here keeps
   // its own rule — this week's, clearing on the board's day — and the
   // rest is split from Upcoming: today, the next service day, and on.
+  // Upcoming stops at the church's span (0223, three weeks out of the
+  // box); today and the next service day show whatever it is.
+  const listedThrough = addDays(today, settings.planner_upcoming_days)
   const sections = useMemo(() => {
     const ahead = upcoming.filter((s) => s.date > today)
     const nextDate = ahead[0]?.date
     return {
       today: upcoming.filter((s) => s.date === today),
       next: ahead.filter((s) => s.date === nextDate),
-      upcoming: ahead.filter((s) => s.date !== nextDate),
+      upcoming: ahead.filter((s) => s.date !== nextDate && s.date <= listedThrough),
       finished,
     }
-  }, [upcoming, finished, today])
+  }, [upcoming, finished, today, listedThrough])
 
   function shiftMonth(delta: number) {
     setCursor(({ year, month }) => {
