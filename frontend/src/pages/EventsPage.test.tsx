@@ -394,3 +394,23 @@ describe("a couple's anniversary", () => {
     expect(screen.queryByText('Wedding anniversary')).toBeNull()
   })
 })
+
+describe('showing one kind at a time', () => {
+  it('filters the diary to the kind pressed, and back to everything', async () => {
+    show()
+    expect(await screen.findAllByText('Members meeting')).not.toHaveLength(0)
+    const filter = screen.getByRole('group', { name: 'Show' })
+    expect(within(filter).getByRole('button', { name: 'Everything' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(within(filter).getByRole('button', { name: 'Birthdays' }))
+    expect(within(filter).getByRole('button', { name: 'Birthdays' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('Members meeting')).toBeNull()
+    expect(screen.getByText('No birthdays coming up.')).toBeInTheDocument()
+
+    await userEvent.click(within(filter).getByRole('button', { name: 'Events' }))
+    expect(screen.getAllByText('Members meeting')).not.toHaveLength(0)
+
+    await userEvent.click(within(filter).getByRole('button', { name: 'Everything' }))
+    expect(screen.getAllByText('Members meeting')).not.toHaveLength(0)
+  })
+})
