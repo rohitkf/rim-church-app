@@ -7,6 +7,7 @@ import { chooseOption } from '../test/select'
 import { UNGROUPED_LABEL } from '../lib/roleGroups'
 
 const update = vi.fn()
+const insert = vi.fn()
 const eq = vi.fn()
 const fetchDepartmentRoles = vi.fn()
 const fetchRoleGroups = vi.fn()
@@ -22,7 +23,10 @@ vi.mock('../lib/queries', () => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => ({
-      insert: () => Promise.resolve({ error: null }),
+      insert: (row: unknown) => {
+        insert(table, row)
+        return Promise.resolve({ error: null })
+      },
       delete: () => ({ eq: (col: string, id: string) => eq(table, 'delete', col, id) }),
       update: (patch: unknown) => ({
         eq: (_col: string, id: string) => {
@@ -56,6 +60,7 @@ function show(canManage = true) {
 describe('roles grouped on the Teams page', () => {
   beforeEach(() => {
     update.mockReset()
+    insert.mockReset()
     eq.mockReset().mockResolvedValue({ error: null })
     fetchDepartmentRoles.mockReset().mockResolvedValue([
       role('c', 'Team Coordinator', 0),
@@ -146,6 +151,29 @@ describe('roles grouped on the Teams page', () => {
     expect(eq).not.toHaveBeenCalledWith('department_roles', 'delete', expect.anything(), 'k1')
   })
 
+  it('files a new role under the group chosen beside its name, and keeps the choice for the next', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: /Band/ })
+    await chooseOption(user, screen.getByLabelText('Group for the new role'), 'Band')
+    await user.type(screen.getByPlaceholderText(/Cameraman/), 'Bass')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() =>
+      expect(insert).toHaveBeenCalledWith('department_roles', { department_id: 'd1', name: 'Bass', group_id: 'g2' }),
+    )
+    expect(screen.getByLabelText('Group for the new role')).toHaveTextContent('Band')
+  })
+
+  it('adds a role to no group by default', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: /Band/ })
+    expect(screen.getByLabelText('Group for the new role')).toHaveTextContent(UNGROUPED_LABEL)
+    await user.type(screen.getByPlaceholderText(/Cameraman/), 'Usher')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() =>
+      expect(insert).toHaveBeenCalledWith('department_roles', { department_id: 'd1', name: 'Usher', group_id: null }),
+    )
+  })
+
   it('shows no heading at all for a team that has made no groups', async () => {
     // A small team has done nothing wrong, and "Everything else" over the
     // only list on the page labels a distinction that does not exist.
@@ -153,6 +181,8 @@ describe('roles grouped on the Teams page', () => {
     show()
     await screen.findByText('Sound check')
     expect(screen.queryByRole('heading', { name: /Everything else/ })).not.toBeInTheDocument()
+    // Nor a group choice when adding a role: there is nothing to choose.
+    expect(screen.queryByLabelText('Group for the new role')).not.toBeInTheDocument()
   })
 
   it('gives somebody who cannot manage the team no controls at all', async () => {
