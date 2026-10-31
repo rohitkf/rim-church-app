@@ -1070,6 +1070,9 @@ export function DepartmentRolesCard({
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
+  // The group a new role is filed under; kept after Add, so several roles
+  // for one group go in one after another.
+  const [newGroupId, setNewGroupId] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -1152,8 +1155,10 @@ export function DepartmentRolesCard({
   })
 
   const addRole = useMutation({
-    mutationFn: async (name: string) => {
-      const { error } = await supabase.from('department_roles').insert({ department_id: departmentId, name })
+    mutationFn: async ({ name, groupId }: { name: string; groupId: string | null }) => {
+      const { error } = await supabase
+        .from('department_roles')
+        .insert({ department_id: departmentId, name, group_id: groupId })
       if (error) throw error
     },
     onSuccess: () => {
@@ -1209,11 +1214,13 @@ export function DepartmentRolesCard({
   // keystroke's re-render of the card around it.
   const roleNames = useMemo(() => new Map(roles.map((r) => [r.id, r.name])), [roles])
   const arranged = useMemo(() => arrangeRoles({ roles, groups }), [roles, groups])
+  // A group deleted since it was chosen falls back to none.
+  const chosenGroup = groups.some((g) => g.id === newGroupId) ? newGroupId : ''
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!newName.trim()) return
-    addRole.mutate(newName.trim())
+    addRole.mutate({ name: newName.trim(), groupId: chosenGroup || null })
   }
 
   return (
@@ -1314,6 +1321,19 @@ export function DepartmentRolesCard({
                 className={inputClasses}
               />
             </Field>
+            {groups.length > 0 && (
+              <Field label="Group" className="min-w-40">
+                <Select
+                  aria-label="Group for the new role"
+                  value={chosenGroup}
+                  onChange={setNewGroupId}
+                  options={[
+                    { value: '', label: UNGROUPED_LABEL },
+                    ...groups.map((g) => ({ value: g.id, label: g.name })),
+                  ]}
+                />
+              </Field>
+            )}
             <ActionButton type="submit" disabled={addRole.isPending}>
               {addRole.isPending ? 'Adding…' : 'Add'}
             </ActionButton>
