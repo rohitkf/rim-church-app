@@ -23,7 +23,7 @@ export function NudgeButton({
   nobodyLabel = 'Nobody to remind',
   className = '',
 }: {
-  rpc: 'nudge_availability' | 'nudge_checklist'
+  rpc: 'nudge_availability' | 'nudge_availability_all' | 'nudge_checklist'
   args: Record<string, string | null>
   children: React.ReactNode
   /** What to say when the answer is zero. */

@@ -62,7 +62,10 @@ vi.mock('../lib/useFinishedServices', () => ({
       state.starts[id] !== undefined && Date.now() >= new Date(state.starts[id]).getTime(),
   }),
 }))
-vi.mock('../components/NudgeButton', () => ({ NudgeButton: () => null }))
+vi.mock('../components/NudgeButton', () => ({
+  NudgeButton: ({ rpc, children }: { rpc: string; children: React.ReactNode }) =>
+    rpc === 'nudge_availability_all' ? <button data-rpc={rpc}>{children}</button> : null,
+}))
 
 vi.mock('../lib/queries', () => ({
   fetchServices: () =>
@@ -1087,5 +1090,23 @@ describe('guests on a team', () => {
     await waitFor(() =>
       expect(state.written).toContainEqual({ table: 'guest_availability', row: { status: 'unavailable' }, id: 'ga1' }),
     )
+  })
+})
+
+describe('Remind everyone who hasn’t answered (0221)', () => {
+  it('offers an Admin one reminder for the whole service', async () => {
+    state.admin = true
+    show()
+    const card = (await waitFor(() => cardFor(/Today/))) as HTMLElement
+    const button = await within(card).findByRole('button', { name: 'Remind everyone who hasn’t answered' })
+    expect(button).toHaveAttribute('data-rpc', 'nudge_availability_all')
+  })
+
+  it('offers it to nobody who may not remind every team', async () => {
+    show()
+    const card = (await waitFor(() => cardFor(/Today/))) as HTMLElement
+    // The page has drawn its teams by the time an Admin's button would show.
+    await waitFor(() => expect(state.read).toContain('availability'))
+    expect(within(card).queryByRole('button', { name: /Remind everyone/ })).toBeNull()
   })
 })
