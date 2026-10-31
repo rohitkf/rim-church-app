@@ -8,6 +8,7 @@ import { Select, selectPillClasses, type SelectItem } from './Select'
 import { ServiceCountdown } from './ServiceCountdown'
 import { TeamMark } from './TeamMark'
 import { TimeField } from './DateTimeFields'
+import { NudgeButton } from './NudgeButton'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
@@ -60,6 +61,7 @@ export function CallTimesPanel({
   teams,
   myTeamIds,
   canManage,
+  canManageAll = false,
 }: {
   /** The days ahead that have something on, soonest first. */
   days: ServiceDay[]
@@ -68,6 +70,8 @@ export function CallTimesPanel({
   /** The teams you actually serve on, which is what earns a countdown. */
   myTeamIds: Set<string>
   canManage: (departmentId: string) => boolean
+  /** May remind every team at once (svc.call_times everywhere: the Owner and Admins). */
+  canManageAll?: boolean
 }) {
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
@@ -167,12 +171,15 @@ export function CallTimesPanel({
           </p>
         )}
         {canManage(team.id) && (
-          <CallTimeField
-            current={isDefault ? null : clock}
-            busy={save.isPending}
-            teamName={team.name}
-            onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
-          />
+          <>
+            <CallTimeField
+              current={isDefault ? null : clock}
+              busy={save.isPending}
+              teamName={team.name}
+              onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
+            />
+            <RemindTeam teamId={team.id} teamName={team.name} date={day.date} />
+          </>
         )}
       </li>
     )
@@ -196,12 +203,15 @@ export function CallTimesPanel({
           </p>
         )}
         {canManage(team.id) && (
-          <CallTimeField
-            current={isDefault ? null : clock}
-            busy={save.isPending}
-            teamName={team.name}
-            onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
-          />
+          <>
+            <CallTimeField
+              current={isDefault ? null : clock}
+              busy={save.isPending}
+              teamName={team.name}
+              onSave={(value) => save.mutate({ departmentId: team.id, clock: value })}
+            />
+            <RemindTeam teamId={team.id} teamName={team.name} date={day.date} />
+          </>
         )}
       </li>
     )
@@ -242,6 +252,14 @@ export function CallTimesPanel({
                 aria-label="Which day"
                 className={selectPillClasses}
               />
+            </div>
+          )}
+
+          {canManageAll && (
+            <div className="mt-3">
+              <NudgeButton rpc="remind_call_times" args={{ dept: null, d: day.date }} nobodyLabel="Everyone was reminded a moment ago">
+                Remind every team of its call time
+              </NudgeButton>
             </div>
           )}
 
@@ -345,6 +363,25 @@ function CallTimeField({
           Back to {DEFAULT_CALL_TIME}
         </button>
       )}
+    </div>
+  )
+}
+
+/**
+ * Tell a team when it is due, now (0224): a push to everybody on it — its
+ * roster, its Head and Assisting Heads — for whoever may set its call time.
+ * A change to the call time already tells them; this is for the nudge.
+ */
+function RemindTeam({ teamId, teamName, date }: { teamId: string; teamName: string; date: string }) {
+  return (
+    <div className="mt-2">
+      <NudgeButton
+        rpc="remind_call_times"
+        args={{ dept: teamId, d: date }}
+        nobodyLabel="Everyone was reminded a moment ago"
+      >
+        <span aria-label={`Remind everyone on ${teamName} of their call time`}>Remind everyone</span>
+      </NudgeButton>
     </div>
   )
 }

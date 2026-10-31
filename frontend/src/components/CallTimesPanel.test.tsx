@@ -11,6 +11,7 @@ const SUNDAY = '2026-09-06'
 const state = vi.hoisted(() => ({
   rows: [] as { department_id: string; on_date: string; call_time: string }[],
   writes: [] as { kind: string; payload: unknown }[],
+  rpc: [] as { fn: string; args: unknown }[],
 }))
 
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'gradient' }) }))
@@ -18,6 +19,10 @@ vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false }) }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    rpc: (fn: string, args: unknown) => {
+      state.rpc.push({ fn, args })
+      return Promise.resolve({ data: 4, error: null })
+    },
     from: () => ({
       select: () => ({
         eq: () => Promise.resolve({ data: state.rows, error: null }),
@@ -59,7 +64,7 @@ const TEAMS = [
   { id: 'ushers', name: 'Ushers', color: '#f59e0b' },
 ]
 
-function show({ mine = [] as string[], manages = [] as string[] } = {}) {
+function show({ mine = [] as string[], manages = [] as string[], all = false } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -68,6 +73,7 @@ function show({ mine = [] as string[], manages = [] as string[] } = {}) {
         teams={TEAMS}
         myTeamIds={new Set(mine)}
         canManage={(id) => manages.includes(id)}
+        canManageAll={all}
       />
     </QueryClientProvider>,
   )
@@ -259,5 +265,34 @@ describe('the call times panel', () => {
       </QueryClientProvider>,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('reminding a team of its call time (0224)', () => {
+  beforeEach(() => {
+    state.rpc = []
+    state.rows = []
+  })
+
+  it('lets whoever runs a team remind everyone on it, for the day shown', async () => {
+    const user = show({ mine: ['media'], manages: ['media'] })
+    await user.click(await screen.findByRole('button', { name: 'Remind everyone on Media of their call time' }))
+    await waitFor(() => expect(state.rpc).toEqual([{ fn: 'remind_call_times', args: { dept: 'media', d: SUNDAY } }]))
+    expect(await screen.findByText('Reminded 4 people')).toBeInTheDocument()
+    // Only their own team: nothing for a team they do not run, nor for every team.
+    expect(screen.queryByRole('button', { name: /Remind everyone on Worship/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Remind every team/ })).toBeNull()
+  })
+
+  it('lets the Owner and Admins remind every team at once', async () => {
+    const user = show({ manages: ['media', 'worship', 'ushers'], all: true })
+    await user.click(await screen.findByRole('button', { name: 'Remind every team of its call time' }))
+    await waitFor(() => expect(state.rpc).toEqual([{ fn: 'remind_call_times', args: { dept: null, d: SUNDAY } }]))
+  })
+
+  it('offers nobody else a Remind', async () => {
+    show({ mine: ['media'] })
+    await screen.findByText('Media')
+    expect(screen.queryByRole('button', { name: /Remind/ })).toBeNull()
   })
 })

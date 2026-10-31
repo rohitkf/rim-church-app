@@ -1267,6 +1267,7 @@ export function TeamRotaPage() {
           teams={departmentsQuery.data ?? []}
           myTeamIds={myTeamIds}
           canManage={canSetCallTimes}
+          canManageAll={can('svc.call_times', { departmentId: null })}
         />
       </div>
       )}
