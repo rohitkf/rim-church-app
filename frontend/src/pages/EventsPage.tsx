@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -73,6 +73,13 @@ async function fetchCouples() {
  * claimed a distinction the rows did not make. Anniversaries are indigo
  * now, leaving blue to mean "a service" alone.
  */
+const PLURAL: Record<DiaryKind, string> = {
+  service: 'Services',
+  birthday: 'Birthdays',
+  anniversary: 'Anniversaries',
+  event: 'Events',
+}
+
 const KIND_TONE: Record<DiaryKind, { dot: string; chip: string }> = {
   birthday: { dot: 'bg-accent-orange', chip: 'bg-accent-orange/15 text-accent-orange-soft' },
   anniversary: {
@@ -323,13 +330,31 @@ export function EventsPage() {
     [peopleQuery.data, couplesQuery.data, servicesQuery.data, eventsQuery.data, today],
   )
 
+  // One kind only, when somebody asks (?show=birthday): the calendar's
+  // dots and both lists follow it, and the choice lives in the address so
+  // a link to "the birthdays" opens on the birthdays.
+  const [params, setParams] = useSearchParams()
+  const showParam = params.get('show')
+  const show = showParam && showParam in KIND_LABEL ? (showParam as DiaryKind) : null
+  const choose = (kind: DiaryKind | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (kind) next.set('show', kind)
+        else next.delete('show')
+        return next
+      },
+      { replace: true },
+    )
+  const shown = useMemo(() => (show ? diary.filter((entry) => entry.kind === show) : diary), [diary, show])
+
   const byDate = useMemo(() => {
     const map = new Map<string, DiaryEntry[]>()
-    for (const entry of diary) map.set(entry.date, [...(map.get(entry.date) ?? []), entry])
+    for (const entry of shown) map.set(entry.date, [...(map.get(entry.date) ?? []), entry])
     return map
-  }, [diary])
+  }, [shown])
 
-  const days = useMemo(() => byDay(diary.filter((entry) => entry.date >= today)), [diary, today])
+  const days = useMemo(() => byDay(shown.filter((entry) => entry.date >= today)), [shown, today])
 
   /*
    * What has been, newest first.
@@ -339,9 +364,10 @@ export function EventsPage() {
    * spreads it across every day it covered so the calendar can dot them,
    * and a list that did the same would read as seven identical events.
    */
+  // Only events have a past here, so another kind on its own shows none.
   const pastDays = useMemo(
-    () => byDay(pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays)).reverse(),
-    [eventsQuery.data, today, keepPastDays],
+    () => (show && show !== 'event' ? [] : byDay(pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays)).reverse()),
+    [eventsQuery.data, today, keepPastDays, show],
   )
 
   const saveEvent = useMutation({
@@ -593,19 +619,32 @@ export function EventsPage() {
             })}
           </div>
 
-          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
-            {(Object.keys(KIND_LABEL) as DiaryKind[]).map((kind) => (
-              <li key={kind} className="flex items-center gap-1.5 text-label-md text-on-surface-variant">
-                <span className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[kind].dot}`} />
-                {KIND_LABEL[kind]}
-              </li>
-            ))}
-          </ul>
+          {/* The legend is the filter: each kind's dot and name, pressed
+              to show that kind alone, and Everything to show them all. */}
+          <div role="group" aria-label="Show" className="mt-4 flex flex-wrap gap-1.5">
+            {([null, 'service', 'birthday', 'anniversary', 'event'] as (DiaryKind | null)[]).map((kind) => {
+              const on = show === kind
+              return (
+                <button
+                  key={kind ?? 'all'}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => choose(kind)}
+                  className={`tap inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-label-md transition-colors duration-200 ${
+                    on ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
+                  }`}
+                >
+                  {kind && <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[kind].dot}`} />}
+                  {kind ? PLURAL[kind] : 'Everything'}
+                </button>
+              )
+            })}
+          </div>
         </section>
 
         {days.length === 0 && pastDays.length === 0 ? (
           <p className="mt-6 text-body-sm text-on-surface-variant">
-            Nothing in the diary yet.
+            {show ? `No ${PLURAL[show].toLowerCase()} coming up.` : 'Nothing in the diary yet.'}
           </p>
         ) : (
           <>
