@@ -159,7 +159,7 @@ const neverOrWeekday = [{ value: 'never', label: 'Never' }, ...weekdayOptions]
 const hourOptions = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))
 
 /** A day of the week, or Never, kept as a nullable number. */
-const weekday = <K extends 'board_clear_dow' | 'alert_clear_dow' | 'stage_clear_dow'>(key: K) => {
+const weekday = <K extends 'board_clear_dow' | 'alert_clear_dow' | 'stage_clear_dow' | 'call_time_notice_dow'>(key: K) => {
   const c = column(key)
   return {
     id: c.id,
@@ -203,6 +203,29 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     dialMax: 120,
     majorEvery: 7,
     unit: 'days',
+  },
+  {
+    ...weekday('call_time_notice_dow'),
+    kind: 'choice',
+    style: 'select',
+    label: 'Call times are sent to each team every',
+    summary: 'A push to everybody on a team saying when they are due in.',
+    help: 'On this day, at the time below, everybody on a team — its roster, its Head and Assisting Heads — gets one message per service day in the week ahead naming each of their teams and when it is called: "Call times for Sunday 1 November: Worship 08:00, Media 07:00." A call time set or changed for a day still to come goes to that team at once, whatever this says.',
+    affects: ['/rota'],
+    ariaLabel: 'Day the call times are sent',
+    options: [...weekdayOptions, { value: 'never', label: 'Never' }],
+  },
+  {
+    ...column('call_time_notice_time'),
+    kind: 'time',
+    label: 'Call times are sent at',
+    summary: 'On the day above, in the church’s own time.',
+    help: 'The week’s call times go out at this time on the day above, in the church’s timezone. They go once a week, even if this is changed after they have gone.',
+    affects: ['/rota'],
+    ariaLabel: 'Time the call times are sent',
+    get: (d) => column('call_time_notice_time').get(d).slice(0, 5),
+    put: (_d, v) => ({ call_time_notice_time: `${v}:00` }),
+    fallback: DEFAULT_SETTINGS.call_time_notice_time.slice(0, 5),
   },
   {
     ...column('always_show_my_services'),

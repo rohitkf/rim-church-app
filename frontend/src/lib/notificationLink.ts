@@ -44,6 +44,7 @@ export const NOTIFICATION_TYPES = [
   'prayer_listed',
   'prayer_update',
   'prayer_answered',
+  'call_time',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -108,6 +109,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   prayer_listed: { label: 'A request was added to a prayer list you are on', href: '/prayer?tab=lists' },
   prayer_update: { label: 'An update on a request you are praying for', href: '/prayer' },
   prayer_answered: { label: 'A prayer you were praying for has been answered', href: '/prayer?tab=testimonies' },
+  // Each one says the team, the day and the time (0224); this is the fallback.
+  call_time: { label: 'When your team is due in', href: '/rota' },
 }
 
 function known(type: string): NotificationType | null {
