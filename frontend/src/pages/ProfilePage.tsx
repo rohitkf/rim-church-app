@@ -10,7 +10,6 @@ import { SectionTile, inputClasses } from '../components/Surface'
 import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
 import { YesNoSwitch } from '../components/YesNoSwitch'
 import { FamilyCard } from '../components/FamilyCard'
-import { TakeTheTour } from '../components/TakeTheTour'
 import { showToast } from '../lib/toast'
 import { PhoneField } from '../components/PhoneField'
 import { AgeNote } from '../components/AgeNote'
@@ -290,7 +289,6 @@ export function ProfilePage() {
     {/* Its own saves, outside the form: Enter in an address box
         should not save the whole profile. */}
     <FamilyCard />
-    <TakeTheTour />
     </div>
   )
 }

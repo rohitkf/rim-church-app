@@ -33,7 +33,7 @@ import { ChecklistIcon, TimerIcon, UserCheckIcon } from './icons'
  *
  * It starts itself when chapters are due (lib/tour) and the person is
  * settled — on a team or not, allowed the pages or not — and it starts on
- * demand from Settings › Profile. An Admin previewing somebody else is
+ * demand from the account menu. An Admin previewing somebody else is
  * never toured as them: the preview is theirs to look around in.
  */
 
@@ -180,7 +180,7 @@ function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
   function skipAll() {
     setAsking(false)
     markSeen(chapters.slice(pos.chapter).map((c) => c.chapter.key))
-    showToast('Tour skipped. Take it any time from Settings › Profile.')
+    showToast('Tour skipped. Take it any time from the menu under your initials.')
     close()
   }
 
@@ -271,7 +271,7 @@ function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
                 That’s the tour.
               </h2>
               <p className="mt-3 text-body-md text-on-surface-variant">
-                You can take it again any time from Settings › Profile. Everything in it is live for
+                You can take it again any time from the menu under your initials. Everything in it is live for
                 you now.
               </p>
             </>

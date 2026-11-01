@@ -8,9 +8,10 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { QuestionIcon, ReloadIcon, SettingsIcon, UserCircleIcon } from './icons'
+import { QuestionIcon, ReloadIcon, SettingsIcon, SparklesIcon, UserCircleIcon } from './icons'
 import { useAppSettings } from '../lib/appSettings'
 import { safeVideoLink } from '../lib/videoTutorial'
+import { useStartTour } from '../lib/useStartTour'
 import { applyUpdate } from '../lib/pwa'
 import { ageFrom } from '../lib/celebrations'
 import { ROLE_NAME } from '../lib/roleNames'
@@ -49,6 +50,7 @@ function primaryRoleLabel(
 
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
   const videoLink = safeVideoLink(useAppSettings().video_tutorial_url)
+  const startTour = useStartTour()
   const { profile, roles, isAdmin, canPreview, viewAs } = useAuth()
   const age = ageFrom(profile?.dob)
   const { preference, choose } = useTheme()
@@ -198,6 +200,20 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             <SettingsIcon width={16} height={16} className="shrink-0" />
             Settings
           </Link>
+
+          {/* The whole tour for your standing, again, whenever you like. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              startTour()
+            }}
+            className={itemClasses}
+          >
+            <SparklesIcon width={16} height={16} className="shrink-0" />
+            Take the tour
+          </button>
 
           <button
             role="menuitem"
