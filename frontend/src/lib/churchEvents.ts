@@ -22,6 +22,7 @@ export const eventSchema = z.object({
   start_time: z.string().nullable(),
   end_time: z.string().nullable().optional(),
   location: z.string().nullable(),
+  link: z.string().nullable().optional(),
   department_id: z.string().nullable(),
   department_ids: z.array(z.string()).nullable().optional(),
   created_by: z.string().nullable(),
@@ -44,7 +45,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
     supabase
       .from('church_events')
       .select(
-        'id, title, details, event_date, ends_on, start_time, end_time, location, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+        'id, title, details, event_date, ends_on, start_time, end_time, location, link, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
       )
       .order('event_date'),
     supabase.from('departments').select('id, name, color'),
@@ -172,6 +173,7 @@ export function pastDiaryEntries(
         // on any more.
         span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
         repeats: repeatShort(event.repeat_rule),
+        link: event.link ?? null,
       }
     })
     .sort(

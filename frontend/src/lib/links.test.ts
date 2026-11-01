@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { splitLinks } from './links'
+import { splitLinks, webAddress } from './links'
 
 const links = (text: string) => splitLinks(text).filter((p) => p.href).map((p) => [p.text, p.href])
 
@@ -42,5 +42,19 @@ describe('web addresses in what people write', () => {
   it('never makes a link of anything but the web', () => {
     expect(links('javascript:alert(1) data:text/html,hi mailto:a@b.org')).toEqual([])
     expect(links('see www. and https:// alone')).toEqual([])
+  })
+})
+
+describe('webAddress', () => {
+  it('keeps a web address, and gives a bare www. https', () => {
+    expect(webAddress('  https://zoom.us/j/1 ')).toBe('https://zoom.us/j/1')
+    expect(webAddress('www.example.org')).toBe('https://www.example.org')
+  })
+  it('is null when nothing is typed', () => {
+    expect(webAddress('   ')).toBeNull()
+  })
+  it('refuses what is not a web address', () => {
+    expect(webAddress('javascript:alert(1)')).toBe(false)
+    expect(webAddress('zoom meeting')).toBe(false)
   })
 })
