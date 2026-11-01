@@ -174,6 +174,7 @@ export function pastDiaryEntries(
         span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
         repeats: repeatShort(event.repeat_rule),
         link: event.link ?? null,
+        notes: event.details?.trim() || null,
       }
     })
     .sort(
