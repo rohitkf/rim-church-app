@@ -196,6 +196,13 @@ function DiaryRow({
           {entry.detail}
         </span>
       )}
+      {/* "Anything else", where it can be seen without opening the event:
+          two lines here, all of it (with its links) on the event. */}
+      {entry.notes && (
+        <p className="line-clamp-2 w-full whitespace-pre-line break-words text-body-sm text-on-surface-variant">
+          {entry.notes}
+        </p>
+      )}
     </div>
   )
 

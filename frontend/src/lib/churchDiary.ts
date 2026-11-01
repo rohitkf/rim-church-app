@@ -43,6 +43,8 @@ export interface DiaryEntry {
   repeats?: string | null
   /** Its link (0239): the Zoom meeting, the sign-up form. */
   link?: string | null
+  /** What was written under "Anything else", shown under the row. */
+  notes?: string | null
   /** A couple's anniversary: the two of them, drawn one under the title. */
   couple?: [string, string] | null
 }
@@ -251,6 +253,7 @@ export function buildDiary({
         color: event.department?.color ?? null,
         repeats: repeatShort(event.repeat_rule),
         link: event.link ?? null,
+        notes: event.details?.trim() || null,
         span: runsTo
           ? {
               from: event.event_date,
