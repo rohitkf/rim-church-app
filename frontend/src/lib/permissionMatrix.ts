@@ -423,6 +423,13 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'A Coordinator’s “their team” is the team they coordinate, at that service. The same window applies: nobody ticks before the call time — except an Admin, who can put a service right either side of it. The Sign-off team signs every team off, whatever this says.',
       },
       {
+        action: 'Tick a whole role’s checklist at once (Check all)',
+        key: 'day.check_all',
+        short: 'Check all',
+        can: granted('day.check_all'),
+        note: 'Ticks every item in the open half of a role’s list, up to the furthest box this person may sign — Sign-off for the Owner, Admins and Service Flow, Head/Coordinator for whoever may verify that team, Done otherwise. Nothing already ticked further is taken back, and nothing before the team’s call time. The Owner always may; by default nobody else.',
+      },
+      {
         action: 'Mark a team ready for the service (the green light)',
         key: 'day.ready',
         short: 'Mark ready',

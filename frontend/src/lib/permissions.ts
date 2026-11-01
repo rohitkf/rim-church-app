@@ -375,6 +375,15 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Check all (0232): the Owner always; nobody else until the church says so.
+  'day.check_all': {
+    admin: offer('none all', 'none'),
+    head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
+    coordinator: offer('none team', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
   'day.ready': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
