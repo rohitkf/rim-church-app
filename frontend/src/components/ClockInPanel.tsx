@@ -193,6 +193,12 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
               ))}
             </ul>
           </div>
+          <Link
+            to="/location"
+            className="tap inline-flex shrink-0 items-center justify-center self-start rounded-full bg-primary px-4 py-2 text-label-lg font-medium text-on-primary sm:self-center"
+          >
+            Allow location
+          </Link>
         </div>
       </div>
     )

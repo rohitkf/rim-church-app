@@ -97,6 +97,8 @@ const router = createBrowserRouter(
               /profile kept working: it is in the account menu, the search
               and whatever anybody has bookmarked. */}
           <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
+          {/* Allowing location on this phone: where "please allow location" lands (0228). Everybody's. */}
+          <Route path="/location" lazy={page(() => import('./pages/LocationPage'), 'LocationPage')} />
           <Route path="/settings" lazy={page(() => import('./pages/SettingsPage'), 'SettingsPage')}>
             {/* The index is the hall: every room, grouped. */}
             <Route index element={null} />

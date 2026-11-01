@@ -15,6 +15,7 @@ import {
 import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
 import { useConfirmAction } from './ConfirmAction'
+import { LocationAccessCard } from './LocationAccessCard'
 
 /**
  * Settings › Onboarding: send the tour, and see who has taken it.
@@ -174,6 +175,8 @@ export function OnboardingCard() {
           </ul>
         </QueryState>
       </SectionTile>
+
+      <LocationAccessCard />
       {dialog}
     </div>
   )

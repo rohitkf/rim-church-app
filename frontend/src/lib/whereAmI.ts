@@ -117,7 +117,7 @@ export function whereAmIWords(status: WhereAmIStatus): WhereAmIWords {
       return {
         tone: 'grey',
         label: 'Location blocked',
-        detail: 'Allow location for this app in your phone or browser settings to see whether you are at church.',
+        detail: 'Press Allow location and choose Allow when your phone asks. If it does not ask, the steps show how to allow it in your phone’s settings.',
       }
     case 'unavailable':
       return { tone: 'grey', label: 'Location unknown', detail: 'Your phone could not find where it is. Check Location is on, then check again.' }
