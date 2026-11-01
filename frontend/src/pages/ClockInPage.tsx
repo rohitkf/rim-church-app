@@ -84,6 +84,8 @@ export function ClockInPage() {
   const personName = (id: string) => fullName(peopleQuery.data?.find((p) => p.id === id), 'Somebody')
   const historyQuery = useQuery({ queryKey: ['clock-in-history', day], queryFn: () => fetchClockInHistory(day) })
   const rows = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data])
+  // Each person's own lines in the day's history: how their time came, and every change to it.
+  const historyOf = (uid: string) => (historyQuery.data ?? []).filter((e) => e.user_id === uid)
   const groups = groupClockIns(
     rows,
     teamsQuery.data ?? [],
@@ -158,7 +160,7 @@ export function ClockInPage() {
           </div>
 
           {runsIt && adding && (
-            <AddClockIn day={day} timeZone={timeZone} onDone={refresh} onCancel={() => setAdding(false)} />
+            <AddClockIn day={day} rows={rows} timeZone={timeZone} onDone={refresh} onCancel={() => setAdding(false)} />
           )}
 
           <QueryState
@@ -204,6 +206,8 @@ export function ClockInPage() {
                           // Somebody on two teams is in two cards: the form opens in the one pressed.
                           const editKey = `${group.teamId ?? 'none'}:${row.id}`
                           const open = runsIt && editing === editKey
+                          const theirs = historyOf(row.user_id)
+                          const fixed = theirs.some((e) => e.kind === 'changed')
                           return (
                             <li
                               key={row.id}
@@ -224,6 +228,7 @@ export function ClockInPage() {
                                 </p>
                                 <p className="font-mono text-label-sm text-on-surface-faint">
                                   {METHOD_LABEL[row.method]}
+                                  {fixed && ' · time fixed'}
                                   {row.distance_m !== null && ` · ${formatDistance(row.distance_m)} from church`}
                                   {row.accuracy_m !== null && ` · ± ${Math.round(row.accuracy_m)} m`}
                                 </p>
@@ -253,6 +258,18 @@ export function ClockInPage() {
                                   onDone={refresh}
                                   onCancel={() => setEditing(null)}
                                 />
+                              )}
+                              {open && theirs.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                    Their clock-in history
+                                  </p>
+                                  <ul aria-label={`${name}’s clock-in history`} className="flex flex-col">
+                                    {theirs.map((entry) => (
+                                      <HistoryLine key={entry.id} entry={entry} timeZone={timeZone} />
+                                    ))}
+                                  </ul>
+                                </div>
                               )}
                             </li>
                           )
@@ -401,11 +418,13 @@ function PutRight({
 
 function AddClockIn({
   day,
+  rows,
   timeZone,
   onDone,
   onCancel,
 }: {
   day: string
+  rows: ClockIn[]
   timeZone: string
   onDone: () => Promise<void>
   onCancel: () => void
@@ -420,6 +439,8 @@ function AddClockIn({
     onSuccess: onDone,
   })
   const options = (peopleQuery.data ?? []).map((p) => ({ value: p.id, label: fullName(p) }))
+  // Already in that day: saving moves their time, and the history keeps both (0229).
+  const already = person ? rows.find((r) => r.user_id === person) ?? null : null
 
   return (
     <form
@@ -449,6 +470,13 @@ function AddClockIn({
           className={`${inputClasses} min-w-0 basis-full sm:basis-0 sm:flex-1`}
         />
       </div>
+      {already && (
+        <p role="note" className="text-body-sm text-on-surface-variant">
+          Already clocked in at{' '}
+          <span className="font-mono tabular-nums text-on-surface">{churchClock(already.clocked_at, timeZone)}</span> ·{' '}
+          {METHOD_LABEL[already.method].toLowerCase()}. Saving changes it to the time above, and the history keeps both.
+        </p>
+      )}
       {save.error && (
         <p role="alert" className="text-body-sm text-accent-red-soft">
           {errorText(save.error, 'Could not add that.')}
@@ -456,7 +484,7 @@ function AddClockIn({
       )}
       <div className="flex flex-wrap gap-2">
         <ActionButton type="submit" size="sm" disabled={save.isPending || !person || !time}>
-          {save.isPending ? 'Adding…' : 'Add'}
+          {already ? (save.isPending ? 'Changing…' : 'Change the time') : save.isPending ? 'Adding…' : 'Add'}
         </ActionButton>
         <ActionButton tone="quiet" size="sm" onClick={onCancel} disabled={save.isPending}>
           Cancel
@@ -469,8 +497,8 @@ function AddClockIn({
 const KIND_WORDS: Record<ClockInHistoryEntry['kind'], string> = {
   clocked_in: 'clocked in',
   approved: 'clocked in by request',
-  added: 'clock-in added',
-  changed: 'time changed',
+  added: 'clock-in added by hand',
+  changed: 'time fixed by hand',
   removed: 'clock-in removed',
 }
 

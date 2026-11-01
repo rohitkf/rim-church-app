@@ -206,12 +206,25 @@ describe('the Clock In page', () => {
     expect(state.removed).toEqual([['c2', 'Not here today']])
   })
 
+  it('marks a time fixed by hand, and Fix shows that person’s own history', async () => {
+    state.admin = true
+    const user = show()
+    await open(user, /^Clock-ins/, /^History/)
+    const joel = (await screen.findByRole('button', { name: 'Fix Joel Skaria’s clock-in' })).closest('li')!
+    expect(joel).toHaveTextContent('time fixed')
+    expect(screen.getByRole('button', { name: 'Fix Grace Mensah’s clock-in' }).closest('li')!).not.toHaveTextContent('time fixed')
+    await user.click(screen.getByRole('button', { name: 'Fix Joel Skaria’s clock-in' }))
+    const theirs = screen.getByRole('list', { name: 'Joel Skaria’s clock-in history' })
+    expect(theirs).toHaveTextContent('09:58 → 09:41')
+    expect(theirs).toHaveTextContent('Phone died at the door')
+  })
+
   it('lists every change, with who made it and why', async () => {
     const user = show()
     await open(user, /^Clock-ins/, /^History/)
     const history = await screen.findByText('Phone died at the door', { exact: false })
     const line = history.closest('li')!
-    expect(line).toHaveTextContent('Joel Skaria time changed')
+    expect(line).toHaveTextContent('Joel Skaria time fixed by hand')
     expect(line).toHaveTextContent('09:58 → 09:41')
     expect(line).toHaveTextContent('by Rohit K')
   })
