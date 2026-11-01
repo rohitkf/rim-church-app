@@ -10,6 +10,7 @@ import { todayIso } from '../lib/monthGrid'
 import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
 import type { Celebrations } from '../lib/display'
 import { usePageAccess } from '../lib/usePageAccess'
+import { fetchServices } from '../lib/queries'
 
 const personSchema = z.object({
   id: z.string(),
@@ -110,13 +111,31 @@ export function CelebrationsPanel({ settings, className = '' }: { settings: Cele
 
   const peopleQuery = useQuery({ queryKey: ['celebration-people'], queryFn: fetchPeople })
   const couplesQuery = useQuery({ queryKey: ['married-couples'], queryFn: fetchCouples })
+  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
+
+  /*
+   * This week's, not next week's: up to the day before the next service
+   * day after today. A birthday on next Sunday belongs to that Sunday's
+   * week and shows from that Sunday, rather than sitting here all week
+   * beside this one. The church's own span stays the most it ever shows.
+   */
+  const nextServiceDay = useMemo(
+    () =>
+      (servicesQuery.data ?? [])
+        .map((s) => s.date)
+        .filter((d) => d > today)
+        .sort()[0] ?? null,
+    [servicesQuery.data, today],
+  )
+  const untilNext = nextServiceDay ? Math.round((Date.parse(nextServiceDay) - Date.parse(today)) / 86_400_000) - 1 : null
+  const days = untilNext === null ? settings.days : Math.min(settings.days, untilNext)
 
   const occasions = useMemo(
     () =>
-      upcomingCelebrations(peopleQuery.data ?? [], today, settings.days, couplesQuery.data ?? []).filter(
+      upcomingCelebrations(peopleQuery.data ?? [], today, days, couplesQuery.data ?? []).filter(
         (o) => (o.kind === 'birthday' ? settings.birthdays : settings.anniversaries),
       ),
-    [peopleQuery.data, couplesQuery.data, today, settings.days, settings.birthdays, settings.anniversaries],
+    [peopleQuery.data, couplesQuery.data, today, days, settings.birthdays, settings.anniversaries],
   )
 
   if (occasions.length === 0) return null
@@ -137,7 +156,7 @@ export function CelebrationsPanel({ settings, className = '' }: { settings: Cele
       className={className}
       aside={
         <span className="font-mono text-label-sm text-on-surface-variant">
-          {settings.days === 0 ? 'Today' : `Next ${settings.days} ${settings.days === 1 ? 'day' : 'days'}`}
+          {days === 0 ? 'Today' : days === settings.days ? `Next ${days} ${days === 1 ? 'day' : 'days'}` : 'This week'}
         </span>
       }
     >
