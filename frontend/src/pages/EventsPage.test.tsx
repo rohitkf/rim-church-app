@@ -65,9 +65,19 @@ vi.mock('../lib/supabaseClient', () => ({
         },
       }),
       delete: () => ({
-        eq: (_column: string, id: string) => {
+        eq: (column: string, id: string) => {
+          const done = Promise.resolve({ error: null })
+          // A series goes from a date onward (0234): .eq('series_id').gte('event_date').
+          if (column === 'series_id') {
+            return {
+              gte: (_c: string, from: string) => {
+                state.written.push({ table, op: 'delete-series', row: { series: id, from }, id })
+                return done
+              },
+            }
+          }
           state.written.push({ table, op: 'delete', row: null, id })
-          return Promise.resolve({ error: null })
+          return done
         },
       }),
     }),
@@ -412,5 +422,74 @@ describe('showing one kind at a time', () => {
 
     await userEvent.click(within(filter).getByRole('button', { name: 'Everything' }))
     expect(screen.getAllByText('Members meeting')).not.toHaveLength(0)
+  })
+})
+
+/*
+ * Events that repeat (0234): every week, fortnight, month or year, each
+ * occurrence its own row in the diary, joined by the series.
+ */
+describe('events that repeat', () => {
+  beforeEach(() => {
+    state.events = []
+    state.written = []
+  })
+
+  it('adds one row for each time it happens, all of one series', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
+    expect(within(form).getByText(/14 events, each its own in the diary/)).toBeInTheDocument()
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    const rows = state.written[0].row as { event_date: string; series_id: string; repeat_rule: string; title: string }[]
+    expect(rows).toHaveLength(14)
+    expect(rows[0]).toMatchObject({ event_date: TODAY, repeat_rule: 'weekly', title: 'Prayer meeting' })
+    expect(rows[1].event_date).toBe('2026-09-20')
+    expect(new Set(rows.map((r) => r.series_id)).size).toBe(1)
+  })
+
+  it('asks which ones to remove, and can take this one and every one after it', async () => {
+    state.events = [
+      meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly' }),
+      meeting({ id: 's2', title: 'Prayer meeting', event_date: '2026-09-27', series_id: 'S', repeat_rule: 'weekly' }),
+    ]
+    show()
+    const remove = await screen.findAllByRole('button', { name: /Remove/ })
+    await userEvent.click(remove[0])
+    const dialog = screen.getByRole('dialog', { name: /Remove Prayer meeting/ })
+    expect(within(dialog).getByRole('button', { name: 'Only this one' })).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'This one and every one after it' }))
+    await waitFor(() => expect(state.written).toEqual([{ table: 'church_events', op: 'delete-series', row: { series: 'S', from: '2026-09-20' }, id: 'S' }]))
+  })
+
+  it('says how it repeats when it is opened', async () => {
+    state.events = [meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('Repeats every week on Sunday')).toBeInTheDocument()
+  })
+
+  it('changes this one and every one after it, leaving earlier ones', async () => {
+    state.events = [
+      meeting({ id: 's0', title: 'Prayer meeting', event_date: '2026-09-13', series_id: 'S', repeat_rule: 'weekly' }),
+      meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly' }),
+      meeting({ id: 's2', title: 'Prayer meeting', event_date: '2026-09-27', series_id: 'S', repeat_rule: 'weekly' }),
+    ]
+    show()
+    const edits = await screen.findAllByRole('button', { name: 'Edit' })
+    await userEvent.click(edits[1])
+    const title = screen.getByDisplayValue('Prayer meeting')
+    await userEvent.clear(title)
+    await userEvent.type(title, 'Prayer evening')
+    await userEvent.click(screen.getByRole('radio', { name: 'This one and every one after it' }))
+    await userEvent.click(screen.getByRole('button', { name: /Save changes/ }))
+    await waitFor(() => expect(state.written).toHaveLength(2))
+    expect(state.written.map((w) => w.id).sort()).toEqual(['s1', 's2'])
+    expect(state.written[0].row).toMatchObject({ title: 'Prayer evening' })
   })
 })

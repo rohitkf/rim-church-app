@@ -25,7 +25,8 @@ import { fetchEvents, pastDiaryEntries } from '../lib/churchEvents'
 import { useDisplay } from '../lib/appSettings'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
-import { TimeField } from '../components/DateTimeFields'
+import { DateField, TimeField } from '../components/DateTimeFields'
+import { defaultUntil, occurrences, repeatChoices, repeatWords, shiftRun, type RepeatRule } from '../lib/eventRepeat'
 import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
@@ -296,6 +297,13 @@ export function EventsPage() {
   const [location, setLocation] = useState('')
   const [details, setDetails] = useState('')
   const [departmentId, setDepartmentId] = useState('')
+  /** How a new event repeats (0234), and its last date; '' for a one-off. */
+  const [repeat, setRepeat] = useState<RepeatRule | ''>('')
+  const [until, setUntil] = useState('')
+  /** Changing one of a series: just it, or it and every one after. */
+  const [scope, setScope] = useState<'one' | 'following'>('one')
+  /** A series event somebody asked to remove: which ones. */
+  const [removing, setRemoving] = useState<DiaryEvent | null>(null)
 
   const { ask, dialog } = useConfirmAction()
 
@@ -384,6 +392,41 @@ export function EventsPage() {
       // `created_by` belongs to whoever put it in the diary and is not
       // rewritten by whoever corrects it later: the name on the row is a
       // fact about who decided, not about who last touched a field.
+      if (!editing && repeat) {
+        // One row a time it happens (0234), joined by the series.
+        const series = crypto.randomUUID()
+        const rows = occurrences(date, repeat, until || defaultUntil(date, repeat)).map((d) => ({
+          ...fields,
+          ...shiftRun(date, endDate, d),
+          series_id: series,
+          repeat_rule: repeat,
+          created_by: session!.user.id,
+        }))
+        const { error: writeError } = await supabase.from('church_events').insert(rows)
+        if (writeError) throw writeError
+        return
+      }
+      if (editing && editing.series_id && scope === 'following') {
+        // This one and every one after it: the same words on each, and a
+        // moved date moves them all by the same number of days.
+        const later = (eventsQuery.data ?? []).filter(
+          (ev) => ev.series_id === editing.series_id && ev.event_date >= editing.event_date,
+        )
+        const moved = Math.round((Date.parse(date) - Date.parse(editing.event_date)) / 86_400_000)
+        const { event_date: _d, ends_on: _e, ...same } = fields
+        void _d
+        void _e
+        const results = await Promise.all(
+          later.map((ev) => {
+            const start = new Date(Date.parse(ev.event_date) + moved * 86_400_000).toISOString().slice(0, 10)
+            const run = shiftRun(editing.event_date, endDate, start)
+            return supabase.from('church_events').update({ ...same, ...run }).eq('id', ev.id)
+          }),
+        )
+        const failed = results.find((r) => r.error)
+        if (failed?.error) throw failed.error
+        return
+      }
       const { error: writeError } = editing
         ? await supabase.from('church_events').update(fields).eq('id', editing.id)
         : await supabase
@@ -401,11 +444,16 @@ export function EventsPage() {
   })
 
   const removeEvent = useMutation({
-    mutationFn: async (id: string) => {
-      const { error: deleteError } = await supabase.from('church_events').delete().eq('id', id)
+    mutationFn: async (target: string | { series: string; from: string }) => {
+      const { error: deleteError } =
+        typeof target === 'string'
+          ? await supabase.from('church_events').delete().eq('id', target)
+          : // This one and every one after it in the series.
+            await supabase.from('church_events').delete().eq('series_id', target.series).gte('event_date', target.from)
       if (deleteError) throw deleteError
     },
     onSuccess: () => {
+      setRemoving(null)
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['church-events'] })
     },
@@ -417,6 +465,7 @@ export function EventsPage() {
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime('')
     setLocation(''); setDetails(''); setDepartmentId('')
+    setRepeat(''); setUntil(''); setScope('one')
   }
 
   // Opening the form with a day already chosen. Tapping the 14th is
@@ -485,8 +534,11 @@ export function EventsPage() {
       const row = rowOf(entry)
       if (row) openEdit(row)
     },
-    onRemove: (entry: DiaryEntry) =>
-      ask({
+    onRemove: (entry: DiaryEntry) => {
+      const row = rowOf(entry)
+      // One of a series: which ones is a question of its own.
+      if (row?.series_id) return setRemoving(row)
+      return ask({
         title: `Remove ${entry.title} from the diary?`,
         body: 'It disappears from the calendar for everybody.',
         confirmLabel: 'Remove',
@@ -494,7 +546,8 @@ export function EventsPage() {
           const id = eventIdOf(entry)
           if (id) removeEvent.mutate(id)
         },
-      }),
+      })
+    },
   }
 
   const weeks = monthGrid(cursor.year, cursor.month)
@@ -723,6 +776,55 @@ export function EventsPage() {
                   }}
                 />
               </Field>
+              {/* Repeats (0234): only when adding — an existing one-off
+                  stays one, and a series is changed one or onward. */}
+              {!editing && (
+                <Field label="Repeats" className="sm:col-span-2">
+                  <Select
+                    value={repeat}
+                    onChange={(v) => {
+                      setRepeat(v as RepeatRule | '')
+                      if (v) setUntil(defaultUntil(date || today, v as RepeatRule))
+                    }}
+                    options={repeatChoices(date || today)}
+                    aria-label="Repeats"
+                  />
+                </Field>
+              )}
+              {!editing && repeat && (
+                <Field label="Until" className="sm:col-span-2">
+                  <DateField value={until} onChange={(v) => setUntil(v ?? '')} min={date || today} label="Repeats until" />
+                  <p className="mt-1 text-label-md text-on-surface-variant">
+                    {(() => {
+                      const n = occurrences(date || today, repeat, until || defaultUntil(date || today, repeat)).length
+                      return `${n} ${n === 1 ? 'event' : 'events'}, each its own in the diary.`
+                    })()}
+                  </p>
+                </Field>
+              )}
+              {editing?.series_id && (
+                <Field label="Change" className="sm:col-span-2">
+                  <div role="radiogroup" aria-label="Which to change" className="flex flex-col gap-1.5 text-body-sm text-on-surface">
+                    {(
+                      [
+                        ['one', 'Only this one'],
+                        ['following', 'This one and every one after it'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="event-scope"
+                          checked={scope === value}
+                          onChange={() => setScope(value)}
+                          className="accent-[var(--color-primary)]"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              )}
               <Field label="Start time (optional)">
                 <TimeField value={startTime} onChange={setStartTime} label="Start time" clearable />
               </Field>
@@ -810,6 +912,11 @@ export function EventsPage() {
                 </dt>
                 <dd className="mt-0.5 text-body-md text-on-surface">
                   {formatRange(reading.event_date, reading.ends_on, today)}
+                  {repeatWords(reading.event_date, reading.repeat_rule) && (
+                    <span className="block text-label-md text-on-surface-variant">
+                      {repeatWords(reading.event_date, reading.repeat_rule)}
+                    </span>
+                  )}
                   {reading.ends_on && reading.ends_on > reading.event_date && (
                     <span className="text-on-surface-variant">
                       {' '}
@@ -890,6 +997,31 @@ export function EventsPage() {
         </Overlay>
       )}
 
+      {removing && (
+        <Overlay onDismiss={() => setRemoving(null)} label={`Remove ${removing.title}?`}>
+          <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
+            <h2 className="text-headline-md">Remove {removing.title}?</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              It repeats. Take away just {formatServiceDay(removing.event_date)}, or this one and every one after it. Earlier ones stay.
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <ActionButton tone="danger" onClick={() => removeEvent.mutate(removing.id)} disabled={removeEvent.isPending}>
+                Only this one
+              </ActionButton>
+              <ActionButton
+                tone="danger"
+                onClick={() => removeEvent.mutate({ series: removing.series_id!, from: removing.event_date })}
+                disabled={removeEvent.isPending}
+              >
+                This one and every one after it
+              </ActionButton>
+              <ActionButton tone="quiet" onClick={() => setRemoving(null)} disabled={removeEvent.isPending}>
+                Keep them
+              </ActionButton>
+            </div>
+          </div>
+        </Overlay>
+      )}
       {dialog}
     </div>
   )
