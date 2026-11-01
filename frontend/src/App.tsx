@@ -122,6 +122,7 @@ const router = createBrowserRouter(
             <Route path="clock-in" lazy={page(() => import('./pages/SettingsPage'), 'ClockInSettingsPane')} />
             <Route path="prayer" lazy={page(() => import('./pages/SettingsPage'), 'PrayerSettingsPane')} />
             <Route path="logo" lazy={page(() => import('./pages/SettingsPage'), 'AppLogoPane')} />
+            <Route path="video" lazy={page(() => import('./pages/SettingsPage'), 'VideoTutorialPane')} />
             <Route path="data" lazy={page(() => import('./pages/SettingsPage'), 'EraseDataPane')} />
             {/* App settings was one room holding four. Its old address,
                 and its old anchors, still land somewhere sensible. */}

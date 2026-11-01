@@ -25,6 +25,7 @@ import {
 /** The settings-row columns that are not a setting of their own: the logo, the two objects, the colour, and one nothing reads. */
 const NOT_A_ROW: (keyof AppSettings)[] = [
   'logo_url',
+  'video_tutorial_url',
   'display',
   'overwatch_pages',
   'coordinator_color',

@@ -214,7 +214,7 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
   const secondsLeft = step.at === 'reading' ? Math.max(0, 20 - Math.floor((now - step.started) / 1000)) : 0
 
   return (
-    <section aria-label="Clock in" className={className}>
+    <section aria-label="Clock in" data-tour="clock-in" className={className}>
       <div className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline sm:p-5">
         {justClocked ? (
           <div role="status" className="text-center">

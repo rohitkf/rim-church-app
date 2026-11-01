@@ -8,7 +8,9 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { ReloadIcon, SettingsIcon, UserCircleIcon } from './icons'
+import { QuestionIcon, ReloadIcon, SettingsIcon, UserCircleIcon } from './icons'
+import { useAppSettings } from '../lib/appSettings'
+import { safeVideoLink } from '../lib/videoTutorial'
 import { applyUpdate } from '../lib/pwa'
 import { ageFrom } from '../lib/celebrations'
 import { ROLE_NAME } from '../lib/roleNames'
@@ -46,6 +48,7 @@ function primaryRoleLabel(
 }
 
 export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
+  const videoLink = safeVideoLink(useAppSettings().video_tutorial_url)
   const { profile, roles, isAdmin, canPreview, viewAs } = useAuth()
   const age = ageFrom(profile?.dob)
   const { preference, choose } = useTheme()
@@ -175,6 +178,21 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             <ReloadIcon width={16} height={16} className="shrink-0" />
             Reload
           </button>
+
+          {/* The Owner's link (Settings › Video Tutorial); not there at all without one. */}
+          {videoLink && (
+            <a
+              href={videoLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={itemClasses}
+            >
+              <QuestionIcon width={16} height={16} className="shrink-0" />
+              Video tutorial
+            </a>
+          )}
 
           <Link to="/settings" role="menuitem" onClick={() => setOpen(false)} className={itemClasses}>
             <SettingsIcon width={16} height={16} className="shrink-0" />
