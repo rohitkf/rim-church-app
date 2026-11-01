@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
-import {
+import { QuestionIcon,
   ChecklistIcon,
   ClipboardUserIcon,
   EyeIcon,
@@ -214,6 +214,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         tone: 'blue',
         needs: 'owner',
         keywords: 'logo brand mark image',
+      },
+      {
+        to: '/settings/video',
+        label: 'Video Tutorial',
+        blurb: 'The link behind Video tutorial in everybody’s account menu.',
+        icon: QuestionIcon,
+        tone: 'blue',
+        needs: 'owner',
+        keywords: 'video tutorial help how to youtube link',
       },
       {
         to: '/settings/data',

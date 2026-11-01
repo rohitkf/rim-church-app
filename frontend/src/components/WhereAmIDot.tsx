@@ -18,7 +18,7 @@ export function WhereAmIDot() {
   const checkedAt = status.at === 'answered' ? status.checkedAt : null
 
   return (
-    <div className="text-label-md">
+    <div data-tour="at-church" className="text-label-md">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

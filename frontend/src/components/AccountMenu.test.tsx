@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
 
+const settings = vi.hoisted(() => ({ video_tutorial_url: null as string | null }))
+vi.mock('../lib/appSettings', () => ({ useAppSettings: () => settings }))
+
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     profile: { first_name: 'Sarah', last_name: 'Jenkins', email: 's@x.com' },
@@ -89,5 +92,37 @@ describe('the role badge', () => {
     await user.click(dot)
     expect(dot).toHaveAttribute('aria-pressed', 'true')
     expect(window.localStorage.getItem('rim-team-style')).toBe('dot')
+  })
+})
+
+describe('the Video tutorial link', () => {
+  const open = async () => {
+    render(
+      <MemoryRouter>
+        <AccountMenu initials="RK" onSignOut={() => undefined} />
+      </MemoryRouter>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /account|menu|RK/i }))
+  }
+
+  it('is not there without a link', async () => {
+    settings.video_tutorial_url = null
+    await open()
+    expect(screen.queryByRole('menuitem', { name: 'Video tutorial' })).toBeNull()
+  })
+
+  it('opens the Owner’s link in a new tab', async () => {
+    settings.video_tutorial_url = 'https://youtu.be/abc'
+    await open()
+    const link = screen.getByRole('menuitem', { name: 'Video tutorial' })
+    expect(link).toHaveAttribute('href', 'https://youtu.be/abc')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('never offers a link that is not http(s)', async () => {
+    settings.video_tutorial_url = 'javascript:alert(1)'
+    await open()
+    expect(screen.queryByRole('menuitem', { name: 'Video tutorial' })).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ import { PermissionLogCard } from '../components/PermissionLogCard'
 import { TeamAccessCard } from '../components/TeamAccessCard'
 import { PersonAccessCard } from '../components/PersonAccessCard'
 import { OnboardingCard } from '../components/OnboardingCard'
+import { VideoTutorialCard } from '../components/VideoTutorialCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
 import { OverwatchCard } from '../components/OverwatchCard'
 import { ClockInCard } from '../components/ClockInCard'
@@ -367,6 +368,11 @@ export function MenuSettingsPane() {
 /** The church's own mark. Owner only, and the database agrees. */
 export function AppLogoPane() {
   return <AppLogoCard />
+}
+
+/** The account menu's Video tutorial link (0233). Owner only. */
+export function VideoTutorialPane() {
+  return <VideoTutorialCard />
 }
 
 /** The one that empties the diary. Owner only, and it says so itself. */
