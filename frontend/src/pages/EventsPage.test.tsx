@@ -693,3 +693,38 @@ describe('links in an event', () => {
     expect(within(detail).getByText(/Passcode: 1/)).toBeInTheDocument()
   })
 })
+
+describe('an event with a link', () => {
+  it('saves the link typed into its own field', async () => {
+    state.events = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.type(screen.getByPlaceholderText('https://zoom.us/j/…'), 'https://us02web.zoom.us/j/9')
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Add event/ }))
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ link: 'https://us02web.zoom.us/j/9' })
+  })
+
+  it('will not save something that is not a web address', async () => {
+    state.events = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.type(screen.getByPlaceholderText('https://zoom.us/j/…'), 'javascript:alert(1)')
+    expect(screen.getByRole('alert')).toHaveTextContent(/isn’t a web address/)
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Add event/ })).toBeDisabled()
+  })
+
+  it('puts it behind a button on the event, and on its row', async () => {
+    state.events = [meeting({ link: 'https://us02web.zoom.us/j/9' })]
+    show()
+    const row = await screen.findByRole('link', { name: 'Open link' })
+    expect(row).toHaveAttribute('href', 'https://us02web.zoom.us/j/9')
+    await userEvent.click(screen.getByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByRole('link', { name: /Open link/ })).toHaveAttribute(
+      'href',
+      'https://us02web.zoom.us/j/9',
+    )
+  })
+})

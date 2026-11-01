@@ -41,6 +41,8 @@ export interface DiaryEntry {
   span?: { from: string; to: string; day: number; of: number } | null
   /** How it repeats, when it is one of a series (0234): "every week", shown as a Repeats chip. */
   repeats?: string | null
+  /** Its link (0239): the Zoom meeting, the sign-up form. */
+  link?: string | null
   /** A couple's anniversary: the two of them, drawn one under the title. */
   couple?: [string, string] | null
 }
@@ -75,6 +77,8 @@ export interface DiaryEvent {
   /** When it finishes (0236), on its last day; null when nobody said. */
   end_time?: string | null
   location: string | null
+  /** A web address to open (0239), behind a button on the event. */
+  link?: string | null
   details: string | null
   department_id: string | null
   created_by: string | null
@@ -246,6 +250,7 @@ export function buildDiary({
           : null,
         color: event.department?.color ?? null,
         repeats: repeatShort(event.repeat_rule),
+        link: event.link ?? null,
         span: runsTo
           ? {
               from: event.event_date,

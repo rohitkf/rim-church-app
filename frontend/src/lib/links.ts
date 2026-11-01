@@ -51,3 +51,16 @@ export function splitLinks(text: string): TextPart[] {
   if (at < text.length) parts.push({ text: text.slice(at) })
   return parts.length > 0 ? parts : [{ text }]
 }
+
+/**
+ * A link somebody typed into a field of its own (an event's, 0239), as the
+ * address to store: trimmed, a bare `www.` given https, empty as null.
+ * Anything that is not a web address is `false`, so the form can say so
+ * rather than save something that will not open (or opens a script).
+ */
+export function webAddress(input: string): string | null | false {
+  const typed = input.trim()
+  if (!typed) return null
+  const url = /^www\./i.test(typed) ? `https://${typed}` : typed
+  return /^https?:\/\/[^\s]+$/i.test(url) && url.length <= 2000 ? url : false
+}

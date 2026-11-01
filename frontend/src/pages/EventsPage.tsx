@@ -13,6 +13,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { useErrorText } from '../lib/useErrorText'
 import { TeamMark } from '../components/TeamMark'
 import { LinkedText } from '../components/LinkedText'
+import { webAddress } from '../lib/links'
 import {
   KIND_LABEL,
   buildDiary,
@@ -218,27 +219,42 @@ function DiaryRow({
       )}
       {/* Whose idea it was, said quietly — an event with no name on it
           invites "who put this here?" every time somebody reads it. */}
-      {(entry.addedBy || canEdit(entry)) && (
+      {(entry.addedBy || canEdit(entry) || entry.link) && (
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
           <span className="font-mono text-label-sm text-on-surface-faint">
             {entry.addedBy ? `Added by ${entry.addedBy}` : ''}
           </span>
-          {canEdit(entry) && (
+          {(canEdit(entry) || entry.link) && (
             <span className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onEdit(entry)}
-                className="tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(entry)}
-                className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-              >
-                Remove
-              </button>
+              {/* Straight to the meeting, without opening the event first. */}
+              {entry.link && (
+                <a
+                  href={entry.link}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="tap inline-flex items-center text-label-md font-medium text-accent-blue-soft hover:underline"
+                >
+                  Open link
+                </a>
+              )}
+              {canEdit(entry) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(entry)}
+                    className="tap text-label-md text-on-surface-faint hover:text-accent-blue-soft hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(entry)}
+                    className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
             </span>
           )}
         </div>
@@ -330,6 +346,8 @@ export function EventsPage() {
   /** When it finishes (0236) — on its last day, for a run. */
   const [endTime, setEndTime] = useState('')
   const [location, setLocation] = useState('')
+  /** Its link (0239): the Zoom meeting, the sign-up form. */
+  const [link, setLink] = useState('')
   const [details, setDetails] = useState('')
   /** Which teams it is for (0237); none is all teams. */
   const [departmentIds, setDepartmentIds] = useState<string[]>([])
@@ -347,6 +365,8 @@ export function EventsPage() {
 
   const { ask, dialog } = useConfirmAction()
   // One day, an end at or before the start: the database refuses it (0236), so the form says so first.
+  const linkTyped = webAddress(link)
+  const badLink = linkTyped === false
   const endsBeforeItStarts = !!startTime && !!endTime && !(endDate && endDate > date) && endTime <= startTime
 
   const peopleQuery = useQuery({ queryKey: ['diary-people'], queryFn: fetchPeople })
@@ -456,6 +476,7 @@ export function EventsPage() {
         start_time: startTime || null,
         end_time: endTime || null,
         location: location.trim() || null,
+        link: linkTyped || null,
         details: details.trim() || null,
         department_id: departmentIds[0] ?? null,
         department_ids: departmentIds,
@@ -476,6 +497,7 @@ export function EventsPage() {
           start_time: fields.start_time,
           end_time: fields.end_time,
           location: fields.location,
+          link: fields.link,
           department_id: fields.department_id,
           department_ids: fields.department_ids,
           created_by: session!.user.id,
@@ -610,7 +632,7 @@ export function EventsPage() {
     setAdding(false)
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
-    setLocation(''); setDetails(''); setDepartmentIds([])
+    setLocation(''); setLink(''); setDetails(''); setDepartmentIds([])
     setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
 
@@ -636,6 +658,7 @@ export function EventsPage() {
     setStartTime(row.start_time ? row.start_time.slice(0, 5) : '')
     setEndTime(row.end_time ? row.end_time.slice(0, 5) : '')
     setLocation(row.location ?? '')
+    setLink(row.link ?? '')
     setDetails(row.details ?? '')
     setDepartmentIds(row.department_ids?.length ? row.department_ids : row.department_id ? [row.department_id] : [])
     setAdding(true)
@@ -643,7 +666,7 @@ export function EventsPage() {
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
-    if (!title.trim() || !date || noTeamChosen) return
+    if (!title.trim() || !date || noTeamChosen || badLink) return
     saveEvent.mutate()
   }
 
@@ -1017,6 +1040,24 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
+              <Field label="Link (optional)" className="sm:col-span-2">
+                <input
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  type="url"
+                  inputMode="url"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  placeholder="https://zoom.us/j/…"
+                  aria-invalid={badLink || undefined}
+                  className={inputClasses}
+                />
+              </Field>
+              {badLink && (
+                <p role="alert" className="-mt-2 text-body-sm text-accent-red-soft sm:col-span-2">
+                  That isn’t a web address. It should start with https://
+                </p>
+              )}
               <FieldGroup label="Who is it for" className="sm:col-span-2">
                 <TeamChecklist
                   teams={myTeams}
@@ -1056,7 +1097,7 @@ export function EventsPage() {
               </button>
               <ActionButton
                 type="submit"
-                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts || noTeamChosen}
+                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts || noTeamChosen || badLink}
                 glyph={editing ? undefined : '+'}
               >
                 {saveEvent.isPending
@@ -1168,6 +1209,17 @@ export function EventsPage() {
                 </div>
               )}
             </dl>
+
+            {reading.link && (
+              <a
+                href={reading.link}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform active:scale-[0.97]"
+              >
+                Open link <span aria-hidden="true">↗</span>
+              </a>
+            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
               {mayChange(reading) && (
