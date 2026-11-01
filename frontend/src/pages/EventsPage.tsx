@@ -17,6 +17,7 @@ import {
   buildDiary,
   byDay,
   diaryTime,
+  diaryTimes,
   type DiaryEntry,
   type DiaryEvent,
   type DiaryKind,
@@ -315,6 +316,8 @@ export function EventsPage() {
   /** The last day, when it runs on. Null is the single-day majority. */
   const [endDate, setEndDate] = useState<string | null>(null)
   const [startTime, setStartTime] = useState('')
+  /** When it finishes (0236) — on its last day, for a run. */
+  const [endTime, setEndTime] = useState('')
   const [location, setLocation] = useState('')
   const [details, setDetails] = useState('')
   const [departmentId, setDepartmentId] = useState('')
@@ -331,6 +334,8 @@ export function EventsPage() {
   const [removing, setRemoving] = useState<DiaryEvent | null>(null)
 
   const { ask, dialog } = useConfirmAction()
+  // One day, an end at or before the start: the database refuses it (0236), so the form says so first.
+  const endsBeforeItStarts = !!startTime && !!endTime && !(endDate && endDate > date) && endTime <= startTime
 
   const peopleQuery = useQuery({ queryKey: ['diary-people'], queryFn: fetchPeople })
   const couplesQuery = useQuery({ queryKey: ['married-couples'], queryFn: fetchCouples })
@@ -425,6 +430,7 @@ export function EventsPage() {
         event_date: date,
         ends_on: endDate,
         start_time: startTime || null,
+        end_time: endTime || null,
         location: location.trim() || null,
         details: details.trim() || null,
         department_id: departmentId || null,
@@ -443,6 +449,7 @@ export function EventsPage() {
           title: fields.title,
           details: fields.details,
           start_time: fields.start_time,
+          end_time: fields.end_time,
           location: fields.location,
           department_id: fields.department_id,
           created_by: session!.user.id,
@@ -576,7 +583,7 @@ export function EventsPage() {
   function closeForm() {
     setAdding(false)
     setEditing(null)
-    setTitle(''); setDate(''); setEndDate(null); setStartTime('')
+    setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
     setLocation(''); setDetails(''); setDepartmentId('')
     setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
@@ -601,6 +608,7 @@ export function EventsPage() {
     setEndDate(row.ends_on && row.ends_on > row.event_date ? row.ends_on : null)
     // "19:30:00" in the database; the time field wants "19:30".
     setStartTime(row.start_time ? row.start_time.slice(0, 5) : '')
+    setEndTime(row.end_time ? row.end_time.slice(0, 5) : '')
     setLocation(row.location ?? '')
     setDetails(row.details ?? '')
     setDepartmentId(row.department_id ?? '')
@@ -967,6 +975,14 @@ export function EventsPage() {
               <Field label="Start time (optional)">
                 <TimeField value={startTime} onChange={setStartTime} label="Start time" clearable />
               </Field>
+              <Field label={endDate && endDate > date ? 'End time on the last day (optional)' : 'End time (optional)'}>
+                <TimeField value={endTime} onChange={setEndTime} label="End time" clearable />
+              </Field>
+              {endsBeforeItStarts && (
+                <p role="alert" className="text-body-sm text-accent-red-soft sm:col-span-2">
+                  It ends before it starts. Change one of the times.
+                </p>
+              )}
               <Field label="Where (optional)" className="sm:col-span-2">
                 <input
                   value={location}
@@ -1005,7 +1021,7 @@ export function EventsPage() {
               </button>
               <ActionButton
                 type="submit"
-                disabled={saveEvent.isPending || !title.trim() || !date}
+                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts}
                 glyph={editing ? undefined : '+'}
               >
                 {saveEvent.isPending
@@ -1063,10 +1079,10 @@ export function EventsPage() {
                       · {dayCount(reading.event_date, reading.ends_on)} days
                     </span>
                   )}
-                  {diaryTime(reading.start_time) && (
+                  {diaryTimes(reading.start_time, reading.end_time) && (
                     <span className="text-on-surface-variant">
                       {' '}
-                      · from {diaryTime(reading.start_time)}
+                      · {reading.end_time ? diaryTimes(reading.start_time, reading.end_time) : `from ${diaryTime(reading.start_time)}`}
                     </span>
                   )}
                 </dd>

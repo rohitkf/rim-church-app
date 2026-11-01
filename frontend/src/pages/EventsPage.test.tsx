@@ -566,4 +566,19 @@ describe('events that repeat', () => {
     expect(screen.queryByRole('button', { name: /Prayer meeting — see the details/ })).toBeNull()
     expect(screen.getByRole('button', { name: /Workday — see the details/ })).toBeInTheDocument()
   })
+
+  it('shows when it ends as well as when it starts', async () => {
+    state.events = [meeting({ id: 'm1', end_time: '21:00:00' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText(/7:30pm – 9:00pm/)).toBeInTheDocument()
+  })
+
+  it('will not save a one-day event that ends before it starts', async () => {
+    state.events = [meeting({ id: 'm1', end_time: '19:00:00' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('It ends before it starts')
+    expect(screen.getByRole('button', { name: /Save changes/ })).toBeDisabled()
+  })
 })

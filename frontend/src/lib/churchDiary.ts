@@ -72,6 +72,8 @@ export interface DiaryEvent {
   /** Last day of a run, inclusive. Null for the single-day majority. */
   ends_on?: string | null
   start_time: string | null
+  /** When it finishes (0236), on its last day; null when nobody said. */
+  end_time?: string | null
   location: string | null
   details: string | null
   department_id: string | null
@@ -92,6 +94,19 @@ export function diaryTime(value: string | null | undefined): string | null {
   const suffix = hour < 12 ? 'am' : 'pm'
   const twelve = hour % 12 === 0 ? 12 : hour % 12
   return `${twelve}:${m ?? '00'}${suffix}`
+}
+
+/**
+ * "7:00pm – 8:30pm", "7:00pm", or "until 8:30pm" — an event's hours as a
+ * diary says them (0236). Either may be missing; both missing is nothing.
+ */
+export function diaryTimes(start: string | null | undefined, end: string | null | undefined): string | null {
+  const from = diaryTime(start)
+  const to = diaryTime(end)
+  if (from && to) return `${from} – ${to}`
+  if (from) return from
+  if (to) return `until ${to}`
+  return null
 }
 
 /**
@@ -180,7 +195,10 @@ export function buildDiary({
     // and a list that grew for ever would bury last month under 2019.
     if (includePast && lastDayOf(event) < pastFloor) continue
 
-    const time = diaryTime(event.start_time)
+    // One day: its whole hours. A run: the start on its first day and the
+    // end on its last, since those are the only times anybody said.
+    const time = runsTo ? diaryTime(event.start_time) : diaryTimes(event.start_time, event.end_time)
+    const lastTime = runsTo && event.end_time ? `until ${diaryTime(event.end_time)}` : null
     const of = runsTo ? dayCount(event.event_date, runsTo) : 1
     // Every day it covers that is inside the window somebody is looking at.
     const floor = includePast
@@ -202,7 +220,7 @@ export function buildDiary({
           [
             // A start time belongs to the first day of a run, not to every
             // day of it: "7pm" on days two and three is a time nobody said.
-            runsTo && date !== event.event_date ? null : time,
+            runsTo ? (date === event.event_date ? time : date === runsTo ? lastTime : null) : time,
             event.location,
             event.department?.name,
           ]
