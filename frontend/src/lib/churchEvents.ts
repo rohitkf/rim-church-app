@@ -4,6 +4,7 @@ import { addDays, dayCount, daysBetween } from './dateRange'
 import {
   DIARY_WINDOW_DAYS,
   diaryTime,
+  diaryTimes,
   eventIsOver,
   lastDayOf,
   repeatShort,
@@ -18,6 +19,7 @@ export const eventSchema = z.object({
   event_date: z.string(),
   ends_on: z.string().nullable(),
   start_time: z.string().nullable(),
+  end_time: z.string().nullable().optional(),
   location: z.string().nullable(),
   department_id: z.string().nullable(),
   created_by: z.string().nullable(),
@@ -32,7 +34,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
   const { data, error } = await supabase
     .from('church_events')
     .select(
-      'id, title, details, event_date, ends_on, start_time, location, department_id, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+      'id, title, details, event_date, ends_on, start_time, end_time, location, department_id, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
     )
     .order('event_date')
   if (error) throw error
@@ -79,7 +81,7 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
         title: event.title,
         // The hour belongs to the first day of a run. "7pm" on day three of
         // a conference is a time nobody ever said.
-        time: diaryTime(at),
+        time: runsTo ? diaryTime(at) : diaryTimes(at, event.end_time),
         location: event.location,
         team: event.department?.name ?? null,
         color: event.department?.color ?? null,
@@ -131,7 +133,7 @@ export function pastDiaryEntries(
         date: event.event_date,
         title: event.title,
         detail:
-          [diaryTime(event.start_time), event.location, event.department?.name]
+          [diaryTimes(event.start_time, event.end_time), event.location, event.department?.name]
             .filter(Boolean)
             .join(' · ') || null,
         addedBy: event.creator

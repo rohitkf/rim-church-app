@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDiary, byDay, diaryTime, eventIsOver, lastDayOf } from './churchDiary'
+import { buildDiary, byDay, diaryTime, diaryTimes, eventIsOver, lastDayOf } from './churchDiary'
 
 const TODAY = '2026-09-01'
 const people = [
@@ -344,5 +344,14 @@ describe('a couple in the diary', () => {
   it('is two entries when nobody says they are married', () => {
     const diary = buildDiary({ people: pair, services: [], events: [], today: TODAY })
     expect(diary.map((e) => e.couple)).toEqual([null, null])
+  })
+})
+
+describe('an event’s hours (0236)', () => {
+  it('says both ends, either end, or nothing', () => {
+    expect(diaryTimes('19:00:00', '20:30:00')).toBe('7:00pm – 8:30pm')
+    expect(diaryTimes('19:00:00', null)).toBe('7:00pm')
+    expect(diaryTimes(null, '20:30:00')).toBe('until 8:30pm')
+    expect(diaryTimes(null, null)).toBeNull()
   })
 })
