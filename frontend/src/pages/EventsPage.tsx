@@ -74,14 +74,28 @@ async function fetchCouples() {
  * claimed a distinction the rows did not make. Anniversaries are indigo
  * now, leaving blue to mean "a service" alone.
  */
-const PLURAL: Record<DiaryKind, string> = {
+/*
+ * Repeating events are a category of their own on this page (0234): a
+ * weekly prayer meeting is a different thing to look for from a one-off
+ * workday. Underneath they are still events — read, edited and removed as
+ * events — so the category is worked out from the entry, not stored.
+ */
+type Category = DiaryKind | 'repeating'
+
+const categoryOf = (entry: DiaryEntry): Category => (entry.kind === 'event' && entry.repeats ? 'repeating' : entry.kind)
+
+const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Repeating' }
+
+const PLURAL: Record<Category, string> = {
   service: 'Services',
   birthday: 'Birthdays',
   anniversary: 'Anniversaries',
   event: 'Events',
+  repeating: 'Repeating',
 }
 
-const KIND_TONE: Record<DiaryKind, { dot: string; chip: string }> = {
+const KIND_TONE: Record<Category, { dot: string; chip: string }> = {
+  repeating: { dot: 'bg-accent-teal', chip: 'bg-accent-teal/15 text-accent-teal-soft' },
   birthday: { dot: 'bg-accent-orange', chip: 'bg-accent-orange/15 text-accent-orange-soft' },
   anniversary: {
     dot: 'bg-accent-indigo',
@@ -144,9 +158,9 @@ function DiaryRow({
         {entry.title}
       </span>
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[entry.kind].chip}`}
+        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[categoryOf(entry)].chip}`}
       >
-        {KIND_LABEL[entry.kind]}
+        {CATEGORY_LABEL[categoryOf(entry)]}
       </span>
       {/* A run says which day of itself this is, or the same name on five
           days reads as five events somebody entered by mistake. Once it is
@@ -155,7 +169,7 @@ function DiaryRow({
           run it is: "Day 3 of 29" on a weekly meeting read as one long one. */}
       {entry.repeats && (
         <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
-          Repeats {entry.repeats}
+          {entry.repeats.charAt(0).toUpperCase() + entry.repeats.slice(1)}
         </span>
       )}
       {entry.span && !entry.repeats && (
@@ -364,8 +378,8 @@ export function EventsPage() {
   // a link to "the birthdays" opens on the birthdays.
   const [params, setParams] = useSearchParams()
   const showParam = params.get('show')
-  const show = showParam && showParam in KIND_LABEL ? (showParam as DiaryKind) : null
-  const choose = (kind: DiaryKind | null) =>
+  const show = showParam && showParam in CATEGORY_LABEL ? (showParam as Category) : null
+  const choose = (kind: Category | null) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -375,7 +389,7 @@ export function EventsPage() {
       },
       { replace: true },
     )
-  const shown = useMemo(() => (show ? diary.filter((entry) => entry.kind === show) : diary), [diary, show])
+  const shown = useMemo(() => (show ? diary.filter((entry) => categoryOf(entry) === show) : diary), [diary, show])
 
   const byDate = useMemo(() => {
     const map = new Map<string, DiaryEntry[]>()
@@ -395,7 +409,12 @@ export function EventsPage() {
    */
   // Only events have a past here, so another kind on its own shows none.
   const pastDays = useMemo(
-    () => (show && show !== 'event' ? [] : byDay(pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays)).reverse()),
+    () =>
+      show && show !== 'event' && show !== 'repeating'
+        ? []
+        : byDay(
+            pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays).filter((e) => !show || categoryOf(e) === show),
+          ).reverse(),
     [eventsQuery.data, today, keepPastDays, show],
   )
 
@@ -753,10 +772,10 @@ export function EventsPage() {
                       says what. One dot per kind, not per entry: five
                       birthdays are still "birthdays on this day". */}
                   <div className="pointer-events-none relative z-10 mt-1 flex flex-wrap justify-center gap-0.5">
-                    {[...new Set(onThisDay.map((e) => e.kind))].map((kind) => (
+                    {[...new Set(onThisDay.map(categoryOf))].map((kind) => (
                       <span
                         key={kind}
-                        title={KIND_LABEL[kind]}
+                        title={CATEGORY_LABEL[kind]}
                         className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[kind].dot}`}
                       />
                     ))}
@@ -769,7 +788,7 @@ export function EventsPage() {
           {/* The legend is the filter: each kind's dot and name, pressed
               to show that kind alone, and Everything to show them all. */}
           <div role="group" aria-label="Show" className="mt-4 flex flex-wrap gap-1.5">
-            {([null, 'service', 'birthday', 'anniversary', 'event'] as (DiaryKind | null)[]).map((kind) => {
+            {([null, 'service', 'birthday', 'anniversary', 'event', 'repeating'] as (Category | null)[]).map((kind) => {
               const on = show === kind
               return (
                 <button
@@ -1016,9 +1035,9 @@ export function EventsPage() {
             <div className="flex flex-wrap items-center gap-2">
               {reading.department?.color && <TeamMark color={reading.department.color} />}
               <span
-                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE.event.chip}`}
+                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[reading.repeat_rule ? 'repeating' : 'event'].chip}`}
               >
-                {KIND_LABEL.event}
+                {CATEGORY_LABEL[reading.repeat_rule ? 'repeating' : 'event']}
               </span>
             </div>
             <h2 id="event-detail-title" className="mt-2 text-headline-md">

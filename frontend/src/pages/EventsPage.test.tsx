@@ -547,7 +547,23 @@ describe('events that repeat', () => {
     ]
     show()
     const row = (await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ }))[0]
-    expect(row).toHaveTextContent('Repeats every week')
+    expect(row).toHaveTextContent('Repeating')
+    expect(row).toHaveTextContent('Every week')
     expect(row).not.toHaveTextContent(/Day \d of/)
+  })
+
+  it('is a category of its own in the filter, apart from one-off events', async () => {
+    state.events = [
+      meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly' }),
+      meeting({ id: 'e9', title: 'Workday', event_date: '2026-09-21' }),
+    ]
+    show()
+    await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Repeating' }))
+    expect(screen.getAllByRole('button', { name: /Prayer meeting — see the details/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /Workday — see the details/ })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Events' }))
+    expect(screen.queryByRole('button', { name: /Prayer meeting — see the details/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /Workday — see the details/ })).toBeInTheDocument()
   })
 })
