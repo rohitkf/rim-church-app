@@ -44,6 +44,8 @@ import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
 import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
 import { ServiceCountdown } from '../components/ServiceCountdown'
+import { ActionButton } from '../components/Surface'
+import { showToast } from '../lib/toast'
 import { formatMinutes } from '../lib/lifespan'
 import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 
@@ -169,6 +171,29 @@ export function ChecklistsIndexPage() {
     assignments.some(
       (a) => a.service_id === serviceId && a.department_id === serviceFlowDept?.id && a.user_id === myId,
     )
+
+  /*
+   * Check all (0232): every item in one half of a role, up to the furthest
+   * box this person may sign. Who may is the church's grid row
+   * `day.check_all` — the Owner, unless Settings says more.
+   */
+  const checkAll = useMutation({
+    mutationFn: async ({ assignmentId, phase }: { assignmentId: string; phase: string }) => {
+      const { data, error } = await supabase.rpc('checklist_check_all', { p_assignment: assignmentId, p_phase: phase })
+      if (error) throw error
+      return (data ?? { ticked: 0, skipped: 0 }) as { ticked: number; skipped: number }
+    },
+    onSuccess: ({ ticked, skipped }) => {
+      setError(null)
+      showToast(
+        ticked === 0 && skipped === 0
+          ? 'Everything here was already ticked'
+          : `Ticked ${ticked} ${ticked === 1 ? 'item' : 'items'}${skipped ? ` · ${skipped} not open yet` : ''}`,
+      )
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not tick them all.')),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['rota-progress'] }),
+  })
 
   const setStage = useMutation({
     mutationFn: async ({
@@ -612,6 +637,31 @@ export function ChecklistsIndexPage() {
                                     </span>
                                     <span className="text-label-sm text-on-surface-faint">{phase.blurb}</span>
                                   </div>
+                                  {(() => {
+                                    const phaseShut = phase.value === 'post' ? finished || packingNotYet : ended
+                                    const inPhase = byPhase(items, phase.value)
+                                    const left = inPhase.filter((i) => statusOf(i.id) !== 'coordinator_verified').length
+                                    if (
+                                      phaseShut ||
+                                      !gate.open ||
+                                      left === 0 ||
+                                      !can('day.check_all', { departmentId: assignment.department_id })
+                                    )
+                                      return null
+                                    const pending = checkAll.isPending && checkAll.variables?.assignmentId === assignment.id && checkAll.variables?.phase === phase.value
+                                    return (
+                                      <div className="mt-2">
+                                        <ActionButton
+                                          size="sm"
+                                          tone="quiet"
+                                          disabled={checkAll.isPending}
+                                          onClick={() => checkAll.mutate({ assignmentId: assignment.id, phase: phase.value })}
+                                        >
+                                          {pending ? 'Ticking…' : `Check all ${left}`}
+                                        </ActionButton>
+                                      </div>
+                                    )
+                                  })()}
                                   {/* Locked until near the end, and saying
                                       when — a locked box with no reason
                                       reads as broken. */}
@@ -638,7 +688,7 @@ export function ChecklistsIndexPage() {
                                         key={item.id}
                                         className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5 first:pt-0 last:pb-0"
                                       >
-                                        <span className="min-w-0 flex-1 text-body-md text-on-surface">
+                                        <span className="min-w-0 flex-1 text-body-md text-on-surface [overflow-wrap:anywhere]">
                                           {item.label}
                                         </span>
                                         <StatusBadge status={status} />

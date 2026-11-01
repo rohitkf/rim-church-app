@@ -281,6 +281,19 @@ body,
   height: 100%;
 }
 
+html,
+body {
+  /*
+   * Nothing may make the page wider than the phone. One long word or a
+   * row that will not wrap used to widen the whole page, and on an iPhone
+   * a page wider than the screen moves the layout viewport — which is what
+   * the bottom menu is pinned to — so it drifted off the bottom. `clip`
+   * rather than `hidden`: it makes no scroll box, so sticky headers keep
+   * working.
+   */
+  overflow-x: clip;
+}
+
 html {
   /* Stops iOS inflating text in landscape, which breaks the type scale. */
   -webkit-text-size-adjust: 100%;
