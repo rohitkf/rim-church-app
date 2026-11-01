@@ -75,7 +75,7 @@ async function roleOrder() {
     </QueryClientProvider>,
   )
   // The role's name on each card, in the order the cards are drawn.
-  const cards = await screen.findAllByText(/Camera Operator|Sound Desk|Team Coordinator/)
+  const cards = await screen.findAllByText(/^(Camera Operator|Sound Desk|Team Coordinator)/)
   return cards.map((el) => el.textContent)
 }
 
