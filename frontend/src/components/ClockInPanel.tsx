@@ -19,10 +19,13 @@ import {
   type FailedBecause,
   type MyClockIn,
   type Reading,
+  clockNow,
+  todayAt,
 } from '../lib/clockIn'
 import { LocationRefused, readBestPosition } from '../lib/clockInReading'
 import { useLocationPermission } from '../lib/locationPermission'
 import { ActionButton, inputClasses } from './Surface'
+import { TimeField } from './DateTimeFields'
 import { MapPinIcon } from './icons'
 
 type Step =
@@ -350,8 +353,12 @@ function AskInstead({
   const errorText = useErrorText()
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
+  // When they got there, on their own clock: now unless they say earlier (0225).
+  const [arrived, setArrived] = useState(() => clockNow())
+  const tooLate = arrived > clockNow()
   const ask = useMutation({
-    mutationFn: () => askToClockIn({ reading: lastTry.reading, failedBecause: lastTry.failedBecause, note }),
+    mutationFn: () =>
+      askToClockIn({ reading: lastTry.reading, failedBecause: lastTry.failedBecause, note, arrivedAt: todayAt(arrived) }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: MY_CLOCK_IN_KEY })
       onAsked()
@@ -379,9 +386,20 @@ function AskInstead({
     >
       <p className="text-body-sm text-on-surface">
         {lastTry.reading
-          ? 'An approver will see where your phone thought you were, and the time you asked.'
-          : 'Your phone gave no location, so the approver will see only the time you asked.'}
+          ? 'An approver will see where your phone thought you were, and when you say you arrived — approving clocks you in at that time.'
+          : 'Your phone gave no location, so the approver will see when you say you arrived — approving clocks you in at that time.'}
       </p>
+      <div className="flex flex-wrap items-center gap-2 text-body-sm text-on-surface">
+        <span>I arrived at</span>
+        <TimeField
+          value={arrived}
+          onChange={setArrived}
+          label="When did you arrive?"
+          aria-label="When you arrived"
+          className="inline-flex min-w-0 items-center gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline"
+        />
+      </div>
+      {tooLate && <p className="text-label-md text-accent-red-soft">That is later than now — choose the time you got here.</p>}
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -396,7 +414,7 @@ function AskInstead({
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <ActionButton type="submit" size="sm" disabled={ask.isPending}>
+        <ActionButton type="submit" size="sm" disabled={ask.isPending || tooLate}>
           {ask.isPending ? 'Sending…' : 'Send request'}
         </ActionButton>
         <ActionButton tone="quiet" size="sm" onClick={() => setOpen(false)} disabled={ask.isPending}>
