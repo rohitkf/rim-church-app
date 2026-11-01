@@ -93,7 +93,13 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline py-1 shadow-lg"
+          // Never taller than the screen below the header: it grew past the
+          // bottom of a phone (View as, appearance, the tour, the video link)
+          // and, pinned to a header that does not scroll, could not be reached.
+          // It scrolls inside itself instead, without dragging the page, and
+          // on a phone it stops above the bottom menu, which would otherwise
+          // sit over Settings and Log out.
+          className="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-12.5rem-env(safe-area-inset-bottom))] sm:max-h-[calc(100dvh-6rem)] w-56 overflow-y-auto overscroll-contain rounded-[var(--radius-card)] bg-surface-lowest hairline py-1 shadow-lg"
         >
           <div className="border-b border-border-subtle px-3 py-2.5">
             <div className="flex items-center gap-2">
