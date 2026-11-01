@@ -12,6 +12,7 @@ import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { useErrorText } from '../lib/useErrorText'
 import { TeamMark } from '../components/TeamMark'
+import { LinkedText } from '../components/LinkedText'
 import {
   KIND_LABEL,
   buildDiary,
@@ -1128,7 +1129,7 @@ export function EventsPage() {
                     Where
                   </dt>
                   <dd className="mt-0.5 break-words text-body-md text-on-surface">
-                    {reading.location}
+                    <LinkedText text={reading.location} />
                   </dd>
                 </div>
               )}
@@ -1150,7 +1151,8 @@ export function EventsPage() {
                   {/* Kept as it was typed: people write these as a few
                       lines, and running them together is a different note. */}
                   <dd className="mt-0.5 whitespace-pre-wrap break-words text-body-md text-on-surface">
-                    {reading.details}
+                    {/* A Zoom link or a sign-up form, tappable (lib/links). */}
+                    <LinkedText text={reading.details} />
                   </dd>
                 </div>
               )}

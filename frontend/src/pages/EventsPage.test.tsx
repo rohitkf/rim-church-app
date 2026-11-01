@@ -673,3 +673,23 @@ describe('which teams an event is for', () => {
     expect(state.written[0].row).toMatchObject({ department_ids: ['d1', 'd2', 'd3'] })
   })
 })
+
+describe('links in an event', () => {
+  it('makes the addresses in its details and its place tappable', async () => {
+    state.events = [
+      meeting({ details: 'Meeting Link\n\nhttps://us02web.zoom.us/j/123 Passcode: 1', location: 'www.example.org/hall' }),
+    ]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    const detail = screen.getByRole('dialog')
+    expect(within(detail).getByRole('link', { name: 'https://us02web.zoom.us/j/123' })).toHaveAttribute(
+      'href',
+      'https://us02web.zoom.us/j/123',
+    )
+    expect(within(detail).getByRole('link', { name: 'www.example.org/hall' })).toHaveAttribute(
+      'href',
+      'https://www.example.org/hall',
+    )
+    expect(within(detail).getByText(/Passcode: 1/)).toBeInTheDocument()
+  })
+})
