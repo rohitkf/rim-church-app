@@ -197,9 +197,10 @@ function DiaryRow({
         </span>
       )}
       {/* "Anything else", where it can be seen without opening the event:
-          two lines here, all of it (with its links) on the event. */}
+          all of it, as it was typed. Its links are tappable on the event
+          itself; the row is one button, and a link can't sit inside one. */}
       {entry.notes && (
-        <p className="line-clamp-2 w-full whitespace-pre-line break-words text-body-sm text-on-surface-variant">
+        <p className="w-full whitespace-pre-line break-words text-body-sm text-on-surface-variant">
           {entry.notes}
         </p>
       )}

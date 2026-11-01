@@ -731,10 +731,12 @@ describe('an event with a link', () => {
 
 describe("an event's notes", () => {
   it('shows what was written under Anything else on its row', async () => {
-    state.events = [meeting({ details: 'Bring your Bible.\nMeeting ID: 873 9595' })]
+    state.events = [meeting({ details: 'Bring your Bible.\nMeeting ID: 873 9595\nPasscode: 1\nCome early.' })]
     show()
     const row = await screen.findByRole('button', { name: /see the details/ })
-    expect(within(row).getByText(/Bring your Bible\./)).toBeInTheDocument()
-    expect(within(row).getByText(/Meeting ID: 873 9595/)).toBeInTheDocument()
+    const notes = within(row).getByText(/Bring your Bible\./)
+    expect(notes).toHaveTextContent(/Come early\./)
+    // All of it, not cut to two lines.
+    expect(notes.className).not.toMatch(/line-clamp/)
   })
 })
