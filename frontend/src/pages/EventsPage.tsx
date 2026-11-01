@@ -26,7 +26,7 @@ import { useDisplay } from '../lib/appSettings'
 import { Select } from '../components/Select'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { DateField, TimeField } from '../components/DateTimeFields'
-import { defaultUntil, occurrences, repeatChoices, repeatWords, shiftRun, type RepeatRule } from '../lib/eventRepeat'
+import { defaultUntil, occurrences, rangeIsRepeatPeriod, repeatChoices, repeatWords, shiftRun, type RepeatRule } from '../lib/eventRepeat'
 import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
@@ -151,7 +151,14 @@ function DiaryRow({
       {/* A run says which day of itself this is, or the same name on five
           days reads as five events somebody entered by mistake. Once it is
           over there is no day of it to be on, so it says how long it ran. */}
-      {entry.span && (
+      {/* One of a repeating series says so, rather than which day of a
+          run it is: "Day 3 of 29" on a weekly meeting read as one long one. */}
+      {entry.repeats && (
+        <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
+          Repeats {entry.repeats}
+        </span>
+      )}
+      {entry.span && !entry.repeats && (
         <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
           {past ? `${entry.span.of} days` : `Day ${entry.span.day} of ${entry.span.of}`} ·{' '}
           {formatRange(entry.span.from, entry.span.to, today)}
@@ -302,6 +309,8 @@ export function EventsPage() {
   const [until, setUntil] = useState('')
   /** No end date (0235): a series row keeps it going, six months ahead. */
   const [noEnd, setNoEnd] = useState(false)
+  /** A range picked under When for a repeat, taken as how long it repeats for. */
+  const [rangeAsUntil, setRangeAsUntil] = useState(false)
   /** Changing one of a series: just it, or it and every one after. */
   const [scope, setScope] = useState<'one' | 'following'>('one')
   /** A series event somebody asked to remove: which ones. */
@@ -530,12 +539,27 @@ export function EventsPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not remove that event.')),
   })
 
+  /*
+   * A repeat with a range under When longer than the repeat itself — a
+   * weekly meeting "from 5 Oct to 2 Nov" — means it repeats over that range,
+   * not that each meeting lasts four weeks. So the range's end becomes the
+   * Until and each time is one day; a weekend camp every month keeps its
+   * two days.
+   */
+  function foldRange(from: string, to: string | null, rule: RepeatRule | '') {
+    if (!rule || !rangeIsRepeatPeriod(from, to, rule)) return
+    setUntil(to ?? '')
+    setEndDate(null)
+    setNoEnd(false)
+    setRangeAsUntil(true)
+  }
+
   function closeForm() {
     setAdding(false)
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime('')
     setLocation(''); setDetails(''); setDepartmentId('')
-    setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false)
+    setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
 
   // Opening the form with a day already chosen. Tapping the 14th is
@@ -843,6 +867,7 @@ export function EventsPage() {
                   onChange={({ from, to }) => {
                     setDate(from)
                     setEndDate(to)
+                    if (!editing) foldRange(from, to, repeat)
                   }}
                 />
               </Field>
@@ -855,6 +880,7 @@ export function EventsPage() {
                     onChange={(v) => {
                       setRepeat(v as RepeatRule | '')
                       if (v) setUntil(defaultUntil(date || today, v as RepeatRule))
+                      foldRange(date || today, endDate, v as RepeatRule | '')
                     }}
                     options={repeatChoices(date || today)}
                     aria-label="Repeats"
@@ -863,6 +889,11 @@ export function EventsPage() {
               )}
               {!editing && repeat && (
                 <FieldGroup label="Until" className="sm:col-span-2">
+                  {rangeAsUntil && !noEnd && (
+                    <p className="mb-1 text-label-md text-on-surface-variant">
+                      The dates under When are taken as how long it repeats for: each one is a single day.
+                    </p>
+                  )}
                   <NoEndToggle checked={noEnd} onChange={setNoEnd} />
                   {noEnd ? (
                     <p className="mt-1 text-label-md text-on-surface-variant">

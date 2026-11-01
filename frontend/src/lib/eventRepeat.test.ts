@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_OCCURRENCES, defaultUntil, occurrences, repeatChoices, repeatWords, shiftRun } from './eventRepeat'
+import { MAX_OCCURRENCES, defaultUntil, occurrences, rangeIsRepeatPeriod, repeatChoices, repeatWords, shiftRun } from './eventRepeat'
 
 describe('when a repeating event happens', () => {
   it('every week, up to and including the last date', () => {
@@ -48,5 +48,13 @@ describe('when a repeating event happens', () => {
     expect(defaultUntil('2026-11-01', 'monthly_date')).toBe('2027-11-01')
     expect(shiftRun('2026-11-06', '2026-11-08', '2026-11-13')).toEqual({ event_date: '2026-11-13', ends_on: '2026-11-15' })
     expect(shiftRun('2026-11-06', null, '2026-11-13')).toEqual({ event_date: '2026-11-13', ends_on: null })
+  })
+
+  it('reads a long range under When as how long it repeats for, a short one as how long each lasts', () => {
+    // "Prophetical Prayer, weekly, 5 Oct to 2 Nov" was four-week meetings.
+    expect(rangeIsRepeatPeriod('2026-10-05', '2026-11-02', 'weekly')).toBe(true)
+    expect(rangeIsRepeatPeriod('2026-11-06', '2026-11-08', 'monthly_weekday')).toBe(false)
+    expect(rangeIsRepeatPeriod('2026-11-06', '2026-11-08', 'weekly')).toBe(false)
+    expect(rangeIsRepeatPeriod('2026-11-06', null, 'weekly')).toBe(false)
   })
 })

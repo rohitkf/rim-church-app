@@ -39,6 +39,8 @@ export interface DiaryEntry {
    * identical events somebody entered by mistake.
    */
   span?: { from: string; to: string; day: number; of: number } | null
+  /** How it repeats, when it is one of a series (0234): "every week", shown as a Repeats chip. */
+  repeats?: string | null
   /** A couple's anniversary: the two of them, drawn one under the title. */
   couple?: [string, string] | null
 }
@@ -212,6 +214,7 @@ export function buildDiary({
           ? `${event.creator.first_name} ${event.creator.last_name}`.trim()
           : null,
         color: event.department?.color ?? null,
+        repeats: repeatShort(event.repeat_rule),
         span: runsTo
           ? {
               from: event.event_date,
@@ -244,4 +247,21 @@ export const KIND_LABEL: Record<DiaryKind, string> = {
   anniversary: 'Anniversary',
   service: 'Service',
   event: 'Event',
+}
+
+/** "every week", "every month" — the Repeats chip's words for a rule (0234). */
+export function repeatShort(rule: string | null | undefined): string | null {
+  switch (rule) {
+    case 'weekly':
+      return 'every week'
+    case 'fortnightly':
+      return 'every 2 weeks'
+    case 'monthly_date':
+    case 'monthly_weekday':
+      return 'every month'
+    case 'yearly':
+      return 'every year'
+    default:
+      return null
+  }
 }

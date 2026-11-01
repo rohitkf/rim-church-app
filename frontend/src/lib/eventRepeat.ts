@@ -120,3 +120,16 @@ export function shiftRun(eventDate: string, endsOn: string | null, date: string)
   const length = Math.round((parse(endsOn).getTime() - parse(eventDate).getTime()) / 86_400_000)
   return { event_date: date, ends_on: plusDays(date, length) }
 }
+
+/**
+ * Whether a range picked for a repeating event is how long it repeats for
+ * rather than how long each time lasts: as long as the gap between repeats
+ * or longer. A weekly meeting "5 Oct to 2 Nov" repeats until 2 Nov; a
+ * weekend camp every month (two days) lasts two days each time.
+ */
+export function rangeIsRepeatPeriod(from: string, to: string | null, rule: RepeatRule): boolean {
+  if (!to || to <= from) return false
+  const days = Math.round((parse(to).getTime() - parse(from).getTime()) / 86_400_000)
+  const gap = { weekly: 7, fortnightly: 14, monthly_date: 28, monthly_weekday: 28, yearly: 365 }[rule]
+  return days >= gap
+}
