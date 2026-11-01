@@ -14,10 +14,12 @@ const state = vi.hoisted(() => ({
   people: [] as unknown[],
   couples: [] as unknown[],
   eventsOpen: true,
+  services: [] as { id: string; date: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } } }) }))
 vi.mock('../lib/monthGrid', () => ({ todayIso: () => '2026-10-25' }))
+vi.mock('../lib/queries', () => ({ fetchServices: () => Promise.resolve(state.services) }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ canOpen: () => state.eventsOpen }) }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -54,6 +56,7 @@ beforeEach(() => {
   ]
   state.couples = [{ a: 'a', b: 'b' }]
   state.eventsOpen = true
+  state.services = []
 })
 
 describe('birthdays and anniversaries on the Dashboard', () => {
@@ -117,5 +120,20 @@ describe('birthdays and anniversaries on the Dashboard', () => {
     // Give the query its turn, then expect nothing drawn.
     await new Promise((r) => setTimeout(r, 20))
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows this week only: nothing from the next service day on, which is that week’s', async () => {
+    // Today is Sunday 25 October; the next service is Sunday 1 November.
+    state.services = [
+      { id: 's0', date: '2026-10-25' },
+      { id: 's1', date: '2026-11-01' },
+    ]
+    state.people = [person('a', 'Asha', '1985-10-31'), person('b', 'Joel', '1979-11-01'), person('me', 'Rohit', '1990-10-25')]
+    show()
+    const list = await screen.findByRole('list', { name: 'Birthdays & anniversaries' })
+    await within(list).findByText(/Asha Mathew/)
+    expect(within(list).queryByText(/Joel Mathew/)).toBeNull()
+    expect(within(list).getByText(/Rohit Mathew/)).toBeInTheDocument()
+    expect(screen.getByText('This week')).toBeInTheDocument()
   })
 })
