@@ -13,8 +13,9 @@ const STAGES = [
   },
   {
     key: 'head' as const,
-    label: 'Head',
-    title: 'Verified by the team head',
+    // The team's Head, or its Team Coordinator: either may verify.
+    label: 'Head/Coordinator',
+    title: 'Verified by the team head or the team coordinator',
     on: 'head_verified' as ChecklistItemStatus,
     off: 'member_complete' as ChecklistItemStatus,
     colour: 'border-status-head bg-status-head',
