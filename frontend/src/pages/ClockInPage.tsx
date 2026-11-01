@@ -84,7 +84,6 @@ export function ClockInPage() {
   const personName = (id: string) => fullName(peopleQuery.data?.find((p) => p.id === id), 'Somebody')
   const historyQuery = useQuery({ queryKey: ['clock-in-history', day], queryFn: () => fetchClockInHistory(day) })
   const rows = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data])
-  const editingRow = rows.find((r) => r.id === editing) ?? null
   const groups = groupClockIns(
     rows,
     teamsQuery.data ?? [],
@@ -202,11 +201,15 @@ export function ClockInPage() {
                       <ul aria-label={`${group.name}: clocked in`} className="mt-3 flex flex-col divide-y divide-border-subtle">
                         {group.rows.map((row) => {
                           const name = fullName(row.person)
+                          // Somebody on two teams is in two cards: the form opens in the one pressed.
+                          const editKey = `${group.teamId ?? 'none'}:${row.id}`
+                          const open = runsIt && editing === editKey
                           return (
                             <li
                               key={row.id}
-                              className={`flex items-start gap-3 py-2.5 ${editing === row.id ? 'rounded-[var(--radius-row)] bg-surface-lowest/60 px-2' : ''}`}
+                              className={`py-2.5 ${open ? 'rounded-[var(--radius-row)] bg-surface-lowest/60 px-2' : ''}`}
                             >
+                              <div className="flex items-start gap-3">
                               <div className="min-w-0 flex-1">
                                 <p className="break-words text-body-sm font-medium text-on-surface">{name}</p>
                                 <p className="break-words text-label-md text-on-surface-variant">
@@ -233,11 +236,23 @@ export function ClockInPage() {
                                   tone="ghost"
                                   size="sm"
                                   aria-label={`Fix ${name}’s clock-in`}
-                                  aria-expanded={editing === row.id}
-                                  onClick={() => setEditing(editing === row.id ? null : row.id)}
+                                  aria-expanded={open}
+                                  onClick={() => setEditing(open ? null : editKey)}
                                 >
                                   Fix
                                 </ActionButton>
+                              )}
+                              </div>
+                              {/* Right under the row pressed: below every card, it opened off the screen. */}
+                              {open && (
+                                <PutRight
+                                  key={row.id}
+                                  row={row}
+                                  name={name}
+                                  timeZone={timeZone}
+                                  onDone={refresh}
+                                  onCancel={() => setEditing(null)}
+                                />
                               )}
                             </li>
                           )
@@ -267,16 +282,6 @@ export function ClockInPage() {
                 )
               })}
             </ul>
-            {runsIt && editingRow && (
-              <PutRight
-                key={editingRow.id}
-                row={editingRow}
-                name={fullName(editingRow.person)}
-                timeZone={timeZone}
-                onDone={refresh}
-                onCancel={() => setEditing(null)}
-              />
-            )}
             {rows.some((r) => r.address) && (
               <p className="mt-3 text-label-sm text-on-surface-faint">Addresses © OpenStreetMap contributors</p>
             )}

@@ -181,7 +181,10 @@ describe('the Clock In page', () => {
     const user = show()
     await open(user, /^Clock-ins/, /^History/)
     expect(await screen.findByText('Where the church is')).toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'Fix Joel Skaria’s clock-in' }))
+    const fix = await screen.findByRole('button', { name: 'Fix Joel Skaria’s clock-in' })
+    await user.click(fix)
+    // It opens right under Joel, not below every team's card.
+    expect(fix.closest('li')!.querySelector('form[aria-label="Fix Joel Skaria’s clock-in"]')).not.toBeNull()
     await pickTime(user, screen.getByRole('button', { name: 'Arrived at' }), '09:30')
     await user.type(screen.getByRole('textbox', { name: 'Why' }), 'Arrived before the phone did')
     await user.click(screen.getByRole('button', { name: 'Save the time' }))

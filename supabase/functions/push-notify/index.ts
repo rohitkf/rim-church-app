@@ -74,6 +74,7 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   prayer_listed: { label: 'A request was added to a prayer list you are on', href: '/prayer?tab=lists' },
   prayer_update: { label: 'An update on a request you are praying for', href: '/prayer' },
   prayer_answered: { label: 'A prayer you were praying for has been answered', href: '/prayer?tab=testimonies' },
+  location_prompt: { label: 'Please allow location for the app', href: '/location' },
   call_time: { label: 'When your team is due in', href: '/rota' },
 }
 

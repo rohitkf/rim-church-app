@@ -27,6 +27,7 @@ import { PhoneCheckDialog } from './PhoneCheckDialog'
 import { WhatsNew } from './WhatsNew'
 import { ViewAsBanner } from './ViewAsBanner'
 import { Toaster } from './Toaster'
+import { useReportLocationAccess } from '../lib/locationAccess'
 
 
 /**
@@ -79,6 +80,8 @@ export function AppShell() {
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const location = useLocation()
   useNotificationRouting()
+  // Whether this phone allows location, for Settings › Onboarding (0228).
+  useReportLocationAccess(!!profile)
   const scrolled = useScrolled()
   // Its height, for what floats beneath it (FloatingServiceTitle).
   const headerRef = useHeaderHeight<HTMLElement>()

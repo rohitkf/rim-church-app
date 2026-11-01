@@ -18,6 +18,8 @@ const db = vi.hoisted(() => ({
   allowed: true,
 }))
 
+// Its own test (LocationAccessCard.test.tsx); here it would list everybody twice.
+vi.mock('./LocationAccessCard', () => ({ LocationAccessCard: () => null }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }))
 vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => db.allowed }) }))
 vi.mock('../lib/supabaseClient', () => ({

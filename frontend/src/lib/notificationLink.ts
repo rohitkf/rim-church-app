@@ -45,6 +45,7 @@ export const NOTIFICATION_TYPES = [
   'prayer_update',
   'prayer_answered',
   'call_time',
+  'location_prompt',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -111,6 +112,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   prayer_answered: { label: 'A prayer you were praying for has been answered', href: '/prayer?tab=testimonies' },
   // Each one says the team, the day and the time (0224); this is the fallback.
   call_time: { label: 'When your team is due in', href: '/rota' },
+  // Sent from Settings › Onboarding (0228): the steps to allow location.
+  location_prompt: { label: 'Please allow location for the app', href: '/location' },
 }
 
 function known(type: string): NotificationType | null {

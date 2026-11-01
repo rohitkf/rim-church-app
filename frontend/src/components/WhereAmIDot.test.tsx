@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { WhereAmIDot } from './WhereAmIDot'
+
+const Dot = () => (
+  <MemoryRouter>
+    <WhereAmIDot />
+  </MemoryRouter>
+)
 
 /*
  * Opening the app reads the phone once and asks whether that is at
@@ -42,7 +49,7 @@ afterEach(() => {
 describe('the at-church dot on the Dashboard', () => {
   it('reads the phone on opening and says it is at church', async () => {
     phone('fix')
-    render(<WhereAmIDot />)
+    render(<Dot />)
     expect(await screen.findByText('At church')).toBeInTheDocument()
     expect(state.asked).toEqual([['clock_in_where_am_i', 51.5, -0.12, 12]])
     expect(options[0]).toMatchObject({ enableHighAccuracy: true })
@@ -51,7 +58,7 @@ describe('the at-church dot on the Dashboard', () => {
   it('shows how far and how sure on a tap, and checks again with a fresh reading', async () => {
     phone('fix')
     const user = userEvent.setup()
-    render(<WhereAmIDot />)
+    render(<Dot />)
     await user.click(await screen.findByRole('button', { name: /At church/ }))
     expect(screen.getByText('30 m from church · ± 12 m. CLOCK IN will work here.')).toBeInTheDocument()
     state.answer = { state: 'out', distance_m: 2300, radius_m: 100, accuracy_m: 20, needed_m: 50 }
@@ -62,8 +69,20 @@ describe('the at-church dot on the Dashboard', () => {
 
   it('says location is blocked, and asks nothing of the database', async () => {
     phone('denied')
-    render(<WhereAmIDot />)
+    render(<Dot />)
     expect(await screen.findByText('Location blocked')).toBeInTheDocument()
     expect(state.asked).toEqual([])
+  })
+
+  it('offers Allow location when blocked, which asks the phone again, and the steps', async () => {
+    phone('denied')
+    const user = userEvent.setup()
+    render(<Dot />)
+    await user.click(await screen.findByRole('button', { name: /Location blocked/ }))
+    expect(screen.getByRole('link', { name: 'How to allow it' })).toHaveAttribute('href', '/location')
+    phone('fix')
+    await user.click(screen.getByRole('button', { name: 'Allow location' }))
+    expect(await screen.findByText('At church')).toBeInTheDocument()
+    expect(options[0]).toMatchObject({ maximumAge: 0 })
   })
 })
