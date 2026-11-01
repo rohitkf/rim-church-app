@@ -22,6 +22,8 @@ const state = vi.hoisted(() => ({
   people: [] as Record<string, unknown>[],
   couples: [] as { a: string; b: string }[],
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
+  openSeries: [] as { id: string }[],
+  rpcs: [] as unknown[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -44,15 +46,27 @@ vi.mock('../lib/queries', () => ({
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
-    rpc: (fn: string) =>
-      Promise.resolve(fn === 'married_couples' ? { data: state.couples, error: null } : { data: null, error: { message: 'no' } }),
+    rpc: (fn: string, args: unknown) => {
+      if (fn === 'extend_event_series') {
+        state.rpcs.push([fn, args])
+        return Promise.resolve({ data: 26, error: null })
+      }
+      return Promise.resolve(fn === 'married_couples' ? { data: state.couples, error: null } : { data: null, error: { message: 'no' } })
+    },
     from: (table: string) => ({
       select: () => {
         const rows = Promise.resolve({
-          data: table === 'church_events' ? state.events : table === 'profiles' ? state.people : [],
+          data:
+            table === 'church_events'
+              ? state.events
+              : table === 'profiles'
+                ? state.people
+                : table === 'church_event_series'
+                  ? state.openSeries
+                  : [],
           error: null,
         })
-        return Object.assign(rows, { order: () => rows })
+        return Object.assign(rows, { order: () => rows, is: () => rows })
       },
       insert: (row: unknown) => {
         state.written.push({ table, op: 'insert', row })
@@ -491,5 +505,39 @@ describe('events that repeat', () => {
     await waitFor(() => expect(state.written).toHaveLength(2))
     expect(state.written.map((w) => w.id).sort()).toEqual(['s1', 's2'])
     expect(state.written[0].row).toMatchObject({ title: 'Prayer evening' })
+  })
+
+  it('goes on with no end date: a series row, and the database makes the next six months', async () => {
+    state.rpcs = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'No end date' }))
+    expect(within(form).getByText(/goes on until you stop it/)).toBeInTheDocument()
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+
+    await waitFor(() => expect(state.rpcs).toHaveLength(1))
+    expect(state.written).toHaveLength(1)
+    expect(state.written[0]).toMatchObject({ table: 'church_event_series', op: 'insert' })
+    const series = state.written[0].row as { id: string; rule: string; anchor_date: string; generated_through: string }
+    expect(series).toMatchObject({ rule: 'weekly', anchor_date: TODAY, generated_through: '2026-09-12' })
+    expect(state.rpcs[0]).toEqual(['extend_event_series', { only_series: series.id }])
+  })
+
+  it('stops an open-ended one when this and every one after it are removed', async () => {
+    state.openSeries = [{ id: 'S' }]
+    state.events = [meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('Repeats every week on Sunday, with no end date')).toBeInTheDocument()
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
+    await userEvent.click((await screen.findAllByRole('button', { name: /Remove/ }))[0])
+    await userEvent.click(screen.getByRole('button', { name: 'This one and every one after it' }))
+    await waitFor(() => expect(state.written.map((w) => w.op)).toEqual(['delete-series', 'update']))
+    expect(state.written[1]).toMatchObject({ table: 'church_event_series', id: 'S' })
+    state.openSeries = []
   })
 })

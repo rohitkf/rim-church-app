@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
+import { ActionButton, Eyebrow, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -300,6 +300,8 @@ export function EventsPage() {
   /** How a new event repeats (0234), and its last date; '' for a one-off. */
   const [repeat, setRepeat] = useState<RepeatRule | ''>('')
   const [until, setUntil] = useState('')
+  /** No end date (0235): a series row keeps it going, six months ahead. */
+  const [noEnd, setNoEnd] = useState(false)
   /** Changing one of a series: just it, or it and every one after. */
   const [scope, setScope] = useState<'one' | 'following'>('one')
   /** A series event somebody asked to remove: which ones. */
@@ -311,6 +313,16 @@ export function EventsPage() {
   const couplesQuery = useQuery({ queryKey: ['married-couples'], queryFn: fetchCouples })
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: fetchServices })
   const eventsQuery = useQuery({ queryKey: ['church-events'], queryFn: fetchEvents })
+  // Series that go on with no end date (0235), still running.
+  const openSeriesQuery = useQuery({
+    queryKey: ['church-events', 'open-series'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('church_event_series').select('id').is('stopped_at', null)
+      if (error) throw error
+      return new Set((data ?? []).map((r: { id: string }) => r.id))
+    },
+  })
+  const isOpenSeries = (seriesId: string | null | undefined) => !!seriesId && !!openSeriesQuery.data?.has(seriesId)
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
 
   // Which teams this person may file an event under. Somebody who reaches
@@ -392,6 +404,30 @@ export function EventsPage() {
       // `created_by` belongs to whoever put it in the diary and is not
       // rewritten by whoever corrects it later: the name on the row is a
       // fact about who decided, not about who last touched a field.
+      const runDays = endDate && endDate > date ? Math.round((Date.parse(endDate) - Date.parse(date)) / 86_400_000) : 0
+      const dayBefore = (iso: string) => new Date(Date.parse(iso) - 86_400_000).toISOString().slice(0, 10)
+      if (!editing && repeat && noEnd) {
+        // No end date (0235): the series says what each time is, and the
+        // database makes them six months ahead and keeps them that far.
+        const id = crypto.randomUUID()
+        const { error: seriesError } = await supabase.from('church_event_series').insert({
+          id,
+          title: fields.title,
+          details: fields.details,
+          start_time: fields.start_time,
+          location: fields.location,
+          department_id: fields.department_id,
+          created_by: session!.user.id,
+          anchor_date: date,
+          run_days: runDays,
+          rule: repeat,
+          generated_through: dayBefore(date),
+        })
+        if (seriesError) throw seriesError
+        const { error: extendError } = await supabase.rpc('extend_event_series', { only_series: id })
+        if (extendError) throw extendError
+        return
+      }
       if (!editing && repeat) {
         // One row a time it happens (0234), joined by the series.
         const series = crypto.randomUUID()
@@ -425,6 +461,32 @@ export function EventsPage() {
         )
         const failed = results.find((r) => r.error)
         if (failed?.error) throw failed.error
+        const seriesId = editing.series_id
+        if (isOpenSeries(seriesId)) {
+          // What it makes from now on says the same.
+          const { error: seriesError } = await supabase
+            .from('church_event_series')
+            .update({ ...same, anchor_date: date, run_days: runDays })
+            .eq('id', seriesId)
+          if (seriesError) throw seriesError
+        } else if (noEnd) {
+          const lastMade = later.map((ev) => ev.event_date).sort().pop() ?? editing.event_date
+          const shifted = new Date(Date.parse(lastMade) + moved * 86_400_000).toISOString().slice(0, 10)
+          const { error: seriesError } = await supabase.from('church_event_series').insert({
+            id: seriesId,
+            ...same,
+            created_by: session!.user.id,
+            anchor_date: date,
+            run_days: runDays,
+            rule: editing.repeat_rule,
+            generated_through: shifted,
+          })
+          if (seriesError) throw seriesError
+        }
+        if (isOpenSeries(seriesId) || noEnd) {
+          const { error: extendError } = await supabase.rpc('extend_event_series', { only_series: seriesId })
+          if (extendError) throw extendError
+        }
         return
       }
       const { error: writeError } = editing
@@ -451,6 +513,14 @@ export function EventsPage() {
           : // This one and every one after it in the series.
             await supabase.from('church_events').delete().eq('series_id', target.series).gte('event_date', target.from)
       if (deleteError) throw deleteError
+      // And an open-ended one makes no more (0235).
+      if (typeof target !== 'string' && isOpenSeries(target.series)) {
+        const { error: stopError } = await supabase
+          .from('church_event_series')
+          .update({ stopped_at: new Date().toISOString() })
+          .eq('id', target.series)
+        if (stopError) throw stopError
+      }
     },
     onSuccess: () => {
       setRemoving(null)
@@ -465,7 +535,7 @@ export function EventsPage() {
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime('')
     setLocation(''); setDetails(''); setDepartmentId('')
-    setRepeat(''); setUntil(''); setScope('one')
+    setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false)
   }
 
   // Opening the form with a day already chosen. Tapping the 14th is
@@ -792,18 +862,27 @@ export function EventsPage() {
                 </Field>
               )}
               {!editing && repeat && (
-                <Field label="Until" className="sm:col-span-2">
-                  <DateField value={until} onChange={(v) => setUntil(v ?? '')} min={date || today} label="Repeats until" />
-                  <p className="mt-1 text-label-md text-on-surface-variant">
-                    {(() => {
-                      const n = occurrences(date || today, repeat, until || defaultUntil(date || today, repeat)).length
-                      return `${n} ${n === 1 ? 'event' : 'events'}, each its own in the diary.`
-                    })()}
-                  </p>
-                </Field>
+                <FieldGroup label="Until" className="sm:col-span-2">
+                  <NoEndToggle checked={noEnd} onChange={setNoEnd} />
+                  {noEnd ? (
+                    <p className="mt-1 text-label-md text-on-surface-variant">
+                      It goes on until you stop it. The next six months are in the diary, and it keeps that far ahead.
+                    </p>
+                  ) : (
+                    <>
+                      <DateField value={until} onChange={(v) => setUntil(v ?? '')} min={date || today} label="Repeats until" />
+                      <p className="mt-1 text-label-md text-on-surface-variant">
+                        {(() => {
+                          const n = occurrences(date || today, repeat, until || defaultUntil(date || today, repeat)).length
+                          return `${n} ${n === 1 ? 'event' : 'events'}, each its own in the diary.`
+                        })()}
+                      </p>
+                    </>
+                  )}
+                </FieldGroup>
               )}
               {editing?.series_id && (
-                <Field label="Change" className="sm:col-span-2">
+                <FieldGroup label="Change" className="sm:col-span-2">
                   <div role="radiogroup" aria-label="Which to change" className="flex flex-col gap-1.5 text-body-sm text-on-surface">
                     {(
                       [
@@ -823,7 +902,17 @@ export function EventsPage() {
                       </label>
                     ))}
                   </div>
-                </Field>
+                  {scope === 'following' && !isOpenSeries(editing.series_id) && (
+                    <div className="mt-2">
+                      <NoEndToggle checked={noEnd} onChange={setNoEnd} label="And keep it going, with no end date" />
+                    </div>
+                  )}
+                  {isOpenSeries(editing.series_id) && (
+                    <p className="mt-2 text-label-md text-on-surface-variant">
+                      It has no end date. Changing this one and every one after it also changes the ones still to be made.
+                    </p>
+                  )}
+                </FieldGroup>
               )}
               <Field label="Start time (optional)">
                 <TimeField value={startTime} onChange={setStartTime} label="Start time" clearable />
@@ -915,6 +1004,7 @@ export function EventsPage() {
                   {repeatWords(reading.event_date, reading.repeat_rule) && (
                     <span className="block text-label-md text-on-surface-variant">
                       {repeatWords(reading.event_date, reading.repeat_rule)}
+                      {isOpenSeries(reading.series_id) && ', with no end date'}
                     </span>
                   )}
                   {reading.ends_on && reading.ends_on > reading.event_date && (
@@ -1023,6 +1113,43 @@ export function EventsPage() {
         </Overlay>
       )}
       {dialog}
+    </div>
+  )
+}
+
+/** "No end date" — a repeating event that goes on until somebody stops it (0235). */
+function NoEndToggle({
+  checked,
+  onChange,
+  label = 'No end date',
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  label?: string
+}) {
+  return (
+    <label className="mb-2 flex items-center gap-2 text-body-sm text-on-surface">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 accent-[var(--color-primary)]"
+      />
+      {label}
+    </label>
+  )
+}
+
+/**
+ * Field's look for a group that holds its own checkboxes or radios: Field
+ * is a <label>, and one wrapped round them would toggle the first of them
+ * whenever its heading was tapped.
+ */
+function FieldGroup({ label, className = '', children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className={`flex flex-col gap-2 ${className}`}>
+      <Eyebrow>{label}</Eyebrow>
+      {children}
     </div>
   )
 }
