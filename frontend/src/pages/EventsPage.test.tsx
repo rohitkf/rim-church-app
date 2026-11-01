@@ -540,4 +540,14 @@ describe('events that repeat', () => {
     expect(state.written[1]).toMatchObject({ table: 'church_event_series', id: 'S' })
     state.openSeries = []
   })
+
+  it('shows a Repeats chip on each one, not which day of a run it is', async () => {
+    state.events = [
+      meeting({ id: 's1', title: 'Prayer meeting', event_date: '2026-09-20', ends_on: '2026-09-22', series_id: 'S', repeat_rule: 'weekly' }),
+    ]
+    show()
+    const row = (await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ }))[0]
+    expect(row).toHaveTextContent('Repeats every week')
+    expect(row).not.toHaveTextContent(/Day \d of/)
+  })
 })

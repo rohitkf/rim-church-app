@@ -6,6 +6,7 @@ import {
   diaryTime,
   eventIsOver,
   lastDayOf,
+  repeatShort,
   type DiaryEntry,
   type DiaryEvent,
 } from './churchDiary'
@@ -140,6 +141,7 @@ export function pastDiaryEntries(
         // The whole run, and no "day 3 of 7" — there is no day of it to be
         // on any more.
         span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
+        repeats: repeatShort(event.repeat_rule),
       }
     })
     .sort(
