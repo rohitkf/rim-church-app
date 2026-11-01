@@ -10,7 +10,7 @@ import { PageHeader } from '../components/Surface'
 import { StatusBadge } from '../components/ChecklistStatus'
 import { TeamReadinessPanel } from '../components/TeamReadinessPanel'
 import { READINESS_KEY, fetchTeamReadiness } from '../lib/teamReadiness'
-import { ChecklistStageBoxes } from '../components/ChecklistStageBoxes'
+import { ChecklistStageBoxes, ChecklistStageLegend } from '../components/ChecklistStageBoxes'
 import {
   fetchDepartments,
   fetchRoleChecklistItems,
@@ -714,6 +714,7 @@ export function ChecklistsIndexPage() {
         description="Yours first, then the teams you oversee."
       />
       <Lifespan page="checklists" className="mb-4" />
+      <ChecklistStageLegend className="mb-5" />
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>

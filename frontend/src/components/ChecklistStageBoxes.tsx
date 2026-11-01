@@ -6,6 +6,7 @@ const STAGES = [
     key: 'member' as const,
     label: 'Done',
     title: 'Ticked by the volunteer holding the role',
+    who: 'The volunteer on the role ticks it when it is done.',
     on: 'member_complete' as ChecklistItemStatus,
     off: 'pending' as ChecklistItemStatus,
     colour: 'border-status-member bg-status-member',
@@ -13,8 +14,10 @@ const STAGES = [
   },
   {
     key: 'head' as const,
-    label: 'Head',
-    title: 'Verified by the team head',
+    // The team's Head, or its Team Coordinator: either may verify.
+    label: 'Head/Coordinator',
+    title: 'Verified by the team head or the team coordinator',
+    who: 'The team’s Head, Assisting Head or Team Coordinator checks it. Admins can too.',
     on: 'head_verified' as ChecklistItemStatus,
     off: 'member_complete' as ChecklistItemStatus,
     colour: 'border-status-head bg-status-head',
@@ -24,6 +27,7 @@ const STAGES = [
     key: 'sign' as const,
     label: 'Sign-off',
     title: 'Signed off by Service Flow',
+    who: 'Service Flow gives the final sign-off for every team.',
     on: 'coordinator_verified' as ChecklistItemStatus,
     off: 'head_verified' as ChecklistItemStatus,
     colour: 'border-status-coordinator bg-status-coordinator',
@@ -98,5 +102,26 @@ export function ChecklistStageBoxes({ status, may, onChange, busy }: ChecklistSt
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Who ticks which box, said once at the top of the page, so nobody waits
+ * on a box that is somebody else's to tick.
+ */
+export function ChecklistStageLegend({ className = '' }: { className?: string }) {
+  return (
+    <ul aria-label="Who ticks each box" className={`flex flex-col gap-1.5 text-body-sm text-on-surface-variant ${className}`}>
+      {STAGES.map((stage) => (
+        <li key={stage.key} className="flex items-start gap-2.5">
+          <span
+            className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 font-mono text-label-sm text-white ${stage.colour}`}
+          >
+            {stage.label}
+          </span>
+          <span className="min-w-0">{stage.who}</span>
+        </li>
+      ))}
+    </ul>
   )
 }

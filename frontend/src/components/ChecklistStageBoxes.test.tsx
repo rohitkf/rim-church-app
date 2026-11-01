@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ChecklistStageBoxes } from './ChecklistStageBoxes'
+import { ChecklistStageBoxes, ChecklistStageLegend } from './ChecklistStageBoxes'
 
 const everyone = { member: true, head: true, sign: true }
 const boxes = () => screen.getAllByRole('checkbox') as HTMLInputElement[]
@@ -60,5 +60,17 @@ describe('ChecklistStageBoxes', () => {
   it('goes inert while a change is in flight', () => {
     render(<ChecklistStageBoxes status="pending" may={everyone} onChange={() => {}} busy />)
     expect(boxes().every((b) => b.disabled)).toBe(true)
+  })
+})
+
+describe('ChecklistStageLegend', () => {
+  it('says who ticks each of the three boxes', () => {
+    render(<ChecklistStageLegend />)
+    const rows = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(rows).toEqual([
+      expect.stringMatching(/^Done.*volunteer on the role/),
+      expect.stringMatching(/^Head\/Coordinator.*Head, Assisting Head or Team Coordinator/),
+      expect.stringMatching(/^Sign-off.*Service Flow/),
+    ])
   })
 })

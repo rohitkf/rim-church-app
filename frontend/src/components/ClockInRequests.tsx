@@ -18,7 +18,9 @@ import { ActionButton, SectionTile, inputClasses } from './Surface'
 
 const PlaceMap = lazy(() => import('./PlaceMap').then((m) => ({ default: m.PlaceMap })))
 
-const waitingForAddress = (r: ClockInRequest) => r.address === null && r.latitude !== null && (r.address_tries ?? 0) < 3
+// The database tries each address five times (0230).
+const ADDRESS_TRIES = 5
+const waitingForAddress = (r: ClockInRequest) => r.address === null && r.latitude !== null && (r.address_tries ?? 0) < ADDRESS_TRIES
 
 /**
  * Requests to be clocked in, waiting on this person (0194).
