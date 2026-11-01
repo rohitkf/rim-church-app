@@ -74,6 +74,9 @@ export interface DiaryEvent {
   details: string | null
   department_id: string | null
   created_by: string | null
+  /** The repeats it belongs to, and how they repeat (0234); null for a one-off. */
+  series_id?: string | null
+  repeat_rule?: string | null
   creator?: { first_name: string; last_name: string } | null
   department?: { name: string; color: string | null } | null
 }
