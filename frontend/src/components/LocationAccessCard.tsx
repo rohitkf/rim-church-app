@@ -6,6 +6,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import {
   LOCATION_ACCESS_KEY,
+  BROWSER_LABEL,
   PLATFORM_LABEL,
   accessStatusOf,
   fetchEveryonesLocationAccess,
@@ -69,7 +70,11 @@ function detailOf(row: LocationAccess | undefined): string | null {
   if (!row) return null
   const bits: string[] = []
   if (row.reported_at) {
-    bits.push(`${PLATFORM_LABEL[row.platform]}${row.installed ? ' app' : ''} · ${day(row.reported_at)}`)
+    // "Android · Samsung Internet" — the browser decides which setting to walk them through.
+    const browser = row.browser && !row.installed ? BROWSER_LABEL[row.browser] : null
+    bits.push(
+      `${PLATFORM_LABEL[row.platform]}${row.installed ? ' app' : ''}${browser ? ` · ${browser}` : ''} · ${day(row.reported_at)}`,
+    )
   }
   if (row.asked_at && row.state !== 'granted') bits.push(`asked ${day(row.asked_at)}`)
   return bits.length ? bits.join(' · ') : null

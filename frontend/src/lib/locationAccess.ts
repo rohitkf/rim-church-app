@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
-import { detectEnvironment, type Platform } from './installGuide'
+import { detectEnvironment, type BrowserId, type Platform } from './installGuide'
 import { isStandalone } from './pwa'
 import { useLocationPermission, type KnownPermission } from './locationPermission'
 
@@ -21,12 +21,14 @@ export const locationAccessSchema = z.object({
   state: z.enum(['granted', 'denied', 'unknown']),
   platform: z.enum(['ios', 'android', 'desktop', 'other']),
   installed: z.boolean(),
+  /** Which browser (0231); null from an older build. */
+  browser: z.string().nullable().optional(),
   reported_at: z.string().nullable(),
   asked_at: z.string().nullable(),
 })
 export type LocationAccess = z.infer<typeof locationAccessSchema>
 
-const COLUMNS = 'user_id, state, platform, installed, reported_at, asked_at'
+const COLUMNS = 'user_id, state, platform, installed, browser, reported_at, asked_at'
 
 /** Every row the reader may see: their own, and whoever they may send the tour to. */
 export async function fetchEveryonesLocationAccess(): Promise<LocationAccess[]> {
@@ -35,11 +37,12 @@ export async function fetchEveryonesLocationAccess(): Promise<LocationAccess[]> 
   return z.array(locationAccessSchema).parse(data ?? [])
 }
 
-export async function reportLocationAccess(state: KnownPermission, platform: Platform, installed: boolean) {
+export async function reportLocationAccess(state: KnownPermission, platform: Platform, installed: boolean, browser: BrowserId) {
   const { error } = await supabase.rpc('report_location_access', {
     p_state: state,
     p_platform: platform,
     p_installed: installed,
+    p_browser: browser,
   })
   if (error) throw error
 }
@@ -65,34 +68,23 @@ export function accessStatusOf(row: Pick<LocationAccess, 'state' | 'reported_at'
   return { kind: 'not_yet', at: row.reported_at }
 }
 
+/** The browser as people call it; null when it is the obvious one or unknown. */
+export const BROWSER_LABEL: Record<string, string> = {
+  safari: 'Safari',
+  chrome: 'Chrome',
+  edge: 'Edge',
+  firefox: 'Firefox',
+  samsung: 'Samsung Internet',
+  opera: 'Opera',
+  brave: 'Brave',
+  inapp: 'in-app browser',
+}
+
 export const PLATFORM_LABEL: Record<LocationAccess['platform'], string> = {
   ios: 'iPhone',
   android: 'Android',
   desktop: 'Computer',
   other: 'Phone',
-}
-
-/** How to allow it, step by step, for each kind of phone. */
-export const ALLOW_STEPS: Record<'ios' | 'android', { title: string; steps: string[] }> = {
-  ios: {
-    title: 'On an iPhone',
-    steps: [
-      'Open the Settings app.',
-      'Privacy & Security › Location Services, and make sure it is on.',
-      'Scroll down to Safari Websites — or to this app, if you added it to your Home Screen — and choose While Using the App.',
-      'Turn Precise Location on.',
-      'Come back here and press Allow location.',
-    ],
-  },
-  android: {
-    title: 'On Android',
-    steps: [
-      'In Chrome, tap the icon to the left of the address — or, in the installed app, open Settings › Apps › this app.',
-      'Permissions › Location › Allow.',
-      'Make sure the phone’s own Location is on: swipe down from the top of the screen and tap Location.',
-      'Come back here and press Allow location.',
-    ],
-  },
 }
 
 /**
@@ -134,7 +126,7 @@ function useBestKnown(platform: Platform): KnownPermission {
  * again whenever it changes. Mounted once, in the app's shell.
  */
 export function useReportLocationAccess(signedIn: boolean) {
-  const platform = detectEnvironment().platform
+  const { platform, browser } = detectEnvironment()
   const state = useBestKnown(platform)
   const said = useRef<string | null>(null)
 
@@ -151,10 +143,10 @@ export function useReportLocationAccess(signedIn: boolean) {
     const wait = state === 'unknown' ? 4_000 : 0
     const timer = window.setTimeout(() => {
       said.current = key
-      reportLocationAccess(state, platform, installed).catch(() => {
+      reportLocationAccess(state, platform, installed, browser).catch(() => {
         said.current = null
       })
     }, wait)
     return () => window.clearTimeout(timer)
-  }, [signedIn, state, platform])
+  }, [signedIn, state, platform, browser])
 }
