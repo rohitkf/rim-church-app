@@ -1,8 +1,8 @@
 import { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useWhereAmI, whereAmIWords } from '../lib/whereAmI'
-import { ActionButton, StatusDot } from './Surface'
+import { StatusDot } from './Surface'
+import { AllowLocation } from './AllowLocation'
 
 /**
  * Under the date on the Dashboard: whether this phone is at church now
@@ -32,19 +32,10 @@ export function WhereAmIDot() {
       {open && (
         <div id={detailId} className="mt-1 max-w-md text-label-md text-on-surface-variant">
           {words.detail && <p>{words.detail}</p>}
-          {/* Asking again brings the phone's own Allow message back when it
-              can; a phone that was told Block cannot be asked by the app,
-              so the page with its steps is one tap away. */}
-          {status.at === 'blocked' && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <ActionButton size="sm" onClick={check}>
-                Allow location
-              </ActionButton>
-              <Link to="/location" className="tap text-label-md text-accent-blue-soft hover:underline">
-                How to allow it
-              </Link>
-            </div>
-          )}
+          {/* Asking again brings the phone's own question back when it
+              can; when the phone refuses without asking, it says so, and
+              the steps for this phone and browser stay on screen. */}
+          {status.at === 'blocked' && <AllowLocation onAllowed={check} className="mt-2" />}
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-label-sm text-on-surface-faint">
             {checkedAt && (
               <span>

@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { forgetLocationPermission } from '../lib/locationPermission'
+import { MemoryRouter } from 'react-router-dom'
 import { LocationPage } from './LocationPage'
+
+const Page = () => (
+  <MemoryRouter>
+    <LocationPage />
+  </MemoryRouter>
+)
 
 vi.mock('../components/Surface', async (importOriginal) => {
   const real = await importOriginal<typeof import('../components/Surface')>()
@@ -25,7 +32,7 @@ afterEach(() => forgetLocationPermission())
 describe('Allow location', () => {
   it('asks the phone on arrival, and says so when it is allowed', async () => {
     const asked = phone(['yes'])
-    render(<LocationPage />)
+    render(<Page />)
     expect(await screen.findByText(/Allowed. You are all set/)).toBeInTheDocument()
     expect(asked).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: 'Allow location' })).not.toBeInTheDocument()
@@ -33,11 +40,10 @@ describe('Allow location', () => {
 
   it('shows the steps when blocked, and asks again on Allow location', async () => {
     const asked = phone(['no', 'yes'])
-    render(<LocationPage />)
-    expect(await screen.findByText(/Blocked. Follow the steps/)).toBeInTheDocument()
-    expect(screen.getByText('On an iPhone')).toBeInTheDocument()
-    expect(screen.getByText('On Android')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Allow location' }))
+    render(<Page />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/without asking/)
+    expect(screen.getByRole('list', { name: /How to allow location/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/Allowed. You are all set/)).toBeInTheDocument()
     expect(asked).toHaveBeenCalledTimes(2)
   })

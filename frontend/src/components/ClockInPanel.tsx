@@ -27,6 +27,10 @@ import { useLocationPermission } from '../lib/locationPermission'
 import { ActionButton, inputClasses } from './Surface'
 import { TimeField } from './DateTimeFields'
 import { MapPinIcon } from './icons'
+import { AllowLocation } from './AllowLocation'
+import { stepsForThisPhone } from '../lib/locationHelp'
+
+const blockedSteps = stepsForThisPhone()
 
 type Step =
   | { at: 'idle' }
@@ -35,10 +39,6 @@ type Step =
   | { at: 'answered'; result: ClockInResult }
   | { at: 'failed'; message: string; blocked?: boolean }
 
-const BLOCKED_HELP = [
-  'iPhone: Settings › Privacy & Security › Location Services › your browser (or this app) › While Using, with Precise Location on.',
-  'Android: tap the padlock beside the address › Permissions › Location › Allow — or Settings › Apps › your browser › Permissions.',
-]
 
 /**
  * CLOCK IN on the Dashboard (0192).
@@ -187,18 +187,10 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
             <p className="mt-0.5 text-label-sm text-on-surface-variant">
               It is read when you open the app and when you press CLOCK IN — never in the background.
             </p>
-            <ul className="mt-1 list-disc pl-5 text-label-sm text-on-surface-variant">
-              {BLOCKED_HELP.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
+            {/* The steps for this phone and browser; asking again says
+                plainly when the phone refuses without asking. */}
+            <AllowLocation showSteps="always" className="mt-2" />
           </div>
-          <Link
-            to="/location"
-            className="tap inline-flex shrink-0 items-center justify-center self-start rounded-full bg-primary px-4 py-2 text-label-lg font-medium text-on-primary sm:self-center"
-          >
-            Allow location
-          </Link>
         </div>
       </div>
     )
@@ -280,11 +272,14 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
               <div role="alert" className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
                 <p>{step.message}</p>
                 {step.blocked && (
-                  <ul className="mt-1 list-disc pl-5 text-label-md">
-                    {BLOCKED_HELP.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
+                  <>
+                    <p className="mt-1 text-label-md font-medium">{blockedSteps.title}</p>
+                    <ol className="mt-0.5 list-decimal pl-5 text-label-md">
+                      {blockedSteps.steps.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ol>
+                  </>
                 )}
               </div>
             )}
