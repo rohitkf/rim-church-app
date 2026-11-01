@@ -16,6 +16,8 @@ const auth = vi.hoisted(() => ({
   setViewAs: vi.fn(),
 }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+// Take the tour reads who you are from elsewhere; this is about View as.
+vi.mock('../lib/useStartTour', () => ({ useStartTour: () => () => undefined }))
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () => Promise.resolve([{ id: 'd1', name: 'Media', color: '#f00' }]),
 }))
