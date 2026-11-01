@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { useVisibleBottom } from '../lib/useVisibleBottom'
 import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { MoreIcon } from './icons'
@@ -137,6 +138,8 @@ export function DockNav({
     return () => window.clearTimeout(id)
   }, [travelling, pill])
 
+  const bottom = useVisibleBottom()
+
   return (
     <nav
       aria-label={label}
@@ -145,6 +148,12 @@ export function DockNav({
       <div
         ref={barRef}
         data-tour="dock"
+        // On the bottom of what can be seen, and out of the keyboard's way (lib/useVisibleBottom).
+        style={{
+          transform: bottom.lift ? `translateY(-${bottom.lift}px)` : undefined,
+          opacity: bottom.keyboard ? 0 : undefined,
+          visibility: bottom.keyboard ? 'hidden' : undefined,
+        }}
         className="glass pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)]"
       >
         {/*

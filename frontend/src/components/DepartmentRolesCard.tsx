@@ -248,7 +248,7 @@ function RoleChecklistEditor({
                 className="grid grid-cols-[auto_1fr_auto] items-start gap-x-1.5 gap-y-1 rounded-[var(--radius-chip)] bg-surface-lowest px-2.5 py-2 text-body-sm hairline sm:items-center sm:gap-x-3"
               >
                 {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
-                <span className="min-w-0 break-words text-on-surface">{item.label}</span>
+                <span className="min-w-0 text-on-surface [overflow-wrap:anywhere]">{item.label}</span>
                 {canManage && (
                   <span className="col-start-2 flex shrink-0 items-center gap-3 sm:col-start-3 sm:row-start-1">
                     <button

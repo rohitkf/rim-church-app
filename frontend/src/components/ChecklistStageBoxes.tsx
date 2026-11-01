@@ -64,7 +64,10 @@ export function ChecklistStageBoxes({ status, may, onChange, busy }: ChecklistSt
   const rank = RANK[status]
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+    // Free to wrap: with "Head/Coordinator" the three no longer fit
+    // beside each other on a small phone, and a row that would not shrink
+    // pushed Sign-off off the edge.
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
       {STAGES.map((stage, i) => {
         const checked = rank >= i + 1
         // Live only at the frontier: tick the next stage, or untick the last
