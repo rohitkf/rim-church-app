@@ -45,6 +45,7 @@ vi.mock('../lib/queries', () => ({
     Promise.resolve([
       { id: 'd1', name: 'Media', color: '#3b82f6' },
       { id: 'd2', name: 'Worship', color: '#f97316' },
+      { id: 'd3', name: 'Ushers', color: '#22c55e' },
     ]),
 }))
 
@@ -71,6 +72,7 @@ vi.mock('../lib/supabaseClient', () => ({
                     ? [
                         { id: 'd1', name: 'Media', color: '#3b82f6' },
                         { id: 'd2', name: 'Worship', color: '#f97316' },
+                        { id: 'd3', name: 'Ushers', color: '#22c55e' },
                       ]
                     : [],
           error: null,
@@ -175,7 +177,14 @@ describe('reading an event', () => {
     expect(within(detail).getByText(/Grace Mensah/)).toBeInTheDocument()
   })
 
-  it('says the event is for all teams when no team owns it', async () => {
+  it('says the event is for the whole church when no team owns it', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('Whole church')).toBeInTheDocument()
+  })
+
+  it('says All teams, not every name, when it is for every team', async () => {
+    state.events = [meeting({ department_id: 'd1', department_ids: ['d1', 'd2', 'd3'] })]
     show()
     await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
     expect(within(screen.getByRole('dialog')).getByText('All teams')).toBeInTheDocument()
@@ -603,33 +612,33 @@ describe('events that repeat', () => {
  * An event for several teams (0237): All teams, or any of them ticked.
  */
 describe('which teams an event is for', () => {
-  it('starts on All teams, and ticking teams makes it theirs', async () => {
+  it('starts on Whole church, and ticking teams makes it theirs', async () => {
     state.events = []
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Rehearsal')
     const form = screen.getByRole('dialog')
-    const teams = within(form).getByRole('group', { name: 'Which teams' })
-    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).toBeChecked()
+    const teams = within(form).getByRole('group', { name: 'Who is it for' })
+    expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).toBeChecked()
 
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Worship' }))
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
-    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).not.toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).not.toBeChecked()
     await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0].row).toMatchObject({ department_id: 'd2', department_ids: ['d2', 'd1'] })
   })
 
-  it('goes back to All teams, and writes no team', async () => {
+  it('goes back to Whole church, and writes no team', async () => {
     state.events = []
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Picnic')
     const form = screen.getByRole('dialog')
-    const teams = within(form).getByRole('group', { name: 'Which teams' })
+    const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
-    await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'Whole church' }))
     expect(within(teams).getByRole('checkbox', { name: 'Media' })).not.toBeChecked()
     await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
 
@@ -641,9 +650,26 @@ describe('which teams an event is for', () => {
     state.events = [meeting({ department_id: 'd2', department_ids: ['d2', 'd1'] })]
     show()
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
-    const teams = within(screen.getByRole('dialog')).getByRole('group', { name: 'Which teams' })
+    const teams = within(screen.getByRole('dialog')).getByRole('group', { name: 'Who is it for' })
     expect(within(teams).getByRole('checkbox', { name: 'Worship' })).toBeChecked()
     expect(within(teams).getByRole('checkbox', { name: 'Media' })).toBeChecked()
-    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).not.toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).not.toBeChecked()
+  })
+
+  it('ticks every team with All teams, and clears them again', async () => {
+    state.events = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Team night')
+    const form = screen.getByRole('dialog')
+    const teams = within(form).getByRole('group', { name: 'Who is it for' })
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
+    expect(within(teams).getByRole('checkbox', { name: 'Media' })).toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'Worship' })).toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).not.toBeChecked()
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ department_ids: ['d1', 'd2', 'd3'] })
   })
 })

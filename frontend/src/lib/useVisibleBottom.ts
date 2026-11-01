@@ -15,6 +15,13 @@ import { useEffect, useState } from 'react'
  * input is focused with the keyboard up it steps out of the way rather than
  * riding on top of it. When the keyboard goes, the page is nudged to its own
  * scroll position, which is what makes iOS put the viewports back together.
+ *
+ * A reading can be taken mid-change: when a list loads or shrinks, the page
+ * changes height and the browser re-clamps the scroll, and the viewports
+ * can disagree for a frame. A lift measured then used to stay until the
+ * next scroll, so the bar sat part-way up the screen "when data changed".
+ * So the bar measures again whenever the page changes height, and once more
+ * after things go quiet; the settled answer is the one that stays.
  */
 
 const editable = (el: Element | null) =>
@@ -39,7 +46,8 @@ export function useVisibleBottom(): VisibleBottom {
     if (!vv) return
 
     let frame = 0
-    const measure = () => {
+    let quiet = 0
+    const read = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         const gap = window.innerHeight - (vv.height + vv.offsetTop)
@@ -49,6 +57,11 @@ export function useVisibleBottom(): VisibleBottom {
         const lift = keyboard ? 0 : gap > 2 ? Math.round(gap) : 0
         setState((prev) => (prev.lift === lift && prev.keyboard === keyboard ? prev : { lift, keyboard }))
       })
+    }
+    const measure = () => {
+      read()
+      window.clearTimeout(quiet)
+      quiet = window.setTimeout(read, 300)
     }
 
     let settle = 0
@@ -62,6 +75,10 @@ export function useVisibleBottom(): VisibleBottom {
       }, 120)
     }
 
+    // The page changing height (data arriving, a list folding) is a reason to look again.
+    const grown = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    grown?.observe(document.body)
+
     measure()
     vv.addEventListener('resize', measure)
     vv.addEventListener('scroll', measure)
@@ -71,6 +88,8 @@ export function useVisibleBottom(): VisibleBottom {
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(settle)
+      window.clearTimeout(quiet)
+      grown?.disconnect()
       vv.removeEventListener('resize', measure)
       vv.removeEventListener('scroll', measure)
       window.removeEventListener('scroll', measure)

@@ -4,10 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- viewport-fit=cover lets the app paint into the notch and home-bar
-         areas on iOS; the shell pads itself back out with env(safe-area-*). -->
+         areas on iOS; the shell pads itself back out with env(safe-area-*).
+         No zooming, so it feels like an app: Android keeps to
+         maximum-scale and user-scalable; iOS ignores user-scalable and is
+         stopped by lib/noPageZoom. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
 
     <!-- Installed app -->
