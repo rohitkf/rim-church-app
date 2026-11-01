@@ -547,7 +547,7 @@ describe('events that repeat', () => {
     ]
     show()
     const row = (await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ }))[0]
-    expect(row).toHaveTextContent('Repeating')
+    expect(row).toHaveTextContent('Meeting')
     expect(row).toHaveTextContent('Every week')
     expect(row).not.toHaveTextContent(/Day \d of/)
   })
@@ -559,7 +559,7 @@ describe('events that repeat', () => {
     ]
     show()
     await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ })
-    await userEvent.click(screen.getByRole('button', { name: 'Repeating' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Meetings' }))
     expect(screen.getAllByRole('button', { name: /Prayer meeting — see the details/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /Workday — see the details/ })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Events' }))
