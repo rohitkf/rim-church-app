@@ -43,7 +43,9 @@ const fullName = (p: { first_name: string; last_name: string } | null | undefine
   p ? `${p.first_name} ${p.last_name}`.trim() : otherwise
 
 /** Still waiting for its street address — and not given up on. */
-const awaitingAddress = (row: ClockIn) => row.address === null && row.latitude !== null && (row.address_tries ?? 0) < 3
+// The database tries each address five times (0230).
+const ADDRESS_TRIES = 5
+const awaitingAddress = (row: ClockIn) => row.address === null && row.latitude !== null && (row.address_tries ?? 0) < ADDRESS_TRIES
 
 /**
  * Clock In (0191, 0192): who arrived, when, and where they were.
