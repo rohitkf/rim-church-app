@@ -28,6 +28,8 @@ import {
   type ClockInHistoryEntry,
 } from '../lib/clockIn'
 import { todayIso } from '../lib/monthGrid'
+import { teamWash } from '../lib/teamGradient'
+import { useTeamStyle } from '../lib/useTeamStyle'
 import { formatServiceDay } from '../lib/sunday'
 import { formatRelativeTime } from '../lib/relativeTime'
 
@@ -59,6 +61,7 @@ export function ClockInPage() {
   const settings = useAppSettings()
   const timeZone = settings.timezone
   const queryClient = useQueryClient()
+  const { teamStyle } = useTeamStyle()
   const [day, setDay] = useState(todayIso)
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -165,101 +168,105 @@ export function ClockInPage() {
             isEmpty={groups.length === 0}
             emptyMessage="Nobody was due, and nobody has clocked in, on this day."
           >
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-left text-body-sm">
-                <caption className="sr-only">Who clocked in on {formatServiceDay(day)}</caption>
-                <thead>
-                  <tr className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                    <th scope="col" className="py-2 pr-3 font-normal">Name</th>
-                    <th scope="col" className="py-2 pr-3 font-normal">Clocked in</th>
-                    <th scope="col" className="py-2 pr-3 font-normal">Where</th>
-                    {runsIt && (
-                      <th scope="col" className="py-2 font-normal">
-                        <span className="sr-only">Put it right</span>
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                {groups.map((group) => (
-                <tbody key={group.teamId ?? 'none'}>
-                  <tr>
-                    <th
-                      scope="colgroup"
-                      colSpan={runsIt ? 4 : 3}
-                      className="pt-4 pb-1.5 text-left text-label-md font-semibold text-on-surface"
-                    >
-                      {group.name}
-                      <span className="ml-2 font-mono text-label-sm font-normal text-on-surface-faint">
-                        {group.rows.length}
-                        {group.stillOut.length > 0 && ` in · ${group.stillOut.length} to come`}
-                      </span>
-                    </th>
-                  </tr>
-                  {group.rows.map((row) => {
-                    const name = fullName(row.person)
-                    return (
-                      <tr
-                        key={row.id}
-                        className={`border-t border-border-subtle align-top ${editing === row.id ? 'bg-raised' : ''}`}
-                      >
-                        <td className="py-2.5 pr-3 text-on-surface">
-                          {name}
-                          <span className="block text-label-sm text-on-surface-faint">{METHOD_LABEL[row.method]}</span>
-                        </td>
-                        <td className="py-2.5 pr-3 font-mono tabular-nums text-on-surface">
-                          {churchClock(row.clocked_at, timeZone)}
-                        </td>
-                        <td className="min-w-[9rem] py-2.5 pr-3 text-on-surface-variant">
-                          {row.address ??
-                            (row.latitude === null
-                              ? row.method === 'request'
-                                ? 'No location given'
-                                : '—'
-                              : awaitingAddress(row)
-                                ? 'Looking up the address…'
-                                : 'Address not found')}
-                          {row.distance_m !== null && (
-                            <span className="block font-mono text-label-sm text-on-surface-faint">
-                              {formatDistance(row.distance_m)} from church
-                              {row.accuracy_m !== null && ` · ± ${Math.round(row.accuracy_m)} m`}
-                            </span>
-                          )}
-                        </td>
-                        {runsIt && (
-                          <td className="py-1.5 text-right">
-                            <ActionButton
-                              tone="ghost"
-                              size="sm"
-                              aria-label={`Fix ${name}’s clock-in`}
-                              aria-expanded={editing === row.id}
-                              onClick={() => setEditing(editing === row.id ? null : row.id)}
+            {/* A card a team, washed in its colour as the Team Rota's are,
+                so the page reads at a glance: who is in, who is still to come. */}
+            <ul aria-label={`Who clocked in on ${formatServiceDay(day)}`} className="mt-4 flex flex-col gap-3">
+              {groups.map((group) => {
+                const color = departmentsQuery.data?.find((d) => d.id === group.teamId)?.color ?? null
+                const quiet = group.rows.length === 0
+                return (
+                  <li
+                    key={group.teamId ?? 'none'}
+                    aria-label={group.name}
+                    className={`rounded-[var(--radius-panel)] px-4 py-4 sm:px-5 ${
+                      quiet ? 'border border-dashed border-outline-variant' : 'bg-raised hairline'
+                    }`}
+                    style={quiet ? undefined : teamWash(color, teamStyle)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="mt-1 h-9 w-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: color ?? 'var(--color-outline-variant)' }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="break-words text-body-lg font-semibold text-on-surface">{group.name}</h3>
+                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                          {group.rows.length} in
+                          {group.stillOut.length > 0 && ` · ${group.stillOut.length} to come`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {group.rows.length > 0 && (
+                      <ul aria-label={`${group.name}: clocked in`} className="mt-3 flex flex-col divide-y divide-border-subtle">
+                        {group.rows.map((row) => {
+                          const name = fullName(row.person)
+                          return (
+                            <li
+                              key={row.id}
+                              className={`flex items-start gap-3 py-2.5 ${editing === row.id ? 'rounded-[var(--radius-row)] bg-surface-lowest/60 px-2' : ''}`}
                             >
-                              Fix
-                            </ActionButton>
-                          </td>
-                        )}
-                      </tr>
-                    )
-                  })}
-                  {group.stillOut.length > 0 && (
-                    <tr className="border-t border-border-subtle">
-                      <td colSpan={runsIt ? 4 : 3} className="py-2.5 text-label-md text-on-surface-variant">
-                        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                          Still to arrive
-                        </span>{' '}
-                        {group.stillOut
-                          .map((o) => {
-                            const who = personName(o.user_id)
-                            return `${who} (${o.asked ? 'asked' : churchClock(o.call_at, timeZone)})`
-                          })
-                          .join(', ')}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                ))}
-              </table>
-            </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words text-body-sm font-medium text-on-surface">{name}</p>
+                                <p className="break-words text-label-md text-on-surface-variant">
+                                  {row.address ??
+                                    (row.latitude === null
+                                      ? row.method === 'request'
+                                        ? 'No location given'
+                                        : METHOD_LABEL[row.method]
+                                      : awaitingAddress(row)
+                                        ? 'Looking up the address…'
+                                        : 'Address not found')}
+                                </p>
+                                <p className="font-mono text-label-sm text-on-surface-faint">
+                                  {METHOD_LABEL[row.method]}
+                                  {row.distance_m !== null && ` · ${formatDistance(row.distance_m)} from church`}
+                                  {row.accuracy_m !== null && ` · ± ${Math.round(row.accuracy_m)} m`}
+                                </p>
+                              </div>
+                              <span className="shrink-0 font-mono text-body-lg tabular-nums text-on-surface">
+                                {churchClock(row.clocked_at, timeZone)}
+                              </span>
+                              {runsIt && (
+                                <ActionButton
+                                  tone="ghost"
+                                  size="sm"
+                                  aria-label={`Fix ${name}’s clock-in`}
+                                  aria-expanded={editing === row.id}
+                                  onClick={() => setEditing(editing === row.id ? null : row.id)}
+                                >
+                                  Fix
+                                </ActionButton>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+
+                    {group.stillOut.length > 0 && (
+                      <div className="mt-3">
+                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Still to arrive</p>
+                        <ul aria-label={`${group.name}: still to arrive`} className="mt-1.5 flex flex-wrap gap-1.5">
+                          {group.stillOut.map((o) => (
+                            <li
+                              key={o.user_id}
+                              className="rounded-full bg-surface-lowest/70 px-2.5 py-1 text-label-md text-on-surface hairline"
+                            >
+                              {personName(o.user_id)}{' '}
+                              <span className="font-mono text-on-surface-faint">
+                                {o.asked ? 'asked' : churchClock(o.call_at, timeZone)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
             {runsIt && editingRow && (
               <PutRight
                 key={editingRow.id}
