@@ -4,6 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AccountMenu } from './AccountMenu'
 
+const tour = vi.hoisted(() => ({ started: 0 }))
+vi.mock('../lib/useStartTour', () => ({
+  useStartTour: () => () => {
+    tour.started += 1
+  },
+}))
+
 const settings = vi.hoisted(() => ({ video_tutorial_url: null as string | null }))
 vi.mock('../lib/appSettings', () => ({ useAppSettings: () => settings }))
 
@@ -124,5 +131,17 @@ describe('the Video tutorial link', () => {
     settings.video_tutorial_url = 'javascript:alert(1)'
     await open()
     expect(screen.queryByRole('menuitem', { name: 'Video tutorial' })).toBeNull()
+  })
+})
+
+describe('Take the tour', () => {
+  it('starts it from the menu, just above Log out', async () => {
+    const { user } = renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const items = screen.getAllByRole('menuitem').map((el) => el.textContent?.trim())
+    expect(items.slice(-2)).toEqual(['Take the tour', 'Log out'])
+    await user.click(screen.getByRole('menuitem', { name: 'Take the tour' }))
+    expect(tour.started).toBe(1)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })

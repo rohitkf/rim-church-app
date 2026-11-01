@@ -115,7 +115,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/',
         target: 'account',
         title: 'Your account',
-        body: 'Your profile, how the app looks, and sign out.',
+        body: 'Your profile, how the app looks, this tour again whenever you want it, and sign out.',
       },
       {
         path: '/',
