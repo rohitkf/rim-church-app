@@ -189,5 +189,11 @@ where address is null and latitude is not null;
 update public.clock_in_requests set address_tries = 0, address_tried_at = null
 where address is null and latitude is not null;
 
-select cron.unschedule(jobid) from cron.job where jobname = 'clock-in-addresses';
-select cron.schedule('clock-in-addresses', '3 seconds', $$select public.clock_in_addresses_tick()$$);
+-- Only where pg_cron is (production); a bare Postgres, as in CI, has none.
+do $cron$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'clock-in-addresses';
+    perform cron.schedule('clock-in-addresses', '3 seconds', 'select public.clock_in_addresses_tick()');
+  end if;
+end $cron$;
