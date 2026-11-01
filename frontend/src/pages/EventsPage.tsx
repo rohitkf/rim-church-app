@@ -19,6 +19,7 @@ import {
   diaryTime,
   diaryTimes,
   type DiaryEntry,
+  teamsOf,
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
@@ -321,7 +322,8 @@ export function EventsPage() {
   const [endTime, setEndTime] = useState('')
   const [location, setLocation] = useState('')
   const [details, setDetails] = useState('')
-  const [departmentId, setDepartmentId] = useState('')
+  /** Which teams it is for (0237); none is all teams. */
+  const [departmentIds, setDepartmentIds] = useState<string[]>([])
   /** How a new event repeats (0234), and its last date; '' for a one-off. */
   const [repeat, setRepeat] = useState<RepeatRule | ''>('')
   const [until, setUntil] = useState('')
@@ -361,7 +363,15 @@ export function EventsPage() {
     [departmentsQuery.data, can],
   )
   const canAdd = everywhere || myTeams.length > 0
-  const mayChange = (departmentId: string | null) => can('svc.events', { departmentId })
+  // Changing one is for whoever may add events for every team on it (0237).
+  const mayChange = (row: Pick<DiaryEvent, 'department_id' | 'department_ids'>) => {
+    const ids = row.department_ids?.length ? row.department_ids : row.department_id ? [row.department_id] : []
+    return ids.length === 0
+      ? can('svc.events', { departmentId: null })
+      : ids.every((departmentId) => can('svc.events', { departmentId }))
+  }
+  // Somebody who may not add for the whole church has to say whose it is.
+  const noTeamChosen = !everywhere && departmentIds.length === 0
 
   const diary = useMemo(
     () =>
@@ -438,7 +448,8 @@ export function EventsPage() {
         end_time: endTime || null,
         location: location.trim() || null,
         details: details.trim() || null,
-        department_id: departmentId || null,
+        department_id: departmentIds[0] ?? null,
+        department_ids: departmentIds,
       }
       // `created_by` belongs to whoever put it in the diary and is not
       // rewritten by whoever corrects it later: the name on the row is a
@@ -457,6 +468,7 @@ export function EventsPage() {
           end_time: fields.end_time,
           location: fields.location,
           department_id: fields.department_id,
+          department_ids: fields.department_ids,
           created_by: session!.user.id,
           anchor_date: date,
           run_days: runDays,
@@ -589,7 +601,7 @@ export function EventsPage() {
     setAdding(false)
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
-    setLocation(''); setDetails(''); setDepartmentId('')
+    setLocation(''); setDetails(''); setDepartmentIds([])
     setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
 
@@ -601,7 +613,7 @@ export function EventsPage() {
     setDate(on ?? today)
     // Somebody who may only add their own team's events starts on their
     // team, not on "the whole church" they are not offered.
-    if (!everywhere && myTeams[0]) setDepartmentId(myTeams[0].id)
+    if (!everywhere && myTeams[0]) setDepartmentIds([myTeams[0].id])
     setAdding(true)
   }
 
@@ -616,13 +628,13 @@ export function EventsPage() {
     setEndTime(row.end_time ? row.end_time.slice(0, 5) : '')
     setLocation(row.location ?? '')
     setDetails(row.details ?? '')
-    setDepartmentId(row.department_id ?? '')
+    setDepartmentIds(row.department_ids?.length ? row.department_ids : row.department_id ? [row.department_id] : [])
     setAdding(true)
   }
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
-    if (!title.trim() || !date) return
+    if (!title.trim() || !date || noTeamChosen) return
     saveEvent.mutate()
   }
 
@@ -640,7 +652,7 @@ export function EventsPage() {
     const id = eventIdOf(entry)
     const row = id ? (eventsQuery.data ?? []).find((ev) => ev.id === id) : null
     if (!row) return false
-    return mayChange(row.department_id)
+    return mayChange(row)
   }
 
   /** The event row an entry was drawn from, when it was drawn from one. */
@@ -996,16 +1008,20 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
-              <Field label="Whose event" className="sm:col-span-2">
-                <Select
-                  value={departmentId}
-                  onChange={setDepartmentId}
-                  options={[
-                    ...(everywhere ? [{ value: '', label: 'The whole church' }] : []),
-                    ...myTeams.map((d) => ({ value: d.id, label: d.name })),
-                  ]}
+              <FieldGroup label="Which teams" className="sm:col-span-2">
+                <TeamChecklist
+                  teams={myTeams}
+                  // The teams it already has that this person can't change stay on it.
+                  extra={departmentIds.filter((id) => !myTeams.some((d) => d.id === id))}
+                  allNames={departmentsQuery.data ?? []}
+                  chosen={departmentIds}
+                  onChange={setDepartmentIds}
+                  allTeams={everywhere}
                 />
-              </Field>
+                {noTeamChosen && (
+                  <p className="text-label-md text-on-surface-variant">Tick at least one team.</p>
+                )}
+              </FieldGroup>
               <Field label="Anything else (optional)" className="sm:col-span-2">
                 <textarea
                   value={details}
@@ -1026,7 +1042,7 @@ export function EventsPage() {
               </button>
               <ActionButton
                 type="submit"
-                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts}
+                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts || noTeamChosen}
                 glyph={editing ? undefined : '+'}
               >
                 {saveEvent.isPending
@@ -1106,10 +1122,10 @@ export function EventsPage() {
 
               <div>
                 <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                  Whose event
+                  {reading.teams && reading.teams.length > 1 ? 'Teams' : 'Whose event'}
                 </dt>
                 <dd className="mt-0.5 text-body-md text-on-surface">
-                  {reading.department?.name ?? 'The whole church'}
+                  {teamsOf(reading) ?? 'All teams'}
                 </dd>
               </div>
 
@@ -1139,7 +1155,7 @@ export function EventsPage() {
             </dl>
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              {mayChange(reading.department_id) && (
+              {mayChange(reading) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1221,6 +1237,55 @@ function FieldGroup({ label, className = '', children }: { label: string; classN
     <div role="group" aria-label={label} className={`flex flex-col gap-2 ${className}`}>
       <Eyebrow>{label}</Eyebrow>
       {children}
+    </div>
+  )
+}
+
+/**
+ * Which teams an event is for (0237): All teams, or any of them ticked.
+ * All teams is the whole church's — offered only to whoever may add for it,
+ * and ticked exactly when no team is.
+ */
+function TeamChecklist({
+  teams,
+  extra,
+  allNames,
+  chosen,
+  onChange,
+  allTeams,
+}: {
+  teams: { id: string; name: string }[]
+  extra: string[]
+  allNames: { id: string; name: string }[]
+  chosen: string[]
+  onChange: (next: string[]) => void
+  allTeams: boolean
+}) {
+  const toggle = (id: string) =>
+    onChange(chosen.includes(id) ? chosen.filter((d) => d !== id) : [...chosen, id])
+  const box = 'h-4 w-4 shrink-0 accent-[var(--color-primary)]'
+  return (
+    <div className="flex flex-col gap-2">
+      {allTeams && (
+        <label className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
+          <input type="checkbox" checked={chosen.length === 0} onChange={() => onChange([])} className={box} />
+          All teams
+        </label>
+      )}
+      <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        {teams.map((d) => (
+          <label key={d.id} className="flex min-w-0 items-center gap-2 text-body-sm text-on-surface">
+            <input type="checkbox" checked={chosen.includes(d.id)} onChange={() => toggle(d.id)} className={box} />
+            <span className="break-words">{d.name}</span>
+          </label>
+        ))}
+        {extra.map((id) => (
+          <label key={id} className="flex min-w-0 items-center gap-2 text-body-sm text-on-surface-variant">
+            <input type="checkbox" checked disabled className={box} />
+            <span className="break-words">{allNames.find((d) => d.id === id)?.name ?? 'Another team'}</span>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }

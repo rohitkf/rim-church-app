@@ -8,6 +8,7 @@ import {
   eventIsOver,
   lastDayOf,
   repeatShort,
+  teamsOf,
   type DiaryEntry,
   type DiaryEvent,
 } from './churchDiary'
@@ -22,6 +23,7 @@ export const eventSchema = z.object({
   end_time: z.string().nullable().optional(),
   location: z.string().nullable(),
   department_id: z.string().nullable(),
+  department_ids: z.array(z.string()).nullable().optional(),
   created_by: z.string().nullable(),
   series_id: z.string().nullable().optional(),
   repeat_rule: z.string().nullable().optional(),
@@ -29,16 +31,41 @@ export const eventSchema = z.object({
   department: z.object({ name: z.string(), color: z.string().nullable() }).nullable(),
 })
 
-/** Every event the viewer may see, earliest first. RLS does the narrowing. */
+const teamSchema = z.object({ id: z.string(), name: z.string(), color: z.string().nullable() })
+
+/**
+ * Every event the viewer may see, earliest first. RLS does the narrowing.
+ *
+ * An event can be for several teams (0237): a list of ids, which no join
+ * can follow, so the teams are read alongside and put to them here.
+ */
 export async function fetchEvents(): Promise<DiaryEvent[]> {
-  const { data, error } = await supabase
-    .from('church_events')
-    .select(
-      'id, title, details, event_date, ends_on, start_time, end_time, location, department_id, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
-    )
-    .order('event_date')
-  if (error) throw error
-  return z.array(eventSchema).parse(data)
+  const [events, teams] = await Promise.all([
+    supabase
+      .from('church_events')
+      .select(
+        'id, title, details, event_date, ends_on, start_time, end_time, location, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+      )
+      .order('event_date'),
+    supabase.from('departments').select('id, name, color'),
+  ])
+  if (events.error) throw events.error
+  if (teams.error) throw teams.error
+  const byId = new Map(z.array(teamSchema).parse(teams.data ?? []).map((t) => [t.id, t]))
+  return z
+    .array(eventSchema)
+    .parse(events.data)
+    .map((event) => {
+      const ids = event.department_ids?.length ? event.department_ids : event.department_id ? [event.department_id] : []
+      return {
+        ...event,
+        department_ids: ids,
+        teams: ids.flatMap((id) => {
+          const t = byId.get(id)
+          return t ? [{ name: t.name, color: t.color }] : []
+        }),
+      }
+    })
 }
 
 /** An event as the day's banner says it. */
@@ -83,7 +110,7 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
         // a conference is a time nobody ever said.
         time: runsTo ? diaryTime(at) : diaryTimes(at, event.end_time),
         location: event.location,
-        team: event.department?.name ?? null,
+        team: teamsOf(event),
         color: event.department?.color ?? null,
         details: event.details,
         day: runsTo
@@ -133,7 +160,7 @@ export function pastDiaryEntries(
         date: event.event_date,
         title: event.title,
         detail:
-          [diaryTimes(event.start_time, event.end_time), event.location, event.department?.name]
+          [diaryTimes(event.start_time, event.end_time), event.location, teamsOf(event)]
             .filter(Boolean)
             .join(' · ') || null,
         addedBy: event.creator

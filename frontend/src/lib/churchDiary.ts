@@ -83,6 +83,16 @@ export interface DiaryEvent {
   repeat_rule?: string | null
   creator?: { first_name: string; last_name: string } | null
   department?: { name: string; color: string | null } | null
+  /** Every team it is for (0237), first first; none is all teams. */
+  department_ids?: string[]
+  /** Those teams' names and colours, in the same order. */
+  teams?: { name: string; color: string | null }[]
+}
+
+/** "Worship, Media" — the teams an event is for; null when it is for all of them. */
+export function teamsOf(event: Pick<DiaryEvent, 'department' | 'teams'>): string | null {
+  if (event.teams && event.teams.length > 0) return event.teams.map((t) => t.name).join(', ')
+  return event.department?.name ?? null
 }
 
 /** "14:30:00" as it should read in a diary. Blank stays blank. */
@@ -222,7 +232,7 @@ export function buildDiary({
             // day of it: "7pm" on days two and three is a time nobody said.
             runsTo ? (date === event.event_date ? time : date === runsTo ? lastTime : null) : time,
             event.location,
-            event.department?.name,
+            teamsOf(event),
           ]
             .filter(Boolean)
             .join(' · ') || null,

@@ -41,7 +41,11 @@ vi.mock('../lib/monthGrid', async () => {
 
 vi.mock('../lib/queries', () => ({
   fetchServices: () => Promise.resolve([]),
-  fetchDepartments: () => Promise.resolve([{ id: 'd1', name: 'Media', color: '#3b82f6' }]),
+  fetchDepartments: () =>
+    Promise.resolve([
+      { id: 'd1', name: 'Media', color: '#3b82f6' },
+      { id: 'd2', name: 'Worship', color: '#f97316' },
+    ]),
 }))
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -63,7 +67,12 @@ vi.mock('../lib/supabaseClient', () => ({
                 ? state.people
                 : table === 'church_event_series'
                   ? state.openSeries
-                  : [],
+                  : table === 'departments'
+                    ? [
+                        { id: 'd1', name: 'Media', color: '#3b82f6' },
+                        { id: 'd2', name: 'Worship', color: '#f97316' },
+                      ]
+                    : [],
           error: null,
         })
         return Object.assign(rows, { order: () => rows, is: () => rows })
@@ -166,10 +175,17 @@ describe('reading an event', () => {
     expect(within(detail).getByText(/Grace Mensah/)).toBeInTheDocument()
   })
 
-  it('says the event belongs to the church when no team owns it', async () => {
+  it('says the event is for all teams when no team owns it', async () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
-    expect(within(screen.getByRole('dialog')).getByText('The whole church')).toBeInTheDocument()
+    expect(within(screen.getByRole('dialog')).getByText('All teams')).toBeInTheDocument()
+  })
+
+  it('names every team an event is for', async () => {
+    state.events = [meeting({ department_id: 'd2', department_ids: ['d2', 'd1'], department: { name: 'Worship', color: '#f97316' } })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /see the details/ }))
+    expect(within(screen.getByRole('dialog')).getByText('Worship, Media')).toBeInTheDocument()
   })
 
   it('goes from reading to editing without a second trip', async () => {
@@ -580,5 +596,54 @@ describe('events that repeat', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
     expect(screen.getByRole('alert')).toHaveTextContent('It ends before it starts')
     expect(screen.getByRole('button', { name: /Save changes/ })).toBeDisabled()
+  })
+})
+
+/*
+ * An event for several teams (0237): All teams, or any of them ticked.
+ */
+describe('which teams an event is for', () => {
+  it('starts on All teams, and ticking teams makes it theirs', async () => {
+    state.events = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Rehearsal')
+    const form = screen.getByRole('dialog')
+    const teams = within(form).getByRole('group', { name: 'Which teams' })
+    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).toBeChecked()
+
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'Worship' }))
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
+    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).not.toBeChecked()
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ department_id: 'd2', department_ids: ['d2', 'd1'] })
+  })
+
+  it('goes back to All teams, and writes no team', async () => {
+    state.events = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Picnic')
+    const form = screen.getByRole('dialog')
+    const teams = within(form).getByRole('group', { name: 'Which teams' })
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
+    await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
+    expect(within(teams).getByRole('checkbox', { name: 'Media' })).not.toBeChecked()
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0].row).toMatchObject({ department_id: null, department_ids: [] })
+  })
+
+  it('opens an edit holding the teams it already has', async () => {
+    state.events = [meeting({ department_id: 'd2', department_ids: ['d2', 'd1'] })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const teams = within(screen.getByRole('dialog')).getByRole('group', { name: 'Which teams' })
+    expect(within(teams).getByRole('checkbox', { name: 'Worship' })).toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'Media' })).toBeChecked()
+    expect(within(teams).getByRole('checkbox', { name: 'All teams' })).not.toBeChecked()
   })
 })
