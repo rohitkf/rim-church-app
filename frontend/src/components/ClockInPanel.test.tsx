@@ -156,7 +156,7 @@ describe('asking to be clocked in instead', () => {
     expect(screen.getByText(/will see where your phone thought you were/)).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'Note for the approver' }), 'In the hall')
     await user.click(screen.getByRole('button', { name: 'Send request' }))
-    expect(state.asked).toEqual([{ reading: state.reading, failedBecause: 'too_far', note: 'In the hall' }])
+    expect(state.asked).toEqual([{ reading: state.reading, failedBecause: 'too_far', note: 'In the hall', arrivedAt: expect.any(String) }])
   })
 
   it('can ask with no location when location is blocked', async () => {
@@ -168,7 +168,7 @@ describe('asking to be clocked in instead', () => {
     await user.click(await screen.findByRole('button', { name: 'Ask to be clocked in' }))
     expect(screen.getByText(/gave no location/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Send request' }))
-    expect(state.asked).toEqual([{ reading: null, failedBecause: 'blocked', note: '' }])
+    expect(state.asked).toEqual([{ reading: null, failedBecause: 'blocked', note: '', arrivedAt: expect.any(String) }])
   })
 
   it('is not offered before a try has failed', async () => {

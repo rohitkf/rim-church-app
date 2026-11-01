@@ -93,9 +93,23 @@ function RequestItem({ request: r, withMap }: { request: ClockInRequest; withMap
   return (
     <li aria-label={`${name}’s request`} className="rounded-[var(--radius-row)] bg-raised px-4 py-3">
       <p className="text-body-sm text-on-surface">
-        <span className="font-medium">{name}</span> asked at{' '}
-        <span className="font-mono tabular-nums">{churchClock(r.asked_at, timeZone)}</span>
+        <span className="font-medium">{name}</span>{' '}
+        {r.arrived_at ? (
+          <>
+            says they arrived at <span className="font-mono tabular-nums">{churchClock(r.arrived_at, timeZone)}</span>
+            <span className="text-on-surface-variant">
+              {' '}· asked at <span className="font-mono tabular-nums">{churchClock(r.asked_at, timeZone)}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            asked at <span className="font-mono tabular-nums">{churchClock(r.asked_at, timeZone)}</span>
+          </>
+        )}
       </p>
+      {r.arrived_at && (
+        <p className="mt-0.5 text-label-md text-on-surface-variant">Approving clocks them in at the time they arrived.</p>
+      )}
       {r.failed_because && <p className="mt-0.5 text-label-md text-on-surface-variant">{FAILED_BECAUSE_WORDS[r.failed_because]}</p>}
 
       <div className="mt-2 text-body-sm text-on-surface-variant">

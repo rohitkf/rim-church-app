@@ -482,7 +482,13 @@ export function groupClockIns(
 export type FailedBecause = 'too_rough' | 'too_far' | 'blocked' | 'nothing'
 
 /** Ask, with the best reading the failed attempt gave — or none. */
-export async function askToClockIn(ask: { reading: Reading | null; failedBecause: FailedBecause | null; note: string }) {
+export async function askToClockIn(ask: {
+  reading: Reading | null
+  failedBecause: FailedBecause | null
+  note: string
+  /** When they say they got there (0225), as a moment; approving clocks them in at it. */
+  arrivedAt?: string | null
+}) {
   const { reading } = ask
   const { error } = await supabase.rpc('clock_in_ask', {
     lat: reading?.lat ?? null,
@@ -491,8 +497,20 @@ export async function askToClockIn(ask: { reading: Reading | null; failedBecause
     read_at: reading ? new Date(reading.at).toISOString() : null,
     failed_because: ask.failedBecause,
     note: ask.note.trim() || null,
+    arrived: ask.arrivedAt ?? null,
   })
   if (error) throw error
+}
+
+/** "HH:MM" now, on the reader's clock. */
+export function clockNow(now = new Date()): string {
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+/** "HH:MM" today on the reader's clock, as a moment. */
+export function todayAt(hhmm: string, now = new Date()): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).toISOString()
 }
 
 export async function cancelClockInAsk(id: string) {
@@ -514,6 +532,7 @@ export const clockInRequestSchema = z.object({
   failed_because: z.enum(['too_rough', 'too_far', 'blocked', 'nothing']).nullable(),
   address: z.string().nullable(),
   address_tries: z.number().optional(),
+  arrived_at: z.string().nullable().optional(),
   person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
 })
 export type ClockInRequest = z.infer<typeof clockInRequestSchema>
@@ -529,7 +548,7 @@ export async function fetchClockInRequestsToAnswer(myId: string): Promise<ClockI
   const { data, error } = await supabase
     .from('clock_in_requests')
     .select(
-      'id, user_id, on_date, asked_at, note, latitude, longitude, accuracy_m, distance_m, read_at, failed_because, address, address_tries, person:profiles!clock_in_requests_user_id_fkey(first_name, last_name)',
+      'id, user_id, on_date, asked_at, arrived_at, note, latitude, longitude, accuracy_m, distance_m, read_at, failed_because, address, address_tries, person:profiles!clock_in_requests_user_id_fkey(first_name, last_name)',
     )
     .eq('status', 'pending')
     .neq('user_id', myId)

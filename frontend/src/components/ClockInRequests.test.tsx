@@ -100,6 +100,14 @@ describe('requests to be clocked in', () => {
     expect(await screen.findByText('map with their phone at 51.503')).toBeInTheDocument()
   })
 
+  it('says when they say they arrived, and that approving clocks them in then (0225)', async () => {
+    state.requests = [request({ arrived_at: '2026-11-01T09:05:00Z' })]
+    show()
+    const item = await screen.findByRole('listitem', { name: 'Joel Skaria’s request' })
+    expect(item).toHaveTextContent('says they arrived at 09:05 · asked at 09:31')
+    expect(item).toHaveTextContent('Approving clocks them in at the time they arrived.')
+  })
+
   it('says so when the phone gave no location', async () => {
     state.requests = [
       request({ latitude: null, longitude: null, accuracy_m: null, distance_m: null, address: null, failed_because: 'blocked' }),
