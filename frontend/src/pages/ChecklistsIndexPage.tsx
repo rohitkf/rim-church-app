@@ -274,8 +274,12 @@ export function ChecklistsIndexPage() {
       .sort(
         (a, b) =>
           a.rank - b.rank ||
+          // A team's roles together, under its name: sorted by role alone,
+          // eleven Media, Worship and Stage rows came out shuffled.
+          (a.assignment.department?.name ?? '').localeCompare(b.assignment.department?.name ?? '') ||
+          a.assignment.department_id.localeCompare(b.assignment.department_id) ||
           Number(held(b)) - Number(held(a)) ||
-          a.assignment.role_label.localeCompare(b.assignment.role_label),
+          a.assignment.role_label.localeCompare(b.assignment.role_label, undefined, { numeric: true }),
       )
     // isServiceFlowSigner reads the same assignments and departments this
     // memo already depends on.
@@ -461,7 +465,16 @@ export function ChecklistsIndexPage() {
                         id={`checklist-roles-${service.id}`}
                         hidden={!open}
                         className="mt-4 flex flex-col gap-4">
-                        {forService.map(({ assignment, rank }) => {
+                        {bandsOf(forService).map((band) => (
+                        <li key={band.key} aria-label={band.label} className="flex flex-col gap-3">
+                          {band.showHeading && (
+                            <h4 className="flex items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                              <TeamMark color={band.color} />
+                              {band.label}
+                            </h4>
+                          )}
+                          <ul className="flex flex-col gap-4">
+                        {band.roles.map(({ assignment, rank }) => {
                           // Only the halves the rota gave this person: somebody
                           // down for setting up does not owe the packing-up list.
                           const items = (itemsQuery.data ?? []).filter(
@@ -659,6 +672,9 @@ export function ChecklistsIndexPage() {
                             </li>
                           )
                         })}
+                          </ul>
+                        </li>
+                        ))}
                       </ul>
                       </div>
                     </section>
@@ -745,4 +761,32 @@ export function ChecklistsIndexPage() {
       </QueryState>
     </div>
   )
+}
+
+/**
+ * The service's roles in bands: your own first, then a team at a time, in
+ * the order they were sorted. Each team's band carries its name, so a page
+ * of eleven rows reads as four teams rather than one long list.
+ */
+function bandsOf<T extends { assignment: RotaAssignment; rank: number }>(roles: T[]) {
+  const bands: { key: string; label: string; color: string | null; showHeading: boolean; roles: T[] }[] = []
+  for (const r of roles) {
+    const mine = r.rank === 0
+    const key = mine ? 'mine' : `team:${r.assignment.department_id}`
+    const last = bands[bands.length - 1]
+    if (last && last.key === key) {
+      last.roles.push(r)
+      continue
+    }
+    bands.push({
+      key,
+      label: mine ? 'Yours' : (r.assignment.department?.name ?? 'A team'),
+      color: mine ? null : (r.assignment.department?.color ?? null),
+      showHeading: true,
+      roles: [r],
+    })
+  }
+  // Only yours, and nothing else: no heading to tell it apart from.
+  if (bands.length === 1 && bands[0].key === 'mine') bands[0].showHeading = false
+  return bands
 }
