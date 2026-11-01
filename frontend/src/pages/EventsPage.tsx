@@ -85,14 +85,15 @@ type Category = DiaryKind | 'repeating'
 
 const categoryOf = (entry: DiaryEntry): Category => (entry.kind === 'event' && entry.repeats ? 'repeating' : entry.kind)
 
-const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Repeating' }
+// Called Meetings, as people call them: a weekly prayer meeting, the monthly members' meeting.
+const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Meeting' }
 
 const PLURAL: Record<Category, string> = {
   service: 'Services',
   birthday: 'Birthdays',
   anniversary: 'Anniversaries',
   event: 'Events',
-  repeating: 'Repeating',
+  repeating: 'Meetings',
 }
 
 const KIND_TONE: Record<Category, { dot: string; chip: string }> = {
@@ -383,12 +384,16 @@ export function EventsPage() {
   // a link to "the birthdays" opens on the birthdays.
   const [params, setParams] = useSearchParams()
   const showParam = params.get('show')
-  const show = showParam && showParam in CATEGORY_LABEL ? (showParam as Category) : null
+  // The address says ?show=meetings; inside, the category is 'repeating'.
+  const asParam = (c: Category) => (c === 'repeating' ? 'meetings' : c)
+  const fromParam = (p: string | null): Category | null =>
+    p === 'meetings' ? 'repeating' : p && p in CATEGORY_LABEL && p !== 'repeating' ? (p as Category) : null
+  const show = fromParam(showParam)
   const choose = (kind: Category | null) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        if (kind) next.set('show', kind)
+        if (kind) next.set('show', asParam(kind))
         else next.delete('show')
         return next
       },
