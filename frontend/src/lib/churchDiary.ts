@@ -87,10 +87,13 @@ export interface DiaryEvent {
   department_ids?: string[]
   /** Those teams' names and colours, in the same order. */
   teams?: { name: string; color: string | null }[]
+  /** It is for every team there is: said as "All teams", not as eight names. */
+  allTeams?: boolean
 }
 
-/** "Worship, Media" — the teams an event is for; null when it is for all of them. */
-export function teamsOf(event: Pick<DiaryEvent, 'department' | 'teams'>): string | null {
+/** "Worship, Media", or "All teams" — the teams an event is for; null when it is the whole church's. */
+export function teamsOf(event: Pick<DiaryEvent, 'department' | 'teams' | 'allTeams'>): string | null {
+  if (event.allTeams) return 'All teams'
   if (event.teams && event.teams.length > 0) return event.teams.map((t) => t.name).join(', ')
   return event.department?.name ?? null
 }

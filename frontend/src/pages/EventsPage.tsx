@@ -156,7 +156,6 @@ function DiaryRow({
     </div>
   ) : (
     <div className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1">
-      {entry.color && <TeamMark color={entry.color} />}
       <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
         {entry.title}
       </span>
@@ -181,8 +180,17 @@ function DiaryRow({
           {formatRange(entry.span.from, entry.span.to, today)}
         </span>
       )}
+      {/* A team's colour is a dot by the words, not a bar before the
+          title: the bar pushed a team's events out of line with the rest. */}
       {entry.detail && (
         <span className="min-w-0 break-words text-body-sm text-on-surface-variant">
+          {entry.color && (
+            <span
+              aria-hidden="true"
+              className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+              style={{ backgroundColor: entry.color }}
+            />
+          )}
           {entry.detail}
         </span>
       )}
@@ -1008,7 +1016,7 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
-              <FieldGroup label="Which teams" className="sm:col-span-2">
+              <FieldGroup label="Who is it for" className="sm:col-span-2">
                 <TeamChecklist
                   teams={myTeams}
                   // The teams it already has that this person can't change stay on it.
@@ -1018,9 +1026,14 @@ export function EventsPage() {
                   onChange={setDepartmentIds}
                   allTeams={everywhere}
                 />
-                {noTeamChosen && (
-                  <p className="text-label-md text-on-surface-variant">Tick at least one team.</p>
-                )}
+                {/* Who sees it, too (0238). */}
+                <p className="text-label-md text-on-surface-variant">
+                  {noTeamChosen
+                    ? 'Tick at least one team.'
+                    : departmentIds.length === 0
+                      ? 'Everybody sees it.'
+                      : 'Only people on the teams ticked see it, with their heads, Admins and you.'}
+                </p>
               </FieldGroup>
               <Field label="Anything else (optional)" className="sm:col-span-2">
                 <textarea
@@ -1122,10 +1135,10 @@ export function EventsPage() {
 
               <div>
                 <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
-                  {reading.teams && reading.teams.length > 1 ? 'Teams' : 'Whose event'}
+                  {reading.teams && reading.teams.length > 1 && !reading.allTeams ? 'Teams' : 'Whose event'}
                 </dt>
                 <dd className="mt-0.5 text-body-md text-on-surface">
-                  {teamsOf(reading) ?? 'All teams'}
+                  {teamsOf(reading) ?? 'Whole church'}
                 </dd>
               </div>
 
@@ -1242,9 +1255,10 @@ function FieldGroup({ label, className = '', children }: { label: string; classN
 }
 
 /**
- * Which teams an event is for (0237): All teams, or any of them ticked.
- * All teams is the whole church's — offered only to whoever may add for it,
- * and ticked exactly when no team is.
+ * Who an event is for (0237): the whole church (no team), every team, or
+ * any of them ticked. Whole church and All teams are offered only to
+ * whoever may add events for the whole church; All teams is a shortcut
+ * that ticks every team, and Whole church is ticked exactly when none is.
  */
 function TeamChecklist({
   teams,
@@ -1264,13 +1278,27 @@ function TeamChecklist({
   const toggle = (id: string) =>
     onChange(chosen.includes(id) ? chosen.filter((d) => d !== id) : [...chosen, id])
   const box = 'h-4 w-4 shrink-0 accent-[var(--color-primary)]'
+  const everyTeam = teams.length > 1 && teams.every((d) => chosen.includes(d.id))
   return (
     <div className="flex flex-col gap-2">
       {allTeams && (
-        <label className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
-          <input type="checkbox" checked={chosen.length === 0} onChange={() => onChange([])} className={box} />
-          All teams
-        </label>
+        <>
+          <label className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
+            <input type="checkbox" checked={chosen.length === 0} onChange={() => onChange([])} className={box} />
+            Whole church
+          </label>
+          {teams.length > 1 && (
+            <label className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
+              <input
+                type="checkbox"
+                checked={everyTeam}
+                onChange={() => onChange(everyTeam ? [] : teams.map((d) => d.id))}
+                className={box}
+              />
+              All teams
+            </label>
+          )}
+        </>
       )}
       <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
         {teams.map((d) => (

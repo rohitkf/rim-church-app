@@ -60,6 +60,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
       return {
         ...event,
         department_ids: ids,
+        allTeams: byId.size > 1 && [...byId.keys()].every((id) => ids.includes(id)),
         teams: ids.flatMap((id) => {
           const t = byId.get(id)
           return t ? [{ name: t.name, color: t.color }] : []
