@@ -47,3 +47,41 @@ export function suggestSongs(library: LibrarySong[], typed: string, limit = 6): 
     .sort((a, b) => rank(a) - rank(b) || b.times_sung - a.times_sung || a.title.localeCompare(b.title))
     .slice(0, limit)
 }
+
+/** What a song in the library is made of, as typed. */
+export interface LibraryFields {
+  title: string
+  song_key: string | null
+  link: string | null
+  lyrics: string | null
+}
+
+const tidyFields = (f: LibraryFields): LibraryFields => ({
+  title: f.title.trim(),
+  song_key: f.song_key?.trim() || null,
+  link: f.link?.trim() || null,
+  lyrics: f.lyrics?.trim() || null,
+})
+
+/** Add a song to the library by hand (0243): one the set lists have not seen yet. */
+export async function addLibrarySong(fields: LibraryFields) {
+  const { error } = await supabase.from('songs').insert(tidyFields(fields))
+  if (error) throw error
+}
+
+export async function updateLibrarySong(id: string, fields: LibraryFields) {
+  const { error } = await supabase
+    .from('songs')
+    .update({ ...tidyFields(fields), updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function removeLibrarySong(id: string) {
+  const { error } = await supabase.from('songs').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** "A song by that name is already in the library": the unique title (0241). */
+export const isDuplicateSong = (err: unknown) =>
+  typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505'

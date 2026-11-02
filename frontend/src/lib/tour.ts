@@ -254,6 +254,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'The songs for each service, in order, with their keys.',
       },
       {
+        path: '/songs',
+        target: 'page-title',
+        title: 'Songs',
+        body: 'Every song the church sings, with its key, a link and the words. Start typing a song on a set list and it is found here.',
+      },
+      {
         path: '/inventory',
         target: 'page-title',
         title: 'Inventory',

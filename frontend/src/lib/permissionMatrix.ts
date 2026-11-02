@@ -681,6 +681,23 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Songs',
+    pages: ['/songs'],
+    capabilities: [
+      {
+        action: 'See the song library',
+        can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
+      },
+      {
+        action: 'Add, change and remove songs in the library',
+        key: 'songs.edit',
+        short: 'Add songs',
+        can: granted('songs.edit'),
+        note: 'Chosen team by team: out of the box the worship team, its Heads and the Admins. A song put on a set list goes into the library whoever adds it, so a song sung is never lost.',
+      },
+    ],
+  },
+  {
     area: 'Set lists',
     pages: ['/set-lists'],
     capabilities: [

@@ -98,6 +98,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'page',
     note: 'Hides the page.',
   },
+  '/songs': {
+    default: 'everyone',
+    choices: ['everyone'],
+    enforcement: 'fixed',
+    note: 'The song library, which everybody may read as they may read set lists. Who may add to it is chosen under Songs.',
+  },
   '/debriefs': {
     key: 'debriefs',
     default: 'team',

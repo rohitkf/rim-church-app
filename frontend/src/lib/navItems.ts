@@ -8,6 +8,7 @@ import {
   NotebookIcon,
   ClipboardUserIcon,
   MusicIcon,
+  ListIcon,
   MapPinIcon,
   PrayIcon,
   GridIcon,
@@ -68,6 +69,9 @@ export const NAV_ITEMS: NavItem[] = [
     tabs: SERVING_TABS.map((tab) => tab.to),
   },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
+  // Every song the church sings, kept for good (0241, 0243): where the
+  // set list's song box finds them.
+  { to: '/songs', label: 'Songs', icon: ListIcon, group: 'Sunday' },
   // Who has arrived, and when: the watchers' page, not the volunteers'
   // (they clock in from the Dashboard).
   { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Sunday' },
