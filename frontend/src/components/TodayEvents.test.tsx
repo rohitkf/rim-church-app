@@ -10,7 +10,7 @@ const event = (over: Partial<EventToday> & { id: string; title: string }): Event
   team: null,
   color: null,
   details: null,
-  link: null,
+  links: [],
   day: null,
   ...over,
 })
@@ -80,10 +80,25 @@ describe('the banner for what is on today', () => {
 
 describe('going from the banner to the event', () => {
   it('has a button straight to the link, when the event has one', () => {
-    show([event({ id: 'e1', title: 'Prophetical Prayer', link: 'https://us02web.zoom.us/j/1' })])
+    show([event({ id: 'e1', title: 'Prophetical Prayer', links: [{ url: 'https://us02web.zoom.us/j/1' }] })])
     const open = screen.getByRole('link', { name: /Open link/ })
     expect(open).toHaveAttribute('href', 'https://us02web.zoom.us/j/1')
     expect(open).toHaveAttribute('target', '_blank')
+  })
+
+  it('has a button for each link, with its name', () => {
+    show([
+      event({
+        id: 'e1',
+        title: 'Prayer',
+        links: [
+          { label: 'Join on Zoom', url: 'https://z.test/1' },
+          { label: 'Prayer list', url: 'https://f.test/2' },
+        ],
+      }),
+    ])
+    expect(screen.getByRole('link', { name: /Join on Zoom/ })).toHaveAttribute('href', 'https://z.test/1')
+    expect(screen.getByRole('link', { name: /Prayer list/ })).toHaveAttribute('href', 'https://f.test/2')
   })
 
   it('has no link button when there is no link', () => {

@@ -41,8 +41,8 @@ export interface DiaryEntry {
   span?: { from: string; to: string; day: number; of: number } | null
   /** How it repeats, when it is one of a series (0234): "every week", shown as a Repeats chip. */
   repeats?: string | null
-  /** Its link (0239): the Zoom meeting, the sign-up form. */
-  link?: string | null
+  /** Its links (0240), each a button with its name. */
+  links?: EventLink[]
   /** What was written under "Anything else", shown under the row. */
   notes?: string | null
   /** A couple's anniversary: the two of them, drawn one under the title. */
@@ -79,8 +79,10 @@ export interface DiaryEvent {
   /** When it finishes (0236), on its last day; null when nobody said. */
   end_time?: string | null
   location: string | null
-  /** A web address to open (0239), behind a button on the event. */
+  /** Its first link (0239), kept for builds that know only the one. */
   link?: string | null
+  /** Every link it carries, each with the name to show (0240). */
+  links?: EventLink[]
   details: string | null
   department_id: string | null
   created_by: string | null
@@ -103,6 +105,21 @@ export function teamsOf(event: Pick<DiaryEvent, 'department' | 'teams' | 'allTea
   if (event.teams && event.teams.length > 0) return event.teams.map((t) => t.name).join(', ')
   return event.department?.name ?? null
 }
+
+/** One of an event's links (0240): where it goes, and what its button says. */
+export interface EventLink {
+  label?: string | null
+  url: string
+}
+
+/** An event's links: the list (0240), or the one link an older row has (0239). */
+export function linksOf(event: Pick<DiaryEvent, 'link' | 'links'>): EventLink[] {
+  if (event.links && event.links.length > 0) return event.links
+  return event.link ? [{ label: null, url: event.link }] : []
+}
+
+/** What a link's button says: its name, or "Open link" when it has none. */
+export const linkLabel = (link: EventLink) => link.label?.trim() || 'Open link'
 
 /** "14:30:00" as it should read in a diary. Blank stays blank. */
 export function diaryTime(value: string | null | undefined): string | null {
@@ -252,7 +269,7 @@ export function buildDiary({
           : null,
         color: event.department?.color ?? null,
         repeats: repeatShort(event.repeat_rule),
-        link: event.link ?? null,
+        links: linksOf(event),
         notes: event.details?.trim() || null,
         span: runsTo
           ? {
