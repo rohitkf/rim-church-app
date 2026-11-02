@@ -142,6 +142,7 @@ const router = createBrowserRouter(
             <Route path="/service-planner/templates" lazy={page(() => import('./pages/ServiceTemplatesPage'), 'ServiceTemplatesPage')} />
             <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
             <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
+            <Route path="/songs" lazy={page(() => import('./pages/SongsPage'), 'SongsPage')} />
             <Route path="/clock-in" lazy={page(() => import('./pages/ClockInPage'), 'ClockInPage')} />
             <Route path="/prayer" lazy={page(() => import('./pages/PrayerPage'), 'PrayerPage')} />
             <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />

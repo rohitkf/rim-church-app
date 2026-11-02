@@ -568,6 +568,16 @@ export const CATALOG = {
   },
   // Overwatch's alone (0214): raised as Overwatch, in a group of their own.
   'issue.as_overwatch': OVERWATCH_ONLY,
+  // The song library (0243): Admins, and the worship team by its own
+  // cells; any other team is ticked in Page by Page › Songs.
+  'songs.edit': {
+    admin: offer('none all', 'all'),
+    head: offer('none team all', 'none'),
+    assistant: offer('none team all', 'none'),
+    coordinator: offer('none team', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: fixed(),
+  },
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
