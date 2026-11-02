@@ -10,6 +10,7 @@ const event = (over: Partial<EventToday> & { id: string; title: string }): Event
   team: null,
   color: null,
   details: null,
+  link: null,
   day: null,
   ...over,
 })
@@ -74,5 +75,24 @@ describe('the banner for what is on today', () => {
     const sky = container.querySelectorAll('.galaxy-glow, .galaxy-stars')
     expect(sky).toHaveLength(3)
     for (const layer of sky) expect(layer).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('going from the banner to the event', () => {
+  it('has a button straight to the link, when the event has one', () => {
+    show([event({ id: 'e1', title: 'Prophetical Prayer', link: 'https://us02web.zoom.us/j/1' })])
+    const open = screen.getByRole('link', { name: /Open link/ })
+    expect(open).toHaveAttribute('href', 'https://us02web.zoom.us/j/1')
+    expect(open).toHaveAttribute('target', '_blank')
+  })
+
+  it('has no link button when there is no link', () => {
+    show([event({ id: 'e1', title: 'Workday' })])
+    expect(screen.queryByRole('link', { name: /Open link/ })).toBeNull()
+  })
+
+  it('opens the event itself on the Events page', () => {
+    show([event({ id: 'e1', title: 'Workday' })])
+    expect(screen.getByRole('link', { name: 'View Workday' })).toHaveAttribute('href', '/events?event=e1')
   })
 })

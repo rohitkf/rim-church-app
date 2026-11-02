@@ -81,6 +81,8 @@ export interface EventToday {
   team: string | null
   color: string | null
   details: string | null
+  /** Its link (0239), for a button straight to the meeting. */
+  link: string | null
   /** Which day of a run this is — null for the single-day majority. */
   day: { of: number; nth: number } | null
 }
@@ -115,6 +117,7 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
         team: teamsOf(event),
         color: event.department?.color ?? null,
         details: event.details,
+        link: event.link ?? null,
         day: runsTo
           ? { of: dayCount(event.event_date, runsTo), nth: daysBetween(event.event_date, today).length }
           : null,
