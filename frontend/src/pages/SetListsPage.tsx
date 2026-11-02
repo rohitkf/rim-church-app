@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useId, useMemo, useState } from 'react'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -43,6 +43,7 @@ import { ServiceSections } from '../components/ServiceSections'
 import type { SetListItem } from '../lib/types'
 import { Select } from '../components/Select'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { SONG_LIBRARY_KEY, fetchSongLibrary, suggestSongs, type LibrarySong } from '../lib/songLibrary'
 
 /**
  * What we are singing, and who is leading it.
@@ -116,7 +117,11 @@ export function SetListsPage() {
   const toggle = (id: string) =>
     setToggled((s) => ({ ...s, [id]: !(s[id] ?? !isFinished(id)) }))
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['set-list-items'] })
+  const invalidate = () => {
+    // The library (0241) learns every song added or changed, by trigger.
+    void queryClient.invalidateQueries({ queryKey: SONG_LIBRARY_KEY })
+    return queryClient.invalidateQueries({ queryKey: ['set-list-items'] })
+  }
 
   const addSong = useMutation({
     mutationFn: async (song: {
@@ -359,6 +364,8 @@ function SongInputs({
   showExtras,
   onToggleExtras,
   titlePlaceholder,
+  library,
+  onPick,
 }: {
   value: SongFields
   onChange: (next: SongFields) => void
@@ -366,6 +373,10 @@ function SongInputs({
   showExtras: boolean
   onToggleExtras: () => void
   titlePlaceholder?: string
+  /** The song library (0241), to suggest from as a title is typed. */
+  library?: LibrarySong[]
+  /** A song chosen from the suggestions. */
+  onPick?: (song: LibrarySong) => void
 }) {
   return (
     <>
@@ -376,12 +387,22 @@ function SongInputs({
           different product. */}
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Song" className="min-w-48 flex-1">
-          <input
-            value={value.title}
-            onChange={(e) => onChange({ ...value, title: e.target.value })}
-            placeholder={titlePlaceholder}
-            className={inputClasses}
-          />
+          {library && onPick ? (
+            <SongTitleWithSuggestions
+              value={value.title}
+              onType={(title) => onChange({ ...value, title })}
+              library={library}
+              onPick={onPick}
+              placeholder={titlePlaceholder}
+            />
+          ) : (
+            <input
+              value={value.title}
+              onChange={(e) => onChange({ ...value, title: e.target.value })}
+              placeholder={titlePlaceholder}
+              className={inputClasses}
+            />
+          )}
         </Field>
 
         <Field label="Key" className="min-w-36">
@@ -713,6 +734,14 @@ function AddSongForm({
   const empty: SongFields = { title: '', led_by: null, link: null, lyrics: null, song_key: null }
   const [draft, setDraft] = useState<SongFields>(empty)
   const [showExtras, setShowExtras] = useState(false)
+  // Every song ever sung (0241), for the title to suggest from.
+  const libraryQuery = useQuery({ queryKey: SONG_LIBRARY_KEY, queryFn: fetchSongLibrary, staleTime: 5 * 60_000 })
+  const pick = (song: LibrarySong) => {
+    // Its title and what the library knows of it; who leads it is this
+    // service's to say, so that stays as chosen.
+    setDraft((d) => ({ ...d, title: song.title, song_key: song.song_key, link: song.link, lyrics: song.lyrics }))
+    if (song.link || song.lyrics) setShowExtras(true)
+  }
   // Shut until asked for. Open, it made a page of set lists read as a page
   // of forms: two services meant two permanently-expanded forms stacked
   // above the fold, and the songs — the thing anybody came to read — sat
@@ -755,7 +784,9 @@ function AddSongForm({
         leaders={leaders}
         showExtras={showExtras}
         onToggleExtras={() => setShowExtras((was) => !was)}
-        titlePlaceholder="Goodness of God"
+        titlePlaceholder="Start typing a song…"
+        library={libraryQuery.data ?? []}
+        onPick={pick}
       />
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <ActionButton type="submit" size="sm" disabled={busy || !draft.title.trim()}>
@@ -774,5 +805,103 @@ function AddSongForm({
         </ActionButton>
       </div>
     </form>
+  )
+}
+
+/**
+ * The song box, offering what the library already has (0241) as it is
+ * typed: tap one and its key, link and words come with it. Anything typed
+ * that the library doesn't have is a new song, added as it always was.
+ */
+function SongTitleWithSuggestions({
+  value,
+  onType,
+  library,
+  onPick,
+  placeholder,
+}: {
+  value: string
+  onType: (title: string) => void
+  library: LibrarySong[]
+  onPick: (song: LibrarySong) => void
+  placeholder?: string
+}) {
+  const listId = useId()
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(-1)
+  const offers = open ? suggestSongs(library, value) : []
+
+  const choose = (song: LibrarySong) => {
+    onPick(song)
+    setOpen(false)
+    setActive(-1)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={(e) => {
+          onType(e.target.value)
+          setOpen(true)
+          setActive(-1)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(e) => {
+          if (offers.length === 0) return
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setActive((i) => (i + 1) % offers.length)
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setActive((i) => (i <= 0 ? offers.length - 1 : i - 1))
+          } else if (e.key === 'Enter' && active >= 0) {
+            e.preventDefault()
+            choose(offers[active])
+          } else if (e.key === 'Escape') {
+            setOpen(false)
+          }
+        }}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={offers.length > 0}
+        aria-controls={listId}
+        aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+        autoComplete="off"
+        placeholder={placeholder}
+        className={inputClasses}
+      />
+      {offers.length > 0 && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Songs sung before"
+          className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-[var(--radius-card)] bg-surface-lowest py-1 shadow-[var(--shadow-lifted)] hairline"
+        >
+          {offers.map((song, i) => (
+            <li
+              key={song.id}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+              // Before the box loses focus, or the list is gone first.
+              onMouseDown={(e) => {
+                e.preventDefault()
+                choose(song)
+              }}
+              className={`tap flex cursor-pointer flex-col justify-center px-3 py-2 ${i === active ? 'bg-raised' : 'hover:bg-raised'}`}
+            >
+              <span className="text-body-sm text-on-surface">{song.title}</span>
+              <span className="font-mono text-label-sm text-on-surface-faint">
+                {[song.song_key, song.times_sung > 1 ? `sung ${song.times_sung} times` : 'sung once', song.lyrics ? 'lyrics' : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

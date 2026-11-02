@@ -42,6 +42,25 @@ vi.mock('../lib/queries', () => ({
   fetchRotaAssignments: () => rotaAssignments(),
 }))
 
+vi.mock('../lib/songLibrary', async () => {
+  const actual = await vi.importActual<typeof import('../lib/songLibrary')>('../lib/songLibrary')
+  return {
+    ...actual,
+    fetchSongLibrary: () =>
+      Promise.resolve([
+        {
+          id: 'lib1',
+          title: 'Raise a Hallelujah',
+          song_key: 'D major',
+          link: 'https://youtube.com/watch?v=r',
+          lyrics: 'I raise a hallelujah',
+          last_sung_on: '2026-08-01',
+          times_sung: 4,
+        },
+      ]),
+  }
+})
+
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: () => ({
@@ -253,7 +272,7 @@ describe('set lists, three weeks at a time', () => {
     show()
     const next = await screen.findByRole('region', { name: 'Next service' })
     await user.click(within(next).getAllByRole('button', { name: /Add a song/ })[0])
-    await user.type(screen.getByPlaceholderText('Goodness of God'), 'Way Maker')
+    await user.type(screen.getByPlaceholderText('Start typing a song…'), 'Way Maker')
     await chooseOption(user, screen.getByRole('combobox', { name: 'Key' }), 'G major')
     await user.click(screen.getByRole('button', { name: 'Add song' }))
     await waitFor(() =>
@@ -283,5 +302,34 @@ describe('set lists, three weeks at a time', () => {
       expect(update).toHaveBeenCalledWith({ sort_order: 1 }, 'a')
     })
   })
-})
 
+  it('suggests songs sung before as a title is typed, and brings their key, link and words', async () => {
+    const user = show()
+    await user.click((await screen.findAllByRole('button', { name: /Add a song/ }))[0])
+    await user.type(screen.getByRole('combobox', { name: /^Song/ }), 'rai')
+    const offer = await screen.findByRole('option', { name: /Raise a Hallelujah/ })
+    expect(offer).toHaveTextContent(/sung 4 times/)
+    await user.click(offer)
+    expect(screen.getByRole('combobox', { name: /^Song/ })).toHaveValue('Raise a Hallelujah')
+    await user.click(screen.getByRole('button', { name: 'Add song' }))
+    await waitFor(() =>
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Raise a Hallelujah',
+          song_key: 'D major',
+          link: 'https://youtube.com/watch?v=r',
+          lyrics: 'I raise a hallelujah',
+        }),
+      ),
+    )
+  })
+
+  it('still adds a song the library has never seen', async () => {
+    const user = show()
+    await user.click((await screen.findAllByRole('button', { name: /Add a song/ }))[0])
+    await user.type(screen.getByRole('combobox', { name: /^Song/ }), 'A brand new song')
+    expect(screen.queryByRole('option')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Add song' }))
+    await waitFor(() => expect(insert).toHaveBeenCalledWith(expect.objectContaining({ title: 'A brand new song' })))
+  })
+})

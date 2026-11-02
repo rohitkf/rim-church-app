@@ -75,6 +75,8 @@ describe('how long things last', () => {
 
   it('says how far Set Lists looks, in weeks when it is whole weeks', () => {
     expect(lifespanOf('set-lists', settings)).toContain('3 weeks either side')
+    // The songs outlive their set lists (0241).
+    expect(lifespanOf('set-lists', settings)).toContain('kept for good in the song library')
     expect(lifespanOf('set-lists', { ...settings, set_list_days: 7 })).toContain('1 week either side')
     expect(lifespanOf('set-lists', { ...settings, set_list_days: 10 })).toContain('10 days either side')
   })
