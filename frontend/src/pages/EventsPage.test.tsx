@@ -694,16 +694,28 @@ describe('links in an event', () => {
   })
 })
 
-describe('an event with a link', () => {
-  it('saves the link typed into its own field', async () => {
+describe('an event with links', () => {
+  it('saves each link with the name to show', async () => {
     state.events = []
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
-    await userEvent.type(screen.getByPlaceholderText('https://zoom.us/j/…'), 'https://us02web.zoom.us/j/9')
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Add event/ }))
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
+    await userEvent.type(within(form).getByLabelText('Link 1 name'), 'Join on Zoom')
+    await userEvent.type(within(form).getByLabelText('Link 1 address'), 'https://us02web.zoom.us/j/9')
+    await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
+    await userEvent.type(within(form).getByLabelText('Link 2 address'), 'www.example.org/form')
+    // A third row left empty is dropped.
+    await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
     await waitFor(() => expect(state.written).toHaveLength(1))
-    expect(state.written[0].row).toMatchObject({ link: 'https://us02web.zoom.us/j/9' })
+    expect(state.written[0].row).toMatchObject({
+      links: [
+        { label: 'Join on Zoom', url: 'https://us02web.zoom.us/j/9' },
+        { label: null, url: 'https://www.example.org/form' },
+      ],
+    })
   })
 
   it('will not save something that is not a web address', async () => {
@@ -711,21 +723,44 @@ describe('an event with a link', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
-    await userEvent.type(screen.getByPlaceholderText('https://zoom.us/j/…'), 'javascript:alert(1)')
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
+    await userEvent.type(within(form).getByLabelText('Link 1 address'), 'javascript:alert(1)')
     expect(screen.getByRole('alert')).toHaveTextContent(/isn’t a web address/)
-    expect(within(screen.getByRole('dialog')).getByRole('button', { name: /Add event/ })).toBeDisabled()
+    expect(within(form).getByRole('button', { name: /Add event/ })).toBeDisabled()
   })
 
-  it('puts it behind a button on the event, and on its row', async () => {
-    state.events = [meeting({ link: 'https://us02web.zoom.us/j/9' })]
+  it('puts each behind a button with its name, on the event and on its row', async () => {
+    state.events = [
+      meeting({
+        links: [
+          { label: 'Join on Zoom', url: 'https://us02web.zoom.us/j/9' },
+          { label: null, url: 'https://f.test/2' },
+        ],
+      }),
+    ]
     show()
-    const row = await screen.findByRole('link', { name: 'Open link' })
-    expect(row).toHaveAttribute('href', 'https://us02web.zoom.us/j/9')
+    expect(await screen.findByRole('link', { name: 'Join on Zoom' })).toHaveAttribute('href', 'https://us02web.zoom.us/j/9')
+    expect(screen.getByRole('link', { name: 'Open link' })).toHaveAttribute('href', 'https://f.test/2')
     await userEvent.click(screen.getByRole('button', { name: /see the details/ }))
-    expect(within(screen.getByRole('dialog')).getByRole('link', { name: /Open link/ })).toHaveAttribute(
-      'href',
-      'https://us02web.zoom.us/j/9',
-    )
+    const card = screen.getByRole('dialog')
+    expect(within(card).getByRole('link', { name: /Join on Zoom/ })).toHaveAttribute('href', 'https://us02web.zoom.us/j/9')
+    expect(within(card).getByRole('link', { name: /Open link/ })).toHaveAttribute('href', 'https://f.test/2')
+  })
+
+  it('still shows the one link an older event has', async () => {
+    state.events = [meeting({ link: 'https://old.test/1' })]
+    show()
+    expect(await screen.findByRole('link', { name: 'Open link' })).toHaveAttribute('href', 'https://old.test/1')
+  })
+
+  it('opens an edit holding the links it has', async () => {
+    state.events = [meeting({ links: [{ label: 'Join on Zoom', url: 'https://z.test/1' }] })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const form = screen.getByRole('dialog')
+    expect(within(form).getByLabelText('Link 1 name')).toHaveValue('Join on Zoom')
+    expect(within(form).getByLabelText('Link 1 address')).toHaveValue('https://z.test/1')
   })
 })
 

@@ -7,10 +7,12 @@ import {
   diaryTimes,
   eventIsOver,
   lastDayOf,
+  linksOf,
   repeatShort,
   teamsOf,
   type DiaryEntry,
   type DiaryEvent,
+  type EventLink,
 } from './churchDiary'
 
 export const eventSchema = z.object({
@@ -23,6 +25,7 @@ export const eventSchema = z.object({
   end_time: z.string().nullable().optional(),
   location: z.string().nullable(),
   link: z.string().nullable().optional(),
+  links: z.array(z.object({ label: z.string().nullable().optional(), url: z.string() })).nullable().optional(),
   department_id: z.string().nullable(),
   department_ids: z.array(z.string()).nullable().optional(),
   created_by: z.string().nullable(),
@@ -45,7 +48,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
     supabase
       .from('church_events')
       .select(
-        'id, title, details, event_date, ends_on, start_time, end_time, location, link, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+        'id, title, details, event_date, ends_on, start_time, end_time, location, link, links, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
       )
       .order('event_date'),
     supabase.from('departments').select('id, name, color'),
@@ -61,6 +64,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
       return {
         ...event,
         department_ids: ids,
+        links: event.links ?? undefined,
         allTeams: byId.size > 1 && [...byId.keys()].every((id) => ids.includes(id)),
         teams: ids.flatMap((id) => {
           const t = byId.get(id)
@@ -81,8 +85,8 @@ export interface EventToday {
   team: string | null
   color: string | null
   details: string | null
-  /** Its link (0239), for a button straight to the meeting. */
-  link: string | null
+  /** Its links (0240), each a button straight to it. */
+  links: EventLink[]
   /** Which day of a run this is — null for the single-day majority. */
   day: { of: number; nth: number } | null
 }
@@ -117,7 +121,7 @@ export function eventsOnDay(events: DiaryEvent[], today: string): EventToday[] {
         team: teamsOf(event),
         color: event.department?.color ?? null,
         details: event.details,
-        link: event.link ?? null,
+        links: linksOf(event),
         day: runsTo
           ? { of: dayCount(event.event_date, runsTo), nth: daysBetween(event.event_date, today).length }
           : null,
@@ -176,7 +180,7 @@ export function pastDiaryEntries(
         // on any more.
         span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
         repeats: repeatShort(event.repeat_rule),
-        link: event.link ?? null,
+        links: linksOf(event),
         notes: event.details?.trim() || null,
       }
     })

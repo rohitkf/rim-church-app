@@ -22,6 +22,8 @@ import {
   diaryTimes,
   type DiaryEntry,
   teamsOf,
+  linksOf,
+  linkLabel,
   type DiaryEvent,
   type DiaryKind,
 } from '../lib/churchDiary'
@@ -227,24 +229,25 @@ function DiaryRow({
       )}
       {/* Whose idea it was, said quietly — an event with no name on it
           invites "who put this here?" every time somebody reads it. */}
-      {(entry.addedBy || canEdit(entry) || entry.link) && (
+      {(entry.addedBy || canEdit(entry) || !!entry.links?.length) && (
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
           <span className="font-mono text-label-sm text-on-surface-faint">
             {entry.addedBy ? `Added by ${entry.addedBy}` : ''}
           </span>
-          {(canEdit(entry) || entry.link) && (
-            <span className="flex items-center gap-3">
+          {(canEdit(entry) || !!entry.links?.length) && (
+            <span className="flex flex-wrap items-center justify-end gap-x-3">
               {/* Straight to the meeting, without opening the event first. */}
-              {entry.link && (
+              {entry.links?.map((link, i) => (
                 <a
-                  href={entry.link}
+                  key={`${link.url}-${i}`}
+                  href={link.url}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   className="tap inline-flex items-center text-label-md font-medium text-accent-blue-soft hover:underline"
                 >
-                  Open link
+                  {linkLabel(link)}
                 </a>
-              )}
+              ))}
               {canEdit(entry) && (
                 <>
                   <button
@@ -354,8 +357,8 @@ export function EventsPage() {
   /** When it finishes (0236) — on its last day, for a run. */
   const [endTime, setEndTime] = useState('')
   const [location, setLocation] = useState('')
-  /** Its link (0239): the Zoom meeting, the sign-up form. */
-  const [link, setLink] = useState('')
+  /** Its links (0240): a name to show and where each goes. */
+  const [links, setLinks] = useState<{ label: string; url: string }[]>([])
   const [details, setDetails] = useState('')
   /** Which teams it is for (0237); none is all teams. */
   const [departmentIds, setDepartmentIds] = useState<string[]>([])
@@ -373,8 +376,10 @@ export function EventsPage() {
 
   const { ask, dialog } = useConfirmAction()
   // One day, an end at or before the start: the database refuses it (0236), so the form says so first.
-  const linkTyped = webAddress(link)
-  const badLink = linkTyped === false
+  // Each typed address as it will be stored; a row with no address is dropped.
+  const linksTyped = links.map((l) => ({ label: l.label.trim() || null, url: webAddress(l.url) }))
+  const badLink = linksTyped.some((l) => l.url === false)
+  const linksToSave = linksTyped.flatMap((l) => (typeof l.url === 'string' ? [{ label: l.label, url: l.url }] : []))
   const endsBeforeItStarts = !!startTime && !!endTime && !(endDate && endDate > date) && endTime <= startTime
 
   const peopleQuery = useQuery({ queryKey: ['diary-people'], queryFn: fetchPeople })
@@ -503,7 +508,7 @@ export function EventsPage() {
         start_time: startTime || null,
         end_time: endTime || null,
         location: location.trim() || null,
-        link: linkTyped || null,
+        links: linksToSave,
         details: details.trim() || null,
         department_id: departmentIds[0] ?? null,
         department_ids: departmentIds,
@@ -524,7 +529,7 @@ export function EventsPage() {
           start_time: fields.start_time,
           end_time: fields.end_time,
           location: fields.location,
-          link: fields.link,
+          links: fields.links,
           department_id: fields.department_id,
           department_ids: fields.department_ids,
           created_by: session!.user.id,
@@ -659,7 +664,7 @@ export function EventsPage() {
     setAdding(false)
     setEditing(null)
     setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
-    setLocation(''); setLink(''); setDetails(''); setDepartmentIds([])
+    setLocation(''); setLinks([]); setDetails(''); setDepartmentIds([])
     setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
 
@@ -685,7 +690,7 @@ export function EventsPage() {
     setStartTime(row.start_time ? row.start_time.slice(0, 5) : '')
     setEndTime(row.end_time ? row.end_time.slice(0, 5) : '')
     setLocation(row.location ?? '')
-    setLink(row.link ?? '')
+    setLinks(linksOf(row).map((l) => ({ label: l.label ?? '', url: l.url })))
     setDetails(row.details ?? '')
     setDepartmentIds(row.department_ids?.length ? row.department_ids : row.department_id ? [row.department_id] : [])
     setAdding(true)
@@ -1067,24 +1072,14 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
-              <Field label="Link (optional)" className="sm:col-span-2">
-                <input
-                  value={link}
-                  onChange={(e) => setLink(e.target.value)}
-                  type="url"
-                  inputMode="url"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  placeholder="https://zoom.us/j/…"
-                  aria-invalid={badLink || undefined}
-                  className={inputClasses}
-                />
-              </Field>
-              {badLink && (
-                <p role="alert" className="-mt-2 text-body-sm text-accent-red-soft sm:col-span-2">
-                  That isn’t a web address. It should start with https://
-                </p>
-              )}
+              <FieldGroup label="Links (optional)" className="sm:col-span-2">
+                <LinkList links={links} onChange={setLinks} />
+                {badLink && (
+                  <p role="alert" className="text-body-sm text-accent-red-soft">
+                    One of those isn’t a web address. It should start with https://
+                  </p>
+                )}
+              </FieldGroup>
               <FieldGroup label="Who is it for" className="sm:col-span-2">
                 <TeamChecklist
                   teams={myTeams}
@@ -1237,15 +1232,22 @@ export function EventsPage() {
               )}
             </dl>
 
-            {reading.link && (
-              <a
-                href={reading.link}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform active:scale-[0.97]"
-              >
-                Open link <span aria-hidden="true">↗</span>
-              </a>
+            {linksOf(reading).length > 0 && (
+              <div className="mt-5 flex flex-col gap-2">
+                {linksOf(reading).map((link, i) => (
+                  <a
+                    key={`${link.url}-${i}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className={`flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-body-sm font-semibold transition-transform active:scale-[0.97] ${
+                      i === 0 ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface hairline'
+                    }`}
+                  >
+                    {linkLabel(link)} <span aria-hidden="true">↗</span>
+                  </a>
+                ))}
+              </div>
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
@@ -1395,6 +1397,67 @@ function TeamChecklist({
           </label>
         ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * An event's links (0240): a name to show on its button and where it goes,
+ * as many as it needs. A row with no address is left out when it is saved.
+ */
+function LinkList({
+  links,
+  onChange,
+}: {
+  links: { label: string; url: string }[]
+  onChange: (next: { label: string; url: string }[]) => void
+}) {
+  const set = (i: number, part: Partial<{ label: string; url: string }>) =>
+    onChange(links.map((l, j) => (j === i ? { ...l, ...part } : l)))
+  return (
+    <div className="flex flex-col gap-3">
+      {links.map((l, i) => (
+        <div key={i} role="group" aria-label={`Link ${i + 1}`} className="flex flex-col gap-2 rounded-[var(--radius-row)] p-3 hairline">
+          <input
+            value={l.label}
+            onChange={(e) => set(i, { label: e.target.value })}
+            aria-label={`Link ${i + 1} name`}
+            placeholder="Name to show, e.g. Join on Zoom"
+            maxLength={80}
+            className={inputClasses}
+          />
+          <input
+            value={l.url}
+            onChange={(e) => set(i, { url: e.target.value })}
+            aria-label={`Link ${i + 1} address`}
+            // Not type="url": the browser would refuse a bare www. address
+            // before the form's own check (webAddress) could give it https.
+            type="text"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            placeholder="https://zoom.us/j/…"
+            aria-invalid={webAddress(l.url) === false || undefined}
+            className={inputClasses}
+          />
+          <button
+            type="button"
+            onClick={() => onChange(links.filter((_, j) => j !== i))}
+            className="tap self-end text-label-md text-on-surface-faint hover:text-error hover:underline"
+          >
+            Remove this link
+          </button>
+        </div>
+      ))}
+      {links.length < 10 && (
+        <button
+          type="button"
+          onClick={() => onChange([...links, { label: '', url: '' }])}
+          className="tap self-start rounded-full px-4 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised"
+        >
+          + Add a link
+        </button>
+      )}
     </div>
   )
 }

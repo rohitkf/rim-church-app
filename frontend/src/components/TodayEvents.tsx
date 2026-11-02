@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { EventToday } from '../lib/churchEvents'
+import { linkLabel } from '../lib/churchDiary'
 
 /**
  * What is on today, across the top of the dashboard.
@@ -77,16 +78,17 @@ export function TodayEvents({
                 {/* Straight to the meeting, and to the event itself (its card,
                     open, on the Events page). */}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {event.link && (
+                  {event.links.map((link, i) => (
                     <a
-                      href={event.link}
+                      key={`${link.url}-${i}`}
+                      href={link.url}
                       target="_blank"
                       rel="noopener noreferrer nofollow"
                       className="tap inline-flex items-center gap-1.5 rounded-full bg-white px-4 text-label-md font-semibold text-[#14143a] transition-transform active:scale-[0.97]"
                     >
-                      Open link <span aria-hidden="true">↗</span>
+                      {linkLabel(link)} <span aria-hidden="true">↗</span>
                     </a>
-                  )}
+                  ))}
                   <Link
                     to={`/events?event=${encodeURIComponent(event.id)}`}
                     aria-label={`View ${event.title}`}
