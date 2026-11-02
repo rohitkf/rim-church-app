@@ -143,7 +143,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'planner':
       return `Finished services leave this list each ${clearDay}. A running order locks ${grace} after its service ends. Every service — running order, rota, availability, debrief, issues and all — is deleted ${span(kept)} after its date.`
     case 'set-lists':
-      return `Shows ${span(s.set_list_days)} either side of today. A set list locks when its service finishes, and is ${afterService}.`
+      return `Shows ${span(s.set_list_days)} either side of today. A set list locks when its service finishes, and is ${afterService}. Every song is kept for good in the song library, which the song box suggests from.`
     case 'polls':
       return `Answers lock at a poll’s deadline, if it has one. Every poll is deleted at its own clear time — ${span(s.poll_retention_days)} after its deadline unless whoever asked chose otherwise.`
     case 'updates':
