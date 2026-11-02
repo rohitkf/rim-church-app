@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -447,6 +447,25 @@ export function EventsPage() {
       { replace: true },
     )
   const shown = useMemo(() => (show ? diary.filter((entry) => categoryOf(entry) === show) : diary), [diary, show])
+
+  // Opened from somewhere else for one event (?event=<id>, the Dashboard's
+  // View event): its card opens once it has loaded, and the address lets
+  // go of it so closing the card and going back don't open it again.
+  const askedFor = params.get('event')
+  useEffect(() => {
+    if (!askedFor || !eventsQuery.data) return
+    const row = eventsQuery.data.find((ev) => ev.id === askedFor)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- opening what the address asked for, once
+    if (row) setReading(row)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('event')
+        return next
+      },
+      { replace: true },
+    )
+  }, [askedFor, eventsQuery.data, setParams])
 
   const byDate = useMemo(() => {
     const map = new Map<string, DiaryEntry[]>()

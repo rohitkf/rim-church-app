@@ -131,11 +131,11 @@ beforeEach(() => {
   state.couples = []
 })
 
-function show() {
+function show(at = '/events') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[at]}>
         <EventsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -738,5 +738,14 @@ describe("an event's notes", () => {
     expect(notes).toHaveTextContent(/Come early\./)
     // All of it, not cut to two lines.
     expect(notes.className).not.toMatch(/line-clamp/)
+  })
+})
+
+describe('opening one event from elsewhere', () => {
+  it('opens its card when the address names it (the Dashboard’s View event)', async () => {
+    state.events = [meeting({ id: 'e7', title: 'Prophetical Prayer' })]
+    show('/events?event=e7')
+    const card = await screen.findByRole('dialog')
+    expect(within(card).getByRole('heading', { name: 'Prophetical Prayer' })).toBeInTheDocument()
   })
 })

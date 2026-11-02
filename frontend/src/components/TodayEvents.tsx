@@ -70,8 +70,31 @@ export function TodayEvents({
                 </h2>
                 {line && <p className="mt-1.5 text-body-md text-white/75">{line}</p>}
                 {event.details && (
-                  <p className="mt-1.5 max-w-prose text-body-sm text-white/60">{event.details}</p>
+                  <p className="mt-1.5 max-w-prose whitespace-pre-line break-words text-body-sm text-white/60">
+                    {event.details}
+                  </p>
                 )}
+                {/* Straight to the meeting, and to the event itself (its card,
+                    open, on the Events page). */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {event.link && (
+                    <a
+                      href={event.link}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="tap inline-flex items-center gap-1.5 rounded-full bg-white px-4 text-label-md font-semibold text-[#14143a] transition-transform active:scale-[0.97]"
+                    >
+                      Open link <span aria-hidden="true">↗</span>
+                    </a>
+                  )}
+                  <Link
+                    to={`/events?event=${encodeURIComponent(event.id)}`}
+                    aria-label={`View ${event.title}`}
+                    className="tap inline-flex items-center rounded-full bg-white/15 px-4 text-label-md font-medium text-white ring-1 ring-white/25 transition-transform hover:bg-white/20 active:scale-[0.97]"
+                  >
+                    View event
+                  </Link>
+                </div>
               </li>
             )
           })}
