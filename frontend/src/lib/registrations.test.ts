@@ -13,6 +13,7 @@ import {
   newTicketTypeDraft,
   orderMatches,
   orderTotals,
+  checkedInToday,
   registrationExportFileName,
   remainingOf,
   slugTyping,
@@ -305,6 +306,13 @@ describe('what an order comes to', () => {
     })
   })
 
+  it('rounds a percentage the way the database does, to the nearest penny', () => {
+    // 15% of £19.99 is £2.9985: the database's `::int` makes that £3.00, and so must the page.
+    const odd = [{ ...types.find((t) => t.kind === 'paid')!, id: 'odd', price_pence: 1999 }]
+    const lines = [{ ticket_type_id: 'odd', quantity: 1, attendee_names: [] }]
+    expect(orderTotals(odd, lines, { ok: true, code: 'X', kind: 'percent', value: 15, ticket_type_ids: [] })).toMatchObject({ discount: 300, total: 1699 })
+  })
+
   it('never takes more off than the tickets it covers cost', () => {
     const lines = [{ ticket_type_id: 'paid', quantity: 1, attendee_names: [] }]
     expect(orderTotals(types, lines, { ok: true, code: 'ALL', kind: 'amount', value: 5000, ticket_type_ids: [] })).toMatchObject({ discount: 2000, total: 0 })
@@ -591,5 +599,14 @@ describe('what the Registrations page says about keeping details', () => {
     expect(lifespanOf('registrations', { registration_retention_days: 14 })).toContain('blanked 2 weeks after')
     expect(lifespanOf('registrations', { registration_retention_days: null })).toContain('never blanked')
     expect(lifespanOf('registrations', {})).toContain('90 days')
+  })
+})
+
+describe('a check-in is a day’s (0254)', () => {
+  it('counts a check-in as today’s only on the same day', () => {
+    const now = new Date(2026, 10, 21, 19, 0)
+    expect(checkedInToday({ checked_in_at: new Date(2026, 10, 21, 18, 40).toISOString() }, now)).toBe(true)
+    expect(checkedInToday({ checked_in_at: new Date(2026, 10, 20, 18, 40).toISOString() }, now)).toBe(false)
+    expect(checkedInToday({ checked_in_at: null }, now)).toBe(false)
   })
 })

@@ -3,7 +3,7 @@ import { ActionButton, Overlay, Pill, inputClasses } from './Surface'
 import { useQrCamera } from '../lib/qrCamera'
 import { codeFromScan } from '../lib/registrationLinks'
 import { pounds } from '../lib/money'
-import { PAYMENT_WORDS, isPaid, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
+import { PAYMENT_WORDS, checkedInToday, isPaid, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
 
 /**
  * The door (0246, 0247): the camera reads the QR code on each ticket —
@@ -13,7 +13,8 @@ import { PAYMENT_WORDS, isPaid, whenWords, type EventDate, type OrderRow } from 
  * held up with Check in and Paid now, check in, for whoever pays at
  * reception. The camera keeps running; the next ticket in view replaces
  * the last. A code can also be typed, for a phone whose camera will not
- * read.
+ * read. A check-in is a day's: on the second day of a two-day event the
+ * same ticket is checked in again.
  *
  * ScannerPanel is the working part, which Reception (/door) lays into its
  * own page; TicketScanner is the same in a sheet, for the event's page.
@@ -45,7 +46,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
       // for every date: in they go, no tap. Anything else is held up.
       const day = order?.date_id ? dates.find((d) => d.id === order.date_id) : undefined
       const forAnotherDay = !!day && new Date(day.starts_at).toDateString() !== new Date().toDateString()
-      const walkIn = !!order && order.status === 'confirmed' && !order.checked_in_at && isPaid(order) && !forAnotherDay
+      const walkIn = !!order && order.status === 'confirmed' && !checkedInToday(order) && isPaid(order) && !forAnotherDay
       setFound({ code, id: order?.id ?? null, auto: walkIn })
       if (walkIn) onCheckIn(order)
       try {
@@ -84,6 +85,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
   const orderDate = order?.date_id ? dates.find((d) => d.id === order.date_id) : undefined
   const otherDay = !!orderDate && new Date(orderDate.starts_at).toDateString() !== today
   const owes = !!order && order.status === 'confirmed' && order.total_pence > 0 && !isPaid(order)
+  const inToday = !!order && checkedInToday(order)
 
   return (
     <div>
@@ -113,8 +115,10 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                   <Pill tone="red">Cancelled — not valid</Pill>
                 ) : found.auto ? (
                   <Pill tone="green">Checked in</Pill>
+                ) : inToday ? (
+                  <Pill tone="blue">Already checked in {new Date(order.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
                 ) : order.checked_in_at ? (
-                  <Pill tone="blue">Already checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
+                  <Pill tone="neutral">Checked in {new Date(order.checked_in_at).toLocaleDateString([], { weekday: 'short' })} · not yet today</Pill>
                 ) : (
                   <Pill tone="green">Valid</Pill>
                 )}
@@ -150,12 +154,12 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
             </>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            {order && order.status === 'confirmed' && !order.checked_in_at && !found.auto && (
+            {order && order.status === 'confirmed' && !inToday && !found.auto && (
               <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
                 Check in
               </ActionButton>
             )}
-            {order && order.status === 'confirmed' && !order.checked_in_at && owes && canTakePayment && (
+            {order && order.status === 'confirmed' && !inToday && owes && canTakePayment && (
               <ActionButton tone="quiet" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
                 Paid now, check in
               </ActionButton>

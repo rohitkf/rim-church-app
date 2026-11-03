@@ -231,6 +231,24 @@ describe('Reception', () => {
     expect(within(ama).getByRole('button', { name: 'Paid now, check in' })).toBeInTheDocument()
   })
 
+  it('counts only today’s check-ins as here, and offers yesterday’s a check-in again (0254)', async () => {
+    state.orders = [
+      order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: daysOn(-1, 18), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+      order({ id: 'o-sam', code: 'EFGHJKMNPQRS', name: 'Sam Paul', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: today(18, 10), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+    ]
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    expect(stat('here')).toBe('1')
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
+    expect(within(ben).getByText(/not yet today$/)).toBeInTheDocument()
+    await user.click(within(ben).getByRole('button', { name: 'Check in' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
+    const sam = screen.getByRole('listitem', { name: 'Sam Paul' })
+    expect(within(sam).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(within(sam).getByRole('button', { name: 'Undo check-in' })).toBeInTheDocument()
+  })
+
   it('registers a walk-in — paid, checked in — and sends their ticket when they give an address', async () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })

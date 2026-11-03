@@ -304,6 +304,9 @@ describe('making a registration event', () => {
     const user = show('/registrations/e1/edit')
     expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue('Pastors & Leaders 2026')
     expect(screen.getByRole('textbox', { name: /^Link https/ })).toHaveValue('plc-2026')
+    // Published: the link is out, so it is read-only (0254).
+    expect(screen.getByRole('textbox', { name: /^Link https/ })).toBeDisabled()
+    expect(screen.getByText(/so it cannot change now/)).toBeInTheDocument()
     const ticket = screen.getByRole('group', { name: 'Ticket 1' })
     expect(within(ticket).getByRole('textbox', { name: 'Name' })).toHaveValue('With lunch')
     expect(within(ticket).getByRole('textbox', { name: 'Price (£)' })).toHaveValue('20.00')

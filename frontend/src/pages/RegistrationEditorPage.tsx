@@ -81,6 +81,8 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const [draft, setDraft] = useState<EventDraft>(() => (existing ? draftFromEvent(existing) : emptyDraft()))
+  // Published once: the link is in emails and on posters, and stays (0254).
+  const linkOut = !!existing && existing.event.status !== 'draft'
   const [showProblems, setShowProblems] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const set = (patch: Partial<EventDraft>) => setDraft((d) => ({ ...d, ...patch }))
@@ -144,13 +146,21 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
             <Field label="Title">
               <input
                 value={draft.title}
-                onChange={(e) => set({ title: e.target.value, slug: draft.slugTouched ? draft.slug : slugify(e.target.value) })}
+                onChange={(e) => set({ title: e.target.value, slug: draft.slugTouched || linkOut ? draft.slug : slugify(e.target.value) })}
                 placeholder="Pastors & Leaders Conference 2026"
                 maxLength={200}
                 className={inputClasses}
               />
             </Field>
-            <Field label="Link" hint={<span className="break-all font-mono text-label-sm text-on-surface-faint">{registerUrl(draft.slug || '…')}</span>}>
+            <Field
+              label="Link"
+              hint={
+                <span className="break-all font-mono text-label-sm text-on-surface-faint">
+                  {registerUrl(draft.slug || '…')}
+                  {linkOut && <span className="font-sans"> · The link is out, in emails and on posters, so it cannot change now.</span>}
+                </span>
+              }
+            >
               <input
                 value={draft.slug}
                 onChange={(e) => set({ slug: slugTyping(e.target.value), slugTouched: true })}
@@ -159,7 +169,8 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
                 maxLength={80}
                 autoCapitalize="off"
                 autoCorrect="off"
-                className={inputClasses}
+                disabled={linkOut}
+                className={`${inputClasses} disabled:opacity-60`}
               />
             </Field>
             <Field label="Description (optional)">

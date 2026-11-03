@@ -64,7 +64,8 @@ details are tidied away after the event.
   place the map pin; directions and the map go to the pin. For online, add
   the join link and details.
 - Publish to get the share link and a QR code. Close and reopen sales; a
-  countdown on the register page shows when sales close.
+  countdown on the register page shows when sales close. Once published,
+  the link cannot change: it is in emails and on posters.
 - Watch orders arrive, open receipts over the page, mark payments, add
   notes, and export to Excel. The event's page says up front what wants
   doing (receipts to check, payments awaited, refunds owed), and an order
@@ -93,6 +94,8 @@ details are tidied away after the event.
 
 - Points the camera at a ticket's QR code, or types the code.
 - A paid or free ticket for today checks in straight away, with no tap.
+  A check-in is a day's: on the second day of a two-day event the same
+  ticket is checked in again, and "here" counts today.
 - A ticket that still owes is held up with **Check in** and **Paid now,
   check in**.
 - Warns about cancelled tickets, tickets for another day, and people

@@ -575,6 +575,42 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
     join_details: draft.attendance === 'in_person' ? null : draft.joinDetails.trim() || null,
   }
 
+  // Nothing is written until what is being taken away is known to be free
+  // of registrations. The database refuses too, but only at the end, in
+  // its own words, with the event's other changes already made.
+  const keptDates = new Set(draft.dates.map((d) => d.id).filter((id): id is string => !!id))
+  const keptTypes = new Set(draft.ticketTypes.filter((t) => !t.isNew).map((t) => t.id))
+  if (existing) {
+    const goneTypes = existing.ticketTypes.filter((t) => !keptTypes.has(t.id))
+    if (goneTypes.length > 0) {
+      const { data, error } = await supabase
+        .from('registration_order_tickets')
+        .select('ticket_type_id')
+        .in('ticket_type_id', goneTypes.map((t) => t.id))
+        .limit(1)
+      if (error) throw error
+      const used = (data as { ticket_type_id: string }[] | null)?.[0]
+      if (used) {
+        const t = goneTypes.find((x) => x.id === used.ticket_type_id)
+        throw new Error(`“${t?.name ?? 'That ticket'}” has registrations on it, so it cannot be removed. Set how many there are to what is sold instead.`)
+      }
+    }
+    const goneDates = existing.dates.filter((d) => !keptDates.has(d.id))
+    if (goneDates.length > 0) {
+      const { data, error } = await supabase
+        .from('registration_orders')
+        .select('date_id')
+        .in('date_id', goneDates.map((d) => d.id))
+        .limit(1)
+      if (error) throw error
+      const used = (data as { date_id: string }[] | null)?.[0]
+      if (used) {
+        const d = goneDates.find((x) => x.id === used.date_id)
+        throw new Error(`${d ? whenWords(d.starts_at, d.ends_at) : 'That date'} has registrations on it, so it cannot be removed.`)
+      }
+    }
+  }
+
   let eventId: string
   if (existing) {
     const { error } = await supabase.from('registration_events').update(row).eq('id', existing.event.id)
@@ -591,7 +627,6 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
   }
 
   // Dates.
-  const keptDates = new Set(draft.dates.map((d) => d.id).filter((id): id is string => !!id))
   for (const d of existing?.dates ?? []) {
     if (!keptDates.has(d.id)) {
       const { error } = await supabase.from('registration_event_dates').delete().eq('id', d.id)
@@ -608,7 +643,6 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
 
   // Ticket types. A new one is inserted with the id the draft gave it, which
   // is how a promo code can already name it.
-  const keptTypes = new Set(draft.ticketTypes.filter((t) => !t.isNew).map((t) => t.id))
   for (const t of existing?.ticketTypes ?? []) {
     if (!keptTypes.has(t.id)) {
       const { error } = await supabase.from('registration_ticket_types').delete().eq('id', t.id)
@@ -831,7 +865,10 @@ export function orderTotals(
       discountable += unit * line.quantity
     }
   }
-  const discount = !promo?.ok ? 0 : promo.kind === 'amount' ? Math.min(promo.value, discountable) : Math.trunc((discountable * promo.value) / 100)
+  // Rounded, not truncated: registration_register() does `(… / 100.0)::int`,
+  // which rounds, and a page that says £2.99 for a ticket the database
+  // charges £3.00 for is a page nobody trusts.
+  const discount = !promo?.ok ? 0 : promo.kind === 'amount' ? Math.min(promo.value, discountable) : Math.round((discountable * promo.value) / 100)
   return { quantity, subtotal, discount, total: subtotal - discount }
 }
 
@@ -1281,6 +1318,15 @@ export function notifyPayment(kind: 'paid' | 'unmatched', code: string): Promise
 }
 
 /** The events the door can work today: published or closed, with a date today or still to come, nearest first. */
+/**
+ * Checked in today — not just ever. An event over two days has a door on
+ * each; a ticket checked in on Friday is a ticket to check in again on
+ * Saturday, and the count of who is here is today's.
+ */
+export function checkedInToday(order: Pick<OrderRow, 'checked_in_at'>, now = new Date()): boolean {
+  return !!order.checked_in_at && new Date(order.checked_in_at).toDateString() === now.toDateString()
+}
+
 export function doorEvents(events: EventSummary[], now = new Date()): EventSummary[] {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   return events

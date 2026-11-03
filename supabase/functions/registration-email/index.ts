@@ -132,7 +132,9 @@ function opening(kind: Kind, orders: Order[]): { subject: string; lead: string }
       lead: `Thank you — your payment of ${pounds(first.total_pence)} has been received. Here is your ticket.`,
     }
   }
-  if (kind === 'event_cancelled') {
+  // Once the event is off, every email about it says so — a ticket asked
+  // for again after the cancellation is not "your ticket for the door".
+  if (kind === 'event_cancelled' || ev.cancelled_at) {
     return {
       subject: `Cancelled: ${ev.title}`,
       lead: `We are sorry — ${ev.title} has been cancelled.${ev.cancel_note ? ` ${ev.cancel_note}` : ''}`,
@@ -161,9 +163,11 @@ function opening(kind: Kind, orders: Order[]): { subject: string; lead: string }
   }
 }
 
-function ticketEmail(kind: Kind, orders: Order[], siteUrl: string, tz: string): { subject: string; text: string; html: string } {
+function ticketEmail(asked: Kind, orders: Order[], siteUrl: string, tz: string): { subject: string; text: string; html: string } {
   const first = orders[0]
   const ev = first.event
+  // A cancelled event's email reads as the cancellation whatever was asked for.
+  const kind: Kind = ev.cancelled_at ? 'event_cancelled' : asked
   const { subject, lead } = opening(kind, orders)
   const dates = (o: Order) => (o.date ? [o.date] : [...ev.dates].sort((a, b) => a.sort_order - b.sort_order))
   const where = [ev.location_name, ev.address].filter(Boolean).join('\n')

@@ -16,6 +16,7 @@ import type { PhoneStatus } from '../lib/phone'
 import {
   PAYMENT_WORDS,
   REGISTRATIONS_KEY,
+  checkedInToday,
   doorEvents,
   fetchRegistrationEvent,
   fetchRegistrationEvents,
@@ -143,7 +144,8 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
   const rows = orders.data ?? []
   const confirmed = rows.filter((o) => o.status === 'confirmed')
   const tickets = confirmed.reduce((n, o) => n + o.quantity, 0)
-  const here = confirmed.filter((o) => o.checked_in_at).reduce((n, o) => n + o.quantity, 0)
+  // Today's door: a check-in from the first day of a two-day event is not here now.
+  const here = confirmed.filter((o) => checkedInToday(o)).reduce((n, o) => n + o.quantity, 0)
   const owing = confirmed.filter((o) => o.total_pence > 0 && !isPaid(o)).length
 
   return (
@@ -278,20 +280,24 @@ function Find({
           {shown.map((o) => {
             const day = o.date_id ? dates.find((d) => d.id === o.date_id) : undefined
             const owes = o.status === 'confirmed' && o.total_pence > 0 && !isPaid(o)
+            const inToday = checkedInToday(o)
             return (
               <li key={o.id} aria-label={o.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${o.status === 'cancelled' ? 'opacity-60' : ''}`}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="min-w-0 flex-1 text-body-md font-medium text-on-surface">
-                    {o.name}
-                    <span className="text-on-surface-variant">
-                      {' '}
-                      · {o.quantity} {o.quantity === 1 ? 'ticket' : 'tickets'}
-                    </span>
-                  </p>
+                <p className="text-body-md font-medium text-on-surface">
+                  {o.name}
+                  <span className="text-on-surface-variant">
+                    {' '}
+                    · {o.quantity} {o.quantity === 1 ? 'ticket' : 'tickets'}
+                  </span>
+                </p>
+                {/* Where they stand, on its own line: a long pill beside the name squeezed it into a column on a phone. */}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   {o.status === 'cancelled' ? (
                     <Pill tone="red">Cancelled</Pill>
+                  ) : inToday ? (
+                    <Pill tone="blue">Checked in {new Date(o.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
                   ) : o.checked_in_at ? (
-                    <Pill tone="blue">Checked in {new Date(o.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
+                    <Pill tone="neutral">Checked in {new Date(o.checked_in_at).toLocaleDateString([], { weekday: 'short' })} · not yet today</Pill>
                   ) : null}
                   {o.status === 'confirmed' && o.total_pence > 0 && <Pill tone={PAY_TONE[o.payment_status]}>{PAYMENT_WORDS[o.payment_status]}</Pill>}
                   {o.status === 'confirmed' && o.total_pence === 0 && o.promo_code && <Pill tone="neutral">Free with code {o.promo_code}</Pill>}
@@ -314,17 +320,17 @@ function Find({
                 </p>
                 {o.status === 'confirmed' && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {!o.checked_in_at && (
+                    {!inToday && (
                       <ActionButton size="sm" tone="success" onClick={() => onCheckIn(o)} disabled={busy}>
                         Check in
                       </ActionButton>
                     )}
                     {owes && canTakePayment && (
-                      <ActionButton size="sm" tone="quiet" onClick={() => onPaid(o, !o.checked_in_at)} disabled={busy}>
-                        {o.checked_in_at ? 'Paid now' : 'Paid now, check in'}
+                      <ActionButton size="sm" tone="quiet" onClick={() => onPaid(o, !inToday)} disabled={busy}>
+                        {inToday ? 'Paid now' : 'Paid now, check in'}
                       </ActionButton>
                     )}
-                    {o.checked_in_at && (
+                    {inToday && (
                       <ActionButton size="sm" tone="ghost" onClick={() => onUndo(o)} disabled={busy}>
                         Undo check-in
                       </ActionButton>

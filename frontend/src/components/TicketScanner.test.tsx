@@ -17,7 +17,6 @@ vi.mock('../lib/qrCamera', () => ({
   },
 }))
 
-const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString()
 const scan = (text: string) => act(() => cam.onText!(text))
 
 const order = (over: Partial<OrderRow>): OrderRow => ({
@@ -47,7 +46,8 @@ const order = (over: Partial<OrderRow>): OrderRow => ({
 })
 const orders = (): OrderRow[] => [
   order({}),
-  order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: at(2026, 11, 21, 18, 40), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+  // Checked in earlier today: a check-in is a day's (0254).
+  order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: new Date(new Date().setHours(18, 40, 0, 0)).toISOString(), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
   order({ id: 'o-asha', code: 'CDEFGHJKMNPQ', name: 'Asha Mathew', status: 'cancelled' }),
   order({ id: 'o-grace', code: 'DEFGHJKMNPQR', name: 'Grace Mensah', total_pence: 0, payment_status: 'not_needed', promo_code: null, date_id: 'd-tomorrow', notes: 'Wheelchair space' }),
   order({ id: 'o-sam', code: 'EFGHJKMNPQRS', name: 'Sam Paul', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
@@ -121,6 +121,16 @@ describe('the ticket scanner', () => {
     expect(within(card).getByText('Checked in')).toBeInTheDocument()
     expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
     expect(calls.checkIn).toEqual(['o-sam'])
+  })
+
+  it('checks a ticket in again on the second day of an event, and says so (0254)', () => {
+    const yesterday = new Date(Date.now() - 86400000)
+    yesterday.setHours(18, 40, 0, 0)
+    show([order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: yesterday.toISOString(), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] })])
+    scan('https://rim-church-app.vercel.app/ticket/BCDEFGHJKMNP')
+    // Paid, and not yet in today: in he goes, no tap.
+    expect(calls.checkIn).toEqual(['o-ben'])
+    expect(within(screen.getByRole('region', { name: 'Ticket found' })).getByText('Checked in')).toBeInTheDocument()
   })
 
   it('refuses a cancelled ticket and a code that is not this event’s', () => {
