@@ -385,7 +385,7 @@ function Ticket({ order }: { order: OrderView }) {
             onClick={() =>
               ask({
                 title: 'Cancel your registration?',
-                body: 'Your tickets go back on sale. If you have paid, contact the church about a refund.',
+                body: 'Your tickets go back on sale. If you have paid, your refund is arranged from this page: it will say how the money comes back.',
                 confirmLabel: 'Cancel it',
                 cancelLabel: 'Keep it',
                 onConfirm: () => cancel.mutate(),
