@@ -15,6 +15,9 @@ const state = vi.hoisted(() => ({
   event: null as unknown,
   promo: { ok: false } as unknown,
   registered: [] as unknown[],
+  mailed: [] as string[],
+  resent: [] as unknown[],
+  resendAnswer: { ok: true, sent: true } as unknown,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -32,6 +35,14 @@ vi.mock('../lib/registrations', async (original) => ({
   registerForEvent: (slug: string, order: unknown) => {
     state.registered.push({ slug, order })
     return Promise.resolve('ABCDEFGHJKMN')
+  },
+  sendTicketEmail: (code: string) => {
+    state.mailed.push(code)
+    return Promise.resolve({ ok: true, sent: true })
+  },
+  resendTickets: (slug: string, email: string) => {
+    state.resent.push([slug, email])
+    return Promise.resolve(state.resendAnswer)
   },
 }))
 
@@ -93,6 +104,9 @@ beforeEach(() => {
   state.event = event()
   state.promo = { ok: false }
   state.registered = []
+  state.mailed = []
+  state.resent = []
+  state.resendAnswer = { ok: true, sent: true }
 })
 
 describe('the public register page', () => {
@@ -138,6 +152,8 @@ describe('the public register page', () => {
     await user.click(screen.getByRole('button', { name: 'Register' }))
 
     expect(await screen.findByText('ticket page ABCDEFGHJKMN')).toBeInTheDocument()
+    // The ticket goes by email too, without anything waiting on it.
+    expect(state.mailed).toEqual(['ABCDEFGHJKMN'])
     expect(state.registered).toEqual([
       {
         slug: 'pastors-2026',
@@ -212,6 +228,28 @@ describe('the public register page', () => {
     show()
     expect(await screen.findByText(/^Registration opens /)).toBeInTheDocument()
     expect(screen.queryByRole('form', { name: 'Register' })).toBeNull()
+  })
+
+  it('sends a lost ticket to the address that registered, and says the same whatever it found', async () => {
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    await user.click(screen.getByRole('button', { name: 'Get your ticket again' }))
+    const form = screen.getByRole('form', { name: 'Get your ticket again' })
+    await user.type(within(form).getByRole('textbox', { name: 'Email' }), 'ama@example.org')
+    await user.click(within(form).getByRole('button', { name: 'Send my ticket' }))
+    expect(await within(form).findByRole('status')).toHaveTextContent(/If that address has a registration for this event/)
+    expect(state.resent).toEqual([['pastors-2026', 'ama@example.org']])
+
+    state.resendAnswer = { ok: false, reason: 'not configured' }
+    await user.click(within(form).getByRole('button', { name: 'Send my ticket' }))
+    expect(await within(form).findByText(/Tickets cannot be emailed just now/)).toBeInTheDocument()
+  })
+
+  it('offers the lost-ticket form even when registration has closed', async () => {
+    state.event = event({ open: false, closed_reason: 'closed' })
+    show()
+    expect(await screen.findByText('Registration has closed.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Get your ticket again' })).toBeInTheDocument()
   })
 
   it('says so when the link leads nowhere', async () => {

@@ -10,7 +10,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
-import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPayment, whenWords, type OrderView } from '../lib/registrations'
+import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPayment, sendTicketEmail, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -54,6 +54,20 @@ function Ticket({ order }: { order: OrderView }) {
   const { ask, dialog } = useConfirmAction()
   const [error, setError] = useState<string | null>(null)
   const [showBank, setShowBank] = useState(false)
+  const [mailed, setMailed] = useState<string | null>(null)
+  const mail = useMutation({
+    mutationFn: () => sendTicketEmail(order.code),
+    onSuccess: (result) =>
+      setMailed(
+        result.reason === 'not configured'
+          ? 'Email is not set up yet — save this page’s link instead.'
+          : result.ok && result.sent === false
+            ? `Already sent to ${order.email} in the last few minutes. Check the junk folder.`
+            : result.ok
+              ? `On its way to ${order.email}.`
+              : 'Could not send just now. Save this page’s link instead.',
+      ),
+  })
   /** Opened a payment link: when they come back, ask whether it went through. */
   const [pending, setPending] = useState<'paypal' | 'bank' | null>(null)
   const [asking, setAsk] = useState(false)
@@ -115,6 +129,19 @@ function Ticket({ order }: { order: OrderView }) {
           <QrCode text={ticketUrl(order.code)} label={`Ticket ${order.code}`} className="mx-auto h-48 w-48" />
           <p className="mt-3 font-mono text-headline-sm tracking-[0.2em] text-[#14143a]">{order.code}</p>
           <p className="mt-1 text-label-md text-[#5a5a72]">Show this at the door. Save this page’s link — it is your ticket.</p>
+          <button
+            type="button"
+            onClick={() => mail.mutate()}
+            disabled={mail.isPending}
+            className="tap mt-2 rounded-full px-4 text-label-md font-medium text-[#0a66ff] hover:underline disabled:opacity-60"
+          >
+            {mail.isPending ? 'Sending…' : 'Email me this ticket'}
+          </button>
+          {mailed && (
+            <p role="status" className="mt-1 text-label-md text-[#5a5a72]">
+              {mailed}
+            </p>
+          )}
         </section>
       )}
 

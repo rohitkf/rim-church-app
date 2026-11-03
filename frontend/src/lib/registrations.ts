@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ExportSheet } from './volunteerExport'
+import { invokeEdgeFunction } from './edgeFunction'
 import { supabase } from './supabaseClient'
 import { registerUrl } from './registrationLinks'
 
@@ -845,6 +846,7 @@ export const orderRowSchema = z.object({
   status: z.enum(['confirmed', 'cancelled']),
   checked_in_at: z.string().nullable(),
   notes: z.string().nullable(),
+  email_sent_at: z.string().nullable().optional(),
   anonymised_at: z.string().nullable(),
   created_at: z.string(),
   tickets: z.array(z.object({ ticket_type_id: z.string(), attendee_name: z.string().nullable(), unit_price_pence: z.number() })),
@@ -852,7 +854,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1019,4 +1021,33 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
 export function registrationExportFileName(slug: string, now: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `registrations-${slug}-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.xlsx`
+}
+
+/* ------------------------------------------------------------------ */
+/* The ticket by email (0247)                                          */
+/* ------------------------------------------------------------------ */
+
+/** What the registration-email function answers. */
+export interface TicketMailResult {
+  ok: boolean
+  /** False when nothing went: sent a moment ago, nothing to send, or not set up. */
+  sent?: boolean
+  reason?: string
+}
+
+/**
+ * The ticket just made, to the address on it. Nothing waits on this: the
+ * ticket page is the ticket, the email only carries its link, so a send
+ * that fails is swallowed and "Email me this ticket" is there for later.
+ */
+export function sendTicketEmail(code: string): Promise<TicketMailResult> {
+  return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'confirm', code }).catch(() => ({ ok: false, reason: 'failed' }))
+}
+
+/**
+ * "I have lost my ticket": every live ticket that address holds for the
+ * event, to that address — or nothing, with the same answer either way.
+ */
+export async function resendTickets(slug: string, email: string): Promise<TicketMailResult> {
+  return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'resend', slug, email: email.trim().toLowerCase() })
 }
