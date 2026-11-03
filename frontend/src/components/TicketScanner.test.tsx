@@ -50,6 +50,7 @@ const orders = (): OrderRow[] => [
   order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', checked_in_at: at(2026, 11, 21, 18, 40), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
   order({ id: 'o-asha', code: 'CDEFGHJKMNPQ', name: 'Asha Mathew', status: 'cancelled' }),
   order({ id: 'o-grace', code: 'DEFGHJKMNPQR', name: 'Grace Mensah', total_pence: 0, payment_status: 'not_needed', promo_code: null, date_id: 'd-tomorrow', notes: 'Wheelchair space' }),
+  order({ id: 'o-sam', code: 'EFGHJKMNPQRS', name: 'Sam Paul', quantity: 1, total_pence: 2000, promo_code: null, payment_status: 'received', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
 ]
 const dates: EventDate[] = [
   { id: 'd-today', event_id: 'e1', starts_at: new Date(new Date().setHours(18, 30, 0, 0)).toISOString(), ends_at: null, label: 'Tonight', sort_order: 0, diary_event_id: null },
@@ -111,6 +112,15 @@ describe('the ticket scanner', () => {
     // After Next, the same ticket again is a fresh scan.
     scan('https://rim-church-app.vercel.app/ticket/BCDEFGHJKMNP')
     expect(screen.getByRole('region', { name: 'Ticket found' })).toBeInTheDocument()
+  })
+
+  it('checks a paid ticket in the moment it is read, with no tap', () => {
+    show()
+    scan('https://rim-church-app.vercel.app/ticket/EFGHJKMNPQRS')
+    const card = screen.getByRole('region', { name: 'Ticket found' })
+    expect(within(card).getByText('Checked in')).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(calls.checkIn).toEqual(['o-sam'])
   })
 
   it('refuses a cancelled ticket and a code that is not this event’s', () => {

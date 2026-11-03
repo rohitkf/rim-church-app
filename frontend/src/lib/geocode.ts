@@ -31,3 +31,30 @@ export async function geocodeAddress(
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
   return { latitude, longitude, label: first.display_name ?? q }
 }
+
+/**
+ * Places that match what has been typed so far, for a list to pick from
+ * (0247). The same search, a handful of answers; the caller debounces, so
+ * Nominatim's one-a-second is kept, and passes a signal to drop a stale
+ * answer when the next keystroke has already asked again.
+ */
+export async function suggestAddresses(
+  text: string,
+  fetcher: typeof fetch = (...args) => fetch(...args),
+  signal?: AbortSignal,
+): Promise<Found[]> {
+  const q = text.trim()
+  if (q.length < 4) return []
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=0&q=${encodeURIComponent(q)}`
+  const res = await fetcher(url, { headers: { Accept: 'application/json' }, signal })
+  if (!res.ok) throw new Error(`The map service answered ${res.status}.`)
+  const rows = (await res.json()) as { lat?: string; lon?: string; display_name?: string }[]
+  const out: Found[] = []
+  for (const r of rows) {
+    const latitude = Number(r.lat)
+    const longitude = Number(r.lon)
+    if (!r.display_name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue
+    out.push({ latitude, longitude, label: r.display_name })
+  }
+  return out
+}

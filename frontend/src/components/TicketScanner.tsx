@@ -8,11 +8,14 @@ import { PAYMENT_WORDS, whenWords, type EventDate, type OrderRow } from '../lib/
 /**
  * The door (0246): the camera reads the QR code on each ticket — which says
  * its /ticket/<code> link — and the order comes up: who, how many, whether
- * it is paid, whether they are here already. One tap checks them in; one
- * more marks the money received as well, for whoever pays at reception.
- * The camera keeps running; the next ticket in view replaces the last.
- * A code can also be typed, for a phone whose camera will not read.
+ * it is paid, whether they are here already. A paid ticket is checked in
+ * the moment it is read, no tap; one that still owes is held up with
+ * Check in and Paid now, check in, for whoever pays at reception. The
+ * camera keeps running; the next ticket in view replaces the last. A code
+ * can also be typed, for a phone whose camera will not read.
  */
+const isPaid = (o: OrderRow) => o.payment_status === 'not_needed' || o.payment_status === 'received' || o.payment_status === 'waived'
+
 export function TicketScanner({
   orders,
   dates,
@@ -29,7 +32,7 @@ export function TicketScanner({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [found, setFound] = useState<{ code: string; id: string | null } | null>(null)
+  const [found, setFound] = useState<{ code: string; id: string | null; auto: boolean } | null>(null)
   const [typed, setTyped] = useState('')
   const lastRef = useRef<string | null>(null)
 
@@ -38,14 +41,20 @@ export function TicketScanner({
       if (lastRef.current === code) return
       lastRef.current = code
       const order = orders.find((o) => o.code === code) ?? null
-      setFound({ code, id: order?.id ?? null })
+      // Paid (or nothing to pay), live, not yet here, and for today — or
+      // for every date: in they go, no tap. Anything else is held up.
+      const day = order?.date_id ? dates.find((d) => d.id === order.date_id) : undefined
+      const forAnotherDay = !!day && new Date(day.starts_at).toDateString() !== new Date().toDateString()
+      const walkIn = !!order && order.status === 'confirmed' && !order.checked_in_at && isPaid(order) && !forAnotherDay
+      setFound({ code, id: order?.id ?? null, auto: walkIn })
+      if (walkIn) onCheckIn(order)
       try {
         navigator.vibrate?.(order ? 40 : [30, 40, 30])
       } catch {
         // No haptics here; the card is enough.
       }
     },
-    [orders],
+    [orders, dates, onCheckIn],
   )
   const onText = useCallback(
     (text: string) => {
@@ -112,6 +121,8 @@ export function TicketScanner({
                 <div className="flex flex-wrap items-center gap-2">
                   {order.status === 'cancelled' ? (
                     <Pill tone="red">Cancelled — not valid</Pill>
+                  ) : found.auto ? (
+                    <Pill tone="green">Checked in</Pill>
                   ) : order.checked_in_at ? (
                     <Pill tone="blue">Already checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
                   ) : (
@@ -145,7 +156,7 @@ export function TicketScanner({
               </>
             )}
             <div className="mt-4 flex flex-wrap gap-2">
-              {order && order.status === 'confirmed' && !order.checked_in_at && (
+              {order && order.status === 'confirmed' && !order.checked_in_at && !found.auto && (
                 <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
                   Check in
                 </ActionButton>

@@ -36,6 +36,7 @@ const good = (): EventDraft => ({
   ...emptyDraft(),
   title: 'Pastors & Leaders Conference 2026',
   slug: 'pastors-leaders-conference-2026',
+  sameTimes: true,
   start: '18:30',
   end: '21:00',
   dates: [{ ...newDateDraft(), date: '2026-11-21' }],
@@ -108,6 +109,13 @@ describe('the dates a draft means', () => {
 describe('what stops a draft being saved', () => {
   it('is nothing for a complete one', () => {
     expect(draftProblems(good())).toEqual([])
+  })
+
+  it('starts each date with its own times, and a ticket type that already has an id', () => {
+    const draft = emptyDraft()
+    expect(draft.sameTimes).toBe(false)
+    expect(draft.ticketTypes[0]).toMatchObject({ isNew: true, name: 'General admission' })
+    expect(draft.ticketTypes[0].id).toMatch(/^[0-9a-f-]{36}$/)
   })
 
   it('names the title, the link and the first date on a blank one', () => {
@@ -226,8 +234,8 @@ describe('a saved event back as a draft', () => {
       { id: 'd2', date: '2026-11-22', start: '18:30', endDate: '', end: '21:00', label: 'Day 2' },
     ])
     expect(draft.ticketTypes).toEqual([
-      { id: 't1', name: 'With lunch', description: '', kind: 'paid', price: '20.50', minDonation: '', quantity: '40' },
-      { id: 't2', name: 'Give', description: 'What you can', kind: 'donation', price: '', minDonation: '5.00', quantity: '' },
+      { id: 't1', isNew: false, name: 'With lunch', description: '', kind: 'paid', price: '20.50', minDonation: '', quantity: '40' },
+      { id: 't2', isNew: false, name: 'Give', description: 'What you can', kind: 'donation', price: '', minDonation: '5.00', quantity: '' },
     ])
     expect(draft.promoCodes).toEqual([{ id: 'p1', code: 'EARLY', kind: 'amount', value: '5.00', ticketTypeIds: ['t1'], maxUses: '', active: true }])
     expect(draftProblems(draft)).toEqual([])

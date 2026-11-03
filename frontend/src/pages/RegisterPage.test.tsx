@@ -97,7 +97,9 @@ function show() {
 const fillWho = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Ama Owusu')
   await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@example.org')
-  await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07700 900123')
+  // A GB number by default, kept as its international form. (07700 900xxx is
+  // the drama range, which the phone library rightly refuses.)
+  await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
 }
 
 beforeEach(() => {
@@ -160,7 +162,7 @@ describe('the public register page', () => {
         order: {
           name: 'Ama Owusu',
           email: 'ama@example.org',
-          phone: '07700 900123',
+          phone: '+447911123456',
           date_id: null,
           promo_code: '',
           lines: [{ ticket_type_id: 't-std', quantity: 2, attendee_names: ['', 'Kofi Owusu'], donation_pence: undefined }],

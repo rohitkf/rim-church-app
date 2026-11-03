@@ -30,6 +30,7 @@ export function PhoneField({
   normalise = false,
   label = 'Phone',
   inputClassName,
+  eyebrow = false,
 }: {
   value: string
   onChange: (e164: string) => void
@@ -40,6 +41,8 @@ export function PhoneField({
   normalise?: boolean
   label?: string
   inputClassName?: string
+  /** The label in the small capitals the other fields on a form use (Field's Eyebrow). */
+  eyebrow?: boolean
 }) {
   const id = useId()
   const [start] = useState(() => splitPhone(value))
@@ -96,7 +99,9 @@ export function PhoneField({
 
   return (
     <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id} className={eyebrow ? 'font-mono text-label-sm uppercase tracking-wide text-on-surface-faint' : undefined}>
+        {label}
+      </label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="sm:w-64 sm:shrink-0">
           <Select
