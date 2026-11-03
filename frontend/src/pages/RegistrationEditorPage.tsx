@@ -86,7 +86,7 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
         code === '23505'
           ? 'Another event already uses that link. Change it.'
           : code === '23503'
-            ? 'A date or ticket type with registrations on it cannot be removed. Cancel those registrations first.'
+            ? 'A date or ticket type that has registrations on it — cancelled ones too — cannot be removed. Set its quantity to what has been sold instead, so no more are taken.'
             : errorText(err, 'Could not save this event.'),
       )
     },

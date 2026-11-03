@@ -589,7 +589,16 @@ export async function syncRegistrationDiary(event: Pick<RegistrationEvent, 'id' 
   if (error) throw error
 }
 
+/**
+ * Delete an event and everything on it. Its orders go first, on purpose:
+ * an order's tickets point at their ticket type and an order at its date,
+ * and the event's own cascade reaches those tables before it reaches the
+ * orders (0246 made the two links wait until commit, but the order of
+ * work here is right whatever the database does).
+ */
 export async function deleteRegistrationEvent(id: string): Promise<void> {
+  const orders = await supabase.from('registration_orders').delete().eq('event_id', id)
+  if (orders.error) throw orders.error
   const { error } = await supabase.from('registration_events').delete().eq('id', id)
   if (error) throw error
 }
