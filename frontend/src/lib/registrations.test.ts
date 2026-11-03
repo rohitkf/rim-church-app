@@ -242,7 +242,7 @@ describe('a saved event back as a draft', () => {
       { id: 't1', isNew: false, name: 'With lunch', description: '', kind: 'paid', price: '20.50', minDonation: '', quantity: '40' },
       { id: 't2', isNew: false, name: 'Give', description: 'What you can', kind: 'donation', price: '', minDonation: '5.00', quantity: '' },
     ])
-    expect(draft.promoCodes).toEqual([{ id: 'p1', code: 'EARLY', kind: 'amount', value: '5.00', ticketTypeIds: ['t1'], maxUses: '', active: true }])
+    expect(draft.promoCodes).toEqual([{ id: 'p1', code: 'EARLY', kind: 'amount', value: '5.00', ticketTypeIds: ['t1'], limited: true, maxUses: '', active: true }])
     expect(draftProblems(draft)).toEqual([])
   })
 

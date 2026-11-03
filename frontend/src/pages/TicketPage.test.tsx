@@ -306,6 +306,28 @@ describe('the ticket page', () => {
     expect(screen.queryByText('Happening now')).toBeNull()
   })
 
+  it('gives a paid ticket to an online event its way in (0249)', async () => {
+    const o = order({ payment_status: 'received', join: { url: 'https://zoom.us/j/8123', details: 'Passcode 2026' } })
+    state.order = { ...o, event: { ...o.event, attendance: 'online' } }
+    show()
+    const join = await screen.findByRole('region', { name: 'Joining online' })
+    expect(within(join).getByRole('link', { name: /Join online/ })).toHaveAttribute('href', 'https://zoom.us/j/8123')
+    expect(within(join).getByText('Passcode 2026')).toBeInTheDocument()
+    // Online only: no place, no directions.
+    expect(screen.queryByRole('link', { name: /Open directions/ })).toBeNull()
+  })
+
+  it('holds the way in back until the payment is confirmed', async () => {
+    const o = order({ payment_status: 'awaiting', join: null })
+    state.order = { ...o, event: { ...o.event, attendance: 'both' } }
+    show()
+    const join = await screen.findByRole('region', { name: 'Joining online' })
+    expect(within(join).getByText(/appears here once your payment is confirmed/)).toBeInTheDocument()
+    expect(within(join).queryByRole('link')).toBeNull()
+    // Both: the hall is still shown.
+    expect(screen.getByText('Church Hall')).toBeInTheDocument()
+  })
+
   it('says so when the link leads nowhere', async () => {
     state.order = null
     show()

@@ -185,9 +185,10 @@ describe('making a registration event', () => {
     await user.type(within(promo).getByRole('textbox', { name: 'Code' }), 'early bird!')
     expect(within(promo).getByRole('textbox', { name: 'Code' })).toHaveValue('EARLYBIRD')
     // No paid ticket yet, so nothing to limit the code to.
-    expect(within(promo).getByText(/none of the tickets is paid yet/)).toBeInTheDocument()
+    expect(within(promo).getByText(/Make a ticket type paid above/)).toBeInTheDocument()
     // Make the first ticket paid: the code can name it before anything is saved.
     await user.click(within(screen.getByRole('group', { name: 'Ticket 1' })).getByRole('radio', { name: 'Paid' }))
+    await user.click(within(promo).getByRole('radio', { name: 'Only these tickets' }))
     await user.click(within(promo).getByRole('checkbox', { name: 'General admission' }))
     expect(within(promo).getByRole('checkbox', { name: 'General admission' })).toBeChecked()
   })
@@ -249,14 +250,53 @@ describe('making a registration event', () => {
     f.event.image_focus_y = 80
     state.existing = f
     const user = show('/registrations/e1/edit')
-    expect(await screen.findByRole('slider', { name: 'Left to right' })).toHaveValue('20')
-    expect(screen.getByRole('slider', { name: 'Top to bottom' })).toHaveValue('80')
-    expect(screen.getByRole('img', { name: /How the picture will show/ })).toHaveStyle({ objectPosition: '20% 80%' })
-    fireEvent.change(screen.getByRole('slider', { name: 'Left to right' }), { target: { value: '35' } })
+    // Shown as the page will crop it; nothing to drag until asked for.
+    expect(await screen.findByRole('img', { name: /How the picture will show/ })).toHaveStyle({ objectPosition: '20% 80%' })
+    expect(screen.queryByRole('slider', { name: 'Left to right' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Position the picture' }))
+    const dialog = screen.getByRole('dialog', { name: 'Position the picture' })
+    expect(within(dialog).getByRole('slider', { name: 'Left to right' })).toHaveValue('20')
+    expect(within(dialog).getByRole('slider', { name: 'Top to bottom' })).toHaveValue('80')
+    fireEvent.change(within(dialog).getByRole('slider', { name: 'Left to right' }), { target: { value: '35' } })
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.getByRole('img', { name: /How the picture will show/ })).toHaveStyle({ objectPosition: '35% 80%' })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
     expect(state.saved[0].draft).toMatchObject({ imagePath: 'events/x.jpg', imageFocus: { x: 35, y: 80 } })
+  })
+
+  it('makes an event online, with its way in, and keeps no place for it (0249)', async () => {
+    state.existing = full()
+    const user = show('/registrations/e1/edit')
+    await screen.findByRole('textbox', { name: 'Title' })
+    await user.click(screen.getByRole('radio', { name: 'Online' }))
+    expect(screen.queryByRole('textbox', { name: /^Address/ })).toBeNull()
+    await user.type(screen.getByRole('textbox', { name: /Link to join/ }), 'zoom.us/j/1')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText(/must start with https/)).toBeInTheDocument()
+    expect(state.saved).toEqual([])
+    await user.clear(screen.getByRole('textbox', { name: /Link to join/ }))
+    await user.type(screen.getByRole('textbox', { name: /Link to join/ }), 'https://zoom.us/j/1')
+    await user.type(screen.getByRole('textbox', { name: /Meeting ID/ }), 'Passcode 2026')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft).toMatchObject({ attendance: 'online', joinUrl: 'https://zoom.us/j/1', joinDetails: 'Passcode 2026' })
+  })
+
+  it('lets a promo code be for every paid ticket or only the ones ticked', async () => {
+    state.existing = full()
+    const user = show('/registrations/e1/edit')
+    const code = within(await screen.findByRole('group', { name: 'Promo code 1' }))
+    expect(code.getByRole('radio', { name: 'Every paid ticket' })).toBeChecked()
+    expect(code.queryByRole('checkbox', { name: 'With lunch' })).toBeNull()
+    await user.click(code.getByRole('radio', { name: 'Only these tickets' }))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText(/tick the tickets it is for/)).toBeInTheDocument()
+    await user.click(code.getByRole('checkbox', { name: 'With lunch' }))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft.promoCodes[0]).toMatchObject({ limited: true, ticketTypeIds: ['t1'] })
   })
 
   it('opens a saved event with everything on it, and keeps the diary in step when saved', async () => {
@@ -269,8 +309,8 @@ describe('making a registration event', () => {
     expect(within(ticket).getByRole('textbox', { name: 'Price (£)' })).toHaveValue('20.00')
     expect(within(ticket).getByRole('textbox', { name: 'Quantity' })).toHaveValue('40')
     expect(within(screen.getByRole('group', { name: 'Promo code 1' })).getByRole('textbox', { name: 'Code' })).toHaveValue('EARLY')
-    // A saved paid ticket can be ticked for a code.
-    expect(within(screen.getByRole('group', { name: 'Promo code 1' })).getByRole('checkbox', { name: 'With lunch' })).not.toBeChecked()
+    // A code with no tickets named is for every paid ticket.
+    expect(within(screen.getByRole('group', { name: 'Promo code 1' })).getByRole('radio', { name: 'Every paid ticket' })).toBeChecked()
     expect(screen.getByText('map at 51.45,-0.97')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /^Link$/ })).toHaveValue('https://paypal.me/rim')
     expect(screen.getByRole('checkbox', { name: /church diary/ })).toBeChecked()

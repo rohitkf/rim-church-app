@@ -281,6 +281,14 @@ describe('the public register page', () => {
     expect(screen.queryByRole('timer')).toBeNull()
   })
 
+  it('says an online event is online, with no place, and keeps the way in for the ticket (0249)', async () => {
+    state.event = event({ attendance: 'online', location: { name: null, address: null, latitude: null, longitude: null } })
+    show()
+    expect(await screen.findByText('This event is online.')).toBeInTheDocument()
+    expect(screen.getByText(/link to join is on your ticket once you register/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Open directions/ })).toBeNull()
+  })
+
   it('says so when the link leads nowhere', async () => {
     state.event = null
     show()

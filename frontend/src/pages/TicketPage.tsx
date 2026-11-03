@@ -164,7 +164,9 @@ function Ticket({ order }: { order: OrderView }) {
           <p className="mt-3 font-mono text-headline-sm tracking-[0.2em] text-[#14143a]">{order.code}</p>
           <p className="mt-1 text-label-md text-[#5a5a72]">
             {paid
-              ? 'Show this at the door. Save this page’s link — it is your ticket.'
+              ? event.attendance === 'online'
+                ? 'Save this page’s link — it is your ticket, and the way in is below.'
+                : 'Show this at the door. Save this page’s link — it is your ticket.'
               : order.payment_status === 'reported'
                 ? 'Your receipt is being checked. Once the payment is matched, this becomes your ticket — show it at the door.'
                 : 'Show this at reception to pay, or pay below. Once it is paid, this becomes your ticket.'}
@@ -198,7 +200,31 @@ function Ticket({ order }: { order: OrderView }) {
             ))}
           </ul>
         </div>
-        {(event.location.name || event.location.address) && (
+        {event.attendance && event.attendance !== 'in_person' && !cancelled && (
+          <section aria-label="Joining online" className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline">
+            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Joining online</p>
+            {order.join ? (
+              <>
+                {order.join.url ? (
+                  <a
+                    href={order.join.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform active:scale-[0.97]"
+                  >
+                    Join online <span aria-hidden="true">↗</span>
+                  </a>
+                ) : (
+                  <p className="mt-1 text-body-sm text-on-surface-variant">The church will put the link to join here before the event.</p>
+                )}
+                {order.join.details && <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface">{order.join.details}</p>}
+              </>
+            ) : (
+              <p className="mt-1 text-body-sm text-on-surface-variant">The link to join appears here once your payment is confirmed.</p>
+            )}
+          </section>
+        )}
+        {event.attendance !== 'online' && (event.location.name || event.location.address) && (
           <div>
             <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Where</p>
             {event.location.name && <p className="mt-1 text-body-md text-on-surface">{event.location.name}</p>}

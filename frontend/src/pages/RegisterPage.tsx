@@ -213,7 +213,14 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             ))}
           </ul>
         </div>
-        {(event.location.name || event.location.address) && (
+        {event.attendance && event.attendance !== 'in_person' && (
+          <div>
+            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Online</p>
+            <p className="mt-1 text-body-md text-on-surface">{event.attendance === 'both' ? 'In the hall, or join online.' : 'This event is online.'}</p>
+            <p className="text-body-sm text-on-surface-variant">The link to join is on your ticket once you register.</p>
+          </div>
+        )}
+        {event.attendance !== 'online' && (event.location.name || event.location.address) && (
           <div>
             <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Where</p>
             {event.location.name && <p className="mt-1 text-body-md text-on-surface">{event.location.name}</p>}
