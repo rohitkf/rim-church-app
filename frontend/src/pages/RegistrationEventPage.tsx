@@ -83,7 +83,7 @@ export function RegistrationEventPage() {
   const [cancelNote, setCancelNote] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteTyped, setDeleteTyped] = useState('')
-  const [nameCopied, setNameCopied] = useState(false)
+  const [cancelTyped, setCancelTyped] = useState('')
   const [refundFor, setRefundFor] = useState<OrderRow | null>(null)
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
@@ -247,7 +247,15 @@ export function RegistrationEventPage() {
     { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
   ]
   if (!cancelled && event.status !== 'draft' && rights.cancel) {
-    eventActions.push({ label: 'Cancel event', tone: 'danger', onSelect: () => setCancelling(true), hint: 'Called off: everyone is told, and every order is kept' })
+    eventActions.push({
+      label: 'Cancel event',
+      tone: 'danger',
+      onSelect: () => {
+        setCancelTyped('')
+        setCancelling(true)
+      },
+      hint: 'Called off: everyone is told, and every order is kept',
+    })
   }
   if (rights.delete) {
     eventActions.push(
@@ -526,7 +534,7 @@ export function RegistrationEventPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              cancelEvent.mutate()
+              if (cancelTyped.trim() === event.title.trim()) cancelEvent.mutate()
             }}
             className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]"
           >
@@ -538,11 +546,12 @@ export function RegistrationEventPage() {
             <Field label="A word to everyone (optional)" className="mt-4">
               <textarea value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} rows={3} maxLength={1000} placeholder="We are sorry — the hall is closed for repairs." className={`${inputClasses} resize-y`} />
             </Field>
+            <NameToType title={event.title} label="Type the event’s name to cancel it" value={cancelTyped} onChange={setCancelTyped} />
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <ActionButton tone="ghost" onClick={() => setCancelling(false)}>
                 Keep it on
               </ActionButton>
-              <ActionButton type="submit" tone="danger" disabled={cancelEvent.isPending}>
+              <ActionButton type="submit" tone="danger" disabled={cancelTyped.trim() !== event.title.trim() || cancelEvent.isPending}>
                 {cancelEvent.isPending ? 'Cancelling…' : 'Cancel the event'}
               </ActionButton>
             </div>
@@ -562,26 +571,7 @@ export function RegistrationEventPage() {
             <p className="mt-1 text-body-sm text-on-surface-variant">
               For a test or a duplicate. The event, every registration on it and its link go for good, and cannot be brought back. Export to Excel first if you might need them.
             </p>
-            {/* The name to type, set apart and ready to copy: the check is against the name, not against the typing. */}
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
-              <p className="min-w-0 break-words font-mono text-body-sm text-on-surface" aria-label="The event’s name">
-                {event.title}
-              </p>
-              <ActionButton
-                size="sm"
-                tone="quiet"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(event.title)
-                  setNameCopied(true)
-                  window.setTimeout(() => setNameCopied(false), 1500)
-                }}
-              >
-                {nameCopied ? 'Copied' : 'Copy name'}
-              </ActionButton>
-            </div>
-            <Field label="Type the event’s name to delete it" className="mt-3">
-              <input value={deleteTyped} onChange={(e) => setDeleteTyped(e.target.value)} autoComplete="off" className={inputClasses} />
-            </Field>
+            <NameToType title={event.title} label="Type the event’s name to delete it" value={deleteTyped} onChange={setDeleteTyped} />
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <ActionButton tone="ghost" onClick={() => setDeleting(false)}>
                 Keep it
@@ -621,6 +611,39 @@ export function RegistrationEventPage() {
       )}
       {dialog}
     </div>
+  )
+}
+
+/**
+ * A step that cannot be undone asks for the event's name typed back. The
+ * name is set apart and copies in one tap — the check is that they meant
+ * this event, not that they can type.
+ */
+function NameToType({ title, label, value, onChange }: { title: string; label: string; value: string; onChange: (v: string) => void }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <>
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
+        <p className="min-w-0 break-words font-mono text-body-sm text-on-surface" aria-label="The event’s name">
+          {title}
+        </p>
+        <ActionButton
+          size="sm"
+          tone="quiet"
+          className="whitespace-nowrap"
+          onClick={() => {
+            void navigator.clipboard?.writeText(title)
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1500)
+          }}
+        >
+          {copied ? 'Copied' : 'Copy name'}
+        </ActionButton>
+      </div>
+      <Field label={label} className="mt-3">
+        <input value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" className={inputClasses} />
+      </Field>
+    </>
   )
 }
 

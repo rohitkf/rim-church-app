@@ -432,6 +432,11 @@ describe('an event’s page', () => {
     const dialog = screen.getByRole('dialog', { name: 'Cancel Pastors & Leaders 2026?' })
     expect(dialog).toHaveTextContent(/2 paid orders will be marked as owing a refund/)
     await user.type(within(dialog).getByRole('textbox', { name: /A word to everyone/ }), 'The hall flooded.')
+    // The name typed back first, with a tap to copy it.
+    expect(within(dialog).getByRole('button', { name: 'Cancel the event' })).toBeDisabled()
+    await user.click(within(dialog).getByRole('button', { name: 'Copy name' }))
+    expect(await navigator.clipboard.readText()).toBe('Pastors & Leaders 2026')
+    await user.type(within(dialog).getByRole('textbox', { name: /Type the event’s name to cancel it/ }), 'Pastors & Leaders 2026')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel the event' }))
     await waitFor(() => expect(state.cancelledEvents).toEqual([['e1', 'The hall flooded.']]))
     expect(state.toldCancelled).toEqual(['e1'])
