@@ -176,6 +176,41 @@ OpenStreetMap's Nominatim, one a second, as its terms ask. Skip it and
 clock-ins still work; the Clock In page shows "Looking up the address…"
 under the distance from church.
 
+## 7c. Tickets by email (Registrations)
+
+Registrations (0244–0245) need nothing beyond the migrations to work:
+the public page, the ticket with its QR code, the door scanner and the
+Excel export are all there. Emailing the ticket — right after
+registering, "Email me this ticket", and "Get your ticket again" for a
+lost one — is one edge function and two secrets.
+
+1. In Resend, verify a sending domain (Domains → Add) and create an API
+   key with **sending access only**, restricted to that domain.
+2. Then:
+
+```bash
+supabase functions deploy registration-email
+supabase secrets set RESEND_API_KEY=re_... \
+  REGISTRATION_FROM="Your Church <tickets@your-verified-domain>"
+```
+
+The links in the email are built on `SITE_URL` from step 7, so set that
+to the real domain. The function only ever sends to the address an order
+already holds, ten minutes apart at most, and answers the same whether
+or not an address has a registration. Without the two secrets it answers
+"not configured" and the pages say email is not set up — nothing breaks.
+
+The sold-out push (a ticket type reaching its quantity) goes through the
+notifications table like every other push, so step 8 covers it; the
+`push-notify` function must be a version that lists
+`registration_sold_out` (any from 0245 on), or the push still arrives
+with the generic line and a tap lands on the dashboard.
+
+Pictures on events go to the `registration-images` bucket, which
+migration 0244 creates (public, 2 MB, PNG/JPEG/WebP). People's details
+on an event's orders are blanked `registration_retention_days` (90) days
+after its last date by a nightly job; Settings › Retention changes it.
+
 ## 8. Phone notifications while the app is closed
 
 Skip this and notifications still work *while the app is open* — the bell,
@@ -275,6 +310,9 @@ Merging a pull request ships **the frontend only**. Two things stay manual:
    the user. After applying, run `notify pgrst, 'reload schema';` so it
    takes effect at once.
 2. **Redeploy changed edge functions** — `supabase functions deploy <name>`.
+   `frontend/src/lib/notificationLink.test.ts` fails the build when the
+   app's notification list and `push-notify`'s copy disagree, which is
+   the cue that `push-notify` needs redeploying.
 
 ---
 
