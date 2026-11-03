@@ -845,8 +845,11 @@ export const orderViewSchema = z.object({
   refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
   refund_at: z.string().nullable().optional(),
   /** Paid at reception, so the church needs to know where to send it. */
-  refund_details_wanted: z.boolean().optional(),
-  refund_details_sent: z.boolean().optional(),
+  // Before 0252 the database answered null, not false, for an order with no
+  // refund — and a ticket page that refused null showed "No such ticket" to
+  // everyone. Null is still taken, as false.
+  refund_details_wanted: z.boolean().nullish().transform((v) => v === true),
+  refund_details_sent: z.boolean().nullish().transform((v) => v === true),
   /** The way in to an online event, once the order has nothing left to pay (0249). */
   join: z.object({ url: z.string().nullable(), details: z.string().nullable() }).nullable().optional(),
   tickets: z.array(orderTicketSchema),

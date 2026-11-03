@@ -532,6 +532,16 @@ Each of these has already cost real time. None of them show up in review.
   a file, and pick a name nobody has.
 - **A test phone number must be one libphonenumber accepts.** UK 07700
   900xxx is the drama range and is rightly refused; use 07911 123456.
+- **A SQL true/false can be null, and a strict schema then refuses the
+  whole answer.** `o.refund_status = 'owed' and …` is null, not false,
+  when `refund_status` is null; `z.boolean()` refused it, and the ticket
+  page — which shows one "No such ticket" for every failure — told every
+  attendee their link was wrong (0250 → 0252). The same null made
+  `if not …` in plpgsql pass a guard it should have stopped. Write
+  `x is not distinct from 'owed'` or `coalesce(…, false)` for anything a
+  public function returns as a boolean or tests with `not`. And page tests
+  that hand the page a ready-made object skip the schema entirely: parse a
+  real production answer at least once (`lib/orderView.test.ts`).
 - **A countdown asserted to the second fails a second later.** Give the
   target 30 seconds of margin, or use fake timers.
 
