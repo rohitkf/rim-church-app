@@ -183,6 +183,13 @@ export function RegistrationEventPage() {
       cancelLabel: 'Keep it',
       onConfirm: () => mark.mutate({ order, action: 'cancel' }),
     })
+  const askDelete = () =>
+    ask({
+      title: `Delete ${event.title}?`,
+      body: 'Every registration on it goes too, and its link stops working. Export the orders first if you need them for the accounts.',
+      confirmLabel: 'Delete',
+      onConfirm: () => remove.mutate(),
+    })
   const notReceived = (order: OrderRow) =>
     ask({
       title: `Not received from ${order.name}?`,
@@ -221,6 +228,15 @@ export function RegistrationEventPage() {
                 Reopen
               </ActionButton>
             )}
+            {/* The rest of what can be done to the event itself, deleting it last. */}
+            <ActionMenu
+              label={event.title}
+              actions={[
+                { label: 'Download QR code', onSelect: () => downloadQr.mutate(), hint: 'For a poster or a message' },
+                { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
+                { label: 'Delete event', tone: 'danger', onSelect: askDelete, hint: 'With every registration on it' },
+              ]}
+            />
           </div>
         }
       />
@@ -363,21 +379,6 @@ export function RegistrationEventPage() {
         <Link to="/registrations" className="tap text-label-md text-on-surface-variant hover:underline">
           All events
         </Link>
-        <button
-          type="button"
-          onClick={() =>
-            ask({
-              title: `Delete ${event.title}?`,
-              body: 'Every registration on it goes too, and its link stops working. Export the orders first if you need them for the accounts.',
-              confirmLabel: 'Delete',
-              onConfirm: () => remove.mutate(),
-            })
-          }
-          disabled={remove.isPending}
-          className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-        >
-          Delete this event
-        </button>
       </div>
 
       {scanning && (

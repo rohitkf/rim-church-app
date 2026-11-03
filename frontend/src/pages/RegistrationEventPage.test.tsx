@@ -343,6 +343,21 @@ describe('an event’s page', () => {
     expect(screen.queryByRole('button', { name: 'Scan tickets' })).toBeNull()
   })
 
+  it('keeps Delete in the event’s own menu by Edit, and asks first', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    const menu = await openMenu(user, 'Pastors & Leaders 2026')
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      expect.stringContaining('Download QR code'),
+      'Export to Excel',
+      expect.stringContaining('Delete event'),
+    ])
+    await user.click(within(menu).getByRole('menuitem', { name: /Delete event/ }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Pastors & Leaders 2026?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByText('all events')).toBeInTheDocument()
+  })
+
   it('publishes a draft that has a date and a ticket type', async () => {
     state.full = full({ status: 'draft' })
     const user = show()
