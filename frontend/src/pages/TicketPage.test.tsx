@@ -281,6 +281,31 @@ describe('the ticket page', () => {
     expect(document.querySelector('img[src="https://public/events/x.jpg"]')).toHaveStyle({ objectPosition: '20% 80%' })
   })
 
+  it('counts down to the event', async () => {
+    const soon = new Date(Date.now() + 3 * 86400000 + 7200000 + 30000).toISOString()
+    const o = order()
+    state.order = { ...o, event: { ...o.event, dates: [{ id: 'd1', starts_at: soon, ends_at: null, label: null }] } }
+    show()
+    expect(await screen.findByRole('timer')).toHaveAccessibleName(/^Starts in 3 days 2 hrs/)
+  })
+
+  it('says the event is happening now while it is on', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, dates: [{ id: 'd1', starts_at: new Date(Date.now() - 3600000).toISOString(), ends_at: new Date(Date.now() + 3600000).toISOString(), label: null }] } }
+    show()
+    expect(await screen.findByText('Happening now')).toBeInTheDocument()
+    expect(screen.queryByRole('timer')).toBeNull()
+  })
+
+  it('shows no countdown once the event is over, or on a cancelled ticket', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, dates: [{ id: 'd1', starts_at: new Date(Date.now() - 7200000).toISOString(), ends_at: new Date(Date.now() - 3600000).toISOString(), label: null }] } }
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('timer')).toBeNull()
+    expect(screen.queryByText('Happening now')).toBeNull()
+  })
+
   it('says so when the link leads nowhere', async () => {
     state.order = null
     show()

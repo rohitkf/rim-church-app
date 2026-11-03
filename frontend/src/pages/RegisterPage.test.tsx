@@ -268,6 +268,19 @@ describe('the public register page', () => {
     expect(document.querySelector('img[src="https://public/events/x.jpg"]')).toHaveStyle({ objectPosition: '20% 80%' })
   })
 
+  it('counts down to registration closing', async () => {
+    state.event = event({ closes_at: new Date(Date.now() + 2 * 86400000 + 3600000 + 30000).toISOString() })
+    show()
+    expect(await screen.findByRole('timer')).toHaveAccessibleName(/^Registration closes in 2 days 1 hrs/)
+  })
+
+  it('shows no closing countdown on an event that is not taking registrations', async () => {
+    state.event = event({ open: false, closed_reason: 'closed', closes_at: new Date(Date.now() + 86400000).toISOString() })
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('timer')).toBeNull()
+  })
+
   it('says so when the link leads nowhere', async () => {
     state.event = null
     show()
