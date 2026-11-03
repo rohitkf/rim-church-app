@@ -415,6 +415,8 @@ describe('what the door works (0247)', () => {
     expected_pence: 0,
     received_pence: 0,
     awaiting: 0,
+    reported: 0,
+    owed: 0,
     first_starts_at: null,
     last_ends_at: null,
     ...over,
@@ -458,6 +460,7 @@ describe('finding an order', () => {
   it('filters by what is owed, who has arrived, and what was cancelled', () => {
     expect(names('all')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
     expect(names('to_pay')).toEqual(['Ama Owusu'])
+    expect(names('to_check')).toEqual([])
     expect(names('paid')).toEqual(['Ben Joseph'])
     // Cancelled after arriving: not here any more.
     expect(names('checked_in')).toEqual(['Grace Mensah'])

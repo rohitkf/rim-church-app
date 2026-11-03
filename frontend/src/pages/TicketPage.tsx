@@ -518,10 +518,13 @@ function ProofStep({ code, method, onDone, onClose }: { code: string; method: On
 }
 
 /**
- * A refund (0250). Most go back the way they were paid, and say so; money
- * paid at reception has nowhere to go, so only then are the bank details
- * asked for — kept private to whoever runs registrations, and wiped once
- * the refund is sent.
+ * A refund (0250, 0253). One paid by bank transfer or PayPal goes back the
+ * way it came, and the page says so; one paid in cash at reception has
+ * nowhere to go, so the bank details are asked for. Since 0253 anybody
+ * owed a refund may send details — required for cash, a choice for the
+ * rest: the refund has not come back after the 5–7 working days it
+ * should take, or they would rather have it in another account. The
+ * details are private to whoever runs refunds, and wiped once it is sent.
  */
 function RefundSection({ order, onSent }: { order: OrderView; onSent: () => void }) {
   const errorText = useErrorText()
@@ -554,61 +557,78 @@ function RefundSection({ order, onSent }: { order: OrderView; onSent: () => void
     )
   }
   const how = order.payment_method === 'paypal' ? 'through PayPal, to the account you paid from' : 'to the bank account you paid from'
+  // Cash has nowhere to go back to: the details are needed. Otherwise they are a choice.
   const wanted = !!order.refund_details_wanted
   const sent = !!order.refund_details_sent
+  const form = (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        send.mutate()
+      }}
+      className="mt-2 flex flex-col gap-3"
+    >
+      <p className="text-body-md text-on-surface">
+        {wanted ? `You paid ${amount} at reception. Where should the church send it back?` : `Where should the church send ${amount} instead?`}
+      </p>
+      <p className="-mt-1 text-label-md text-on-surface-faint">Only whoever runs refunds can see these, and they are deleted once the refund is sent.</p>
+      <Field label="Name on the account">
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" className={inputClasses} />
+      </Field>
+      {abroad ? (
+        <Field label="IBAN">
+          <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} maxLength={40} autoCapitalize="characters" autoCorrect="off" className={`${inputClasses} font-mono`} />
+        </Field>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Sort code">
+            <input value={sortCode} onChange={(e) => setSortCode(e.target.value)} inputMode="numeric" placeholder="20-00-00" maxLength={8} className={`${inputClasses} font-mono`} />
+          </Field>
+          <Field label="Account number">
+            <input value={account} onChange={(e) => setAccount(e.target.value)} inputMode="numeric" placeholder="12345678" maxLength={8} className={`${inputClasses} font-mono`} />
+          </Field>
+        </div>
+      )}
+      <button type="button" onClick={() => setAbroad((a) => !a)} className="tap self-start text-label-md font-medium text-accent-blue-soft hover:underline">
+        {abroad ? 'Use a UK sort code and account number' : 'Not a UK account? Give an IBAN'}
+      </button>
+      {problem && (
+        <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          {problem}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <ActionButton type="submit" disabled={send.isPending}>
+          {send.isPending ? 'Sending…' : 'Send my bank details'}
+        </ActionButton>
+        {(!wanted || sent) && (
+          <ActionButton tone="ghost" onClick={() => setEditing(false)}>
+            Not now
+          </ActionButton>
+        )}
+      </div>
+    </form>
+  )
   return (
     <section aria-label="Your refund" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline">
       <Pill tone="orange">Refund on its way</Pill>
-      {!wanted ? (
-        <p className="mt-2 text-body-md text-on-surface">The church will refund {amount} {how}. There is nothing you need to send.</p>
-      ) : sent && !editing ? (
+      {editing || (wanted && !sent) ? (
+        form
+      ) : sent ? (
         <>
-          <p className="mt-2 text-body-md text-on-surface">Thank you — the church has your bank details and will send {amount} back to that account.</p>
+          <p className="mt-2 text-body-md text-on-surface">Thank you — the church has your bank details and will send {amount} to that account.</p>
           <button type="button" onClick={() => setEditing(true)} className="tap mt-1 text-label-md font-medium text-accent-blue-soft hover:underline">
             Change the bank details
           </button>
         </>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            send.mutate()
-          }}
-          className="mt-2 flex flex-col gap-3"
-        >
-          <p className="text-body-md text-on-surface">You paid {amount} at reception. Where should the church send it back?</p>
-          <p className="-mt-1 text-label-md text-on-surface-faint">Only whoever runs registrations can see these, and they are deleted once the refund is sent.</p>
-          <Field label="Name on the account">
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" className={inputClasses} />
-          </Field>
-          {abroad ? (
-            <Field label="IBAN">
-              <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} maxLength={40} autoCapitalize="characters" autoCorrect="off" className={`${inputClasses} font-mono`} />
-            </Field>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Sort code">
-                <input value={sortCode} onChange={(e) => setSortCode(e.target.value)} inputMode="numeric" placeholder="20-00-00" maxLength={8} className={`${inputClasses} font-mono`} />
-              </Field>
-              <Field label="Account number">
-                <input value={account} onChange={(e) => setAccount(e.target.value)} inputMode="numeric" placeholder="12345678" maxLength={8} className={`${inputClasses} font-mono`} />
-              </Field>
-            </div>
-          )}
-          <button type="button" onClick={() => setAbroad((a) => !a)} className="tap self-start text-label-md font-medium text-accent-blue-soft hover:underline">
-            {abroad ? 'Use a UK sort code and account number' : 'Not a UK account? Give an IBAN'}
+        <>
+          <p className="mt-2 text-body-md text-on-surface">The church will refund {amount} {how}. It usually shows within 5–7 working days of being sent, and there is nothing you need to send.</p>
+          <p className="mt-2 text-body-sm text-on-surface-variant">Not back after 5–7 working days, or would you rather have it in another account?</p>
+          <button type="button" onClick={() => setEditing(true)} className="tap mt-1 text-label-md font-medium text-accent-blue-soft hover:underline">
+            Give bank details to send it to
           </button>
-          {problem && (
-            <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-              {problem}
-            </p>
-          )}
-          <div>
-            <ActionButton type="submit" disabled={send.isPending}>
-              {send.isPending ? 'Sending…' : 'Send my bank details'}
-            </ActionButton>
-          </div>
-        </form>
+        </>
       )}
     </section>
   )

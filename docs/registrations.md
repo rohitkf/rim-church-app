@@ -66,7 +66,9 @@ details are tidied away after the event.
 - Publish to get the share link and a QR code. Close and reopen sales; a
   countdown on the register page shows when sales close.
 - Watch orders arrive, open receipts over the page, mark payments, add
-  notes, and export to Excel.
+  notes, and export to Excel. The event's page says up front what wants
+  doing (receipts to check, payments awaited, refunds owed), and an order
+  that needs a decision carries it as a button on its row.
 - Cancel the event and settle refunds. An event can be deleted only once
   every paid order is refunded.
 
@@ -82,7 +84,10 @@ details are tidied away after the event.
   and paid.
 - Can cancel their own ticket until they are checked in.
 - If the event is cancelled, bank and PayPal payers are refunded the way
-  they paid. Cash payers fill in a short bank details form.
+  they paid, usually within 5–7 working days. If it has not come back by
+  then, or they would rather have it in another account, they can send
+  bank details from the ticket page. Cash payers must fill in that form,
+  since cash has nowhere to go back to.
 
 ### Reception — `/door`
 
@@ -117,6 +122,8 @@ move on.
 
 Bank details from the refund form can be seen only by people with the
 Refunds right. They are wiped as soon as the order is marked Refunded.
+The office sees on each refund whether details have come in, and the
+refund sheet says where the money should go for every way of paying.
 
 ## Who is allowed to do what
 

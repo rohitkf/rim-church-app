@@ -147,7 +147,11 @@ export interface EventSummary extends RegistrationEvent {
   /** Pence: what confirmed orders come to, and what has been received or waived. */
   expected_pence: number
   received_pence: number
+  /** Live orders still to pay (awaiting or reported), and of those, the ones that sent a receipt to check. */
   awaiting: number
+  reported: number
+  /** Refunds owed and not yet sent (0250). */
+  owed: number
   first_starts_at: string | null
   /** When its last date ends (or starts, with no end): the door works an event until then. */
   last_ends_at: string | null
@@ -159,12 +163,13 @@ const orderStatSchema = z.object({
   quantity: z.number(),
   total_pence: z.number(),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
+  refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
 })
 
 export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
   const [events, orders, dates] = await Promise.all([
     supabase.from('registration_events').select(EVENT_COLUMNS).order('created_at', { ascending: false }),
-    supabase.from('registration_orders').select('event_id, status, quantity, total_pence, payment_status'),
+    supabase.from('registration_orders').select('event_id, status, quantity, total_pence, payment_status, refund_status'),
     supabase.from('registration_event_dates').select('event_id, starts_at, ends_at').order('starts_at'),
   ])
   if (events.error) throw events.error
@@ -190,10 +195,32 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
         expected_pence: mine.reduce((n, o) => n + o.total_pence, 0),
         received_pence: mine.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0),
         awaiting: mine.filter((o) => o.payment_status === 'awaiting' || o.payment_status === 'reported').length,
+        reported: mine.filter((o) => o.payment_status === 'reported').length,
+        owed: stats.filter((o) => o.event_id === event.id && o.refund_status === 'owed').length,
         first_starts_at: firstDate.get(event.id) ?? null,
         last_ends_at: lastEnd.get(event.id) ?? null,
       }
     })
+}
+
+export type EventGroup = { key: 'open' | 'draft' | 'done' | 'cancelled'; title: string; events: EventSummary[] }
+
+/** Where each event is, in the order the office wants them: the live ones first, the dead ones last. */
+export function groupEvents(rows: EventSummary[], now: Date): EventGroup[] {
+  const past = (e: EventSummary) => !!e.last_ends_at && new Date(e.last_ends_at) < now
+  const groups: EventGroup[] = [
+    { key: 'open', title: 'Taking registrations', events: [] },
+    { key: 'draft', title: 'Drafts', events: [] },
+    { key: 'done', title: 'Closed or past', events: [] },
+    { key: 'cancelled', title: 'Cancelled', events: [] },
+  ]
+  for (const e of rows) {
+    const key = e.cancelled_at ? 'cancelled' : e.status === 'draft' ? 'draft' : e.status === 'published' && !past(e) ? 'open' : 'done'
+    groups.find((g) => g.key === key)!.events.push(e)
+  }
+  // Soonest first among the live ones; the rest as they came (newest first).
+  groups[0].events.sort((a, b) => (a.first_starts_at ?? '9').localeCompare(b.first_starts_at ?? '9'))
+  return groups.filter((g) => g.events.length > 0)
 }
 
 export async function fetchRegistrationEvent(id: string): Promise<RegistrationEventFull | null> {
@@ -988,11 +1015,13 @@ export const orderRowSchema = z.object({
   anonymised_at: z.string().nullable(),
   created_at: z.string(),
   tickets: z.array(z.object({ ticket_type_id: z.string(), attendee_name: z.string().nullable(), unit_price_pence: z.number() })),
+  /** Bank details for the refund have come in (0253): when. Null without the Refunds right, which cannot read them. */
+  refund_details: z.object({ created_at: z.string() }).nullable().optional(),
 })
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1023,11 +1052,12 @@ export async function setOrderNotes(id: string, notes: string): Promise<void> {
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
+export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
 
 export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'to_pay', label: 'To pay' },
+  { key: 'to_check', label: 'Receipts' },
   { key: 'paid', label: 'Paid' },
   { key: 'checked_in', label: 'Checked in' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -1042,6 +1072,8 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
       ? true
       : filter === 'to_pay'
         ? live && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
+        : filter === 'to_check'
+          ? live && o.payment_status === 'reported'
         : filter === 'paid'
           ? live && (o.payment_status === 'received' || o.payment_status === 'waived')
           : filter === 'checked_in'

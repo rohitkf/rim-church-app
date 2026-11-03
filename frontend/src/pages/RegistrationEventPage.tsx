@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionButton, Field, Overlay, PageHeader, Pill, SegmentedControl, Statistic, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, Field, Overlay, PageHeader, Pill, SegmentedControl, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
@@ -58,6 +58,11 @@ import {
  * the payment could not be matched. Who marked it, and when, stays on the
  * order. The link tile also has the event's QR code to download, for a
  * poster or a message: whoever scans it lands on the registration page.
+ *
+ * What wants doing is said up front: receipts to check, payments still
+ * to come, refunds owed, each a tap to the orders it means; and an order
+ * that needs a decision carries its next step as a button, the rest of
+ * what can be done to it behind its ⋯ menu.
  */
 export function RegistrationEventPage() {
   const { id = '' } = useParams()
@@ -194,6 +199,15 @@ export function RegistrationEventPage() {
   const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
   const canPublish = dates.length > 0 && ticketTypes.length > 0
   const shown = rows.filter((o) => orderMatches(o, filter, query))
+  const countOf = (f: OrderFilter) => rows.filter((o) => orderMatches(o, f, '')).length
+  const reported = confirmed.filter((o) => o.payment_status === 'reported').length
+  const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
+  // A tap on what wants doing shows those orders, and goes to them.
+  const showOrders = (f: OrderFilter) => {
+    setFilter(f)
+    setQuery('')
+    document.getElementById('registered')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }
 
   const openNote = (order: OrderRow) => {
     setNoteText(order.notes ?? '')
@@ -245,7 +259,11 @@ export function RegistrationEventPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Registrations"
+        eyebrow={
+          <Link to="/registrations" className="tap hover:underline">
+            <span aria-hidden="true">← </span>Registrations
+          </Link>
+        }
         belowEyebrow={cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
         title={event.title}
         description={dates.map((d) => whenWords(d.starts_at, d.ends_at)).join(' · ') || 'No dates yet'}
@@ -342,30 +360,76 @@ export function RegistrationEventPage() {
           <Statistic value={tickets} unit="tickets" />
         </Tile>
         <Tile>
-          <Statistic value={pounds(received)} unit="received" />
+          <Statistic value={<Money>{pounds(received)}</Money>} unit="received" />
         </Tile>
-        <Tile>
-          {owed.length > 0 ? <Statistic value={pounds(owedPence)} unit="refunds owed" /> : <Statistic value={pounds(expected - received)} unit="still to come" />}
+        <Tile tone={owed.length > 0 ? 'warning' : 'plain'}>
+          {owed.length > 0 ? <Statistic value={<Money>{pounds(owedPence)}</Money>} unit="refunds owed" /> : <Statistic value={<Money>{pounds(expected - received)}</Money>} unit="still to come" />}
         </Tile>
       </div>
 
+      {(reported > 0 || awaitingOnly > 0 || owed.length > 0) && (
+        <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
+          {reported > 0 && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
+              <Pill tone="blue" dot className="-ml-1">
+                {reported}
+              </Pill>
+              {reported === 1 ? 'receipt to check' : 'receipts to check'}
+            </ActionButton>
+          )}
+          {awaitingOnly > 0 && !cancelled && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_pay')}>
+              <Pill tone="orange" className="-ml-1">
+                {awaitingOnly}
+              </Pill>
+              awaiting payment
+            </ActionButton>
+          )}
+          {owed.length > 0 && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('refunds')}>
+              <Pill tone="orange" dot className="-ml-1">
+                {owed.length}
+              </Pill>
+              {owed.length === 1 ? 'refund owed' : 'refunds owed'}
+            </ActionButton>
+          )}
+        </div>
+      )}
+
       <ul aria-label="Ticket types" className="mt-4 flex flex-col gap-2">
-        {ticketTypes.map((t) => (
-          <li key={t.id} className="flex items-center justify-between gap-3 rounded-[var(--radius-row)] bg-surface-lowest px-3.5 py-2.5 hairline">
-            <span className="min-w-0 text-body-md text-on-surface">
-              {t.name}
-              <span className="text-on-surface-variant"> · {t.kind === 'free' ? 'Free' : t.kind === 'paid' ? pounds(t.price_pence) : 'Donation'}</span>
-            </span>
-            <span className="shrink-0 font-mono text-label-md tabular text-on-surface-variant">
-              {soldOf(t.id)}
-              {t.quantity !== null && ` / ${t.quantity}`}
-              {event.date_mode === 'choose' && t.quantity !== null && ' per date'}
-            </span>
-          </li>
-        ))}
+        {ticketTypes.map((t) => {
+          const sold = soldOf(t.id)
+          const perDate = event.date_mode === 'choose' && t.quantity !== null
+          return (
+            <li key={t.id} className="rounded-[var(--radius-row)] bg-surface-lowest px-3.5 py-2.5 hairline">
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-body-md text-on-surface">
+                  {t.name}
+                  <span className="text-on-surface-variant"> · {t.kind === 'free' ? 'Free' : t.kind === 'paid' ? pounds(t.price_pence) : 'Donation'}</span>
+                </span>
+                <span className="shrink-0 font-mono text-label-md tabular text-on-surface-variant">
+                  {sold}
+                  {t.quantity !== null && ` / ${t.quantity}`}
+                  {perDate && ' per date'}
+                </span>
+              </div>
+              {t.quantity !== null && !perDate && (
+                <div className="mt-2">
+                  <StackedBar
+                    height={4}
+                    segments={[
+                      { key: 'sold', value: sold, className: sold >= t.quantity ? 'bg-accent-orange' : 'bg-accent-blue' },
+                      { key: 'left', value: Math.max(0, t.quantity - sold), className: 'bg-transparent' },
+                    ]}
+                  />
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
-      <section className="mt-8">
+      <section id="registered" className="mt-8 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h2 className="flex flex-wrap items-center gap-2 text-headline-md text-on-surface">
             Who has registered
@@ -393,9 +457,31 @@ export function RegistrationEventPage() {
               autoCapitalize="off"
               className={`${inputClasses} max-w-sm`}
             />
-            {/* Five segments do not fit a phone; the row scrolls rather than squeezes. */}
+            {/* Seven segments do not fit a phone; the row scrolls rather than squeezes. Each says how many it holds. */}
             <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-              <SegmentedControl label="Show" value={filter} onChange={setFilter} options={ORDER_FILTERS.map((f) => ({ value: f.key, label: f.label }))} className="w-max min-w-full" />
+              <SegmentedControl
+                label="Show"
+                value={filter}
+                onChange={setFilter}
+                options={ORDER_FILTERS.map((f) => {
+                  const n = countOf(f.key)
+                  return {
+                    value: f.key,
+                    label: (
+                      <>
+                        {f.label}
+                        {f.key !== 'all' && n > 0 && (
+                          <>
+                            {' '}
+                            <span className="font-mono text-label-sm tabular opacity-70">{n}</span>
+                          </>
+                        )}
+                      </>
+                    ),
+                  }
+                })}
+                className="w-max min-w-full"
+              />
             </div>
           </div>
         )}
@@ -409,7 +495,9 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
+                  busy={mark.isPending}
                   actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights)}
+                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights)}
                 />
               ))}
             </ul>
@@ -421,12 +509,6 @@ export function RegistrationEventPage() {
           </p>
         )}
       </section>
-
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/registrations" className="tap text-label-md text-on-surface-variant hover:underline">
-          All events
-        </Link>
-      </div>
 
       {scanning && (
         <TicketScanner
@@ -524,6 +606,11 @@ export function RegistrationEventPage() {
   )
 }
 
+/** A sum of money is wider than a count: a step smaller on a phone, so the tile holds it. */
+function Money({ children }: { children: ReactNode }) {
+  return <span className="text-headline-lg sm:text-numeral">{children}</span>
+}
+
 const ACTION_DONE: Record<OrderAction, string> = {
   received: 'Marked as received',
   waived: 'Payment waived',
@@ -549,14 +636,8 @@ function orderActions(
   const actions: MenuAction[] = []
   // A refund owed comes first: it is what this order needs.
   if (o.refund_status === 'owed' && r.refund) {
-    const cash = !o.payment_method || o.payment_method === 'reception'
-    if (cash) actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: 'Paid at reception: the bank details they sent' })
-    actions.push({
-      label: 'Mark as refunded',
-      tone: 'accent',
-      onSelect: () => act('refunded'),
-      hint: cash ? 'Sent to the account they gave' : o.payment_method === 'paypal' ? 'Refunded in PayPal' : 'Sent back to the account it came from',
-    })
+    actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: refundWhere(o) })
+    actions.push({ label: 'Mark as refunded', tone: 'accent', onSelect: () => act('refunded'), hint: refundHow(o) })
   }
   if (eventCancelled) {
     actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
@@ -591,6 +672,36 @@ function orderActions(
   actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
   if (o.status === 'confirmed' && r.cancel) actions.push({ label: 'Cancel registration', onSelect: cancel, tone: 'danger' })
   return actions
+}
+
+/** The one thing an order is waiting on, as buttons on its row; the ⋯ menu has the rest. */
+function nextSteps(o: OrderRow, act: (action: OrderAction) => void, notReceived: () => void, refundDetails: () => void, r: RegistrationRights): NextStep[] {
+  if (o.refund_status === 'owed' && r.refund) {
+    return [
+      { label: 'Mark as refunded', onClick: () => act('refunded'), tone: 'primary' },
+      { label: 'Where to send it', onClick: refundDetails, tone: 'quiet' },
+    ]
+  }
+  if (o.status === 'confirmed' && o.payment_status === 'reported' && r.takePayment) {
+    const steps: NextStep[] = [{ label: 'Mark as received', onClick: () => act('received'), tone: 'primary' }]
+    if (r.approve) steps.push({ label: 'Not received', onClick: notReceived, tone: 'quiet' })
+    return steps
+  }
+  return []
+}
+type NextStep = { label: string; onClick: () => void; tone: 'primary' | 'quiet' }
+
+const paidCash = (o: OrderRow) => !o.payment_method || o.payment_method === 'reception'
+/** Where a refund goes, for the menu and the sheet. */
+function refundWhere(o: OrderRow): string {
+  if (o.refund_details) return 'They sent bank details to use'
+  if (paidCash(o)) return 'Paid at reception: waiting for their bank details'
+  return o.payment_method === 'paypal' ? 'Paid through PayPal: refund it there' : 'Paid by bank transfer: back to the account it came from'
+}
+function refundHow(o: OrderRow): string {
+  if (o.refund_details) return 'Sent to the account they gave'
+  if (paidCash(o)) return 'Sent to the account they gave'
+  return o.payment_method === 'paypal' ? 'Refunded in PayPal' : 'Sent back to the account it came from'
 }
 
 const PAY_TONE: Record<OrderRow['payment_status'], 'neutral' | 'orange' | 'blue' | 'green'> = {
@@ -643,28 +754,51 @@ function ReceiptViewer({ order, onClose }: { order: OrderRow; onClose: () => voi
   )
 }
 
-function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?: { starts_at: string; ends_at: string | null }; actions: MenuAction[] }) {
-  const when = stamp(order.created_at)
+function OrderLine({
+  order,
+  dateLabel,
+  actions,
+  next,
+  busy,
+}: {
+  order: OrderRow
+  dateLabel?: { starts_at: string; ends_at: string | null }
+  actions: MenuAction[]
+  next: NextStep[]
+  busy: boolean
+}) {
   const receiver = receiverName(order)
+  const refunder = [order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).join(' ')
   const [viewing, setViewing] = useState(false)
+  const live = order.status === 'confirmed'
+  const names = order.tickets.map((t) => t.attendee_name).filter(Boolean)
   return (
-    <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
+    <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline sm:p-4 ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-body-md font-medium text-on-surface">
-            {order.name}
-            <span className="text-on-surface-variant">
-              {' '}
-              · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
-            </span>
-          </p>
+          {/* Who, how many, and what it comes to — the three things a glance wants. */}
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="min-w-0 text-body-md font-medium text-on-surface">
+              {order.name}
+              <span className="font-normal text-on-surface-variant">
+                {' '}
+                · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
+              </span>
+            </p>
+            <p className="shrink-0 font-mono text-body-sm tabular text-on-surface">
+              {order.total_pence > 0 ? pounds(order.total_pence) : 'Free'}
+              {order.promo_code && <span className="text-on-surface-faint"> · {order.promo_code}</span>}
+            </p>
+          </div>
           {(order.email || order.phone) && (
             <p className="break-words text-body-sm text-on-surface-variant">
               {order.email}
               {order.phone && `${order.email ? ' · ' : ''}${order.phone}`}
             </p>
           )}
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+
+          {/* Where it stands. */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             {order.status === 'cancelled' ? (
               <Pill tone="red">Cancelled</Pill>
             ) : order.total_pence > 0 ? (
@@ -672,16 +806,14 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
             ) : (
               <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : 'Free'}</Pill>
             )}
-            {(order.total_pence > 0 || order.promo_code) && (
-              <span className="font-mono text-label-sm tabular text-on-surface-variant">
-                {order.total_pence > 0 ? pounds(order.total_pence) : ''}
-                {order.promo_code && `${order.total_pence > 0 ? ' · ' : ''}${order.promo_code}`}
-              </span>
-            )}
+            {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
+            {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
           </div>
-          {(order.proof_path || order.proof_reference) && order.status === 'confirmed' && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
+
+          {/* How it got there: the receipt, who took the money, the refund. */}
+          {(order.proof_path || order.proof_reference) && live && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
               {order.proof_path && (
                 <button type="button" onClick={() => setViewing(true)} className="tap font-medium text-accent-blue-soft hover:underline">
                   Open the receipt
@@ -691,90 +823,112 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
               {order.proof_at && <span className="text-on-surface-faint">sent {stamp(order.proof_at)}</span>}
             </p>
           )}
-          {order.refund_status && (
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-label-md text-on-surface-faint">
-              <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>
-              {order.refund_status === 'refunded' && order.refund_at && (
-                <span>
-                  {stamp(order.refund_at)}
-                  {[order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).length > 0 && ` by ${[order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).join(' ')}`}
-                </span>
-              )}
-            </p>
-          )}
           {order.received_at && (order.payment_status === 'received' || order.payment_status === 'waived') && (
             <p className="mt-1 text-label-md text-on-surface-faint">
               {order.payment_status === 'waived' ? 'Waived' : 'Received'} {stamp(order.received_at)}
               {receiver && ` by ${receiver}`}
+              {order.payment_method && ` · ${METHOD_WORDS[order.payment_method]}`}
+            </p>
+          )}
+          {order.refund_status === 'owed' && (
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              {order.refund_details ? `Bank details sent ${stamp(order.refund_details.created_at)}` : refundWhere(order)}
+            </p>
+          )}
+          {order.refund_status === 'refunded' && order.refund_at && (
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              Refunded {stamp(order.refund_at)}
+              {refunder && ` by ${refunder}`}
             </p>
           )}
           {dateLabel && <p className="mt-1 text-label-md text-on-surface-faint">{whenWords(dateLabel.starts_at, dateLabel.ends_at)}</p>}
-          {order.tickets.some((t) => t.attendee_name) && (
-            <p className="text-label-md text-on-surface-faint">For {order.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>
-          )}
+          {names.length > 0 && <p className="text-label-md text-on-surface-faint">For {names.join(', ')}</p>}
         </div>
         <ActionMenu label={order.name} actions={actions} className="shrink-0" />
         {viewing && <ReceiptViewer order={order} onClose={() => setViewing(false)} />}
       </div>
       {order.notes && <p className="mt-2 whitespace-pre-line rounded-[var(--radius-chip)] bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">{order.notes}</p>}
+      {next.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {next.map((n) => (
+            <ActionButton key={n.label} size="sm" tone={n.tone} onClick={n.onClick} disabled={busy}>
+              {n.label}
+            </ActionButton>
+          ))}
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-label-sm text-on-surface-faint">
-        <span>{when}</span>
+        <span>{stamp(order.created_at)}</span>
         <span>{order.code}</span>
         <a href={ticketUrl(order.code)} target="_blank" rel="noopener noreferrer" className="tap text-accent-blue-soft hover:underline">
-          Ticket
+          Ticket <span aria-hidden="true">↗</span>
         </a>
-        {order.checked_in_at && <span className="text-accent-green-soft">Checked in</span>}
         {order.email_sent_at && <span>Emailed</span>}
       </div>
     </li>
   )
 }
 
-/** Where to send a refund paid in cash: what the attendee sent, private to whoever runs registrations. */
+const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { paypal: 'PayPal', bank: 'bank transfer', reception: 'at reception' }
+
+/** Where to send a refund: what the attendee sent, if anything, and otherwise the way it came. Private to the Refunds right. */
 function RefundDetailsSheet({ order, onClose }: { order: OrderRow; onClose: () => void }) {
   const details = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'refund-details', order.id], queryFn: () => fetchRefundDetails(order.id) })
   const d = details.data
+  const cash = paidCash(order)
+  const came = order.payment_method === 'paypal' ? 'through PayPal' : 'by bank transfer'
   return (
     <Overlay label={`Refund for ${order.name}`} onDismiss={onClose}>
       <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
         <h2 className="text-headline-md text-on-surface">Refund for {order.name}</h2>
-        <p className="mt-1 text-body-sm text-on-surface-variant">{pounds(order.total_pence)}, paid at reception. The details are wiped when you mark it refunded.</p>
+        <p className="mt-1 text-body-sm text-on-surface-variant">
+          {pounds(order.total_pence)}, paid {cash ? 'at reception' : came}. Any details they send are wiped when you mark it refunded.
+        </p>
         <div className="mt-4">
           {details.isLoading ? (
             <p className="text-body-sm text-on-surface-variant">Loading…</p>
           ) : !d ? (
-            <p className="text-body-sm text-on-surface-variant">They have not sent their bank details yet. Their ticket page asks for them{order.email ? `, and so did the email to ${order.email}` : ''}.</p>
+            <p className="text-body-sm text-on-surface-variant">
+              {cash
+                ? `They have not sent their bank details yet. Their ticket page asks for them${order.email ? `, and so did the email to ${order.email}` : ''}.`
+                : `Send it back ${came}, to where it came from. They have not asked for another account; their ticket page lets them, if it has not come back after 5–7 working days.`}
+            </p>
           ) : (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body-md">
-              <dt className="text-on-surface-variant">Name</dt>
-              <dd className="text-on-surface">{d.account_name}</dd>
-              {d.sort_code && (
-                <>
-                  <dt className="text-on-surface-variant">Sort code</dt>
-                  <dd className="font-mono tabular text-on-surface">{sortCodeWords(d.sort_code)}</dd>
-                </>
-              )}
-              {d.account_number && (
-                <>
-                  <dt className="text-on-surface-variant">Account</dt>
-                  <dd className="font-mono tabular text-on-surface">{d.account_number}</dd>
-                </>
-              )}
-              {d.iban && (
-                <>
-                  <dt className="text-on-surface-variant">IBAN</dt>
-                  <dd className="break-all font-mono text-on-surface">{d.iban}</dd>
-                </>
-              )}
-              {d.note && (
-                <>
-                  <dt className="text-on-surface-variant">Note</dt>
-                  <dd className="whitespace-pre-line text-on-surface">{d.note}</dd>
-                </>
-              )}
-              <dt className="text-on-surface-variant">Reference</dt>
-              <dd className="font-mono text-on-surface">{order.code}</dd>
-            </dl>
+            <>
+              {!cash && <p className="mb-3 text-body-sm text-on-surface-variant">They asked for it to go to this account rather than back {came}.</p>}
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body-md">
+                <dt className="text-on-surface-variant">Name</dt>
+                <dd className="text-on-surface">{d.account_name}</dd>
+                {d.sort_code && (
+                  <>
+                    <dt className="text-on-surface-variant">Sort code</dt>
+                    <dd className="font-mono tabular text-on-surface">{sortCodeWords(d.sort_code)}</dd>
+                  </>
+                )}
+                {d.account_number && (
+                  <>
+                    <dt className="text-on-surface-variant">Account</dt>
+                    <dd className="font-mono tabular text-on-surface">{d.account_number}</dd>
+                  </>
+                )}
+                {d.iban && (
+                  <>
+                    <dt className="text-on-surface-variant">IBAN</dt>
+                    <dd className="break-all font-mono text-on-surface">{d.iban}</dd>
+                  </>
+                )}
+                {d.note && (
+                  <>
+                    <dt className="text-on-surface-variant">Note</dt>
+                    <dd className="whitespace-pre-line text-on-surface">{d.note}</dd>
+                  </>
+                )}
+                <dt className="text-on-surface-variant">Reference</dt>
+                <dd className="font-mono text-on-surface">{order.code}</dd>
+                <dt className="text-on-surface-variant">Sent</dt>
+                <dd className="text-on-surface">{stamp(d.created_at)}</dd>
+              </dl>
+            </>
           )}
         </div>
         <div className="mt-5 flex justify-end">

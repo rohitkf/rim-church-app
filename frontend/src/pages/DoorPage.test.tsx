@@ -94,6 +94,8 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   expected_pence: 5600,
   received_pence: 2000,
   awaiting: 1,
+  reported: 0,
+  owed: 0,
   first_starts_at: today(18, 30),
   last_ends_at: today(21, 0),
   ...over,

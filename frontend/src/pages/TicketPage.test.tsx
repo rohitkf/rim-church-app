@@ -347,18 +347,42 @@ describe('the ticket page', () => {
     expect(screen.queryByRole('button', { name: 'Cancel my registration' })).toBeNull()
   })
 
-  it('says a refund goes back the way it was paid, asking for nothing', async () => {
+  it('says a refund goes back the way it was paid, asking for nothing — but takes bank details as a choice (0253)', async () => {
     state.order = order({ payment_status: 'received', payment_method: 'bank', refund_status: 'owed', refund_details_wanted: false })
-    show()
+    const user = show()
     const refund = await screen.findByRole('region', { name: 'Your refund' })
     expect(refund).toHaveTextContent(/refund £36.00 to the bank account you paid from/)
+    expect(refund).toHaveTextContent(/5–7 working days/)
     expect(within(refund).queryByRole('textbox')).toBeNull()
+    // Not back, or another account wanted: the form, and a way out of it.
+    await user.click(within(refund).getByRole('button', { name: 'Give bank details to send it to' }))
+    expect(within(refund).getByText('Where should the church send £36.00 instead?')).toBeInTheDocument()
+    await user.click(within(refund).getByRole('button', { name: 'Not now' }))
+    expect(within(refund).queryByRole('textbox')).toBeNull()
+    await user.click(within(refund).getByRole('button', { name: 'Give bank details to send it to' }))
+    await user.type(within(refund).getByRole('textbox', { name: 'Sort code' }), '20-00-00')
+    await user.type(within(refund).getByRole('textbox', { name: 'Account number' }), '12345678')
+    await user.click(within(refund).getByRole('button', { name: 'Send my bank details' }))
+    await waitFor(() => expect(state.refundRequests).toEqual([['ABCDEFGHJKMN', { account_name: 'Ama Owusu', sort_code: '20-00-00', account_number: '12345678' }]]))
+  })
+
+  it('says a PayPal refund goes back through PayPal, with its details already sent', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'paypal', refund_status: 'owed', refund_details_wanted: false, refund_details_sent: true })
+    const user = show()
+    const refund = await screen.findByRole('region', { name: 'Your refund' })
+    expect(refund).toHaveTextContent(/has your bank details and will send £36.00 to that account/)
+    await user.click(within(refund).getByRole('button', { name: 'Change the bank details' }))
+    expect(within(refund).getByRole('textbox', { name: 'Sort code' })).toBeInTheDocument()
+    expect(within(refund).getByRole('button', { name: 'Not now' })).toBeInTheDocument()
   })
 
   it('asks a cash payer where to send the refund, and takes UK details or an IBAN', async () => {
     state.order = order({ payment_status: 'received', payment_method: 'reception', refund_status: 'owed', refund_details_wanted: true, refund_details_sent: false })
     const user = show()
     const refund = await screen.findByRole('region', { name: 'Your refund' })
+    // Cash has nowhere to go back to: the form is up, and there is no Not now.
+    expect(within(refund).getByText(/You paid £36.00 at reception/)).toBeInTheDocument()
+    expect(within(refund).queryByRole('button', { name: 'Not now' })).toBeNull()
     await user.type(within(refund).getByRole('textbox', { name: 'Sort code' }), '20-00-00')
     await user.type(within(refund).getByRole('textbox', { name: 'Account number' }), '12345678')
     await user.click(within(refund).getByRole('button', { name: 'Send my bank details' }))
