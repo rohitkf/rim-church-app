@@ -46,6 +46,9 @@ export function imagePosition(focus: ImageFocus | null | undefined): string {
   return `${clamp(f.x)}% ${clamp(f.y)}%`
 }
 
+export type Attendance = 'in_person' | 'online' | 'both'
+export const ATTENDANCE_WORDS: Record<Attendance, string> = { in_person: 'In person', online: 'Online', both: 'In person and online' }
+
 export const registrationEventSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -54,6 +57,9 @@ export const registrationEventSchema = z.object({
   image_path: z.string().nullable(),
   image_focus_x: z.number().optional(),
   image_focus_y: z.number().optional(),
+  attendance: z.enum(['in_person', 'online', 'both']).optional(),
+  join_url: z.string().nullable().optional(),
+  join_details: z.string().nullable().optional(),
   status: z.enum(['draft', 'published', 'closed']),
   date_mode: z.enum(['all', 'choose']),
   location_name: z.string().nullable(),
@@ -129,7 +135,7 @@ export interface RegistrationEventFull {
 }
 
 const EVENT_COLUMNS =
-  'id, slug, title, description, image_path, image_focus_x, image_focus_y, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
+  'id, slug, title, description, image_path, image_focus_x, image_focus_y, attendance, join_url, join_details, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
 
 /** Every event, newest first, with how its orders stand. */
 export interface EventSummary extends RegistrationEvent {
@@ -248,6 +254,8 @@ export interface PromoDraft {
   /** As typed: pounds off, or percent off. */
   value: string
   ticketTypeIds: string[]
+  /** Only the tickets ticked, rather than every paid ticket. */
+  limited: boolean
   maxUses: string
   active: boolean
 }
@@ -282,11 +290,15 @@ export interface EventDraft {
   paymentNote: string
   allowPayAtReception: boolean
   addToDiary: boolean
+  /** In the hall, online, or both (0249); an online one has the way in. */
+  attendance: Attendance
+  joinUrl: string
+  joinDetails: string
 }
 
 export const newDateDraft = (): DateDraft => ({ id: null, date: '', start: '', endDate: '', end: '', label: '' })
 export const newTicketTypeDraft = (): TicketTypeDraft => ({ id: crypto.randomUUID(), isNew: true, name: '', description: '', kind: 'free', price: '', minDonation: '', quantity: '' })
-export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], maxUses: '', active: true })
+export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], limited: false, maxUses: '', active: true })
 
 export function emptyDraft(): EventDraft {
   return {
@@ -317,6 +329,9 @@ export function emptyDraft(): EventDraft {
     paymentNote: '',
     allowPayAtReception: true,
     addToDiary: false,
+    attendance: 'in_person',
+    joinUrl: '',
+    joinDetails: '',
   }
 }
 
@@ -397,6 +412,7 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
       kind: p.kind,
       value: p.kind === 'amount' ? (p.value / 100).toFixed(2) : String(p.value),
       ticketTypeIds: p.ticket_type_ids,
+      limited: p.ticket_type_ids.length > 0,
       maxUses: p.max_uses === null ? '' : String(p.max_uses),
       active: p.active,
     })),
@@ -414,6 +430,9 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
     paymentNote: event.payment_note ?? '',
     allowPayAtReception: event.allow_pay_at_reception,
     addToDiary: event.add_to_diary,
+    attendance: event.attendance ?? 'in_person',
+    joinUrl: event.join_url ?? '',
+    joinDetails: event.join_details ?? '',
   }
 }
 
@@ -445,6 +464,9 @@ export function datesOf(draft: EventDraft): { starts: string; ends: string | nul
 export function draftProblems(draft: EventDraft): string[] {
   const problems: string[] = []
   if (!draft.title.trim()) problems.push('Give the event a title.')
+  if (draft.attendance !== 'in_person' && draft.joinUrl.trim() && !/^https:\/\/\S+$/.test(draft.joinUrl.trim())) {
+    problems.push('The link to join must start with https://.')
+  }
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(draft.slug) || draft.slug.length < 3) problems.push('The link needs at least three letters or digits, joined by dashes.')
   if (draft.dates.length === 0) problems.push('Add at least one date.')
   const dates = datesOf(draft)
@@ -467,6 +489,10 @@ export function draftProblems(draft: EventDraft): string[] {
     const value = p.kind === 'amount' ? parsePence(p.value) : /^\d+$/.test(p.value) ? Number(p.value) : null
     if (!value || value <= 0 || (p.kind === 'percent' && value > 100)) problems.push(`Promo code ${n} needs ${p.kind === 'amount' ? 'an amount off' : 'a percentage from 1 to 100'}.`)
     if (p.maxUses && !/^\d+$/.test(p.maxUses)) problems.push(`Promo code ${n}: the number of uses is not a number.`)
+    if (p.limited) {
+      const paidIds = new Set(draft.ticketTypes.filter((t) => t.kind === 'paid').map((t) => t.id))
+      if (!p.ticketTypeIds.some((id) => paidIds.has(id))) problems.push(`Promo code ${n}: tick the tickets it is for, or choose every paid ticket.`)
+    }
   }
   const min = Number(draft.minPerOrder)
   const max = Number(draft.maxPerOrder)
@@ -501,10 +527,10 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
     image_focus_x: Math.min(100, Math.max(0, Math.round(draft.imageFocus.x))),
     image_focus_y: Math.min(100, Math.max(0, Math.round(draft.imageFocus.y))),
     date_mode: draft.dateMode,
-    location_name: draft.locationName.trim() || null,
-    address: draft.address.trim() || null,
-    latitude: draft.latitude,
-    longitude: draft.longitude,
+    location_name: draft.attendance === 'online' ? null : draft.locationName.trim() || null,
+    address: draft.attendance === 'online' ? null : draft.address.trim() || null,
+    latitude: draft.attendance === 'online' ? null : draft.latitude,
+    longitude: draft.attendance === 'online' ? null : draft.longitude,
     registration_opens_at: draft.opensAt.date ? localIso(draft.opensAt.date, draft.opensAt.time || '00:00') : null,
     registration_closes_at: draft.closesAt.date ? localIso(draft.closesAt.date, draft.closesAt.time || '23:59') : null,
     min_per_order: Number(draft.minPerOrder),
@@ -515,6 +541,9 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
     payment_note: draft.paymentNote.trim() || null,
     allow_pay_at_reception: draft.allowPayAtReception,
     add_to_diary: draft.addToDiary,
+    attendance: draft.attendance,
+    join_url: draft.attendance === 'in_person' ? null : draft.joinUrl.trim() || null,
+    join_details: draft.attendance === 'in_person' ? null : draft.joinDetails.trim() || null,
   }
 
   let eventId: string
@@ -591,7 +620,7 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
       code: p.code.trim().toUpperCase(),
       kind: p.kind,
       value: p.kind === 'amount' ? (parsePence(p.value) ?? 0) : Number(p.value),
-      ticket_type_ids: p.ticketTypeIds.filter((id) => knownTypes.has(id)),
+      ticket_type_ids: p.limited ? p.ticketTypeIds.filter((id) => knownTypes.has(id)) : [],
       max_uses: p.maxUses.trim() === '' ? null : Number(p.maxUses),
       active: p.active,
     }
@@ -684,6 +713,7 @@ export const publicEventSchema = z.object({
   description: z.string().nullable(),
   image_path: z.string().nullable(),
   image_focus: imageFocusSchema.optional(),
+  attendance: z.enum(['in_person', 'online', 'both']).optional(),
   status: z.enum(['draft', 'published', 'closed']),
   date_mode: z.enum(['all', 'choose']),
   location: locationSchema,
@@ -807,6 +837,8 @@ export const orderViewSchema = z.object({
   checked_in_at: z.string().nullable(),
   created_at: z.string(),
   can_cancel: z.boolean(),
+  /** The way in to an online event, once the order has nothing left to pay (0249). */
+  join: z.object({ url: z.string().nullable(), details: z.string().nullable() }).nullable().optional(),
   tickets: z.array(orderTicketSchema),
   date: publicDateSchema.nullable(),
   event: z.object({
@@ -814,6 +846,7 @@ export const orderViewSchema = z.object({
     title: z.string(),
     image_path: z.string().nullable(),
     image_focus: imageFocusSchema.optional(),
+    attendance: z.enum(['in_person', 'online', 'both']).optional(),
     status: z.enum(['draft', 'published', 'closed']),
     date_mode: z.enum(['all', 'choose']),
     location: locationSchema,

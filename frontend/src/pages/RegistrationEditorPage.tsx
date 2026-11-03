@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionButton, Field, FieldGroup, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
+import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { PlaceMap } from '../components/PlaceMap'
 import { QueryState } from '../components/QueryState'
@@ -20,6 +20,7 @@ import {
   newPromoDraft,
   newTicketTypeDraft,
   CENTRE,
+  imagePosition,
   registrationImageUrl,
   saveRegistrationEvent,
   slugTyping,
@@ -165,8 +166,49 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
           <PromoCodesEditor promos={draft.promoCodes} types={draft.ticketTypes} onChange={(promoCodes) => set({ promoCodes })} />
         </SectionTile>
 
-        <SectionTile title="Where" hint="The address is what people read; the pin is where directions and the page’s map go. Type the address as it should appear, then search the map to place the pin and drag it to the spot.">
-          <LocationEditor draft={draft} set={set} />
+        <SectionTile title="Where" hint="In the hall, online, or both. For a place: the address is what people read; the pin is where directions and the page’s map go.">
+          <div className="flex flex-col gap-5">
+            <SegmentedControl
+              label="How people attend"
+              value={draft.attendance}
+              onChange={(attendance) => set({ attendance })}
+              options={[
+                { value: 'in_person', label: 'In person' },
+                { value: 'online', label: 'Online' },
+                { value: 'both', label: 'Both' },
+              ]}
+            />
+            {draft.attendance !== 'online' && <LocationEditor draft={draft} set={set} />}
+            {draft.attendance !== 'in_person' && (
+              <FieldGroup label="Joining online">
+                <p className="-mt-1 text-label-md text-on-surface-faint">
+                  Shown only to people who have registered, on their ticket — and for a paid event, once the payment is confirmed. The event’s public page says only that it is online.
+                </p>
+                <Field label="Link to join (optional until you have it)">
+                  <input
+                    value={draft.joinUrl}
+                    onChange={(e) => set({ joinUrl: e.target.value })}
+                    inputMode="url"
+                    placeholder="https://zoom.us/j/…"
+                    maxLength={500}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    className={inputClasses}
+                  />
+                </Field>
+                <Field label="Meeting ID, passcode, anything else (optional)">
+                  <textarea
+                    value={draft.joinDetails}
+                    onChange={(e) => set({ joinDetails: e.target.value })}
+                    rows={3}
+                    maxLength={1000}
+                    placeholder={'Meeting ID 812 3456 7890\nPasscode 2026'}
+                    className={`${inputClasses} resize-y`}
+                  />
+                </Field>
+              </FieldGroup>
+            )}
+          </div>
         </SectionTile>
 
         <SectionTile title="Registration" hint="When people can register, and how many tickets one order may hold. Left blank, registration opens when you publish and closes when the event starts.">
@@ -254,10 +296,34 @@ function PictureField({
     onError: (err: unknown) => onError(errorText(err, 'Could not upload that picture.')),
   })
   const url = registrationImageUrl(path)
+  const [positioning, setPositioning] = useState(false)
   return (
     <div className="flex flex-col gap-3">
-      {/* A new picture has a new subject: the focal point starts in the middle (the page resets it with the path). */}
-      {url && <FocalPointPicker src={url} value={focus} onChange={onFocus} />}
+      {/* The crop as the page will show it. The focal point is moved only in
+          its own dialog, so scrolling past the picture on a phone never nudges it.
+          A new picture starts in the middle again (the page resets it with the path). */}
+      {url && (
+        <img
+          src={url}
+          alt="How the picture will show on the event’s page"
+          style={{ objectPosition: imagePosition(focus) }}
+          className="aspect-[16/9] w-full max-w-md rounded-[var(--radius-card)] object-cover"
+        />
+      )}
+      {positioning && url && (
+        <Overlay label="Position the picture" onDismiss={() => setPositioning(false)}>
+          <div className="w-full max-w-3xl rounded-[var(--radius-card)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)]">
+            <h2 className="text-headline-md text-on-surface">Position the picture</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">The event’s page shows it 16:9, cropped to fit. Pick the part that must stay in view.</p>
+            <div className="mt-4">
+              <FocalPointPicker src={url} value={focus} onChange={onFocus} />
+            </div>
+            <div className="mt-5 flex justify-end">
+              <ActionButton onClick={() => setPositioning(false)}>Done</ActionButton>
+            </div>
+          </div>
+        </Overlay>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <label className="tap inline-flex cursor-pointer items-center rounded-full px-4 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised">
           {upload.isPending ? 'Uploading…' : url ? 'Change picture' : 'Choose a picture'}
@@ -279,6 +345,11 @@ function PictureField({
             }}
           />
         </label>
+        {url && (
+          <button type="button" onClick={() => setPositioning(true)} className="tap inline-flex items-center rounded-full px-4 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised">
+            Position the picture
+          </button>
+        )}
         {url && (
           <button type="button" onClick={() => onChange(null)} className="tap text-label-md text-on-surface-faint hover:text-error hover:underline">
             Remove picture
@@ -449,7 +520,17 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
               ]}
             />
             {paid.length > 0 ? (
-              <FieldGroup label="Applies to (none ticked: every paid ticket)">
+              <FieldGroup label="Applies to">
+                <SegmentedControl
+                  label={`Promo code ${i + 1} applies to`}
+                  value={p.limited ? 'some' : 'all'}
+                  onChange={(v) => setPromo(i, { limited: v === 'some' })}
+                  options={[
+                    { value: 'all', label: 'Every paid ticket' },
+                    { value: 'some', label: 'Only these tickets' },
+                  ]}
+                />
+                {p.limited && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {paid.map((t) => (
                     <label key={t.id} className="flex items-center gap-2 text-body-sm text-on-surface">
@@ -463,9 +544,10 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
                     </label>
                   ))}
                 </div>
+                )}
               </FieldGroup>
             ) : (
-              <p className="text-label-md text-on-surface-faint">A code takes money off paid tickets only; none of the tickets is paid yet.</p>
+              <p className="text-label-md text-on-surface-faint">A code takes money off paid tickets only. Make a ticket type paid above, and you can choose which tickets this code is for.</p>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-body-sm text-on-surface">
