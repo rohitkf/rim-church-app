@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
+import { useRegistrationRights } from '../lib/registrationRights'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, PageHeader, Pill, SegmentedControl, Statistic, Tile, inputClasses } from '../components/Surface'
@@ -84,6 +85,8 @@ export function DoorPage() {
 }
 
 function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => Promise<void>; manager: boolean }) {
+  // What this person may do at the door (0251); the database checks the same.
+  const rights = useRegistrationRights()
   const errorText = useErrorText()
   const [tab, setTab] = useState<Tab>('scan')
   const [error, setError] = useState<string | null>(null)
@@ -178,7 +181,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
         options={[
           { value: 'scan', label: 'Scan' },
           { value: 'find', label: 'Find' },
-          { value: 'walk_in', label: 'Walk-in' },
+          ...(rights.walkIn ? [{ value: 'walk_in' as const, label: 'Walk-in' }] : []),
         ]}
         className="mb-4"
       />
@@ -192,6 +195,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
             busy={busy}
             onCheckIn={(order) => checkIn.mutate(order)}
             onPaidAndCheckIn={(order) => paid.mutate({ order, andIn: true })}
+            canTakePayment={rights.takePayment}
           />
         </section>
       )}
@@ -203,9 +207,10 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           onCheckIn={(order) => checkIn.mutate(order)}
           onUndo={(order) => undoCheckIn.mutate(order)}
           onPaid={(order, andIn) => paid.mutate({ order, andIn })}
+          canTakePayment={rights.takePayment}
         />
       )}
-      {tab === 'walk_in' && (
+      {tab === 'walk_in' && rights.walkIn && (
         <WalkIn
           eventId={event.id}
           dateMode={event.date_mode}
@@ -213,6 +218,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           ticketTypes={ticketTypes}
           orders={confirmed}
           refresh={refresh}
+          canTakePayment={rights.takePayment}
         />
       )}
     </div>
@@ -238,6 +244,7 @@ function Find({
   onCheckIn,
   onUndo,
   onPaid,
+  canTakePayment,
 }: {
   orders: OrderRow[]
   dates: EventDate[]
@@ -245,6 +252,7 @@ function Find({
   onCheckIn: (order: OrderRow) => void
   onUndo: (order: OrderRow) => void
   onPaid: (order: OrderRow, andIn: boolean) => void
+  canTakePayment: boolean
 }) {
   const [query, setQuery] = useState('')
   const shown = orders
@@ -311,7 +319,7 @@ function Find({
                         Check in
                       </ActionButton>
                     )}
-                    {owes && (
+                    {owes && canTakePayment && (
                       <ActionButton size="sm" tone="quiet" onClick={() => onPaid(o, !o.checked_in_at)} disabled={busy}>
                         {o.checked_in_at ? 'Paid now' : 'Paid now, check in'}
                       </ActionButton>
@@ -348,6 +356,7 @@ function WalkIn({
   ticketTypes,
   orders,
   refresh,
+  canTakePayment,
 }: {
   eventId: string
   dateMode: 'all' | 'choose'
@@ -355,6 +364,7 @@ function WalkIn({
   ticketTypes: TicketType[]
   orders: OrderRow[]
   refresh: () => Promise<void>
+  canTakePayment: boolean
 }) {
   const errorText = useErrorText()
   const [name, setName] = useState('')
@@ -363,7 +373,7 @@ function WalkIn({
   const [email, setEmail] = useState('')
   const [dateId, setDateId] = useState<string | null>(() => todaysDate(dates))
   const [wanted, setWanted] = useState<Record<string, Wanted>>({})
-  const [paidNow, setPaidNow] = useState(true)
+  const [paidNow, setPaidNow] = useState(canTakePayment)
   const [here, setHere] = useState(true)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -442,7 +452,7 @@ function WalkIn({
     setEmail('')
     setPhone('')
     setWanted({})
-    setPaidNow(true)
+    setPaidNow(canTakePayment)
     setHere(true)
     setSubmitted(false)
     setRound((n) => n + 1)
@@ -554,7 +564,7 @@ function WalkIn({
       </FieldGroup>
 
       <div className="flex flex-col gap-2">
-        {total > 0 && (
+        {total > 0 && canTakePayment && (
           <label className="flex items-center gap-2 text-body-md text-on-surface">
             <input type="checkbox" checked={paidNow} onChange={(e) => setPaidNow(e.target.checked)} className="accent-[var(--color-primary)]" />
             Paid now · {pounds(total)}

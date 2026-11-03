@@ -27,6 +27,11 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
+const rights = vi.hoisted(() => ({ now: { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true } as Record<string, boolean> }))
+vi.mock('../lib/registrationRights', async (original) => ({
+  ...(await original<typeof import('../lib/registrationRights')>()),
+  useRegistrationRights: () => rights.now,
+}))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
@@ -167,6 +172,7 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>, name: string) 
 }
 
 beforeEach(() => {
+  rights.now = { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true }
   state.full = full()
   state.orders = orders()
   state.marked = []
@@ -425,6 +431,34 @@ describe('an event’s page', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Done' }))
     await user.click(within(await openMenu(user, 'Cash Payer')).getByRole('menuitem', { name: /Mark as refunded/ }))
     await waitFor(() => expect(state.marked).toEqual([['o-cash', 'refunded']]))
+  })
+
+  it('shows somebody with View & export only the reading and the export (0251)', async () => {
+    rights.now = { office: true, door: false, edit: false, approve: false, takePayment: false, refund: false, cancel: false, delete: false, checkIn: false, walkIn: false }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Close registration' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Scan tickets' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Open Reception' })).toBeNull()
+    expect(within(await openMenu(user, 'Pastors & Leaders 2026')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      expect.stringContaining('Download QR code'),
+      'Export to Excel',
+    ])
+    await user.keyboard('{Escape}')
+    expect(within(await openMenu(user, 'Ama Owusu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Add a note'])
+  })
+
+  it('gives somebody who approves payments the payment actions and nothing else', async () => {
+    rights.now = { office: true, door: false, edit: false, approve: true, takePayment: true, refund: false, cancel: false, delete: false, checkIn: false, walkIn: false }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Dan Reported' })
+    expect(within(await openMenu(user, 'Dan Reported')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      expect.stringContaining('Mark as received'),
+      expect.stringContaining('Not received, ask again'),
+      'Waive the payment',
+      'Add a note',
+    ])
   })
 
   it('publishes a draft that has a date and a ticket type', async () => {

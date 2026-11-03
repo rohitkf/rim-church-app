@@ -4,6 +4,7 @@ import { useMyTeams } from './useMyTeams'
 import { useAppSettingsState } from './appSettings'
 import { standingOf, type Standing } from './pageAccess'
 import { pageOpening } from './pageOpening'
+import { DOOR_RIGHTS, OFFICE_RIGHTS } from './registrationRights'
 import { usePermissions } from './usePermissions'
 import { usePageLevels } from './usePageLevels'
 
@@ -41,8 +42,9 @@ export function usePageAccess(): {
   const { can, query: permissions } = usePermissions()
   const clockInViewer = can('clockin.view')
   const prayerCarer = can('prayer.pastoral')
-  const regManager = can('reg.manage')
-  const doorWorker = can('reg.door')
+  // Any office right opens Registrations; any door right opens Reception (0251).
+  const regManager = OFFICE_RIGHTS.some((r) => can(r))
+  const doorWorker = DOOR_RIGHTS.some((r) => can(r))
   const permissionsSettled = !permissions || !permissions.isLoading
   // Every page's level is the grid's too (0215), and a grant opens a page.
   const levels = usePageLevels()

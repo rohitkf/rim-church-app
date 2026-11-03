@@ -1016,7 +1016,7 @@ export async function markOrder(id: string, action: OrderAction): Promise<void> 
 
 /** The church's own note on an order; blank clears it. */
 export async function setOrderNotes(id: string, notes: string): Promise<void> {
-  const { error } = await supabase.from('registration_orders').update({ notes: notes.trim() || null }).eq('id', id)
+  const { error } = await supabase.rpc('registration_order_note', { p_id: id, p_notes: notes })
   if (error) throw error
 }
 

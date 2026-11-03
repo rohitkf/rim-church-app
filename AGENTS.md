@@ -23,10 +23,14 @@ Keep this file current in the same pull request that changes what it says.
   checked, and which migrations or functions it depends on. Then watch it
   to merged and deployed. If a PR from `develop` is already open, new
   commits ride it; do not open a second.
-- Opening the PR is the only thing that is pre-approved. **Applying a
-  migration to production, deploying an edge function, and sending
-  anything to real people still each need the user's explicit yes for
-  that action**, as before.
+- Opening the PR is pre-approved. So is **applying a migration to
+  production**: the Owner has given standing permission (November 2026),
+  on the condition that it has passed the local CI database (§7) and a
+  dry run on production first. **Deploying an edge function and sending
+  anything to real people still each need the Owner's explicit yes, every
+  time.** A yes for one deploy is not a yes for the next; "once you're
+  done" or approval of a plan is not a yes to deploy. Setting function
+  secrets needs a yes too.
 - **But not before the database is ready.** The PR merges itself and
   deploys, so a frontend that needs a migration or a redeployed function
   must not be put up for merge until that migration is applied (with the
@@ -44,7 +48,7 @@ Run from `frontend/`. All four must be clean before you push:
 ```bash
 npx tsc --noEmit -p tsconfig.app.json    # the app
 npx tsc --noEmit -p tsconfig.node.json   # vite.config.ts and build/
-npx vitest run                           # ~865 tests, all must pass
+npx vitest run                           # ~2700 tests, all must pass
 npm run build                            # catches what tsc alone misses
 ```
 
@@ -56,8 +60,17 @@ counts as green for auto-merge. Keep the job names: auto-merge and any
 required check read them. A newer push cancels the older run of the same
 event and ref.
 
-`npm run lint` (oxlint) exits 0 with ~40 standing warnings. Do not add to
-them; do not fix unrelated ones in a PR about something else.
+`npm run lint` (oxlint) exits 0 with **46** standing warnings (count them:
+`npm run lint 2>&1 | grep -c ': warning '`). Do not add to them; do not fix
+unrelated ones in a PR about something else. The two that new code trips
+most: exporting a helper from a component file (`only-export-components` —
+put it in `lib/`), and `Date.now()` during render (`purity` — use a clock
+hook such as `useNow` in `lib/timeLeft.ts`).
+
+Run these one after another in a single shell, with absolute paths. Two
+shell calls at once share one working directory and trample each other:
+a gate run beside another command once reported 1,212 failing tests and
+"tsconfig.app.json does not exist" for a clean tree.
 
 Backend (`backend/`, FastAPI, AI assistant only): `pytest`.
 
@@ -98,7 +111,7 @@ the thing most likely to waste your time:
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
 | `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is the grid's `stage.add` · `stage.edit` · `stage.delete` · `stage.comment` · `stage.templates` rows, a team given them as grants from Settings › Stage Layout (`stage_may()` asks `may()`, 0212; `stage_team_access`, 0155, dropped in 0217); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
-| `registration_events` → `registration_event_dates`, `registration_ticket_types`, `registration_promo_codes`; `registration_orders` → `registration_order_tickets` (0244) | the **Registrations** page — events anybody signs up for from a link, no account needed. The public page `/register/<slug>` and the ticket `/ticket/<code>` (its QR code says that link) read and write through security-definer functions granted to `anon` — `registration_public_event`, `registration_promo_check`, `registration_register`, `registration_order_view`, `registration_order_payment`, `registration_order_cancel` — and `registration_orders` has no insert policy, so `registration_register` (a lock per ticket type, capacity per type or per date, a trap field, five orders per email) is the only way in. Who runs it is the Owner and whoever the grid gives `reg.manage` ("Run registrations"), never a level: `pageOpening` answers `/registrations` before the level check, so an Admin needs the cell. An order holds its tickets from the moment it is made; a paid one goes `awaiting` → `reported` (the attendee says they paid, by a link or a bank transfer with the code as reference) → `received` (marked by the church), or `waived`; no money passes through the app. A published event with `add_to_diary` has one `church_events` row per date, with a Register link, kept by `registration_sync_diary`. Running it (0245): `registration_order_mark(id, action)` — received, waived, awaiting, check_in, undo_check_in, cancel, restore (a restored order is checked against what is left) — for whoever may `reg.manage`; a ticket type selling out puts a `registration_sold_out` notification to everybody `registration_managers()` names (the Owner and the grid's `reg.manage`), which push-notify sends on; `app_settings.registration_retention_days` (90; null never) and the nightly `registration_anonymise()` blank name, email, phone, attendee names and notes on every order of an event that many days after its last date, and stamp `anonymised_at` — the order, its code and its sums stay until the event is deleted (Settings › Retention; export to Excel from the event's page first). The door (0246): Scan tickets on the event's page opens `components/TicketScanner` — the camera through `lib/qrCamera` (shared with the inventory's `QrScanner`), `codeFromScan` on what it reads, the order from the page's own list, Check in or Paid now + check in through `registration_order_mark` — or the code typed. The ticket by email (0247): `supabase/functions/registration-email` — `{kind:'confirm', code}` after registering and from the ticket page's "Email me this ticket", `{kind:'resend', slug, email}` from the public page's "Get your ticket again"; only ever to the address an order holds, ten minutes apart at most (`email_sent_at`), the same quiet answer whether or not an address has a registration; through Resend from `REGISTRATION_FROM` with `RESEND_API_KEY`, links on `SITE_URL`. Reception (0247): the **Reception** page `/door` opens to the Owner, to `reg.manage` and to the narrower `reg.door` ("Work the door" in the grid; `registration_may_work(uid)` is either, and the five tables' read policies use it) — today's event comes up on its own (`doorEvents`/`todaysEvent` in `lib/registrations.ts`), then Scan (`components/TicketScanner`'s `ScannerPanel`, the same one the event's page wraps in a sheet), Find (anybody by name: check in, undo, Paid now) and Walk-in (`registration_walk_in(event, order)`: an order made at the door, `source = 'walk_in'`, `email` nullable now, paid or still owing, checked in, the same capacity lock as online). `registration_order_mark` lets `reg.door` do `check_in`, `undo_check_in` and `received` only, and stamps `received_at`/`received_by` on received and waived. Proof of an online payment: the ticket page is a *registration* until a paid order is paid (same code, same QR — reception scans it to take the money) and a *ticket* after; "Yes, I've paid" / "I've sent the transfer" asks for the receipt — a screenshot or PDF into the private `registration-proofs` bucket under the order's own code (anon may insert only where `registration_proof_allowed(name)`: a live, still-owing order on a published event; only `registration_may_work` reads it back) — or the payment reference, or both; `registration_order_payment(code, method, done, proof_path, reference)` refuses a done online payment with neither and marks it `reported` ("Receipt sent — being checked"). On the event's page the receipt opens from a signed link beside the order, *Mark as received* confirms it and sends `{kind:'paid', code}` ("your ticket is confirmed"), *Not received, ask again* puts it back to awaiting and sends `{kind:'unmatched', code}`; both kinds want a signed-in caller who may work, skip the quiet period, and the confirm email calls an unpaid order a registration. Who took the money and when is on the order and in the export (How, Received at, Received by, Receipt reference). The link tile has the event's QR code, downloadable as a PNG (`lib/qrPng.ts`) for a poster: it says the register link. The picture's focal point (0248): the page shows the picture 16:9, cropped to fit, so `image_focus_x`/`image_focus_y` (0–100, the middle by default) say which point stays in view — picked in the editor with `components/FocalPointPicker` (tap or drag the dot, or the two sliders, with the crop previewed), carried out by `registration_public_event` and `registration_order_view` as `image_focus`, and placed by `imagePosition()` (CSS object-position) on the public page and the ticket; in the editor the picker opens from a *Position the picture* button, so scrolling past never moves it. Online events (0249): `attendance` is `in_person`, `online` or `both`; an online one has `join_url` (https) and `join_details`, which `registration_public_event` never returns — `registration_order_view` hands them to a ticket as `join` only when the order is live and has nothing left to pay. An online event saves no place. A promo code's tickets are an explicit choice in the editor (every paid ticket, or only those ticked — `ticket_type_ids` empty still means every one). Cancelling and refunds (0250): an event is cancelled, not deleted — `registration_event_cancel(event, note)` sets `cancelled_at`/`cancel_note` and status `closed` for good (the `registration_events_guard` trigger refuses reopening), drops its diary rows, and marks every live order whose money is in (`registration_money_in`: received or reported) `refund_status = 'owed'`; cancelling a paid order (church or attendee) does the same. `registration_order_mark(id, 'refunded')` stamps `refund_at`/`refund_by` and deletes the order's `registration_refund_details` row — bank details sent through `registration_refund_request(code, details)` only when the money was paid at reception (`registration_refund_needs_details`); bank transfers and PayPal go back the way they came. `registration_orders_keep_unrefunded` refuses deleting an order whose money is in and not refunded, and only the Owner may delete an event (typed-name confirm in the ⋯ menu). An attendee cannot cancel a checked-in ticket. The `event_cancelled` email kind (signed-in `reg.manage` caller) tells every address on the event, with how each refund will come |
+| `registration_events` → `registration_event_dates`, `registration_ticket_types`, `registration_promo_codes`; `registration_orders` → `registration_order_tickets` (0244) | the **Registrations** page — events anybody signs up for from a link, no account needed. The public page `/register/<slug>` and the ticket `/ticket/<code>` (its QR code says that link) read and write through security-definer functions granted to `anon` — `registration_public_event`, `registration_promo_check`, `registration_register`, `registration_order_view`, `registration_order_payment`, `registration_order_cancel` — and `registration_orders` has no insert policy, so `registration_register` (a lock per ticket type, capacity per type or per date, a trap field, five orders per email) is the only way in. Who runs it is the Owner and whoever the grid gives `reg.manage` ("Run registrations"), never a level: `pageOpening` answers `/registrations` before the level check, so an Admin needs the cell. An order holds its tickets from the moment it is made; a paid one goes `awaiting` → `reported` (the attendee says they paid, by a link or a bank transfer with the code as reference) → `received` (marked by the church), or `waived`; no money passes through the app. A published event with `add_to_diary` has one `church_events` row per date, with a Register link, kept by `registration_sync_diary`. Running it (0245): `registration_order_mark(id, action)` — received, waived, awaiting, check_in, undo_check_in, cancel, restore (a restored order is checked against what is left) — for whoever may `reg.manage`; a ticket type selling out puts a `registration_sold_out` notification to everybody `registration_managers()` names (the Owner and the grid's `reg.manage`), which push-notify sends on; `app_settings.registration_retention_days` (90; null never) and the nightly `registration_anonymise()` blank name, email, phone, attendee names and notes on every order of an event that many days after its last date, and stamp `anonymised_at` — the order, its code and its sums stay until the event is deleted (Settings › Retention; export to Excel from the event's page first). The door (0246): Scan tickets on the event's page opens `components/TicketScanner` — the camera through `lib/qrCamera` (shared with the inventory's `QrScanner`), `codeFromScan` on what it reads, the order from the page's own list, Check in or Paid now + check in through `registration_order_mark` — or the code typed. The ticket by email (0247): `supabase/functions/registration-email` — `{kind:'confirm', code}` after registering and from the ticket page's "Email me this ticket", `{kind:'resend', slug, email}` from the public page's "Get your ticket again"; only ever to the address an order holds, ten minutes apart at most (`email_sent_at`), the same quiet answer whether or not an address has a registration; through Resend from `REGISTRATION_FROM` with `RESEND_API_KEY`, links on `SITE_URL`. Reception (0247): the **Reception** page `/door` opens to the Owner, to `reg.manage` and to the narrower `reg.door` ("Work the door" in the grid; `registration_may_work(uid)` is either, and the five tables' read policies use it) — today's event comes up on its own (`doorEvents`/`todaysEvent` in `lib/registrations.ts`), then Scan (`components/TicketScanner`'s `ScannerPanel`, the same one the event's page wraps in a sheet), Find (anybody by name: check in, undo, Paid now) and Walk-in (`registration_walk_in(event, order)`: an order made at the door, `source = 'walk_in'`, `email` nullable now, paid or still owing, checked in, the same capacity lock as online). `registration_order_mark` lets `reg.door` do `check_in`, `undo_check_in` and `received` only, and stamps `received_at`/`received_by` on received and waived. Proof of an online payment: the ticket page is a *registration* until a paid order is paid (same code, same QR — reception scans it to take the money) and a *ticket* after; "Yes, I've paid" / "I've sent the transfer" asks for the receipt — a screenshot or PDF into the private `registration-proofs` bucket under the order's own code (anon may insert only where `registration_proof_allowed(name)`: a live, still-owing order on a published event; only `registration_may_work` reads it back) — or the payment reference, or both; `registration_order_payment(code, method, done, proof_path, reference)` refuses a done online payment with neither and marks it `reported` ("Receipt sent — being checked"). On the event's page the receipt opens from a signed link beside the order, *Mark as received* confirms it and sends `{kind:'paid', code}` ("your ticket is confirmed"), *Not received, ask again* puts it back to awaiting and sends `{kind:'unmatched', code}`; both kinds want a signed-in caller who may work, skip the quiet period, and the confirm email calls an unpaid order a registration. Who took the money and when is on the order and in the export (How, Received at, Received by, Receipt reference). The link tile has the event's QR code, downloadable as a PNG (`lib/qrPng.ts`) for a poster: it says the register link. The picture's focal point (0248): the page shows the picture 16:9, cropped to fit, so `image_focus_x`/`image_focus_y` (0–100, the middle by default) say which point stays in view — picked in the editor with `components/FocalPointPicker` (tap or drag the dot, or the two sliders, with the crop previewed), carried out by `registration_public_event` and `registration_order_view` as `image_focus`, and placed by `imagePosition()` (CSS object-position) on the public page and the ticket; in the editor the picker opens from a *Position the picture* button, so scrolling past never moves it. Online events (0249): `attendance` is `in_person`, `online` or `both`; an online one has `join_url` (https) and `join_details`, which `registration_public_event` never returns — `registration_order_view` hands them to a ticket as `join` only when the order is live and has nothing left to pay. An online event saves no place. A promo code's tickets are an explicit choice in the editor (every paid ticket, or only those ticked — `ticket_type_ids` empty still means every one). Cancelling and refunds (0250): an event is cancelled, not deleted — `registration_event_cancel(event, note)` sets `cancelled_at`/`cancel_note` and status `closed` for good (the `registration_events_guard` trigger refuses reopening), drops its diary rows, and marks every live order whose money is in (`registration_money_in`: received or reported) `refund_status = 'owed'`; cancelling a paid order (church or attendee) does the same. `registration_order_mark(id, 'refunded')` stamps `refund_at`/`refund_by` and deletes the order's `registration_refund_details` row — bank details sent through `registration_refund_request(code, details)` only when the money was paid at reception (`registration_refund_needs_details`); bank transfers and PayPal go back the way they came. `registration_orders_keep_unrefunded` refuses deleting an order whose money is in and not refunded, and only the Owner may delete an event (typed-name confirm in the ⋯ menu). An attendee cannot cancel a checked-in ticket. The `event_cancelled` email kind (signed-in `reg.manage` caller) tells every address on the event, with how each refund will come. Separate rights (0251): each part is its own grid cell — `reg.view` (View & export), `reg.edit` (Make & edit events), `reg.approve` (Approve payments), `reg.refund` (Refunds), `reg.cancel` (Cancel & delete), `reg.door` (Check people in), `reg.door_pay` (Take payments at the door), `reg.walk_in` (Register walk-ins); `reg.manage` stays all of it except deleting an event (the Owner's and `reg.cancel`'s). Every database check goes through `registration_can(uid, what)` (`office`, `door`, `work`, `edit`, `approve`, `take_payment`, `refund`, `cancel`, `delete`, `check_in`, `walk_in`); the pages read the same rule from `lib/registrationRights.ts` (`useRegistrationRights`) and show only what the person may press. The orders table is written directly only by `reg.manage`; notes go through `registration_order_note`. Any office right opens /registrations, any door right opens /door |
 
 Other things that are true and not guessable:
 
@@ -334,7 +347,50 @@ could hand themselves everything else.
 
 Merging ships **the frontend only**. Both of these are separate, manual,
 and produce a working-looking app that fails at the moment of use if
-skipped:
+skipped. How each is done safely:
+
+- **A migration** goes through three gates, in this order:
+  1. *The local CI database* — a throwaway Postgres 16 with every
+     migration in order and the schema check, exactly what CI runs:
+     ```bash
+     B=/usr/lib/postgresql/16/bin; D=/var/lib/postgresql/pgci
+     su postgres -c "rm -rf $D && $B/initdb -D $D -A trust -U postgres >/dev/null && $B/pg_ctl -D $D -o '-p 55432 -k /var/lib/postgresql' -l $D.log start"
+     export PGHOST=/var/lib/postgresql PGPORT=55432 PGUSER=postgres
+     psql -c 'create database church_ci'
+     for f in supabase/_local_test/*.sql supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -d church_ci -q -f "$f" || break; done
+     psql -v ON_ERROR_STOP=1 -d church_ci -f supabase/checks/sql_functions_still_match_the_schema.sql
+     ```
+     For a migration that decides who may do what, also run a behaviour
+     script against it: redefine `auth.uid()` to read a setting
+     (`create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$`),
+     give test people one right each through `permission_grants`, and try
+     every action as each. (Inserting into `auth.users` makes the profile
+     by trigger, so upsert `profiles`; the local stub has no `extensions`
+     schema, so code generation fails there and nowhere else.)
+  2. *A dry run on production* — the whole file inside `begin; … do $d$
+     begin raise exception 'DRYRUN reached the end'; end $d$; commit;`.
+     Reaching that exception means every statement ran; nothing is kept.
+  3. *Apply*, then check the result with a query (the new columns,
+     functions, grants), then `notify pgrst, 'reload schema';` — a new
+     table answers *"Could not find the table … in the schema cache"*
+     until the API reloads.
+  SQL reaches production through the Management API
+  (`POST /v1/projects/{ref}/database/query` with `SUPABASE_ACCESS_TOKEN`);
+  never print the token.
+- **An edge function** (after the Owner's yes) is deployed from the
+  committed file, byte for byte — `POST
+  /v1/projects/{ref}/functions/deploy?slug=<name>` as multipart
+  (`metadata` with `entrypoint_path`, `name`, `verify_jwt`; `file` the
+  source), or `supabase functions deploy <name>`. Keep `verify_jwt` as
+  `supabase/config.toml` says. Then smoke-test it: a call with the public
+  key to a kind that needs a signed-in caller must answer 401, an unknown
+  kind 400.
+- **The frontend is live** when the site's service worker carries main's
+  commit: `curl -s https://rim-church-app.vercel.app/sw.js | grep BUILD_ID`
+  equals `git rev-parse --short=12 origin/main` (main's squash-merge
+  commit, not develop's).
+
+The traps:
 
 1. **Apply the migration** to Supabase. A merged-but-unapplied migration
    shows *"Could not find the function … in the schema cache"* to the user.
@@ -454,6 +510,27 @@ Each of these has already cost real time. None of them show up in review.
   is spelled `_`: `[@media(hover:hover)_and_(pointer:fine)]:opacity-0`.
   Verify against `dist/` when unsure.
 - **jsdom has no `scrollIntoView`.** Guard calls to it.
+- **`window.open('', '_blank', 'noopener')` returns `null`.** The browser
+  opens the tab but does not hand it back, so code that opens a blank tab
+  and then sets its address loses it — and a fallback that navigates the
+  page itself replaces the page. The receipt viewer did exactly that (a
+  tab at about:blank, the event's page gone behind Back) while its test
+  passed, because the test faked `window.open` returning a tab. Show the
+  thing in the page, or use a real `<a href target="_blank">`; never mock
+  a browser behaviour into something it does not do.
+- **A test's own window listener can cancel the thing under test.** A
+  capture-phase `click` listener that calls `preventDefault()` (there to
+  stop jsdom following links) also stops every submit button's default,
+  so no form submits and the test fails for no visible reason. Scope it to
+  links: `if ((e.target as Element)?.closest('a')) e.preventDefault()`.
+- **A new file can overwrite an old one of the same name.** `lib/countdown.ts`
+  already existed (the service countdown); writing a new one over it broke
+  three components. Check `git ls-files | grep -i <name>` before creating
+  a file, and pick a name nobody has.
+- **A test phone number must be one libphonenumber accepts.** UK 07700
+  900xxx is the drama range and is rightly refused; use 07911 123456.
+- **A countdown asserted to the second fails a second later.** Give the
+  target 30 seconds of margin, or use fake timers.
 
 ## 9. Recipes
 
@@ -561,3 +638,32 @@ what remains unverified.
 
 Commits and PR descriptions explain **why**, in prose, at the length the
 change deserves. Read the recent history for the tone.
+
+## 11. The routine (how the work has been run)
+
+So a session that starts from nothing works the way the last one did:
+
+1. **Look before building.** Read the code a request touches, and the
+   live data when the question is about something that happened (a test
+   order, an event's address) — the answer is often there, as with the
+   "missing" payment that a 100% promo code had made free.
+2. **Say the plan in a few lines first** when there is a real choice
+   (a new right, who sees a link, what a delete does), make sensible
+   defaults and name them, and stop only for decisions that are the
+   Owner's: what a person may see, money, anything sent to people.
+3. **Build it whole**: migration (through §7's three gates), the lib, the
+   pages, tests for each behaviour and for each right, the docs here.
+4. **Gates** (§2), then a **stub browser** run of anything a person sees
+   (`frontend/.claude/skills/verify/`, or a Playwright script against
+   `vite preview` of a build with `VITE_SUPABASE_URL=http://supabase.test`)
+   — read the screenshots, at phone and desktop width, light and dark.
+5. **Commit to `develop`, push, open the PR to `main`** — but only once
+   every migration and function it needs is on production (§1). One PR at
+   a time: a new piece waits for the last to merge.
+6. **Watch it to deployed**: subscribe to the PR, and confirm the live
+   `BUILD_ID` (§7). Then tell the Owner, briefly, what changed and what is
+   still unverified (§10) — the camera, real uploads and emails cannot be
+   checked here.
+7. **Keep this file current** in the same commit as the change it
+   describes; the vocabulary table (§3) carries what each table and
+   function is for, §8 every trap that cost a real bug.
