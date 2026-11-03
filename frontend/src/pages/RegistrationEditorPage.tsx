@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
@@ -7,7 +7,7 @@ import { PlaceMap } from '../components/PlaceMap'
 import { QueryState } from '../components/QueryState'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
-import { geocodeAddress } from '../lib/geocode'
+import { geocodeAddress, suggestAddresses, type Found } from '../lib/geocode'
 import { registerUrl } from '../lib/registrationLinks'
 import {
   REGISTRATIONS_KEY,
@@ -156,8 +156,8 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
           <PromoCodesEditor promos={draft.promoCodes} types={draft.ticketTypes} onChange={(promoCodes) => set({ promoCodes })} />
         </SectionTile>
 
-        <SectionTile title="Where" hint="Type the address and press Find on map; drag the pin if it lands a little off. The page shows the map and an Open directions button.">
-          <LocationEditor draft={draft} set={set} onError={setError} />
+        <SectionTile title="Where" hint="Start typing the address and pick it from the suggestions, or press Find on map; drag the pin if it lands a little off. The page shows the map and an Open directions button.">
+          <LocationEditor draft={draft} set={set} />
         </SectionTile>
 
         <SectionTile title="Registration" hint="When people can register, and how many tickets one order may hold. Left blank, registration opens when you publish and closes when the event starts.">
@@ -287,7 +287,7 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
       </p>
       <label className="flex items-center gap-2 text-body-sm text-on-surface">
         <input type="checkbox" checked={draft.sameTimes} onChange={(e) => set({ sameTimes: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
-        The same start and end time on every date
+        Every date has the same start and end time
       </label>
       {draft.sameTimes && (
         <div className="flex flex-wrap gap-3">
@@ -344,7 +344,7 @@ function TicketTypesEditor({ types, onChange }: { types: TicketTypeDraft[]; onCh
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
         {types.map((t, i) => (
-          <li key={i} role="group" aria-label={`Ticket ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+          <li key={t.id} role="group" aria-label={`Ticket ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Name" className="min-w-40 flex-1">
                 <input value={t.name} onChange={(e) => setType(i, { name: e.target.value })} placeholder="General admission" maxLength={100} className={inputClasses} />
@@ -393,8 +393,7 @@ function TicketTypesEditor({ types, onChange }: { types: TicketTypeDraft[]; onCh
 
 function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; types: TicketTypeDraft[]; onChange: (next: PromoDraft[]) => void }) {
   const setPromo = (i: number, patch: Partial<PromoDraft>) => onChange(promos.map((p, j) => (j === i ? { ...p, ...patch } : p)))
-  const savedPaid = types.filter((t) => t.id && t.kind === 'paid')
-  const unsavedPaid = types.some((t) => !t.id && t.kind === 'paid')
+  const paid = types.filter((t) => t.kind === 'paid')
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
@@ -427,15 +426,15 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
                 { value: 'amount', label: 'Amount off' },
               ]}
             />
-            {savedPaid.length > 0 && (
+            {paid.length > 0 ? (
               <FieldGroup label="Applies to (none ticked: every paid ticket)">
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {savedPaid.map((t) => (
+                  {paid.map((t) => (
                     <label key={t.id} className="flex items-center gap-2 text-body-sm text-on-surface">
                       <input
                         type="checkbox"
-                        checked={p.ticketTypeIds.includes(t.id!)}
-                        onChange={(e) => setPromo(i, { ticketTypeIds: e.target.checked ? [...p.ticketTypeIds, t.id!] : p.ticketTypeIds.filter((x) => x !== t.id) })}
+                        checked={p.ticketTypeIds.includes(t.id)}
+                        onChange={(e) => setPromo(i, { ticketTypeIds: e.target.checked ? [...p.ticketTypeIds, t.id] : p.ticketTypeIds.filter((x) => x !== t.id) })}
                         className="h-4 w-4 accent-[var(--color-primary)]"
                       />
                       {t.name || `Ticket ${types.indexOf(t) + 1}`}
@@ -443,8 +442,9 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
                   ))}
                 </div>
               </FieldGroup>
+            ) : (
+              <p className="text-label-md text-on-surface-faint">A code takes money off paid tickets only; none of the tickets is paid yet.</p>
             )}
-            {unsavedPaid && <p className="text-label-md text-on-surface-faint">Save first to limit a code to particular tickets.</p>}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-body-sm text-on-surface">
                 <input type="checkbox" checked={p.active} onChange={(e) => setPromo(i, { active: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
@@ -464,21 +464,67 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
   )
 }
 
-function LocationEditor({ draft, set, onError }: { draft: EventDraft; set: (patch: Partial<EventDraft>) => void; onError: (text: string | null) => void }) {
+function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<EventDraft>) => void }) {
+  const [note, setNote] = useState<string | null>(null)
   const [found, setFound] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<Found[]>([])
+  const [looking, setLooking] = useState(false)
+  const typing = useRef(false)
+  const timer = useRef<number | null>(null)
+  const inFlight = useRef<AbortController | null>(null)
+
+  const place = (p: Found, address?: string) => {
+    setNote(null)
+    setFound(p.label)
+    setSuggestions([])
+    set({ latitude: p.latitude, longitude: p.longitude, ...(address !== undefined ? { address } : {}) })
+  }
+
+  // Suggestions follow the typing, a little behind it (Nominatim asks for
+  // one request a second), and a stale answer is dropped.
+  useEffect(() => {
+    if (!typing.current) return
+    typing.current = false
+    if (timer.current) window.clearTimeout(timer.current)
+    const text = draft.address.trim()
+    if (text.length < 4) {
+      setSuggestions([])
+      return
+    }
+    timer.current = window.setTimeout(async () => {
+      inFlight.current?.abort()
+      const ac = new AbortController()
+      inFlight.current = ac
+      setLooking(true)
+      try {
+        const rows = await suggestAddresses(text, undefined, ac.signal)
+        if (!ac.signal.aborted) {
+          setSuggestions(rows)
+          setNote(rows.length === 0 ? 'Nothing matches that yet — keep typing, or add the town or postcode.' : null)
+        }
+      } catch {
+        if (!ac.signal.aborted) setNote('Could not reach the map service just now.')
+      } finally {
+        if (!ac.signal.aborted) setLooking(false)
+      }
+    }, 450)
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current)
+    }
+  }, [draft.address])
+  useEffect(() => () => inFlight.current?.abort(), [])
+
   const find = useMutation({
     mutationFn: () => geocodeAddress([draft.locationName, draft.address].filter(Boolean).join(', ')),
-    onSuccess: (place) => {
-      if (!place) {
+    onSuccess: (p) => {
+      if (!p) {
         setFound(null)
-        onError('That address was not found on the map. Try adding the town or postcode, or drop the pin by hand: press Find on map with a nearby address, then drag it.')
+        setNote('That address was not found on the map. Add the town or postcode, pick one of the suggestions as you type, or press Find on map with a nearby address and drag the pin.')
         return
       }
-      onError(null)
-      setFound(place.label)
-      set({ latitude: place.latitude, longitude: place.longitude })
+      place(p)
     },
-    onError: (err: unknown) => onError(err instanceof Error ? err.message : 'Could not reach the map service.'),
+    onError: (err: unknown) => setNote(err instanceof Error ? err.message : 'Could not reach the map service.'),
   })
   // The map is remade when the pin first lands; after that it follows the pin.
   const [mapKey, setMapKey] = useState(0)
@@ -494,21 +540,59 @@ function LocationEditor({ draft, set, onError }: { draft: EventDraft; set: (patc
         <Field label="Place (optional)">
           <input value={draft.locationName} onChange={(e) => set({ locationName: e.target.value })} placeholder="Church Hall" maxLength={200} className={inputClasses} />
         </Field>
-        <Field label="Address (optional)">
-          <textarea value={draft.address} onChange={(e) => set({ address: e.target.value })} rows={2} placeholder="12 High Street, Reading, RG1 2AB" maxLength={500} className={`${inputClasses} resize-y`} />
+        <Field label="Address (optional)" hint={looking ? 'Looking…' : suggestions.length > 0 ? 'Pick one below to put the pin on it.' : undefined}>
+          <textarea
+            value={draft.address}
+            onChange={(e) => {
+              typing.current = true
+              set({ address: e.target.value })
+            }}
+            rows={2}
+            placeholder="12 High Street, Reading, RG1 2AB"
+            maxLength={500}
+            autoComplete="off"
+            className={`${inputClasses} resize-y`}
+          />
         </Field>
       </div>
+      {suggestions.length > 0 && (
+        <ul aria-label="Addresses found" className="flex flex-col gap-1">
+          {suggestions.map((p) => (
+            <li key={`${p.latitude},${p.longitude}`}>
+              <button
+                type="button"
+                onClick={() => place(p, p.label)}
+                className="tap w-full rounded-[var(--radius-row)] px-3 py-2 text-left text-body-sm text-on-surface hairline hover:bg-raised"
+              >
+                {p.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <ActionButton size="sm" tone="quiet" onClick={() => find.mutate()} disabled={find.isPending || !(draft.address.trim() || draft.locationName.trim())}>
           {find.isPending ? 'Looking…' : 'Find on map'}
         </ActionButton>
         {draft.latitude !== null && (
-          <button type="button" onClick={() => set({ latitude: null, longitude: null })} className="tap text-label-md text-on-surface-faint hover:text-error hover:underline">
+          <button
+            type="button"
+            onClick={() => {
+              setFound(null)
+              set({ latitude: null, longitude: null })
+            }}
+            className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
+          >
             Clear the pin
           </button>
         )}
         {found && <span className="min-w-0 break-words text-label-md text-on-surface-variant">Found: {found}</span>}
       </div>
+      {note && (
+        <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+          {note}
+        </p>
+      )}
       {draft.latitude !== null && draft.longitude !== null && (
         <PlaceMap
           key={mapKey}

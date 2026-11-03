@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
   saved: [] as { draft: EventDraft; existing: unknown }[],
   synced: [] as unknown[],
   geocoded: [] as string[],
+  suggested: [] as string[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
@@ -33,6 +34,17 @@ vi.mock('../lib/geocode', () => ({
   geocodeAddress: (address: string) => {
     state.geocoded.push(address)
     return Promise.resolve(address.includes('Nowhere') ? null : { latitude: 51.45, longitude: -0.97, label: 'High Street, Reading' })
+  },
+  suggestAddresses: (text: string) => {
+    state.suggested.push(text)
+    return Promise.resolve(
+      text.includes('Nowhere')
+        ? []
+        : [
+            { latitude: 51.45, longitude: -0.97, label: '12, High Street, Reading, RG1 2AB, United Kingdom' },
+            { latitude: 51.46, longitude: -0.98, label: '12, High Street, Caversham, Reading, United Kingdom' },
+          ],
+    )
   },
 }))
 vi.mock('../lib/registrations', async (original) => ({
@@ -107,6 +119,7 @@ beforeEach(() => {
   state.saved = []
   state.synced = []
   state.geocoded = []
+  state.suggested = []
 })
 
 describe('making a registration event', () => {
@@ -137,7 +150,7 @@ describe('making a registration event', () => {
     const user = show('/registrations/new')
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Youth Night')
     await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-21')
-    await pickTime(user, screen.getByRole('button', { name: 'Start time' }), '18:30')
+    await pickTime(user, screen.getByRole('button', { name: 'Date 1 starts' }), '18:30')
     await user.click(screen.getByRole('radio', { name: 'Paid' }))
     await user.type(screen.getByRole('textbox', { name: 'Price (£)' }), '5')
     await user.type(screen.getByRole('textbox', { name: 'Quantity' }), '50')
@@ -149,10 +162,9 @@ describe('making a registration event', () => {
     expect(state.saved[0].draft).toMatchObject({
       title: 'Youth Night',
       slug: 'youth-night',
-      sameTimes: true,
-      start: '18:30',
-      dates: [{ date: '2026-11-21' }],
-      ticketTypes: [{ name: 'General admission', kind: 'paid', price: '5', quantity: '50' }],
+      sameTimes: false,
+      dates: [{ date: '2026-11-21', start: '18:30' }],
+      ticketTypes: [{ name: 'General admission', kind: 'paid', price: '5', quantity: '50', isNew: true }],
     })
     // A draft is not in the diary yet.
     expect(state.synced).toEqual([])
@@ -172,14 +184,31 @@ describe('making a registration event', () => {
     const promo = screen.getByRole('group', { name: 'Promo code 1' })
     await user.type(within(promo).getByRole('textbox', { name: 'Code' }), 'early bird!')
     expect(within(promo).getByRole('textbox', { name: 'Code' })).toHaveValue('EARLYBIRD')
-    // No paid ticket yet, so nothing about limiting the code to one.
-    expect(within(promo).queryByText('Save first to limit a code to particular tickets.')).toBeNull()
+    // No paid ticket yet, so nothing to limit the code to.
+    expect(within(promo).getByText(/none of the tickets is paid yet/)).toBeInTheDocument()
+    // Make the first ticket paid: the code can name it before anything is saved.
+    await user.click(within(screen.getByRole('group', { name: 'Ticket 1' })).getByRole('radio', { name: 'Paid' }))
+    await user.click(within(promo).getByRole('checkbox', { name: 'General admission' }))
+    expect(within(promo).getByRole('checkbox', { name: 'General admission' })).toBeChecked()
+  })
+
+  it('suggests addresses as they are typed, and puts the pin on the one picked', async () => {
+    const user = show('/registrations/new')
+    await user.type(screen.getByRole('textbox', { name: /^Address/ }), '12 High Street')
+    const list = await screen.findByRole('list', { name: 'Addresses found' })
+    expect(within(list).getAllByRole('button')).toHaveLength(2)
+    await user.click(within(list).getByRole('button', { name: /Caversham/ }))
+    expect(screen.getByText('map at 51.46,-0.98')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /^Address/ })).toHaveValue('12, High Street, Caversham, Reading, United Kingdom')
+    expect(screen.queryByRole('list', { name: 'Addresses found' })).toBeNull()
+    // The last thing asked was the whole text typed, not every keystroke.
+    expect(state.suggested[state.suggested.length - 1]).toBe('12 High Street')
   })
 
   it('finds the address on the map and lets the pin be moved or cleared', async () => {
     const user = show('/registrations/new')
     expect(screen.getByRole('button', { name: 'Find on map' })).toBeDisabled()
-    await user.type(screen.getByRole('textbox', { name: 'Address (optional)' }), '12 High Street, Reading')
+    await user.type(screen.getByRole('textbox', { name: /^Address/ }), '12 High Street, Reading')
     await user.click(screen.getByRole('button', { name: 'Find on map' }))
     expect(await screen.findByText('map at 51.45,-0.97')).toBeInTheDocument()
     expect(state.geocoded).toEqual(['12 High Street, Reading'])
@@ -192,11 +221,14 @@ describe('making a registration event', () => {
     expect(screen.queryByText(/map at/)).toBeNull()
   })
 
-  it('says when an address is not found', async () => {
+  it('says, by the address box, when an address is not found', async () => {
     const user = show('/registrations/new')
-    await user.type(screen.getByRole('textbox', { name: 'Address (optional)' }), 'Nowhere Lane')
+    await user.type(screen.getByRole('textbox', { name: /^Address/ }), 'Nowhere Lane')
     await user.click(screen.getByRole('button', { name: 'Find on map' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not found on the map/)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/not found on the map/)
+    // Beside the Where section, not at the foot of the page.
+    expect(alert.compareDocumentPosition(screen.getByRole('button', { name: 'Save as draft' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('opens a saved event with everything on it, and keeps the diary in step when saved', async () => {

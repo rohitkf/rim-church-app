@@ -5,6 +5,8 @@ import { PublicNothing, PublicShell } from '../components/PublicShell'
 import { ActionButton, Field, FieldGroup, Pill, inputClasses } from '../components/Surface'
 import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
+import { PhoneField } from '../components/PhoneField'
+import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, parsePounds, priceWords } from '../lib/money'
@@ -69,7 +71,9 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const [wanted, setWanted] = useState<Record<string, Wanted>>({})
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  /** E.164, once it is a real number; the field keeps the rest to itself. */
   const [phone, setPhone] = useState('')
+  const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('empty')
   const [promoText, setPromoText] = useState('')
   const [promo, setPromo] = useState<PromoCheck | null>(null)
   const [promoNote, setPromoNote] = useState<string | null>(null)
@@ -127,7 +131,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
       registerForEvent(event.slug, {
         name: name.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone,
         date_id: event.date_mode === 'choose' ? dateId : null,
         promo_code: promo?.ok ? promo.code : '',
         lines,
@@ -161,7 +165,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   }
   if (!name.trim()) problems.push('Your name.')
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push('An email address that looks right.')
-  if (!phone.trim()) problems.push('A phone number.')
+  if (phoneStatus !== 'valid' || !phone) problems.push('A phone number that looks right.')
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -213,6 +217,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                 lng={event.location.longitude}
                 radius={0}
                 editable={false}
+                interactive={false}
                 title={event.location.name ?? 'The venue'}
                 className="mt-3 h-52 w-full overflow-hidden rounded-[var(--radius-card)] hairline"
               />
@@ -363,9 +368,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             <Field label="Email">
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
             </Field>
-            <Field label="Phone">
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" maxLength={40} className={inputClasses} />
-            </Field>
+            <PhoneField value={phone} onChange={setPhone} onStatus={setPhoneStatus} label="Phone" eyebrow />
           </div>
 
           {/* Nobody sees this box; a bot that fills it in registers nothing. */}

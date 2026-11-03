@@ -24,6 +24,7 @@ export function PlaceMap({
   reading = null,
   className = '',
   title = 'Church',
+  interactive = true,
 }: {
   lat: number
   lng: number
@@ -33,6 +34,8 @@ export function PlaceMap({
   reading?: { lat: number; lng: number; accuracy: number } | null
   /** What the pin is called, for its tooltip. */
   title?: string
+  /** Off: a picture of where it is — no panning, zooming or dragging, so a page scrolls past it. */
+  interactive?: boolean
   className?: string
 }) {
   const holder = useRef<HTMLDivElement>(null)
@@ -46,7 +49,16 @@ export function PlaceMap({
 
   useEffect(() => {
     if (!holder.current || map.current) return
-    const m = L.map(holder.current, { zoomControl: true, attributionControl: true }).setView([lat, lng], 17)
+    const m = L.map(holder.current, {
+      zoomControl: interactive,
+      attributionControl: true,
+      dragging: interactive,
+      scrollWheelZoom: interactive,
+      touchZoom: interactive,
+      doubleClickZoom: interactive,
+      boxZoom: interactive,
+      keyboard: interactive,
+    }).setView([lat, lng], 17)
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -57,7 +69,7 @@ export function PlaceMap({
       iconSize: [22, 22],
       iconAnchor: [11, 22],
     })
-    const marker = L.marker([lat, lng], { draggable: editable, icon, keyboard: editable, title }).addTo(m)
+    const marker = L.marker([lat, lng], { draggable: editable && interactive, icon, keyboard: editable && interactive, title }).addTo(m)
     marker.on('dragend', () => {
       const at = marker.getLatLng()
       moved.current({ lat: at.lat, lng: at.lng })

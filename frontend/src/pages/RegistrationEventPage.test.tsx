@@ -264,8 +264,9 @@ describe('an event’s page', () => {
     const dialog = screen.getByRole('dialog', { name: 'Scan tickets' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Ticket code' }), 'BCDEFGHJKMNP')
     await user.click(within(dialog).getByRole('button', { name: 'Find' }))
-    await user.click(within(dialog).getByRole('button', { name: 'Check in' }))
+    // Ben has paid, so reading his ticket checks him in with no tap.
     await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
+    expect(within(dialog).getByText('Checked in')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })

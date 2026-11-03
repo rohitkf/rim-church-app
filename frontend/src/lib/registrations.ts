@@ -207,7 +207,10 @@ export interface DateDraft {
 }
 
 export interface TicketTypeDraft {
-  id: string | null
+  /** Given at once, so a promo code can name a type before the first save. */
+  id: string
+  /** Not in the database yet: insert, with that id. */
+  isNew: boolean
   name: string
   description: string
   kind: TicketKind
@@ -260,7 +263,7 @@ export interface EventDraft {
 }
 
 export const newDateDraft = (): DateDraft => ({ id: null, date: '', start: '', endDate: '', end: '', label: '' })
-export const newTicketTypeDraft = (): TicketTypeDraft => ({ id: null, name: '', description: '', kind: 'free', price: '', minDonation: '', quantity: '' })
+export const newTicketTypeDraft = (): TicketTypeDraft => ({ id: crypto.randomUUID(), isNew: true, name: '', description: '', kind: 'free', price: '', minDonation: '', quantity: '' })
 export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], maxUses: '', active: true })
 
 export function emptyDraft(): EventDraft {
@@ -271,7 +274,7 @@ export function emptyDraft(): EventDraft {
     description: '',
     imagePath: null,
     dateMode: 'all',
-    sameTimes: true,
+    sameTimes: false,
     start: '',
     end: '',
     dates: [newDateDraft()],
@@ -356,6 +359,7 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
     dates: dateDrafts.length ? dateDrafts : [newDateDraft()],
     ticketTypes: ticketTypes.map((t) => ({
       id: t.id,
+      isNew: false,
       name: t.name,
       description: t.description ?? '',
       kind: t.kind,
@@ -518,8 +522,9 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
     if (error) throw error
   }
 
-  // Ticket types. New ones get ids now, so promo codes below can name them.
-  const keptTypes = new Set(draft.ticketTypes.map((t) => t.id).filter((id): id is string => !!id))
+  // Ticket types. A new one is inserted with the id the draft gave it, which
+  // is how a promo code can already name it.
+  const keptTypes = new Set(draft.ticketTypes.filter((t) => !t.isNew).map((t) => t.id))
   for (const t of existing?.ticketTypes ?? []) {
     if (!keptTypes.has(t.id)) {
       const { error } = await supabase.from('registration_ticket_types').delete().eq('id', t.id)
@@ -538,15 +543,11 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
       quantity: t.quantity.trim() === '' ? null : Number(t.quantity),
       sort_order: i,
     }
-    if (t.id) {
-      const { error } = await supabase.from('registration_ticket_types').update(values).eq('id', t.id)
-      if (error) throw error
-      typeIds.push(t.id)
-    } else {
-      const { data, error } = await supabase.from('registration_ticket_types').insert(values).select('id').single()
-      if (error) throw error
-      typeIds.push((data as { id: string }).id)
-    }
+    const { error } = t.isNew
+      ? await supabase.from('registration_ticket_types').insert({ id: t.id, ...values })
+      : await supabase.from('registration_ticket_types').update(values).eq('id', t.id)
+    if (error) throw error
+    typeIds.push(t.id)
   }
 
   // Promo codes.
