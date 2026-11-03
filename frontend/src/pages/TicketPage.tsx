@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
 import { ActionButton, Field, Overlay, Pill, inputClasses } from '../components/Surface'
 import { QrCode } from '../components/QrCode'
+import { Countdown } from '../components/Countdown'
+import { useNow } from '../lib/timeLeft'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
@@ -63,6 +65,8 @@ function Ticket({ order }: { order: OrderView }) {
   const errorText = useErrorText()
   const { ask, dialog } = useConfirmAction()
   const [error, setError] = useState<string | null>(null)
+  // Each minute: when the event starts, the countdown gives way to "Happening now".
+  const now = useNow(true, 30_000)
   const [showBank, setShowBank] = useState(false)
   const [mailed, setMailed] = useState<string | null>(null)
   const paid = order.payment_status === 'not_needed' || order.payment_status === 'received' || order.payment_status === 'waived'
@@ -126,6 +130,11 @@ function Ticket({ order }: { order: OrderView }) {
   const needsPayment = order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
   const title = cancelled ? 'Ticket' : paid ? 'Ticket' : 'Registration'
+  // The date to count down to: the one booked, or the next of the event's
+  // dates still to start — or one under way now. None once it is all over.
+  const nextDate = [...dates]
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .find((d) => new Date(d.ends_at ?? d.starts_at).getTime() > now.getTime())
 
   return (
     <PublicShell title={`${title} · ${event.title}`} logoPath={order.logo_path}>
@@ -138,6 +147,15 @@ function Ticket({ order }: { order: OrderView }) {
       <p className="text-body-md text-on-surface-variant">
         {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'} for {order.name}
       </p>
+      {!cancelled && nextDate && (
+        <div className="mt-4">
+          {new Date(nextDate.starts_at).getTime() > now.getTime() ? (
+            <Countdown to={nextDate.starts_at} lead="Starts in" over="It has started — see you there." />
+          ) : (
+            <p className="rounded-[var(--radius-card)] bg-surface-lowest px-4 py-3 text-body-md font-medium text-accent-green-soft hairline">Happening now</p>
+          )}
+        </div>
+      )}
 
       {!cancelled && (
         <section aria-label={paid ? 'Your ticket' : 'Your registration'} className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">

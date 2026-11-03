@@ -5,6 +5,7 @@ import { PublicNothing, PublicShell } from '../components/PublicShell'
 import { ActionButton, Field, FieldGroup, Pill, inputClasses } from '../components/Surface'
 import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
+import { Countdown } from '../components/Countdown'
 import { PhoneField } from '../components/PhoneField'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
@@ -194,6 +195,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         {!soldOut && ticketsLeft !== null && <Pill tone="green">{ticketsLeft} {ticketsLeft === 1 ? 'ticket' : 'tickets'} left</Pill>}
       </div>
       <h1 className="mt-2 text-headline-xl text-on-surface">{event.title}</h1>
+      {event.open && event.closes_at && !soldOut && (
+        <div className="mt-4">
+          <Countdown to={event.closes_at} lead="Registration closes in" over="Registration has closed." />
+        </div>
+      )}
 
       <section className="mt-5 flex flex-col gap-4">
         <div>
