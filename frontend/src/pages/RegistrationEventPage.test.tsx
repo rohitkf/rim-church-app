@@ -415,6 +415,11 @@ describe('an event’s page', () => {
     await user.click(within(await openMenu(user, 'Pastors & Leaders 2026')).getByRole('menuitem', { name: /Delete event/ }))
     const dialog = screen.getByRole('dialog', { name: 'Delete Pastors & Leaders 2026?' })
     expect(within(dialog).getByRole('button', { name: 'Delete for good' })).toBeDisabled()
+    // The name to type is set apart and copies in one tap.
+    expect(within(dialog).getByLabelText('The event’s name')).toHaveTextContent('Pastors & Leaders 2026')
+    await user.click(within(dialog).getByRole('button', { name: 'Copy name' }))
+    expect(await navigator.clipboard.readText()).toBe('Pastors & Leaders 2026')
+    expect(within(dialog).getByRole('button', { name: 'Copied' })).toBeInTheDocument()
     await user.type(within(dialog).getByRole('textbox', { name: /Type the event’s name/ }), 'Pastors & Leaders 2026')
     await user.click(within(dialog).getByRole('button', { name: 'Delete for good' }))
     expect(await screen.findByText('all events')).toBeInTheDocument()
