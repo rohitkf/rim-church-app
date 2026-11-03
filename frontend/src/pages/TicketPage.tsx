@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
-import { ActionButton, Overlay, Pill } from '../components/Surface'
+import { ActionButton, Field, Overlay, Pill, inputClasses } from '../components/Surface'
 import { QrCode } from '../components/QrCode'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { AccountCard } from './GivingPage'
@@ -10,7 +10,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
-import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPayment, sendTicketEmail, whenWords, type OrderView } from '../lib/registrations'
+import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPayment, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -18,10 +18,15 @@ import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPay
  * stands. The code in the address is the key: whoever has the link has
  * the ticket, which is also how it is shared and saved.
  *
- * Paying: the order already exists and its tickets are held. The attendee
- * pays by one of the church's links or a bank transfer, with the code as
- * the reference, and says so; "Payment reported" stays until whoever runs
- * registrations marks it received. Or they choose to pay at reception.
+ * One code, two meanings (0247): until a paid order is paid, this page is
+ * a *registration* — shown at reception to pay, where the same QR code
+ * brings the order up — and once the church has the money it is the
+ * *ticket*, shown at the door. Paying online: the attendee pays by one of
+ * the church's links or a bank transfer, with the code as the reference,
+ * and sends the proof — a screenshot or PDF of the receipt, or the
+ * payment reference, or both — which whoever runs registrations matches
+ * against the account; "being checked" stays until they do. Or they
+ * choose to pay at reception.
  */
 export function TicketPage() {
   const { code = '' } = useParams()
@@ -48,6 +53,11 @@ const STATUS_TONE: Record<OrderView['payment_status'], 'neutral' | 'orange' | 'b
   waived: 'green',
 }
 
+type OnlineMethod = 'paypal' | 'bank'
+const METHOD_WORDS: Record<OnlineMethod, string> = { paypal: 'the online link', bank: 'bank transfer' }
+const PROOF_TYPES = 'image/png,image/jpeg,image/webp,application/pdf'
+const PROOF_LIMIT = 5 * 1024 * 1024
+
 function Ticket({ order }: { order: OrderView }) {
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -55,6 +65,8 @@ function Ticket({ order }: { order: OrderView }) {
   const [error, setError] = useState<string | null>(null)
   const [showBank, setShowBank] = useState(false)
   const [mailed, setMailed] = useState<string | null>(null)
+  const paid = order.payment_status === 'not_needed' || order.payment_status === 'received' || order.payment_status === 'waived'
+  const noun = paid ? 'ticket' : 'registration'
   const mail = useMutation({
     mutationFn: () => sendTicketEmail(order.code),
     onSuccess: (result) =>
@@ -69,8 +81,10 @@ function Ticket({ order }: { order: OrderView }) {
       ),
   })
   /** Opened a payment link: when they come back, ask whether it went through. */
-  const [pending, setPending] = useState<'paypal' | 'bank' | null>(null)
+  const [pending, setPending] = useState<OnlineMethod | null>(null)
   const [asking, setAsk] = useState(false)
+  /** The receipt step, for the way they paid. */
+  const [proofFor, setProofFor] = useState<OnlineMethod | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['ticket', order.code] })
   const report = useMutation({
@@ -111,9 +125,10 @@ function Ticket({ order }: { order: OrderView }) {
   const dates = order.date ? [order.date] : event.dates
   const needsPayment = order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
+  const title = cancelled ? 'Ticket' : paid ? 'Ticket' : 'Registration'
 
   return (
-    <PublicShell title={`Ticket · ${event.title}`} logoPath={order.logo_path}>
+    <PublicShell title={`${title} · ${event.title}`} logoPath={order.logo_path}>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone="green">Registered</Pill>}
         {order.total_pence > 0 && !cancelled && <Pill tone={STATUS_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>}
@@ -125,17 +140,24 @@ function Ticket({ order }: { order: OrderView }) {
       </p>
 
       {!cancelled && (
-        <section aria-label="Your ticket" className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
-          <QrCode text={ticketUrl(order.code)} label={`Ticket ${order.code}`} className="mx-auto h-48 w-48" />
+        <section aria-label={paid ? 'Your ticket' : 'Your registration'} className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
+          <p className="font-mono text-label-sm uppercase tracking-wide text-[#5a5a72]">{paid ? 'Ticket' : 'Registration'}</p>
+          <QrCode text={ticketUrl(order.code)} label={`${paid ? 'Ticket' : 'Registration'} ${order.code}`} className="mx-auto mt-2 h-48 w-48" />
           <p className="mt-3 font-mono text-headline-sm tracking-[0.2em] text-[#14143a]">{order.code}</p>
-          <p className="mt-1 text-label-md text-[#5a5a72]">Show this at the door. Save this page’s link — it is your ticket.</p>
+          <p className="mt-1 text-label-md text-[#5a5a72]">
+            {paid
+              ? 'Show this at the door. Save this page’s link — it is your ticket.'
+              : order.payment_status === 'reported'
+                ? 'Your receipt is being checked. Once the payment is matched, this becomes your ticket — show it at the door.'
+                : 'Show this at reception to pay, or pay below. Once it is paid, this becomes your ticket.'}
+          </p>
           <button
             type="button"
             onClick={() => mail.mutate()}
             disabled={mail.isPending}
             className="tap mt-2 rounded-full px-4 text-label-md font-medium text-[#0a66ff] hover:underline disabled:opacity-60"
           >
-            {mail.isPending ? 'Sending…' : 'Email me this ticket'}
+            {mail.isPending ? 'Sending…' : `Email me this ${noun}`}
           </button>
           {mailed && (
             <p role="status" className="mt-1 text-label-md text-[#5a5a72]">
@@ -206,25 +228,28 @@ function Ticket({ order }: { order: OrderView }) {
         <div>
           <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Booked by</p>
           <p className="mt-1 text-body-md text-on-surface">{order.name}</p>
-          <p className="text-body-sm text-on-surface-variant">
-            {order.email}
-            {order.phone && ` · ${order.phone}`}
-          </p>
+          {(order.email || order.phone) && (
+            <p className="text-body-sm text-on-surface-variant">
+              {order.email}
+              {order.phone && `${order.email ? ' · ' : ''}${order.phone}`}
+            </p>
+          )}
         </div>
       </section>
 
       {needsPayment && (
         <section aria-label="Paying" className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
           <h2 className="text-headline-sm text-on-surface">
-            {order.payment_status === 'reported' ? 'Thank you — your payment will be confirmed' : `To pay: ${pounds(order.total_pence)}`}
+            {order.payment_status === 'reported' ? 'Thank you — your receipt is being checked' : `To pay: ${pounds(order.total_pence)}`}
           </h2>
           {order.payment_status === 'reported' ? (
             <p className="mt-1 text-body-sm text-on-surface-variant">
-              You said you paid{order.payment_method ? ` by ${order.payment_method === 'paypal' ? 'the online link' : 'bank transfer'}` : ''}. Once the church sees it, this ticket will say Paid.
+              You said you paid{order.payment_method && order.payment_method !== 'reception' ? ` by ${METHOD_WORDS[order.payment_method]}` : ''}
+              {order.proof_reference ? `, reference ${order.proof_reference}` : ''}. Once the church matches it, this becomes your ticket, and you will get an email to say so.
             </p>
           ) : (
             <p className="mt-1 text-body-sm text-on-surface-variant">
-              Use <span className="font-mono text-on-surface">{order.code}</span> as the reference, so it can be matched to your ticket.
+              Use <span className="font-mono text-on-surface">{order.code}</span> as the reference, so it can be matched to your registration.
               {order.payment_method === 'reception' && ' You chose to pay at reception; you can still pay another way below.'}
             </p>
           )}
@@ -268,7 +293,7 @@ function Ticket({ order }: { order: OrderView }) {
                       }}
                     />
                   ))}
-                  <ActionButton tone="success" onClick={() => setAsk(true)} disabled={report.isPending}>
+                  <ActionButton tone="success" onClick={() => setProofFor('bank')} disabled={report.isPending}>
                     I’ve sent the transfer
                   </ActionButton>
                 </div>
@@ -278,6 +303,13 @@ function Ticket({ order }: { order: OrderView }) {
                   I’ll pay at reception
                 </ActionButton>
               )}
+            </div>
+          )}
+          {order.payment_status === 'reported' && (
+            <div className="mt-4">
+              <ActionButton tone="ghost" onClick={() => setProofFor(order.payment_method === 'paypal' ? 'paypal' : 'bank')}>
+                Send another receipt
+              </ActionButton>
             </div>
           )}
         </section>
@@ -317,14 +349,14 @@ function Ticket({ order }: { order: OrderView }) {
         <Overlay label="Did you complete the payment?" onDismiss={() => setAsk(false)}>
           <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
             <h2 className="text-headline-md text-on-surface">Did you complete the payment?</h2>
-            <p className="mt-1 text-body-sm text-on-surface-variant">If so, the church will confirm it when it arrives. If not, you can still pay another way.</p>
+            <p className="mt-1 text-body-sm text-on-surface-variant">If so, send the receipt next, so the church can match it. If not, you can still pay another way.</p>
             <div className="mt-5 flex flex-col gap-2">
               <ActionButton
                 onClick={() => {
                   setAsk(false)
-                  report.mutate({ method: pending === 'paypal' ? 'paypal' : 'bank', done: true })
+                  setPending(null)
+                  setProofFor(pending === 'bank' ? 'bank' : 'paypal')
                 }}
-                disabled={report.isPending}
               >
                 Yes, I’ve paid
               </ActionButton>
@@ -341,7 +373,92 @@ function Ticket({ order }: { order: OrderView }) {
           </div>
         </Overlay>
       )}
+      {proofFor && (
+        <ProofStep
+          code={order.code}
+          method={proofFor}
+          onDone={() => {
+            setProofFor(null)
+            setError(null)
+            void refresh()
+          }}
+          onClose={() => setProofFor(null)}
+        />
+      )}
       {dialog}
     </PublicShell>
+  )
+}
+
+/**
+ * The receipt: a screenshot or PDF of the payment, or its reference, or
+ * both — at least one, so whoever runs registrations can match it to the
+ * money. The file goes to the private proofs bucket under this order's
+ * own code; only the church can read it back.
+ */
+function ProofStep({ code, method, onDone, onClose }: { code: string; method: OnlineMethod; onDone: () => void; onClose: () => void }) {
+  const errorText = useErrorText()
+  const [file, setFile] = useState<File | null>(null)
+  const [reference, setReference] = useState('')
+  const [problem, setProblem] = useState<string | null>(null)
+  const send = useMutation({
+    mutationFn: async () => {
+      const path = file ? await uploadProof(code, file) : null
+      await reportPayment(code, method, true, { path, reference: reference.trim() || null })
+    },
+    onSuccess: onDone,
+    onError: (err: unknown) => setProblem(errorText(err, 'Could not send that. Try again, or type the reference instead.')),
+  })
+  const choose = (chosen: File | null) => {
+    if (chosen && chosen.size > PROOF_LIMIT) {
+      setFile(null)
+      setProblem('That file is over 5 MB. A screenshot of the receipt is enough.')
+      return
+    }
+    setProblem(null)
+    setFile(chosen)
+  }
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!file && !reference.trim()) {
+      setProblem('Attach the receipt, or type the payment reference — one or the other, so the church can match it.')
+      return
+    }
+    send.mutate()
+  }
+  return (
+    <Overlay label="Your receipt" onDismiss={onClose}>
+      <form onSubmit={submit} className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
+        <h2 className="text-headline-md text-on-surface">Your receipt</h2>
+        <p className="mt-1 text-body-sm text-on-surface-variant">
+          A screenshot or PDF of the {METHOD_WORDS[method] === 'bank transfer' ? 'transfer' : 'payment'}, or its reference, or both. The church matches it and confirms your ticket by email.
+        </p>
+        <Field label="Screenshot or PDF" className="mt-4">
+          <input
+            type="file"
+            accept={PROOF_TYPES}
+            onChange={(e) => choose(e.target.files?.[0] ?? null)}
+            className="block w-full text-body-sm text-on-surface file:mr-3 file:rounded-full file:border-0 file:bg-raised file:px-4 file:py-2 file:text-label-md file:font-medium file:text-on-surface"
+          />
+        </Field>
+        {file && <p className="mt-1 text-label-md text-on-surface-variant">{file.name}</p>}
+        <Field label="Payment reference" hint="From your bank or the payment page, if you have it." className="mt-4">
+          <input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} autoCapitalize="characters" autoCorrect="off" className={inputClasses} />
+        </Field>
+        {problem && (
+          <p role="alert" className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {problem}
+          </p>
+        )}
+        <div className="mt-5 flex flex-col gap-2">
+          <ActionButton type="submit" disabled={send.isPending}>
+            {send.isPending ? 'Sending…' : 'Send'}
+          </ActionButton>
+          <ActionButton tone="quiet" onClick={onClose} disabled={send.isPending}>
+            Not now
+          </ActionButton>
+        </div>
+      </form>
+    </Overlay>
   )
 }

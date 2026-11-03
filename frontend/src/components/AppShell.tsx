@@ -50,6 +50,7 @@ const WASH: Record<string, string> = {
   '/stage': 'var(--color-accent-blue)',
   '/giving': 'var(--color-accent-green)',
   '/registrations': 'var(--color-accent-green)',
+  '/door': 'var(--color-accent-green)',
   '/departments': 'var(--color-accent-indigo)',
   '/volunteers': 'var(--color-accent-indigo)',
   '/inventory': 'var(--color-accent-orange)',

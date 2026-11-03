@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, Overlay, PageHeader, Pill, SegmentedControl, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
+import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { pounds } from '../lib/money'
 import { registerUrl, ticketUrl } from '../lib/registrationLinks'
+import { downloadBlob, qrPngBlob } from '../lib/qrPng'
 import { writeWorkbook } from '../lib/writeWorkbook'
 import {
   ORDER_FILTERS,
@@ -22,7 +24,10 @@ import {
   fetchRegistrationEvent,
   fetchRegistrationOrders,
   markOrder,
+  notifyPayment,
   orderMatches,
+  proofUrl,
+  receiverName,
   registrationExportFileName,
   setOrderNotes,
   setRegistrationStatus,
@@ -40,6 +45,14 @@ import {
  * reception does (mark a payment received or waived, check in, a note,
  * cancel), and the lot exported for the accounts. Publish, close, reopen,
  * edit, delete.
+ *
+ * Proof of payment (0247): an order that says it paid online carries its
+ * receipt (a link to the private proofs bucket) and reference beside it;
+ * Mark as received confirms it — and emails "your ticket is confirmed" —
+ * while Not received, ask again puts it back to awaiting and emails that
+ * the payment could not be matched. Who marked it, and when, stays on the
+ * order. The link tile also has the event's QR code to download, for a
+ * poster or a message: whoever scans it lands on the registration page.
  */
 export function RegistrationEventPage() {
   const { id = '' } = useParams()
@@ -76,10 +89,15 @@ export function RegistrationEventPage() {
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not delete this event.')),
   })
+  // The money is in: "your ticket is confirmed", to whoever gave an address. Nothing waits on it.
+  const ticketConfirmed = (order: OrderRow) => {
+    if (order.email) void notifyPayment('paid', order.code)
+  }
   const mark = useMutation({
     mutationFn: ({ order, action }: { order: OrderRow; action: OrderAction }) => markOrder(order.id, action),
-    onSuccess: (_r, { action }) => {
+    onSuccess: (_r, { order, action }) => {
       setError(null)
+      if (action === 'received') ticketConfirmed(order)
       showToast(ACTION_DONE[action])
       return refresh()
     },
@@ -91,12 +109,29 @@ export function RegistrationEventPage() {
       await markOrder(order.id, 'received')
       await markOrder(order.id, 'check_in')
     },
-    onSuccess: () => {
+    onSuccess: (_r, order) => {
       setError(null)
+      ticketConfirmed(order)
       showToast('Received, and checked in')
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
+  })
+  // A reported payment that is not in the account: back to awaiting, and an email says so.
+  const askAgain = useMutation({
+    mutationFn: (order: OrderRow) => markOrder(order.id, 'awaiting'),
+    onSuccess: (_r, order) => {
+      setError(null)
+      if (order.email) void notifyPayment('unmatched', order.code)
+      showToast(order.email ? 'Back to awaiting payment — they have been emailed' : 'Back to awaiting payment')
+      return refresh()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
+  })
+  const downloadQr = useMutation({
+    mutationFn: async () => downloadBlob(await qrPngBlob(registerUrl(full.data!.event.slug), full.data!.event.title), `${full.data!.event.slug}-qr.png`),
+    onSuccess: () => showToast('QR code downloaded'),
+    onError: (err: unknown) => setError(errorText(err, 'Could not make the QR code.')),
   })
   const saveNote = useMutation({
     mutationFn: ({ order, notes }: { order: OrderRow; notes: string }) => setOrderNotes(order.id, notes),
@@ -148,6 +183,16 @@ export function RegistrationEventPage() {
       cancelLabel: 'Keep it',
       onConfirm: () => mark.mutate({ order, action: 'cancel' }),
     })
+  const notReceived = (order: OrderRow) =>
+    ask({
+      title: `Not received from ${order.name}?`,
+      body: order.email
+        ? `Their registration goes back to awaiting payment, and an email to ${order.email} says the payment could not be matched and asks them to check, or pay at reception.`
+        : 'Their registration goes back to awaiting payment. They gave no email address, so nobody is told.',
+      confirmLabel: 'Ask again',
+      cancelLabel: 'Keep it',
+      onConfirm: () => askAgain.mutate(order),
+    })
 
   return (
     <div>
@@ -190,24 +235,40 @@ export function RegistrationEventPage() {
       )}
 
       <Tile className="mb-4">
-        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{event.status === 'published' ? 'Share this link' : 'The link, once published'}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <a href={link} target="_blank" rel="noopener noreferrer" className="min-w-0 break-all font-mono text-body-sm text-accent-blue-soft hover:underline">
-            {link}
-          </a>
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(link)
-              setCopied(true)
-              window.setTimeout(() => setCopied(false), 1500)
-            }}
-            className="tap text-label-md font-medium text-accent-blue-soft hover:underline"
-          >
-            {copied ? 'Copied' : 'Copy link'}
-          </button>
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{event.status === 'published' ? 'Share this link' : 'The link, once published'}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <a href={link} target="_blank" rel="noopener noreferrer" className="min-w-0 break-all font-mono text-body-sm text-accent-blue-soft hover:underline">
+                {link}
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(link)
+                  setCopied(true)
+                  window.setTimeout(() => setCopied(false), 1500)
+                }}
+                className="tap text-label-md font-medium text-accent-blue-soft hover:underline"
+              >
+                {copied ? 'Copied' : 'Copy link'}
+              </button>
+              <button type="button" onClick={() => downloadQr.mutate()} disabled={downloadQr.isPending} className="tap text-label-md font-medium text-accent-blue-soft hover:underline disabled:opacity-60">
+                Download QR code
+              </button>
+              {event.status !== 'draft' && (
+                <Link to={`/door?event=${event.id}`} className="tap text-label-md font-medium text-accent-blue-soft hover:underline">
+                  Open Reception
+                </Link>
+              )}
+            </div>
+            {event.status === 'draft' && <p className="mt-1 text-label-md text-on-surface-faint">Only you can open it while it is a draft — a preview.</p>}
+            {event.status !== 'draft' && <p className="mt-1 text-label-md text-on-surface-faint">The QR code says this link: on a poster or a slide, whoever scans it lands on the registration page.</p>}
+          </div>
+          <div className="shrink-0 rounded-[var(--radius-chip)] bg-white p-1.5">
+            <QrCode text={link} label={`QR code for ${link}`} className="h-20 w-20" />
+          </div>
         </div>
-        {event.status === 'draft' && <p className="mt-1 text-label-md text-on-surface-faint">Only you can open it while it is a draft — a preview.</p>}
       </Tile>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -285,7 +346,7 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
-                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o))}
+                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o))}
                 />
               ))}
             </ul>
@@ -370,13 +431,21 @@ const ACTION_DONE: Record<OrderAction, string> = {
 }
 
 /** What reception can do to an order, as it stands. */
-function orderActions(o: OrderRow, act: (action: OrderAction) => void, note: () => void, cancel: () => void): MenuAction[] {
+function orderActions(o: OrderRow, act: (action: OrderAction) => void, note: () => void, cancel: () => void, notReceived: () => void): MenuAction[] {
   const actions: MenuAction[] = []
   if (o.status === 'confirmed') {
     if (o.payment_status !== 'not_needed') {
-      if (o.payment_status !== 'received') actions.push({ label: 'Mark as received', onSelect: () => act('received'), tone: 'accent', hint: 'The money has arrived' })
+      if (o.payment_status !== 'received') {
+        actions.push({
+          label: 'Mark as received',
+          onSelect: () => act('received'),
+          tone: 'accent',
+          hint: o.payment_status === 'reported' ? 'The receipt matches the account; their ticket is confirmed by email' : 'The money has arrived',
+        })
+      }
+      if (o.payment_status === 'reported') actions.push({ label: 'Not received, ask again', onSelect: notReceived, hint: 'Nothing matches; an email asks them to check' })
       if (o.payment_status !== 'waived') actions.push({ label: 'Waive the payment', onSelect: () => act('waived') })
-      if (o.payment_status !== 'awaiting') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
+      if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
     }
     actions.push(
       o.checked_in_at
@@ -399,8 +468,24 @@ const PAY_TONE: Record<OrderRow['payment_status'], 'neutral' | 'orange' | 'blue'
   waived: 'green',
 }
 
+const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+
+/** The receipt, in a new tab: the tab opens on the tap, the signed link follows. */
+async function openReceipt(path: string) {
+  const tab = window.open('', '_blank', 'noopener')
+  try {
+    const url = await proofUrl(path)
+    if (tab) tab.location.href = url
+    else window.location.assign(url)
+  } catch {
+    tab?.close()
+    showToast('Could not open the receipt', 'error')
+  }
+}
+
 function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?: { starts_at: string; ends_at: string | null }; actions: MenuAction[] }) {
-  const when = new Date(order.created_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+  const when = stamp(order.created_at)
+  const receiver = receiverName(order)
   return (
     <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-2">
@@ -412,10 +497,12 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
               · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
             </span>
           </p>
-          <p className="break-words text-body-sm text-on-surface-variant">
-            {order.email}
-            {order.phone && ` · ${order.phone}`}
-          </p>
+          {(order.email || order.phone) && (
+            <p className="break-words text-body-sm text-on-surface-variant">
+              {order.email}
+              {order.phone && `${order.email ? ' · ' : ''}${order.phone}`}
+            </p>
+          )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             {order.status === 'cancelled' ? (
               <Pill tone="red">Cancelled</Pill>
@@ -430,7 +517,25 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
                 {order.promo_code && `${order.total_pence > 0 ? ' · ' : ''}${order.promo_code}`}
               </span>
             )}
+            {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
           </div>
+          {(order.proof_path || order.proof_reference) && order.status === 'confirmed' && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
+              {order.proof_path && (
+                <button type="button" onClick={() => void openReceipt(order.proof_path!)} className="tap font-medium text-accent-blue-soft hover:underline">
+                  Open the receipt
+                </button>
+              )}
+              {order.proof_reference && <span>Ref {order.proof_reference}</span>}
+              {order.proof_at && <span className="text-on-surface-faint">sent {stamp(order.proof_at)}</span>}
+            </p>
+          )}
+          {order.received_at && (order.payment_status === 'received' || order.payment_status === 'waived') && (
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              {order.payment_status === 'waived' ? 'Waived' : 'Received'} {stamp(order.received_at)}
+              {receiver && ` by ${receiver}`}
+            </p>
+          )}
           {dateLabel && <p className="mt-1 text-label-md text-on-surface-faint">{whenWords(dateLabel.starts_at, dateLabel.ends_at)}</p>}
           {order.tickets.some((t) => t.attendee_name) && (
             <p className="text-label-md text-on-surface-faint">For {order.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>

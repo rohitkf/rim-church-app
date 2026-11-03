@@ -200,6 +200,14 @@ already holds, ten minutes apart at most, and answers the same whether
 or not an address has a registration. Without the two secrets it answers
 "not configured" and the pages say email is not set up — nothing breaks.
 
+Reception (0247) adds two kinds the church sends after looking at a
+payment — "your ticket is confirmed" and "we could not match your
+payment" — so the function must be a version from 0247 on (deploy it
+again after that migration). Receipts people upload go to the private
+`registration-proofs` bucket, which the migration creates (5 MB,
+PNG/JPEG/WebP/PDF); only whoever runs registrations or works the door
+can read them, and nothing else needs setting up.
+
 The sold-out push (a ticket type reaching its quantity) goes through the
 notifications table like every other push, so step 8 covers it; the
 `push-notify` function must be a version that lists

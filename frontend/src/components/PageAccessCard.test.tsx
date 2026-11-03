@@ -60,9 +60,11 @@ describe('who sees what', () => {
     const labels = within(screen.getByRole('list', { name: /Pages an Admin can open/ }))
       .getAllByRole('listitem')
       .map((item) => item.getAttribute('aria-label'))
-    // Registrations (0244) is the Owner's, and whoever the grid gives "Run registrations" — no level opens it.
+    // Registrations (0244) is the Owner's, and whoever the grid gives "Run registrations" — no level opens it;
+    // Reception (0247) the same, plus whoever it gives "Work the door".
     expect(labels).toContain('Registrations: cannot open')
-    for (const label of labels.filter((l) => !l?.startsWith('Registrations'))) expect(label).toMatch(/can open$/)
+    expect(labels).toContain('Reception: cannot open')
+    for (const label of labels.filter((l) => !l?.startsWith('Registrations') && !l?.startsWith('Reception'))) expect(label).toMatch(/can open$/)
   })
 
   it('arrives with the church’s saved choices, and marks what moved from the app’s own', async () => {

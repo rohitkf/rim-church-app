@@ -588,6 +588,16 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
+  // Work the door (0247): scan tickets, take money at reception, check
+  // people in, register a walk-in — without being able to change events.
+  'reg.door': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),

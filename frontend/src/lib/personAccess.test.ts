@@ -201,6 +201,15 @@ describe('the pages they can open', () => {
     expect(openingFor(person({ overwatch: true }), '/registrations', settings())).toMatchObject({ open: false })
   })
 
+  it('opens Reception to the Owner, to reg.manage and to reg.door (0247), never by level', () => {
+    expect(openingFor(person({ owner: true }), '/door', settings())).toMatchObject({ open: true, via: 'door' })
+    expect(openingFor(person({ admin: true }), '/door', settings())).toMatchObject({ open: false })
+    expect(openingFor(person({ admin: true }), '/door', settings(), { regManager: true })).toMatchObject({ open: true, via: 'door' })
+    expect(openingFor(person(), '/door', settings(), { doorWorker: true })).toMatchObject({ open: true, via: 'door' })
+    // The door does not open the office.
+    expect(openingFor(person(), '/registrations', settings(), { doorWorker: true })).toMatchObject({ open: false })
+  })
+
   // A page's level is the grid's (0215), passed in as the levels.
   const closed = { levels: { prayer: 'team' as const } }
 

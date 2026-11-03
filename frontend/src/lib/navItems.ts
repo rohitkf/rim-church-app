@@ -103,6 +103,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Events anybody can sign up for from a link (0244): the Owner's, and
   // whoever the grid gives "Run registrations".
   { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church life' },
+  // Reception (0247): the door, for whoever works it.
+  { to: '/door', label: 'Reception', icon: IdCardIcon, group: 'Church life' },
   { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
   // Asking for prayer, praying for each other, and what God has done (0197).
   { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church life' },

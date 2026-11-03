@@ -3,34 +3,32 @@ import { ActionButton, Overlay, Pill, inputClasses } from './Surface'
 import { useQrCamera } from '../lib/qrCamera'
 import { codeFromScan } from '../lib/registrationLinks'
 import { pounds } from '../lib/money'
-import { PAYMENT_WORDS, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
+import { PAYMENT_WORDS, isPaid, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
 
 /**
- * The door (0246): the camera reads the QR code on each ticket — which says
- * its /ticket/<code> link — and the order comes up: who, how many, whether
- * it is paid, whether they are here already. A paid ticket is checked in
- * the moment it is read, no tap; one that still owes is held up with
- * Check in and Paid now, check in, for whoever pays at reception. The
- * camera keeps running; the next ticket in view replaces the last. A code
- * can also be typed, for a phone whose camera will not read.
+ * The door (0246, 0247): the camera reads the QR code on each ticket —
+ * which says its /ticket/<code> link — and the order comes up: who, how
+ * many, whether it is paid, whether they are here already. A paid ticket
+ * is checked in the moment it is read, no tap; one that still owes is
+ * held up with Check in and Paid now, check in, for whoever pays at
+ * reception. The camera keeps running; the next ticket in view replaces
+ * the last. A code can also be typed, for a phone whose camera will not
+ * read.
+ *
+ * ScannerPanel is the working part, which Reception (/door) lays into its
+ * own page; TicketScanner is the same in a sheet, for the event's page.
  */
-const isPaid = (o: OrderRow) => o.payment_status === 'not_needed' || o.payment_status === 'received' || o.payment_status === 'waived'
-
-export function TicketScanner({
-  orders,
-  dates,
-  busy,
-  onCheckIn,
-  onPaidAndCheckIn,
-  onClose,
-}: {
+export interface ScannerProps {
   orders: OrderRow[]
   dates: EventDate[]
   busy: boolean
   onCheckIn: (order: OrderRow) => void
   onPaidAndCheckIn: (order: OrderRow) => void
-  onClose: () => void
-}) {
+  /** The camera runs only while this is on (a hidden tab keeps its hands off it). */
+  active?: boolean
+}
+
+export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, active = true }: ScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [found, setFound] = useState<{ code: string; id: string | null; auto: boolean } | null>(null)
   const [typed, setTyped] = useState('')
@@ -63,7 +61,7 @@ export function TicketScanner({
     },
     [take],
   )
-  const phase = useQrCamera(videoRef, onText)
+  const phase = useQrCamera(videoRef, onText, active)
 
   const submitTyped = (e: FormEvent) => {
     e.preventDefault()
@@ -83,7 +81,110 @@ export function TicketScanner({
   const today = new Date().toDateString()
   const orderDate = order?.date_id ? dates.find((d) => d.id === order.date_id) : undefined
   const otherDay = !!orderDate && new Date(orderDate.starts_at).toDateString() !== today
+  const owes = !!order && order.status === 'confirmed' && order.total_pence > 0 && !isPaid(order)
 
+  return (
+    <div>
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-chip)] bg-black">
+        <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-8 rounded-[var(--radius-chip)] shadow-[0_0_0_2px_rgba(255,255,255,0.65)]" />
+        {phase !== 'scanning' && (
+          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-body-sm text-white/80">
+            {phase === 'starting' && 'Starting the camera…'}
+            {phase === 'denied' && 'The camera was refused. Allow camera access for this site, or type the code below.'}
+            {phase === 'unavailable' && 'This browser will not give the page a camera. Type the code below.'}
+          </p>
+        )}
+      </div>
+
+      {found && (
+        <section aria-label="Ticket found" className="mt-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
+          {!order ? (
+            <>
+              <Pill tone="red">Not a ticket for this event</Pill>
+              <p className="mt-2 font-mono text-body-sm text-on-surface-variant">{found.code}</p>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                {order.status === 'cancelled' ? (
+                  <Pill tone="red">Cancelled — not valid</Pill>
+                ) : found.auto ? (
+                  <Pill tone="green">Checked in</Pill>
+                ) : order.checked_in_at ? (
+                  <Pill tone="blue">Already checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
+                ) : (
+                  <Pill tone="green">Valid</Pill>
+                )}
+                {order.status === 'confirmed' && order.total_pence > 0 && (
+                  <Pill tone={order.payment_status === 'received' || order.payment_status === 'waived' ? 'green' : 'orange'}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+                )}
+              </div>
+              <h3 className="mt-2 text-headline-sm text-on-surface">
+                {order.name}
+                <span className="text-on-surface-variant">
+                  {' '}
+                  · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
+                </span>
+              </h3>
+              {order.tickets.some((t) => t.attendee_name) && (
+                <p className="text-body-sm text-on-surface-variant">For {order.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>
+              )}
+              {orderDate && (
+                <p className={`text-body-sm ${otherDay ? 'text-accent-orange-soft' : 'text-on-surface-variant'}`}>
+                  {otherDay ? 'For another day: ' : ''}
+                  {whenWords(orderDate.starts_at, orderDate.ends_at)}
+                </p>
+              )}
+              {owes && (
+                <p className="mt-1 text-body-sm text-accent-orange-soft">
+                  {pounds(order.total_pence)} still to pay.
+                  {order.payment_status === 'reported' && ` They say they paid${order.proof_reference ? ` (ref ${order.proof_reference})` : ''}; it has not been matched yet.`}
+                </p>
+              )}
+              {order.notes && <p className="mt-1 text-body-sm text-on-surface-variant">Note: {order.notes}</p>}
+              <p className="mt-1 font-mono text-label-sm text-on-surface-faint">{order.code}</p>
+            </>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {order && order.status === 'confirmed' && !order.checked_in_at && !found.auto && (
+              <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
+                Check in
+              </ActionButton>
+            )}
+            {order && order.status === 'confirmed' && !order.checked_in_at && owes && (
+              <ActionButton tone="quiet" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
+                Paid now, check in
+              </ActionButton>
+            )}
+            <ActionButton tone="ghost" onClick={next}>
+              Next
+            </ActionButton>
+          </div>
+        </section>
+      )}
+
+      <form onSubmit={submitTyped} className="mt-4 flex items-center gap-2">
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value.toUpperCase())}
+          aria-label="Ticket code"
+          placeholder="Or type the code"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          maxLength={80}
+          className={`${inputClasses} flex-1`}
+        />
+        <ActionButton type="submit" tone="quiet" disabled={!codeFromScan(typed)}>
+          Find
+        </ActionButton>
+      </form>
+    </div>
+  )
+}
+
+/** The scanner in a sheet over the event's page. */
+export function TicketScanner({ onClose, ...panel }: ScannerProps & { onClose: () => void }) {
   return (
     <Overlay label="Scan tickets" align="sheet" onDismiss={onClose}>
       <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
@@ -96,98 +197,9 @@ export function TicketScanner({
             Done
           </button>
         </div>
-
-        <div className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-chip)] bg-black">
-          <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
-          <div aria-hidden="true" className="pointer-events-none absolute inset-8 rounded-[var(--radius-chip)] shadow-[0_0_0_2px_rgba(255,255,255,0.65)]" />
-          {phase !== 'scanning' && (
-            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-body-sm text-white/80">
-              {phase === 'starting' && 'Starting the camera…'}
-              {phase === 'denied' && 'The camera was refused. Allow camera access for this site, or type the code below.'}
-              {phase === 'unavailable' && 'This browser will not give the page a camera. Type the code below.'}
-            </p>
-          )}
+        <div className="mt-4">
+          <ScannerPanel {...panel} />
         </div>
-
-        {found && (
-          <section aria-label="Ticket found" className="mt-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
-            {!order ? (
-              <>
-                <Pill tone="red">Not a ticket for this event</Pill>
-                <p className="mt-2 font-mono text-body-sm text-on-surface-variant">{found.code}</p>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  {order.status === 'cancelled' ? (
-                    <Pill tone="red">Cancelled — not valid</Pill>
-                  ) : found.auto ? (
-                    <Pill tone="green">Checked in</Pill>
-                  ) : order.checked_in_at ? (
-                    <Pill tone="blue">Already checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
-                  ) : (
-                    <Pill tone="green">Valid</Pill>
-                  )}
-                  {order.status === 'confirmed' && order.total_pence > 0 && (
-                    <Pill tone={order.payment_status === 'received' || order.payment_status === 'waived' ? 'green' : 'orange'}>{PAYMENT_WORDS[order.payment_status]}</Pill>
-                  )}
-                </div>
-                <h3 className="mt-2 text-headline-sm text-on-surface">
-                  {order.name}
-                  <span className="text-on-surface-variant">
-                    {' '}
-                    · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
-                  </span>
-                </h3>
-                {order.tickets.some((t) => t.attendee_name) && (
-                  <p className="text-body-sm text-on-surface-variant">For {order.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>
-                )}
-                {orderDate && (
-                  <p className={`text-body-sm ${otherDay ? 'text-accent-orange-soft' : 'text-on-surface-variant'}`}>
-                    {otherDay ? 'For another day: ' : ''}
-                    {whenWords(orderDate.starts_at, orderDate.ends_at)}
-                  </p>
-                )}
-                {order.status === 'confirmed' && order.total_pence > 0 && order.payment_status !== 'received' && order.payment_status !== 'waived' && (
-                  <p className="mt-1 text-body-sm text-accent-orange-soft">{pounds(order.total_pence)} still to pay.</p>
-                )}
-                {order.notes && <p className="mt-1 text-body-sm text-on-surface-variant">Note: {order.notes}</p>}
-                <p className="mt-1 font-mono text-label-sm text-on-surface-faint">{order.code}</p>
-              </>
-            )}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {order && order.status === 'confirmed' && !order.checked_in_at && !found.auto && (
-                <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
-                  Check in
-                </ActionButton>
-              )}
-              {order && order.status === 'confirmed' && !order.checked_in_at && order.total_pence > 0 && order.payment_status !== 'received' && order.payment_status !== 'waived' && (
-                <ActionButton tone="quiet" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
-                  Paid now, check in
-                </ActionButton>
-              )}
-              <ActionButton tone="ghost" onClick={next}>
-                Next
-              </ActionButton>
-            </div>
-          </section>
-        )}
-
-        <form onSubmit={submitTyped} className="mt-4 flex items-center gap-2">
-          <input
-            value={typed}
-            onChange={(e) => setTyped(e.target.value.toUpperCase())}
-            aria-label="Ticket code"
-            placeholder="Or type the code"
-            autoCapitalize="characters"
-            autoCorrect="off"
-            maxLength={80}
-            className={`${inputClasses} flex-1`}
-          />
-          <ActionButton type="submit" tone="quiet" disabled={!codeFromScan(typed)}>
-            Find
-          </ActionButton>
-        </form>
       </div>
     </Overlay>
   )

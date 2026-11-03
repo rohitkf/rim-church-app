@@ -54,6 +54,7 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   received_pence: 30000,
   awaiting: 3,
   first_starts_at: '2026-11-21T18:30:00Z',
+  last_ends_at: '2026-11-21T21:00:00Z',
   ...over,
 })
 
@@ -70,7 +71,7 @@ function show() {
 }
 
 beforeEach(() => {
-  state.events = [summary({}), summary({ id: 'e2', slug: 'youth-night', title: 'Youth Night', status: 'draft', orders: 0, tickets: 0, expected_pence: 0, received_pence: 0, awaiting: 0, first_starts_at: null })]
+  state.events = [summary({}), summary({ id: 'e2', slug: 'youth-night', title: 'Youth Night', status: 'draft', orders: 0, tickets: 0, expected_pence: 0, received_pence: 0, awaiting: 0, first_starts_at: null, last_ends_at: null })]
 })
 
 describe('the Registrations page', () => {

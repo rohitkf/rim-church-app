@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'reception',
+    date: '2026-11-04',
+    title: 'Reception',
+    lead: 'The door, on one page.',
+    points: [
+      'Scan tickets: a paid one is checked in on sight; one that still owes is held up, and can be paid there and then.',
+      'Find anybody by name and check them in, or register somebody who turns up having done nothing online.',
+      'Only for whoever is given “Work the door” or “Run registrations” in Access & Privileges.',
+    ],
+    link: { to: '/door', label: 'Open Reception' },
+    page: '/door',
+  },
+  {
     key: 'registrations',
     date: '2026-11-03',
     title: 'Registrations',

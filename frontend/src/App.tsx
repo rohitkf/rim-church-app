@@ -153,6 +153,7 @@ const router = createBrowserRouter(
             <Route path="/registrations/new" lazy={page(() => import('./pages/RegistrationEditorPage'), 'RegistrationEditorPage')} />
             <Route path="/registrations/:id" lazy={page(() => import('./pages/RegistrationEventPage'), 'RegistrationEventPage')} />
             <Route path="/registrations/:id/edit" lazy={page(() => import('./pages/RegistrationEditorPage'), 'RegistrationEditorPage')} />
+            <Route path="/door" lazy={page(() => import('./pages/DoorPage'), 'DoorPage')} />
             <Route path="/prayer" lazy={page(() => import('./pages/PrayerPage'), 'PrayerPage')} />
             <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
             <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />
