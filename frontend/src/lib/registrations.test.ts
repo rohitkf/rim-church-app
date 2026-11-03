@@ -22,6 +22,10 @@ import {
   type OrderRow,
   type PublicTicketType,
   type RegistrationEventFull,
+  doorEvents,
+  todaysEvent,
+  receiverName,
+  type EventSummary,
 } from './registrations'
 
 /*
@@ -361,6 +365,69 @@ const row = (over: Partial<OrderRow>): OrderRow => ({
   ...over,
 })
 
+describe('what the door works (0247)', () => {
+  const at2 = (y: number, m: number, d: number, h: number) => new Date(y, m - 1, d, h, 0).toISOString()
+  const ev = (id: string, over: Partial<EventSummary>): EventSummary => ({
+    id,
+    slug: id,
+    title: id,
+    description: null,
+    image_path: null,
+    status: 'published',
+    date_mode: 'all',
+    location_name: null,
+    address: null,
+    latitude: null,
+    longitude: null,
+    registration_opens_at: null,
+    registration_closes_at: null,
+    min_per_order: 1,
+    max_per_order: 10,
+    payment_links: [],
+    payment_accounts: [],
+    payment_use_church_giving: true,
+    payment_note: null,
+    allow_pay_at_reception: true,
+    add_to_diary: false,
+    created_at: '2026-11-01T10:00:00Z',
+    updated_at: '2026-11-01T10:00:00Z',
+    orders: 0,
+    tickets: 0,
+    expected_pence: 0,
+    received_pence: 0,
+    awaiting: 0,
+    first_starts_at: null,
+    last_ends_at: null,
+    ...over,
+  })
+  const now = new Date(2026, 10, 21, 10, 0)
+  const events = [
+    ev('next-week', { first_starts_at: at2(2026, 11, 28, 19), last_ends_at: at2(2026, 11, 28, 21) }),
+    ev('tonight', { first_starts_at: at2(2026, 11, 21, 18), last_ends_at: at2(2026, 11, 21, 21) }),
+    ev('two-days', { status: 'closed', first_starts_at: at2(2026, 11, 20, 18), last_ends_at: at2(2026, 11, 22, 21) }),
+    ev('last-week', { first_starts_at: at2(2026, 11, 14, 18), last_ends_at: at2(2026, 11, 14, 21) }),
+    ev('draft', { status: 'draft', first_starts_at: at2(2026, 11, 21, 18), last_ends_at: at2(2026, 11, 21, 21) }),
+    ev('no-dates', {}),
+  ]
+
+  it('is every published or closed event whose last date has not passed, soonest first', () => {
+    expect(doorEvents(events, now).map((e) => e.id)).toEqual(['two-days', 'tonight', 'next-week'])
+  })
+
+  it('knows which one is on today — a run of days included — and when none is', () => {
+    expect(todaysEvent(events, now)?.id).toBe('two-days')
+    expect(todaysEvent(events.filter((e) => e.id !== 'two-days'), now)?.id).toBe('tonight')
+    expect(todaysEvent(events, new Date(2026, 10, 24, 10, 0))).toBeNull()
+  })
+
+  it('names who took the money, or nobody', () => {
+    expect(receiverName({ receiver: { first_name: 'Rohit', last_name: 'F' } })).toBe('Rohit F')
+    expect(receiverName({ receiver: { first_name: 'Rohit', last_name: null } })).toBe('Rohit')
+    expect(receiverName({ receiver: null })).toBe('')
+    expect(receiverName({})).toBe('')
+  })
+})
+
 describe('finding an order', () => {
   const awaiting = row({})
   const paid = row({ id: 'o2', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', payment_status: 'received', promo_code: null })
@@ -376,6 +443,13 @@ describe('finding an order', () => {
     // Cancelled after arriving: not here any more.
     expect(names('checked_in')).toEqual(['Grace Mensah'])
     expect(names('cancelled')).toEqual(['Asha Mathew'])
+  })
+
+  it('matches a walk-in with no address by name or code, and never by the address it has not got', () => {
+    const walk = row({ email: null, phone: null, name: 'Walk In', code: 'WALKIN123456', source: 'walk_in' })
+    expect(orderMatches(walk, 'all', 'walk')).toBe(true)
+    expect(orderMatches(walk, 'all', 'WALKIN')).toBe(true)
+    expect(orderMatches(walk, 'all', 'example.org')).toBe(false)
   })
 
   it('matches a name, an email, a code, a phone, a promo code or an attendee', () => {
@@ -427,33 +501,60 @@ describe('the workbook for the accounts', () => {
     row({ payment_method: 'bank', notes: 'Asked for a receipt' }),
     row({ id: 'o2', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, subtotal_pence: 0, discount_pence: 0, total_pence: 0, promo_code: null, payment_status: 'not_needed', tickets: [{ ticket_type_id: 't2', attendee_name: null, unit_price_pence: 0 }] }),
     row({ id: 'o3', code: 'CDEFGHJKMNPQ', name: 'Asha Mathew', status: 'cancelled', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+    // At the door (0247): no address, paid in cash to a named person, with a receipt reference from an earlier try.
+    row({
+      id: 'o4',
+      code: 'DEFGHJKMNPQR',
+      name: 'Walk In',
+      email: null,
+      phone: null,
+      quantity: 1,
+      subtotal_pence: 2000,
+      discount_pence: 0,
+      total_pence: 2000,
+      promo_code: null,
+      payment_status: 'received',
+      payment_method: 'reception',
+      source: 'walk_in',
+      proof_reference: 'REF-99',
+      received_at: at(2026, 11, 21, 18, 40),
+      receiver: { first_name: 'Rohit', last_name: 'F' },
+      checked_in_at: at(2026, 11, 21, 18, 40),
+      tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }],
+    }),
   ]
 
   it('has every order, every ticket and the sums, money in pounds', () => {
     const [ordersSheet, ticketsSheet, summary] = buildRegistrationWorkbook(full(), orders)
     expect(ordersSheet.name).toBe('Orders')
     expect(ordersSheet.columns.map((c) => c.label)).toEqual([
-      'Code', 'Name', 'Email', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered', 'Notes',
+      'Code', 'Name', 'Email', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
+      'How', 'Received at', 'Received by', 'Receipt reference', 'Notes',
     ])
     expect(ordersSheet.rows[0].slice(0, 4)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', '07700 900123'])
     expect(ordersSheet.rows[0].slice(5, 13)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
-    expect(ordersSheet.rows[0][15]).toBe('Asked for a receipt')
+    expect(ordersSheet.rows[0].slice(15, 20)).toEqual(['Online', '', '', '', 'Asked for a receipt'])
     expect(ordersSheet.rows[2][12]).toBe('Cancelled')
+    // The walk-in: no address, how it came, who took the money and when.
+    expect(ordersSheet.rows[3].slice(0, 4)).toEqual(['DEFGHJKMNPQR', 'Walk In', '', ''])
+    expect(ordersSheet.rows[3].slice(10, 12)).toEqual(['Paid', 'At reception'])
+    expect(ordersSheet.rows[3].slice(15, 19)).toEqual(['At the door', expect.stringMatching(/21.*2026.*6:40|2026.*21.*6:40/), 'Rohit F', 'REF-99'])
 
     expect(ticketsSheet.rows).toEqual([
       ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Ama Owusu', 20, 'All dates', 'Registered'],
       ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Kofi Owusu', 20, 'All dates', 'Registered'],
       ['BCDEFGHJKMNP', 'Ben Joseph', 'Standard', '', 0, 'All dates', 'Registered'],
       ['CDEFGHJKMNPQ', 'Asha Mathew', 'With lunch', '', 20, 'All dates', 'Cancelled'],
+      ['DEFGHJKMNPQR', 'Walk In', 'With lunch', '', 20, 'All dates', 'Registered'],
     ])
 
-    expect(summary.rows[0]).toEqual(['With lunch', 20, 2, 40, 40])
+    expect(summary.rows[0]).toEqual(['With lunch', 20, 3, 40, 60])
     expect(summary.rows[1]).toEqual(['Standard', 'Free', 1, 'No limit', 0])
-    expect(summary.rows).toContainEqual(['Registered orders', 2, '', '', ''])
-    expect(summary.rows).toContainEqual(['Tickets', 3, '', '', ''])
+    expect(summary.rows).toContainEqual(['Registered orders', 3, '', '', ''])
+    expect(summary.rows).toContainEqual(['Tickets', 4, '', '', ''])
     expect(summary.rows).toContainEqual(['Cancelled orders', 1, '', '', ''])
-    expect(summary.rows).toContainEqual(['Expected (£)', 36, '', '', ''])
-    expect(summary.rows).toContainEqual(['Received or waived (£)', 0, '', '', ''])
+    expect(summary.rows).toContainEqual(['Expected (£)', 56, '', '', ''])
+    expect(summary.rows).toContainEqual(['Received or waived (£)', 20, '', '', ''])
     expect(summary.rows).toContainEqual(['Still to come (£)', 36, '', '', ''])
   })
 

@@ -186,6 +186,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'fixed',
     note: 'The Owner, and whoever the grid gives “Run registrations” (Access & Privileges) — an Admin only with that cell. The public pages, /register/… and /ticket/…, need no sign-in.',
   },
+  '/door': {
+    default: 'admins',
+    choices: ['admins'],
+    enforcement: 'fixed',
+    note: 'Reception: the Owner, whoever the grid gives “Run registrations”, and whoever it gives “Work the door” (Access & Privileges) — an Admin only with one of those cells.',
+  },
   '/volunteers': {
     default: 'admins',
     choices: ['admins'],

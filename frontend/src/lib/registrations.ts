@@ -127,6 +127,8 @@ export interface EventSummary extends RegistrationEvent {
   received_pence: number
   awaiting: number
   first_starts_at: string | null
+  /** When its last date ends (or starts, with no end): the door works an event until then. */
+  last_ends_at: string | null
 }
 
 const orderStatSchema = z.object({
@@ -141,15 +143,18 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
   const [events, orders, dates] = await Promise.all([
     supabase.from('registration_events').select(EVENT_COLUMNS).order('created_at', { ascending: false }),
     supabase.from('registration_orders').select('event_id, status, quantity, total_pence, payment_status'),
-    supabase.from('registration_event_dates').select('event_id, starts_at').order('starts_at'),
+    supabase.from('registration_event_dates').select('event_id, starts_at, ends_at').order('starts_at'),
   ])
   if (events.error) throw events.error
   if (orders.error) throw orders.error
   if (dates.error) throw dates.error
   const stats = z.array(orderStatSchema).parse(orders.data ?? [])
   const firstDate = new Map<string, string>()
-  for (const d of (dates.data ?? []) as { event_id: string; starts_at: string }[]) {
+  const lastEnd = new Map<string, string>()
+  for (const d of (dates.data ?? []) as { event_id: string; starts_at: string; ends_at: string | null }[]) {
     if (!firstDate.has(d.event_id)) firstDate.set(d.event_id, d.starts_at)
+    const end = d.ends_at ?? d.starts_at
+    if ((lastEnd.get(d.event_id) ?? '') < end) lastEnd.set(d.event_id, end)
   }
   return z
     .array(registrationEventSchema)
@@ -164,6 +169,7 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
         received_pence: mine.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0),
         awaiting: mine.filter((o) => o.payment_status === 'awaiting' || o.payment_status === 'reported').length,
         first_starts_at: firstDate.get(event.id) ?? null,
+        last_ends_at: lastEnd.get(event.id) ?? null,
       }
     })
 }
@@ -765,7 +771,7 @@ export const orderViewSchema = z.object({
   code: z.string(),
   status: z.enum(['confirmed', 'cancelled']),
   name: z.string(),
-  email: z.string(),
+  email: z.string().nullable(),
   phone: z.string().nullable(),
   quantity: z.number(),
   subtotal_pence: z.number(),
@@ -774,6 +780,9 @@ export const orderViewSchema = z.object({
   promo_code: z.string().nullable(),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   payment_method: z.enum(['paypal', 'bank', 'reception']).nullable(),
+  proof_at: z.string().nullable().optional(),
+  proof_reference: z.string().nullable().optional(),
+  source: z.enum(['online', 'walk_in']).optional(),
   checked_in_at: z.string().nullable(),
   created_at: z.string(),
   can_cancel: z.boolean(),
@@ -803,9 +812,45 @@ export async function fetchOrder(code: string): Promise<OrderView | null> {
   return orderViewSchema.parse(data)
 }
 
-export async function reportPayment(code: string, method: 'paypal' | 'bank' | 'reception', done: boolean): Promise<void> {
-  const { error } = await supabase.rpc('registration_order_payment', { p_code: code, p_method: method, p_done: done })
+/**
+ * The attendee says how they are paying, and — for a payment made online —
+ * that it is done, with the proof (0247): a receipt in the proofs bucket
+ * under the order's code, or the payment reference, or both.
+ */
+export async function reportPayment(
+  code: string,
+  method: 'paypal' | 'bank' | 'reception',
+  done: boolean,
+  proof: { path?: string | null; reference?: string | null } = {},
+): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_payment', {
+    p_code: code,
+    p_method: method,
+    p_done: done,
+    p_proof_path: proof.path ?? null,
+    p_reference: proof.reference ?? null,
+  })
   if (error) throw error
+}
+
+export const REGISTRATION_PROOFS_BUCKET = 'registration-proofs'
+const PROOF_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'application/pdf': 'pdf' }
+
+/** A receipt, under the ticket's own code; the bucket refuses anything else. Returns its path. */
+export async function uploadProof(code: string, file: File): Promise<string> {
+  const ext = PROOF_EXT[file.type]
+  if (!ext) throw new Error('A screenshot (PNG, JPEG or WebP) or a PDF, please.')
+  const path = `${code}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from(REGISTRATION_PROOFS_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+  if (error) throw error
+  return path
+}
+
+/** A link to a receipt, for whoever runs registrations or works the door; good for ten minutes. */
+export async function proofUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(REGISTRATION_PROOFS_BUCKET).createSignedUrl(path, 600)
+  if (error) throw error
+  return data.signedUrl
 }
 
 export async function cancelOrder(code: string): Promise<void> {
@@ -814,10 +859,13 @@ export async function cancelOrder(code: string): Promise<void> {
 }
 
 /** What a payment status says to the attendee and to reception. */
+/** Nothing owed on it: free, or the money is in (or waived). */
+export const isPaid = (o: { payment_status: PaymentStatus }) => o.payment_status === 'not_needed' || o.payment_status === 'received' || o.payment_status === 'waived'
+
 export const PAYMENT_WORDS: Record<PaymentStatus, string> = {
   not_needed: 'Nothing to pay',
   awaiting: 'Awaiting payment',
-  reported: 'Payment reported — to be confirmed',
+  reported: 'Receipt sent — being checked',
   received: 'Paid',
   waived: 'Paid (waived)',
 }
@@ -844,7 +892,7 @@ export const orderRowSchema = z.object({
   code: z.string(),
   date_id: z.string().nullable(),
   name: z.string(),
-  email: z.string(),
+  email: z.string().nullable(),
   phone: z.string().nullable(),
   quantity: z.number(),
   subtotal_pence: z.number(),
@@ -857,6 +905,13 @@ export const orderRowSchema = z.object({
   checked_in_at: z.string().nullable(),
   notes: z.string().nullable(),
   email_sent_at: z.string().nullable().optional(),
+  source: z.enum(['online', 'walk_in']).optional(),
+  proof_path: z.string().nullable().optional(),
+  proof_reference: z.string().nullable().optional(),
+  proof_at: z.string().nullable().optional(),
+  received_at: z.string().nullable().optional(),
+  received_by: z.string().nullable().optional(),
+  receiver: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
   anonymised_at: z.string().nullable(),
   created_at: z.string(),
   tickets: z.array(z.object({ ticket_type_id: z.string(), attendee_name: z.string().nullable(), unit_price_pence: z.number() })),
@@ -864,7 +919,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -921,7 +976,7 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
   if (!kept) return false
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const hay = [o.name, o.email, o.code, o.phone ?? '', o.promo_code ?? '', o.notes ?? '', ...o.tickets.map((t) => t.attendee_name ?? '')]
+  const hay = [o.name, o.email ?? '', o.code, o.phone ?? '', o.promo_code ?? '', o.notes ?? '', ...o.tickets.map((t) => t.attendee_name ?? '')]
   return hay.some((h) => h.toLowerCase().includes(q))
 }
 
@@ -962,12 +1017,16 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       { label: 'Status', width: 11 },
       { label: 'Checked in', width: 20 },
       { label: 'Registered', width: 20 },
+      { label: 'How', width: 10 },
+      { label: 'Received at', width: 20 },
+      { label: 'Received by', width: 20 },
+      { label: 'Receipt reference', width: 20 },
       { label: 'Notes', width: 40 },
     ],
     rows: orders.map((o) => [
       o.code,
       o.name,
-      o.email,
+      o.email ?? '',
       o.phone ?? '',
       dateWords(o.date_id),
       o.quantity,
@@ -980,6 +1039,10 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       statusWords(o),
       stamp(o.checked_in_at),
       stamp(o.created_at),
+      o.source === 'walk_in' ? 'At the door' : 'Online',
+      stamp(o.received_at ?? null),
+      receiverName(o),
+      o.proof_reference ?? '',
       o.notes ?? '',
     ]),
   }
@@ -1060,4 +1123,57 @@ export function sendTicketEmail(code: string): Promise<TicketMailResult> {
  */
 export async function resendTickets(slug: string, email: string): Promise<TicketMailResult> {
   return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'resend', slug, email: email.trim().toLowerCase() })
+}
+
+/* ------------------------------------------------------------------ */
+/* The door (0247)                                                     */
+/* ------------------------------------------------------------------ */
+
+export interface WalkInRequest {
+  name: string
+  email: string
+  phone: string
+  date_id: string | null
+  lines: OrderLine[]
+  /** The money was taken at reception. */
+  paid: boolean
+  /** They are here now. */
+  checked_in: boolean
+}
+
+/** Somebody at the door who did nothing online: registered, paid or not, here or not. Returns the ticket's code. */
+export async function walkIn(eventId: string, order: WalkInRequest): Promise<string> {
+  const { data, error } = await supabase.rpc('registration_walk_in', { p_event: eventId, p_order: order })
+  if (error) throw error
+  const code = (data as { code?: string | null } | null)?.code
+  if (!code) throw new Error('The registration was not made.')
+  return code
+}
+
+/**
+ * After the church marks a payment: "your ticket is confirmed", or "we
+ * could not match your payment" (0247). The function checks the caller
+ * may work the door. Nothing waits on it.
+ */
+/** Who marked the money received or waived, as the page and the export name them. */
+export function receiverName(o: Pick<OrderRow, 'receiver'>): string {
+  return [o.receiver?.first_name, o.receiver?.last_name].filter(Boolean).join(' ')
+}
+
+export function notifyPayment(kind: 'paid' | 'unmatched', code: string): Promise<TicketMailResult> {
+  return invokeEdgeFunction<TicketMailResult>('registration-email', { kind, code }).catch(() => ({ ok: false, reason: 'failed' }))
+}
+
+/** The events the door can work today: published or closed, with a date today or still to come, nearest first. */
+export function doorEvents(events: EventSummary[], now = new Date()): EventSummary[] {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  return events
+    .filter((e) => e.status !== 'draft' && e.last_ends_at !== null && new Date(e.last_ends_at).getTime() >= startOfToday)
+    .sort((a, b) => (a.first_starts_at ?? '').localeCompare(b.first_starts_at ?? ''))
+}
+
+/** The event happening today, if one is: its first date has started by tonight and its last has not passed. */
+export function todaysEvent(events: EventSummary[], now = new Date()): EventSummary | null {
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime()
+  return doorEvents(events, now).find((e) => e.first_starts_at !== null && new Date(e.first_starts_at).getTime() < endOfToday) ?? null
 }

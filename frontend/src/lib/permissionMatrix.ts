@@ -900,14 +900,21 @@ export const PERMISSIONS: PermissionArea[] = [
   },
   {
     area: 'Registrations',
-    pages: ['/registrations'],
+    pages: ['/registrations', '/door'],
     capabilities: [
       {
         action: 'Run registrations: make events people sign up for, see who registered, mark payments',
         key: 'reg.manage',
         short: 'Run registrations',
         can: granted('reg.manage'),
-        note: 'Opens the Registrations page too. The Owner always may; by default nobody else, not even an Admin. The public pages — the event’s own page and each ticket — need no account at all.',
+        note: 'Opens the Registrations page and Reception too. The Owner always may; by default nobody else, not even an Admin. The public pages — the event’s own page and each ticket — need no account at all.',
+      },
+      {
+        action: 'Work the door: scan tickets, take payments at reception, check people in, register walk-ins',
+        key: 'reg.door',
+        short: 'Work the door',
+        can: granted('reg.door'),
+        note: 'Opens the Reception page and nothing else: the door cannot change or delete an event, see promo codes, cancel or waive. Give it to the welcome team for the day, or to named people.',
       },
     ],
   },

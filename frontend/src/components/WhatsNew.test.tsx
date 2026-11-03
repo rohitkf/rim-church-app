@@ -61,11 +61,21 @@ beforeEach(() => {
   db.canOpen = true
 })
 
-const NEWER = { registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
+const NEWER = { reception: '2026-11-04T10:00:00Z', registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
 
 describe('what is new', () => {
-  it('tells whoever can open Registrations about it (0244)', async () => {
+  it('tells whoever can open Reception about it (0247)', async () => {
     db.seen = {}
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('dialog', { name: 'New: Reception' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open Reception' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/door')
+    await waitFor(() => expect(db.marked).toEqual(['reception']))
+  })
+
+  it('tells whoever can open Registrations about it (0244)', async () => {
+    db.seen = { reception: NEWER.reception }
     const user = userEvent.setup()
     show()
     expect(await screen.findByRole('dialog', { name: 'New: Registrations' })).toBeInTheDocument()
@@ -74,12 +84,14 @@ describe('what is new', () => {
     await waitFor(() => expect(db.marked).toEqual(['registrations']))
   })
 
-  it('says nothing about Registrations to somebody who cannot open it', async () => {
+  it('says nothing about Registrations or Reception to somebody who cannot open them', async () => {
     db.seen = {}
     db.canOpen = false
     show()
     // The phones card has no page, so it is the one that shows instead.
-    expect(await screen.findByRole('dialog')).not.toHaveAccessibleName('New: Registrations')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).not.toHaveAccessibleName('New: Registrations')
+    expect(dialog).not.toHaveAccessibleName('New: Reception')
   })
 
   it('announces the newest release once, and remembers on the account when it is closed', async () => {

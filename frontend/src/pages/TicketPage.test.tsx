@@ -9,12 +9,15 @@ import type { OrderView } from '../lib/registrations'
 /*
  * A ticket (0244): the QR code for the door, what was booked, and — for a
  * paid order — how to pay and where that stands. The order exists before
- * any money moves; the attendee reports a payment, the church confirms it.
+ * any money moves; the attendee reports a payment, with the receipt or its
+ * reference (0247), and the church confirms it. Until then the page is a
+ * registration, to show at reception; after, the ticket, for the door.
  */
 
 const state = vi.hoisted(() => ({
   order: null as unknown,
   reported: [] as unknown[],
+  uploaded: [] as unknown[],
   cancelled: 0,
   mailed: [] as string[],
   mailAnswer: { ok: true, sent: true } as unknown,
@@ -31,9 +34,13 @@ vi.mock('../components/QrCode', () => ({
 vi.mock('../lib/registrations', async (original) => ({
   ...(await original<typeof import('../lib/registrations')>()),
   fetchOrder: () => Promise.resolve(state.order),
-  reportPayment: (code: string, method: string, done: boolean) => {
-    state.reported.push({ code, method, done })
+  reportPayment: (code: string, method: string, done: boolean, proof?: { path?: string | null; reference?: string | null }) => {
+    state.reported.push({ code, method, done, ...(proof ?? {}) })
     return Promise.resolve()
+  },
+  uploadProof: (code: string, file: File) => {
+    state.uploaded.push([code, file.name, file.type])
+    return Promise.resolve(`${code}/receipt.png`)
   },
   cancelOrder: () => {
     state.cancelled += 1
@@ -109,21 +116,27 @@ const comeBack = async () => {
   })
 }
 
-// jsdom cannot follow a link; the page's own click handler still runs.
-window.addEventListener('click', (e) => e.preventDefault(), true)
+// jsdom cannot follow a link; the page's own click handler still runs. Only
+// a link, mind — a submit button's click has to keep its default, or no form
+// on the page ever submits.
+window.addEventListener('click', (e) => {
+  if ((e.target as Element | null)?.closest('a')) e.preventDefault()
+}, true)
 
 beforeEach(() => {
   state.order = order()
   state.reported = []
+  state.uploaded = []
   state.cancelled = 0
   state.mailed = []
   state.mailAnswer = { ok: true, sent: true }
 })
 
 describe('the ticket page', () => {
-  it('shows the QR code, the code, every ticket and what is owed', async () => {
+  it('shows the QR code, the code, every ticket and what is owed — a registration until it is paid', async () => {
     show()
-    expect(await screen.findByRole('img', { name: 'Ticket ABCDEFGHJKMN' })).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    expect(await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    expect(screen.getByText(/Show this at reception to pay/)).toBeInTheDocument()
     expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThan(0)
     expect(screen.getByText('Registered')).toBeInTheDocument()
     expect(screen.getByText('Awaiting payment')).toBeInTheDocument()
@@ -141,7 +154,12 @@ describe('the ticket page', () => {
     await comeBack()
     const dialog = await screen.findByRole('dialog', { name: 'Did you complete the payment?' })
     await user.click(within(dialog).getByRole('button', { name: 'Yes, I’ve paid' }))
-    await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'paypal', done: true }]))
+    // Then the receipt: here the reference alone.
+    const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
+    await user.type(within(proof).getByRole('textbox', { name: /Payment reference/ }), 'PP-123')
+    await user.click(within(proof).getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'paypal', done: true, path: null, reference: 'PP-123' }]))
+    expect(state.uploaded).toEqual([])
   })
 
   it('keeps the other ways to pay when they say not yet', async () => {
@@ -157,7 +175,7 @@ describe('the ticket page', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('shows the bank details with the code as the reference, and takes their word', async () => {
+  it('shows the bank details with the code as the reference, and takes the receipt', async () => {
     const user = show()
     await user.click(await screen.findByRole('button', { name: 'Bank transfer' }))
     expect(screen.getByRole('heading', { name: 'Main account' })).toBeInTheDocument()
@@ -166,9 +184,25 @@ describe('the ticket page', () => {
     expect(screen.getByRole('button', { name: 'Copy Reference' })).toBeInTheDocument()
     expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThanOrEqual(2)
     await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Did you complete the payment?' })
-    await user.click(within(dialog).getByRole('button', { name: 'Yes, I’ve paid' }))
-    await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'bank', done: true }]))
+    const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
+    await user.upload(within(proof).getByLabelText('Screenshot or PDF'), new File(['png'], 'transfer.png', { type: 'image/png' }))
+    expect(within(proof).getByText('transfer.png')).toBeInTheDocument()
+    await user.click(within(proof).getByRole('button', { name: 'Send' }))
+    // The file goes up under the order's own code, and its path is reported with the payment.
+    await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'bank', done: true, path: 'ABCDEFGHJKMN/receipt.png', reference: null }]))
+    expect(state.uploaded).toEqual([['ABCDEFGHJKMN', 'transfer.png', 'image/png']])
+  })
+
+  it('wants the receipt or the reference, one at least, before it takes their word', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Bank transfer' }))
+    await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer' }))
+    const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
+    await user.click(within(proof).getByRole('button', { name: 'Send' }))
+    expect(within(proof).getByRole('alert')).toHaveTextContent(/Attach the receipt, or type the payment reference/)
+    expect(state.reported).toEqual([])
+    await user.click(within(proof).getByRole('button', { name: 'Not now' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('lets them choose to pay at reception instead', async () => {
@@ -177,12 +211,25 @@ describe('the ticket page', () => {
     await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'reception', done: false }]))
   })
 
-  it('says a reported payment waits to be confirmed, and offers nothing more to do', async () => {
-    state.order = order({ payment_status: 'reported', payment_method: 'bank' })
-    show()
-    expect(await screen.findByRole('heading', { name: 'Thank you — your payment will be confirmed' })).toBeInTheDocument()
-    expect(screen.getByText(/You said you paid by bank transfer/)).toBeInTheDocument()
+  it('says a reported payment is being checked, and offers only another receipt', async () => {
+    state.order = order({ payment_status: 'reported', payment_method: 'bank', proof_reference: 'TR-77', proof_at: '2026-11-02T10:00:00Z' })
+    const user = show()
+    expect(await screen.findByRole('heading', { name: 'Thank you — your receipt is being checked' })).toBeInTheDocument()
+    expect(screen.getByText(/You said you paid by bank transfer, reference TR-77/)).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Registration ABCDEFGHJKMN' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Pay with PayPal/ })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Send another receipt' }))
+    expect(screen.getByRole('dialog', { name: 'Your receipt' })).toBeInTheDocument()
+  })
+
+  it('is the ticket once the payment is in', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'bank' })
+    show()
+    expect(await screen.findByRole('img', { name: 'Ticket ABCDEFGHJKMN' })).toBeInTheDocument()
+    expect(screen.getByText('Paid')).toBeInTheDocument()
+    expect(screen.getByText(/Show this at the door/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Email me this ticket' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Paying' })).toBeNull()
   })
 
   it('shows a free order with nothing to pay', async () => {
@@ -195,11 +242,11 @@ describe('the ticket page', () => {
 
   it('emails the ticket to its own address, and says when one just went', async () => {
     const user = show()
-    await user.click(await screen.findByRole('button', { name: 'Email me this ticket' }))
+    await user.click(await screen.findByRole('button', { name: 'Email me this registration' }))
     expect(await screen.findByRole('status')).toHaveTextContent('On its way to ama@example.org.')
     expect(state.mailed).toEqual(['ABCDEFGHJKMN'])
     state.mailAnswer = { ok: true, sent: false }
-    await user.click(screen.getByRole('button', { name: 'Email me this ticket' }))
+    await user.click(screen.getByRole('button', { name: 'Email me this registration' }))
     expect(await screen.findByText(/Already sent to ama@example.org/)).toBeInTheDocument()
   })
 

@@ -8,7 +8,9 @@ import type { OrderRow, RegistrationEventFull } from '../lib/registrations'
 
 /*
  * One event, run from its page (0244, 0245): the numbers, who has
- * registered, what reception does to an order, and the export.
+ * registered, what reception does to an order, and the export. Proof of
+ * payment (0247): the receipt beside the order, Mark as received confirms
+ * the ticket by email, Not received asks again; and the link's QR code.
  */
 
 const state = vi.hoisted(() => ({
@@ -17,6 +19,8 @@ const state = vi.hoisted(() => ({
   marked: [] as unknown[],
   notes: [] as unknown[],
   statuses: [] as unknown[],
+  notified: [] as unknown[],
+  downloaded: [] as string[],
   exported: [] as { sheets: { name: string; rows: unknown[][] }[]; file: string }[],
 }))
 
@@ -24,6 +28,10 @@ vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuper
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
+vi.mock('../lib/qrPng', () => ({
+  qrPngBlob: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
+  downloadBlob: (_blob: Blob, name: string) => state.downloaded.push(name),
+}))
 vi.mock('../lib/writeWorkbook', () => ({
   writeWorkbook: (sheets: { name: string; rows: unknown[][] }[], file: string) => {
     state.exported.push({ sheets, file })
@@ -47,6 +55,11 @@ vi.mock('../lib/registrations', async (original) => ({
     return Promise.resolve()
   },
   deleteRegistrationEvent: () => Promise.resolve(),
+  notifyPayment: (kind: string, code: string) => {
+    state.notified.push([kind, code])
+    return Promise.resolve({ ok: true, sent: true })
+  },
+  proofUrl: (path: string) => Promise.resolve(`https://signed/${path}`),
 }))
 
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString()
@@ -114,7 +127,9 @@ const order = (over: Partial<OrderRow>): OrderRow => ({
 
 const orders = (): OrderRow[] => [
   order({}),
-  order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, payment_status: 'received', payment_method: 'bank', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+  order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, payment_status: 'received', payment_method: 'bank', received_at: at(2026, 11, 20, 9, 15), receiver: { first_name: 'Rohit', last_name: 'F' }, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+  // Says he paid online, with a screenshot and a reference (0247).
+  order({ id: 'o-dan', code: 'EFGHJKMNPQRS', name: 'Dan Reported', email: 'dan@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, payment_status: 'reported', payment_method: 'paypal', proof_path: 'EFGHJKMNPQRS/a.png', proof_reference: 'PP-123', proof_at: at(2026, 11, 19, 20, 5), tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
   order({ id: 'o-grace', code: 'CDEFGHJKMNPQ', name: 'Grace Mensah', email: 'grace@example.org', quantity: 3, subtotal_pence: 0, discount_pence: 0, total_pence: 0, promo_code: null, payment_status: 'not_needed', checked_in_at: '2026-11-21T18:40:00Z', notes: 'Bringing the twins', tickets: [1, 2, 3].map(() => ({ ticket_type_id: 't2', attendee_name: null, unit_price_pence: 0 })) }),
   order({ id: 'o-asha', code: 'DEFGHJKMNPQR', name: 'Asha Mathew', email: 'asha@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, status: 'cancelled', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
 ]
@@ -146,6 +161,8 @@ beforeEach(() => {
   state.marked = []
   state.notes = []
   state.statuses = []
+  state.notified = []
+  state.downloaded = []
   state.exported = []
 })
 
@@ -154,14 +171,14 @@ describe('an event’s page', () => {
     show()
     expect(await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'https://rim-church-app.vercel.app/register/plc-2026' })).toBeInTheDocument()
-    // Three live orders, six tickets; £20 in, £36 still owed; the cancelled one counts for nothing.
+    // Four live orders, seven tickets; £20 in, £56 still owed; the cancelled one counts for nothing.
     const stat = (unit: string) => screen.getByText(unit).parentElement!.querySelector('.text-numeral')!.textContent
-    expect(stat('orders')).toBe('3')
-    expect(stat('tickets')).toBe('6')
+    expect(stat('orders')).toBe('4')
+    expect(stat('tickets')).toBe('7')
     expect(stat('received')).toBe('£20.00')
-    expect(stat('still to come')).toBe('£36.00')
+    expect(stat('still to come')).toBe('£56.00')
     const types = within(screen.getByRole('list', { name: 'Ticket types' }))
-    expect(types.getByText('3 / 40')).toBeInTheDocument()
+    expect(types.getByText('4 / 40')).toBeInTheDocument()
     expect(screen.getByText('1 checked in')).toBeInTheDocument()
     const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
     expect(within(ama).getByText('Awaiting payment')).toBeInTheDocument()
@@ -174,19 +191,19 @@ describe('an event’s page', () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'cdefghjkmnpq')
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
-    expect(screen.getByText('1 of 4')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
+    expect(screen.getByText('1 of 5')).toBeInTheDocument()
     await user.clear(screen.getByRole('searchbox', { name: 'Search registrations' }))
 
     const show_ = screen.getByRole('radiogroup', { name: 'Show' })
     await user.click(within(show_).getByRole('radio', { name: 'To pay' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu'])
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu', 'Dan Reported'])
     await user.click(within(show_).getByRole('radio', { name: 'Paid' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ben Joseph'])
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ben Joseph'])
     await user.click(within(show_).getByRole('radio', { name: 'Checked in' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
     await user.click(within(show_).getByRole('radio', { name: 'Cancelled' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Asha Mathew'])
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Asha Mathew'])
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'nobody')
     expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
   })
@@ -253,8 +270,56 @@ describe('an event’s page', () => {
     const { sheets, file } = state.exported[0]
     expect(file).toMatch(/^registrations-plc-2026-\d{4}-\d{2}-\d{2}\.xlsx$/)
     expect(sheets.map((s) => s.name)).toEqual(['Orders', 'Tickets', 'Summary'])
-    expect(sheets[0].rows).toHaveLength(4)
-    expect(sheets[1].rows).toHaveLength(7)
+    expect(sheets[0].rows).toHaveLength(5)
+    expect(sheets[1].rows).toHaveLength(8)
+  })
+
+  it('shows the receipt beside an order that says it paid, and who took the money', async () => {
+    const user = show()
+    const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
+    expect(within(dan).getByText('Receipt sent — being checked')).toBeInTheDocument()
+    expect(within(dan).getByText('Ref PP-123')).toBeInTheDocument()
+    // The receipt opens in a tab of its own, through a signed link made on the tap.
+    const tab = { location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    await user.click(within(dan).getByRole('button', { name: 'Open the receipt' }))
+    await waitFor(() => expect(tab.location.href).toBe('https://signed/EFGHJKMNPQRS/a.png'))
+    open.mockRestore()
+    const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
+    expect(within(ben).getByText(/^Received .* by Rohit F$/)).toBeInTheDocument()
+  })
+
+  it('confirms a reported payment by email, or sends it back with a word', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Dan Reported' })
+    let menu = await openMenu(user, 'Dan Reported')
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      expect.stringContaining('Mark as received'),
+      expect.stringContaining('Not received, ask again'),
+      'Waive the payment',
+      expect.stringContaining('Check in'),
+      'Add a note',
+      'Cancel registration',
+    ])
+    await user.click(within(menu).getByRole('menuitem', { name: /Not received, ask again/ }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Not received from Dan Reported?' })
+    expect(dialog).toHaveTextContent(/an email to dan@example.org/)
+    await user.click(within(dialog).getByRole('button', { name: 'Ask again' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-dan', 'awaiting']]))
+    expect(state.notified).toEqual([['unmatched', 'EFGHJKMNPQRS']])
+
+    menu = await openMenu(user, 'Dan Reported')
+    await user.click(within(menu).getByRole('menuitem', { name: /Mark as received/ }))
+    await waitFor(() => expect(state.marked).toContainEqual(['o-dan', 'received']))
+    expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS'])
+  })
+
+  it('downloads the link as a QR code, and opens Reception', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(screen.getByRole('button', { name: 'Download QR code' }))
+    await waitFor(() => expect(state.downloaded).toEqual(['plc-2026-qr.png']))
+    expect(screen.getByRole('link', { name: 'Open Reception' })).toHaveAttribute('href', '/door?event=e1')
   })
 
   it('opens the door scanner, which checks a ticket in', async () => {

@@ -201,6 +201,7 @@ export function openingFor(
     clockInViewer?: boolean
     prayerCarer?: boolean
     regManager?: boolean
+    doorWorker?: boolean
     levels?: PageAccess
     opens?: (cap: CapabilityKey) => boolean
   } = {},
@@ -227,6 +228,7 @@ export function openingFor(
       clockInViewer: !!granted.clockInViewer,
       prayerCarer: !!granted.prayerCarer,
       regManager: !!granted.regManager,
+      doorWorker: !!granted.doorWorker,
       opens: granted.opens,
     },
     settings,
