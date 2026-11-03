@@ -69,6 +69,8 @@ const at = (y: number, m: number, d: number, h: number, min: number) => new Date
 const order = (over: Partial<OrderView> = {}): OrderView => ({
   code: 'ABCDEFGHJKMN',
   status: 'confirmed',
+  refund_details_wanted: false,
+  refund_details_sent: false,
   name: 'Ama Owusu',
   email: 'ama@example.org',
   phone: '07700 900123',
