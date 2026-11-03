@@ -84,6 +84,8 @@ function openingWhy(opening: PageOpening): string {
       return 'Given “See clock-ins”'
     case 'pastoral':
       return 'A pastor'
+    case 'registrations':
+      return 'Given “Run registrations”'
     case 'grant':
       return 'Given to them'
     default:
@@ -343,6 +345,7 @@ function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
   const granted = {
     clockInViewer: decide(overrides, holder, 'clockin.view', {}, teams),
     prayerCarer: decide(overrides, holder, 'prayer.pastoral', {}, teams),
+    regManager: decide(overrides, holder, 'reg.manage', {}, teams),
     // Every page's level is the grid's, and a page may be given (0215).
     levels: levelsFrom(overrides),
     opens: (cap: CapabilityKey) => decide(overrides, holder, cap, {}, teams),

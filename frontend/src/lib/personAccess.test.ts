@@ -189,6 +189,18 @@ describe('the pages they can open', () => {
     expect(openingFor(person({ memberTeams: [WORSHIP] }), '/clock-in', settings())).toMatchObject({ open: false })
   })
 
+  it('opens Registrations to the Owner and to whoever the grid gives reg.manage (0244), never by level', () => {
+    expect(openingFor(person({ owner: true }), '/registrations', settings())).toMatchObject({ open: true, via: 'registrations' })
+    // An Admin opens every other page by level; this one still wants the cell.
+    expect(openingFor(person({ admin: true }), '/registrations', settings())).toMatchObject({ open: false })
+    expect(openingFor(person({ admin: true }), '/registrations', settings(), { regManager: true })).toMatchObject({
+      open: true,
+      via: 'registrations',
+    })
+    expect(openingFor(person(), '/registrations/e1/edit', settings(), { regManager: true })).toMatchObject({ open: true, via: 'registrations' })
+    expect(openingFor(person({ overwatch: true }), '/registrations', settings())).toMatchObject({ open: false })
+  })
+
   // A page's level is the grid's (0215), passed in as the levels.
   const closed = { levels: { prayer: 'team' as const } }
 

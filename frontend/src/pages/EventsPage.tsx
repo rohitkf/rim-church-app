@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Eyebrow, Field, Overlay, PageHeader, inputClasses } from '../components/Surface'
+import { ActionButton, Field, FieldGroup, Overlay, PageHeader, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -1320,20 +1320,6 @@ function NoEndToggle({
       />
       {label}
     </label>
-  )
-}
-
-/**
- * Field's look for a group that holds its own checkboxes or radios: Field
- * is a <label>, and one wrapped round them would toggle the first of them
- * whenever its heading was tapped.
- */
-function FieldGroup({ label, className = '', children }: { label: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div role="group" aria-label={label} className={`flex flex-col gap-2 ${className}`}>
-      <Eyebrow>{label}</Eyebrow>
-      {children}
-    </div>
   )
 }
 

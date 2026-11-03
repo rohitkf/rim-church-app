@@ -41,6 +41,7 @@ export function usePageAccess(): {
   const { can, query: permissions } = usePermissions()
   const clockInViewer = can('clockin.view')
   const prayerCarer = can('prayer.pastoral')
+  const regManager = can('reg.manage')
   const permissionsSettled = !permissions || !permissions.isLoading
   // Every page's level is the grid's too (0215), and a grant opens a page.
   const levels = usePageLevels()
@@ -59,12 +60,13 @@ export function usePageAccess(): {
           teamIds: [...teamIds, ...ledDepartmentIds],
           clockInViewer,
           prayerCarer,
+          regManager,
           opens: can,
         },
         settings,
         levels,
       ).open,
-    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, levels, clockInViewer, prayerCarer, can],
+    [myId, standing, isAdmin, isSuperAdmin, isOverwatch, isPastor, teamIds, ledDepartmentIds, settings, levels, clockInViewer, prayerCarer, regManager, can],
   )
   return { standing, canOpen, settled: teamsSettled && settingsSettled && permissionsSettled }
 }

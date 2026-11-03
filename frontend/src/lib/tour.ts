@@ -432,6 +432,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'What people tell the app lands with you, to answer or to mark done.',
       },
       {
+        path: '/registrations',
+        target: 'page-title',
+        title: 'Registrations',
+        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes, a map, and who has paid. Share the link; the ticket carries a QR code for the door.',
+      },
+      {
         path: '/settings',
         target: 'settings:/settings/logo',
         title: 'The app’s mark',

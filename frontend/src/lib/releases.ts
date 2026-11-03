@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'registrations',
+    date: '2026-11-03',
+    title: 'Registrations',
+    lead: 'Events anybody can sign up for from a link — no account needed.',
+    points: [
+      'Make an event with a picture, dates, free, paid or donation tickets, promo codes and a map.',
+      'Share its link. People register with a name, email and phone, and get a ticket with a QR code.',
+      'See who has registered and who has paid, and mark payments as they arrive.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'clock-in',
     date: '2026-10-27',
     title: 'Clock in when you arrive',

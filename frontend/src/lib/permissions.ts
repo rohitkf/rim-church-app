@@ -578,6 +578,16 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // Registrations (0244): events anybody can sign up for. The Owner
+  // always; an Admin or anybody else only by the church's choice.
+  'reg.manage': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
