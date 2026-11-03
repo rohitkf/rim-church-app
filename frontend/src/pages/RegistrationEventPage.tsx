@@ -446,6 +446,7 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
           Ticket
         </a>
         {order.checked_in_at && <span className="text-accent-green-soft">Checked in</span>}
+        {order.email_sent_at && <span>Emailed</span>}
       </div>
     </li>
   )

@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   order: null as unknown,
   reported: [] as unknown[],
   cancelled: 0,
+  mailed: [] as string[],
+  mailAnswer: { ok: true, sent: true } as unknown,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -36,6 +38,10 @@ vi.mock('../lib/registrations', async (original) => ({
   cancelOrder: () => {
     state.cancelled += 1
     return Promise.resolve()
+  },
+  sendTicketEmail: (code: string) => {
+    state.mailed.push(code)
+    return Promise.resolve(state.mailAnswer)
   },
 }))
 
@@ -110,6 +116,8 @@ beforeEach(() => {
   state.order = order()
   state.reported = []
   state.cancelled = 0
+  state.mailed = []
+  state.mailAnswer = { ok: true, sent: true }
 })
 
 describe('the ticket page', () => {
@@ -183,6 +191,16 @@ describe('the ticket page', () => {
     await screen.findByRole('img', { name: 'Ticket ABCDEFGHJKMN' })
     expect(screen.queryByText('Awaiting payment')).toBeNull()
     expect(screen.queryByRole('region', { name: 'Paying' })).toBeNull()
+  })
+
+  it('emails the ticket to its own address, and says when one just went', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Email me this ticket' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('On its way to ama@example.org.')
+    expect(state.mailed).toEqual(['ABCDEFGHJKMN'])
+    state.mailAnswer = { ok: true, sent: false }
+    await user.click(screen.getByRole('button', { name: 'Email me this ticket' }))
+    expect(await screen.findByText(/Already sent to ama@example.org/)).toBeInTheDocument()
   })
 
   it('cancels only after asking', async () => {

@@ -37,3 +37,9 @@ verify_jwt = true
 # it checks the caller and then only works the queue the database gives it.
 [functions.clock-in-address]
 verify_jwt = true
+
+# The ticket by email (0247): called from the public register and ticket
+# pages with the anon key, which verify_jwt accepts; the function sends only
+# to the address an order already holds, ten minutes apart at most.
+[functions.registration-email]
+verify_jwt = true

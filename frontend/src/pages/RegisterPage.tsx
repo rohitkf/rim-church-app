@@ -16,6 +16,8 @@ import {
   registerForEvent,
   registrationImageUrl,
   remainingOf,
+  resendTickets,
+  sendTicketEmail,
   whenWords,
   type OrderLine,
   type PromoCheck,
@@ -134,6 +136,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
     onSuccess: (code) => {
       setError(null)
       if (code) {
+        // The ticket by email, for keeping; nothing waits on it (0247).
+        void sendTicketEmail(code)
         navigate(`${TICKET_PATH}/${code}`, { replace: true })
       } else {
         onRegistered()
@@ -438,6 +442,62 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           </div>
         </form>
       )}
+
+      <TicketAgain slug={event.slug} />
     </PublicShell>
+  )
+}
+
+/** "I have lost my ticket": the links go to the address that registered, or nowhere (0247). */
+function TicketAgain({ slug }: { slug: string }) {
+  const errorText = useErrorText()
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [said, setSaid] = useState<string | null>(null)
+  const send = useMutation({
+    mutationFn: () => resendTickets(slug, email),
+    onSuccess: (result) =>
+      setSaid(
+        result.reason === 'not configured'
+          ? 'Tickets cannot be emailed just now. Ask the church for your ticket link.'
+          : 'If that address has a registration for this event, its ticket link is on its way. Check your inbox and junk folder.',
+      ),
+    onError: (err: unknown) => setSaid(errorText(err, 'Could not send just now. Try again in a few minutes.')),
+  })
+  if (!open) {
+    return (
+      <p className="mt-8 text-center text-body-sm text-on-surface-variant">
+        Already registered and lost your ticket?{' '}
+        <button type="button" onClick={() => setOpen(true)} className="tap font-medium text-accent-blue-soft hover:underline">
+          Get your ticket again
+        </button>
+      </p>
+    )
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) send.mutate()
+      }}
+      aria-label="Get your ticket again"
+      className="mt-8 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline"
+    >
+      <h2 className="text-headline-sm text-on-surface">Get your ticket again</h2>
+      <p className="mt-1 text-body-sm text-on-surface-variant">The email address you registered with. Your ticket link goes there and nowhere else.</p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <Field label="Email" className="min-w-0 flex-1">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
+        </Field>
+        <ActionButton type="submit" tone="quiet" disabled={send.isPending || !email.trim()}>
+          {send.isPending ? 'Sending…' : 'Send my ticket'}
+        </ActionButton>
+      </div>
+      {said && (
+        <p role="status" className="mt-3 text-body-sm text-on-surface-variant">
+          {said}
+        </p>
+      )}
+    </form>
   )
 }
