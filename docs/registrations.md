@@ -71,7 +71,8 @@ details are tidied away after the event.
   doing (receipts to check, payments awaited, refunds owed), and an order
   that needs a decision carries it as a button on its row.
 - Cancel the event and settle refunds. An event can be deleted only once
-  every paid order is refunded.
+  every paid order is refunded. Cancelling or deleting it takes its diary
+  entries with it.
 
 ### Attendee — `/register/…` and `/ticket/…`, no account
 
