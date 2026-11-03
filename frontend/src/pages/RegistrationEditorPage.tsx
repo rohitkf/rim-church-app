@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useRegistrationRights } from '../lib/registrationRights'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
 import { DateField, TimeField } from '../components/DateTimeFields'
@@ -51,6 +52,19 @@ const IMAGE_MAX_BYTES = 2 * 1024 * 1024
 export function RegistrationEditorPage() {
   const { id } = useParams()
   const existing = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id!), enabled: !!id })
+  const rights = useRegistrationRights()
+  // Making and editing events is its own right (0251); the database refuses the save without it.
+  if (!rights.edit) {
+    return (
+      <div>
+        <PageHeader eyebrow="Registrations" title={id ? 'Edit event' : 'New event'} />
+        <p className="text-body-md text-on-surface-variant">Making and editing events is not one of your rights. Whoever runs the app can give it to you in Access &amp; Privileges (“Make &amp; edit events”).</p>
+        <Link to={id ? `/registrations/${id}` : '/registrations'} className="tap mt-3 inline-block text-label-md font-medium text-accent-blue-soft hover:underline">
+          Back
+        </Link>
+      </div>
+    )
+  }
   if (id && existing.isLoading) return <QueryState isLoading error={null}>{null}</QueryState>
   if (id && (existing.error || !existing.data)) {
     return (

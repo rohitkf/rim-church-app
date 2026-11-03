@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { DOOR_RIGHTS, OFFICE_RIGHTS } from '../lib/registrationRights'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
@@ -85,9 +86,9 @@ function openingWhy(opening: PageOpening): string {
     case 'pastoral':
       return 'A pastor'
     case 'registrations':
-      return 'Given “Run registrations”'
+      return 'Given a registrations right'
     case 'door':
-      return 'Given “Run registrations” or “Work the door”'
+      return 'Given a Reception right'
     case 'grant':
       return 'Given to them'
     default:
@@ -347,8 +348,8 @@ function PagesFor({ facts, name }: { facts: PersonFacts; name: string }) {
   const granted = {
     clockInViewer: decide(overrides, holder, 'clockin.view', {}, teams),
     prayerCarer: decide(overrides, holder, 'prayer.pastoral', {}, teams),
-    regManager: decide(overrides, holder, 'reg.manage', {}, teams),
-    doorWorker: decide(overrides, holder, 'reg.door', {}, teams),
+    regManager: OFFICE_RIGHTS.some((r) => decide(overrides, holder, r, {}, teams)),
+    doorWorker: DOOR_RIGHTS.some((r) => decide(overrides, holder, r, {}, teams)),
     // Every page's level is the grid's, and a page may be given (0215).
     levels: levelsFrom(overrides),
     opens: (cap: CapabilityKey) => decide(overrides, holder, cap, {}, teams),

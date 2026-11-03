@@ -24,11 +24,13 @@ export interface ScannerProps {
   busy: boolean
   onCheckIn: (order: OrderRow) => void
   onPaidAndCheckIn: (order: OrderRow) => void
+  /** May take the money there and then (0251); off, an owing ticket is only held up. */
+  canTakePayment?: boolean
   /** The camera runs only while this is on (a hidden tab keeps its hands off it). */
   active?: boolean
 }
 
-export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, active = true }: ScannerProps) {
+export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, canTakePayment = true, active = true }: ScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [found, setFound] = useState<{ code: string; id: string | null; auto: boolean } | null>(null)
   const [typed, setTyped] = useState('')
@@ -153,7 +155,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                 Check in
               </ActionButton>
             )}
-            {order && order.status === 'confirmed' && !order.checked_in_at && owes && (
+            {order && order.status === 'confirmed' && !order.checked_in_at && owes && canTakePayment && (
               <ActionButton tone="quiet" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
                 Paid now, check in
               </ActionButton>

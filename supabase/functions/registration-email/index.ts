@@ -7,12 +7,12 @@
  *   { kind: 'resend', slug, email }   every live ticket that address holds for
  *                                     that event — "I have lost my ticket"
  *
- * and two are for the church, after it has looked at a payment — the
- * caller has to be signed in and allowed to work the door or run
- * registrations (registration_may_work), or the answer is no:
+ * and three are for the church — the caller has to be signed in and hold
+ * the right for it (registration_can, 0251), or the answer is no:
  *
  *   { kind: 'paid', code }            the payment is in: "your ticket is confirmed"
  *   { kind: 'unmatched', code }       nothing matches: "we could not find your payment"
+ *   { kind: 'event_cancelled', event_id }  the event is off: everyone on it, with their refund
  *
  * Nothing here takes an address from the caller and sends to it: a confirm
  * goes to the address on the order, and a resend goes to the address asked
@@ -278,9 +278,10 @@ Deno.serve(async (req) => {
       const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
       const { data: who } = token ? await admin.auth.getUser(token) : { data: { user: null } }
       if (!who?.user) return json({ error: 'Sign in first.' }, 401)
-      const { data: allowed, error: mayError } = await admin.rpc('registration_may_work', { uid: who.user.id })
+      // "Your ticket is confirmed" follows taking the money; "we could not match it" follows approving (0251).
+      const { data: allowed, error: mayError } = await admin.rpc('registration_can', { uid: who.user.id, what: kind === 'paid' ? 'take_payment' : 'approve' })
       if (mayError) return json({ error: 'Could not check who is asking.' }, 500)
-      if (!allowed) return json({ error: 'Only whoever runs registrations or works the door may send this.' }, 403)
+      if (!allowed) return json({ error: 'Sending this is not one of your rights.' }, 403)
     }
     const code = (payload.code ?? '').trim().toUpperCase()
     if (!/^[A-Z0-9]{12}$/.test(code)) return json({ error: 'That is not a ticket code.' }, 400)
@@ -292,8 +293,8 @@ Deno.serve(async (req) => {
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
     const { data: who } = token ? await admin.auth.getUser(token) : { data: { user: null } }
     if (!who?.user) return json({ error: 'Sign in first.' }, 401)
-    const { data: allowed } = await admin.rpc('may', { uid: who.user.id, cap: 'reg.manage' })
-    if (!allowed) return json({ error: 'Only whoever runs registrations may send this.' }, 403)
+    const { data: allowed } = await admin.rpc('registration_can', { uid: who.user.id, what: 'cancel' })
+    if (!allowed) return json({ error: 'Cancelling events is not one of your rights.' }, 403)
     const eventId = (payload as { event_id?: string }).event_id ?? ''
     const { data, error } = await admin
       .from('registration_orders')

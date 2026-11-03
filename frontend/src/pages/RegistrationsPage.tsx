@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRegistrationRights } from '../lib/registrationRights'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton, PageHeader, Pill, Statistic, Tile } from '../components/Surface'
@@ -13,6 +14,7 @@ import { REGISTRATIONS_KEY, STATUS_TONE, STATUS_WORDS, fetchRegistrationEvents, 
  * stands. The Owner's page, and whoever the grid gives "Run registrations".
  */
 export function RegistrationsPage() {
+  const rights = useRegistrationRights()
   const navigate = useNavigate()
   const events = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'events'], queryFn: fetchRegistrationEvents })
   const rows = events.data ?? []
@@ -27,11 +29,11 @@ export function RegistrationsPage() {
         eyebrow="Sign-ups from a link"
         title="Registrations"
         description="Events anybody can register for from a link, no account needed: tickets, promo codes, a map, and who has paid."
-        action={
-          <ActionButton onClick={() => navigate('/registrations/new')} glyph={<span aria-hidden="true">+</span>}>
-            New event
-          </ActionButton>
-        }
+        action={rights.edit ? (
+            <ActionButton onClick={() => navigate('/registrations/new')} glyph={<span aria-hidden="true">+</span>}>
+              New event
+            </ActionButton>
+          ) : undefined}
       />
 
       <Lifespan page="registrations" className="mb-4" />

@@ -7,7 +7,7 @@ import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
-import { useAuth } from '../auth/AuthContext'
+import { useRegistrationRights, type RegistrationRights } from '../lib/registrationRights'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { pounds } from '../lib/money'
@@ -72,7 +72,8 @@ export function RegistrationEventPage() {
   const [noteFor, setNoteFor] = useState<OrderRow | null>(null)
   const [noteText, setNoteText] = useState('')
   const [scanning, setScanning] = useState(false)
-  const { isSuperAdmin: isOwner } = useAuth()
+  // What this person may press here (0251); the database checks the same.
+  const rights = useRegistrationRights()
   const [cancelling, setCancelling] = useState(false)
   const [cancelNote, setCancelNote] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -230,10 +231,10 @@ export function RegistrationEventPage() {
     { label: 'Download QR code', onSelect: () => downloadQr.mutate(), hint: 'For a poster or a message' },
     { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
   ]
-  if (!cancelled && event.status !== 'draft') {
+  if (!cancelled && event.status !== 'draft' && rights.cancel) {
     eventActions.push({ label: 'Cancel event', tone: 'danger', onSelect: () => setCancelling(true), hint: 'Called off: everyone is told, and every order is kept' })
   }
-  if (isOwner) {
+  if (rights.delete) {
     eventActions.push(
       unrefunded.length > 0
         ? { label: 'Delete event', tone: 'danger', onSelect: () => undefined, disabled: true, hint: `${unrefunded.length} paid and not refunded — cancel the event and refund them first` }
@@ -250,22 +251,22 @@ export function RegistrationEventPage() {
         description={dates.map((d) => whenWords(d.starts_at, d.ends_at)).join(' · ') || 'No dates yet'}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {!cancelled && (
+            {!cancelled && rights.edit && (
               <ActionButton tone="quiet" onClick={() => navigate(`/registrations/${id}/edit`)}>
                 Edit
               </ActionButton>
             )}
-            {event.status === 'draft' && (
+            {event.status === 'draft' && rights.edit && (
               <ActionButton onClick={() => setStatus.mutate('published')} disabled={!canPublish || setStatus.isPending}>
                 Publish
               </ActionButton>
             )}
-            {event.status === 'published' && (
+            {event.status === 'published' && rights.edit && (
               <ActionButton tone="danger-quiet" onClick={() => setStatus.mutate('closed')} disabled={setStatus.isPending}>
                 Close registration
               </ActionButton>
             )}
-            {event.status === 'closed' && !cancelled && (
+            {event.status === 'closed' && !cancelled && rights.edit && (
               <ActionButton onClick={() => setStatus.mutate('published')} disabled={setStatus.isPending}>
                 Reopen
               </ActionButton>
@@ -318,7 +319,7 @@ export function RegistrationEventPage() {
               <button type="button" onClick={() => downloadQr.mutate()} disabled={downloadQr.isPending} className="tap text-label-md font-medium text-accent-blue-soft hover:underline disabled:opacity-60">
                 Download QR code
               </button>
-              {event.status !== 'draft' && (
+              {event.status !== 'draft' && !cancelled && rights.door && (
                 <Link to={`/door?event=${event.id}`} className="tap text-label-md font-medium text-accent-blue-soft hover:underline">
                   Open Reception
                 </Link>
@@ -371,7 +372,7 @@ export function RegistrationEventPage() {
             {checkedIn > 0 && <Pill tone="blue">{checkedIn} checked in</Pill>}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            {event.status !== 'draft' && rows.length > 0 && (
+            {event.status !== 'draft' && !cancelled && rows.length > 0 && rights.checkIn && (
               <ActionButton size="sm" onClick={() => setScanning(true)}>
                 Scan tickets
               </ActionButton>
@@ -408,7 +409,7 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
-                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o))}
+                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights)}
                 />
               ))}
             </ul>
@@ -543,10 +544,11 @@ function orderActions(
   notReceived: () => void,
   eventCancelled: boolean,
   refundDetails: () => void,
+  r: RegistrationRights,
 ): MenuAction[] {
   const actions: MenuAction[] = []
   // A refund owed comes first: it is what this order needs.
-  if (o.refund_status === 'owed') {
+  if (o.refund_status === 'owed' && r.refund) {
     const cash = !o.payment_method || o.payment_method === 'reception'
     if (cash) actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: 'Paid at reception: the bank details they sent' })
     actions.push({
@@ -562,7 +564,7 @@ function orderActions(
   }
   if (o.status === 'confirmed') {
     if (o.payment_status !== 'not_needed') {
-      if (o.payment_status !== 'received') {
+      if (o.payment_status !== 'received' && r.takePayment) {
         actions.push({
           label: 'Mark as received',
           onSelect: () => act('received'),
@@ -570,20 +572,24 @@ function orderActions(
           hint: o.payment_status === 'reported' ? 'The receipt matches the account; their ticket is confirmed by email' : 'The money has arrived',
         })
       }
-      if (o.payment_status === 'reported') actions.push({ label: 'Not received, ask again', onSelect: notReceived, hint: 'Nothing matches; an email asks them to check' })
-      if (o.payment_status !== 'waived') actions.push({ label: 'Waive the payment', onSelect: () => act('waived') })
-      if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
+      if (r.approve) {
+        if (o.payment_status === 'reported') actions.push({ label: 'Not received, ask again', onSelect: notReceived, hint: 'Nothing matches; an email asks them to check' })
+        if (o.payment_status !== 'waived') actions.push({ label: 'Waive the payment', onSelect: () => act('waived') })
+        if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
+      }
     }
-    actions.push(
-      o.checked_in_at
-        ? { label: 'Undo check-in', onSelect: () => act('undo_check_in') }
-        : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
-    )
-  } else if (o.refund_status !== 'refunded') {
+    if (r.checkIn) {
+      actions.push(
+        o.checked_in_at
+          ? { label: 'Undo check-in', onSelect: () => act('undo_check_in') }
+          : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
+      )
+    }
+  } else if (o.refund_status !== 'refunded' && r.cancel) {
     actions.push({ label: 'Put back', onSelect: () => act('restore'), hint: 'If its tickets still fit' })
   }
   actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
-  if (o.status === 'confirmed') actions.push({ label: 'Cancel registration', onSelect: cancel, tone: 'danger' })
+  if (o.status === 'confirmed' && r.cancel) actions.push({ label: 'Cancel registration', onSelect: cancel, tone: 'danger' })
   return actions
 }
 

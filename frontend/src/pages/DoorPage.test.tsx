@@ -25,6 +25,11 @@ const cam = vi.hoisted(() => ({ onText: null as null | ((text: string) => void) 
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: { user: { id: 'me' } } }) }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => true, standing: 'church' }) }))
+const rights = vi.hoisted(() => ({ now: { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true } as Record<string, boolean> }))
+vi.mock('../lib/registrationRights', async (original) => ({
+  ...(await original<typeof import('../lib/registrationRights')>()),
+  useRegistrationRights: () => rights.now,
+}))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
 vi.mock('../lib/qrCamera', () => ({
@@ -155,6 +160,7 @@ function show(path = '/door') {
 const stat = (unit: string) => screen.getByText(unit).parentElement!.querySelector('.text-numeral')!.textContent
 
 beforeEach(() => {
+  rights.now = { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true }
   cam.onText = null
   state.events = [
     summary({ id: 'e-next', slug: 'youth-night', title: 'Youth Night', first_starts_at: daysOn(6, 19), last_ends_at: daysOn(6, 21) }),
@@ -311,6 +317,34 @@ describe('Reception', () => {
     state.events = [summary({ cancelled_at: '2026-11-04T10:00:00Z' })]
     show()
     expect(await screen.findByText(/No event today, and none coming up/)).toBeInTheDocument()
+  })
+
+  it('lets somebody who only checks people in do that, and nothing more (0251)', async () => {
+    rights.now = { ...rights.now, takePayment: false, walkIn: false, approve: false, edit: false, refund: false, cancel: false, delete: false, office: false }
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    expect(screen.queryByRole('tab', { name: 'Walk-in' })).toBeNull()
+    scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    const card = screen.getByRole('region', { name: 'Ticket found' })
+    expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: /Paid now/ })).toBeNull()
+    expect(within(card).getByRole('button', { name: 'Check in' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByRole('button', { name: /Paid now/ })).toBeNull()
+  })
+
+  it('lets a walk-in be registered as still to pay by somebody who cannot take money', async () => {
+    rights.now = { ...rights.now, takePayment: false, approve: false }
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Walk-in' }))
+    const form = screen.getByRole('form', { name: 'Walk-in' })
+    await user.type(within(form).getByRole('textbox', { name: 'Name' }), 'Joel Skaria')
+    await user.click(within(form).getByRole('button', { name: 'One more With lunch' }))
+    expect(within(form).queryByRole('checkbox', { name: /Paid now/ })).toBeNull()
+    await user.click(within(form).getByRole('button', { name: 'Register' }))
+    await waitFor(() => expect(state.walkIns).toHaveLength(1))
+    expect(state.walkIns[0]).toMatchObject(['e1', { paid: false }])
   })
 
   it('says so when nothing is on', async () => {
