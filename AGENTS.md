@@ -23,10 +23,14 @@ Keep this file current in the same pull request that changes what it says.
   checked, and which migrations or functions it depends on. Then watch it
   to merged and deployed. If a PR from `develop` is already open, new
   commits ride it; do not open a second.
-- Opening the PR is the only thing that is pre-approved. **Applying a
-  migration to production, deploying an edge function, and sending
-  anything to real people still each need the user's explicit yes for
-  that action**, as before.
+- Opening the PR is pre-approved. So is **applying a migration to
+  production**: the Owner has given standing permission (November 2026),
+  on the condition that it has passed the local CI database (§7) and a
+  dry run on production first. **Deploying an edge function and sending
+  anything to real people still each need the Owner's explicit yes, every
+  time.** A yes for one deploy is not a yes for the next; "once you're
+  done" or approval of a plan is not a yes to deploy. Setting function
+  secrets needs a yes too.
 - **But not before the database is ready.** The PR merges itself and
   deploys, so a frontend that needs a migration or a redeployed function
   must not be put up for merge until that migration is applied (with the
@@ -44,7 +48,7 @@ Run from `frontend/`. All four must be clean before you push:
 ```bash
 npx tsc --noEmit -p tsconfig.app.json    # the app
 npx tsc --noEmit -p tsconfig.node.json   # vite.config.ts and build/
-npx vitest run                           # ~865 tests, all must pass
+npx vitest run                           # ~2700 tests, all must pass
 npm run build                            # catches what tsc alone misses
 ```
 
@@ -56,8 +60,17 @@ counts as green for auto-merge. Keep the job names: auto-merge and any
 required check read them. A newer push cancels the older run of the same
 event and ref.
 
-`npm run lint` (oxlint) exits 0 with ~40 standing warnings. Do not add to
-them; do not fix unrelated ones in a PR about something else.
+`npm run lint` (oxlint) exits 0 with **46** standing warnings (count them:
+`npm run lint 2>&1 | grep -c ': warning '`). Do not add to them; do not fix
+unrelated ones in a PR about something else. The two that new code trips
+most: exporting a helper from a component file (`only-export-components` —
+put it in `lib/`), and `Date.now()` during render (`purity` — use a clock
+hook such as `useNow` in `lib/timeLeft.ts`).
+
+Run these one after another in a single shell, with absolute paths. Two
+shell calls at once share one working directory and trample each other:
+a gate run beside another command once reported 1,212 failing tests and
+"tsconfig.app.json does not exist" for a clean tree.
 
 Backend (`backend/`, FastAPI, AI assistant only): `pytest`.
 
@@ -334,7 +347,50 @@ could hand themselves everything else.
 
 Merging ships **the frontend only**. Both of these are separate, manual,
 and produce a working-looking app that fails at the moment of use if
-skipped:
+skipped. How each is done safely:
+
+- **A migration** goes through three gates, in this order:
+  1. *The local CI database* — a throwaway Postgres 16 with every
+     migration in order and the schema check, exactly what CI runs:
+     ```bash
+     B=/usr/lib/postgresql/16/bin; D=/var/lib/postgresql/pgci
+     su postgres -c "rm -rf $D && $B/initdb -D $D -A trust -U postgres >/dev/null && $B/pg_ctl -D $D -o '-p 55432 -k /var/lib/postgresql' -l $D.log start"
+     export PGHOST=/var/lib/postgresql PGPORT=55432 PGUSER=postgres
+     psql -c 'create database church_ci'
+     for f in supabase/_local_test/*.sql supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -d church_ci -q -f "$f" || break; done
+     psql -v ON_ERROR_STOP=1 -d church_ci -f supabase/checks/sql_functions_still_match_the_schema.sql
+     ```
+     For a migration that decides who may do what, also run a behaviour
+     script against it: redefine `auth.uid()` to read a setting
+     (`create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$`),
+     give test people one right each through `permission_grants`, and try
+     every action as each. (Inserting into `auth.users` makes the profile
+     by trigger, so upsert `profiles`; the local stub has no `extensions`
+     schema, so code generation fails there and nowhere else.)
+  2. *A dry run on production* — the whole file inside `begin; … do $d$
+     begin raise exception 'DRYRUN reached the end'; end $d$; commit;`.
+     Reaching that exception means every statement ran; nothing is kept.
+  3. *Apply*, then check the result with a query (the new columns,
+     functions, grants), then `notify pgrst, 'reload schema';` — a new
+     table answers *"Could not find the table … in the schema cache"*
+     until the API reloads.
+  SQL reaches production through the Management API
+  (`POST /v1/projects/{ref}/database/query` with `SUPABASE_ACCESS_TOKEN`);
+  never print the token.
+- **An edge function** (after the Owner's yes) is deployed from the
+  committed file, byte for byte — `POST
+  /v1/projects/{ref}/functions/deploy?slug=<name>` as multipart
+  (`metadata` with `entrypoint_path`, `name`, `verify_jwt`; `file` the
+  source), or `supabase functions deploy <name>`. Keep `verify_jwt` as
+  `supabase/config.toml` says. Then smoke-test it: a call with the public
+  key to a kind that needs a signed-in caller must answer 401, an unknown
+  kind 400.
+- **The frontend is live** when the site's service worker carries main's
+  commit: `curl -s https://rim-church-app.vercel.app/sw.js | grep BUILD_ID`
+  equals `git rev-parse --short=12 origin/main` (main's squash-merge
+  commit, not develop's).
+
+The traps:
 
 1. **Apply the migration** to Supabase. A merged-but-unapplied migration
    shows *"Could not find the function … in the schema cache"* to the user.
@@ -454,6 +510,27 @@ Each of these has already cost real time. None of them show up in review.
   is spelled `_`: `[@media(hover:hover)_and_(pointer:fine)]:opacity-0`.
   Verify against `dist/` when unsure.
 - **jsdom has no `scrollIntoView`.** Guard calls to it.
+- **`window.open('', '_blank', 'noopener')` returns `null`.** The browser
+  opens the tab but does not hand it back, so code that opens a blank tab
+  and then sets its address loses it — and a fallback that navigates the
+  page itself replaces the page. The receipt viewer did exactly that (a
+  tab at about:blank, the event's page gone behind Back) while its test
+  passed, because the test faked `window.open` returning a tab. Show the
+  thing in the page, or use a real `<a href target="_blank">`; never mock
+  a browser behaviour into something it does not do.
+- **A test's own window listener can cancel the thing under test.** A
+  capture-phase `click` listener that calls `preventDefault()` (there to
+  stop jsdom following links) also stops every submit button's default,
+  so no form submits and the test fails for no visible reason. Scope it to
+  links: `if ((e.target as Element)?.closest('a')) e.preventDefault()`.
+- **A new file can overwrite an old one of the same name.** `lib/countdown.ts`
+  already existed (the service countdown); writing a new one over it broke
+  three components. Check `git ls-files | grep -i <name>` before creating
+  a file, and pick a name nobody has.
+- **A test phone number must be one libphonenumber accepts.** UK 07700
+  900xxx is the drama range and is rightly refused; use 07911 123456.
+- **A countdown asserted to the second fails a second later.** Give the
+  target 30 seconds of margin, or use fake timers.
 
 ## 9. Recipes
 
@@ -561,3 +638,32 @@ what remains unverified.
 
 Commits and PR descriptions explain **why**, in prose, at the length the
 change deserves. Read the recent history for the tone.
+
+## 11. The routine (how the work has been run)
+
+So a session that starts from nothing works the way the last one did:
+
+1. **Look before building.** Read the code a request touches, and the
+   live data when the question is about something that happened (a test
+   order, an event's address) — the answer is often there, as with the
+   "missing" payment that a 100% promo code had made free.
+2. **Say the plan in a few lines first** when there is a real choice
+   (a new right, who sees a link, what a delete does), make sensible
+   defaults and name them, and stop only for decisions that are the
+   Owner's: what a person may see, money, anything sent to people.
+3. **Build it whole**: migration (through §7's three gates), the lib, the
+   pages, tests for each behaviour and for each right, the docs here.
+4. **Gates** (§2), then a **stub browser** run of anything a person sees
+   (`frontend/.claude/skills/verify/`, or a Playwright script against
+   `vite preview` of a build with `VITE_SUPABASE_URL=http://supabase.test`)
+   — read the screenshots, at phone and desktop width, light and dark.
+5. **Commit to `develop`, push, open the PR to `main`** — but only once
+   every migration and function it needs is on production (§1). One PR at
+   a time: a new piece waits for the last to merge.
+6. **Watch it to deployed**: subscribe to the PR, and confirm the live
+   `BUILD_ID` (§7). Then tell the Owner, briefly, what changed and what is
+   still unverified (§10) — the camera, real uploads and emails cannot be
+   checked here.
+7. **Keep this file current** in the same commit as the change it
+   describes; the vocabulary table (§3) carries what each table and
+   function is for, §8 every trap that cost a real bug.
