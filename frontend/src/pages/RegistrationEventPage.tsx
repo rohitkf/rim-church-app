@@ -7,6 +7,7 @@ import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { pounds } from '../lib/money'
@@ -20,7 +21,11 @@ import {
   STATUS_TONE,
   STATUS_WORDS,
   buildRegistrationWorkbook,
+  cancelRegistrationEvent,
   deleteRegistrationEvent,
+  fetchRefundDetails,
+  notifyEventCancelled,
+  sortCodeWords,
   fetchRegistrationEvent,
   fetchRegistrationOrders,
   markOrder,
@@ -67,6 +72,12 @@ export function RegistrationEventPage() {
   const [noteFor, setNoteFor] = useState<OrderRow | null>(null)
   const [noteText, setNoteText] = useState('')
   const [scanning, setScanning] = useState(false)
+  const { isSuperAdmin: isOwner } = useAuth()
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelNote, setCancelNote] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteTyped, setDeleteTyped] = useState('')
+  const [refundFor, setRefundFor] = useState<OrderRow | null>(null)
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
@@ -128,6 +139,18 @@ export function RegistrationEventPage() {
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
   })
+  const cancelEvent = useMutation({
+    mutationFn: () => cancelRegistrationEvent(id, cancelNote),
+    onSuccess: (owedCount) => {
+      setError(null)
+      setCancelling(false)
+      // Everyone with an address is told; nothing waits on it.
+      void notifyEventCancelled(id)
+      showToast(owedCount > 0 ? `Event cancelled — ${owedCount} ${owedCount === 1 ? 'refund' : 'refunds'} owed` : 'Event cancelled')
+      return refresh()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not cancel the event.')),
+  })
   const downloadQr = useMutation({
     mutationFn: async () => downloadBlob(await qrPngBlob(registerUrl(full.data!.event.slug), full.data!.event.title), `${full.data!.event.slug}-qr.png`),
     onSuccess: () => showToast('QR code downloaded'),
@@ -183,13 +206,10 @@ export function RegistrationEventPage() {
       cancelLabel: 'Keep it',
       onConfirm: () => mark.mutate({ order, action: 'cancel' }),
     })
-  const askDelete = () =>
-    ask({
-      title: `Delete ${event.title}?`,
-      body: 'Every registration on it goes too, and its link stops working. Export the orders first if you need them for the accounts.',
-      confirmLabel: 'Delete',
-      onConfirm: () => remove.mutate(),
-    })
+  const askDelete = () => {
+    setDeleteTyped('')
+    setDeleting(true)
+  }
   const notReceived = (order: OrderRow) =>
     ask({
       title: `Not received from ${order.name}?`,
@@ -201,18 +221,40 @@ export function RegistrationEventPage() {
       onConfirm: () => askAgain.mutate(order),
     })
 
+  const cancelled = !!event.cancelled_at
+  // Money in and not yet sent back: the event cannot be deleted while any is.
+  const unrefunded = rows.filter((o) => o.total_pence > 0 && (o.payment_status === 'received' || o.payment_status === 'reported') && o.refund_status !== 'refunded')
+  const owed = rows.filter((o) => o.refund_status === 'owed')
+  const owedPence = owed.reduce((n, o) => n + o.total_pence, 0)
+  const eventActions: MenuAction[] = [
+    { label: 'Download QR code', onSelect: () => downloadQr.mutate(), hint: 'For a poster or a message' },
+    { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
+  ]
+  if (!cancelled && event.status !== 'draft') {
+    eventActions.push({ label: 'Cancel event', tone: 'danger', onSelect: () => setCancelling(true), hint: 'Called off: everyone is told, and every order is kept' })
+  }
+  if (isOwner) {
+    eventActions.push(
+      unrefunded.length > 0
+        ? { label: 'Delete event', tone: 'danger', onSelect: () => undefined, disabled: true, hint: `${unrefunded.length} paid and not refunded — cancel the event and refund them first` }
+        : { label: 'Delete event', tone: 'danger', onSelect: askDelete, hint: 'For a test or a duplicate; everything on it goes' },
+    )
+  }
+
   return (
     <div>
       <PageHeader
         eyebrow="Registrations"
-        belowEyebrow={<Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
+        belowEyebrow={cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
         title={event.title}
         description={dates.map((d) => whenWords(d.starts_at, d.ends_at)).join(' · ') || 'No dates yet'}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <ActionButton tone="quiet" onClick={() => navigate(`/registrations/${id}/edit`)}>
-              Edit
-            </ActionButton>
+            {!cancelled && (
+              <ActionButton tone="quiet" onClick={() => navigate(`/registrations/${id}/edit`)}>
+                Edit
+              </ActionButton>
+            )}
             {event.status === 'draft' && (
               <ActionButton onClick={() => setStatus.mutate('published')} disabled={!canPublish || setStatus.isPending}>
                 Publish
@@ -223,20 +265,13 @@ export function RegistrationEventPage() {
                 Close registration
               </ActionButton>
             )}
-            {event.status === 'closed' && (
+            {event.status === 'closed' && !cancelled && (
               <ActionButton onClick={() => setStatus.mutate('published')} disabled={setStatus.isPending}>
                 Reopen
               </ActionButton>
             )}
             {/* The rest of what can be done to the event itself, deleting it last. */}
-            <ActionMenu
-              label={event.title}
-              actions={[
-                { label: 'Download QR code', onSelect: () => downloadQr.mutate(), hint: 'For a poster or a message' },
-                { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
-                { label: 'Delete event', tone: 'danger', onSelect: askDelete, hint: 'With every registration on it' },
-              ]}
-            />
+            <ActionMenu label={event.title} actions={eventActions} />
           </div>
         }
       />
@@ -245,6 +280,17 @@ export function RegistrationEventPage() {
         <p role="alert" className="mb-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}
         </p>
+      )}
+      {cancelled && (
+        <section aria-label="Cancelled" className="mb-4 rounded-[var(--radius-card)] bg-error-container px-4 py-3 text-on-error-container">
+          <p className="text-body-md font-medium">Cancelled {new Date(event.cancelled_at!).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+          {event.cancel_note && <p className="mt-1 whitespace-pre-line text-body-sm">{event.cancel_note}</p>}
+          <p className="mt-1 text-body-sm">
+            {owed.length > 0
+              ? `${owed.length} ${owed.length === 1 ? 'refund' : 'refunds'} still owed, ${pounds(owedPence)}. Show Refunds below to work through them.`
+              : 'Nothing is owed back.'}
+          </p>
+        </section>
       )}
       {event.status === 'draft' && !canPublish && (
         <p className="mb-4 text-body-sm text-on-surface-variant">Add at least one date and one ticket type before publishing.</p>
@@ -298,7 +344,7 @@ export function RegistrationEventPage() {
           <Statistic value={pounds(received)} unit="received" />
         </Tile>
         <Tile>
-          <Statistic value={pounds(expected - received)} unit="still to come" />
+          {owed.length > 0 ? <Statistic value={pounds(owedPence)} unit="refunds owed" /> : <Statistic value={pounds(expected - received)} unit="still to come" />}
         </Tile>
       </div>
 
@@ -362,7 +408,7 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
-                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o))}
+                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o))}
                 />
               ))}
             </ul>
@@ -391,6 +437,62 @@ export function RegistrationEventPage() {
           onClose={() => setScanning(false)}
         />
       )}
+      {cancelling && (
+        <Overlay label={`Cancel ${event.title}?`} onDismiss={() => setCancelling(false)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              cancelEvent.mutate()
+            }}
+            className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]"
+          >
+            <h2 className="text-headline-md text-on-surface">Cancel {event.title}?</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              Registration closes for good and the event leaves the church diary. Every order is kept. Everyone who registered is emailed, and their ticket says the event was cancelled.
+              {unrefunded.length > 0 && ` ${unrefunded.length} paid ${unrefunded.length === 1 ? 'order' : 'orders'} will be marked as owing a refund; you work through them from this page.`}
+            </p>
+            <Field label="A word to everyone (optional)" className="mt-4">
+              <textarea value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} rows={3} maxLength={1000} placeholder="We are sorry — the hall is closed for repairs." className={`${inputClasses} resize-y`} />
+            </Field>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <ActionButton tone="ghost" onClick={() => setCancelling(false)}>
+                Keep it on
+              </ActionButton>
+              <ActionButton type="submit" tone="danger" disabled={cancelEvent.isPending}>
+                {cancelEvent.isPending ? 'Cancelling…' : 'Cancel the event'}
+              </ActionButton>
+            </div>
+          </form>
+        </Overlay>
+      )}
+      {deleting && (
+        <Overlay label={`Delete ${event.title}?`} onDismiss={() => setDeleting(false)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (deleteTyped.trim() === event.title.trim()) remove.mutate()
+            }}
+            className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]"
+          >
+            <h2 className="text-headline-md text-on-surface">Delete {event.title}?</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              For a test or a duplicate. The event, every registration on it and its link go for good, and cannot be brought back. Export to Excel first if you might need them.
+            </p>
+            <Field label="Type the event’s name to delete it" className="mt-4">
+              <input value={deleteTyped} onChange={(e) => setDeleteTyped(e.target.value)} autoComplete="off" className={inputClasses} />
+            </Field>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <ActionButton tone="ghost" onClick={() => setDeleting(false)}>
+                Keep it
+              </ActionButton>
+              <ActionButton type="submit" tone="danger" disabled={deleteTyped.trim() !== event.title.trim() || remove.isPending}>
+                Delete for good
+              </ActionButton>
+            </div>
+          </form>
+        </Overlay>
+      )}
+      {refundFor && <RefundDetailsSheet order={refundFor} onClose={() => setRefundFor(null)} />}
       {noteFor && (
         <Overlay label={`A note on ${noteFor.name}’s registration`} onDismiss={() => setNoteFor(null)}>
           <form
@@ -429,11 +531,35 @@ const ACTION_DONE: Record<OrderAction, string> = {
   undo_check_in: 'Check-in undone',
   cancel: 'Registration cancelled',
   restore: 'Registration put back',
+  refunded: 'Marked as refunded',
 }
 
 /** What reception can do to an order, as it stands. */
-function orderActions(o: OrderRow, act: (action: OrderAction) => void, note: () => void, cancel: () => void, notReceived: () => void): MenuAction[] {
+function orderActions(
+  o: OrderRow,
+  act: (action: OrderAction) => void,
+  note: () => void,
+  cancel: () => void,
+  notReceived: () => void,
+  eventCancelled: boolean,
+  refundDetails: () => void,
+): MenuAction[] {
   const actions: MenuAction[] = []
+  // A refund owed comes first: it is what this order needs.
+  if (o.refund_status === 'owed') {
+    const cash = !o.payment_method || o.payment_method === 'reception'
+    if (cash) actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: 'Paid at reception: the bank details they sent' })
+    actions.push({
+      label: 'Mark as refunded',
+      tone: 'accent',
+      onSelect: () => act('refunded'),
+      hint: cash ? 'Sent to the account they gave' : o.payment_method === 'paypal' ? 'Refunded in PayPal' : 'Sent back to the account it came from',
+    })
+  }
+  if (eventCancelled) {
+    actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
+    return actions
+  }
   if (o.status === 'confirmed') {
     if (o.payment_status !== 'not_needed') {
       if (o.payment_status !== 'received') {
@@ -453,7 +579,7 @@ function orderActions(o: OrderRow, act: (action: OrderAction) => void, note: () 
         ? { label: 'Undo check-in', onSelect: () => act('undo_check_in') }
         : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
     )
-  } else {
+  } else if (o.refund_status !== 'refunded') {
     actions.push({ label: 'Put back', onSelect: () => act('restore'), hint: 'If its tickets still fit' })
   }
   actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
@@ -510,7 +636,7 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
             ) : order.total_pence > 0 ? (
               <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
             ) : (
-              <Pill tone="neutral">Free</Pill>
+              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : 'Free'}</Pill>
             )}
             {(order.total_pence > 0 || order.promo_code) && (
               <span className="font-mono text-label-sm tabular text-on-surface-variant">
@@ -529,6 +655,17 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
               )}
               {order.proof_reference && <span>Ref {order.proof_reference}</span>}
               {order.proof_at && <span className="text-on-surface-faint">sent {stamp(order.proof_at)}</span>}
+            </p>
+          )}
+          {order.refund_status && (
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-label-md text-on-surface-faint">
+              <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>
+              {order.refund_status === 'refunded' && order.refund_at && (
+                <span>
+                  {stamp(order.refund_at)}
+                  {[order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).length > 0 && ` by ${[order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).join(' ')}`}
+                </span>
+              )}
             </p>
           )}
           {order.received_at && (order.payment_status === 'received' || order.payment_status === 'waived') && (
@@ -555,5 +692,60 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
         {order.email_sent_at && <span>Emailed</span>}
       </div>
     </li>
+  )
+}
+
+/** Where to send a refund paid in cash: what the attendee sent, private to whoever runs registrations. */
+function RefundDetailsSheet({ order, onClose }: { order: OrderRow; onClose: () => void }) {
+  const details = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'refund-details', order.id], queryFn: () => fetchRefundDetails(order.id) })
+  const d = details.data
+  return (
+    <Overlay label={`Refund for ${order.name}`} onDismiss={onClose}>
+      <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
+        <h2 className="text-headline-md text-on-surface">Refund for {order.name}</h2>
+        <p className="mt-1 text-body-sm text-on-surface-variant">{pounds(order.total_pence)}, paid at reception. The details are wiped when you mark it refunded.</p>
+        <div className="mt-4">
+          {details.isLoading ? (
+            <p className="text-body-sm text-on-surface-variant">Loading…</p>
+          ) : !d ? (
+            <p className="text-body-sm text-on-surface-variant">They have not sent their bank details yet. Their ticket page asks for them{order.email ? `, and so did the email to ${order.email}` : ''}.</p>
+          ) : (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body-md">
+              <dt className="text-on-surface-variant">Name</dt>
+              <dd className="text-on-surface">{d.account_name}</dd>
+              {d.sort_code && (
+                <>
+                  <dt className="text-on-surface-variant">Sort code</dt>
+                  <dd className="font-mono tabular text-on-surface">{sortCodeWords(d.sort_code)}</dd>
+                </>
+              )}
+              {d.account_number && (
+                <>
+                  <dt className="text-on-surface-variant">Account</dt>
+                  <dd className="font-mono tabular text-on-surface">{d.account_number}</dd>
+                </>
+              )}
+              {d.iban && (
+                <>
+                  <dt className="text-on-surface-variant">IBAN</dt>
+                  <dd className="break-all font-mono text-on-surface">{d.iban}</dd>
+                </>
+              )}
+              {d.note && (
+                <>
+                  <dt className="text-on-surface-variant">Note</dt>
+                  <dd className="whitespace-pre-line text-on-surface">{d.note}</dd>
+                </>
+              )}
+              <dt className="text-on-surface-variant">Reference</dt>
+              <dd className="font-mono text-on-surface">{order.code}</dd>
+            </dl>
+          )}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <ActionButton onClick={onClose}>Done</ActionButton>
+        </div>
+      </div>
+    </Overlay>
   )
 }

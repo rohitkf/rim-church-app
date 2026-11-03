@@ -71,7 +71,7 @@ function EventCard({ event }: { event: EventSummary }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>
+            {event.cancelled_at ? <Pill tone="red">Cancelled</Pill> : <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
             {event.awaiting > 0 && <Pill tone="orange">{event.awaiting} awaiting payment</Pill>}
           </div>
           <Link to={`/registrations/${event.id}`} className="mt-2 block text-headline-md text-on-surface hover:underline">

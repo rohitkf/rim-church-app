@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   notes: [] as unknown[],
   statuses: [] as unknown[],
   notified: [] as unknown[],
+  cancelledEvents: [] as unknown[],
+  toldCancelled: [] as string[],
   downloaded: [] as string[],
   exported: [] as { sheets: { name: string; rows: unknown[][] }[]; file: string }[],
 }))
@@ -55,6 +57,15 @@ vi.mock('../lib/registrations', async (original) => ({
     return Promise.resolve()
   },
   deleteRegistrationEvent: () => Promise.resolve(),
+  cancelRegistrationEvent: (id: string, note: string) => {
+    state.cancelledEvents.push([id, note])
+    return Promise.resolve(2)
+  },
+  notifyEventCancelled: (id: string) => {
+    state.toldCancelled.push(id)
+    return Promise.resolve({ ok: true, sent: true })
+  },
+  fetchRefundDetails: () => Promise.resolve({ account_name: 'Cash Payer', sort_code: '200000', account_number: '12345678', iban: null, note: null, created_at: '2026-11-05T10:00:00Z' }),
   notifyPayment: (kind: string, code: string) => {
     state.notified.push([kind, code])
     return Promise.resolve({ ok: true, sent: true })
@@ -162,6 +173,8 @@ beforeEach(() => {
   state.notes = []
   state.statuses = []
   state.notified = []
+  state.cancelledEvents = []
+  state.toldCancelled = []
   state.downloaded = []
   state.exported = []
 })
@@ -343,19 +356,71 @@ describe('an event’s page', () => {
     expect(screen.queryByRole('button', { name: 'Scan tickets' })).toBeNull()
   })
 
-  it('keeps Delete in the event’s own menu by Edit, and asks first', async () => {
+  it('keeps Delete in the event’s own menu, refused while people are paid and not refunded', async () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
     const menu = await openMenu(user, 'Pastors & Leaders 2026')
     expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
       expect.stringContaining('Download QR code'),
       'Export to Excel',
+      expect.stringContaining('Cancel event'),
       expect.stringContaining('Delete event'),
     ])
-    await user.click(within(menu).getByRole('menuitem', { name: /Delete event/ }))
-    const dialog = screen.getByRole('alertdialog', { name: 'Delete Pastors & Leaders 2026?' })
-    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    // Ben and Dan have paid: nothing to delete until they are refunded.
+    expect(within(menu).getByRole('menuitem', { name: /Delete event/ })).toHaveAccessibleName(/2 paid and not refunded/)
+    expect(within(menu).getByRole('menuitem', { name: /Delete event/ })).toBeDisabled()
+  })
+
+  it('deletes an event with no money in only once its name is typed', async () => {
+    state.orders = [order({ total_pence: 0, subtotal_pence: 0, discount_pence: 0, payment_status: 'not_needed', promo_code: null })]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(within(await openMenu(user, 'Pastors & Leaders 2026')).getByRole('menuitem', { name: /Delete event/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete Pastors & Leaders 2026?' })
+    expect(within(dialog).getByRole('button', { name: 'Delete for good' })).toBeDisabled()
+    await user.type(within(dialog).getByRole('textbox', { name: /Type the event’s name/ }), 'Pastors & Leaders 2026')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete for good' }))
     expect(await screen.findByText('all events')).toBeInTheDocument()
+  })
+
+  it('cancels the event, keeps every order, and tells everyone', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(within(await openMenu(user, 'Pastors & Leaders 2026')).getByRole('menuitem', { name: /Cancel event/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Cancel Pastors & Leaders 2026?' })
+    expect(dialog).toHaveTextContent(/2 paid orders will be marked as owing a refund/)
+    await user.type(within(dialog).getByRole('textbox', { name: /A word to everyone/ }), 'The hall flooded.')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel the event' }))
+    await waitFor(() => expect(state.cancelledEvents).toEqual([['e1', 'The hall flooded.']]))
+    expect(state.toldCancelled).toEqual(['e1'])
+  })
+
+  it('shows a cancelled event, what is owed, and works a refund through', async () => {
+    state.full = full({ status: 'closed', cancelled_at: '2026-11-04T10:00:00Z', cancel_note: 'The hall flooded.' })
+    state.orders = [
+      order({ id: 'o-cash', name: 'Cash Payer', total_pence: 2000, subtotal_pence: 2000, discount_pence: 0, promo_code: null, payment_status: 'received', payment_method: 'reception', refund_status: 'owed' }),
+      order({ id: 'o-bank', code: 'BCDEFGHJKMNP', name: 'Bank Payer', total_pence: 2000, subtotal_pence: 2000, discount_pence: 0, promo_code: null, payment_status: 'received', payment_method: 'bank', refund_status: 'refunded', refund_at: '2026-11-05T10:00:00Z', refunder: { first_name: 'Rohit', last_name: 'F' } }),
+    ]
+    const user = show()
+    const banner = await screen.findByRole('region', { name: 'Cancelled' })
+    expect(banner).toHaveTextContent('The hall flooded.')
+    expect(banner).toHaveTextContent(/1 refund still owed, £20.00/)
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull()
+    expect(within(screen.getByRole('listitem', { name: 'Bank Payer' })).getByText(/by Rohit F/)).toBeInTheDocument()
+    const menu = await openMenu(user, 'Cash Payer')
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      expect.stringContaining('Where to send the refund'),
+      expect.stringContaining('Mark as refunded'),
+      'Add a note',
+    ])
+    await user.click(within(menu).getByRole('menuitem', { name: /Where to send the refund/ }))
+    const sheet = screen.getByRole('dialog', { name: 'Refund for Cash Payer' })
+    expect(await within(sheet).findByText('20-00-00')).toBeInTheDocument()
+    expect(within(sheet).getByText('12345678')).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }))
+    await user.click(within(await openMenu(user, 'Cash Payer')).getByRole('menuitem', { name: /Mark as refunded/ }))
+    await waitFor(() => expect(state.marked).toEqual([['o-cash', 'refunded']]))
   })
 
   it('publishes a draft that has a date and a ticket type', async () => {

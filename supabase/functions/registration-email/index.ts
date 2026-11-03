@@ -46,7 +46,7 @@ const json = (body: unknown, status = 200) =>
 const QUIET_MINUTES = 10
 const CHURCH = 'Rehoboth International Ministries'
 
-type Kind = 'confirm' | 'resend' | 'paid' | 'unmatched'
+type Kind = 'confirm' | 'resend' | 'paid' | 'unmatched' | 'event_cancelled'
 
 interface Ticket {
   attendee_name: string | null
@@ -69,6 +69,7 @@ interface Order {
   payment_status: string
   payment_method: string | null
   proof_reference: string | null
+  refund_status: string | null
   status: string
   email_sent_at: string | null
   tickets: Ticket[]
@@ -82,15 +83,20 @@ interface Order {
     address: string | null
     payment_note: string | null
     allow_pay_at_reception: boolean
+    attendance: string | null
+    join_url: string | null
+    join_details: string | null
+    cancelled_at: string | null
+    cancel_note: string | null
     dates: EventDate[]
   }
 }
 
 const ORDER_SELECT =
-  'id, code, name, email, quantity, total_pence, payment_status, payment_method, proof_reference, status, email_sent_at, ' +
+  'id, code, name, email, quantity, total_pence, payment_status, payment_method, proof_reference, refund_status, status, email_sent_at, ' +
   'tickets:registration_order_tickets(attendee_name, unit_price_pence, type:registration_ticket_types(name)), ' +
   'date:registration_event_dates(starts_at, ends_at, label, sort_order), ' +
-  'event:registration_events(id, slug, title, status, location_name, address, payment_note, allow_pay_at_reception, dates:registration_event_dates(starts_at, ends_at, label, sort_order))'
+  'event:registration_events(id, slug, title, status, location_name, address, payment_note, allow_pay_at_reception, attendance, join_url, join_details, cancelled_at, cancel_note, dates:registration_event_dates(starts_at, ends_at, label, sort_order))'
 
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
@@ -124,6 +130,12 @@ function opening(kind: Kind, orders: Order[]): { subject: string; lead: string }
     return {
       subject: `Your ticket is confirmed: ${ev.title}`,
       lead: `Thank you — your payment of ${pounds(first.total_pence)} has been received. Here is your ticket.`,
+    }
+  }
+  if (kind === 'event_cancelled') {
+    return {
+      subject: `Cancelled: ${ev.title}`,
+      lead: `We are sorry — ${ev.title} has been cancelled.${ev.cancel_note ? ` ${ev.cancel_note}` : ''}`,
     }
   }
   if (kind === 'unmatched') {
@@ -168,11 +180,29 @@ function ticketEmail(kind: Kind, orders: Order[], siteUrl: string, tz: string): 
             ? `\nHow to pay is on your registration page, with ${o.code} as the reference — then send the receipt from there${ev.allow_pay_at_reception ? ', or pay at reception' : ''}.`
             : '')
         : ''
-    const show = paid ? 'Show the QR code on it at the door.' : 'Show the QR code on it at reception to pay; once it is paid, it is your ticket for the door.'
+    const cash = !o.payment_method || o.payment_method === 'reception'
+    const refund =
+      o.refund_status === 'owed'
+        ? cash
+          ? `Your ${pounds(o.total_pence)} will be refunded. You paid at reception, so please open your ticket and send the bank details to refund it to.`
+          : `Your ${pounds(o.total_pence)} will be refunded ${o.payment_method === 'paypal' ? 'through PayPal' : 'to the account you paid from'}; there is nothing you need to do.`
+        : ''
+    const online = ev.attendance && ev.attendance !== 'in_person'
+    // The way in to an online event, only once nothing is left to pay.
+    const join = kind !== 'event_cancelled' && online && paid && ev.join_url ? `Join online: ${ev.join_url}${ev.join_details ? `\n${ev.join_details}` : ''}` : ''
+    const show =
+      kind === 'event_cancelled'
+        ? refund || 'There is nothing for you to do.'
+        : paid
+          ? ev.attendance === 'online'
+            ? 'The link to join is on your ticket.'
+            : 'Show the QR code on it at the door.'
+          : 'Show the QR code on it at reception to pay; once it is paid, it is your ticket for the door.'
     const text = [
       `${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'} for ${o.name}`,
       ...lines,
-      pay,
+      kind === 'event_cancelled' ? '' : pay,
+      join,
       `${paid ? 'Ticket' : 'Registration'} code: ${o.code}`,
       `Your ${noun}: ${link}`,
       show,
@@ -182,7 +212,8 @@ function ticketEmail(kind: Kind, orders: Order[], siteUrl: string, tz: string): 
     const html = `
       <p style="margin:16px 0 4px;font-weight:600">${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'} for ${escape(o.name)}</p>
       <ul style="margin:0 0 8px;padding-left:18px">${lines.map((l) => `<li>${escape(l)}</li>`).join('')}</ul>
-      ${pay ? `<p style="margin:0 0 8px">${escape(pay).replace(/\n/g, '<br>')}</p>` : ''}
+      ${pay && kind !== 'event_cancelled' ? `<p style="margin:0 0 8px">${escape(pay).replace(/\n/g, '<br>')}</p>` : ''}
+      ${join ? `<p style="margin:0 0 8px"><a href="${escape(ev.join_url!)}" style="color:#0a66ff;font-weight:600">Join online</a>${ev.join_details ? `<br>${escape(ev.join_details).replace(/\n/g, '<br>')}` : ''}</p>` : ''}
       <p style="margin:0 0 8px;font-family:monospace">${paid ? 'Ticket' : 'Registration'} code: ${o.code}</p>
       <p style="margin:12px 0"><a href="${link}" style="display:inline-block;background:#0a66ff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:600">Open your ${noun}</a></p>
       <p style="margin:0 0 16px;color:#555;font-size:14px">${escape(show)} The link is your ${noun} — keep this email.</p>`
@@ -256,6 +287,39 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.from('registration_orders').select(ORDER_SELECT).eq('code', code).maybeSingle()
     if (error) return json({ error: 'Could not read that ticket.' }, 500)
     if (data) orders = [data as unknown as Order]
+  } else if (kind === 'event_cancelled') {
+    // Everyone on a cancelled event, one email to each address.
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+    const { data: who } = token ? await admin.auth.getUser(token) : { data: { user: null } }
+    if (!who?.user) return json({ error: 'Sign in first.' }, 401)
+    const { data: allowed } = await admin.rpc('may', { uid: who.user.id, cap: 'reg.manage' })
+    if (!allowed) return json({ error: 'Only whoever runs registrations may send this.' }, 403)
+    const eventId = (payload as { event_id?: string }).event_id ?? ''
+    const { data, error } = await admin
+      .from('registration_orders')
+      .select(ORDER_SELECT)
+      .eq('event_id', eventId)
+      .not('email', 'is', null)
+      .order('created_at', { ascending: true })
+    if (error) return json({ error: 'Could not read the registrations.' }, 500)
+    const all = ((data ?? []) as unknown as Order[]).filter((o) => o.event?.cancelled_at && (o.status === 'confirmed' || o.refund_status === 'owed'))
+    const byAddress = new Map<string, Order[]>()
+    for (const o of all) {
+      const key = o.email!.toLowerCase()
+      byAddress.set(key, [...(byAddress.get(key) ?? []), o])
+    }
+    let sentCount = 0
+    for (const group of byAddress.values()) {
+      const mail = ticketEmail('event_cancelled', group, siteUrl, tz)
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: [group[0].email], subject: mail.subject, text: mail.text, html: mail.html }),
+      })
+      if (res.ok) sentCount += 1
+      else console.error('resend refused', res.status, (await res.text().catch(() => '')).slice(0, 300))
+    }
+    return json({ ok: true, sent: sentCount > 0, count: sentCount })
   } else if (kind === 'resend') {
     const slug = (payload.slug ?? '').trim().toLowerCase()
     const email = (payload.email ?? '').trim().toLowerCase()

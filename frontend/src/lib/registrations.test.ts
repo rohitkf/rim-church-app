@@ -548,11 +548,11 @@ describe('the workbook for the accounts', () => {
     expect(ordersSheet.name).toBe('Orders')
     expect(ordersSheet.columns.map((c) => c.label)).toEqual([
       'Code', 'Name', 'Email', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
-      'How', 'Received at', 'Received by', 'Receipt reference', 'Notes',
+      'How', 'Received at', 'Received by', 'Receipt reference', 'Refund', 'Refunded at', 'Refunded by', 'Notes',
     ])
     expect(ordersSheet.rows[0].slice(0, 4)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', '07700 900123'])
     expect(ordersSheet.rows[0].slice(5, 13)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
-    expect(ordersSheet.rows[0].slice(15, 20)).toEqual(['Online', '', '', '', 'Asked for a receipt'])
+    expect(ordersSheet.rows[0].slice(15, 23)).toEqual(['Online', '', '', '', '', '', '', 'Asked for a receipt'])
     expect(ordersSheet.rows[2][12]).toBe('Cancelled')
     // The walk-in: no address, how it came, who took the money and when.
     expect(ordersSheet.rows[3].slice(0, 4)).toEqual(['DEFGHJKMNPQR', 'Walk In', '', ''])
