@@ -292,12 +292,16 @@ describe('an event’s page', () => {
     const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
     expect(within(dan).getByText('Receipt sent — being checked')).toBeInTheDocument()
     expect(within(dan).getByText('Ref PP-123')).toBeInTheDocument()
-    // The receipt opens in a tab of its own, through a signed link made on the tap.
-    const tab = { location: { href: '' }, close: vi.fn() }
-    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    // The receipt opens over the page, through a signed link made on the tap — no new tab, the page stays.
+    const open = vi.spyOn(window, 'open')
     await user.click(within(dan).getByRole('button', { name: 'Open the receipt' }))
-    await waitFor(() => expect(tab.location.href).toBe('https://signed/EFGHJKMNPQRS/a.png'))
+    const viewer = screen.getByRole('dialog', { name: 'Receipt from Dan Reported' })
+    expect(await within(viewer).findByRole('img', { name: 'Receipt from Dan Reported' })).toHaveAttribute('src', 'https://signed/EFGHJKMNPQRS/a.png')
+    expect(viewer).toHaveTextContent(/ref PP-123/)
+    expect(open).not.toHaveBeenCalled()
     open.mockRestore()
+    await user.click(within(viewer).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
     const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
     expect(within(ben).getByText(/^Received .* by Rohit F$/)).toBeInTheDocument()
   })
