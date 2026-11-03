@@ -597,22 +597,50 @@ const PAY_TONE: Record<OrderRow['payment_status'], 'neutral' | 'orange' | 'blue'
 
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
-/** The receipt, in a new tab: the tab opens on the tap, the signed link follows. */
-async function openReceipt(path: string) {
-  const tab = window.open('', '_blank', 'noopener')
-  try {
-    const url = await proofUrl(path)
-    if (tab) tab.location.href = url
-    else window.location.assign(url)
-  } catch {
-    tab?.close()
-    showToast('Could not open the receipt', 'error')
-  }
+/**
+ * The receipt, shown over the page. It used to open a new tab, but a tab
+ * opened with `noopener` is not handed back to the page, so the page lost
+ * it and loaded the receipt over itself instead (a blank tab, and the
+ * event's page gone behind Back). A picture is shown here; a PDF gets a
+ * plain link the browser opens itself. The link is signed for ten minutes.
+ */
+function ReceiptViewer({ order, onClose }: { order: OrderRow; onClose: () => void }) {
+  const url = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'proof', order.proof_path], queryFn: () => proofUrl(order.proof_path!), staleTime: 5 * 60_000 })
+  const pdf = /\.pdf$/i.test(order.proof_path ?? '')
+  return (
+    <Overlay label={`Receipt from ${order.name}`} onDismiss={onClose}>
+      <div className="w-full max-w-2xl rounded-[var(--radius-card)] bg-surface-lowest p-5 shadow-[var(--shadow-lifted)]">
+        <h2 className="text-headline-md text-on-surface">Receipt from {order.name}</h2>
+        <p className="mt-1 text-body-sm text-on-surface-variant">
+          {pounds(order.total_pence)}
+          {order.proof_reference && ` · ref ${order.proof_reference}`}
+          {order.proof_at && ` · sent ${stamp(order.proof_at)}`}
+        </p>
+        <div className="mt-4">
+          {url.isLoading ? (
+            <p className="text-body-sm text-on-surface-variant">Loading…</p>
+          ) : url.error || !url.data ? (
+            <p role="alert" className="text-body-sm text-error">Could not open the receipt.</p>
+          ) : pdf ? (
+            <a href={url.data} target="_blank" rel="noopener noreferrer" className="tap inline-flex items-center gap-2 rounded-full px-4 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised">
+              Open the PDF <span aria-hidden="true">↗</span>
+            </a>
+          ) : (
+            <img src={url.data} alt={`Receipt from ${order.name}`} className="max-h-[70vh] w-full rounded-[var(--radius-chip)] bg-surface-container object-contain" />
+          )}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <ActionButton onClick={onClose}>Done</ActionButton>
+        </div>
+      </div>
+    </Overlay>
+  )
 }
 
 function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?: { starts_at: string; ends_at: string | null }; actions: MenuAction[] }) {
   const when = stamp(order.created_at)
   const receiver = receiverName(order)
+  const [viewing, setViewing] = useState(false)
   return (
     <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-2">
@@ -649,7 +677,7 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
           {(order.proof_path || order.proof_reference) && order.status === 'confirmed' && (
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
               {order.proof_path && (
-                <button type="button" onClick={() => void openReceipt(order.proof_path!)} className="tap font-medium text-accent-blue-soft hover:underline">
+                <button type="button" onClick={() => setViewing(true)} className="tap font-medium text-accent-blue-soft hover:underline">
                   Open the receipt
                 </button>
               )}
@@ -680,6 +708,7 @@ function OrderLine({ order, dateLabel, actions }: { order: OrderRow; dateLabel?:
           )}
         </div>
         <ActionMenu label={order.name} actions={actions} className="shrink-0" />
+        {viewing && <ReceiptViewer order={order} onClose={() => setViewing(false)} />}
       </div>
       {order.notes && <p className="mt-2 whitespace-pre-line rounded-[var(--radius-chip)] bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant">{order.notes}</p>}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-label-sm text-on-surface-faint">
