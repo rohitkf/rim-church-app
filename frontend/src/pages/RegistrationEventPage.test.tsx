@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
+vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
 vi.mock('../lib/writeWorkbook', () => ({
   writeWorkbook: (sheets: { name: string; rows: unknown[][] }[], file: string) => {
     state.exported.push({ sheets, file })
@@ -254,6 +255,26 @@ describe('an event’s page', () => {
     expect(sheets.map((s) => s.name)).toEqual(['Orders', 'Tickets', 'Summary'])
     expect(sheets[0].rows).toHaveLength(4)
     expect(sheets[1].rows).toHaveLength(7)
+  })
+
+  it('opens the door scanner, which checks a ticket in', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(screen.getByRole('button', { name: 'Scan tickets' }))
+    const dialog = screen.getByRole('dialog', { name: 'Scan tickets' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Ticket code' }), 'BCDEFGHJKMNP')
+    await user.click(within(dialog).getByRole('button', { name: 'Find' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Check in' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
+    await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('shows no scanner on a draft', async () => {
+    state.full = full({ status: 'draft' })
+    show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(screen.queryByRole('button', { name: 'Scan tickets' })).toBeNull()
   })
 
   it('publishes a draft that has a date and a ticket type', async () => {

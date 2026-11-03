@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, Overlay, PageHeader, Pill, SegmentedControl, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
+import { TicketScanner } from '../components/TicketScanner'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
@@ -52,6 +53,7 @@ export function RegistrationEventPage() {
   const [query, setQuery] = useState('')
   const [noteFor, setNoteFor] = useState<OrderRow | null>(null)
   const [noteText, setNoteText] = useState('')
+  const [scanning, setScanning] = useState(false)
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
@@ -79,6 +81,19 @@ export function RegistrationEventPage() {
     onSuccess: (_r, { action }) => {
       setError(null)
       showToast(ACTION_DONE[action])
+      return refresh()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
+  })
+  // Reception took the money and let them in: two marks, one tap.
+  const payAndCheckIn = useMutation({
+    mutationFn: async (order: OrderRow) => {
+      await markOrder(order.id, 'received')
+      await markOrder(order.id, 'check_in')
+    },
+    onSuccess: () => {
+      setError(null)
+      showToast('Received, and checked in')
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
@@ -232,9 +247,16 @@ export function RegistrationEventPage() {
             Who has registered
             {checkedIn > 0 && <Pill tone="blue">{checkedIn} checked in</Pill>}
           </h2>
-          <ActionButton size="sm" tone="quiet" onClick={() => exportAll.mutate()} disabled={rows.length === 0 || exportAll.isPending}>
-            {exportAll.isPending ? 'Exporting…' : 'Export to Excel'}
-          </ActionButton>
+          <div className="flex flex-wrap items-center gap-2">
+            {event.status !== 'draft' && rows.length > 0 && (
+              <ActionButton size="sm" onClick={() => setScanning(true)}>
+                Scan tickets
+              </ActionButton>
+            )}
+            <ActionButton size="sm" tone="quiet" onClick={() => exportAll.mutate()} disabled={rows.length === 0 || exportAll.isPending}>
+              {exportAll.isPending ? 'Exporting…' : 'Export to Excel'}
+            </ActionButton>
+          </div>
         </div>
         {rows.length > 0 && (
           <div className="mt-3 flex flex-col gap-3">
@@ -297,6 +319,16 @@ export function RegistrationEventPage() {
         </button>
       </div>
 
+      {scanning && (
+        <TicketScanner
+          orders={rows}
+          dates={dates}
+          busy={mark.isPending || payAndCheckIn.isPending}
+          onCheckIn={(order) => mark.mutate({ order, action: 'check_in' })}
+          onPaidAndCheckIn={(order) => payAndCheckIn.mutate(order)}
+          onClose={() => setScanning(false)}
+        />
+      )}
       {noteFor && (
         <Overlay label={`A note on ${noteFor.name}’s registration`} onDismiss={() => setNoteFor(null)}>
           <form
