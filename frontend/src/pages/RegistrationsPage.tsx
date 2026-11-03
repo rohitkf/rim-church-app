@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton, PageHeader, Pill, Statistic, Tile } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
+import { Lifespan } from '../components/Lifespan'
 import { pounds } from '../lib/money'
 import { registerUrl } from '../lib/registrationLinks'
 import { REGISTRATIONS_KEY, STATUS_TONE, STATUS_WORDS, fetchRegistrationEvents, whenWords, type EventSummary } from '../lib/registrations'
@@ -32,6 +33,8 @@ export function RegistrationsPage() {
           </ActionButton>
         }
       />
+
+      <Lifespan page="registrations" className="mb-4" />
 
       <QueryState isLoading={events.isLoading} error={events.error} isEmpty={rows.length === 0} emptyMessage="No events yet. Make one, publish it, and share its link.">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

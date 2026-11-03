@@ -46,6 +46,7 @@ export const NOTIFICATION_TYPES = [
   'prayer_answered',
   'call_time',
   'location_prompt',
+  'registration_sold_out',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -114,6 +115,7 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   call_time: { label: 'When your team is due in', href: '/rota' },
   // Sent from Settings › Onboarding (0228): the steps to allow location.
   location_prompt: { label: 'Please allow location for the app', href: '/location' },
+  registration_sold_out: { label: 'A ticket type has sold out', href: '/registrations' },
 }
 
 function known(type: string): NotificationType | null {
@@ -149,5 +151,6 @@ export function notificationHref(type: string, referenceId?: string | null): str
   if (t === 'service_issue' && referenceId) return `/issues?issue=${referenceId}`
   if ((t === 'feedback_received' || t === 'feedback_answered') && referenceId)
     return `/feedback?feedback=${referenceId}`
+  if (t === 'registration_sold_out' && referenceId) return `/registrations/${referenceId}`
   return NOTIFICATIONS[t].href
 }

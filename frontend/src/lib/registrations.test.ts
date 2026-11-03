@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { lifespanOf } from './lifespan'
 import {
+  buildRegistrationWorkbook,
   datesOf,
   draftFromEvent,
   draftProblems,
@@ -9,12 +11,15 @@ import {
   newDateDraft,
   newPromoDraft,
   newTicketTypeDraft,
+  orderMatches,
   orderTotals,
+  registrationExportFileName,
   remainingOf,
   slugTyping,
   slugify,
   whenWords,
   type EventDraft,
+  type OrderRow,
   type PublicTicketType,
   type RegistrationEventFull,
 } from './registrations'
@@ -315,5 +320,145 @@ describe('when an event is, in words', () => {
 
   it('is just the start when there is no end', () => {
     expect(whenWords(at(2026, 11, 21, 18, 30), null)).not.toContain('–')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* Running the event (0245)                                            */
+/* ------------------------------------------------------------------ */
+
+const row = (over: Partial<OrderRow>): OrderRow => ({
+  id: 'o1',
+  code: 'ABCDEFGHJKMN',
+  date_id: null,
+  name: 'Ama Owusu',
+  email: 'ama@example.org',
+  phone: '07700 900123',
+  quantity: 2,
+  subtotal_pence: 4000,
+  discount_pence: 400,
+  total_pence: 3600,
+  promo_code: 'EARLY',
+  payment_status: 'awaiting',
+  payment_method: null,
+  status: 'confirmed',
+  checked_in_at: null,
+  notes: null,
+  anonymised_at: null,
+  created_at: '2026-11-02T10:00:00Z',
+  tickets: [
+    { ticket_type_id: 't1', attendee_name: 'Ama Owusu', unit_price_pence: 2000 },
+    { ticket_type_id: 't1', attendee_name: 'Kofi Owusu', unit_price_pence: 2000 },
+  ],
+  ...over,
+})
+
+describe('finding an order', () => {
+  const awaiting = row({})
+  const paid = row({ id: 'o2', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', payment_status: 'received', promo_code: null })
+  const here = row({ id: 'o3', code: 'CDEFGHJKMNPQ', name: 'Grace Mensah', email: 'grace@example.org', payment_status: 'not_needed', total_pence: 0, checked_in_at: '2026-11-21T18:40:00Z' })
+  const gone = row({ id: 'o4', code: 'DEFGHJKMNPQR', name: 'Asha Mathew', email: 'asha@example.org', status: 'cancelled', checked_in_at: '2026-11-21T18:40:00Z' })
+  const all = [awaiting, paid, here, gone]
+  const names = (filter: Parameters<typeof orderMatches>[1], q = '') => all.filter((o) => orderMatches(o, filter, q)).map((o) => o.name)
+
+  it('filters by what is owed, who has arrived, and what was cancelled', () => {
+    expect(names('all')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
+    expect(names('to_pay')).toEqual(['Ama Owusu'])
+    expect(names('paid')).toEqual(['Ben Joseph'])
+    // Cancelled after arriving: not here any more.
+    expect(names('checked_in')).toEqual(['Grace Mensah'])
+    expect(names('cancelled')).toEqual(['Asha Mathew'])
+  })
+
+  it('matches a name, an email, a code, a phone, a promo code or an attendee', () => {
+    expect(names('all', 'ben')).toEqual(['Ben Joseph'])
+    expect(names('all', 'AMA@example')).toEqual(['Ama Owusu'])
+    expect(names('all', 'cdefghjkmnpq')).toEqual(['Grace Mensah'])
+    expect(names('all', '07700')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
+    expect(names('all', 'early')).toEqual(['Ama Owusu', 'Grace Mensah', 'Asha Mathew'])
+    expect(names('all', 'kofi')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
+    expect(names('to_pay', 'nobody')).toEqual([])
+  })
+})
+
+describe('the workbook for the accounts', () => {
+  const full = (): RegistrationEventFull => ({
+    event: {
+      id: 'e1',
+      slug: 'plc-2026',
+      title: 'Pastors & Leaders 2026',
+      description: null,
+      image_path: null,
+      status: 'closed',
+      date_mode: 'all',
+      location_name: null,
+      address: null,
+      latitude: null,
+      longitude: null,
+      registration_opens_at: null,
+      registration_closes_at: null,
+      min_per_order: 1,
+      max_per_order: 10,
+      payment_links: [],
+      payment_accounts: [],
+      payment_use_church_giving: true,
+      payment_note: null,
+      allow_pay_at_reception: true,
+      add_to_diary: false,
+      created_at: '2026-11-01T10:00:00Z',
+      updated_at: '2026-11-01T10:00:00Z',
+    },
+    dates: [{ id: 'd1', event_id: 'e1', starts_at: at(2026, 11, 21, 18, 30), ends_at: null, label: null, sort_order: 0, diary_event_id: null }],
+    ticketTypes: [
+      { id: 't1', event_id: 'e1', name: 'With lunch', description: null, kind: 'paid', price_pence: 2000, min_donation_pence: null, quantity: 40, sort_order: 0 },
+      { id: 't2', event_id: 'e1', name: 'Standard', description: null, kind: 'free', price_pence: 0, min_donation_pence: null, quantity: null, sort_order: 1 },
+    ],
+    promoCodes: [],
+  })
+  const orders = [
+    row({ payment_method: 'bank', notes: 'Asked for a receipt' }),
+    row({ id: 'o2', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', quantity: 1, subtotal_pence: 0, discount_pence: 0, total_pence: 0, promo_code: null, payment_status: 'not_needed', tickets: [{ ticket_type_id: 't2', attendee_name: null, unit_price_pence: 0 }] }),
+    row({ id: 'o3', code: 'CDEFGHJKMNPQ', name: 'Asha Mathew', status: 'cancelled', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] }),
+  ]
+
+  it('has every order, every ticket and the sums, money in pounds', () => {
+    const [ordersSheet, ticketsSheet, summary] = buildRegistrationWorkbook(full(), orders)
+    expect(ordersSheet.name).toBe('Orders')
+    expect(ordersSheet.columns.map((c) => c.label)).toEqual([
+      'Code', 'Name', 'Email', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered', 'Notes',
+    ])
+    expect(ordersSheet.rows[0].slice(0, 4)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', '07700 900123'])
+    expect(ordersSheet.rows[0].slice(5, 13)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
+    expect(ordersSheet.rows[0][15]).toBe('Asked for a receipt')
+    expect(ordersSheet.rows[2][12]).toBe('Cancelled')
+
+    expect(ticketsSheet.rows).toEqual([
+      ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Ama Owusu', 20, 'All dates', 'Registered'],
+      ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Kofi Owusu', 20, 'All dates', 'Registered'],
+      ['BCDEFGHJKMNP', 'Ben Joseph', 'Standard', '', 0, 'All dates', 'Registered'],
+      ['CDEFGHJKMNPQ', 'Asha Mathew', 'With lunch', '', 20, 'All dates', 'Cancelled'],
+    ])
+
+    expect(summary.rows[0]).toEqual(['With lunch', 20, 2, 40, 40])
+    expect(summary.rows[1]).toEqual(['Standard', 'Free', 1, 'No limit', 0])
+    expect(summary.rows).toContainEqual(['Registered orders', 2, '', '', ''])
+    expect(summary.rows).toContainEqual(['Tickets', 3, '', '', ''])
+    expect(summary.rows).toContainEqual(['Cancelled orders', 1, '', '', ''])
+    expect(summary.rows).toContainEqual(['Expected (£)', 36, '', '', ''])
+    expect(summary.rows).toContainEqual(['Received or waived (£)', 0, '', '', ''])
+    expect(summary.rows).toContainEqual(['Still to come (£)', 36, '', '', ''])
+  })
+
+  it('names the file after the event and the day', () => {
+    expect(registrationExportFileName('plc-2026', new Date(2026, 10, 3, 9, 0))).toBe('registrations-plc-2026-2026-11-03.xlsx')
+  })
+})
+
+describe('what the Registrations page says about keeping details', () => {
+  it('reads the retention setting, and for ever', () => {
+    expect(lifespanOf('registrations', { registration_retention_days: 90 })).toContain('blanked 90 days after its last date')
+    expect(lifespanOf('registrations', { registration_retention_days: 14 })).toContain('blanked 2 weeks after')
+    expect(lifespanOf('registrations', { registration_retention_days: null })).toContain('never blanked')
+    expect(lifespanOf('registrations', {})).toContain('90 days')
   })
 })

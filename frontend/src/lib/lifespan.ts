@@ -32,6 +32,7 @@ type Settings = Pick<
   | 'church_event_retention_days'
   | 'poll_retention_days'
   | 'feedback_retention_days'
+  | 'registration_retention_days'
   | 'service_retention_days'
   | 'notification_keep_count'
   | 'alert_clear_dow'
@@ -65,6 +66,7 @@ const FALLBACK: Settings = {
   church_event_retention_days: 60,
   poll_retention_days: 7,
   feedback_retention_days: 14,
+  registration_retention_days: 90,
   service_retention_days: 14,
   notification_keep_count: 10,
   alert_clear_dow: 2,
@@ -109,6 +111,7 @@ export type LifespanPage =
   | 'alerts'
   | 'stage'
   | 'events'
+  | 'registrations'
 
 export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = new Date()): string {
   const s: Settings = { ...FALLBACK }
@@ -118,7 +121,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     if (given[key] !== undefined && given[key] !== null) (s as Record<string, unknown>)[key] = given[key]
   }
   // For these, null is a choice ("never", "for ever"), not a gap to fill.
-  for (const key of ['alert_clear_dow', 'stage_clear_dow', 'team_chat_retention_days', 'feedback_retention_days', 'church_event_retention_days'] as const) {
+  for (const key of ['alert_clear_dow', 'stage_clear_dow', 'team_chat_retention_days', 'feedback_retention_days', 'church_event_retention_days', 'registration_retention_days'] as const) {
     if (given[key] === null) (s as Record<string, unknown>)[key] = null
   }
   // A service takes its debrief, issues, rota and the rest with it, so no
@@ -156,6 +159,10 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
       return s.church_event_retention_days === null
         ? 'Church events stay until they are deleted. Birthdays, anniversaries and services come and go with their own records.'
         : `A church event is deleted ${days(s.church_event_retention_days)} after its last day. Birthdays, anniversaries and services come and go with their own records.`
+    case 'registrations':
+      return s.registration_retention_days === null
+        ? 'An event and everybody registered on it stay until the event is deleted; names, emails and phone numbers are never blanked.'
+        : `Names, emails, phone numbers and attendee names on an event’s registrations are blanked ${span(s.registration_retention_days)} after its last date. The orders, their codes and the sums stay until the event is deleted — export to Excel first if the accounts need the names.`
     case 'feedback':
       return s.feedback_retention_days === null
         ? 'Feedback stays until it is taken back or an Admin clears it.'
