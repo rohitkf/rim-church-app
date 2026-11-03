@@ -979,6 +979,14 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     help: 'An answered request — a testimony — is deleted this many days after it was marked answered, with its updates and who prayed. Keep them for ever to build up a record of what God has done.',
     affects: ['/prayer'],
   },
+  {
+    ...column('registration_retention_days'),
+    kind: 'forever',
+    label: 'Registration details are kept for',
+    summary: 'Then names, emails and phone numbers are blanked; the orders and their sums stay.',
+    help: 'Counted from an event’s last date. After that many days the name, email, phone number and attendee names on every order of that event are blanked, so nobody’s details sit in the app longer than the event needs them. The orders, their codes, what was paid and the event’s totals stay until the event is deleted — export to Excel first if the accounts need the names. Keep for ever to leave the details as they are.',
+    affects: ['/registrations'],
+  },
 ]
 
 const BY_ID = new Map(SETTINGS_CATALOG.map((e) => [e.id, e]))

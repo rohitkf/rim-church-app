@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ExportSheet } from './volunteerExport'
 import { supabase } from './supabaseClient'
 import { registerUrl } from './registrationLinks'
 
@@ -862,4 +863,160 @@ export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow
     .order('created_at', { ascending: false })
   if (error) throw error
   return z.array(orderRowSchema).parse(data ?? [])
+}
+
+/* ------------------------------------------------------------------ */
+/* Running the event: acting on an order, finding one, the accounts     */
+/* ------------------------------------------------------------------ */
+
+/** What registration_order_mark() (0245) does to an order. */
+export type OrderAction = 'received' | 'waived' | 'awaiting' | 'check_in' | 'undo_check_in' | 'cancel' | 'restore'
+
+export async function markOrder(id: string, action: OrderAction): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_mark', { p_id: id, p_action: action })
+  if (error) throw error
+}
+
+/** The church's own note on an order; blank clears it. */
+export async function setOrderNotes(id: string, notes: string): Promise<void> {
+  const { error } = await supabase.from('registration_orders').update({ notes: notes.trim() || null }).eq('id', id)
+  if (error) throw error
+}
+
+export type OrderFilter = 'all' | 'to_pay' | 'paid' | 'checked_in' | 'cancelled'
+
+export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'to_pay', label: 'To pay' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'checked_in', label: 'Checked in' },
+  { key: 'cancelled', label: 'Cancelled' },
+]
+
+/** Whether an order is one of the filter's, and says the words typed. */
+export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): boolean {
+  const live = o.status === 'confirmed'
+  const kept =
+    filter === 'all'
+      ? true
+      : filter === 'to_pay'
+        ? live && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
+        : filter === 'paid'
+          ? live && (o.payment_status === 'received' || o.payment_status === 'waived')
+          : filter === 'checked_in'
+            ? live && !!o.checked_in_at
+            : o.status === 'cancelled'
+  if (!kept) return false
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const hay = [o.name, o.email, o.code, o.phone ?? '', o.promo_code ?? '', o.notes ?? '', ...o.tickets.map((t) => t.attendee_name ?? '')]
+  return hay.some((h) => h.toLowerCase().includes(q))
+}
+
+const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { paypal: 'Online link', bank: 'Bank transfer', reception: 'At reception' }
+
+/**
+ * The event's orders as sheets for the accounts: every order, every
+ * ticket, and the sums — so an event can be deleted once the books have
+ * what they need. Money in pounds, as numbers.
+ */
+export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: OrderRow[]): ExportSheet[] {
+  const { event, dates, ticketTypes } = full
+  const money = (pence: number) => Math.round(pence) / 100
+  const stamp = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '')
+  const typeName = (id: string) => ticketTypes.find((t) => t.id === id)?.name ?? 'Ticket'
+  const dateWords = (id: string | null) => {
+    const d = dates.find((x) => x.id === id)
+    return d ? whenWords(d.starts_at, d.ends_at) : event.date_mode === 'all' ? 'All dates' : ''
+  }
+  const statusWords = (o: OrderRow) => (o.status === 'cancelled' ? 'Cancelled' : 'Registered')
+  const confirmed = orders.filter((o) => o.status === 'confirmed')
+
+  const ordersSheet: ExportSheet = {
+    name: 'Orders',
+    columns: [
+      { label: 'Code', width: 14 },
+      { label: 'Name', width: 24 },
+      { label: 'Email', width: 28 },
+      { label: 'Phone', width: 16 },
+      { label: 'Date', width: 30 },
+      { label: 'Tickets', width: 8 },
+      { label: 'Subtotal (£)', width: 12 },
+      { label: 'Discount (£)', width: 12 },
+      { label: 'Promo code', width: 12 },
+      { label: 'Total (£)', width: 10 },
+      { label: 'Payment', width: 30 },
+      { label: 'Paid by', width: 14 },
+      { label: 'Status', width: 11 },
+      { label: 'Checked in', width: 20 },
+      { label: 'Registered', width: 20 },
+      { label: 'Notes', width: 40 },
+    ],
+    rows: orders.map((o) => [
+      o.code,
+      o.name,
+      o.email,
+      o.phone ?? '',
+      dateWords(o.date_id),
+      o.quantity,
+      money(o.subtotal_pence),
+      money(o.discount_pence),
+      o.promo_code ?? '',
+      money(o.total_pence),
+      PAYMENT_WORDS[o.payment_status],
+      o.payment_method ? METHOD_WORDS[o.payment_method] : '',
+      statusWords(o),
+      stamp(o.checked_in_at),
+      stamp(o.created_at),
+      o.notes ?? '',
+    ]),
+  }
+
+  const ticketsSheet: ExportSheet = {
+    name: 'Tickets',
+    columns: [
+      { label: 'Code', width: 14 },
+      { label: 'Booked by', width: 24 },
+      { label: 'Ticket type', width: 22 },
+      { label: 'Attendee', width: 24 },
+      { label: 'Price (£)', width: 10 },
+      { label: 'Date', width: 30 },
+      { label: 'Status', width: 11 },
+    ],
+    rows: orders.flatMap((o) => o.tickets.map((t) => [o.code, o.name, typeName(t.ticket_type_id), t.attendee_name ?? '', money(t.unit_price_pence), dateWords(o.date_id), statusWords(o)])),
+  }
+
+  const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
+  const takingsOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).reduce((m, t) => m + t.unit_price_pence, 0), 0)
+  const expected = confirmed.reduce((n, o) => n + o.total_pence, 0)
+  const received = confirmed.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0)
+  const summarySheet: ExportSheet = {
+    name: 'Summary',
+    columns: [
+      { label: 'Ticket type', width: 24 },
+      { label: 'Price', width: 12 },
+      { label: 'Sold', width: 8 },
+      { label: 'Quantity', width: 10 },
+      { label: 'Takings before discounts (£)', width: 26 },
+    ],
+    rows: [
+      ...ticketTypes.map((t) => [t.name, t.kind === 'free' ? 'Free' : t.kind === 'paid' ? money(t.price_pence) : 'Donation', soldOf(t.id), t.quantity ?? 'No limit', money(takingsOf(t.id))]),
+      ['', '', '', '', ''],
+      ['Registered orders', confirmed.length, '', '', ''],
+      ['Tickets', confirmed.reduce((n, o) => n + o.quantity, 0), '', '', ''],
+      ['Cancelled orders', orders.length - confirmed.length, '', '', ''],
+      ['Expected (£)', money(expected), '', '', ''],
+      ['Received or waived (£)', money(received), '', '', ''],
+      ['Still to come (£)', money(expected - received), '', '', ''],
+      ['Exported', stamp(new Date().toISOString()), '', '', ''],
+    ],
+  }
+
+  return [ordersSheet, ticketsSheet, summarySheet]
+}
+
+/** "registrations-pastors-2026-2026-11-03.xlsx" */
+export function registrationExportFileName(slug: string, now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `registrations-${slug}-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.xlsx`
 }

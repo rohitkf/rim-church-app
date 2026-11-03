@@ -15,6 +15,10 @@ const state = vi.hoisted(() => ({ events: [] as unknown[] }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
+vi.mock('../lib/appSettings', async (original) => ({
+  ...(await original<typeof import('../lib/appSettings')>()),
+  useAppSettings: () => ({ registration_retention_days: 90 }),
+}))
 vi.mock('../lib/registrations', async (original) => ({
   ...(await original<typeof import('../lib/registrations')>()),
   fetchRegistrationEvents: () => Promise.resolve(state.events),
@@ -93,6 +97,11 @@ describe('the Registrations page', () => {
     expect(screen.getByText('events')).toBeInTheDocument()
     expect(screen.getByText('orders · 20 tickets')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /New event/ })).toBeInTheDocument()
+  })
+
+  it('says how long people’s details are kept', async () => {
+    show()
+    expect(await screen.findByText(/blanked 90 days after its last date/)).toBeInTheDocument()
   })
 
   it('says what to do when there is nothing yet', async () => {

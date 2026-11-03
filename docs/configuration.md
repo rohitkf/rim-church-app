@@ -118,6 +118,7 @@ on Tuesdays at 03:30.
 | Church Updates | at each update's own `ends_at` — required; pinned too | `church_update_retention_days` = the form's default end (30) |
 | Polls | at each poll's own `clears_at`, never before its deadline | `poll_retention_days` = the form's default, after the deadline (7) |
 | Settled feedback | N days after Done / Won't do | `feedback_retention_days` (14) |
+| Registrations: the name, email, phone, attendee names and notes on every order of an event | blanked N days after the event's last date (`registration_anonymise()`, nightly at 03:35); null never. The order, its code and its sums stay until the event is deleted | `registration_retention_days` (90) |
 | Stage layouts of services already held, with their comments and log | weekly, on a day and hour in church time (`clear_stage_layouts_if_due()`, hourly at :10); null day never. Templates stay. | `stage_clear_dow` (Tuesday), `stage_clear_hour` (03:00) |
 | Supabase's own logs (`supabase_functions.hooks`, `cron.job_run_details`) | a week | fixed |
 
