@@ -249,6 +249,9 @@ supabase/functions/          edge functions (push-notify, invite, clock-in-addre
 build/swBuildId.ts           stamps the commit into sw.js at build time
 DESIGN.md                    the design system's rules — read before UI work
 docs/configuration.md        every setting: what it is, where it lives, what enforces it
+docs/registrations.md        how Registrations work end to end, with a flow diagram;
+                             docs/registrations-overview.html is the same as a page —
+                             change both together
 ```
 
 Routes live in `src/App.tsx`. Settings is a parent route: `/settings` is

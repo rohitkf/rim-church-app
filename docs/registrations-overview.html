@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Registrations Work</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+/* Layout: one reading column, the swimlane diagram breaks out wider; lanes colour-code the four parties everywhere on the page. */
+:root {
+  --bg: #f6f7fa; --surface: #ffffff; --ink: #1b2130; --muted: #5a6275; --rule: #dfe2ea;
+  --accent: #2457c5;
+  --org: #2457c5; --org-soft: #e7eefc;
+  --att: #1d8a5b; --att-soft: #e3f4ec;
+  --app: #8a5a12; --app-soft: #f8eedc;
+  --rec: #b4374a; --rec-soft: #f9e5e8;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11141b; --surface: #1a1e28; --ink: #e8eaf0; --muted: #a0a7b8; --rule: #2c3240;
+  --accent: #7ea2f2;
+  --org: #7ea2f2; --org-soft: #1d2740;
+  --att: #5cc896; --att-soft: #16302a;
+  --app: #e0b25e; --app-soft: #33281a;
+  --rec: #ee8494; --rec-soft: #3a1f25;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11141b; --surface: #1a1e28; --ink: #e8eaf0; --muted: #a0a7b8; --rule: #2c3240;
+  --accent: #7ea2f2;
+  --org: #7ea2f2; --org-soft: #1d2740;
+  --att: #5cc896; --att-soft: #16302a;
+  --app: #e0b25e; --app-soft: #33281a;
+  --rec: #ee8494; --rec-soft: #3a1f25;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+.col { max-width: 720px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); }
+h2 { font-size: 1.6rem; margin-top: 56px; }
+h3 { font-size: 1.15rem; font-family: var(--body); font-weight: 600; }
+p { margin: 0; }
+.lede { font-size: 1.12rem; color: var(--muted); margin-top: 14px; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.stack { display: grid; gap: 12px; margin-top: 14px; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-size: 0.9rem; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+.diagram { margin-top: 18px; overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 12px; }
+.diagram svg { display: block; min-width: 980px; width: 100%; height: auto; }
+.hint { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+
+.parties { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 18px; }
+.party { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.party h3 { display: flex; align-items: center; gap: 10px; }
+.party h3 i { width: 10px; height: 10px; border-radius: 50%; }
+.party .where { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.party ul { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.95rem; }
+
+.states { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.chip { font-size: 0.85rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); white-space: nowrap; }
+.chip.wait { background: var(--app-soft); border-color: transparent; }
+.chip.ok { background: var(--att-soft); border-color: transparent; }
+.chip.bad { background: var(--rec-soft); border-color: transparent; }
+.arrow { color: var(--muted); }
+.row-label { font-size: 0.85rem; color: var(--muted); width: 100%; margin-top: 6px; }
+
+.table-wrap { overflow-x: auto; margin-top: 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+
+.guards { display: grid; gap: 14px; margin-top: 16px; }
+.guard { display: grid; grid-template-columns: 9rem 1fr; gap: 4px 16px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.guard:last-child { border-bottom: 0; }
+.guard b { font-weight: 600; }
+@media (max-width: 560px) { .guard { grid-template-columns: 1fr; } }
+
+svg text { font-family: var(--body); }
+.lane-label { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.box-t { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+.box-s { font-size: 11px; fill: var(--muted); }
+.edge { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.edge.dash { stroke-dasharray: 5 4; }
+.edge-l { font-size: 10.5px; fill: var(--muted); font-style: italic; }
+.step { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="col">
+    <p class="eyebrow">Rehoboth International Ministries · Events</p>
+    <h1>How Registrations work</h1>
+    <p class="lede">An event goes from a draft in the office to a ticket on someone's phone, a scan at the door, and, if it has to be called off, refunds. Four parties take part: the organisers, the attendee, the app itself, and Reception at the door.</p>
+    <div class="legend" aria-label="Colour key">
+      <span><i style="background:var(--org)"></i>Organisers (office)</span>
+      <span><i style="background:var(--att)"></i>Attendee (no sign-in)</span>
+      <span><i style="background:var(--app)"></i>The app &amp; emails</span>
+      <span><i style="background:var(--rec)"></i>Reception (door)</span>
+    </div>
+  </header>
+
+  <h2>The whole flow</h2>
+  <div class="diagram" role="img" aria-label="Swimlane diagram of the registration flow: organisers create and publish an event; attendees register, pay and get a ticket; the app sends emails; Reception scans tickets at the door; organisers can cancel and refund.">
+    <svg viewBox="0 0 1170 540" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+
+      <!-- lanes -->
+      <rect x="0" y="40" width="1170" height="120" fill="var(--org-soft)"/>
+      <rect x="0" y="160" width="1170" height="120" fill="var(--att-soft)"/>
+      <rect x="0" y="280" width="1170" height="120" fill="var(--app-soft)"/>
+      <rect x="0" y="400" width="1170" height="120" fill="var(--rec-soft)"/>
+      <text class="lane-label" x="14" y="104" fill="var(--org)">Office</text>
+      <text class="lane-label" x="14" y="224" fill="var(--att)">Attendee</text>
+      <text class="lane-label" x="14" y="344" fill="var(--app)">App</text>
+      <text class="lane-label" x="14" y="464" fill="var(--rec)">Reception</text>
+
+      <!-- step numbers -->
+      <g class="step" text-anchor="middle">
+        <text x="180" y="26">1 · set up</text><text x="310" y="26">2 · publish</text>
+        <text x="440" y="26">3 · register</text><text x="570" y="26">4 · pay</text>
+        <text x="700" y="26">5 · approve</text><text x="830" y="26">6 · ticket</text>
+        <text x="960" y="26">7 · the day</text><text x="1090" y="26">8 · after</text>
+      </g>
+
+      <!-- edges (drawn under boxes) -->
+      <path class="edge" marker-end="url(#ah)" d="M236,100 H252"/>
+      <path class="edge" marker-end="url(#ah)" d="M310,132 V306"/>
+      <text class="edge-l" x="316" y="200">diary sync</text>
+      <path class="edge" marker-end="url(#ah)" d="M366,100 H440 V186"/>
+      <text class="edge-l" x="374" y="92">share link / QR</text>
+      <path class="edge" marker-end="url(#ah)" d="M440,252 V306"/>
+      <path class="edge" marker-end="url(#ah)" d="M496,220 H512"/>
+      <path class="edge" marker-end="url(#ah)" d="M626,220 H680 V134"/>
+      <text class="edge-l" x="632" y="212">receipt</text>
+      <path class="edge" marker-end="url(#ah)" d="M720,132 V306"/>
+      <path class="edge" marker-end="url(#ah)" d="M756,340 H830 V254"/>
+      <path class="edge" marker-end="url(#ah)" d="M886,220 H960 V426"/>
+      <text class="edge-l" x="892" y="212">shows QR</text>
+      <path class="edge dash" marker-end="url(#ah)" d="M756,84 H1032"/>
+      <text class="edge-l" x="850" y="76">if it must be called off</text>
+      <path class="edge" marker-end="url(#ah)" d="M1090,132 V186"/>
+      <text class="edge-l" x="1096" y="166">email</text>
+      <path class="edge dash" marker-end="url(#ah)" d="M1016,460 H1090 V374"/>
+      <path class="edge dash" marker-end="url(#ah)" d="M496,340 H512"/>
+      <text class="edge-l" x="460" y="390">free? skips 4–5</text>
+
+      <!-- Office -->
+      <g>
+        <rect x="124" y="68" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--org)" stroke-width="1.5"/>
+        <text class="box-t" x="180" y="94" text-anchor="middle">Create event</text>
+        <text class="box-s" x="180" y="110" text-anchor="middle">dates · tickets · promo</text>
+        <text class="box-s" x="180" y="123" text-anchor="middle">picture · online/in person</text>
+      </g>
+      <g>
+        <rect x="254" y="68" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--org)" stroke-width="1.5"/>
+        <text class="box-t" x="310" y="96" text-anchor="middle">Publish</text>
+        <text class="box-s" x="310" y="113" text-anchor="middle">open · close · reopen</text>
+      </g>
+      <g>
+        <rect x="644" y="68" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--org)" stroke-width="1.5"/>
+        <text class="box-t" x="700" y="94" text-anchor="middle">Check payment</text>
+        <text class="box-s" x="700" y="110" text-anchor="middle">mark Paid or Waived</text>
+        <text class="box-s" x="700" y="123" text-anchor="middle">view receipt</text>
+      </g>
+      <g>
+        <rect x="1034" y="68" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--org)" stroke-width="1.5"/>
+        <text class="box-t" x="1090" y="94" text-anchor="middle">Cancel event</text>
+        <text class="box-s" x="1090" y="110" text-anchor="middle">refunds owed</text>
+        <text class="box-s" x="1090" y="123" text-anchor="middle">mark Refunded</text>
+      </g>
+
+      <!-- Attendee -->
+      <g>
+        <rect x="384" y="188" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--att)" stroke-width="1.5"/>
+        <text class="box-t" x="440" y="213" text-anchor="middle">Register</text>
+        <text class="box-s" x="440" y="229" text-anchor="middle">/register/… no sign-in</text>
+        <text class="box-s" x="440" y="242" text-anchor="middle">tickets · promo code</text>
+      </g>
+      <g>
+        <rect x="514" y="188" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--att)" stroke-width="1.5"/>
+        <text class="box-t" x="570" y="213" text-anchor="middle">Pay</text>
+        <text class="box-s" x="570" y="229" text-anchor="middle">bank · PayPal · cash</text>
+        <text class="box-s" x="570" y="242" text-anchor="middle">upload receipt</text>
+      </g>
+      <g>
+        <rect x="774" y="188" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--att)" stroke-width="1.5"/>
+        <text class="box-t" x="830" y="213" text-anchor="middle">Ticket page</text>
+        <text class="box-s" x="830" y="229" text-anchor="middle">QR · countdown</text>
+        <text class="box-s" x="830" y="242" text-anchor="middle">join link if online</text>
+      </g>
+      <g>
+        <rect x="1034" y="188" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--att)" stroke-width="1.5"/>
+        <text class="box-t" x="1090" y="213" text-anchor="middle">Refund</text>
+        <text class="box-s" x="1090" y="229" text-anchor="middle">bank/PayPal: sent back</text>
+        <text class="box-s" x="1090" y="242" text-anchor="middle">cash: bank details form</text>
+      </g>
+
+      <!-- App -->
+      <g>
+        <rect x="254" y="308" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--app)" stroke-width="1.5"/>
+        <text class="box-t" x="310" y="334" text-anchor="middle">Church diary</text>
+        <text class="box-s" x="310" y="350" text-anchor="middle">event appears on</text>
+        <text class="box-s" x="310" y="363" text-anchor="middle">the calendar</text>
+      </g>
+      <g>
+        <rect x="384" y="308" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--app)" stroke-width="1.5"/>
+        <text class="box-t" x="440" y="334" text-anchor="middle">Order + email</text>
+        <text class="box-s" x="440" y="350" text-anchor="middle">ticket code · "Open</text>
+        <text class="box-s" x="440" y="363" text-anchor="middle">ticket" · sold-out push</text>
+      </g>
+      <g>
+        <rect x="644" y="308" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--app)" stroke-width="1.5"/>
+        <text class="box-t" x="700" y="334" text-anchor="middle">"You're paid" email</text>
+        <text class="box-s" x="700" y="350" text-anchor="middle">or "couldn't match"</text>
+        <text class="box-s" x="700" y="363" text-anchor="middle">with join link if online</text>
+      </g>
+      <g>
+        <rect x="1034" y="308" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--app)" stroke-width="1.5"/>
+        <text class="box-t" x="1090" y="334" text-anchor="middle">Tidy up</text>
+        <text class="box-s" x="1090" y="350" text-anchor="middle">names blanked after</text>
+        <text class="box-s" x="1090" y="363" text-anchor="middle">set days; totals stay</text>
+      </g>
+
+      <!-- Reception -->
+      <g>
+        <rect x="904" y="428" width="112" height="64" rx="10" fill="var(--surface)" stroke="var(--rec)" stroke-width="1.5"/>
+        <text class="box-t" x="960" y="453" text-anchor="middle">Scan &amp; check in</text>
+        <text class="box-s" x="960" y="469" text-anchor="middle">paid: in, no tap</text>
+        <text class="box-s" x="960" y="482" text-anchor="middle">owes: Paid now · walk-in</text>
+      </g>
+    </svg>
+  </div>
+  <p class="hint">Solid arrows are the usual path. Dashed arrows are the branches: free tickets skip paying, cancelling can happen any time, and personal details are tidied away after the event. On a phone, scroll the diagram sideways.</p>
+
+  <h2>Who does what</h2>
+  <div class="parties">
+    <section class="party">
+      <h3><i style="background:var(--org)"></i>Organisers</h3>
+      <p class="where">Registrations → an event</p>
+      <ul>
+        <li>Build the event: one or several dates, ticket types (free, paid, donation), limits, promo codes for all paid tickets or chosen ones.</li>
+        <li>Upload a picture and set its focus point, so the important part stays in view.</li>
+        <li>Choose in person, online or both. For in person, type the address and drop the map pin; directions go to the pin. For online, add the join link.</li>
+        <li>Publish to get the share link and a QR code. Close and reopen sales; a countdown shows when sales close.</li>
+        <li>Watch orders come in, open receipts over the page, mark payments, add notes, export to Excel.</li>
+        <li>Cancel the event and settle refunds. Delete only once every paid order is refunded.</li>
+      </ul>
+    </section>
+    <section class="party">
+      <h3><i style="background:var(--att)"></i>Attendee</h3>
+      <p class="where">/register/… and /ticket/… (no account)</p>
+      <ul>
+        <li>Opens the shared link, picks tickets and a date, adds names, applies a promo code.</li>
+        <li>Pays by bank transfer, the PayPal link, or at Reception, and uploads a receipt.</li>
+        <li>Gets an email with an Open ticket button. The ticket page shows the QR code, payment state and a countdown to the start.</li>
+        <li>For an online event, the join link appears once the ticket is confirmed and paid.</li>
+        <li>Can cancel their own ticket until they are checked in.</li>
+        <li>If the event is cancelled: bank and PayPal payers are refunded the way they paid; cash payers fill in a short bank details form.</li>
+      </ul>
+    </section>
+    <section class="party">
+      <h3><i style="background:var(--rec)"></i>Reception</h3>
+      <p class="where">/door</p>
+      <ul>
+        <li>Points the camera at a ticket's QR code, or types the code.</li>
+        <li>A paid or free ticket for today checks in straight away, with no tap.</li>
+        <li>A ticket that still owes is held up with Check in and Paid now, check in.</li>
+        <li>Warns about cancelled tickets, tickets for another day, and people already checked in.</li>
+        <li>Registers walk-ins on the spot, paid or free.</li>
+      </ul>
+    </section>
+    <section class="party">
+      <h3><i style="background:var(--app)"></i>The app</h3>
+      <p class="where">database rules + emails</p>
+      <ul>
+        <li>Creates the order and its ticket code, and sends the confirmation email.</li>
+        <li>Puts the event on the church diary.</li>
+        <li>Notifies the organisers when a ticket type sells out.</li>
+        <li>Sends the "paid" email when payment is marked, and the "cancelled" email to everyone if the event is called off.</li>
+        <li>Blanks names, emails and phone numbers a set number of days after the event. Counts and totals stay.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="col">
+    <h2>Payments and refunds</h2>
+    <p class="lede">Each order carries one payment state. It moves left to right, and organisers or Reception move it on.</p>
+    <div class="states" aria-label="Payment states">
+      <span class="row-label">A paid ticket</span>
+      <span class="chip wait">Awaiting payment</span><span class="arrow">→</span>
+      <span class="chip wait">Receipt sent — being checked</span><span class="arrow">→</span>
+      <span class="chip ok">Paid</span>
+      <span class="arrow">or</span>
+      <span class="chip ok">Paid (waived)</span>
+    </div>
+    <div class="states">
+      <span class="row-label">A free ticket, or 100% off with a promo code</span>
+      <span class="chip ok">Nothing to pay</span>
+      <span class="chip">Free with code REHOBOTH26</span>
+    </div>
+    <div class="states">
+      <span class="row-label">If the event is cancelled</span>
+      <span class="chip bad">Refund owed</span><span class="arrow">→</span>
+      <span class="chip ok">Refunded</span>
+    </div>
+    <p class="hint">Bank details from the refund form can be seen only by people with the Refunds right. They are wiped as soon as the order is marked Refunded.</p>
+
+    <h2>Who is allowed to do what</h2>
+    <p class="lede">Each part of the work is its own right. Give a right to a role, or to one person, in Settings → Access &amp; Privileges. The database checks every right, so hiding a button is never the only protection.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Right</th><th>What it lets someone do</th></tr></thead>
+      <tbody>
+        <tr><td>Run registrations (all of it)</td><td>Everything below, except deleting an event</td></tr>
+        <tr><td>View &amp; export</td><td>See events, orders and promo codes; export to Excel; add notes</td></tr>
+        <tr><td>Make &amp; edit events</td><td>Create and edit events, dates, tickets, promo codes and the picture</td></tr>
+        <tr><td>Approve payments</td><td>Mark Paid, waive, or set back to awaiting</td></tr>
+        <tr><td>Refunds</td><td>See refund details and mark orders Refunded</td></tr>
+        <tr><td>Cancel &amp; delete</td><td>Cancel or restore orders, cancel the event, delete it once refunds are done</td></tr>
+        <tr><td>Check people in</td><td>Use Reception and the scanner</td></tr>
+        <tr><td>Take payments at the door</td><td>"Paid now, check in" at Reception</td></tr>
+        <tr><td>Register walk-ins</td><td>The Walk-in tab at Reception</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <h2>Safety built in</h2>
+    <div class="guards">
+      <div class="guard"><b>No back door</b><p>The register and ticket pages need no account, but they open nothing else. They can't sign anyone in or reach the app. A ticket page shows only that one order, found by its long random code.</p></div>
+      <div class="guard"><b>Join link</b><p>An online event's link is never on the public page. It appears only on a ticket that is confirmed and paid, and goes away if the event is cancelled.</p></div>
+      <div class="guard"><b>No lost money</b><p>A paid event can't be deleted while anyone is still owed a refund. Cancelling keeps every order and who paid.</p></div>
+      <div class="guard"><b>Privacy</b><p>Personal details are blanked after the event. Receipts and refund details are visible only to people with the right to see them.</p></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
