@@ -215,13 +215,16 @@ describe('an event’s page', () => {
     await user.clear(screen.getByRole('searchbox', { name: 'Search registrations' }))
 
     const show_ = screen.getByRole('radiogroup', { name: 'Show' })
-    await user.click(within(show_).getByRole('radio', { name: 'To pay' }))
+    // Each segment says how many it holds.
+    await user.click(within(show_).getByRole('radio', { name: 'To pay 2' }))
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu', 'Dan Reported'])
-    await user.click(within(show_).getByRole('radio', { name: 'Paid' }))
+    await user.click(within(show_).getByRole('radio', { name: 'Receipts 1' }))
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
+    await user.click(within(show_).getByRole('radio', { name: 'Paid 1' }))
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ben Joseph'])
-    await user.click(within(show_).getByRole('radio', { name: 'Checked in' }))
+    await user.click(within(show_).getByRole('radio', { name: 'Checked in 1' }))
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
-    await user.click(within(show_).getByRole('radio', { name: 'Cancelled' }))
+    await user.click(within(show_).getByRole('radio', { name: 'Cancelled 1' }))
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Asha Mathew'])
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'nobody')
     expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
@@ -309,7 +312,31 @@ describe('an event’s page', () => {
     await user.click(within(viewer).getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
-    expect(within(ben).getByText(/^Received .* by Rohit F$/)).toBeInTheDocument()
+    expect(within(ben).getByText(/^Received .* by Rohit F · bank transfer$/)).toBeInTheDocument()
+  })
+
+  it('says up front what wants doing, each a tap to those orders, and gives a row its next step', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    // Awaiting money has no next step: there is nothing to decide until it arrives.
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByRole('button', { name: /Mark as/ })).toBeNull()
+    expect(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByText(/^Checked in /)).toBeInTheDocument()
+    const todo = screen.getByRole('group', { name: 'What wants doing' })
+    expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1awaiting payment'])
+    await user.click(within(todo).getByRole('button', { name: /receipt to check/ }))
+    expect(screen.getByRole('radio', { name: 'Receipts 1' })).toBeChecked()
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
+    // The receipt's row carries the decision, no menu needed.
+    const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
+    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-dan', 'received']]))
+    expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS'])
+  })
+
+  it('leads back to every event from the top', async () => {
+    show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(screen.getByRole('link', { name: /Registrations/ })).toHaveAttribute('href', '/registrations')
   })
 
   it('confirms a reported payment by email, or sends it back with a word', async () => {
@@ -415,6 +442,7 @@ describe('an event’s page', () => {
     const banner = await screen.findByRole('region', { name: 'Cancelled' })
     expect(banner).toHaveTextContent('The hall flooded.')
     expect(banner).toHaveTextContent(/1 refund still owed, £20.00/)
+    expect(within(screen.getByRole('group', { name: 'What wants doing' })).getByRole('button', { name: /refund owed/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull()
     expect(within(screen.getByRole('listitem', { name: 'Bank Payer' })).getByText(/by Rohit F/)).toBeInTheDocument()
@@ -429,8 +457,31 @@ describe('an event’s page', () => {
     expect(await within(sheet).findByText('20-00-00')).toBeInTheDocument()
     expect(within(sheet).getByText('12345678')).toBeInTheDocument()
     await user.click(within(sheet).getByRole('button', { name: 'Done' }))
-    await user.click(within(await openMenu(user, 'Cash Payer')).getByRole('menuitem', { name: /Mark as refunded/ }))
+    // The row's own button does the same as the menu.
+    await user.click(within(screen.getByRole('listitem', { name: 'Cash Payer' })).getByRole('button', { name: 'Mark as refunded' }))
     await waitFor(() => expect(state.marked).toEqual([['o-cash', 'refunded']]))
+  })
+
+  it('offers the refund sheet whatever way they paid, and says when bank details came in (0253)', async () => {
+    state.full = full({ status: 'closed', cancelled_at: '2026-11-04T10:00:00Z' })
+    state.orders = [
+      order({ id: 'o-bank', code: 'BCDEFGHJKMNP', name: 'Bank Payer', total_pence: 2000, subtotal_pence: 2000, discount_pence: 0, promo_code: null, payment_status: 'received', payment_method: 'bank', refund_status: 'owed' }),
+      order({ id: 'o-pp', code: 'CDEFGHJKMNPQ', name: 'PayPal Payer', total_pence: 2000, subtotal_pence: 2000, discount_pence: 0, promo_code: null, payment_status: 'received', payment_method: 'paypal', refund_status: 'owed', refund_details: { created_at: at(2026, 11, 5, 10, 0) } }),
+    ]
+    const user = show()
+    const bank = await screen.findByRole('listitem', { name: 'Bank Payer' })
+    expect(within(bank).getByText('Paid by bank transfer: back to the account it came from')).toBeInTheDocument()
+    const pp = screen.getByRole('listitem', { name: 'PayPal Payer' })
+    expect(within(pp).getByText(/^Bank details sent /)).toBeInTheDocument()
+    const menu = await openMenu(user, 'PayPal Payer')
+    expect(within(menu).getByRole('menuitem', { name: /Where to send the refund/ })).toHaveAccessibleName(/They sent bank details to use/)
+    expect(within(menu).getByRole('menuitem', { name: /Mark as refunded/ })).toHaveAccessibleName(/Sent to the account they gave/)
+    await user.keyboard('{Escape}')
+    await user.click(within(pp).getByRole('button', { name: 'Where to send it' }))
+    const sheet = screen.getByRole('dialog', { name: 'Refund for PayPal Payer' })
+    expect(sheet).toHaveTextContent(/paid through PayPal/)
+    expect(sheet).toHaveTextContent(/rather than back through PayPal/)
+    expect(await within(sheet).findByText('20-00-00')).toBeInTheDocument()
   })
 
   it('shows somebody with View & export only the reading and the export (0251)', async () => {

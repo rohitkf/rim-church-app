@@ -185,7 +185,8 @@ function ticketEmail(kind: Kind, orders: Order[], siteUrl: string, tz: string): 
       o.refund_status === 'owed'
         ? cash
           ? `Your ${pounds(o.total_pence)} will be refunded. You paid at reception, so please open your ticket and send the bank details to refund it to.`
-          : `Your ${pounds(o.total_pence)} will be refunded ${o.payment_method === 'paypal' ? 'through PayPal' : 'to the account you paid from'}; there is nothing you need to do.`
+          : `Your ${pounds(o.total_pence)} will be refunded ${o.payment_method === 'paypal' ? 'through PayPal' : 'to the account you paid from'}, usually within 5–7 working days of being sent; there is nothing you need to do. ` +
+            'If it has not come back by then, or you would rather have it in another account, open your ticket and send the bank details to use instead.'
         : ''
     const online = ev.attendance && ev.attendance !== 'in_person'
     // The way in to an online event, only once nothing is left to pay.
