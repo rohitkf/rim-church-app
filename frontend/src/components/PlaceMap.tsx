@@ -23,6 +23,7 @@ export function PlaceMap({
   onMove = () => {},
   reading = null,
   className = '',
+  title = 'Church',
 }: {
   lat: number
   lng: number
@@ -30,6 +31,8 @@ export function PlaceMap({
   editable: boolean
   onMove?: (to: { lat: number; lng: number }) => void
   reading?: { lat: number; lng: number; accuracy: number } | null
+  /** What the pin is called, for its tooltip. */
+  title?: string
   className?: string
 }) {
   const holder = useRef<HTMLDivElement>(null)
@@ -54,7 +57,7 @@ export function PlaceMap({
       iconSize: [22, 22],
       iconAnchor: [11, 22],
     })
-    const marker = L.marker([lat, lng], { draggable: editable, icon, keyboard: editable, title: 'Church' }).addTo(m)
+    const marker = L.marker([lat, lng], { draggable: editable, icon, keyboard: editable, title }).addTo(m)
     marker.on('dragend', () => {
       const at = marker.getLatLng()
       moved.current({ lat: at.lat, lng: at.lng })

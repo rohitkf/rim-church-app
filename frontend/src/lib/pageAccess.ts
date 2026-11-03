@@ -180,6 +180,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'fixed',
     note: 'Admins, the Owner and Overwatch, and the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
   },
+  '/registrations': {
+    default: 'admins',
+    choices: ['admins'],
+    enforcement: 'fixed',
+    note: 'The Owner, and whoever the grid gives “Run registrations” (Access & Privileges) — an Admin only with that cell. The public pages, /register/… and /ticket/…, need no sign-in.',
+  },
   '/volunteers': {
     default: 'admins',
     choices: ['admins'],

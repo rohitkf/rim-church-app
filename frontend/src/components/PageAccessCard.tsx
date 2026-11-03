@@ -64,6 +64,7 @@ const NOBODY: PageWho = {
   teamIds: [],
   clockInViewer: false,
   prayerCarer: false,
+  regManager: false,
 }
 const WHO: Record<Preview, Partial<PageWho>> = {
   church: {},

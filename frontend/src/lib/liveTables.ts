@@ -81,6 +81,12 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'guests', keys: ['guests'] },
   { table: 'set_list_items', keys: ['set-list-items'] },
   { table: 'church_events', keys: ['church-events'] },
+  /* ---- registrations (0244): the Owner's screens, as orders come in ---- */
+  { table: 'registration_events', keys: ['registrations'] },
+  { table: 'registration_event_dates', keys: ['registrations'] },
+  { table: 'registration_ticket_types', keys: ['registrations'] },
+  { table: 'registration_promo_codes', keys: ['registrations'] },
+  { table: 'registration_orders', keys: ['registrations'] },
   { table: 'service_templates', keys: ['service-templates'] },
   { table: 'service_series', keys: ['service-series'] },
   { table: 'service_template_sessions', keys: ['service-templates'] },

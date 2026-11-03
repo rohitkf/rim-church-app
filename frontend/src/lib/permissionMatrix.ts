@@ -899,6 +899,19 @@ export const PERMISSIONS: PermissionArea[] = [
     ],
   },
   {
+    area: 'Registrations',
+    pages: ['/registrations'],
+    capabilities: [
+      {
+        action: 'Run registrations: make events people sign up for, see who registered, mark payments',
+        key: 'reg.manage',
+        short: 'Run registrations',
+        can: granted('reg.manage'),
+        note: 'Opens the Registrations page too. The Owner always may; by default nobody else, not even an Admin. The public pages — the event’s own page and each ticket — need no account at all.',
+      },
+    ],
+  },
+  {
     area: 'Clock in',
     pages: ['/clock-in'],
     capabilities: [

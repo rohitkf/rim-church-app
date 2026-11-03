@@ -89,6 +89,11 @@ const router = createBrowserRouter(
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* The registration pages anybody opens from a link, no account
+          needed (0244): the event, and a ticket. Pinned by
+          registrationLinks.test.ts — posters and QR codes say these. */}
+      <Route path="/register/:slug" lazy={page(() => import('./pages/RegisterPage'), 'RegisterPage')} />
+      <Route path="/ticket/:code" lazy={page(() => import('./pages/TicketPage'), 'TicketPage')} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardPage />} />
@@ -144,6 +149,10 @@ const router = createBrowserRouter(
             <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
             <Route path="/songs" lazy={page(() => import('./pages/SongsPage'), 'SongsPage')} />
             <Route path="/clock-in" lazy={page(() => import('./pages/ClockInPage'), 'ClockInPage')} />
+            <Route path="/registrations" lazy={page(() => import('./pages/RegistrationsPage'), 'RegistrationsPage')} />
+            <Route path="/registrations/new" lazy={page(() => import('./pages/RegistrationEditorPage'), 'RegistrationEditorPage')} />
+            <Route path="/registrations/:id" lazy={page(() => import('./pages/RegistrationEventPage'), 'RegistrationEventPage')} />
+            <Route path="/registrations/:id/edit" lazy={page(() => import('./pages/RegistrationEditorPage'), 'RegistrationEditorPage')} />
             <Route path="/prayer" lazy={page(() => import('./pages/PrayerPage'), 'PrayerPage')} />
             <Route path="/events" lazy={page(() => import('./pages/EventsPage'), 'EventsPage')} />
             <Route path="/giving" lazy={page(() => import('./pages/GivingPage'), 'GivingPage')} />

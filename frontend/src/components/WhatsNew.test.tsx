@@ -61,9 +61,27 @@ beforeEach(() => {
   db.canOpen = true
 })
 
-const NEWER = { 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
+const NEWER = { registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
 
 describe('what is new', () => {
+  it('tells whoever can open Registrations about it (0244)', async () => {
+    db.seen = {}
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('dialog', { name: 'New: Registrations' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open Registrations' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/registrations')
+    await waitFor(() => expect(db.marked).toEqual(['registrations']))
+  })
+
+  it('says nothing about Registrations to somebody who cannot open it', async () => {
+    db.seen = {}
+    db.canOpen = false
+    show()
+    // The phones card has no page, so it is the one that shows instead.
+    expect(await screen.findByRole('dialog')).not.toHaveAccessibleName('New: Registrations')
+  })
+
   it('announces the newest release once, and remembers on the account when it is closed', async () => {
     const user = userEvent.setup()
     show()

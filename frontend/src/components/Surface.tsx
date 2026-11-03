@@ -844,6 +844,20 @@ export function Field({
   )
 }
 
+/**
+ * Field's look for a group that holds its own checkboxes or radios: Field
+ * is a <label>, and one wrapped round them would toggle the first of them
+ * whenever its heading was tapped.
+ */
+export function FieldGroup({ label, className = '', children }: { label: string; className?: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className={`flex flex-col gap-2 ${className}`}>
+      <Eyebrow>{label}</Eyebrow>
+      {children}
+    </div>
+  )
+}
+
 export const inputClasses =
   'w-full rounded-[var(--radius-chip)] border-0 bg-raised px-4 py-3 text-body-md text-on-surface hairline transition-shadow duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]'
 

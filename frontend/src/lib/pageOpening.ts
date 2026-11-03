@@ -20,6 +20,8 @@ export interface PageWho {
   clockInViewer: boolean
   /** The grid's answer for `prayer.pastoral` (0210). */
   prayerCarer: boolean
+  /** The grid's answer for `reg.manage` (0244): a profile given it, or a grant. */
+  regManager?: boolean
   /**
    * The grid's answer for a page's own capability (0215), grants
    * included — what opens a page to somebody its level does not.
@@ -36,6 +38,8 @@ export type PageOpening =
   | { open: true; via: 'clock-in'; level: AccessLevel }
   /** A pastor: the Pastor role, the Owner, or given `prayer.pastoral` (0210). */
   | { open: true; via: 'pastoral'; level: AccessLevel }
+  /** The Owner, or given `reg.manage` (0244). */
+  | { open: true; via: 'registrations'; level: AccessLevel }
   /** Given the page itself, by name or through a team (0215). */
   | { open: true; via: 'grant'; level: AccessLevel }
   | { open: false; level: AccessLevel }
@@ -47,6 +51,11 @@ export type PageOpening =
  */
 export function pageOpening(path: string, who: PageWho, settings: AppSettings, levels: PageAccess): PageOpening {
   const level = levelOf(path, levels, settings.issues_raise_scope)
+  // Registrations (0244) opens to the Owner and to whoever the grid gives
+  // `reg.manage` — never by level, so an Admin needs the cell as well.
+  if (path === '/registrations' || path.startsWith('/registrations/')) {
+    return who.isOwner || !!who.regManager ? { open: true, via: 'registrations', level } : { open: false, level }
+  }
   if (standingMayOpen(who.standing, level)) return { open: true, via: 'level', level }
   // A page given to them by name or through a team (0215), whatever its
   // level — the same may() can_open_page asks.

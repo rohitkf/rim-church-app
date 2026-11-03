@@ -57,9 +57,12 @@ describe('who sees what', () => {
     expect(tile('Team Rota')).toHaveAccessibleName('Team Rota: can open')
     expect(tile('Volunteers')).toHaveAccessibleName('Volunteers: cannot open')
     await user.click(screen.getByRole('radio', { name: 'Admin' }))
-    for (const item of within(screen.getByRole('list', { name: /Pages an Admin can open/ })).getAllByRole('listitem')) {
-      expect(item.getAttribute('aria-label')).toMatch(/can open$/)
-    }
+    const labels = within(screen.getByRole('list', { name: /Pages an Admin can open/ }))
+      .getAllByRole('listitem')
+      .map((item) => item.getAttribute('aria-label'))
+    // Registrations (0244) is the Owner's, and whoever the grid gives "Run registrations" — no level opens it.
+    expect(labels).toContain('Registrations: cannot open')
+    for (const label of labels.filter((l) => !l?.startsWith('Registrations'))) expect(label).toMatch(/can open$/)
   })
 
   it('arrives with the church’s saved choices, and marks what moved from the app’s own', async () => {

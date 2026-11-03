@@ -70,7 +70,7 @@ function show(at = '/') {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[at]}>
         <Routes>
-          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues'].map(
+          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues', '/registrations'].map(
             (p) => (
               <Route key={p} path={p} element={<Page name={p} />} />
             ),

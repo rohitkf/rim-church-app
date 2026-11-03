@@ -98,6 +98,7 @@ the thing most likely to waste your time:
 | `app_feedback` (`kind`, `status`) | the **Feedback** page — about the app, not a Sunday; sent via `submit_feedback`, read and answered by the Owner alone via `mark_feedback` (0124, 0125) |
 | `stage_areas` → `stage_layouts` → `stage_blocks`, `stage_comments`, `stage_layout_log` | the **Stage Layout** page — one workspace per service, the areas (Stage, Audience, …) as regions of it, a block in one region (a block can be a row of seats, or an item drawn as a line picture — `kind = 'item'`, `icon` a key from `lib/stageIcons.ts`, 0160 — and its corners are sharp unless set rounded; an Admin can lock one, and then nobody — the Admin included — moves, edits or deletes it until it is unlocked; others ask to move it through `stage_move_requests`, and a template or a clear over a locked block is refused, 0157 and 0159); who may draw is the grid's `stage.add` · `stage.edit` · `stage.delete` · `stage.comment` · `stage.templates` rows, a team given them as grants from Settings › Stage Layout (`stage_may()` asks `may()`, 0212; `stage_team_access`, 0155, dropped in 0217); the log is trigger-written; `stage_templates` kept, `stage_template_requests` for an Admin to answer |
 | `service_issues` | the **Issues** page — raised via `raise_issue` inside `issue_window` (Heads and Admins exempt, 0119), a Head's verdict (`outcome`, `remarks`) via `mark_issue` (0117–0119) |
+| `registration_events` → `registration_event_dates`, `registration_ticket_types`, `registration_promo_codes`; `registration_orders` → `registration_order_tickets` (0244) | the **Registrations** page — events anybody signs up for from a link, no account needed. The public page `/register/<slug>` and the ticket `/ticket/<code>` (its QR code says that link) read and write through security-definer functions granted to `anon` — `registration_public_event`, `registration_promo_check`, `registration_register`, `registration_order_view`, `registration_order_payment`, `registration_order_cancel` — and `registration_orders` has no insert policy, so `registration_register` (a lock per ticket type, capacity per type or per date, a trap field, five orders per email) is the only way in. Who runs it is the Owner and whoever the grid gives `reg.manage` ("Run registrations"), never a level: `pageOpening` answers `/registrations` before the level check, so an Admin needs the cell. An order holds its tickets from the moment it is made; a paid one goes `awaiting` → `reported` (the attendee says they paid, by a link or a bank transfer with the code as reference) → `received` (marked by the church), or `waived`; no money passes through the app. A published event with `add_to_diary` has one `church_events` row per date, with a Register link, kept by `registration_sync_diary` |
 
 Other things that are true and not guessable:
 
@@ -215,6 +216,10 @@ frontend/src/
                              anchors, Next / Back / Skip; starts itself when due
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
+  lib/registrations.ts       registration events (0244): the creator's draft,
+                             the owner's reads, and the public page's RPCs
+  components/PublicShell.tsx the frame round a page opened from a link, signed
+                             in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
   auth/AuthContext.tsx       useAuth(): isAdmin, isSuperAdmin, ownerId,
                              isDepartmentHead(), ledDepartmentIds,

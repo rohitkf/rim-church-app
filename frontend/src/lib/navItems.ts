@@ -2,6 +2,7 @@ import type { DockItem } from '../components/DockNav'
 import {
   BoxIcon,
   CakeIcon,
+  UserCheckIcon,
   FeedbackIcon,
   GiftHeartIcon,
   CalendarIcon,
@@ -99,6 +100,9 @@ export const NAV_ITEMS: NavItem[] = [
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
   { to: '/events', label: 'Events', icon: CakeIcon, group: 'Church life' },
+  // Events anybody can sign up for from a link (0244): the Owner's, and
+  // whoever the grid gives "Run registrations".
+  { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church life' },
   { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
   // Asking for prayer, praying for each other, and what God has done (0197).
   { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church life' },
