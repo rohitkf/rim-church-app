@@ -192,41 +192,52 @@ describe('making a registration event', () => {
     expect(within(promo).getByRole('checkbox', { name: 'General admission' })).toBeChecked()
   })
 
-  it('suggests addresses as they are typed, and puts the pin on the one picked', async () => {
+  it('suggests places as they are typed in the map search, and puts the pin on the one picked — the address stays as typed', async () => {
     const user = show('/registrations/new')
-    await user.type(screen.getByRole('textbox', { name: /^Address/ }), '12 High Street')
-    const list = await screen.findByRole('list', { name: 'Addresses found' })
+    await user.type(screen.getByRole('textbox', { name: /^Address/ }), 'The hall behind the church')
+    await user.type(screen.getByRole('textbox', { name: 'Search the map' }), '12 High Street')
+    const list = await screen.findByRole('list', { name: 'Places found' })
     expect(within(list).getAllByRole('button')).toHaveLength(2)
     await user.click(within(list).getByRole('button', { name: /Caversham/ }))
     expect(screen.getByText('map at 51.46,-0.98')).toBeInTheDocument()
+    expect(screen.getByText('Pin at 51.46000, -0.98000')).toBeInTheDocument()
+    // The address is the church's own words, not the map's label — unless asked.
+    expect(screen.getByRole('textbox', { name: /^Address/ })).toHaveValue('The hall behind the church')
+    expect(screen.queryByRole('list', { name: 'Places found' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Use as the address' }))
     expect(screen.getByRole('textbox', { name: /^Address/ })).toHaveValue('12, High Street, Caversham, Reading, United Kingdom')
-    expect(screen.queryByRole('list', { name: 'Addresses found' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Use as the address' })).toBeNull()
     // The last thing asked was the whole text typed, not every keystroke.
     expect(state.suggested[state.suggested.length - 1]).toBe('12 High Street')
   })
 
-  it('finds the address on the map and lets the pin be moved or cleared', async () => {
+  it('finds the address on the map when nothing is searched, and lets the pin be moved or cleared', async () => {
     const user = show('/registrations/new')
-    expect(screen.getByRole('button', { name: 'Find on map' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Find' })).toBeDisabled()
     await user.type(screen.getByRole('textbox', { name: /^Address/ }), '12 High Street, Reading')
-    await user.click(screen.getByRole('button', { name: 'Find on map' }))
+    // Typing the address asks the map nothing on its own.
+    expect(state.suggested).toEqual([])
+    await user.click(screen.getByRole('button', { name: 'Find' }))
     expect(await screen.findByText('map at 51.45,-0.97')).toBeInTheDocument()
     expect(state.geocoded).toEqual(['12 High Street, Reading'])
     expect(screen.getByText('Found: High Street, Reading')).toBeInTheDocument()
+    expect(screen.getByText('Pin at 51.45000, -0.97000')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'map at 51.45,-0.97' }))
     expect(screen.getByText('map at 51.46,-0.97')).toBeInTheDocument()
+    expect(screen.getByText('Pin at 51.46000, -0.97000')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /^Address/ })).toHaveValue('12 High Street, Reading')
 
     await user.click(screen.getByRole('button', { name: 'Clear the pin' }))
     expect(screen.queryByText(/map at/)).toBeNull()
   })
 
-  it('says, by the address box, when an address is not found', async () => {
+  it('says, by the map search, when nothing matches', async () => {
     const user = show('/registrations/new')
-    await user.type(screen.getByRole('textbox', { name: /^Address/ }), 'Nowhere Lane')
-    await user.click(screen.getByRole('button', { name: 'Find on map' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search the map' }), 'Nowhere Lane')
+    await user.click(screen.getByRole('button', { name: 'Find' }))
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/not found on the map/)
+    expect(alert).toHaveTextContent(/Nothing on the map matches/)
     // Beside the Where section, not at the foot of the page.
     expect(alert.compareDocumentPosition(screen.getByRole('button', { name: 'Save as draft' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

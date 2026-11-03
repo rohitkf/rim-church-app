@@ -165,7 +165,7 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
           <PromoCodesEditor promos={draft.promoCodes} types={draft.ticketTypes} onChange={(promoCodes) => set({ promoCodes })} />
         </SectionTile>
 
-        <SectionTile title="Where" hint="Start typing the address and pick it from the suggestions, or press Find on map; drag the pin if it lands a little off. The page shows the map and an Open directions button.">
+        <SectionTile title="Where" hint="The address is what people read; the pin is where directions and the page’s map go. Type the address as it should appear, then search the map to place the pin and drag it to the spot.">
           <LocationEditor draft={draft} set={set} />
         </SectionTile>
 
@@ -488,28 +488,28 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
 
 function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<EventDraft>) => void }) {
   const [note, setNote] = useState<string | null>(null)
-  const [found, setFound] = useState<string | null>(null)
+  const [found, setFound] = useState<Found | null>(null)
+  const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<Found[]>([])
   const [looking, setLooking] = useState(false)
-  const typing = useRef(false)
   const timer = useRef<number | null>(null)
   const inFlight = useRef<AbortController | null>(null)
 
-  const place = (p: Found, address?: string) => {
+  // The pin, and only the pin: the address is whatever was typed above.
+  const place = (p: Found) => {
     setNote(null)
-    setFound(p.label)
+    setFound(p)
     setSuggestions([])
-    set({ latitude: p.latitude, longitude: p.longitude, ...(address !== undefined ? { address } : {}) })
+    set({ latitude: p.latitude, longitude: p.longitude })
   }
 
-  // Suggestions follow the typing, a little behind it (Nominatim asks for
-  // one request a second), and a stale answer is dropped.
-  useEffect(() => {
-    if (!typing.current) return
-    typing.current = false
+  // Suggestions follow the search box, a little behind it (Nominatim asks
+  // for one request a second), and a stale answer is dropped.
+  const lookUp = (text: string) => {
+    setSearch(text)
     if (timer.current) window.clearTimeout(timer.current)
-    const text = draft.address.trim()
-    if (text.length < 4) {
+    const q = text.trim()
+    if (q.length < 4) {
       setSuggestions([])
       return
     }
@@ -519,10 +519,10 @@ function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partia
       inFlight.current = ac
       setLooking(true)
       try {
-        const rows = await suggestAddresses(text, undefined, ac.signal)
+        const rows = await suggestAddresses(q, undefined, ac.signal)
         if (!ac.signal.aborted) {
           setSuggestions(rows)
-          setNote(rows.length === 0 ? 'Nothing matches that yet — keep typing, or add the town or postcode.' : null)
+          setNote(rows.length === 0 ? 'Nothing matches that yet — keep typing, or try the postcode.' : null)
         }
       } catch {
         if (!ac.signal.aborted) setNote('Could not reach the map service just now.')
@@ -530,18 +530,23 @@ function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partia
         if (!ac.signal.aborted) setLooking(false)
       }
     }, 450)
-    return () => {
+  }
+  useEffect(
+    () => () => {
+      inFlight.current?.abort()
       if (timer.current) window.clearTimeout(timer.current)
-    }
-  }, [draft.address])
-  useEffect(() => () => inFlight.current?.abort(), [])
+    },
+    [],
+  )
 
+  // Find: what is in the search box, or failing that the place and address as typed.
+  const asked = search.trim() || [draft.locationName, draft.address].filter(Boolean).join(', ')
   const find = useMutation({
-    mutationFn: () => geocodeAddress([draft.locationName, draft.address].filter(Boolean).join(', ')),
+    mutationFn: () => geocodeAddress(asked),
     onSuccess: (p) => {
       if (!p) {
         setFound(null)
-        setNote('That address was not found on the map. Add the town or postcode, pick one of the suggestions as you type, or press Find on map with a nearby address and drag the pin.')
+        setNote('Nothing on the map matches that. Try the postcode or a nearby street, then drag the pin to the spot.')
         return
       }
       place(p)
@@ -562,13 +567,10 @@ function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partia
         <Field label="Place (optional)">
           <input value={draft.locationName} onChange={(e) => set({ locationName: e.target.value })} placeholder="Church Hall" maxLength={200} className={inputClasses} />
         </Field>
-        <Field label="Address (optional)" hint={looking ? 'Looking…' : suggestions.length > 0 ? 'Pick one below to put the pin on it.' : undefined}>
+        <Field label="Address (optional)" hint="Shown as typed, on the event’s page and the ticket.">
           <textarea
             value={draft.address}
-            onChange={(e) => {
-              typing.current = true
-              set({ address: e.target.value })
-            }}
+            onChange={(e) => set({ address: e.target.value })}
             rows={2}
             placeholder="12 High Street, Reading, RG1 2AB"
             maxLength={500}
@@ -577,56 +579,86 @@ function LocationEditor({ draft, set }: { draft: EventDraft; set: (patch: Partia
           />
         </Field>
       </div>
-      {suggestions.length > 0 && (
-        <ul aria-label="Addresses found" className="flex flex-col gap-1">
-          {suggestions.map((p) => (
-            <li key={`${p.latitude},${p.longitude}`}>
+      <FieldGroup label="Pin on the map">
+        <p className="-mt-1 text-label-md text-on-surface-faint">
+          Directions and the page’s map go to the pin, not to the address. Search for the place or its postcode, then drag the pin if it lands a little off.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => lookUp(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (asked && !find.isPending) find.mutate()
+              }
+            }}
+            aria-label="Search the map"
+            placeholder="Postcode, street or place"
+            autoComplete="off"
+            className={`${inputClasses} min-w-0 flex-1`}
+          />
+          <ActionButton size="sm" tone="quiet" onClick={() => find.mutate()} disabled={find.isPending || !asked}>
+            {find.isPending ? 'Looking…' : 'Find'}
+          </ActionButton>
+        </div>
+        {looking && <p className="text-label-md text-on-surface-faint">Looking…</p>}
+        {suggestions.length > 0 && (
+          <ul aria-label="Places found" className="flex flex-col gap-1">
+            {suggestions.map((p) => (
+              <li key={`${p.latitude},${p.longitude}`}>
+                <button
+                  type="button"
+                  onClick={() => place(p)}
+                  className="tap w-full rounded-[var(--radius-row)] px-3 py-2 text-left text-body-sm text-on-surface hairline hover:bg-raised"
+                >
+                  {p.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {note && (
+          <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+            {note}
+          </p>
+        )}
+        {draft.latitude !== null && draft.longitude !== null && (
+          <>
+            <PlaceMap
+              key={mapKey}
+              lat={draft.latitude}
+              lng={draft.longitude}
+              radius={0}
+              editable
+              title={draft.locationName || 'The venue'}
+              onMove={({ lat, lng }) => set({ latitude: lat, longitude: lng })}
+              className="h-64 w-full overflow-hidden rounded-[var(--radius-card)] hairline"
+            />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-label-md text-on-surface-variant">
+              <span className="font-mono tabular">
+                Pin at {draft.latitude.toFixed(5)}, {draft.longitude.toFixed(5)}
+              </span>
+              {found && <span className="min-w-0 break-words">Found: {found.label}</span>}
+              {found && draft.address.trim() !== found.label && (
+                <button type="button" onClick={() => set({ address: found.label })} className="tap font-medium text-accent-blue-soft hover:underline">
+                  Use as the address
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => place(p, p.label)}
-                className="tap w-full rounded-[var(--radius-row)] px-3 py-2 text-left text-body-sm text-on-surface hairline hover:bg-raised"
+                onClick={() => {
+                  setFound(null)
+                  set({ latitude: null, longitude: null })
+                }}
+                className="tap text-on-surface-faint hover:text-error hover:underline"
               >
-                {p.label}
+                Clear the pin
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex flex-wrap items-center gap-3">
-        <ActionButton size="sm" tone="quiet" onClick={() => find.mutate()} disabled={find.isPending || !(draft.address.trim() || draft.locationName.trim())}>
-          {find.isPending ? 'Looking…' : 'Find on map'}
-        </ActionButton>
-        {draft.latitude !== null && (
-          <button
-            type="button"
-            onClick={() => {
-              setFound(null)
-              set({ latitude: null, longitude: null })
-            }}
-            className="tap text-label-md text-on-surface-faint hover:text-error hover:underline"
-          >
-            Clear the pin
-          </button>
+            </div>
+          </>
         )}
-        {found && <span className="min-w-0 break-words text-label-md text-on-surface-variant">Found: {found}</span>}
-      </div>
-      {note && (
-        <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-          {note}
-        </p>
-      )}
-      {draft.latitude !== null && draft.longitude !== null && (
-        <PlaceMap
-          key={mapKey}
-          lat={draft.latitude}
-          lng={draft.longitude}
-          radius={0}
-          editable
-          title={draft.locationName || 'The venue'}
-          onMove={({ lat, lng }) => set({ latitude: lat, longitude: lng })}
-          className="h-64 w-full overflow-hidden rounded-[var(--radius-card)] hairline"
-        />
-      )}
+      </FieldGroup>
     </div>
   )
 }
