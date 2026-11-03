@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -229,6 +229,23 @@ describe('making a registration event', () => {
     expect(alert).toHaveTextContent(/not found on the map/)
     // Beside the Where section, not at the foot of the page.
     expect(alert.compareDocumentPosition(screen.getByRole('button', { name: 'Save as draft' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows where the picture’s subject is, and saves it moved (0248)', async () => {
+    const f = full()
+    f.event.image_path = 'events/x.jpg'
+    f.event.image_focus_x = 20
+    f.event.image_focus_y = 80
+    state.existing = f
+    const user = show('/registrations/e1/edit')
+    expect(await screen.findByRole('slider', { name: 'Left to right' })).toHaveValue('20')
+    expect(screen.getByRole('slider', { name: 'Top to bottom' })).toHaveValue('80')
+    expect(screen.getByRole('img', { name: /How the picture will show/ })).toHaveStyle({ objectPosition: '20% 80%' })
+    fireEvent.change(screen.getByRole('slider', { name: 'Left to right' }), { target: { value: '35' } })
+    expect(screen.getByRole('img', { name: /How the picture will show/ })).toHaveStyle({ objectPosition: '35% 80%' })
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft).toMatchObject({ imagePath: 'events/x.jpg', imageFocus: { x: 35, y: 80 } })
   })
 
   it('opens a saved event with everything on it, and keeps the diary in step when saved', async () => {

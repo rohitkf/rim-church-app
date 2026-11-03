@@ -23,7 +23,14 @@ const state = vi.hoisted(() => ({
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: { signedUrl: 'https://signed/logo.png' }, error: null }) }) } },
+  supabase: {
+    storage: {
+      from: () => ({
+        createSignedUrl: () => Promise.resolve({ data: { signedUrl: 'https://signed/logo.png' }, error: null }),
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `https://public/${path}` } }),
+      }),
+    },
+  },
 }))
 vi.mock('../components/PlaceMap', () => ({
   PlaceMap: ({ lat, lng }: { lat: number; lng: number }) => <p>map at {lat.toFixed(2)},{lng.toFixed(2)}</p>,
@@ -252,6 +259,13 @@ describe('the public register page', () => {
     show()
     expect(await screen.findByText('Registration has closed.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Get your ticket again' })).toBeInTheDocument()
+  })
+
+  it('places the picture by its focal point (0248)', async () => {
+    state.event = event({ image_path: 'events/x.jpg', image_focus: { x: 20, y: 80 } })
+    show()
+    await screen.findByRole('textbox', { name: 'Your name' })
+    expect(document.querySelector('img[src="https://public/events/x.jpg"]')).toHaveStyle({ objectPosition: '20% 80%' })
   })
 
   it('says so when the link leads nowhere', async () => {

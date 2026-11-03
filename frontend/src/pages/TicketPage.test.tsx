@@ -26,7 +26,14 @@ const state = vi.hoisted(() => ({
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: { signedUrl: 'https://signed/logo.png' }, error: null }) }) } },
+  supabase: {
+    storage: {
+      from: () => ({
+        createSignedUrl: () => Promise.resolve({ data: { signedUrl: 'https://signed/logo.png' }, error: null }),
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `https://public/${path}` } }),
+      }),
+    },
+  },
 }))
 vi.mock('../components/QrCode', () => ({
   QrCode: ({ text, label }: { text: string; label: string }) => <svg role="img" aria-label={label} data-text={text} />,
@@ -264,6 +271,14 @@ describe('the ticket page', () => {
     expect(await screen.findByText('Cancelled')).toBeInTheDocument()
     expect(screen.queryByRole('img', { name: /Ticket/ })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Cancel my registration' })).toBeNull()
+  })
+
+  it('places the picture by its focal point (0248)', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, image_path: 'events/x.jpg', image_focus: { x: 20, y: 80 } } }
+    show()
+    await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
+    expect(document.querySelector('img[src="https://public/events/x.jpg"]')).toHaveStyle({ objectPosition: '20% 80%' })
   })
 
   it('says so when the link leads nowhere', async () => {

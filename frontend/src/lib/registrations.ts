@@ -34,12 +34,26 @@ export const paymentAccountSchema = z.object({
 })
 export type PaymentAccount = z.infer<typeof paymentAccountSchema>
 
+/** Where the picture's subject is, 0–100 each way: the point kept in view when it is cropped (0248). */
+export const imageFocusSchema = z.object({ x: z.number(), y: z.number() })
+export type ImageFocus = z.infer<typeof imageFocusSchema>
+export const CENTRE: ImageFocus = { x: 50, y: 50 }
+
+/** The CSS object-position that keeps the focal point in view. */
+export function imagePosition(focus: ImageFocus | null | undefined): string {
+  const clamp = (n: number) => Math.min(100, Math.max(0, Math.round(n)))
+  const f = focus ?? CENTRE
+  return `${clamp(f.x)}% ${clamp(f.y)}%`
+}
+
 export const registrationEventSchema = z.object({
   id: z.string(),
   slug: z.string(),
   title: z.string(),
   description: z.string().nullable(),
   image_path: z.string().nullable(),
+  image_focus_x: z.number().optional(),
+  image_focus_y: z.number().optional(),
   status: z.enum(['draft', 'published', 'closed']),
   date_mode: z.enum(['all', 'choose']),
   location_name: z.string().nullable(),
@@ -115,7 +129,7 @@ export interface RegistrationEventFull {
 }
 
 const EVENT_COLUMNS =
-  'id, slug, title, description, image_path, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
+  'id, slug, title, description, image_path, image_focus_x, image_focus_y, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
 
 /** Every event, newest first, with how its orders stand. */
 export interface EventSummary extends RegistrationEvent {
@@ -244,6 +258,8 @@ export interface EventDraft {
   slugTouched: boolean
   description: string
   imagePath: string | null
+  /** The part of the picture that must stay in view (0248). */
+  imageFocus: ImageFocus
   dateMode: DateMode
   /** One start and end time for every date, rather than each its own. */
   sameTimes: boolean
@@ -279,6 +295,7 @@ export function emptyDraft(): EventDraft {
     slugTouched: false,
     description: '',
     imagePath: null,
+    imageFocus: CENTRE,
     dateMode: 'all',
     sameTimes: false,
     start: '',
@@ -358,6 +375,7 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
     slugTouched: true,
     description: event.description ?? '',
     imagePath: event.image_path,
+    imageFocus: { x: event.image_focus_x ?? CENTRE.x, y: event.image_focus_y ?? CENTRE.y },
     dateMode: event.date_mode,
     sameTimes,
     start: sameTimes ? dateDrafts[0].start : '',
@@ -480,6 +498,8 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
     title: draft.title.trim(),
     description: draft.description.trim() || null,
     image_path: draft.imagePath,
+    image_focus_x: Math.min(100, Math.max(0, Math.round(draft.imageFocus.x))),
+    image_focus_y: Math.min(100, Math.max(0, Math.round(draft.imageFocus.y))),
     date_mode: draft.dateMode,
     location_name: draft.locationName.trim() || null,
     address: draft.address.trim() || null,
@@ -663,6 +683,7 @@ export const publicEventSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   image_path: z.string().nullable(),
+  image_focus: imageFocusSchema.optional(),
   status: z.enum(['draft', 'published', 'closed']),
   date_mode: z.enum(['all', 'choose']),
   location: locationSchema,
@@ -792,6 +813,7 @@ export const orderViewSchema = z.object({
     slug: z.string(),
     title: z.string(),
     image_path: z.string().nullable(),
+    image_focus: imageFocusSchema.optional(),
     status: z.enum(['draft', 'published', 'closed']),
     date_mode: z.enum(['all', 'choose']),
     location: locationSchema,
