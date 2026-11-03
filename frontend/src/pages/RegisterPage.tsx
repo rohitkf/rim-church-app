@@ -16,6 +16,7 @@ import {
   fetchPublicEvent,
   orderTotals,
   registerForEvent,
+  imagePosition,
   registrationImageUrl,
   remainingOf,
   resendTickets,
@@ -185,7 +186,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   return (
     <PublicShell title={event.title} logoPath={event.logo_path}>
       {image && (
-        <img src={image} alt="" className="mt-2 aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />
+        <img src={image} alt="" style={{ objectPosition: imagePosition(event.image_focus) }} className="mt-2 aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {event.status === 'draft' && <Pill tone="orange">Draft — only you can see this</Pill>}

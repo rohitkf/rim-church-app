@@ -10,7 +10,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
-import { PAYMENT_WORDS, cancelOrder, fetchOrder, registrationImageUrl, reportPayment, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
+import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImageUrl, reportPayment, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -168,7 +168,7 @@ function Ticket({ order }: { order: OrderView }) {
       )}
 
       <section className="mt-6 flex flex-col gap-4">
-        {image && <img src={image} alt="" className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />}
+        {image && <img src={image} alt="" style={{ objectPosition: imagePosition(event.image_focus) }} className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />}
         <div>
           <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">When</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-md text-on-surface">

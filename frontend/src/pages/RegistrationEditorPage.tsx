@@ -5,6 +5,7 @@ import { ActionButton, Field, FieldGroup, PageHeader, SectionTile, SegmentedCont
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { PlaceMap } from '../components/PlaceMap'
 import { QueryState } from '../components/QueryState'
+import { FocalPointPicker } from '../components/FocalPointPicker'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
 import { geocodeAddress, suggestAddresses, type Found } from '../lib/geocode'
@@ -18,6 +19,7 @@ import {
   newDateDraft,
   newPromoDraft,
   newTicketTypeDraft,
+  CENTRE,
   registrationImageUrl,
   saveRegistrationEvent,
   slugTyping,
@@ -26,6 +28,7 @@ import {
   uploadRegistrationImage,
   type DateDraft,
   type EventDraft,
+  type ImageFocus,
   type PaymentAccount,
   type PaymentLink,
   type PromoDraft,
@@ -111,8 +114,14 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
       />
 
       <div className="flex flex-col gap-4">
-        <SectionTile title="Picture" hint="Shown at the top of the event's page. PNG, JPEG or WebP, up to 2 MB.">
-          <PictureField path={draft.imagePath} onChange={(imagePath) => set({ imagePath })} onError={setError} />
+        <SectionTile title="Picture" hint="Shown at the top of the event's page, cropped to 16:9 — pick the part that must stay in view. PNG, JPEG or WebP, up to 2 MB.">
+          <PictureField
+            path={draft.imagePath}
+            focus={draft.imageFocus}
+            onChange={(imagePath) => set({ imagePath, imageFocus: CENTRE })}
+            onFocus={(imageFocus) => set({ imageFocus })}
+            onError={setError}
+          />
         </SectionTile>
 
         <SectionTile title="What it is">
@@ -222,7 +231,19 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
 
 /* ------------------------------------------------------------------ */
 
-function PictureField({ path, onChange, onError }: { path: string | null; onChange: (path: string | null) => void; onError: (text: string | null) => void }) {
+function PictureField({
+  path,
+  focus,
+  onChange,
+  onFocus,
+  onError,
+}: {
+  path: string | null
+  focus: ImageFocus
+  onChange: (path: string | null) => void
+  onFocus: (focus: ImageFocus) => void
+  onError: (text: string | null) => void
+}) {
   const errorText = useErrorText()
   const upload = useMutation({
     mutationFn: (file: File) => uploadRegistrationImage(file),
@@ -235,7 +256,8 @@ function PictureField({ path, onChange, onError }: { path: string | null; onChan
   const url = registrationImageUrl(path)
   return (
     <div className="flex flex-col gap-3">
-      {url && <img src={url} alt="" className="aspect-[16/9] w-full max-w-md rounded-[var(--radius-card)] object-cover" />}
+      {/* A new picture has a new subject: the focal point starts in the middle (the page resets it with the path). */}
+      {url && <FocalPointPicker src={url} value={focus} onChange={onFocus} />}
       <div className="flex flex-wrap items-center gap-3">
         <label className="tap inline-flex cursor-pointer items-center rounded-full px-4 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised">
           {upload.isPending ? 'Uploading…' : url ? 'Change picture' : 'Choose a picture'}

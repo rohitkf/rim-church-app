@@ -26,6 +26,7 @@ import {
   todaysEvent,
   receiverName,
   type EventSummary,
+  imagePosition,
 } from './registrations'
 
 /*
@@ -245,6 +246,14 @@ describe('a saved event back as a draft', () => {
     expect(draftProblems(draft)).toEqual([])
   })
 
+  it('starts the picture in the middle unless the event says where its subject is (0248)', () => {
+    expect(draftFromEvent(full()).imageFocus).toEqual({ x: 50, y: 50 })
+    const f = full()
+    f.event.image_focus_x = 20
+    f.event.image_focus_y = 80
+    expect(draftFromEvent(f).imageFocus).toEqual({ x: 20, y: 80 })
+  })
+
   it('gives each date its own times when they differ', () => {
     const f = full()
     f.dates[1].starts_at = at(2026, 11, 22, 10, 0)
@@ -363,6 +372,16 @@ const row = (over: Partial<OrderRow>): OrderRow => ({
     { ticket_type_id: 't1', attendee_name: 'Kofi Owusu', unit_price_pence: 2000 },
   ],
   ...over,
+})
+
+describe('where the picture is placed (0248)', () => {
+  it('is the focal point as a CSS position, the middle when there is none, kept within the picture', () => {
+    expect(imagePosition({ x: 20, y: 80 })).toBe('20% 80%')
+    expect(imagePosition(null)).toBe('50% 50%')
+    expect(imagePosition(undefined)).toBe('50% 50%')
+    expect(imagePosition({ x: -5, y: 140 })).toBe('0% 100%')
+    expect(imagePosition({ x: 33.4, y: 66.6 })).toBe('33% 67%')
+  })
 })
 
 describe('what the door works (0247)', () => {
