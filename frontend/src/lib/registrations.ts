@@ -58,6 +58,8 @@ export const registrationEventSchema = z.object({
   image_focus_x: z.number().optional(),
   image_focus_y: z.number().optional(),
   attendance: z.enum(['in_person', 'online', 'both']).optional(),
+  cancelled_at: z.string().nullable().optional(),
+  cancel_note: z.string().nullable().optional(),
   join_url: z.string().nullable().optional(),
   join_details: z.string().nullable().optional(),
   status: z.enum(['draft', 'published', 'closed']),
@@ -135,7 +137,7 @@ export interface RegistrationEventFull {
 }
 
 const EVENT_COLUMNS =
-  'id, slug, title, description, image_path, image_focus_x, image_focus_y, attendance, join_url, join_details, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
+  'id, slug, title, description, image_path, image_focus_x, image_focus_y, attendance, join_url, join_details, cancelled_at, cancel_note, status, date_mode, location_name, address, latitude, longitude, registration_opens_at, registration_closes_at, min_per_order, max_per_order, payment_links, payment_accounts, payment_use_church_giving, payment_note, allow_pay_at_reception, add_to_diary, created_at, updated_at'
 
 /** Every event, newest first, with how its orders stand. */
 export interface EventSummary extends RegistrationEvent {
@@ -720,7 +722,9 @@ export const publicEventSchema = z.object({
   opens_at: z.string().nullable(),
   closes_at: z.string().nullable(),
   open: z.boolean(),
-  closed_reason: z.enum(['draft', 'closed', 'not_yet', 'over']).nullable(),
+  closed_reason: z.enum(['draft', 'closed', 'not_yet', 'over', 'cancelled']).nullable(),
+  cancelled_at: z.string().nullable().optional(),
+  cancel_note: z.string().nullable().optional(),
   min_per_order: z.number(),
   max_per_order: z.number(),
   allow_pay_at_reception: z.boolean(),
@@ -837,6 +841,12 @@ export const orderViewSchema = z.object({
   checked_in_at: z.string().nullable(),
   created_at: z.string(),
   can_cancel: z.boolean(),
+  /** A refund (0250): owed once the money is in and the order or the event is cancelled. */
+  refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
+  refund_at: z.string().nullable().optional(),
+  /** Paid at reception, so the church needs to know where to send it. */
+  refund_details_wanted: z.boolean().optional(),
+  refund_details_sent: z.boolean().optional(),
   /** The way in to an online event, once the order has nothing left to pay (0249). */
   join: z.object({ url: z.string().nullable(), details: z.string().nullable() }).nullable().optional(),
   tickets: z.array(orderTicketSchema),
@@ -847,6 +857,8 @@ export const orderViewSchema = z.object({
     image_path: z.string().nullable(),
     image_focus: imageFocusSchema.optional(),
     attendance: z.enum(['in_person', 'online', 'both']).optional(),
+    cancelled_at: z.string().nullable().optional(),
+    cancel_note: z.string().nullable().optional(),
     status: z.enum(['draft', 'published', 'closed']),
     date_mode: z.enum(['all', 'choose']),
     location: locationSchema,
@@ -967,6 +979,9 @@ export const orderRowSchema = z.object({
   received_at: z.string().nullable().optional(),
   received_by: z.string().nullable().optional(),
   receiver: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
+  refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
+  refund_at: z.string().nullable().optional(),
+  refunder: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
   anonymised_at: z.string().nullable(),
   created_at: z.string(),
   tickets: z.array(z.object({ ticket_type_id: z.string(), attendee_name: z.string().nullable(), unit_price_pence: z.number() })),
@@ -974,7 +989,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -992,7 +1007,7 @@ export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow
 /* ------------------------------------------------------------------ */
 
 /** What registration_order_mark() (0245) does to an order. */
-export type OrderAction = 'received' | 'waived' | 'awaiting' | 'check_in' | 'undo_check_in' | 'cancel' | 'restore'
+export type OrderAction = 'received' | 'waived' | 'awaiting' | 'check_in' | 'undo_check_in' | 'cancel' | 'restore' | 'refunded'
 
 export async function markOrder(id: string, action: OrderAction): Promise<void> {
   const { error } = await supabase.rpc('registration_order_mark', { p_id: id, p_action: action })
@@ -1005,7 +1020,7 @@ export async function setOrderNotes(id: string, notes: string): Promise<void> {
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'paid' | 'checked_in' | 'cancelled'
+export type OrderFilter = 'all' | 'to_pay' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
 
 export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -1013,6 +1028,7 @@ export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'paid', label: 'Paid' },
   { key: 'checked_in', label: 'Checked in' },
   { key: 'cancelled', label: 'Cancelled' },
+  { key: 'refunds', label: 'Refunds' },
 ]
 
 /** Whether an order is one of the filter's, and says the words typed. */
@@ -1027,7 +1043,9 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
           ? live && (o.payment_status === 'received' || o.payment_status === 'waived')
           : filter === 'checked_in'
             ? live && !!o.checked_in_at
-            : o.status === 'cancelled'
+            : filter === 'refunds'
+              ? !!o.refund_status
+              : o.status === 'cancelled'
   if (!kept) return false
   const q = query.trim().toLowerCase()
   if (!q) return true
@@ -1076,6 +1094,9 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       { label: 'Received at', width: 20 },
       { label: 'Received by', width: 20 },
       { label: 'Receipt reference', width: 20 },
+      { label: 'Refund', width: 12 },
+      { label: 'Refunded at', width: 20 },
+      { label: 'Refunded by', width: 20 },
       { label: 'Notes', width: 40 },
     ],
     rows: orders.map((o) => [
@@ -1098,6 +1119,9 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       stamp(o.received_at ?? null),
       receiverName(o),
       o.proof_reference ?? '',
+      o.refund_status === 'owed' ? 'Owed' : o.refund_status === 'refunded' ? 'Refunded' : '',
+      stamp(o.refund_at ?? null),
+      [o.refunder?.first_name, o.refunder?.last_name].filter(Boolean).join(' '),
       o.notes ?? '',
     ]),
   }
@@ -1138,6 +1162,8 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       ['Expected (£)', money(expected), '', '', ''],
       ['Received or waived (£)', money(received), '', '', ''],
       ['Still to come (£)', money(expected - received), '', '', ''],
+      ['Refunds owed (£)', money(orders.filter((o) => o.refund_status === 'owed').reduce((n, o) => n + o.total_pence, 0)), '', '', ''],
+      ['Refunded (£)', money(orders.filter((o) => o.refund_status === 'refunded').reduce((n, o) => n + o.total_pence, 0)), '', '', ''],
       ['Exported', stamp(new Date().toISOString()), '', '', ''],
     ],
   }
@@ -1223,7 +1249,7 @@ export function notifyPayment(kind: 'paid' | 'unmatched', code: string): Promise
 export function doorEvents(events: EventSummary[], now = new Date()): EventSummary[] {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   return events
-    .filter((e) => e.status !== 'draft' && e.last_ends_at !== null && new Date(e.last_ends_at).getTime() >= startOfToday)
+    .filter((e) => e.status !== 'draft' && !e.cancelled_at && e.last_ends_at !== null && new Date(e.last_ends_at).getTime() >= startOfToday)
     .sort((a, b) => (a.first_starts_at ?? '').localeCompare(b.first_starts_at ?? ''))
 }
 
@@ -1231,4 +1257,54 @@ export function doorEvents(events: EventSummary[], now = new Date()): EventSumma
 export function todaysEvent(events: EventSummary[], now = new Date()): EventSummary | null {
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime()
   return doorEvents(events, now).find((e) => e.first_starts_at !== null && new Date(e.first_starts_at).getTime() < endOfToday) ?? null
+}
+
+/* ------------------------------------------------------------------ */
+/* Calling an event off, and refunds (0250)                            */
+/* ------------------------------------------------------------------ */
+
+/** Closed for good; every order kept; the paid ones owe a refund. Returns how many. */
+export async function cancelRegistrationEvent(id: string, note: string): Promise<number> {
+  const { data, error } = await supabase.rpc('registration_event_cancel', { p_event: id, p_note: note.trim() || null })
+  if (error) throw error
+  return (data as { owed?: number } | null)?.owed ?? 0
+}
+
+export interface RefundDetails {
+  account_name: string
+  sort_code: string | null
+  account_number: string | null
+  iban: string | null
+  note: string | null
+  created_at: string
+}
+
+/** Where to send a refund that cannot go back the way it was paid; for whoever runs registrations. */
+export async function fetchRefundDetails(orderId: string): Promise<RefundDetails | null> {
+  const { data, error } = await supabase
+    .from('registration_refund_details')
+    .select('account_name, sort_code, account_number, iban, note, created_at')
+    .eq('order_id', orderId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as RefundDetails | null) ?? null
+}
+
+/** The attendee says where to send it: a UK account, or an IBAN. */
+export async function requestRefund(
+  code: string,
+  details: { account_name: string; sort_code?: string; account_number?: string; iban?: string; note?: string },
+): Promise<void> {
+  const { error } = await supabase.rpc('registration_refund_request', { p_code: code, p_details: details })
+  if (error) throw error
+}
+
+/** "20-00-00" from what was stored as six digits. */
+export function sortCodeWords(digits: string | null): string {
+  return digits && /^\d{6}$/.test(digits) ? `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}` : (digits ?? '')
+}
+
+/** "The event is off", to everyone on it with an address; the function checks the caller runs registrations. */
+export function notifyEventCancelled(eventId: string): Promise<TicketMailResult> {
+  return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'event_cancelled', event_id: eventId }).catch(() => ({ ok: false, reason: 'failed' }))
 }

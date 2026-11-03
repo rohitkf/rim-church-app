@@ -12,7 +12,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
-import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImageUrl, reportPayment, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
+import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -127,7 +127,9 @@ function Ticket({ order }: { order: OrderView }) {
   const image = registrationImageUrl(event.image_path)
   const directions = directionsUrl(event.location)
   const dates = order.date ? [order.date] : event.dates
-  const needsPayment = order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
+  // Called off by the church (0250): no ticket to show, nothing to pay.
+  const eventOff = !!event.cancelled_at
+  const needsPayment = !eventOff && order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
   const title = cancelled ? 'Ticket' : paid ? 'Ticket' : 'Registration'
   // The date to count down to: the one booked, or the next of the event's
@@ -147,7 +149,15 @@ function Ticket({ order }: { order: OrderView }) {
       <p className="text-body-md text-on-surface-variant">
         {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'} for {order.name}
       </p>
-      {!cancelled && nextDate && (
+      {eventOff && (
+        <section aria-label="Event cancelled" className="mt-4 rounded-[var(--radius-card)] bg-error-container px-4 py-3 text-on-error-container">
+          <p className="text-body-md font-semibold">This event has been cancelled</p>
+          {event.cancel_note && <p className="mt-1 whitespace-pre-line text-body-sm">{event.cancel_note}</p>}
+          {!order.refund_status && <p className="mt-1 text-body-sm">There is nothing for you to do.</p>}
+        </section>
+      )}
+      {order.refund_status && <RefundSection order={order} onSent={() => void refresh()} />}
+      {!cancelled && !eventOff && nextDate && (
         <div className="mt-4">
           {new Date(nextDate.starts_at).getTime() > now.getTime() ? (
             <Countdown to={nextDate.starts_at} lead="Starts in" over="It has started — see you there." />
@@ -157,7 +167,7 @@ function Ticket({ order }: { order: OrderView }) {
         </div>
       )}
 
-      {!cancelled && (
+      {!cancelled && !eventOff && (
         <section aria-label={paid ? 'Your ticket' : 'Your registration'} className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
           <p className="font-mono text-label-sm uppercase tracking-wide text-[#5a5a72]">{paid ? 'Ticket' : 'Registration'}</p>
           <QrCode text={ticketUrl(order.code)} label={`${paid ? 'Ticket' : 'Registration'} ${order.code}`} className="mx-auto mt-2 h-48 w-48" />
@@ -369,7 +379,7 @@ function Ticket({ order }: { order: OrderView }) {
         <Link to={`${REGISTER_PATH}/${event.slug}`} className="tap text-label-md text-accent-blue-soft hover:underline">
           Event page
         </Link>
-        {order.can_cancel && (
+        {order.can_cancel && !order.checked_in_at && !eventOff && (
           <button
             type="button"
             onClick={() =>
@@ -504,5 +514,102 @@ function ProofStep({ code, method, onDone, onClose }: { code: string; method: On
         </div>
       </form>
     </Overlay>
+  )
+}
+
+/**
+ * A refund (0250). Most go back the way they were paid, and say so; money
+ * paid at reception has nowhere to go, so only then are the bank details
+ * asked for — kept private to whoever runs registrations, and wiped once
+ * the refund is sent.
+ */
+function RefundSection({ order, onSent }: { order: OrderView; onSent: () => void }) {
+  const errorText = useErrorText()
+  const [name, setName] = useState(order.name)
+  const [sortCode, setSortCode] = useState('')
+  const [account, setAccount] = useState('')
+  const [iban, setIban] = useState('')
+  const [abroad, setAbroad] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const send = useMutation({
+    mutationFn: () => requestRefund(order.code, abroad ? { account_name: name, iban } : { account_name: name, sort_code: sortCode, account_number: account }),
+    onSuccess: () => {
+      setProblem(null)
+      setEditing(false)
+      onSent()
+    },
+    onError: (err: unknown) => setProblem(errorText(err, 'Could not send that. Check the details and try again.')),
+  })
+  const amount = pounds(order.total_pence)
+
+  if (order.refund_status === 'refunded') {
+    return (
+      <section aria-label="Your refund" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline">
+        <Pill tone="green">Refunded</Pill>
+        <p className="mt-2 text-body-md text-on-surface">
+          {amount} was refunded{order.refund_at ? ` on ${new Date(order.refund_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.
+        </p>
+      </section>
+    )
+  }
+  const how = order.payment_method === 'paypal' ? 'through PayPal, to the account you paid from' : 'to the bank account you paid from'
+  const wanted = !!order.refund_details_wanted
+  const sent = !!order.refund_details_sent
+  return (
+    <section aria-label="Your refund" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline">
+      <Pill tone="orange">Refund on its way</Pill>
+      {!wanted ? (
+        <p className="mt-2 text-body-md text-on-surface">The church will refund {amount} {how}. There is nothing you need to send.</p>
+      ) : sent && !editing ? (
+        <>
+          <p className="mt-2 text-body-md text-on-surface">Thank you — the church has your bank details and will send {amount} back to that account.</p>
+          <button type="button" onClick={() => setEditing(true)} className="tap mt-1 text-label-md font-medium text-accent-blue-soft hover:underline">
+            Change the bank details
+          </button>
+        </>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            send.mutate()
+          }}
+          className="mt-2 flex flex-col gap-3"
+        >
+          <p className="text-body-md text-on-surface">You paid {amount} at reception. Where should the church send it back?</p>
+          <p className="-mt-1 text-label-md text-on-surface-faint">Only whoever runs registrations can see these, and they are deleted once the refund is sent.</p>
+          <Field label="Name on the account">
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" className={inputClasses} />
+          </Field>
+          {abroad ? (
+            <Field label="IBAN">
+              <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} maxLength={40} autoCapitalize="characters" autoCorrect="off" className={`${inputClasses} font-mono`} />
+            </Field>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Sort code">
+                <input value={sortCode} onChange={(e) => setSortCode(e.target.value)} inputMode="numeric" placeholder="20-00-00" maxLength={8} className={`${inputClasses} font-mono`} />
+              </Field>
+              <Field label="Account number">
+                <input value={account} onChange={(e) => setAccount(e.target.value)} inputMode="numeric" placeholder="12345678" maxLength={8} className={`${inputClasses} font-mono`} />
+              </Field>
+            </div>
+          )}
+          <button type="button" onClick={() => setAbroad((a) => !a)} className="tap self-start text-label-md font-medium text-accent-blue-soft hover:underline">
+            {abroad ? 'Use a UK sort code and account number' : 'Not a UK account? Give an IBAN'}
+          </button>
+          {problem && (
+            <p role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              {problem}
+            </p>
+          )}
+          <div>
+            <ActionButton type="submit" disabled={send.isPending}>
+              {send.isPending ? 'Sending…' : 'Send my bank details'}
+            </ActionButton>
+          </div>
+        </form>
+      )}
+    </section>
   )
 }

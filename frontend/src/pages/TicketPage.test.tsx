@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   order: null as unknown,
   reported: [] as unknown[],
   uploaded: [] as unknown[],
+  refundRequests: [] as unknown[],
   cancelled: 0,
   mailed: [] as string[],
   mailAnswer: { ok: true, sent: true } as unknown,
@@ -43,6 +44,10 @@ vi.mock('../lib/registrations', async (original) => ({
   fetchOrder: () => Promise.resolve(state.order),
   reportPayment: (code: string, method: string, done: boolean, proof?: { path?: string | null; reference?: string | null }) => {
     state.reported.push({ code, method, done, ...(proof ?? {}) })
+    return Promise.resolve()
+  },
+  requestRefund: (code: string, details: unknown) => {
+    state.refundRequests.push([code, details])
     return Promise.resolve()
   },
   uploadProof: (code: string, file: File) => {
@@ -134,6 +139,7 @@ beforeEach(() => {
   state.order = order()
   state.reported = []
   state.uploaded = []
+  state.refundRequests = []
   state.cancelled = 0
   state.mailed = []
   state.mailAnswer = { ok: true, sent: true }
@@ -326,6 +332,52 @@ describe('the ticket page', () => {
     expect(within(join).queryByRole('link')).toBeNull()
     // Both: the hall is still shown.
     expect(screen.getByText('Church Hall')).toBeInTheDocument()
+  })
+
+  it('says a cancelled event is off, with no QR code, nothing to pay and no way to cancel', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, cancelled_at: '2026-11-04T10:00:00Z', cancel_note: 'The hall flooded.' } }
+    show()
+    const notice = await screen.findByRole('region', { name: 'Event cancelled' })
+    expect(notice).toHaveTextContent('The hall flooded.')
+    expect(screen.queryByRole('img', { name: /ABCDEFGHJKMN/ })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Paying' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Cancel my registration' })).toBeNull()
+  })
+
+  it('says a refund goes back the way it was paid, asking for nothing', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'bank', refund_status: 'owed', refund_details_wanted: false })
+    show()
+    const refund = await screen.findByRole('region', { name: 'Your refund' })
+    expect(refund).toHaveTextContent(/refund £36.00 to the bank account you paid from/)
+    expect(within(refund).queryByRole('textbox')).toBeNull()
+  })
+
+  it('asks a cash payer where to send the refund, and takes UK details or an IBAN', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'reception', refund_status: 'owed', refund_details_wanted: true, refund_details_sent: false })
+    const user = show()
+    const refund = await screen.findByRole('region', { name: 'Your refund' })
+    await user.type(within(refund).getByRole('textbox', { name: 'Sort code' }), '20-00-00')
+    await user.type(within(refund).getByRole('textbox', { name: 'Account number' }), '12345678')
+    await user.click(within(refund).getByRole('button', { name: 'Send my bank details' }))
+    await waitFor(() => expect(state.refundRequests).toEqual([['ABCDEFGHJKMN', { account_name: 'Ama Owusu', sort_code: '20-00-00', account_number: '12345678' }]]))
+    await user.click(within(refund).getByRole('button', { name: /Give an IBAN/ }))
+    await user.type(within(refund).getByRole('textbox', { name: 'IBAN' }), 'de89370400440532013000')
+    await user.click(within(refund).getByRole('button', { name: 'Send my bank details' }))
+    await waitFor(() => expect(state.refundRequests[1]).toEqual(['ABCDEFGHJKMN', { account_name: 'Ama Owusu', iban: 'DE89370400440532013000' }]))
+  })
+
+  it('says when the refund has been sent', async () => {
+    state.order = order({ status: 'cancelled', payment_status: 'received', refund_status: 'refunded', refund_at: '2026-11-05T10:00:00Z' })
+    show()
+    expect(await screen.findByRole('region', { name: 'Your refund' })).toHaveTextContent(/£36.00 was refunded on/)
+  })
+
+  it('offers no cancelling on a checked-in ticket', async () => {
+    state.order = order({ checked_in_at: '2026-11-21T18:40:00Z' })
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('button', { name: 'Cancel my registration' })).toBeNull()
   })
 
   it('says so when the link leads nowhere', async () => {

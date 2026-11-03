@@ -178,6 +178,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const closedWords =
     event.closed_reason === 'not_yet' && event.opens_at
       ? `Registration opens ${whenWords(event.opens_at, null)}.`
+      : event.closed_reason === 'cancelled'
+        ? `This event has been cancelled.${event.cancel_note ? ` ${event.cancel_note}` : ''}`
       : event.closed_reason === 'over'
         ? 'Registration closed when the event started.'
         : event.closed_reason === 'closed'

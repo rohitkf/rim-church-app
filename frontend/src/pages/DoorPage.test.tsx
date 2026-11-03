@@ -299,6 +299,20 @@ describe('Reception', () => {
     expect(await screen.findByRole('heading', { name: 'Youth Night' })).toBeInTheDocument()
   })
 
+  it('says why an order is free when a promo code made it so', async () => {
+    state.orders = [order({ total_pence: 0, discount_pence: 4000, payment_status: 'not_needed', promo_code: 'REHOBOTH26' })]
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).getByText('Free with code REHOBOTH26')).toBeInTheDocument()
+  })
+
+  it('leaves a cancelled event off the door', async () => {
+    state.events = [summary({ cancelled_at: '2026-11-04T10:00:00Z' })]
+    show()
+    expect(await screen.findByText(/No event today, and none coming up/)).toBeInTheDocument()
+  })
+
   it('says so when nothing is on', async () => {
     state.events = [summary({ id: 'e-past', status: 'closed', first_starts_at: daysOn(-7, 19), last_ends_at: daysOn(-7, 21) }), summary({ id: 'e-draft', status: 'draft' })]
     show()

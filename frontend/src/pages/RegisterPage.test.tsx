@@ -289,6 +289,12 @@ describe('the public register page', () => {
     expect(screen.queryByRole('link', { name: /Open directions/ })).toBeNull()
   })
 
+  it('says a cancelled event is cancelled', async () => {
+    state.event = event({ open: false, closed_reason: 'cancelled', cancel_note: 'The hall flooded.' })
+    show()
+    expect(await screen.findByText('This event has been cancelled. The hall flooded.')).toBeInTheDocument()
+  })
+
   it('says so when the link leads nowhere', async () => {
     state.event = null
     show()
