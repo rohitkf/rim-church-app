@@ -7,6 +7,7 @@ import { TimeField } from './DateTimeFields'
 import { Select, selectPillClasses } from './Select'
 import { InlineRow, SettingRow, Switch } from './SettingRows'
 import { SegmentedControl } from './Surface'
+import { sameValue } from '../lib/sameValue'
 
 /**
  * One setting from the catalog, drawn as a row.
@@ -38,7 +39,7 @@ const TIMEZONES = [
   'UTC',
 ]
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const same = sameValue
 
 export function SettingEntryRow({
   entry,

@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
-import { SETTINGS_KEY, fetchAppSettings } from '../lib/appSettings'
+import { SETTINGS_KEY, fetchAppSettings, updateSettings } from '../lib/appSettings'
 import {
   ROTA_TAGS_KEY,
   deleteRotaTag,
@@ -327,11 +326,7 @@ function CoordinatorSection() {
 
   const save = useMutation({
     mutationFn: async (color: string | null) => {
-      const { error } = await supabase
-        .from('app_settings')
-        .update({ coordinator_color: color })
-        .eq('id', true)
-      if (error) throw error
+      await updateSettings({ coordinator_color: color })
     },
     onSuccess: () => {
       setError(null)

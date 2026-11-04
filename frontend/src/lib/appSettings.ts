@@ -185,6 +185,18 @@ export const SETTINGS_KEY = ['app-settings']
  */
 export const SETTINGS_COLUMNS = Object.keys(appSettingsSchema.shape).join(', ')
 
+/**
+ * Change some of the church's settings, and know that it happened. A
+ * write row security refuses is not an error to Postgres — it changes
+ * nothing and says so with no rows — so without asking for the row back
+ * the page said "Saved" and nothing had. Every settings write goes here.
+ */
+export async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
+  const { data, error } = await supabase.from('app_settings').update(patch).eq('id', true).select('id')
+  if (error) throw error
+  if (!data || data.length === 0) throw new Error('That was not saved: changing these settings is not open to you.')
+}
+
 export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')

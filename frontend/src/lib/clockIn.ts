@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { offsetAt } from './availabilityDeadline'
+import { updateSettings } from './appSettings'
 
 /**
  * Clock in (0191): the shared pieces.
@@ -172,8 +173,7 @@ export async function saveClockInPlace(place: { label: string | null; postcode: 
 
 /** How near the pin a phone has to be — the same setting as Settings › Clock in. */
 export async function saveClockInRadius(metres: number) {
-  const { error } = await supabase.from('app_settings').update({ clock_in_radius_m: metres }).eq('id', true)
-  if (error) throw error
+  await updateSettings({ clock_in_radius_m: metres })
 }
 
 export const clockInSchema = z.object({

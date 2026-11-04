@@ -32,6 +32,7 @@ import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
 import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from './Surface'
+import { sameValue } from '../lib/sameValue'
 
 /**
  * Settings › Page by Page.
@@ -67,7 +68,7 @@ const TONES: Record<string, BadgeTone> = {
 }
 
 const short = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const same = sameValue
 
 export function PagesCard() {
   const settings = useAppSettings()
