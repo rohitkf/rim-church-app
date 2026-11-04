@@ -175,12 +175,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export const SETTINGS_KEY = ['app-settings']
 
+/**
+ * Every column the schema knows, read in one go. It was a list kept by
+ * hand beside the schema, and the two fell out of step: the stage clear
+ * day and hour were in the schema and not the list, so the page always
+ * read them as their defaults — a change saved, the page read it back as
+ * the default, and its Save bar said "Not saved yet" for ever. Built from
+ * the schema, a new setting cannot be left out.
+ */
+export const SETTINGS_COLUMNS = Object.keys(appSettingsSchema.shape).join(', ')
+
 export async function fetchAppSettings(): Promise<AppSettings> {
   const { data, error } = await supabase
     .from('app_settings')
-    .select(
-      'rota_window_days, always_show_my_services, planner_upcoming_limit, planner_upcoming_days, lead_in_minutes, run_out_minutes, edit_grace_minutes, after_service_checklist_minutes, after_service_checklist_opens_minutes, issues_raise_scope, issue_retention_days, issue_open_minutes_before, issue_close_minutes_after, debrief_open_minutes_after, debrief_retention_days, board_clear_dow, logo_url, video_tutorial_url, timezone, availability_closes_time, coordinator_color, display, notification_retention_days, team_chat_retention_days, church_update_retention_days, church_event_retention_days, poll_retention_days, poll_voters_seen_by, poll_top_count, poll_top_seen_by, poll_managed_by, overwatch_pages, clock_in_lead_minutes, clock_in_radius_m, clock_in_accuracy_m, clock_in_include_yes, clock_in_retention_days, prayer_closed_retention_days, prayer_testimony_retention_days, feedback_retention_days, registration_retention_days, notification_keep_count, alert_clear_dow, call_time_notice_dow, call_time_notice_time, service_retention_days',
-    )
+    .select(SETTINGS_COLUMNS)
     .maybeSingle()
   if (error) throw error
   // No row is not an error worth stopping a page for: the app has working
