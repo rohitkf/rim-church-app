@@ -33,9 +33,10 @@ vi.mock('../lib/registrationRights', async (original) => ({
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
 vi.mock('../lib/qrCamera', () => ({
-  useQrCamera: (_ref: unknown, onText: (text: string) => void) => {
-    cam.onText = onText
-    return 'scanning'
+  // Hears only while the camera is meant to be on, as the real one does.
+  useQrCamera: (_ref: unknown, onText: (text: string) => void, active = true) => {
+    cam.onText = active ? onText : null
+    return active ? 'scanning' : 'starting'
   },
 }))
 vi.mock('../lib/registrations', async (original) => ({
@@ -186,6 +187,12 @@ describe('Reception', () => {
     expect(stat('tickets')).toBe('7')
     expect(stat('still to pay')).toBe('1')
     expect(screen.getByRole('link', { name: "The event's page" })).toHaveAttribute('href', '/registrations/e1')
+    // The camera waits for a tap: opening Reception does not start it.
+    expect(cam.onText).toBeNull()
+    expect(document.querySelector('video')).toBeNull()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Start scanning/ }))
+    expect(cam.onText).not.toBeNull()
     scan('https://rim-church-app.vercel.app/ticket/EFGHJKMNPQRS')
     await waitFor(() => expect(state.marked).toEqual([['o-sam', 'check_in']]))
     expect(within(screen.getByRole('region', { name: 'Ticket found' })).getByText('Checked in')).toBeInTheDocument()
@@ -196,6 +203,7 @@ describe('Reception', () => {
   it('holds up a ticket that still owes, takes the money at the door, and confirms the ticket by email', async () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('button', { name: /Start scanning/ }))
     scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
     const card = screen.getByRole('region', { name: 'Ticket found' })
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
@@ -308,6 +316,18 @@ describe('Reception', () => {
     expect(state.mailed).toEqual([])
   })
 
+  it('starts the camera only on a tap, and stops it again', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    // The typed code works with the camera off.
+    expect(screen.getByRole('textbox', { name: 'Ticket code' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Start scanning/ }))
+    expect(document.querySelector('video')).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Stop camera' }))
+    expect(cam.onText).toBeNull()
+    expect(screen.getByRole('button', { name: /Start scanning/ })).toBeInTheDocument()
+  })
+
   it('lets the door pick another event that is on, and takes one from the address', async () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
@@ -344,6 +364,7 @@ describe('Reception', () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
     expect(screen.queryByRole('tab', { name: 'Walk-in' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: /Start scanning/ }))
     scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
     const card = screen.getByRole('region', { name: 'Ticket found' })
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
