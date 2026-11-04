@@ -190,7 +190,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
 
       {tab === 'scan' && (
         <section aria-label="Scan tickets">
-          <p className="mb-3 text-body-sm text-on-surface-variant">Point the camera at the QR code on a ticket. A paid ticket is checked in as it is read.</p>
+          <p className="mb-3 text-body-sm text-on-surface-variant">Start scanning and point the camera at the QR code on a ticket. A paid ticket is checked in as it is read.</p>
           <ScannerPanel
             orders={rows}
             dates={dates}
@@ -198,6 +198,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
             onCheckIn={(order) => checkIn.mutate(order)}
             onPaidAndCheckIn={(order) => paid.mutate({ order, andIn: true })}
             canTakePayment={rights.takePayment}
+            askFirst
           />
         </section>
       )}

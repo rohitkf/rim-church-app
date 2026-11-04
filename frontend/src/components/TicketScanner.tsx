@@ -18,6 +18,9 @@ import { PAYMENT_WORDS, checkedInToday, isPaid, whenWords, type EventDate, type 
  *
  * ScannerPanel is the working part, which Reception (/door) lays into its
  * own page; TicketScanner is the same in a sheet, for the event's page.
+ * On Reception the camera waits for a tap (`askFirst`): a page opened to
+ * look somebody up should not start the camera. The sheet opens from its
+ * own Scan tickets button, so it starts at once.
  */
 export interface ScannerProps {
   orders: OrderRow[]
@@ -29,10 +32,13 @@ export interface ScannerProps {
   canTakePayment?: boolean
   /** The camera runs only while this is on (a hidden tab keeps its hands off it). */
   active?: boolean
+  /** Wait for a tap before starting the camera, and offer a way to stop it. */
+  askFirst?: boolean
 }
 
-export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, canTakePayment = true, active = true }: ScannerProps) {
+export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, canTakePayment = true, active = true, askFirst = false }: ScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [cameraOn, setCameraOn] = useState(!askFirst)
   const [found, setFound] = useState<{ code: string; id: string | null; auto: boolean } | null>(null)
   const [typed, setTyped] = useState('')
   const lastRef = useRef<string | null>(null)
@@ -64,7 +70,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
     },
     [take],
   )
-  const phase = useQrCamera(videoRef, onText, active)
+  const phase = useQrCamera(videoRef, onText, active && cameraOn)
 
   const submitTyped = (e: FormEvent) => {
     e.preventDefault()
@@ -89,9 +95,31 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
 
   return (
     <div>
+      {!cameraOn ? (
+        <button
+          type="button"
+          onClick={() => setCameraOn(true)}
+          className="tap flex aspect-[4/3] w-full flex-col items-center justify-center gap-3 rounded-[var(--radius-chip)] bg-surface-container text-on-surface hairline hover:bg-raised"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-10 w-10 text-accent-blue-soft" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10" />
+          </svg>
+          <span className="text-headline-sm">Start scanning</span>
+          <span className="text-body-sm text-on-surface-variant">Opens the camera to read tickets</span>
+        </button>
+      ) : (
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-chip)] bg-black">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-8 rounded-[var(--radius-chip)] shadow-[0_0_0_2px_rgba(255,255,255,0.65)]" />
+        {askFirst && (
+          <button
+            type="button"
+            onClick={() => setCameraOn(false)}
+            className="tap absolute right-3 top-3 rounded-full bg-black/60 px-4 text-label-md font-medium text-white backdrop-blur hover:bg-black/75"
+          >
+            Stop camera
+          </button>
+        )}
         {phase !== 'scanning' && (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-body-sm text-white/80">
             {phase === 'starting' && 'Starting the camera…'}
@@ -100,6 +128,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
           </p>
         )}
       </div>
+      )}
 
       {found && (
         <section aria-label="Ticket found" className="mt-4 rounded-[var(--radius-chip)] bg-surface-container p-4">
