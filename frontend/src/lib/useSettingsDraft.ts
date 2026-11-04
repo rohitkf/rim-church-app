@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from './supabaseClient'
 import { useErrorText } from './useErrorText'
-import { DEFAULT_SETTINGS, SETTINGS_KEY, fetchAppSettings, type AppSettings } from './appSettings'
+import { DEFAULT_SETTINGS, SETTINGS_KEY, fetchAppSettings, updateSettings, type AppSettings } from './appSettings'
+import { sameValue } from './sameValue'
 
 /**
  * A draft of some of the church's settings, and a Save that writes only
@@ -35,7 +35,7 @@ export function useSettingsDraft<K extends keyof AppSettings>(keys: readonly K[]
   }, [query.data, pick])
 
   const current = query.data ? pick(query.data) : null
-  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+  const same = sameValue
 
   const mutation = useMutation({
     mutationFn: async (next: Pick<AppSettings, K>) => {
@@ -47,8 +47,7 @@ export function useSettingsDraft<K extends keyof AppSettings>(keys: readonly K[]
         Object.entries(next).filter(([key, value]) => !was || !same(value, was[key as K])),
       )
       if (Object.keys(patch).length === 0) return
-      const { error } = await supabase.from('app_settings').update(patch).eq('id', true)
-      if (error) throw error
+      await updateSettings(patch as Partial<AppSettings>)
     },
     onSuccess: () => {
       setError(null)

@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { updateSettings } from './appSettings'
 
 /*
  * The Video tutorial link in the account menu (0233). The Owner sets it in
@@ -19,6 +19,5 @@ export function safeVideoLink(raw: string | null | undefined): string | null {
 
 /** Save it, or clear it with null. The database lets only the Owner. */
 export async function saveVideoLink(link: string | null): Promise<void> {
-  const { error } = await supabase.from('app_settings').update({ video_tutorial_url: link }).eq('id', true)
-  if (error) throw error
+  await updateSettings({ video_tutorial_url: link })
 }

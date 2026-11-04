@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { useErrorText } from '../lib/useErrorText'
-import { SETTINGS_KEY, useAppSettings } from '../lib/appSettings'
+import { SETTINGS_KEY, updateSettings, useAppSettings } from '../lib/appSettings'
 import { BRANDING_BUCKET, useAppLogo } from '../lib/appLogo'
 import { AppMark } from './AppMark'
 import { useConfirmAction } from './ConfirmAction'
@@ -86,10 +86,10 @@ export function AppLogoCard() {
         .upload(path, square, { contentType: 'image/png' })
       if (putErr) throw putErr
 
-      const { error: saveErr } = await supabase
-        .from('app_settings')
-        .update({ logo_url: path })
-        .eq('id', true)
+      const saveErr = await updateSettings({ logo_url: path }).then(
+        () => null,
+        (e: unknown) => e,
+      )
       if (saveErr) {
         // Nothing points at the file we just put up, so take it back down
         // rather than leaving it in the bucket for good.
@@ -106,11 +106,7 @@ export function AppLogoCard() {
   const clear = useMutation({
     mutationFn: async () => {
       const path = settings.logo_url
-      const { error: saveErr } = await supabase
-        .from('app_settings')
-        .update({ logo_url: null })
-        .eq('id', true)
-      if (saveErr) throw saveErr
+      await updateSettings({ logo_url: null })
       if (path) await supabase.storage.from(BRANDING_BUCKET).remove([path])
     },
     onSuccess: refresh,

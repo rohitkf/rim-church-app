@@ -7,7 +7,9 @@ import { VideoTutorialCard } from './VideoTutorialCard'
 const state = vi.hoisted(() => ({ owner: true, saved: null as string | null, writes: [] as unknown[] }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isSuperAdmin: state.owner }) }))
-vi.mock('../lib/appSettings', () => ({
+vi.mock('../lib/appSettings', async (original) => ({
+  // The real updateSettings, so the write goes through the faked Supabase below.
+  ...(await original<typeof import('../lib/appSettings')>()),
   SETTINGS_KEY: ['app-settings'],
   useAppSettings: () => ({ video_tutorial_url: state.saved }),
 }))
@@ -17,10 +19,13 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: () => ({
       update: (row: unknown) => ({
-        eq: () => {
-          state.writes.push(row)
-          return Promise.resolve({ error: null })
-        },
+        // As Supabase does: the row comes back when the write took (updateSettings checks).
+        eq: () => ({
+          select: () => {
+            state.writes.push(row)
+            return Promise.resolve({ data: [{ id: true }], error: null })
+          },
+        }),
       }),
     }),
   },

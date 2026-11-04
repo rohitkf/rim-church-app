@@ -14,7 +14,9 @@ const owner = vi.fn(() => true)
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isSuperAdmin: owner() }) }))
 
 const settings = vi.fn(() => ({ logo_url: null as string | null }))
-vi.mock('../lib/appSettings', () => ({
+vi.mock('../lib/appSettings', async (original) => ({
+  // The real updateSettings, so the write goes through the faked Supabase below.
+  ...(await original<typeof import('../lib/appSettings')>()),
   SETTINGS_KEY: ['app-settings'],
   useAppSettings: () => settings(),
 }))
@@ -44,10 +46,13 @@ vi.mock('../lib/supabaseClient', () => ({
     },
     from: () => ({
       update: (patch: Record<string, unknown>) => ({
-        eq: () => {
-          saved(patch)
-          return Promise.resolve({ error: null })
-        },
+        // As Supabase does: the row comes back when the write took (updateSettings checks).
+        eq: () => ({
+          select: () => {
+            saved(patch)
+            return Promise.resolve({ data: [{ id: true }], error: null })
+          },
+        }),
       }),
     }),
   },

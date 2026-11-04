@@ -31,6 +31,7 @@ import { SettingEntries } from './SettingEntry'
 import { TeamMark } from './TeamMark'
 import { useConfirmAction } from './ConfirmAction'
 import { formatRelativeTime } from '../lib/relativeTime'
+import { sameValue } from '../lib/sameValue'
 
 /**
  * Settings › Stage Layout.
@@ -94,7 +95,7 @@ export function StageSettingsCard() {
   const gridChanged = useMemo(() => {
     if (!draft) return false
     const ids = new Set([...Object.keys(draft), ...Object.keys(stored)])
-    return [...ids].some((id) => JSON.stringify(draft[id] ?? blank(id)) !== JSON.stringify(stored[id] ?? blank(id)))
+    return [...ids].some((id) => !sameValue(draft[id] ?? blank(id), stored[id] ?? blank(id)))
   }, [draft, stored])
 
   const toggle = (id: string, column: keyof StageTeamAccess) =>
