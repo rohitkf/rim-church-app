@@ -26,6 +26,7 @@ export function ServiceSections<T>({
   finishedId,
   finishedAside,
   finishedOpen = false,
+  upcomingOpen = false,
 }: {
   sections: SectionedServices<T>
   /** One run of services. `finished` is true for the folded section. */
@@ -37,11 +38,14 @@ export function ServiceSections<T>({
   finishedAside?: ReactNode
   /** Arrive with Finished open — for a link pointing inside it. */
   finishedOpen?: boolean
+  /** Arrive with Upcoming open — for a link pointing inside it. */
+  upcomingOpen?: boolean
 }) {
   const { lists } = useDisplay()
   const keepDays = useAppSettings().service_retention_days
   const now = useNow(60_000)
   const startOpen = finishedOpen || lists.finishedOpen
+  const upcomingStartsOpen = upcomingOpen || lists.upcomingOpen
   // Every finished service is deleted on the church's clock (0128); say
   // when the oldest one here goes, so the countdown is on every page that
   // lists them.
@@ -66,11 +70,11 @@ export function ServiceSections<T>({
           you, and everything after it is a tap away rather than a scroll. */}
       {upcoming.length > 0 && (
         <FinishedServices
-          key={lists.upcomingOpen ? 'upcoming-open' : 'upcoming-shut'}
+          key={upcomingStartsOpen ? 'upcoming-open' : 'upcoming-shut'}
           count={upcoming.length}
           id={`${finishedId}-upcoming`}
           label="Upcoming services"
-          defaultOpen={lists.upcomingOpen}
+          defaultOpen={upcomingStartsOpen}
         >
           {render(upcoming, false)}
         </FinishedServices>

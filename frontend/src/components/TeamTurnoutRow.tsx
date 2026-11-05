@@ -85,11 +85,20 @@ function Figure({ label, value, sub, tone }: { label: string; value: string; sub
  * came, and both are shares of the same roster so the drop can be read
  * straight off.
  */
-export function TeamTurnoutRow({ name, ring }: { name: string; ring: TurnoutRing }) {
+export function TeamTurnoutRow({
+  name,
+  ring,
+  to = '/availability',
+}: {
+  name: string
+  ring: TurnoutRing
+  /** Where a touch goes: the team's own answers for this service, opened. */
+  to?: string
+}) {
   const settled = ring.state === 'settled'
   return (
     <Link
-      to="/availability"
+      to={to}
       className="flex items-start gap-3.5 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong"
     >
       <TeamRing predictedPct={ring.predictedPct} actualPct={ring.actualPct} color={ring.color} />

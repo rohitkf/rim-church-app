@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Lifespan } from '../components/Lifespan'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -33,6 +34,11 @@ import {
   opensByDefault,
 } from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import {
+  AVAILABILITY_SERVICE_PARAM,
+  AVAILABILITY_TEAM_PARAM,
+  availabilityTeamAnchor,
+} from '../lib/availabilityLink'
 import { inStartOrder } from '../lib/upcomingServices'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -272,6 +278,15 @@ export function AvailabilityPage() {
    * service is in, and a single set of ids cannot carry both facts.
    */
   const { isExpanded: isToggled, toggle: toggleService } = useExpanded()
+
+  /*
+   * Arrived from a team on the dashboard: that service and that team.
+   * The service opens as though it opened itself — a touch still closes
+   * it — and the team's responses open below, scrolled into view.
+   */
+  const [searchParams] = useSearchParams()
+  const focusServiceId = searchParams.get(AVAILABILITY_SERVICE_PARAM)
+  const focusTeamId = searchParams.get(AVAILABILITY_TEAM_PARAM)
 
   // Three weeks, not the rota's week. Availability is asked in advance —
   // somebody knows in the second week of the month that they are away on
@@ -653,6 +668,30 @@ export function AvailabilityPage() {
     myRow(serviceId, departmentId)?.status ?? null
 
   const isLoading = servicesQuery.isLoading || departmentsQuery.isLoading || ownDeptsQuery.isLoading
+
+  /*
+   * Scroll to the team asked for, once, when the page has stopped moving:
+   * the running order and the rosters both change the height of what sits
+   * above it, so scrolling as soon as the row exists lands short.
+   */
+  const scrolledToFocus = useRef(false)
+  const settledForScroll =
+    !isLoading && !startsQuery.isLoading && !membersQuery.isLoading && !availabilityQuery.isLoading
+  useEffect(() => {
+    if (scrolledToFocus.current || !focusServiceId || !focusTeamId || !settledForScroll) return
+    const anchor = availabilityTeamAnchor(focusServiceId, focusTeamId)
+    if (!document.getElementById(anchor)) return
+    scrolledToFocus.current = true
+    // A beat later still: the smaller reads (call times, history, late
+    // asks) land just after and nudge the row, and a scroll already under
+    // way does not follow it.
+    const timer = window.setTimeout(() => {
+      const row = document.getElementById(anchor)
+      // Guarded: jsdom has no scrollIntoView.
+      if (row && typeof row.scrollIntoView === 'function') row.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [focusServiceId, focusTeamId, settledForScroll])
   const error = servicesQuery.error || departmentsQuery.error || ownDeptsQuery.error
 
   /**
@@ -688,7 +727,8 @@ export function AvailabilityPage() {
     // is open when those two disagree: the ones needing an answer now
     // start open and close on a touch; a finished one, or one three
     // weeks out, starts closed and opens on a touch.
-    const open = opensByDefault(inNowGroup, finished) !== isToggled(service.id)
+    const open =
+      (opensByDefault(inNowGroup, finished) || service.id === focusServiceId) !== isToggled(service.id)
     const heading = (
         <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-headline-md">{service.service_type}</h2>
@@ -842,10 +882,13 @@ export function AvailabilityPage() {
 
           // A team still owed answers keeps the amber row: what
           // needs a person outranks whose team it is.
+          const focused = service.id === focusServiceId && dept.id === focusTeamId
           return (
             <li
               key={dept.id}
-              className={`rounded-[var(--radius-row)] px-4 py-3.5 sm:px-5 ${
+              id={availabilityTeamAnchor(service.id, dept.id)}
+              // Clear of the sticky header and the floating service title.
+              className={`scroll-mt-32 rounded-[var(--radius-row)] px-4 py-3.5 sm:px-5 ${
                 summary.noAnswer > 0
                   ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_8%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_20%,transparent)]'
                   : 'bg-raised hairline'
@@ -1030,7 +1073,9 @@ export function AvailabilityPage() {
               )}
 
               {(leads || isOverwatch || can('avail.history', { departmentId: dept.id })) && teamMembers.length > 0 && (
-                <details className="mt-3">
+                // Opened for the team the dashboard was touched on; after
+                // that it is the reader's, since the prop never changes.
+                <details className="mt-3" open={focused || undefined}>
                   <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-200 hover:text-on-surface">
                     Team responses ({coreAnswered}/{coreIds.length})
                     {guests.length > 0 && ` + ${guests.length} guest${guests.length === 1 ? '' : 's'}`}
@@ -1217,6 +1262,9 @@ export function AvailabilityPage() {
           <ServiceSections
             sections={sections}
             finishedId="finished-availability"
+            // A link from the dashboard into a folded section opens it.
+            upcomingOpen={sections.upcoming.some((svc) => svc.id === focusServiceId)}
+            finishedOpen={sections.finished.some((svc) => svc.id === focusServiceId)}
             empty="Every service in the window is over. What was answered is under Finished services."
             render={(list) => (
               <div className="flex flex-col gap-6">
