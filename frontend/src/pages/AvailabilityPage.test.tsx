@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { AvailabilityPage } from './AvailabilityPage'
 
 /*
@@ -121,11 +122,13 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 
-function show() {
+function show(at = '/availability') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <AvailabilityPage />
+      <MemoryRouter initialEntries={[at]}>
+        <AvailabilityPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
@@ -1108,5 +1111,81 @@ describe('Remind everyone who hasn’t answered (0221)', () => {
     // The page has drawn its teams by the time an Admin's button would show.
     await waitFor(() => expect(state.read).toContain('availability'))
     expect(within(card).queryByRole('button', { name: /Remind everyone/ })).toBeNull()
+  })
+})
+
+/*
+ * Arriving from a team on the dashboard.
+ *
+ * Touching Media under next Sunday's English service used to land at the
+ * top of the page, with that service folded and the team's responses
+ * shut. The link carries both now, and the page opens the two of them.
+ */
+describe('arriving from a team on the dashboard', () => {
+  beforeEach(() => {
+    // A Head of the team, who may read its responses.
+    state.leads = true
+    state.rows = {
+      department_members: [
+        {
+          id: 'm1',
+          department_id: 'd1',
+          user_id: 'u2',
+          member_type: 'core',
+          created_at: '2026-01-01T00:00:00Z',
+          profiles: {
+            id: 'u2',
+            first_name: 'Joel',
+            last_name: 'Skaria',
+            email: 'joel@rehoboth.org',
+            phone: null,
+            avatar_url: null,
+          },
+        },
+      ],
+    }
+  })
+
+  const responsesOf = (card: HTMLElement) =>
+    within(card).getByText(/Team responses/).closest('details')!
+
+  it('opens that service, though it would have started folded', async () => {
+    show('/availability?service=s2&team=d1')
+    await screen.findAllByText('Joel Skaria')
+    expect(teamsOf(cardFor(/September 13/))).not.toHaveAttribute('hidden')
+    // The rest keep their own way of opening.
+    expect(teamsOf(cardFor(/Today/))).not.toHaveAttribute('hidden')
+    expect(teamsOf(cardFor(/Today/, 'Malayalam Service'))).toHaveAttribute('hidden')
+  })
+
+  it('opens that team’s responses for whoever may read them', async () => {
+    show('/availability?service=s2&team=d1')
+    await screen.findAllByText('Joel Skaria')
+    expect(responsesOf(cardFor(/September 13/) as HTMLElement)).toHaveAttribute('open')
+    // Only there: the same team under today's service stays shut.
+    expect(responsesOf(cardFor(/Today/) as HTMLElement)).not.toHaveAttribute('open')
+  })
+
+  it('still folds on a touch, like a service that opened itself', async () => {
+    const user = show('/availability?service=s2&team=d1')
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/September 13/)
+    await user.click(within(card).getByRole('button', { expanded: true }))
+    await waitFor(() => expect(teamsOf(card)).toHaveAttribute('hidden'))
+  })
+
+  it('opens Upcoming too when the service is folded inside it', async () => {
+    show('/availability?service=s3&team=d1')
+    await screen.findAllByText('Joel Skaria')
+    const card = cardFor(/September 20/) as HTMLElement
+    expect(teamsOf(card)).not.toHaveAttribute('hidden')
+    expect(responsesOf(card)).toHaveAttribute('open')
+  })
+
+  it('opens nothing extra without the link', async () => {
+    show()
+    await screen.findAllByText('Joel Skaria')
+    expect(teamsOf(cardFor(/September 13/))).toHaveAttribute('hidden')
+    expect(responsesOf(cardFor(/Today/) as HTMLElement)).not.toHaveAttribute('open')
   })
 })

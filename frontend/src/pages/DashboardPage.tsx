@@ -40,6 +40,7 @@ import { availabilitySummary } from '../lib/availabilitySummary'
 import { AvailabilityBar } from '../components/AvailabilityBar'
 import { combineTurnout, turnoutFrom } from '../lib/turnout'
 import { TeamTurnoutRow } from '../components/TeamTurnoutRow'
+import { availabilityLink } from '../lib/availabilityLink'
 import { formatServiceDay, shiftSundayIso, shortServiceDay } from '../lib/sunday'
 import { serviceStanding, type ServiceStanding } from '../lib/serviceState'
 import {
@@ -1008,6 +1009,7 @@ export function DashboardPage() {
                             key={dept.id}
                             name={dept.name}
                             ring={turnoutRing(summary, turnout)}
+                            to={availabilityLink(service.id, dept.id)}
                           />
                         ))}
                       </div>
