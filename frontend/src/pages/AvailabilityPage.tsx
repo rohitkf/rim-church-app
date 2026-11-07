@@ -34,6 +34,7 @@ import {
   opensByDefault,
 } from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { REMINDERS_KEY, withoutAnswered, type OpenRequest } from '../lib/reminders'
 import {
   AVAILABILITY_SERVICE_PARAM,
   AVAILABILITY_TEAM_PARAM,
@@ -573,7 +574,18 @@ export function AvailabilityPage() {
       )
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['availability'] }),
+    onSuccess: (_data, { serviceId, departmentId }) => {
+      // The dashboard's "Give availability" reminder, gone now rather than
+      // whenever its next fetch lands (lib/reminders withoutAnswered).
+      const team = (departmentsQuery.data ?? []).find((d) => d.id === departmentId)?.name
+      if (team) {
+        queryClient.setQueriesData<OpenRequest[]>({ queryKey: REMINDERS_KEY }, (rows) =>
+          rows ? withoutAnswered(rows, serviceId, team) : rows,
+        )
+      }
+      void queryClient.invalidateQueries({ queryKey: REMINDERS_KEY })
+      return queryClient.invalidateQueries({ queryKey: ['availability'] })
+    },
   })
 
   /*

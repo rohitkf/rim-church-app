@@ -122,8 +122,10 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 
-function show(at = '/availability') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function show(
+  at = '/availability',
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[at]}>
@@ -716,6 +718,24 @@ describe('the note beside an answer', () => {
    * A note is part of an answer, not a thing on its own: there is nothing
    * for it to hang off until somebody has said yes or no.
    */
+  /*
+   * The dashboard's "Give availability" banner is drawn from its cached
+   * list the moment it opens again, so the answer takes it off that list
+   * rather than waiting for the next fetch to.
+   */
+  it('takes the answered service off the dashboard’s reminders at once', async () => {
+    standAt(BEFORE_DEADLINE)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(
+      ['my-requests', 'u1'],
+      [{ kind: 'availability', ref_id: 's1', title: 'English Service', detail: 'Media', on_date: SUNDAY, due_at: null, created_at: null }],
+    )
+    const user = show('/availability', client)
+    const card = await openCard()
+    await user.click(within(card).getByRole('button', { name: 'Yes' }))
+    await waitFor(() => expect(client.getQueryData(['my-requests', 'u1'])).toEqual([]))
+  })
+
   it('offers nothing to annotate before an answer is given', async () => {
     standAt(BEFORE_DEADLINE)
     show()

@@ -98,6 +98,28 @@ export const REMINDER_KINDS: Record<string, KindEntry> = {
   },
 }
 
+/**
+ * The open requests once I have answered for one team at one service.
+ *
+ * The dashboard keeps its last copy of the list, and that copy is what
+ * shows the moment it is opened again — before the fresh one arrives, and
+ * for as long as that takes on a slow phone. So an answer takes its team
+ * off the cached request at once: the service's reminder goes when no
+ * team is left on it, and the server's own list follows behind.
+ */
+export function withoutAnswered(rows: OpenRequest[], serviceId: string, teamName: string): OpenRequest[] {
+  const out: OpenRequest[] = []
+  for (const r of rows) {
+    if (r.kind !== 'availability' || r.ref_id !== serviceId) {
+      out.push(r)
+      continue
+    }
+    const left = (r.detail ?? '').split(', ').filter((t) => t && t !== teamName)
+    if (left.length > 0) out.push({ ...r, detail: left.join(', ') })
+  }
+  return out
+}
+
 /** The rows as reminders, soonest due first; a kind the app does not know is left out. */
 export function toReminders(rows: OpenRequest[], now: number): Reminder[] {
   const out: Reminder[] = []
