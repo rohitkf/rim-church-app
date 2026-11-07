@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toReminders, type OpenRequest } from './reminders'
+import { toReminders, withoutAnswered, type OpenRequest } from './reminders'
 
 const now = new Date('2026-10-23T12:00:00Z').getTime()
 const row = (over: Partial<OpenRequest>): OpenRequest => ({
@@ -46,5 +46,35 @@ describe('what the dashboard reminds somebody of (0178)', () => {
 
   it('leaves out a kind the app does not know yet', () => {
     expect(toReminders([row({ kind: 'something_new' })], now)).toEqual([])
+  })
+})
+
+/*
+ * Answering takes the reminder off the dashboard at once, rather than
+ * leaving the cached "Give availability" up until the next fetch lands.
+ */
+describe('withoutAnswered', () => {
+  const ask = (ref: string, teams: string): OpenRequest => ({
+    kind: 'availability',
+    ref_id: ref,
+    title: 'English Service',
+    detail: teams,
+    on_date: '2026-11-15',
+    due_at: null,
+    created_at: null,
+  })
+  const poll: OpenRequest = { ...ask('s1', ''), kind: 'poll', detail: null }
+
+  it('drops the service once its only team is answered', () => {
+    expect(withoutAnswered([ask('s1', 'Media')], 's1', 'Media')).toEqual([])
+  })
+
+  it('keeps it for the teams still to answer', () => {
+    expect(withoutAnswered([ask('s1', 'Audio, Media')], 's1', 'Media')).toEqual([ask('s1', 'Audio')])
+  })
+
+  it('leaves other services and other kinds alone', () => {
+    const rows = [ask('s2', 'Media'), poll]
+    expect(withoutAnswered(rows, 's1', 'Media')).toEqual(rows)
   })
 })
