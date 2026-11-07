@@ -13,8 +13,10 @@ import { useErrorText } from '../lib/useErrorText'
 import {
   MARITAL_STATUSES,
   VISA_TYPES,
+  MISSING_TEXT,
   isSettledStatus,
   invalidAnswers,
+  joiningFieldId,
   missingAnswers,
   toProfileRows,
   type JoiningAnswers,
@@ -94,10 +96,19 @@ function YesNo({
 }
 
 export function JoiningPage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile, refreshProfile, signOut } = useAuth()
   const errorText = useErrorText()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /*
+   * Signed out under their feet. The save then goes up with no sign-in at
+   * all, the database refuses an anonymous visitor, and the app used to
+   * call that "You don't have permission to do that" — which a newcomer
+   * with every right to save their own details could do nothing with
+   * (Jessa, November 2026: three refused saves, then signing in again
+   * fixed it). So it is said as what it is, with the way out.
+   */
+  const [signedOut, setSignedOut] = useState(false)
   /** Set on the first attempt to finish, so nothing is red before it is due. */
   const [tried, setTried] = useState(false)
   /** Whether what is in the phone box is a number; the box itself knows. */
@@ -139,18 +150,77 @@ export function JoiningPage() {
   // Red when it is blank after a try to go on, or filled in and wrong.
   const wants = (field: keyof JoiningAnswers) => (tried && missing.includes(field)) || !!bad[field]
   const redRing = (field: keyof JoiningAnswers) => (wants(field) ? 'field-error' : '')
-  const problem = (field: keyof JoiningAnswers) =>
-    bad[field] ? <span className="text-label-sm text-error">{bad[field]}</span> : null
+  // What is wrong with a field, in words: wrong beats blank, and a blank
+  // only speaks up once they have tried to go in.
+  const messageFor = (field: keyof JoiningAnswers) =>
+    bad[field] ?? (tried && missing.includes(field) ? MISSING_TEXT[field].message : null)
+  const problem = (field: keyof JoiningAnswers) => {
+    const text = messageFor(field)
+    return text ? (
+      <span id={`${joiningFieldId(field)}-error`} className="text-label-sm text-error">
+        {text}
+      </span>
+    ) : null
+  }
+  /** For the control itself: marked wrong, and pointing at the words. */
+  const described = (field: keyof JoiningAnswers) =>
+    messageFor(field) ? { 'aria-invalid': true, 'aria-describedby': `${joiningFieldId(field)}-error` } : {}
   const settled = isSettledStatus(answers.visaType)
+
+  /*
+   * Everything standing between them and the app, in the order it sits on
+   * the page — so "take me there" goes to the first, and the list by the
+   * button reads top to bottom.
+   */
+  const ORDER: (keyof JoiningAnswers)[] = [
+    'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary',
+    'visaType', 'visaHasExpiry', 'visaExpiry', 'hasDbs',
+  ]
+  // Only questions on the screen: the expiry ones appear once a status is
+  // chosen, and naming a question nobody can see is its own confusion.
+  const onScreen = (f: keyof JoiningAnswers) =>
+    (f !== 'visaHasExpiry' && f !== 'visaExpiry') || !!answers.visaType
+  const toFix = ORDER.filter(
+    (f) => onScreen(f) && (missing.includes(f) || !!bad[f] || (f === 'phone' && phoneBad)),
+  )
+
+  /** Bring a question into view and put the cursor in it. */
+  const goTo = (field: keyof JoiningAnswers) => {
+    const place = document.getElementById(joiningFieldId(field))
+    if (!place) return
+    // Guarded: jsdom has no scrollIntoView.
+    if (typeof place.scrollIntoView === 'function') place.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    // The box to type in before any picker beside it (the phone's country).
+    const control =
+      place.querySelector<HTMLElement>('input') ??
+      place.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])')
+    control?.focus({ preventScroll: true })
+  }
 
   async function finish(event: FormEvent) {
     event.preventDefault()
     setTried(true)
-    if (blocked) return
+    if (blocked) {
+      // On a phone the blank is nearly always off the screen; a button
+      // that does nothing visible is what left people stuck.
+      if (toFix[0]) goTo(toFix[0])
+      return
+    }
     if (!profile) return
 
     setSaving(true)
     setError(null)
+    setSignedOut(false)
+    // Ask for the sign-in first: a lapsed one is refreshed here if it can
+    // be, and if it cannot there is no point sending the answers.
+    const { data: current } = await supabase.auth.getSession()
+    const session =
+      current.session ?? (await supabase.auth.refreshSession()).data.session
+    if (!session) {
+      setSaving(false)
+      setSignedOut(true)
+      return
+    }
     const rows = toProfileRows(answers)
     const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
       supabase
@@ -162,7 +232,13 @@ export function JoiningPage() {
     setSaving(false)
 
     if (profileError || sensitiveError) {
-      setError(errorText(profileError ?? sensitiveError, 'Could not save your details.'))
+      const err = profileError ?? sensitiveError
+      // Refused as nobody: the sign-in lapsed between the check and the save.
+      if ((err as { code?: string } | null)?.code === '42501' && !(await supabase.auth.getSession()).data.session) {
+        setSignedOut(true)
+        return
+      }
+      setError(errorText(err, 'Could not save your details.'))
       return
     }
     await refreshProfile()
@@ -184,6 +260,9 @@ export function JoiningPage() {
         A few things before you start — they go straight onto your profile, and you can change any
         of them later.
       </p>
+      <p className="mt-2 text-body-sm text-on-surface-variant">
+        Every question needs an answer unless it says optional.
+      </p>
 
       <form onSubmit={finish} className="mt-6 flex flex-col gap-5">
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
@@ -192,36 +271,42 @@ export function JoiningPage() {
           </h2>
           <div className="mt-4 flex flex-col gap-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
-              <label className={`min-w-0 flex-1 ${labelClasses}`}>
+              <label id={joiningFieldId('firstName')} className={`min-w-0 flex-1 ${labelClasses}`}>
                 First name
                 <input
                   value={answers.firstName}
                   onChange={(e) => set('firstName', e.target.value)}
-                  aria-invalid={wants('firstName') || undefined}
+                  autoComplete="given-name"
+                  {...described('firstName')}
                   className={`${inputClasses} ${redRing('firstName')}`}
                 />
                 {problem('firstName')}
               </label>
-              <label className={`min-w-0 flex-1 ${labelClasses}`}>
+              <label id={joiningFieldId('lastName')} className={`min-w-0 flex-1 ${labelClasses}`}>
                 Last name
                 <input
                   value={answers.lastName}
                   onChange={(e) => set('lastName', e.target.value)}
-                  aria-invalid={wants('lastName') || undefined}
+                  autoComplete="family-name"
+                  {...described('lastName')}
                   className={`${inputClasses} ${redRing('lastName')}`}
                 />
                 {problem('lastName')}
               </label>
             </div>
-            <PhoneField
-              value={answers.phone}
-              onChange={(v) => set('phone', v)}
-              onStatus={setPhoneStatus}
-              showError={tried}
-              normalise
-              inputClassName={wants('phone') ? 'field-error' : ''}
-            />
-            <label className={labelClasses}>
+            <div id={joiningFieldId('phone')} className="flex flex-col gap-1.5">
+              <PhoneField
+                value={answers.phone}
+                onChange={(v) => set('phone', v)}
+                onStatus={setPhoneStatus}
+                showError={tried}
+                normalise
+                inputClassName={wants('phone') ? 'field-error' : ''}
+              />
+              {/* A typed number that is wrong is the field's own to say. */}
+              {problem('phone')}
+            </div>
+            <label id={joiningFieldId('dob')} className={labelClasses}>
               Date of birth
               <DateField
                 value={answers.dob}
@@ -230,7 +315,7 @@ export function JoiningPage() {
                 max={todayIso()}
                 className={`${fieldTriggerClasses} ${wants('dob') ? 'field-error' : ''}`}
               />
-              {bad.dob ? problem('dob') : <AgeNote dob={answers.dob} />}
+              {messageFor('dob') ? problem('dob') : <AgeNote dob={answers.dob} />}
             </label>
           </div>
         </section>
@@ -240,7 +325,7 @@ export function JoiningPage() {
             Family
           </h2>
           <div className="mt-4 flex flex-col gap-4">
-            <label className={labelClasses}>
+            <label id={joiningFieldId('maritalStatus')} className={labelClasses}>
               Marital status
               <Select
                 value={answers.maritalStatus}
@@ -250,11 +335,12 @@ export function JoiningPage() {
                 className={`${triggerClasses} ${redRing('maritalStatus')}`}
                 options={MARITAL_STATUSES.map((m) => ({ value: m.value, label: m.label }))}
               />
+              {problem('maritalStatus')}
             </label>
             {/* Asked of somebody married, and of nobody else: a blank
                 anniversary on a single person is not missing information. */}
             {answers.maritalStatus === 'married' && (
-              <label className={labelClasses}>
+              <label id={joiningFieldId('anniversary')} className={labelClasses}>
                 Wedding anniversary
                 <DateField
                   value={answers.anniversary}
@@ -263,7 +349,7 @@ export function JoiningPage() {
                   max={todayIso()}
                   className={`${fieldTriggerClasses} ${wants('anniversary') ? 'field-error' : ''}`}
                 />
-                {bad.anniversary ? (
+                {messageFor('anniversary') ? (
                   problem('anniversary')
                 ) : (
                   <span className="text-label-sm text-on-surface-faint">
@@ -283,7 +369,7 @@ export function JoiningPage() {
             Only you and the Owner can see these.
           </p>
           <div className="mt-4 flex flex-col gap-4">
-            <label className={labelClasses}>
+            <label id={joiningFieldId('visaType')} className={labelClasses}>
               Your status in the UK
               <Select
                 value={answers.visaType}
@@ -293,12 +379,13 @@ export function JoiningPage() {
                 className={`${triggerClasses} ${redRing('visaType')}`}
                 options={VISA_TYPES.map((v) => ({ value: v.value, label: v.label }))}
               />
+              {problem('visaType')}
             </label>
 
             {/* A citizen and somebody settled here are not asked: their
                 status does not run out, and asking implies it does. */}
             {answers.visaType && !settled && (
-              <div className={labelClasses}>
+              <div id={joiningFieldId('visaHasExpiry')} className={labelClasses}>
                 <span>Does it have an expiry date?</span>
                 <YesNo
                   label="Does your visa have an expiry date?"
@@ -306,11 +393,12 @@ export function JoiningPage() {
                   value={answers.visaHasExpiry}
                   onChange={(next) => set('visaHasExpiry', next)}
                 />
+                {problem('visaHasExpiry')}
               </div>
             )}
 
             {answers.visaType && !settled && answers.visaHasExpiry === true && (
-              <label className={labelClasses}>
+              <label id={joiningFieldId('visaExpiry')} className={labelClasses}>
                 Expiry date
                 <DateField
                   value={answers.visaExpiry}
@@ -330,7 +418,7 @@ export function JoiningPage() {
               />
             )}
 
-            <div className={labelClasses}>
+            <div id={joiningFieldId('hasDbs')} className={labelClasses}>
               <span>Do you have a valid DBS check?</span>
               <YesNo
                 label="Do you have a valid DBS check?"
@@ -338,6 +426,7 @@ export function JoiningPage() {
                 value={answers.hasDbs}
                 onChange={(next) => set('hasDbs', next)}
               />
+              {problem('hasDbs')}
               <span className="text-label-sm text-on-surface-faint">
                 Some teams need one. If you are not sure, answer no — a head will tell you.
               </span>
@@ -345,12 +434,48 @@ export function JoiningPage() {
           </div>
         </section>
 
-        {tried && blocked && (
-          <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
-            {missing.length > 0
-              ? `There ${missing.length === 1 ? 'is one thing' : `are ${missing.length} things`} still to answer.`
-              : 'Check the fields marked in red before you go in.'}
-          </p>
+        {/* What is left, by name, each a way back to it — not a count
+            that leaves them hunting up the page for red. */}
+        {tried && toFix.length > 0 && (
+          <div
+            role="alert"
+            className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2.5 text-body-sm text-on-error-container"
+          >
+            <p className="font-medium">
+              {toFix.length === 1
+                ? 'One thing still needs your attention:'
+                : `${toFix.length} things still need your attention:`}
+            </p>
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {toFix.map((f) => (
+                <li key={f}>
+                  <button type="button" onClick={() => goTo(f)} className="text-left underline underline-offset-2">
+                    {MISSING_TEXT[f].label}
+                    {missing.includes(f) ? '' : ' — check what you entered'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {signedOut && (
+          <div
+            role="alert"
+            className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2.5 text-body-sm text-on-error-container"
+          >
+            <p className="font-medium">You’ve been signed out on this phone.</p>
+            <p className="mt-1">
+              Nothing was saved. Sign in again with your email and password, and you’ll come back to
+              this form to finish.
+            </p>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="mt-2 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary"
+            >
+              Sign in again
+            </button>
+          </div>
         )}
         {error && (
           <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">

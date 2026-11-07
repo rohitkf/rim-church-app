@@ -111,6 +111,32 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
   return missing
 }
 
+/**
+ * What each unanswered question says once somebody has tried to go in, and
+ * what it is called in the list of what is still to do.
+ *
+ * A red outline alone left people tapping "Finish and go in" again and
+ * again: on a phone the empty box is usually off the screen, and an outline
+ * does not say what it wants. So each blank says so in words, under itself,
+ * and the list by the button names them.
+ */
+export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message: string }> = {
+  firstName: { label: 'First name', message: 'Enter your first name.' },
+  lastName: { label: 'Last name', message: 'Enter your last name.' },
+  phone: { label: 'Phone number', message: 'Enter your phone number.' },
+  dob: { label: 'Date of birth', message: 'Choose your date of birth.' },
+  maritalStatus: { label: 'Marital status', message: 'Choose your marital status.' },
+  anniversary: { label: 'Wedding anniversary', message: 'Choose your wedding anniversary.' },
+  visaType: { label: 'Your status in the UK', message: 'Choose your status in the UK.' },
+  visaHasExpiry: { label: 'Whether your status has an expiry date', message: 'Answer yes or no.' },
+  visaExpiry: { label: 'Expiry date', message: 'Choose the expiry date.' },
+  hasDbs: { label: 'DBS check', message: 'Answer yes or no.' },
+  visaNote: { label: 'Comment', message: '' },
+}
+
+/** The id of the place on the form a question lives, for "take me there". */
+export const joiningFieldId = (field: keyof JoiningAnswers) => `joining-${field}`
+
 const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M} '’.-]*$/u
 
 function nameProblem(value: string): string | null {

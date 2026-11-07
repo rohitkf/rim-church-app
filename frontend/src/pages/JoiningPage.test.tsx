@@ -13,6 +13,9 @@ import { JoiningPage } from './JoiningPage'
 const state = vi.hoisted(() => ({
   written: [] as { table: string; row: Record<string, unknown> }[],
   refreshed: 0,
+  /** Whether the phone is still signed in when they press finish. */
+  signedIn: true,
+  signedOut: 0,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -32,6 +35,10 @@ vi.mock('../auth/AuthContext', () => ({
       state.refreshed += 1
       return Promise.resolve()
     },
+    signOut: () => {
+      state.signedOut += 1
+      return Promise.resolve()
+    },
   }),
 }))
 
@@ -39,6 +46,11 @@ vi.mock('../components/AppMark', () => ({ AppMark: () => null }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
+    auth: {
+      getSession: () =>
+        Promise.resolve({ data: { session: state.signedIn ? { user: { id: 'u1' } } : null } }),
+      refreshSession: () => Promise.resolve({ data: { session: null } }),
+    },
     from: (table: string) => ({
       update: (row: Record<string, unknown>) => ({
         eq: () => {
@@ -53,6 +65,8 @@ vi.mock('../lib/supabaseClient', () => ({
 beforeEach(() => {
   state.written = []
   state.refreshed = 0
+  state.signedIn = true
+  state.signedOut = 0
 })
 
 const finish = () => userEvent.click(screen.getByRole('button', { name: /Finish and go in/ }))
@@ -81,8 +95,21 @@ describe('joining', () => {
     render(<JoiningPage />)
     await finish()
 
-    expect(screen.getByText(/still to answer/)).toBeInTheDocument()
+    // Named, each a way back to its question, not just a count.
+    const list = screen.getByRole('alert')
+    expect(list).toHaveTextContent(/things still need your attention/)
+    expect(within(list).getByRole('button', { name: 'Phone number' })).toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: 'DBS check' })).toBeInTheDocument()
+    // And said under the question itself, in words.
+    expect(screen.getByText('Enter your phone number.')).toBeInTheDocument()
+    expect(screen.getByText('Choose your marital status.')).toBeInTheDocument()
     expect(state.written).toHaveLength(0)
+  })
+
+  it('says nothing is wrong before they have tried to go in', () => {
+    render(<JoiningPage />)
+    expect(screen.queryByText('Enter your phone number.')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('asks a married person for their anniversary, and nobody else', async () => {
@@ -147,6 +174,28 @@ describe('joining', () => {
     })
     // And the session is told, or the form would still be standing there.
     expect(state.refreshed).toBe(1)
+  })
+
+  /*
+   * Signed out while the form was open. The save went up as nobody, was
+   * refused, and the page said "You don't have permission to do that" —
+   * true of an anonymous visitor, and no help to the person holding the
+   * phone (November 2026).
+   */
+  it('says when the phone has been signed out, and offers to sign in again', async () => {
+    state.signedIn = false
+    render(<JoiningPage />)
+    await fillTheBasics()
+    await choose('Your status in the UK', 'British citizen')
+    await userEvent.click(within(screen.getByRole('group', { name: /DBS/i })).getByRole('button', { name: 'No' }))
+
+    await finish()
+
+    expect(await screen.findByText(/signed out on this phone/)).toBeInTheDocument()
+    expect(screen.queryByText(/permission/)).toBeNull()
+    expect(state.written).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in again' }))
+    expect(state.signedOut).toBe(1)
   })
 
   it('says what it will save, and shows the age beside a date of birth', async () => {
