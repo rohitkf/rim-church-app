@@ -48,6 +48,7 @@ import { isCoordinatorRole } from '../lib/useTeamCoordinator'
 import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
+import { seesEveryTeamRota } from '../lib/rotaTeams'
 import { usePermissions } from '../lib/usePermissions'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -228,7 +229,13 @@ export function TeamRotaPage() {
   // Somebody the grid lets change any team's rota sees every team, the
   // way an Admin always has.
   // way an Admin always has — and so does Overwatch, to read (0187).
-  const everyTeam = seesAllTeams || can('rota.assign')
+  // And the Service Flow Coordinators, to read (lib/rotaTeams).
+  const everyTeam = seesEveryTeamRota({
+    seesAllTeams,
+    assignsAnywhere: can('rota.assign'),
+    ownTeamIds: ownDeptsQuery.teamIds,
+    departments: departmentsQuery.data ?? [],
+  })
   const myDepartments = useMemo(() => {
     const all = departmentsQuery.data ?? []
     if (everyTeam) return all
