@@ -114,17 +114,20 @@ describe('the Countdown page', () => {
     expect(screen.getByText(/Over the planned end/)).toBeInTheDocument()
   })
 
-  it('says when the next service starts before any is on', async () => {
+  it('shows a blank clock before the service starts, not a countdown to it', async () => {
     vi.setSystemTime(at('09:00'))
     show()
-    expect(await screen.findByText(/English Service starts at/)).toBeInTheDocument()
+    expect(await screen.findByText('--:--:--')).toBeInTheDocument()
+    expect(screen.getByText('No service running')).toBeInTheDocument()
     expect(screen.queryByRole('timer')).toBeNull()
+    expect(screen.queryByText(/English Service/)).toBeNull()
   })
 
-  it('says nothing is running once the service has been called over', async () => {
+  it('shows a blank clock once the service has been called over', async () => {
     db.rows.services = [{ id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: at('11:10').toISOString() }]
     vi.setSystemTime(at('11:15'))
     show()
-    expect(await screen.findByText(/No service is running now/)).toBeInTheDocument()
+    expect(await screen.findByText('--:--:--')).toBeInTheDocument()
+    expect(screen.queryByRole('timer')).toBeNull()
   })
 })
