@@ -41,6 +41,8 @@ export interface DiaryEntry {
   span?: { from: string; to: string; day: number; of: number } | null
   /** How it repeats, when it is one of a series (0234): "every week", shown as a Repeats chip. */
   repeats?: string | null
+  /** Made as a Meeting rather than an Event (0262) — the maker's choice, not whether it repeats. */
+  meeting?: boolean
   /** Its links (0240), each a button with its name. */
   links?: EventLink[]
   /** What was written under "Anything else", shown under the row. */
@@ -89,6 +91,8 @@ export interface DiaryEvent {
   /** The repeats it belongs to, and how they repeat (0234); null for a one-off. */
   series_id?: string | null
   repeat_rule?: string | null
+  /** Event or Meeting, as whoever made it chose (0262). */
+  category?: 'event' | 'meeting'
   creator?: { first_name: string; last_name: string } | null
   department?: { name: string; color: string | null } | null
   /** Every team it is for (0237), first first; none is all teams. */
@@ -269,6 +273,7 @@ export function buildDiary({
           : null,
         color: event.department?.color ?? null,
         repeats: repeatShort(event.repeat_rule),
+        meeting: event.category === 'meeting',
         links: linksOf(event),
         notes: event.details?.trim() || null,
         span: runsTo

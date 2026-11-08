@@ -7,7 +7,7 @@ import { celebrationDate, fetchBirthDates } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Field, FieldGroup, Overlay, PageHeader, inputClasses } from '../components/Surface'
+import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SegmentedControl, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
@@ -88,14 +88,16 @@ async function fetchCouples() {
  * now, leaving blue to mean "a service" alone.
  */
 /*
- * Repeating events are a category of their own on this page (0234): a
- * weekly prayer meeting is a different thing to look for from a one-off
- * workday. Underneath they are still events — read, edited and removed as
- * events — so the category is worked out from the entry, not stored.
+ * Meetings are a category of their own on this page: a weekly prayer
+ * meeting is a different thing to look for from a one-off workday.
+ * Underneath they are still events — read, edited and removed as events.
+ * Which one an entry is was worked out from whether it repeats (0234); it
+ * is the maker's choice now, stored on the entry (0262). The key stays
+ * 'repeating' (the address says ?show=meetings) so saved links still work.
  */
 type Category = DiaryKind | 'repeating'
 
-const categoryOf = (entry: DiaryEntry): Category => (entry.kind === 'event' && entry.repeats ? 'repeating' : entry.kind)
+const categoryOf = (entry: DiaryEntry): Category => (entry.kind === 'event' && entry.meeting ? 'repeating' : entry.kind)
 
 // Called Meetings, as people call them: a weekly prayer meeting, the monthly members' meeting.
 const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Meeting' }
@@ -357,6 +359,8 @@ export function EventsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
+  /** Event or Meeting (0262): the person adding it says which; nothing is assumed. */
+  const [category, setCategory] = useState<'event' | 'meeting' | null>(null)
   const [date, setDate] = useState('')
   /** The last day, when it runs on. Null is the single-day majority. */
   const [endDate, setEndDate] = useState<string | null>(null)
@@ -510,6 +514,7 @@ export function EventsPage() {
     mutationFn: async () => {
       const fields = {
         title: title.trim(),
+        category: category ?? 'event',
         event_date: date,
         ends_on: endDate,
         start_time: startTime || null,
@@ -532,6 +537,7 @@ export function EventsPage() {
         const { error: seriesError } = await supabase.from('church_event_series').insert({
           id,
           title: fields.title,
+          category: fields.category,
           details: fields.details,
           start_time: fields.start_time,
           end_time: fields.end_time,
@@ -670,7 +676,7 @@ export function EventsPage() {
   function closeForm() {
     setAdding(false)
     setEditing(null)
-    setTitle(''); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
+    setTitle(''); setCategory(null); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
     setLocation(''); setLinks([]); setDetails(''); setDepartmentIds([])
     setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
   }
@@ -691,6 +697,7 @@ export function EventsPage() {
   function openEdit(row: DiaryEvent) {
     setEditing(row)
     setTitle(row.title)
+    setCategory(row.category ?? 'event')
     setDate(row.event_date)
     setEndDate(row.ends_on && row.ends_on > row.event_date ? row.ends_on : null)
     // "19:30:00" in the database; the time field wants "19:30".
@@ -705,7 +712,7 @@ export function EventsPage() {
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
-    if (!title.trim() || !date || noTeamChosen || badLink) return
+    if (!title.trim() || !category || !date || noTeamChosen || badLink) return
     saveEvent.mutate()
   }
 
@@ -970,6 +977,20 @@ export function EventsPage() {
                   className={inputClasses}
                 />
               </Field>
+              {/* Which list it is found under. Asked, not guessed from
+                  whether it repeats (0262): a one-off can be a meeting,
+                  and a weekly thing can be an event. */}
+              <FieldGroup label="Event or meeting" className="sm:col-span-2">
+                <SegmentedControl
+                  label="Event or meeting"
+                  value={category}
+                  onChange={setCategory}
+                  options={[
+                    { value: 'event', label: 'Event' },
+                    { value: 'meeting', label: 'Meeting' },
+                  ]}
+                />
+              </FieldGroup>
               {/* The app's own calendar rather than the browser's wheel:
                   a church diary is full of things that run over several
                   days, and the native field cannot say so. */}
@@ -1126,7 +1147,7 @@ export function EventsPage() {
               </button>
               <ActionButton
                 type="submit"
-                disabled={saveEvent.isPending || !title.trim() || !date || endsBeforeItStarts || noTeamChosen || badLink}
+                disabled={saveEvent.isPending || !title.trim() || !category || !date || endsBeforeItStarts || noTeamChosen || badLink}
                 glyph={editing ? undefined : '+'}
               >
                 {saveEvent.isPending
@@ -1156,9 +1177,9 @@ export function EventsPage() {
             <div className="flex flex-wrap items-center gap-2">
               {reading.department?.color && <TeamMark color={reading.department.color} />}
               <span
-                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[reading.repeat_rule ? 'repeating' : 'event'].chip}`}
+                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[reading.category === 'meeting' ? 'repeating' : 'event'].chip}`}
               >
-                {CATEGORY_LABEL[reading.repeat_rule ? 'repeating' : 'event']}
+                {CATEGORY_LABEL[reading.category === 'meeting' ? 'repeating' : 'event']}
               </span>
             </div>
             <h2 id="event-detail-title" className="mt-2 text-headline-md">

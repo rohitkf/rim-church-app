@@ -31,6 +31,8 @@ export const eventSchema = z.object({
   created_by: z.string().nullable(),
   series_id: z.string().nullable().optional(),
   repeat_rule: z.string().nullable().optional(),
+  /** Event or Meeting (0262): chosen by whoever made it. */
+  category: z.enum(['event', 'meeting']).default('event'),
   creator: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
   department: z.object({ name: z.string(), color: z.string().nullable() }).nullable(),
 })
@@ -48,7 +50,7 @@ export async function fetchEvents(): Promise<DiaryEvent[]> {
     supabase
       .from('church_events')
       .select(
-        'id, title, details, event_date, ends_on, start_time, end_time, location, link, links, department_id, department_ids, created_by, series_id, repeat_rule, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
+        'id, title, details, event_date, ends_on, start_time, end_time, location, link, links, department_id, department_ids, created_by, series_id, repeat_rule, category, creator:profiles!church_events_created_by_fkey(first_name, last_name), department:departments(name, color)',
       )
       .order('event_date'),
     supabase.from('departments').select('id, name, color'),
@@ -180,6 +182,7 @@ export function pastDiaryEntries(
         // on any more.
         span: runsTo ? { from: event.event_date, to: runsTo, day: 0, of: dayCount(event.event_date, runsTo) } : null,
         repeats: repeatShort(event.repeat_rule),
+        meeting: event.category === 'meeting',
         links: linksOf(event),
         notes: event.details?.trim() || null,
       }

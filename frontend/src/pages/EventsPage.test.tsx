@@ -127,6 +127,8 @@ const meeting = (over: Record<string, unknown> = {}) => ({
   created_by: 'u9',
   creator: { first_name: 'Grace', last_name: 'Mensah' },
   department: null,
+  // What 0262 gave every entry already in the diary: those that repeat are Meetings.
+  category: over.repeat_rule ? 'meeting' : 'event',
   ...over,
 })
 
@@ -303,6 +305,7 @@ describe('editing an event', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Workday')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
 
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
@@ -484,6 +487,7 @@ describe('events that repeat', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
     await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
@@ -543,6 +547,7 @@ describe('events that repeat', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
     await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
@@ -623,6 +628,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Rehearsal')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).toBeChecked()
@@ -641,6 +647,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Picnic')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
@@ -667,6 +674,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Team night')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
@@ -706,6 +714,7 @@ describe('an event with links', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 name'), 'Join on Zoom')
@@ -729,6 +738,7 @@ describe('an event with links', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 address'), 'javascript:alert(1)')
@@ -790,3 +800,42 @@ describe('opening one event from elsewhere', () => {
     expect(within(card).getByRole('heading', { name: 'Prophetical Prayer' })).toBeInTheDocument()
   })
 })
+
+/*
+ * Event or Meeting is the maker's choice (0262), not whether it repeats.
+ */
+describe('event or meeting', () => {
+  it('asks which it is, and adds nothing until it is said', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Members meeting')
+    const form = screen.getByRole('dialog')
+    expect(within(form).getByRole('radio', { name: 'Event' })).not.toBeChecked()
+    expect(within(form).getByRole('radio', { name: 'Meeting' })).not.toBeChecked()
+    expect(within(form).getByRole('button', { name: /Add event/ })).toBeDisabled()
+
+    await userEvent.click(within(form).getByRole('radio', { name: 'Meeting' }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    // A one-off can be a meeting.
+    expect(state.written[0].row).toMatchObject({ title: 'Members meeting', category: 'meeting' })
+  })
+
+  it('shows what was chosen, not whether it repeats', async () => {
+    state.events = [
+      meeting({ id: 'm1', title: 'Members meeting', category: 'meeting' }),
+      meeting({ id: 'f1', title: 'Fundraiser', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly', category: 'event' }),
+    ]
+    show('/events?show=meetings')
+    expect(await screen.findByText('Members meeting')).toBeInTheDocument()
+    expect(screen.queryByText('Fundraiser')).toBeNull()
+  })
+
+  it('keeps an entry’s choice when it is edited', async () => {
+    state.events = [meeting({ id: 'm1', title: 'Members meeting', category: 'meeting' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: 'Meeting' })).toBeChecked()
+  })
+})
+
