@@ -5,7 +5,7 @@ import type { ChecklistPhase, RoleChecklistItem } from './types'
 let n = 0
 function item(role: string, label: string, phase: ChecklistPhase = 'pre'): RoleChecklistItem {
   n += 1
-  return { id: `i${n}`, role_id: role, department_id: 'd1', label, sort_order: n, phase }
+  return { id: `i${n}`, role_id: role, department_id: 'd1', label, sort_order: n, phase, optional: false }
 }
 
 const roleNames = new Map([

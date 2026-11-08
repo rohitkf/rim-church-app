@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { carriesPhase, readinessOf, serviceReadiness } from './readiness'
+import { carriesPhase, countsTowardReadiness, readinessOf, serviceReadiness } from './readiness'
 
 describe('readinessOf', () => {
   it('gives each stage a third of the item', () => {
@@ -109,5 +109,59 @@ describe('an assignment that carries only one half', () => {
     expect(carriesPhase({ include_pre: false, include_post: true }, 'pre')).toBe(false)
     expect(carriesPhase({ include_pre: false, include_post: true }, 'post')).toBe(true)
     expect(carriesPhase({}, 'pre')).toBe(true)
+  })
+})
+
+describe('an optional line', () => {
+  const assignments = [
+    { id: 'a1', service_id: 's1', department_id: 'media', role_id: 'camera' },
+    { id: 'a2', service_id: 's1', department_id: 'media', role_id: 'camera' },
+  ]
+  const roleItems = [
+    { id: 'i1', role_id: 'camera' },
+    { id: 'i2', role_id: 'camera', optional: true },
+  ]
+
+  it('does not hold a team below 100% while nobody has taken it on', () => {
+    const { overall, byDepartment } = serviceReadiness({
+      assignments: [assignments[0]],
+      roleItems,
+      progress: [{ assignment_id: 'a1', item_id: 'i1', status: 'coordinator_verified' }],
+    })
+    expect(byDepartment.get('media')).toMatchObject({ total: 1, pct: 100 })
+    expect(overall.pct).toBe(100)
+  })
+
+  it('counts once the person holding the role ticks it, and needs signing off like the rest', () => {
+    const { byDepartment } = serviceReadiness({
+      assignments: [assignments[0]],
+      roleItems,
+      progress: [
+        { assignment_id: 'a1', item_id: 'i1', status: 'coordinator_verified' },
+        { assignment_id: 'a1', item_id: 'i2', status: 'member_complete' },
+      ],
+    })
+    // (1 + 1/3) / 2 = 67%
+    expect(byDepartment.get('media')).toMatchObject({ total: 2, memberComplete: 1, pct: 67 })
+  })
+
+  it('is taken on per person: one camera ticking it does not make it owed by the other', () => {
+    const { byDepartment } = serviceReadiness({
+      assignments,
+      roleItems,
+      progress: [
+        { assignment_id: 'a1', item_id: 'i1', status: 'coordinator_verified' },
+        { assignment_id: 'a1', item_id: 'i2', status: 'coordinator_verified' },
+        { assignment_id: 'a2', item_id: 'i1', status: 'coordinator_verified' },
+      ],
+    })
+    expect(byDepartment.get('media')).toMatchObject({ total: 3, pct: 100 })
+  })
+
+  it('drops out again when the tick is taken back', () => {
+    expect(countsTowardReadiness({ optional: true }, 'pending')).toBe(false)
+    expect(countsTowardReadiness({ optional: true }, 'member_complete')).toBe(true)
+    expect(countsTowardReadiness({ optional: false }, 'pending')).toBe(true)
+    expect(countsTowardReadiness({}, 'pending')).toBe(true)
   })
 })

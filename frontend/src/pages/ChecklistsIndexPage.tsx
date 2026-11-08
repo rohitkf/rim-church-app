@@ -35,7 +35,7 @@ import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { PHASES, byPhase } from '../lib/checklistPhase'
-import { carriesPhase } from '../lib/readiness'
+import { carriesPhase, countsTowardReadiness } from '../lib/readiness'
 import { teamWashSoft } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
@@ -44,7 +44,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { useNow } from '../lib/useNow'
 import { checklistWindow, whenItOpens } from '../lib/checklistWindow'
 import { ServiceCountdown } from '../components/ServiceCountdown'
-import { ActionButton } from '../components/Surface'
+import { ActionButton, Pill } from '../components/Surface'
 import { showToast } from '../lib/toast'
 import { formatMinutes } from '../lib/lifespan'
 import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
@@ -519,7 +519,11 @@ export function ChecklistsIndexPage() {
                           // Your own list arrives open; the teams you oversee
                           // arrive folded, each saying how far along it is.
                           const roleOpen = (rank === 0) !== isRoleToggled(assignment.id)
-                          const ticked = items.filter((i) => statusOf(i.id) !== 'pending').length
+                          // An optional line counts once it is taken on
+                          // (0259); until then it is said apart.
+                          const counted = items.filter((i) => countsTowardReadiness(i, statusOf(i.id)))
+                          const ticked = counted.filter((i) => statusOf(i.id) !== 'pending').length
+                          const untakenOptional = items.length - counted.length
 
                           return (
                             <li
@@ -555,7 +559,8 @@ export function ChecklistsIndexPage() {
                                 <span className="flex flex-wrap items-center gap-2">
                                   {items.length > 0 && (
                                     <span className="font-mono text-label-sm tabular text-on-surface-faint">
-                                      {ticked} of {items.length} ticked
+                                      {ticked} of {counted.length} ticked
+                                      {untakenOptional > 0 && ` · ${untakenOptional} optional`}
                                     </span>
                                   )}
                                   {rank === 2 && (
@@ -640,7 +645,10 @@ export function ChecklistsIndexPage() {
                                   {(() => {
                                     const phaseShut = phase.value === 'post' ? finished || packingNotYet : ended
                                     const inPhase = byPhase(items, phase.value)
-                                    const left = inPhase.filter((i) => statusOf(i.id) !== 'coordinator_verified').length
+                                    // Check all leaves an optional line nobody has taken on alone (0259).
+                                    const left = inPhase.filter(
+                                      (i) => countsTowardReadiness(i, statusOf(i.id)) && statusOf(i.id) !== 'coordinator_verified',
+                                    ).length
                                     if (
                                       phaseShut ||
                                       !gate.open ||
@@ -690,8 +698,19 @@ export function ChecklistsIndexPage() {
                                       >
                                         <span className="min-w-0 flex-1 text-body-md text-on-surface [overflow-wrap:anywhere]">
                                           {item.label}
+                                          {item.optional && status !== 'pending' && (
+                                            <Pill tone="neutral" className="ml-2 align-middle">
+                                              Optional
+                                            </Pill>
+                                          )}
                                         </span>
-                                        <StatusBadge status={status} />
+                                        {/* Untaken, an optional line is not
+                                            pending anything: it is not owed. */}
+                                        {item.optional && status === 'pending' ? (
+                                          <Pill tone="neutral">Optional · not counted</Pill>
+                                        ) : (
+                                          <StatusBadge status={status} />
+                                        )}
                                         <ChecklistStageBoxes
                                           status={status}
                                           // An ended service signs nothing more

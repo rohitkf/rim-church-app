@@ -6,6 +6,8 @@ export interface CopiedChecklistItem {
   label: string
   phase: ChecklistPhase
   sort_order: number
+  /** Said only when true: an optional line stays optional where it lands (0259). */
+  optional?: true
 }
 
 /**
@@ -93,7 +95,7 @@ export function itemsToCopy({
 
     const order = nextOrder.get(phase) ?? 0
     nextOrder.set(phase, order + 1)
-    copied.push({ label, phase, sort_order: order })
+    copied.push({ label, phase, sort_order: order, ...(item.optional ? { optional: true as const } : {}) })
   }
 
   return copied

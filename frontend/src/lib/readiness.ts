@@ -48,6 +48,8 @@ interface RoleItemLike {
   id: string
   role_id: string
   phase?: string
+  /** Counts only once the person holding the role ticks it (0259). */
+  optional?: boolean
 }
 interface ProgressLike {
   assignment_id: string
@@ -76,6 +78,9 @@ function add(counts: StageCounts, status: ChecklistItemStatus) {
  * owes the checklist of the role they were given. An item with no progress
  * row yet is pending, not absent — otherwise a service nobody had started
  * would read as 100% ready.
+ *
+ * An optional line is the exception: it is left out until somebody takes it
+ * on — see countsTowardReadiness.
  */
 export function serviceReadiness(input: {
   assignments: AssignmentLike[]
@@ -101,6 +106,7 @@ export function serviceReadiness(input: {
     for (const item of itemsByRole.get(assignment.role_id) ?? []) {
       if (!carriesPhase(assignment, item.phase)) continue
       const status = statusOf.get(`${assignment.id}:${item.id}`) ?? 'pending'
+      if (!countsTowardReadiness(item, status)) continue
       add(counts, status)
       add(overall, status)
     }
@@ -126,3 +132,19 @@ export function carriesPhase(
   return true
 }
 
+
+/**
+ * Whether a line counts in a list's readiness (0259).
+ *
+ * A required line always does. An optional one counts only once the person
+ * holding the role has ticked it: from then on it is an ordinary item, owed
+ * its verification and sign-off like the rest, so it shows in that team's
+ * percentage and the service's. Untaken, it neither holds the list back
+ * nor pads it out; taken back to pending, it drops out again.
+ */
+export function countsTowardReadiness(
+  item: { optional?: boolean },
+  status: ChecklistItemStatus,
+): boolean {
+  return !item.optional || status !== 'pending'
+}

@@ -134,6 +134,26 @@ function RoleChecklistEditor({
     onError: (err: unknown) => setError(errorText(err, 'Could not change that item.')),
   })
 
+  /*
+   * Optional (0259): a line worth writing down that is not owed every
+   * service. It stays out of the team's readiness until the person holding
+   * the role ticks it, and counts like any other line from then on.
+   */
+  const setOptional = useMutation({
+    mutationFn: async ({ id, optional }: { id: string; optional: boolean }) => {
+      const { error } = await supabase
+        .from('department_role_checklist_items')
+        .update({ optional })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setError(null)
+      invalidate()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change that item.')),
+  })
+
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('department_role_checklist_items').delete().eq('id', id)
@@ -248,9 +268,31 @@ function RoleChecklistEditor({
                 className="grid grid-cols-[auto_1fr_auto] items-start gap-x-1.5 gap-y-1 rounded-[var(--radius-chip)] bg-surface-lowest px-2.5 py-2 text-body-sm hairline sm:items-center sm:gap-x-3"
               >
                 {canManage && <DragHandle label={item.label} {...handleProps(item.id)} />}
-                <span className="min-w-0 text-on-surface [overflow-wrap:anywhere]">{item.label}</span>
+                <span className="min-w-0 text-on-surface [overflow-wrap:anywhere]">
+                  {item.label}
+                  {item.optional && (
+                    <Pill tone="neutral" className="ml-2 align-middle">
+                      Optional
+                    </Pill>
+                  )}
+                </span>
                 {canManage && (
                   <span className="col-start-2 flex shrink-0 items-center gap-3 sm:col-start-3 sm:row-start-1">
+                    <button
+                      type="button"
+                      disabled={setOptional.isPending}
+                      onClick={() => setOptional.mutate({ id: item.id, optional: !item.optional })}
+                      aria-pressed={item.optional}
+                      aria-label={`${item.optional ? 'Make required' : 'Make optional'}: ${item.label}`}
+                      title={
+                        item.optional
+                          ? 'Counts towards readiness at every service'
+                          : 'Only counts towards readiness once the person holding the role ticks it'
+                      }
+                      className="text-label-sm text-on-surface-faint hover:text-accent-blue-soft hover:underline disabled:opacity-40"
+                    >
+                      {item.optional ? 'Make required' : 'Make optional'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
