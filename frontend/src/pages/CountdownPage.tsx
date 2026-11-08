@@ -83,7 +83,7 @@ export function CountdownPage() {
     enabled: serviceIds.length > 0,
   })
 
-  const { live, upcoming } = useMemo(() => {
+  const live = useMemo(() => {
     const sessions = sessionsQuery.data ?? []
     const rows = (servicesQuery.data ?? []).map((service) => {
       const own = sessions.filter((s) => s.service_id === service.id)
@@ -94,15 +94,8 @@ export function CountdownPage() {
         clock: serviceClock(own, now, service.ended_at, { gaps: true }),
       }
     })
-    return {
-      // Everything with a clock running, earliest first.
-      live: rows.filter((r) => r.clock).sort((a, b) => (a.standing.from ?? 0) - (b.standing.from ?? 0)),
-      // Otherwise, the next one today to start.
-      upcoming:
-        rows
-          .filter((r) => r.standing.state === 'upcoming' && r.standing.from !== null)
-          .sort((a, b) => a.standing.from! - b.standing.from!)[0] ?? null,
-    }
+    // Only a service that is on: its clock is running. Earliest first.
+    return rows.filter((r) => r.clock).sort((a, b) => (a.standing.from ?? 0) - (b.standing.from ?? 0))
   }, [servicesQuery.data, sessionsQuery.data, now])
 
   const loading = servicesQuery.isLoading || (serviceIds.length > 0 && sessionsQuery.isLoading)
@@ -122,27 +115,16 @@ export function CountdownPage() {
             <ClockTile key={service.id} service={service} clock={clock!} now={now} />
           ))}
 
+          {/* Nothing on: a blank clock, not a countdown to something else. */}
           {live.length === 0 && (
             <Tile className="text-center">
-              {upcoming ? (
-                <>
-                  <Eyebrow>Next service</Eyebrow>
-                  <p className="mt-2 text-headline-md text-on-surface">
-                    {upcoming.service.service_type} starts at{' '}
-                    <span className="font-mono tabular">{formatTime(new Date(upcoming.standing.from!).toISOString())}</span>
-                  </p>
-                  <p
-                    className="mt-3 font-mono text-display tabular text-on-surface-variant"
-                    aria-label={`Starts in ${clockFace(upcoming.standing.from! - now)}`}
-                  >
-                    {clockFace(upcoming.standing.from! - now)}
-                  </p>
-                </>
-              ) : (
-                <p className="text-body-md text-on-surface-variant">
-                  No service is running now. The clock starts here when the first session of today’s service does.
-                </p>
-              )}
+              <Eyebrow>No service running</Eyebrow>
+              <p
+                aria-label="No service is running"
+                className="mt-4 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(3.5rem,16vw,10rem)] text-on-surface-faint"
+              >
+                --:--:--
+              </p>
             </Tile>
           )}
         </div>
