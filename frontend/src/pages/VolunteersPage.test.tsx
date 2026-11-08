@@ -6,6 +6,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { VolunteersPage } from './VolunteersPage'
 
+// Dates of birth come through birth_dates() (0256); nothing here is about them.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: () => Promise.resolve(new Map()),
+}))
+
 /*
  * A hundred people down one page is a page nobody reads. The teams are
  * shut, so it opens as a list of teams; whoever is on no team is open,

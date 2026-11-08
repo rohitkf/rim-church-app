@@ -14,6 +14,7 @@ import { Select, selectPillClasses } from '../components/Select'
 import { userRoleSchema } from '../auth/types'
 import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
+import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
@@ -57,13 +58,20 @@ async function fetchDepartment(id: string): Promise<Department | null> {
  * asks for it; for the Owner it is filled in from people_contacts()
  * (0126), which refuses anybody else.
  */
-async function fetchMembers(id: string, withEmail: boolean): Promise<DepartmentMemberRow[]> {
+async function fetchMembers(id: string, withEmail: boolean, withAges: boolean): Promise<DepartmentMemberRow[]> {
   const { data, error } = await supabase
     .from('department_members')
-    .select('*, profiles(id, first_name, last_name, avatar_url, dob)')
+    .select('*, profiles(id, first_name, last_name, avatar_url)')
     .eq('department_id', id)
   if (error) throw error
-  const rows = z.array(departmentMemberRowSchema).parse(data)
+  let rows = z.array(departmentMemberRowSchema).parse(data)
+  // Ages are the Owner's and Admins' (0256, 0257): their dates come through
+  // birth_dates(), which gives the whole date to them alone. Nobody else's
+  // copy of the page asks.
+  if (withAges && rows.length > 0) {
+    const dates = await fetchBirthDates(rows.map((r) => r.user_id))
+    rows = rows.map((r) => (r.profiles ? { ...r, profiles: { ...r.profiles, dob: fullDate(dates.get(r.user_id)) } } : r))
+  }
   if (!withEmail || rows.length === 0) return rows
   const contacts = await fetchContacts(rows.map((r) => r.user_id))
   return rows.map((r) =>
@@ -181,8 +189,8 @@ export function DepartmentDetailPage() {
   })
 
   const membersQuery = useQuery({
-    queryKey: ['department-members', id, isOwner],
-    queryFn: () => fetchMembers(id!, isOwner),
+    queryKey: ['department-members', id, isOwner, seesAges],
+    queryFn: () => fetchMembers(id!, isOwner, seesAges),
     enabled: !!id,
   })
 

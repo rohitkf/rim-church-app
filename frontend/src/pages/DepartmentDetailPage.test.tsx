@@ -5,6 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DepartmentDetailPage } from './DepartmentDetailPage'
 
+// birth_dates() (0256): the whole date, which only an Admin or the Owner's
+// page asks for.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: (ids: string[]) =>
+    Promise.resolve(new Map(ids.map((id) => [id, { id, dob: '1990-01-01', birthday: '01-01' }]))),
+}))
+
 /*
  * Moving somebody between core and guest.
  *
@@ -206,11 +214,10 @@ describe('moving somebody between core and guest', () => {
  * team used to see everybody's.
  */
 describe('members’ ages', () => {
-  const withDob = () => member({ profiles: { ...member().profiles, dob: '1990-01-01' } })
 
   it('are hidden from somebody on the team who is not an Admin', async () => {
     state.canManage = false
-    state.members = [withDob()]
+    state.members = [member()]
     show()
     await screen.findAllByText(/Grace Mensah/)
     expect(screen.queryByText(/years old/)).toBeNull()
@@ -219,7 +226,7 @@ describe('members’ ages', () => {
 
   it('are shown to the Owner', async () => {
     state.owner = true
-    state.members = [withDob()]
+    state.members = [member()]
     show()
     expect((await screen.findAllByText(/years old/)).length).toBeGreaterThan(0)
     expect(screen.getByRole('columnheader', { name: 'Age' })).toBeInTheDocument()

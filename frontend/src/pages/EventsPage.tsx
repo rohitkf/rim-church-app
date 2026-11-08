@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
+import { celebrationDate, fetchBirthDates } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
@@ -51,9 +52,15 @@ const personSchema = z.object({
 async function fetchPeople() {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, dob, anniversary')
+    .select('id, first_name, last_name, anniversary')
   if (error) throw error
-  return z.array(personSchema).parse(data)
+  // The day of everybody's birthday, the year only where it is yours to
+  // know (birth_dates, 0256): profiles.dob is closed (0257).
+  const dates = await fetchBirthDates()
+  return z
+    .array(personSchema.omit({ dob: true }))
+    .parse(data)
+    .map((p) => ({ ...p, dob: celebrationDate(dates.get(p.id)) }))
 }
 
 const coupleSchema = z.object({ a: z.string(), b: z.string() })

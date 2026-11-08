@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import grant from '../../../supabase/migrations/0127_contact_details_close_to_everyone_but_the_owner.sql?raw'
+import closeDob from '../../../supabase/migrations/0257_date_of_birth_closes_to_everyone_but_admins.sql?raw'
 
 /*
  * `profiles` is readable column by column (0127): email, phone and
@@ -15,11 +16,16 @@ const sources = import.meta.glob(['../**/*.ts', '../**/*.tsx', '!../**/*.test.ts
   eager: true,
 }) as Record<string, string>
 
-const granted = new Set(
-  (grant.match(/grant select \(([^)]*)\) on public\.profiles/)?.[1] ?? '')
+const columnsIn = (sql: string, pattern: RegExp) =>
+  (sql.match(pattern)?.[1] ?? '')
     .split(',')
     .map((c) => c.trim())
-    .filter(Boolean),
+    .filter(Boolean)
+
+/** What 0127 opened, less what later migrations took back (0257: dob). */
+const revoked = new Set(columnsIn(closeDob, /revoke select \(([^)]*)\) on public\.profiles/))
+const granted = new Set(
+  columnsIn(grant, /grant select \(([^)]*)\) on public\.profiles/).filter((c) => !revoked.has(c)),
 )
 
 /** The comma-separated names inside the bracket opened just before `start`, nested embeds left out. */
@@ -71,10 +77,11 @@ function profileSelects(): { file: string; columns: string[] }[] {
 }
 
 describe('what the app reads from profiles (0127)', () => {
-  it('opens names and dates, and keeps contact details and marital status closed', () => {
+  it('opens names, and keeps contact details, marital status and date of birth closed', () => {
     expect(granted).toContain('first_name')
-    expect(granted).toContain('dob')
-    for (const closed of ['email', 'phone', 'marital_status']) expect(granted).not.toContain(closed)
+    expect(granted).toContain('anniversary')
+    // Date of birth comes through birth_dates() (0256, 0257).
+    for (const closed of ['email', 'phone', 'marital_status', 'dob']) expect(granted).not.toContain(closed)
   })
 
   it('reads past a nested embed and still sees every profile column beside it', () => {

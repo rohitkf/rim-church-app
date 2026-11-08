@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
+import { fetchBirthDates, fullDate } from './birthDates'
 import { ageFrom } from './celebrations'
 
 /*
@@ -17,7 +18,8 @@ const linkedPersonSchema = z.object({
   id: z.string(),
   first_name: z.string(),
   last_name: z.string(),
-  dob: z.string().nullable(),
+  /** Filled in from birth_dates() only where it is the reader's to see. */
+  dob: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),
 })
 
@@ -64,7 +66,7 @@ export type LinkRequest = z.infer<typeof linkRequestSchema>
 export const FAMILY_KEY = ['family'] as const
 
 const MEMBER_COLUMNS =
-  'id, household_id, kind, user_id, first_name, last_name, dob, gender, school, year_group, person:profiles!household_members_user_id_fkey(id, first_name, last_name, dob, avatar_url)'
+  'id, household_id, kind, user_id, first_name, last_name, dob, gender, school, year_group, person:profiles!household_members_user_id_fkey(id, first_name, last_name, avatar_url)'
 
 /** Every household the reader may see, and everybody in them. */
 export async function fetchHouseholds(): Promise<{ households: Household[]; members: HouseholdMember[] }> {
@@ -74,9 +76,18 @@ export async function fetchHouseholds(): Promise<{ households: Household[]; memb
   ])
   if (h.error) throw h.error
   if (m.error) throw m.error
+  const members = z.array(householdMemberSchema).parse(m.data ?? [])
+  /*
+   * A linked person's date of birth is on their profile, which is closed
+   * (0257): it comes through birth_dates(), whole for your own and for the
+   * Owner and Admins, and not at all otherwise — a spouse's age is theirs.
+   * A child added by hand keeps the date the household gave them.
+   */
+  const linked = [...new Set(members.flatMap((x) => (x.person ? [x.person.id] : [])))]
+  const dates = await fetchBirthDates(linked)
   return {
     households: z.array(householdSchema).parse(h.data ?? []),
-    members: z.array(householdMemberSchema).parse(m.data ?? []),
+    members: members.map((x) => (x.person ? { ...x, person: { ...x.person, dob: fullDate(dates.get(x.person.id)) } } : x)),
   }
 }
 
@@ -119,7 +130,7 @@ export function nameOf(m: HouseholdMember): string {
 }
 
 export function dobOf(m: HouseholdMember): string | null {
-  return m.person ? m.person.dob : m.dob
+  return m.person ? (m.person.dob ?? null) : m.dob
 }
 
 /** "12 Mar 2015 (11)", or the age alone when the date is not wanted. */
