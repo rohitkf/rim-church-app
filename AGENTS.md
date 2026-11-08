@@ -264,6 +264,9 @@ frontend/src/
   lib/serviceClock.ts        the running order's countdown: what it counts to
                              now. The planner's rail and the Countdown page
                              (/countdown, 0261) both read it — never a copy
+                             /countdown opens by its own cell, countdown.view
+                             (0264) — every role a choice, teams and people by
+                             grant — never by a level, like Reception
   auth/AuthContext.tsx       useAuth(): isAdmin, isSuperAdmin, ownerId,
                              isDepartmentHead(), ledDepartmentIds,
                              viewAs / setViewAs (an Admin's preview)

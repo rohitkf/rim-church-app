@@ -60,6 +60,12 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   if (path === '/registrations' || path.startsWith('/registrations/')) {
     return who.isOwner || !!who.regManager ? { open: true, via: 'registrations', level } : { open: false, level }
   }
+  // The Countdown (0264): whoever the grid gives "See the Countdown" — a
+  // role's cell, or a grant to a team or a person — and the Owner. Never
+  // by level, so an Admin the church said no for does not see it.
+  if (path === '/countdown') {
+    return who.isOwner || !!who.opens?.('countdown.view') ? { open: true, via: 'grant', level } : { open: false, level }
+  }
   // Reception (0247): the same people, and whoever works the door.
   if (path === '/door') {
     return who.isOwner || !!who.regManager || !!who.doorWorker ? { open: true, via: 'door', level } : { open: false, level }

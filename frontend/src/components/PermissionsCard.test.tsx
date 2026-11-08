@@ -111,11 +111,11 @@ describe('PermissionsCard', () => {
     await user.click(screen.getByRole('checkbox', { name: /Only show what a Church Member can do/ }))
     expect(screen.queryByText('See the rota')).toBeNull()
     // The Nos left are choices the church can still make for them: asking
-    // to join a team, off out of the box (0190), and opening the four
-    // pages kept to teams out of the box (0215, 0261).
+    // to join a team, off out of the box (0190), opening the three pages
+    // kept to teams out of the box (0215), and seeing the Countdown (0264).
     expect(screen.queryAllByText('No').length).toBe(5)
     expect(screen.getByText('Ask to join a team')).toBeInTheDocument()
-    for (const page of ['Open the Team Rota', 'Open the message board', 'Open the Teams page', 'Open the Countdown']) {
+    for (const page of ['Open the Team Rota', 'Open the message board', 'Open the Teams page', 'See the Countdown: the running order’s clock, large']) {
       expect(screen.getByText(page)).toBeInTheDocument()
     }
   })

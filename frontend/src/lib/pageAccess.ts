@@ -73,13 +73,12 @@ export const PAGE_RULES: Record<string, PageRule> = {
     note: 'Hides the page. The services themselves still show on the Dashboard.',
   },
   '/countdown': {
-    key: 'countdown',
-    // For the people running the service; a Church Member has no part in
-    // keeping its time (asked for by the Owner, November 2026).
-    default: 'team',
-    choices: ['everyone', 'team', 'leads'],
-    enforcement: 'page',
-    note: 'Hides the page. The running order and its clock are on the Service Planner too.',
+    // Not a level: its own row, "See the Countdown" (countdown.view, 0264),
+    // so each role is a choice and a team or a person can be given it.
+    default: 'admins',
+    choices: ['admins'],
+    enforcement: 'fixed',
+    note: 'Whoever Access & Privileges gives “See the Countdown” — each role yes or no, and teams or people by name — and the Owner. Hides the page only.',
   },
   '/availability': {
     default: 'team',
