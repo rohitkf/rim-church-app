@@ -781,9 +781,16 @@ export const PERMISSIONS: PermissionArea[] = [
     pages: ['/volunteers'],
     capabilities: [
       {
-        action: 'See the roster — names, ages, birthdays and anniversaries',
+        action: 'See the roster — names, birthdays and anniversaries',
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
-        note: 'Birthdays and anniversaries are what Celebrations and the diary show, so anybody signed in can read them. Nothing else personal is.',
+        note: 'Birthdays are the day and month only — what Celebrations and the diary show. The year, and so the age, is the next row’s.',
+      },
+      {
+        action: 'See how old people are — their whole date of birth',
+        key: 'people.ages',
+        short: 'See ages',
+        can: granted('people.ages'),
+        note: 'On team pages, “Turns 40” on birthdays, and the volunteer export. Everybody always sees their own. Closed in the database itself (0256–0258), not just hidden on the page.',
       },
       {
         action: 'See somebody’s email address and phone number',

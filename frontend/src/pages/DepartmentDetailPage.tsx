@@ -159,16 +159,16 @@ function Age({ dob }: { dob: string | null | undefined }) {
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isSuperAdmin: isOwner, isAdmin } = useAuth()
-  // Ages are the Owner's and Admins' to see (November 2026): the rest of
-  // the team sees names, not how old everybody is.
-  const seesAges = isOwner || isAdmin
+  const { isSuperAdmin: isOwner } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Each of this team's controls is its own permission (Settings › Access
   // & privileges): who is on it, its name and handbook, its roles, their
   // groups and checklists, and inviting somebody new.
   const { can } = usePermissions()
+  // Who sees how old people are is the church's to say (people.ages,
+  // 0258) — out of the box the Owner and Admins. A preview follows it.
+  const seesAges = can('people.ages')
   const here = { departmentId: id ?? null }
   const canManage = can('team.members', here)
   const canEditTeam = can('team.edit', here)

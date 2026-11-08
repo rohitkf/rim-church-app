@@ -170,6 +170,16 @@ Other things that are true and not guessable:
   `useMyTeams`), never a page's own `department_members` query by the
   signed-in id: that one ignores the preview, and is how a Church Member
   preview showed the Admin's own teams' "3 still to answer".
+- **Every rule change updates the previews too — always** (the Owner's
+  standing instruction, November 2026). Whatever decides who sees or does
+  something on screen reads it the way a preview narrows it: `can()`, the
+  narrowed `isAdmin`/`seesAllTeams`/`roles`, `useMyTeams`/
+  `useOwnMemberships` — never the real Admin flag, `isSuperAdmin` for
+  something that is not the Owner's alone, or a query by the signed-in id.
+  Because previews run on the Admin's own data, a screen that hides
+  something from a role must hide it in the drawing too, not only rely on
+  the database refusing it. Check each previewed role in `/verify` before
+  the pull request, and say in it which previews were checked.
 - **Whether a service is over is one rule** — `useFinishedServices` (and
   `serviceStanding` with `ended_at`): the planned end of its last session,
   or End service if pressed earlier. Never re-derive it from sessions alone
@@ -459,10 +469,12 @@ Each of these has already cost real time. None of them show up in review.
   marital status are closed to everybody; the Owner reads others' through
   `people_contacts()`, everyone reads their own through `my_profile()`,
   and a Head adds by address through `person_by_email()` (0126). Date of
-  birth is closed too (0257): ages are the Owner's and Admins' alone, so
-  `dob` comes through `birth_dates()` (0256, `lib/birthDates.ts`) — the
-  whole date for your own and for the Owner and Admins, only the day and
-  month for everybody else. A `select('*')` on `profiles`, or any column
+  birth is closed too (0257): `dob` comes through `birth_dates()` (0256,
+  `lib/birthDates.ts`) — the whole date for your own and for whoever the
+  grid's `people.ages` ("See how old people are", 0258) gives, which is
+  the Owner and Admins out of the box; only the day and month for
+  everybody else. Screens decide with `can('people.ages')`, never with
+  `isAdmin`. A `select('*')` on `profiles`, or any column
   not in 0127's grant (less what 0257 took back), fails the
   **whole query** — and a new column starts closed until a migration
   grants it. `lib/profileColumns.test.ts` reads every select in `src/`
