@@ -588,6 +588,16 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: fixed(),
   },
+  // See the Countdown page (0264): every role a choice, teams and people by
+  // grant. Opens the page only; what it shows is the Service Planner's.
+  'countdown.view': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'all'),
+    assistant: offer('none all', 'all'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'all'),
+    newcomer: offer('none all', 'none'),
+  },
   // Work the door (0247): scan tickets, take money at reception, check
   // people in, register a walk-in — without being able to change events.
   'reg.door': {
@@ -741,7 +751,6 @@ export const CATALOG = {
   },
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
-  'page.countdown': page('everyone team leads', 'team'),
   'page.rota': page('everyone team', 'team'),
   'page.set_lists': page('everyone team leads', 'everyone'),
   'page.debriefs': page('team leads', 'team'),

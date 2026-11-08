@@ -164,7 +164,6 @@ const granted = (key: CapabilityKey, overrides: Overrides = {}): Record<RoleKey,
 /** Each page with a choice of who may open it, as the grid's row (0215). */
 const PAGE_ROW: Record<string, string> = {
   '/service-planner': 'Open the Service Planner',
-  '/countdown': 'Open the Countdown',
   '/rota': 'Open the Team Rota',
   '/set-lists': 'Open Set Lists',
   '/debriefs': 'Open Debriefs',
@@ -225,6 +224,14 @@ export const PERMISSIONS: PermissionArea[] = [
         at: ['/service-planner'],
         can: all({ head: 'yes', coordinator: 'yes', member: 'yes', newcomer: 'yes' }),
         note: 'The church’s own shape, open to anybody signed in — it is what the countdown on the dashboard counts to.',
+      },
+      {
+        action: 'See the Countdown: the running order’s clock, large',
+        key: 'countdown.view',
+        at: ['/countdown'],
+        short: 'See the Countdown',
+        can: granted('countdown.view'),
+        note: 'Opens the Countdown page. Each role is a choice; give it to a team (or only its Heads) or to one person under By team and By person.',
       },
       {
         action: 'Create, edit or delete a service',

@@ -7,6 +7,8 @@ import { pageOpening, type PageWho } from '../lib/pageOpening'
 import { ROLE_NAME } from '../lib/roleNames'
 import { useAppSettingsState } from '../lib/appSettings'
 import { usePageLevels } from '../lib/usePageLevels'
+import { usePermissions } from '../lib/usePermissions'
+import { reachOf, type GridRole } from '../lib/permissions'
 import { pageSlug } from '../lib/pageSettings'
 import { QueryState } from './QueryState'
 import { Pill, SectionTile } from './Surface'
@@ -75,6 +77,15 @@ const WHO: Record<Preview, Partial<PageWho>> = {
   overwatch: { isOverwatch: true },
   pastor: { isPastor: true },
 }
+/** The grid column each preview reads its cells from — for a page that opens by a cell of its own (the Countdown, 0264). */
+const COLUMN: Record<Preview, GridRole> = {
+  church: 'newcomer',
+  member: 'member',
+  lead: 'head',
+  admin: 'admin',
+  overwatch: 'overwatch',
+  pastor: 'pastor',
+}
 const somebody = (p: { value: Preview; label: string }) =>
   p.value === 'overwatch' ? p.label : /^[AEIOU]/.test(p.label) ? `an ${p.label}` : `a ${p.label}`
 
@@ -84,6 +95,7 @@ export function PageAccessCard() {
   const [preview, setPreview] = useState<Preview>('church')
   // Each page's level, as the grid holds it (0215).
   const access = usePageLevels()
+  const { overrides } = usePermissions()
 
   if (!isAdmin) return null
 
@@ -91,7 +103,15 @@ export function PageAccessCard() {
   const scope = settings.issues_raise_scope
   // Serving's three tabs are listed each on its own.
   const pages = pagesWithRules()
-  const opens = (path: string) => pageOpening(path, { ...NOBODY, ...WHO[preview] }, settings, access).open
+  const opens = (path: string) =>
+    pageOpening(
+      path,
+      // The profile's own cells answer for a page that opens by one, as
+      // may() would for somebody with nothing given them by name.
+      { ...NOBODY, ...WHO[preview], opens: (cap) => reachOf(overrides, cap, COLUMN[preview]) !== 'none' },
+      settings,
+      access,
+    ).open
   const open = pages.filter((p) => opens(p.item.to))
   const current = PREVIEWS.find((s) => s.value === preview)!
   const groups = [...new Set(pages.map((p) => p.item.group ?? ''))]

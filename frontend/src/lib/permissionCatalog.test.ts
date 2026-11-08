@@ -25,11 +25,20 @@ const sql = Object.keys(migrations)
   .map((name) => migrations[name])
   .join('\n')
 
-/** Every catalog line, the last word winning — as `on conflict do update` would. */
+/**
+ * Every catalog line, the last word winning — as `on conflict do update`
+ * would — and a capability a later migration deletes from the catalog
+ * gone again (0264 retired page.countdown), in the order they ran.
+ */
 const catalogInSql = () => {
   const out = new Map<string, { reaches: Reach[]; byDefault: Reach }>()
-  const line = /\('([a-z]+\.[a-z_]+)', '([a-z]+)', '\{([a-z,]+)\}', '([a-z]+)'\)/g
+  const line =
+    /\('([a-z]+\.[a-z_]+)', '([a-z]+)', '\{([a-z,]+)\}', '([a-z]+)'\)|delete from public\.permission_catalog where capability = '([a-z]+\.[a-z_]+)'/g
   for (const m of sql.matchAll(line)) {
+    if (m[5]) {
+      for (const key of [...out.keys()]) if (key.startsWith(`${m[5]}/`)) out.delete(key)
+      continue
+    }
     out.set(`${m[1]}/${m[2]}`, { reaches: m[3].split(',') as Reach[], byDefault: m[4] as Reach })
   }
   return out

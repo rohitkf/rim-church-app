@@ -210,6 +210,16 @@ describe('the pages they can open', () => {
     expect(openingFor(person(), '/registrations', settings(), { doorWorker: true })).toMatchObject({ open: false })
   })
 
+  it('opens the Countdown by its own cell or a grant (0264), never by level — an Admin included', () => {
+    const sees = (cap: string) => cap === 'countdown.view'
+    expect(openingFor(person({ owner: true }), '/countdown', settings())).toMatchObject({ open: true })
+    expect(openingFor(person({ admin: true }), '/countdown', settings())).toMatchObject({ open: false })
+    expect(openingFor(person({ admin: true }), '/countdown', settings(), { opens: sees })).toMatchObject({ open: true, via: 'grant' })
+    expect(openingFor(person(), '/countdown', settings(), { opens: sees })).toMatchObject({ open: true, via: 'grant' })
+    // Another page's grant does not open it.
+    expect(openingFor(person({ admin: true }), '/countdown', settings(), { opens: (c) => c === 'page.rota' })).toMatchObject({ open: false })
+  })
+
   // A page's level is the grid's (0215), passed in as the levels.
   const closed = { levels: { prayer: 'team' as const } }
 
