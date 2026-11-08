@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { celebrationDate, fetchBirthDates } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { SectionPanel } from './SectionPanel'
 import { CakeIcon } from './icons'
 import { todayIso } from '../lib/monthGrid'
@@ -123,10 +124,12 @@ function OccasionRow({
  * above it, it is not there at all when there is nothing to say.
  */
 export function CelebrationsPanel({ settings, className = '' }: { settings: Celebrations; className?: string }) {
-  const { session, isAdmin, isSuperAdmin } = useAuth()
-  // How old somebody is turning is the Owner's and Admins' to see, whatever
-  // the church's display setting says (November 2026).
-  const seesAges = isAdmin || isSuperAdmin
+  const { session } = useAuth()
+  // How old somebody is turning is for whoever the church lets see ages
+  // (people.ages, 0258), whatever the display setting says — and a preview
+  // follows it, though the dates under it are still the previewer's.
+  const { can } = usePermissions()
+  const seesAges = can('people.ages')
   const { canOpen } = usePageAccess()
   const today = todayIso()
 

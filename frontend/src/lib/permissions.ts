@@ -721,6 +721,16 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: fixed(),
   },
+  // How old people are (0258): the whole date of birth. Everybody keeps
+  // their own and everybody's birthday (the day, without the year).
+  'people.ages': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: fixed(),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+  },
   'people.remove': {
     admin: offer('none all', 'all'),
     head: fixed(),
