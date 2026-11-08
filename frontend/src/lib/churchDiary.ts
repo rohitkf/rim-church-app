@@ -225,8 +225,11 @@ export function buildDiary({
     })
   }
 
+  const splitRuns = runsOfDays(events)
   for (const event of events) {
     const runsTo = event.ends_on && event.ends_on > event.event_date ? event.ends_on : null
+    // One day of a run that was split so its days could differ (0263).
+    const splitRun = event.series_id ? splitRuns.get(event.series_id) : undefined
     // A run is in the diary if any part of it is: one that started
     // yesterday and ends tomorrow is very much on today.
     if (event.event_date > horizon) continue
@@ -286,7 +289,9 @@ export function buildDiary({
               day: daysBetween(event.event_date, date).length,
               of,
             }
-          : null,
+          : splitRun
+            ? splitRunSpan(splitRun, event.event_date)
+            : null,
       })
     }
   }
@@ -326,3 +331,28 @@ export function repeatShort(rule: string | null | undefined): string | null {
       return null
   }
 }
+
+/**
+ * A run of days split into a row per day so one day could differ from the
+ * rest (0263): a series of 'daily' rows. Still one event to anybody
+ * reading the diary, so each day says which day of the run it is, as an
+ * unsplit run's days do, from its first to its last.
+ */
+export function runsOfDays(events: Pick<DiaryEvent, 'series_id' | 'repeat_rule' | 'event_date'>[]): Map<string, { from: string; to: string }> {
+  const runs = new Map<string, { from: string; to: string }>()
+  for (const event of events) {
+    if (event.repeat_rule !== 'daily' || !event.series_id) continue
+    const run = runs.get(event.series_id)
+    runs.set(event.series_id, {
+      from: !run || event.event_date < run.from ? event.event_date : run.from,
+      to: !run || event.event_date > run.to ? event.event_date : run.to,
+    })
+  }
+  return runs
+}
+
+/** Day N of a split run, as an unsplit run's days say it. */
+export function splitRunSpan(run: { from: string; to: string }, date: string) {
+  return { from: run.from, to: run.to, day: daysBetween(run.from, date).length, of: dayCount(run.from, run.to) }
+}
+

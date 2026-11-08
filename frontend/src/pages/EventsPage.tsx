@@ -380,12 +380,37 @@ export function EventsPage() {
   const [noEnd, setNoEnd] = useState(false)
   /** A range picked under When for a repeat, taken as how long it repeats for. */
   const [rangeAsUntil, setRangeAsUntil] = useState(false)
-  /** Changing one of a series: just it, or it and every one after. */
-  const [scope, setScope] = useState<'one' | 'following'>('one')
-  /** A series event somebody asked to remove: which ones. */
+  /** Changing one of a series or a day of a run: just it, it and every one after, or all of it (0263). */
+  const [scope, setScope] = useState<'one' | 'following' | 'all'>('one')
+  /** Which day of a run the form was opened from (0263); a run's own first day otherwise. */
+  const [editingDay, setEditingDay] = useState<string | null>(null)
+  /** And the day the card was opened from, so its Edit keeps it. */
+  const [readingDay, setReadingDay] = useState<string | null>(null)
+  /** A series event or a run somebody asked to remove: which ones, from which day. */
   const [removing, setRemoving] = useState<DiaryEvent | null>(null)
+  const [removingDay, setRemovingDay] = useState<string | null>(null)
 
   const { ask, dialog } = useConfirmAction()
+  /** An event over several days that is still one row (0263 splits it when a day is changed alone). */
+  const isRun = (row: DiaryEvent) => !row.series_id && !!row.ends_on && row.ends_on > row.event_date
+  /** The days of a run, split into a row each (0263): a 'daily' series, still one event. */
+  const isSplitRun = (row: DiaryEvent) => !!row.series_id && row.repeat_rule === 'daily'
+  /** Split a run into a row per day, once, and the days of it with their rows. */
+  const splitRun = async (row: DiaryEvent): Promise<{ id: string; event_date: string }[]> => {
+    let series = row.series_id ?? null
+    if (isRun(row)) {
+      const { data, error: splitError } = await supabase.rpc('event_run_split', { p_event: row.id })
+      if (splitError) throw splitError
+      series = data as string
+    }
+    const { data: days, error: readError } = await supabase
+      .from('church_events')
+      .select('id, event_date')
+      .eq('series_id', series!)
+      .order('event_date')
+    if (readError) throw readError
+    return (days ?? []) as { id: string; event_date: string }[]
+  }
   // One day, an end at or before the start: the database refuses it (0236), so the form says so first.
   // Each typed address as it will be stored; a row with no address is dropped.
   const linksTyped = links.map((l) => ({ label: l.label.trim() || null, url: webAddress(l.url) }))
@@ -570,11 +595,42 @@ export function EventsPage() {
         if (writeError) throw writeError
         return
       }
-      if (editing && editing.series_id && scope === 'following') {
+      if (editing && isRun(editing) && scope !== 'all') {
+        // A day of a run on its own (0263): the run becomes a row a day,
+        // once, and the change lands on this day, or this day and after.
+        const day = editingDay ?? editing.event_date
+        const days = await splitRun(editing)
+        if (scope === 'one') {
+          const target = days.find((d) => d.event_date === day)
+          if (!target) throw new Error('That day is not part of the event any more.')
+          const { error: dayError } = await supabase.from('church_events').update(fields).eq('id', target.id)
+          if (dayError) throw dayError
+          return
+        }
+        const moved = Math.round((Date.parse(date) - Date.parse(day)) / 86_400_000)
+        const { event_date: _d, ends_on: _e, ...same } = fields
+        void _d
+        void _e
+        const results = await Promise.all(
+          days
+            .filter((d) => d.event_date >= day)
+            .map((d) =>
+              supabase
+                .from('church_events')
+                .update({ ...same, event_date: new Date(Date.parse(d.event_date) + moved * 86_400_000).toISOString().slice(0, 10), ends_on: null })
+                .eq('id', d.id),
+            ),
+        )
+        const failed = results.find((res) => res.error)
+        if (failed?.error) throw failed.error
+        return
+      }
+      if (editing && editing.series_id && (scope === 'following' || scope === 'all')) {
         // This one and every one after it: the same words on each, and a
         // moved date moves them all by the same number of days.
+        // Every one of them, for "every day of it" on a split run (0263).
         const later = (eventsQuery.data ?? []).filter(
-          (ev) => ev.series_id === editing.series_id && ev.event_date >= editing.event_date,
+          (ev) => ev.series_id === editing.series_id && (scope === 'all' || ev.event_date >= editing.event_date),
         )
         const moved = Math.round((Date.parse(date) - Date.parse(editing.event_date)) / 86_400_000)
         const { event_date: _d, ends_on: _e, ...same } = fields
@@ -634,7 +690,25 @@ export function EventsPage() {
   })
 
   const removeEvent = useMutation({
-    mutationFn: async (target: string | { series: string; from: string }) => {
+    mutationFn: async (
+      target: string | { series: string; from: string } | { run: DiaryEvent; day: string; which: 'one' | 'following' | 'all' },
+    ) => {
+      if (typeof target !== 'string' && 'run' in target) {
+        // A run of days (0263): all of it is the row or the series; a day,
+        // or a day and after, splits it first and takes those days away.
+        const { run, day, which } = target
+        if (which === 'all') {
+          const { error: allError } = run.series_id
+            ? await supabase.from('church_events').delete().eq('series_id', run.series_id)
+            : await supabase.from('church_events').delete().eq('id', run.id)
+          if (allError) throw allError
+          return
+        }
+        const days = (await splitRun(run)).filter((d) => (which === 'one' ? d.event_date === day : d.event_date >= day))
+        const { error: dayError } = await supabase.from('church_events').delete().in('id', days.map((d) => d.id))
+        if (dayError) throw dayError
+        return
+      }
       const { error: deleteError } =
         typeof target === 'string'
           ? await supabase.from('church_events').delete().eq('id', target)
@@ -642,7 +716,7 @@ export function EventsPage() {
             await supabase.from('church_events').delete().eq('series_id', target.series).gte('event_date', target.from)
       if (deleteError) throw deleteError
       // And an open-ended one makes no more (0235).
-      if (typeof target !== 'string' && isOpenSeries(target.series)) {
+      if (typeof target !== 'string' && 'series' in target && isOpenSeries(target.series)) {
         const { error: stopError } = await supabase
           .from('church_event_series')
           .update({ stopped_at: new Date().toISOString() })
@@ -678,7 +752,7 @@ export function EventsPage() {
     setEditing(null)
     setTitle(''); setCategory(null); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
     setLocation(''); setLinks([]); setDetails(''); setDepartmentIds([])
-    setRepeat(''); setUntil(''); setScope('one'); setNoEnd(false); setRangeAsUntil(false)
+    setRepeat(''); setUntil(''); setScope('one'); setEditingDay(null); setNoEnd(false); setRangeAsUntil(false)
   }
 
   // Opening the form with a day already chosen. Tapping the 14th is
@@ -694,8 +768,12 @@ export function EventsPage() {
   }
 
   /** The same form, holding what the event already says. */
-  function openEdit(row: DiaryEvent) {
+  function openEdit(row: DiaryEvent, day?: string) {
     setEditing(row)
+    setEditingDay(day ?? row.event_date)
+    // A run is changed whole unless somebody says otherwise; the dates
+    // follow the choice (pickScope).
+    setScope(isRun(row) ? 'all' : 'one')
     setTitle(row.title)
     setCategory(row.category ?? 'event')
     setDate(row.event_date)
@@ -708,6 +786,30 @@ export function EventsPage() {
     setDetails(row.details ?? '')
     setDepartmentIds(row.department_ids?.length ? row.department_ids : row.department_id ? [row.department_id] : [])
     setAdding(true)
+  }
+
+  /**
+   * Which days a change is for. On a run that is still one row, the form's
+   * dates and times follow the choice (0263): the whole run for every day,
+   * the day itself for only this day — with the times that day actually
+   * has — and from this day on for this day and the days after it.
+   */
+  function pickScope(next: 'one' | 'following' | 'all') {
+    setScope(next)
+    if (!editing || !isRun(editing)) return
+    const day = editingDay ?? editing.event_date
+    const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '')
+    if (next === 'all') {
+      setDate(editing.event_date)
+      setEndDate(editing.ends_on ?? null)
+      setStartTime(hhmm(editing.start_time))
+      setEndTime(hhmm(editing.end_time))
+      return
+    }
+    setDate(day)
+    setEndDate(null)
+    setStartTime(day === editing.event_date ? hhmm(editing.start_time) : '')
+    setEndTime(day === editing.ends_on ? hhmm(editing.end_time) : '')
   }
 
   function handleAdd(e: FormEvent) {
@@ -744,16 +846,22 @@ export function EventsPage() {
     canEdit: mayEdit,
     onRead: (entry: DiaryEntry) => {
       const row = rowOf(entry)
-      if (row) setReading(row)
+      if (row) {
+        setReading(row)
+        setReadingDay(entry.date)
+      }
     },
     onEdit: (entry: DiaryEntry) => {
       const row = rowOf(entry)
-      if (row) openEdit(row)
+      if (row) openEdit(row, entry.date)
     },
     onRemove: (entry: DiaryEntry) => {
       const row = rowOf(entry)
-      // One of a series: which ones is a question of its own.
-      if (row?.series_id) return setRemoving(row)
+      // One of a series, or a day of a run (0263): which ones is a question of its own.
+      if (row && (row.series_id || isRun(row))) {
+        setRemovingDay(entry.date)
+        return setRemoving(row)
+      }
       return ask({
         title: `Remove ${entry.title} from the diary?`,
         body: 'It disappears from the calendar for everybody.',
@@ -1048,33 +1156,40 @@ export function EventsPage() {
                   )}
                 </FieldGroup>
               )}
-              {editing?.series_id && (
+              {editing && (editing.series_id || isRun(editing)) && (
                 <FieldGroup label="Change" className="sm:col-span-2">
                   <div role="radiogroup" aria-label="Which to change" className="flex flex-col gap-1.5 text-body-sm text-on-surface">
-                    {(
-                      [
-                        ['one', 'Only this one'],
-                        ['following', 'This one and every one after it'],
-                      ] as const
+                    {/* A run of days (0263) says days, and can be changed
+                        whole; a repeating series says ones. */}
+                    {(isRun(editing) || isSplitRun(editing)
+                      ? ([
+                          ['one', `Only this day (${formatServiceDay(editingDay ?? editing.event_date)})`],
+                          ['following', 'This day and the days after it'],
+                          ['all', 'Every day of it'],
+                        ] as const)
+                      : ([
+                          ['one', 'Only this one'],
+                          ['following', 'This one and every one after it'],
+                        ] as const)
                     ).map(([value, label]) => (
                       <label key={value} className="flex items-center gap-2">
                         <input
                           type="radio"
                           name="event-scope"
                           checked={scope === value}
-                          onChange={() => setScope(value)}
+                          onChange={() => pickScope(value)}
                           className="accent-[var(--color-primary)]"
                         />
                         {label}
                       </label>
                     ))}
                   </div>
-                  {scope === 'following' && !isOpenSeries(editing.series_id) && (
+                  {editing.series_id && !isSplitRun(editing) && scope === 'following' && !isOpenSeries(editing.series_id) && (
                     <div className="mt-2">
                       <NoEndToggle checked={noEnd} onChange={setNoEnd} label="And keep it going, with no end date" />
                     </div>
                   )}
-                  {isOpenSeries(editing.series_id) && (
+                  {!!editing.series_id && isOpenSeries(editing.series_id) && (
                     <p className="mt-2 text-label-md text-on-surface-variant">
                       It has no end date. Changing this one and every one after it also changes the ones still to be made.
                     </p>
@@ -1285,7 +1400,7 @@ export function EventsPage() {
                   onClick={() => {
                     const row = reading
                     setReading(null)
-                    openEdit(row)
+                    openEdit(row, readingDay ?? undefined)
                   }}
                   className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 hover:ring-black/20 dark:ring-white/10"
                 >
@@ -1302,6 +1417,35 @@ export function EventsPage() {
         <Overlay onDismiss={() => setRemoving(null)} label={`Remove ${removing.title}?`}>
           <div className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
             <h2 className="text-headline-md">Remove {removing.title}?</h2>
+            {isRun(removing) || isSplitRun(removing) ? (
+              <>
+                <p className="mt-1 text-body-sm text-on-surface-variant">
+                  It runs over several days. Take away just {formatServiceDay(removingDay ?? removing.event_date)}, that day and the days after it, or all of it.
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
+                  {(
+                    [
+                      ['one', 'Only this day'],
+                      ['following', 'This day and the days after it'],
+                      ['all', 'All of it'],
+                    ] as const
+                  ).map(([which, label]) => (
+                    <ActionButton
+                      key={which}
+                      tone="danger"
+                      onClick={() => removeEvent.mutate({ run: removing, day: removingDay ?? removing.event_date, which })}
+                      disabled={removeEvent.isPending}
+                    >
+                      {label}
+                    </ActionButton>
+                  ))}
+                  <ActionButton tone="quiet" onClick={() => setRemoving(null)} disabled={removeEvent.isPending}>
+                    Keep it
+                  </ActionButton>
+                </div>
+              </>
+            ) : (
+            <>
             <p className="mt-1 text-body-sm text-on-surface-variant">
               It repeats. Take away just {formatServiceDay(removing.event_date)}, or this one and every one after it. Earlier ones stay.
             </p>
@@ -1320,6 +1464,8 @@ export function EventsPage() {
                 Keep them
               </ActionButton>
             </div>
+            </>
+            )}
           </div>
         </Overlay>
       )}
