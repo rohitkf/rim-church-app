@@ -61,11 +61,21 @@ beforeEach(() => {
   db.canOpen = true
 })
 
-const NEWER = { 'during-the-service-checklist': '2026-11-08T11:00:00Z', 'optional-checklist-lines': '2026-11-08T10:00:00Z', reception: '2026-11-04T10:00:00Z', registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
+const NEWER = { countdown: '2026-11-08T13:00:00Z', 'during-the-service-checklist': '2026-11-08T11:00:00Z', 'optional-checklist-lines': '2026-11-08T10:00:00Z', reception: '2026-11-04T10:00:00Z', registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
 
 describe('what is new', () => {
-  it('tells whoever can open Checklists about the during-the-service part (0260)', async () => {
+  it('tells whoever can open the Countdown about it (0261)', async () => {
     db.seen = {}
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByRole('dialog', { name: 'New: Countdown' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open Countdown' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/countdown')
+    await waitFor(() => expect(db.marked).toEqual(['countdown']))
+  })
+
+  it('tells whoever can open Checklists about the during-the-service part (0260)', async () => {
+    db.seen = { countdown: NEWER.countdown }
     const user = userEvent.setup()
     show()
     expect(await screen.findByRole('dialog', { name: 'New: During the service' })).toBeInTheDocument()
@@ -74,7 +84,7 @@ describe('what is new', () => {
   })
 
   it('tells whoever can open Checklists about optional lines (0259)', async () => {
-    db.seen = { 'during-the-service-checklist': NEWER['during-the-service-checklist'] }
+    db.seen = { countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'] }
     const user = userEvent.setup()
     show()
     expect(await screen.findByRole('dialog', { name: 'New: Optional checklist lines' })).toBeInTheDocument()
@@ -84,7 +94,7 @@ describe('what is new', () => {
   })
 
   it('tells whoever can open Reception about it (0247)', async () => {
-    db.seen = { 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'] }
+    db.seen = { countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'] }
     const user = userEvent.setup()
     show()
     expect(await screen.findByRole('dialog', { name: 'New: Reception' })).toBeInTheDocument()
@@ -94,7 +104,7 @@ describe('what is new', () => {
   })
 
   it('tells whoever can open Registrations about it (0244)', async () => {
-    db.seen = { 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'], reception: NEWER.reception }
+    db.seen = { countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'], reception: NEWER.reception }
     const user = userEvent.setup()
     show()
     expect(await screen.findByRole('dialog', { name: 'New: Registrations' })).toBeInTheDocument()

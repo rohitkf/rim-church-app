@@ -32,6 +32,7 @@ import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../compo
 import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
 import { useDragReorder } from '../lib/useDragReorder'
+import { serviceClock } from '../lib/serviceClock'
 import { orderWithInsert } from '../lib/sessionInsert'
 import { addMinutesIso, combineDateAndTime, formatTime, timeInputValue } from '../lib/time'
 import { formatDuration } from '../lib/duration'
@@ -572,7 +573,8 @@ export function ServicePlannerPage() {
   const bounds = useMemo(() => serviceBounds(sessions), [sessions])
   /** When the last session that runs is due to finish: the End of service node. */
   const plannedEnd = bounds?.to ?? null
-  const lastLive = [...drawn].reverse().find((s) => !s.skipped_at) ?? null
+  /** What the countdown on the rail is counting to, if anything is on. */
+  const railClock = useMemo(() => serviceClock(drawn, now, endedAt), [drawn, now, endedAt])
   /** How long it actually ran, once somebody has called the end. Null until then. */
   const ranMinutes =
     endedAt && bounds ? Math.round((new Date(endedAt).getTime() - bounds.from) / 60_000) : null
@@ -1202,10 +1204,6 @@ export function ServicePlannerPage() {
                     const timing = progress.byId.get(session.id)
                     const running = progress.runningId === session.id
                     const drift = variance.get(session.id)
-                    // The gap this row's rail leaves before the next thing
-                    // that is actually going to happen — a skipped session
-                    // is not it.
-                    const nextUp = drawn.slice(idx + 1).find((s) => !s.skipped_at)
                     // Somebody has said the next one has not begun, so this
                     // one is still going whatever its planned end says.
                     const heldBack = heldBackBy(drawn, idx)
@@ -1424,14 +1422,18 @@ export function ServicePlannerPage() {
                         grants={grantsOf(session)}
                         runsFor={runsForMinutes(session)}
                         countdown={
-                          onNow && nextUp ? (
-                            <RailCountdown startsAt={nextUp.start_time} holding={!!heldBack} />
-                          ) : onNow && session.id === lastLive?.id && plannedEnd !== null && !endedAt ? (
-                            // The last session's gap runs to the End of service
-                            // node. Past it the page calls the service over,
-                            // so the clock stops there rather than counting up
-                            // beside a "Finished" banner.
-                            <RailCountdown startsAt={new Date(plannedEnd).toISOString()} to="end" />
+                          // The same clock the Countdown page shows large
+                          // (lib/serviceClock): to the next session, or for
+                          // the last one to the End of service node. Past
+                          // that the page calls the service over, so the
+                          // rail's clock stops rather than counting up
+                          // beside a "Finished" banner.
+                          railClock && railClock.current?.id === session.id ? (
+                            <RailCountdown
+                              startsAt={new Date(railClock.target).toISOString()}
+                              holding={railClock.holding}
+                              to={railClock.to}
+                            />
                           ) : undefined
                         }
                       >

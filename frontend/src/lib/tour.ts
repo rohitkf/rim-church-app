@@ -260,6 +260,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'Every song the church sings, with its key, a link and the words. Start typing a song on a set list and it is found here.',
       },
       {
+        path: '/countdown',
+        target: 'page-title',
+        title: 'Countdown',
+        body: 'The service’s clock, large: how long until the next session, and past zero how far over it is running. It follows the Service Planner as the running order changes.',
+      },
+      {
         path: '/inventory',
         target: 'page-title',
         title: 'Inventory',

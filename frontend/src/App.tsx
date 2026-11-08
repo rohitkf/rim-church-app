@@ -146,6 +146,8 @@ const router = createBrowserRouter(
             <Route path="/service-planner" lazy={page(() => import('./pages/ServicePlannerIndexPage'), 'ServicePlannerIndexPage')} />
             <Route path="/service-planner/templates" lazy={page(() => import('./pages/ServiceTemplatesPage'), 'ServiceTemplatesPage')} />
             <Route path="/service-planner/:serviceId" lazy={page(() => import('./pages/ServicePlannerPage'), 'ServicePlannerPage')} />
+            {/* The running order's clock, large and read-only. */}
+            <Route path="/countdown" lazy={page(() => import('./pages/CountdownPage'), 'CountdownPage')} />
             <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
             <Route path="/songs" lazy={page(() => import('./pages/SongsPage'), 'SongsPage')} />
             <Route path="/clock-in" lazy={page(() => import('./pages/ClockInPage'), 'ClockInPage')} />

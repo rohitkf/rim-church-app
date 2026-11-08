@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'countdown',
+    date: '2026-11-08',
+    title: 'Countdown',
+    lead: 'The service’s clock, large enough to read from the side of the stage.',
+    points: [
+      'How long until the next session, or until the end of the service.',
+      'Past zero it keeps counting, with a plus, so you can see how far over it is running.',
+      'It is the Service Planner’s clock: time added, a session not started yet, one dropped — it follows at once.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'during-the-service-checklist',
     date: '2026-11-08',
     title: 'During the service',

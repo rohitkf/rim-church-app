@@ -40,6 +40,7 @@ import { useReportLocationAccess } from '../lib/locationAccess'
 const WASH: Record<string, string> = {
   '/': 'var(--color-accent-blue)',
   '/service-planner': 'var(--color-accent-blue)',
+  '/countdown': 'var(--color-accent-blue)',
   '/checklists': 'var(--color-accent-green)',
   '/availability': 'var(--color-accent-green)',
   '/rota': 'var(--color-accent-blue)',
