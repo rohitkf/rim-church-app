@@ -136,4 +136,20 @@ describe('where a new checklist line lands', () => {
     await waitFor(() => expect(inserts).toHaveLength(1))
     expect(inserts[0]).toMatchObject({ phase: 'pre', sort_order: 3 })
   })
+
+  // During the service (0260): its own list, numbered on its own.
+  it('adds a line under During the service as a during line, after the last of those', async () => {
+    fetchRoleChecklistItems.mockResolvedValue([
+      item(1),
+      item(5, { id: 'd5', phase: 'during', label: 'Start the recording' }),
+    ])
+    const user = show()
+    const row = (await screen.findByText('Camera Operator 1')).closest('li')!
+    await user.click(within(row).getByText('Checklist'))
+    await user.type(within(row).getByPlaceholderText(/Start the recording, wide shot/), 'Wide shot for the sermon')
+    await user.click(within(row).getAllByRole('button', { name: 'Add' })[1])
+
+    await waitFor(() => expect(inserts).toHaveLength(1))
+    expect(inserts[0]).toMatchObject({ phase: 'during', label: 'Wide shot for the sermon', sort_order: 6 })
+  })
 })

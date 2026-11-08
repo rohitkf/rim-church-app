@@ -165,3 +165,32 @@ describe('an optional line', () => {
     expect(countsTowardReadiness({}, 'pending')).toBe(true)
   })
 })
+
+describe('the during-the-service part (0260)', () => {
+  const items = [
+    { id: 'setup', role_id: 'r', phase: 'pre' },
+    { id: 'record', role_id: 'r', phase: 'during' },
+    { id: 'packup', role_id: 'r', phase: 'post' },
+  ]
+  const base = { id: 'a', service_id: 's', department_id: 'd', role_id: 'r' }
+
+  it('counts in readiness like the other two parts', () => {
+    const r = serviceReadiness({
+      assignments: [base],
+      roleItems: items,
+      progress: [{ assignment_id: 'a', item_id: 'record', status: 'coordinator_verified' }],
+    })
+    expect(r.overall).toMatchObject({ total: 3, pct: 33 })
+  })
+
+  it('is left out for somebody the rota has not given it to', () => {
+    const r = serviceReadiness({
+      assignments: [{ ...base, include_during: false }],
+      roleItems: items,
+      progress: [],
+    })
+    expect(r.overall.total).toBe(2)
+    expect(carriesPhase({ include_during: false }, 'during')).toBe(false)
+    expect(carriesPhase({}, 'during')).toBe(true)
+  })
+})

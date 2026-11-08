@@ -385,6 +385,14 @@ export function ChecklistsIndexPage() {
                   const packingOpensAt = afterOpensAt(service.id)
                   const packingNotYet =
                     !finished && (packingOpensAt === null || clockNow < packingOpensAt)
+                  // During the service opens when it starts (0260); one
+                  // with no times has no start to wait for.
+                  const serviceStartsAt = startsAt(service.id)
+                  const duringNotYet =
+                    !ended && serviceStartsAt !== null && clockNow < new Date(serviceStartsAt).getTime()
+                  /** Whether nothing more can be ticked in this part of a list, by the clock. */
+                  const partShut = (part: string) =>
+                    part === 'post' ? finished || packingNotYet : part === 'during' ? ended || duringNotYet : ended
                   const forService = mineFirst.filter((m) => m.assignment.service_id === service.id)
                   if (forService.length === 0) return null
 
@@ -623,19 +631,25 @@ export function ChecklistsIndexPage() {
                                   className={`mt-4 rounded-[var(--radius-chip)] border-l-4 py-2 pl-3 pr-1 ${
                                     phase.value === 'pre'
                                       ? 'border-accent-blue bg-[color-mix(in_oklab,var(--color-accent-blue)_7%,transparent)]'
-                                      : 'border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)]'
+                                      : phase.value === 'during'
+                                        ? 'border-accent-teal bg-[color-mix(in_oklab,var(--color-accent-teal)_7%,transparent)]'
+                                        : 'border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)]'
                                   }`}
                                 >
                                   {/* Two groups that have to read as two:
                                       a coloured rule down the side, a tint,
                                       and a heading in the group's colour —
-                                      blue before, indigo after — rather than
+                                      blue before, teal during, indigo after — rather than
                                       a faint label that looked like another
                                       row. */}
                                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                     <span
                                       className={`font-mono text-label-md font-semibold uppercase tracking-[0.12em] ${
-                                        phase.value === 'pre' ? 'text-accent-blue-soft' : 'text-accent-indigo-soft'
+                                        phase.value === 'pre'
+                                          ? 'text-accent-blue-soft'
+                                          : phase.value === 'during'
+                                            ? 'text-accent-teal-soft'
+                                            : 'text-accent-indigo-soft'
                                       }`}
                                     >
                                       {phase.label}
@@ -643,7 +657,7 @@ export function ChecklistsIndexPage() {
                                     <span className="text-label-sm text-on-surface-faint">{phase.blurb}</span>
                                   </div>
                                   {(() => {
-                                    const phaseShut = phase.value === 'post' ? finished || packingNotYet : ended
+                                    const phaseShut = partShut(phase.value)
                                     const inPhase = byPhase(items, phase.value)
                                     // Check all leaves an optional line nobody has taken on alone (0259).
                                     const left = inPhase.filter(
@@ -673,6 +687,14 @@ export function ChecklistsIndexPage() {
                                   {/* Locked until near the end, and saying
                                       when — a locked box with no reason
                                       reads as broken. */}
+                                  {phase.value === 'during' && duringNotYet && serviceStartsAt !== null && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
+                                      <span className="text-body-sm text-on-surface-variant">
+                                        {`Opens when the service starts, at ${new Date(serviceStartsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}.`}
+                                      </span>
+                                      <ServiceCountdown startsAt={serviceStartsAt} label="until it opens" />
+                                    </div>
+                                  )}
                                   {phase.value === 'post' && packingNotYet && (
                                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-chip)] bg-surface-container px-3 py-2">
                                       <span className="text-body-sm text-on-surface-variant">
@@ -717,7 +739,7 @@ export function ChecklistsIndexPage() {
                                           // before the service; the packing-up
                                           // half stays open a while longer.
                                           may={
-                                            (phase.value === 'post' ? finished || packingNotYet : ended)
+                                            partShut(phase.value)
                                               ? { member: false, head: false, sign: false }
                                               : may
                                           }

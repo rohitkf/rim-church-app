@@ -48,6 +48,7 @@ export async function fetchGuestRota(serviceIds: string[]): Promise<RotaRow[]> {
       role_label: r.role_label,
       role_id: r.role_id,
       include_pre: true,
+      include_during: true,
       include_post: true,
       tags: [],
       profile: { id: guestKey(r.guest_id), first_name: r.guest?.name ?? 'Unknown', last_name: '' },

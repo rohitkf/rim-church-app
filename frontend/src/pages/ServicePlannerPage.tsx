@@ -476,7 +476,17 @@ export function ServicePlannerPage() {
     const id = window.setInterval(() => setClock(Date.now()), 30_000)
     return () => window.clearInterval(id)
   }, [])
-  const finished = serviceStanding(sessions, clock, endedAt).state === 'done'
+  const standing = serviceStanding(sessions, clock, endedAt).state
+  const finished = standing === 'done'
+  /*
+   * Once the service has started, the running order is something people
+   * read off a phone, not a list being arranged: a drag handle beside every
+   * session is clutter, and a slip of the thumb moves one. So the handles
+   * go once it is under way, and come back on purpose — Reorder sessions in
+   * the ⋯ menu — until Done.
+   */
+  const started = standing === 'running' || standing === 'done'
+  const [reordering, setReordering] = useState(false)
 
   /*
    * Editing stops an hour after the service does.
@@ -500,6 +510,8 @@ export function ServicePlannerPage() {
   const locksAt = editingLocksAt(sessions, endedAt, graceMs)
   const locked = editingLocked(sessions, clock, endedAt, graceMs)
   const canEdit = mayPlan && !locked
+  /** Whether the drag handles are drawn: always before the start, on request after. */
+  const canDrag = canEdit && (!started || reordering)
   /** A button in a session's menu: everybody who plans, and whoever was given it. */
   const mayControl = (control: PlannerControl) => canEdit || (!locked && given.has(control))
   const mayRun = RUN_CONTROLS.some(mayControl)
@@ -512,7 +524,7 @@ export function ServicePlannerPage() {
   } = useDragReorder(
     sessions.map((session) => session.id),
     (ids) => reorderSessions.mutate(ids),
-    { enabled: canEdit },
+    { enabled: canDrag },
   )
   // The running order as it is drawn, which mid-drag is a step ahead of
   // what the database has been told.
@@ -732,6 +744,15 @@ export function ServicePlannerPage() {
       hint: 'Where everything and everybody stands for this service',
       onSelect: () => navigate(`/stage/${serviceId}`),
     },
+    ...(canEdit && started && !reordering && sessions.length > 1
+      ? ([
+          {
+            label: 'Reorder sessions',
+            hint: 'Show the handles to drag sessions into a new order',
+            onSelect: () => setReordering(true),
+          },
+        ] as MenuAction[])
+      : []),
     ...(canManage
       ? ([
           {
@@ -875,6 +896,14 @@ export function ServicePlannerPage() {
                 className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface disabled:opacity-50"
               >
                 {undo.isPending ? 'Undoing…' : `Undo ${undoStack.at(-1)!.label}`}
+              </button>
+            )}
+            {canEdit && started && reordering && (
+              <button
+                onClick={() => setReordering(false)}
+                className="rounded-full hairline px-4 py-2.5 text-body-sm font-medium text-on-surface"
+              >
+                Done reordering
               </button>
             )}
             {canEdit && (
@@ -1431,7 +1460,7 @@ export function ServicePlannerPage() {
                             menu at the end of the row.
                           */}
                           <div className="flex items-start gap-2">
-                            {canEdit && (
+                            {canDrag && (
                               <DragHandle
                                 label={session.session_name}
                                 className="mt-2"

@@ -45,6 +45,7 @@ import {
   type RotaRow,
 } from '../lib/guestRota'
 import { isCoordinatorRole } from '../lib/useTeamCoordinator'
+import { ALL_PARTS, PART_KEYS, PART_LABEL, carriesAll, partsOf, type Parts } from '../lib/checklistParts'
 import { shownTags, tagStyle, useRotaTags } from '../lib/rotaTags'
 import { skyStyle } from '../lib/coordinatorSky'
 import { useMyTeams } from '../lib/useMyTeams'
@@ -72,7 +73,7 @@ async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_post, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_during, include_post, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -106,8 +107,8 @@ export function TeamRotaPage() {
   const [draftRole, setDraftRole] = useState<Record<string, string>>({})
   const [draftPerson, setDraftPerson] = useState<Record<string, string>>({})
   const [draftTags, setDraftTags] = useState<Record<string, string[]>>({})
-  // Which halves of the checklist a new assignment carries; both unless unticked.
-  const [draftHalves, setDraftHalves] = useState<Record<string, { pre: boolean; post: boolean }>>({})
+  // Which parts of the checklist a new assignment carries; all unless unticked.
+  const [draftHalves, setDraftHalves] = useState<Record<string, Parts>>({})
   const tagsQuery = useRotaTags()
   const offeredTags = shownTags(tagsQuery.data ?? [])
   const [error, setError] = useState<string | null>(null)
@@ -378,7 +379,7 @@ export function TeamRotaPage() {
       roleLabel: string
       roleId: string | null
       tagIds: string[]
-      halves: { pre: boolean; post: boolean }
+      halves: Parts
     }) => {
       // Somebody with no account: a role and nothing else (0167).
       if (isGuestKey(userId)) {
@@ -394,6 +395,7 @@ export function TeamRotaPage() {
         tags: tagIds,
         before_service: halves.pre,
         after_service: halves.post,
+        during_service: halves.during,
       })
       if (error) throw error
     },
@@ -401,7 +403,7 @@ export function TeamRotaPage() {
       setDraftRole((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftPerson((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: '' }))
       setDraftTags((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: [] }))
-      setDraftHalves((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: { pre: true, post: true } }))
+      setDraftHalves((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: ALL_PARTS }))
       // The role is filled, so the form has done its job — fold it away
       // rather than leaving an empty pair of dropdowns behind.
       setOpenForm((s) => ({ ...s, [`${vars.serviceId}:${vars.departmentId}`]: false }))
@@ -422,13 +424,13 @@ export function TeamRotaPage() {
     },
   })
 
-  // Which halves of the checklist an assignment carries, changed after the
-  // fact. Never both off: the database refuses that too (0112).
+  // Which parts of the checklist an assignment carries, changed after the
+  // fact. Never all off: the database refuses that too (0112, 0260).
   const setHalves = useMutation({
-    mutationFn: async (v: { id: string; include_pre: boolean; include_post: boolean }) => {
+    mutationFn: async (v: { id: string; include_pre: boolean; include_during: boolean; include_post: boolean }) => {
       const { error } = await supabase
         .from('rota_assignments')
-        .update({ include_pre: v.include_pre, include_post: v.include_post })
+        .update({ include_pre: v.include_pre, include_during: v.include_during, include_post: v.include_post })
         .eq('id', v.id)
       if (error) throw error
     },
@@ -837,16 +839,19 @@ export function TeamRotaPage() {
                                             </span>
                                           ))}
                                         </span>
-                                        {/* The checklist halves this person carries. Shown
-                                            to everyone when only one is, so the
+                                        {/* The checklist parts this person carries. Shown
+                                            to everyone when not all are, so the
                                             row says "Before only"; a manager can
-                                            switch either, never both off. */}
-                                        {!a.guest && (manage || !a.include_pre || !a.include_post) && (
+                                            switch any, never all off (0260). */}
+                                        {!a.guest && (manage || !carriesAll(a)) && (
                                           <span className="relative flex items-center gap-1.5" role="group" aria-label={`Checklists for ${a.role_label}`}>
-                                            {(['pre', 'post'] as const).map((half) => {
-                                              const on = half === 'pre' ? a.include_pre : a.include_post
-                                              const other = half === 'pre' ? a.include_post : a.include_pre
-                                              const label = half === 'pre' ? 'Before' : 'After'
+                                            {PART_KEYS.map((half) => {
+                                              const parts = partsOf(a)
+                                              const on = parts[half]
+                                              const onCount = PART_KEYS.filter((k) => parts[k]).length
+                                              // Another part is on besides this one.
+                                              const other = onCount > (on ? 1 : 0)
+                                              const label = PART_LABEL[half]
                                               if (!manage && !on) return null
                                               return manage ? (
                                                 <button
@@ -858,22 +863,25 @@ export function TeamRotaPage() {
                                                   onClick={() =>
                                                     setHalves.mutate({
                                                       id: a.id,
-                                                      include_pre: half === 'pre' ? !on : a.include_pre,
-                                                      include_post: half === 'post' ? !on : a.include_post,
+                                                      include_pre: half === 'pre' ? !on : parts.pre,
+                                                      include_during: half === 'during' ? !on : parts.during,
+                                                      include_post: half === 'post' ? !on : parts.post,
                                                     })
                                                   }
-                                                  // Both halves is the usual case, drawn quietly:
+                                                  // Every part is the usual case, drawn quietly:
                                                   // colour is kept for a row that carries only
-                                                  // one, which is the one worth noticing.
+                                                  // some, which is the one worth noticing.
                                                   className={`tap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase transition-opacity disabled:cursor-not-allowed ${
-                                                    on && other
+                                                    on && onCount === PART_KEYS.length
                                                       ? sky
                                                         ? 'bg-white/15 text-white/80'
                                                         : 'bg-raised-strong text-on-surface-variant'
                                                       : on
                                                       ? half === 'pre'
                                                         ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_22%,transparent)] text-accent-blue-soft'
-                                                        : 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft'
+                                                        : half === 'during'
+                                                          ? 'bg-[color-mix(in_oklab,var(--color-accent-teal)_22%,transparent)] text-accent-teal-soft'
+                                                          : 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft'
                                                       : `${sky ? 'text-white/50' : 'text-on-surface-faint'} opacity-70 line-through`
                                                   }`}
                                                 >
@@ -886,7 +894,7 @@ export function TeamRotaPage() {
                                                     sky ? 'text-white/80' : 'text-on-surface-variant'
                                                   }`}
                                                 >
-                                                  {label} only
+                                                  {onCount === 1 ? `${label} only` : label}
                                                 </span>
                                               )
                                             })}
@@ -1029,7 +1037,7 @@ export function TeamRotaPage() {
                                   roleLabel: role,
                                   roleId: deptRoles.find((r) => r.name === role)?.id ?? null,
                                   tagIds: draftTags[key] ?? [],
-                                  halves: draftHalves[key] ?? { pre: true, post: true },
+                                  halves: draftHalves[key] ?? ALL_PARTS,
                                 })
                               }}
                               className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-chip)] bg-surface-low p-3"
@@ -1112,18 +1120,18 @@ export function TeamRotaPage() {
                                   }))}
                                 />
                               </label>
-                              {/* Which halves of the role's checklist this person
-                                  carries at this service. Both unless one is
-                                  unticked — and never neither. */}
+                              {/* Which parts of the role's checklist this person
+                                  carries at this service. All unless one is
+                                  unticked — and never none. */}
                               {/* A guest with no account has no checklist,
                                   so nothing to split or tag (0167). */}
                               {!isGuestKey(chosenPerson) && (
                               <fieldset className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5">
                                 <legend className="sr-only">Checklists for this role</legend>
                                 <span className="text-label-sm text-on-surface-variant">Checklists:</span>
-                                {(['pre', 'post'] as const).map((half) => {
-                                  const now = draftHalves[key] ?? { pre: true, post: true }
-                                  const other = half === 'pre' ? now.post : now.pre
+                                {PART_KEYS.map((half) => {
+                                  const now = draftHalves[key] ?? ALL_PARTS
+                                  const other = PART_KEYS.some((k) => k !== half && now[k])
                                   return (
                                     <label key={half} className="flex items-center gap-2 text-body-sm text-on-surface">
                                       <input
@@ -1136,7 +1144,7 @@ export function TeamRotaPage() {
                                         }
                                         className="h-4 w-4 accent-[var(--color-primary)]"
                                       />
-                                      {half === 'pre' ? 'Before the service' : 'After the service'}
+                                      {`${PART_LABEL[half]} the service`}
                                     </label>
                                   )
                                 })}
