@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
+import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
@@ -57,10 +58,16 @@ const contactSchema = z.object({ id: z.string(), email: z.string().nullable(), p
 async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, dob, anniversary')
+    .select('id, first_name, last_name, anniversary')
     .order('first_name')
   if (error) throw error
-  const people = z.array(volunteerSchema).parse(data)
+  // Dates of birth only where they are the reader's to see — the Owner's
+  // and Admins', for the export (birth_dates, 0256; profiles.dob is closed).
+  const dates = await fetchBirthDates()
+  const people = z
+    .array(volunteerSchema.omit({ dob: true }))
+    .parse(data)
+    .map((p) => ({ ...p, dob: fullDate(dates.get(p.id)) }))
   // Never carried for anybody else, even if a row ever arrived with them.
   if (!withContacts) return people.map(({ email: _email, phone: _phone, ...rest }) => rest)
   const contacts = await supabase.rpc('people_contacts', { p_ids: null })

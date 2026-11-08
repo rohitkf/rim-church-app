@@ -5,6 +5,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CelebrationsPanel } from './CelebrationsPanel'
 import { DISPLAY_DEFAULTS, type Celebrations } from '../lib/display'
 
+// birth_dates() (0256), from the same people: the day for everybody, the
+// whole date for an Admin and for yourself.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: () =>
+    Promise.resolve(
+      new Map(
+        (state.people as { id: string; dob: string | null }[])
+          .filter((p) => p.dob)
+          .map((p) => [p.id, { id: p.id, dob: state.admin || p.id === 'me' ? p.dob : null, birthday: p.dob!.slice(5) }]),
+      ),
+    ),
+}))
+
 /*
  * The Dashboard's birthdays and anniversaries: what the church's settings
  * make of the same people (Settings › Display).

@@ -4,6 +4,18 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DepartmentDetailPage } from './DepartmentDetailPage'
 
+// birth_dates() (0256), as it answers an Admin: the whole date.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: () =>
+    Promise.resolve(
+      new Map([
+        ['u1', { id: 'u1', dob: '1990-03-14', birthday: '03-14' }],
+        ['u2', { id: 'u2', dob: '2004-01-02', birthday: '01-02' }],
+      ]),
+    ),
+}))
+
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: true, ledDepartmentIds: [] }),
 }))
@@ -143,10 +155,11 @@ describe('what a team can see about each other', () => {
    * A roster that gives you a name and an email and not whether you are
    * talking to a sixteen-year-old is a roster that makes people careful
    * in the wrong ways. The date itself stays private — the age is the
-   * part that changes how you speak to somebody — and it comes off
-   * `profiles`, which every signed-in person could already read.
+   * part that changes how you speak to somebody. Since November 2026 it
+   * is the Owner's and Admins' to see (an Admin is looking here), through
+   * birth_dates() (0256).
    */
-  it('shows how old everybody is, core and guest alike', async () => {
+  it('shows an Admin how old everybody is, core and guest alike', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-09-11T09:00:00Z'))
 

@@ -4,6 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FamilyCard, FamilyRequests } from './FamilyCard'
 
+// birth_dates() (0256), as it answers somebody who is not an Admin: a
+// linked spouse's date is theirs, so it does not come back.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: () => Promise.resolve(new Map()),
+}))
+
 /*
  * Who you live with (0149): the database does the linking and decides who
  * sees what, so what matters here is that the card shows a family the way

@@ -6,6 +6,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventsPage } from './EventsPage'
 import { formatTimeValue } from '../lib/dateTimeFormat'
 
+// Dates of birth come through birth_dates() (0256); nothing here is about them.
+vi.mock('../lib/birthDates', async (orig) => ({
+  ...(await orig<typeof import('../lib/birthDates')>()),
+  fetchBirthDates: () => Promise.resolve(new Map()),
+}))
+
 /*
  * The diary, and putting something right in it.
  *

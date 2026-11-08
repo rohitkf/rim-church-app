@@ -458,8 +458,12 @@ Each of these has already cost real time. None of them show up in review.
 - **`profiles` is readable column by column** (0127). Email, phone and
   marital status are closed to everybody; the Owner reads others' through
   `people_contacts()`, everyone reads their own through `my_profile()`,
-  and a Head adds by address through `person_by_email()` (0126). A
-  `select('*')` on `profiles`, or any column not in 0127's grant, fails the
+  and a Head adds by address through `person_by_email()` (0126). Date of
+  birth is closed too (0257): ages are the Owner's and Admins' alone, so
+  `dob` comes through `birth_dates()` (0256, `lib/birthDates.ts`) — the
+  whole date for your own and for the Owner and Admins, only the day and
+  month for everybody else. A `select('*')` on `profiles`, or any column
+  not in 0127's grant (less what 0257 took back), fails the
   **whole query** — and a new column starts closed until a migration
   grants it. `lib/profileColumns.test.ts` reads every select in `src/`
   against the grant; keep it passing rather than loosening it.
