@@ -277,6 +277,7 @@ describe('AppShell dock', () => {
       'Set Lists',
       'Songs',
       'Stage Layout',
+      'Countdown',
       'Debriefs',
       'Issues',
       'Messages',

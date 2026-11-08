@@ -741,6 +741,7 @@ export const CATALOG = {
   },
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
+  'page.countdown': page('everyone team leads', 'team'),
   'page.rota': page('everyone team', 'team'),
   'page.set_lists': page('everyone team leads', 'everyone'),
   'page.debriefs': page('team leads', 'team'),

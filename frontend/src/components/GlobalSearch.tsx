@@ -36,6 +36,7 @@ interface Hit {
 const PAGES: { label: string; detail: string; to: string; keywords: string }[] = [
   { label: 'Dashboard', detail: 'Readiness, availability and celebrations', to: '/', keywords: 'home overview readiness' },
   { label: 'Service Planner', detail: 'Running orders and templates', to: '/service-planner', keywords: 'plan running order sessions templates' },
+  { label: 'Countdown', detail: 'The service clock, large', to: '/countdown', keywords: 'timer clock time overrun running over stage' },
   { label: 'Checklists', detail: 'Pre-service checks and sign-off', to: '/checklists', keywords: 'checks verify sign off' },
   { label: 'Availability Tracker', detail: 'Who can serve, and who turned up', to: '/availability', keywords: 'available attendance rota answers' },
   { label: 'Team Rota', detail: 'Who is doing what', to: '/rota', keywords: 'assign roles duty' },

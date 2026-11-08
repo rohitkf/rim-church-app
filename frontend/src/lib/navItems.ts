@@ -20,6 +20,7 @@ import {
   WarningIcon,
   MessageIcon,
   StageIcon,
+  TimerIcon,
   UsersIcon,
 } from '../components/icons'
 import { SERVING_PATH, SERVING_TABS } from './serving'
@@ -78,6 +79,8 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Sunday' },
   // Where everything stands on the morning, drawn once for everybody.
   { to: '/stage', label: 'Stage Layout', icon: StageIcon, group: 'Sunday' },
+  // The running order's clock, large, for whoever keeps the time.
+  { to: '/countdown', label: 'Countdown', icon: TimerIcon, group: 'Sunday' },
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
   { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, group: 'After the service' },

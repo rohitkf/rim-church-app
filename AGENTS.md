@@ -261,6 +261,9 @@ frontend/src/
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
+  lib/serviceClock.ts        the running order's countdown: what it counts to
+                             now. The planner's rail and the Countdown page
+                             (/countdown, 0261) both read it — never a copy
   auth/AuthContext.tsx       useAuth(): isAdmin, isSuperAdmin, ownerId,
                              isDepartmentHead(), ledDepartmentIds,
                              viewAs / setViewAs (an Admin's preview)

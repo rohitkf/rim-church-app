@@ -72,6 +72,15 @@ export const PAGE_RULES: Record<string, PageRule> = {
     enforcement: 'page',
     note: 'Hides the page. The services themselves still show on the Dashboard.',
   },
+  '/countdown': {
+    key: 'countdown',
+    // For the people running the service; a Church Member has no part in
+    // keeping its time (asked for by the Owner, November 2026).
+    default: 'team',
+    choices: ['everyone', 'team', 'leads'],
+    enforcement: 'page',
+    note: 'Hides the page. The running order and its clock are on the Service Planner too.',
+  },
   '/availability': {
     default: 'team',
     choices: ['team'],

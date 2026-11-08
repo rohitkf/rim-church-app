@@ -164,6 +164,7 @@ const granted = (key: CapabilityKey, overrides: Overrides = {}): Record<RoleKey,
 /** Each page with a choice of who may open it, as the grid's row (0215). */
 const PAGE_ROW: Record<string, string> = {
   '/service-planner': 'Open the Service Planner',
+  '/countdown': 'Open the Countdown',
   '/rota': 'Open the Team Rota',
   '/set-lists': 'Open Set Lists',
   '/debriefs': 'Open Debriefs',
