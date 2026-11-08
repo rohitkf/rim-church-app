@@ -54,9 +54,10 @@ export const departmentMemberRowSchema = z.object({
       phone: z.string().nullable().optional(),
       avatar_url: z.string().nullable(),
       /*
-       * Everyone on a team may see everyone's age — it is on profiles,
-       * which every signed-in person can already read, rather than in
-       * the sensitive row beside visas and DBS.
+       * The team page shows ages to the Owner and Admins only (November
+       * 2026). The date itself is on profiles, which every signed-in
+       * person can read (birthdays need it), not in the sensitive row
+       * beside visas and DBS.
        *
        * Optional because this row is parsed from several selects and only
        * the team page asks for the column; a page that does not need an

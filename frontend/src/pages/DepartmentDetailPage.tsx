@@ -151,7 +151,10 @@ function Age({ dob }: { dob: string | null | undefined }) {
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isSuperAdmin: isOwner } = useAuth()
+  const { isSuperAdmin: isOwner, isAdmin } = useAuth()
+  // Ages are the Owner's and Admins' to see (November 2026): the rest of
+  // the team sees names, not how old everybody is.
+  const seesAges = isOwner || isAdmin
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Each of this team's controls is its own permission (Settings › Access
@@ -593,7 +596,7 @@ export function DepartmentDetailPage() {
                           {m.profiles.email}
                         </div>
                       )}
-                      {ageFrom(m.profiles?.dob) !== null && (
+                      {seesAges && ageFrom(m.profiles?.dob) !== null && (
                         <div className="mt-0.5 text-body-sm text-on-surface-faint">
                           <Age dob={m.profiles?.dob} /> years old
                         </div>
@@ -641,7 +644,7 @@ export function DepartmentDetailPage() {
                   <thead>
                     <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                       <th className="py-2 pr-4">Member</th>
-                      <th className="py-2 pr-4">Age</th>
+                      {seesAges && <th className="py-2 pr-4">Age</th>}
                       <th className="py-2 pr-4">On this team</th>
                       {isOwner && <th className="py-2 pr-4">Contact</th>}
                       {isOwner && <th className="py-2 pr-4">Compliance</th>}
@@ -654,9 +657,11 @@ export function DepartmentDetailPage() {
                           <td className="py-3 pr-4 font-medium text-on-surface">
                             {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                           </td>
-                          <td className="py-3 pr-4 text-on-surface-variant">
-                            <Age dob={m.profiles?.dob} />
-                          </td>
+                          {seesAges && (
+                            <td className="py-3 pr-4 text-on-surface-variant">
+                              <Age dob={m.profiles?.dob} />
+                            </td>
+                          )}
                           <td className="py-3 pr-4 text-on-surface-variant">
                             {DESIGNATION_LABEL[designationOf(m.user_id)]}
                           </td>
@@ -701,7 +706,7 @@ export function DepartmentDetailPage() {
                       ))}
                     {rollCore.map((g) => (
                       <tr key={g.id} className="border-b border-border-subtle last:border-0">
-                        <td colSpan={3 + (isOwner ? 2 : 0) + (canManage ? 1 : 0)} className="py-3">
+                        <td colSpan={2 + (seesAges ? 1 : 0) + (isOwner ? 2 : 0) + (canManage ? 1 : 0)} className="py-3">
                           <div className="flex items-center justify-between gap-3">{rollRow(g, 'guest')}</div>
                         </td>
                       </tr>
@@ -860,11 +865,9 @@ export function DepartmentDetailPage() {
                             {m.profiles.email}
                           </div>
                         )}
-                        {/* Guests get their age shown too: the point of
-                            putting it on the page is that everybody on a
-                            team can see everybody, and a guest is on the
-                            team. */}
-                        {ageFrom(m.profiles?.dob) !== null && (
+                        {/* Guests get their age shown too, to whoever sees
+                            ages at all: a guest is on the team. */}
+                        {seesAges && ageFrom(m.profiles?.dob) !== null && (
                           <div className="mt-0.5 text-body-sm text-on-surface-faint">
                             <Age dob={m.profiles?.dob} /> years old
                           </div>

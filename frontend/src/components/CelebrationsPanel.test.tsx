@@ -15,9 +15,12 @@ const state = vi.hoisted(() => ({
   couples: [] as unknown[],
   eventsOpen: true,
   services: [] as { id: string; date: string }[],
+  admin: true,
 }))
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } } }) }))
+vi.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: state.admin, isSuperAdmin: false }),
+}))
 vi.mock('../lib/monthGrid', () => ({ todayIso: () => '2026-10-25' }))
 vi.mock('../lib/queries', () => ({ fetchServices: () => Promise.resolve(state.services) }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ canOpen: () => state.eventsOpen }) }))
@@ -57,6 +60,7 @@ beforeEach(() => {
   state.couples = [{ a: 'a', b: 'b' }]
   state.eventsOpen = true
   state.services = []
+  state.admin = true
 })
 
 describe('birthdays and anniversaries on the Dashboard', () => {
@@ -76,6 +80,16 @@ describe('birthdays and anniversaries on the Dashboard', () => {
     expect(rows[2]).toHaveTextContent('16 years')
     // December is outside the week.
     expect(screen.queryByText(/Cal Mathew/)).not.toBeInTheDocument()
+  })
+
+  // Ages are the Owner's and Admins' to see (November 2026); how long a
+  // couple has been married is not anybody's age, so it stays.
+  it('keeps how old somebody is turning from everybody but Admins', async () => {
+    state.admin = false
+    show()
+    const list = await screen.findByRole('list', { name: 'Birthdays & anniversaries' })
+    expect(within(list).queryByText(/Turns/)).toBeNull()
+    expect(within(list).getByText('16 years')).toBeInTheDocument()
   })
 
   it('gives names and days alone with ages off', async () => {
