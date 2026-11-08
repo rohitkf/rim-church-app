@@ -30,6 +30,8 @@ const state = vi.hoisted(() => ({
   written: [] as { table: string; op: string; row: unknown; id?: string }[],
   openSeries: [] as { id: string }[],
   rpcs: [] as unknown[],
+  /** The rows a split run became (0263), as event_run_split leaves them. */
+  splitDays: [] as { id: string; event_date: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -58,6 +60,10 @@ vi.mock('../lib/queries', () => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     rpc: (fn: string, args: unknown) => {
+      if (fn === 'event_run_split') {
+        state.rpcs.push([fn, args])
+        return Promise.resolve({ data: 'RUN', error: null })
+      }
       if (fn === 'extend_event_series') {
         state.rpcs.push([fn, args])
         return Promise.resolve({ data: 26, error: null })
@@ -83,7 +89,12 @@ vi.mock('../lib/supabaseClient', () => ({
                     : [],
           error: null,
         })
-        return Object.assign(rows, { order: () => rows, is: () => rows })
+        const days = Promise.resolve({ data: state.splitDays, error: null })
+        return Object.assign(rows, {
+          order: () => rows,
+          is: () => rows,
+          eq: (column: string) => ({ order: () => (column === 'series_id' ? days : rows) }),
+        })
       },
       insert: (row: unknown) => {
         state.written.push({ table, op: 'insert', row })
@@ -110,6 +121,10 @@ vi.mock('../lib/supabaseClient', () => ({
           state.written.push({ table, op: 'delete', row: null, id })
           return done
         },
+        in: (_column: string, ids: string[]) => {
+          state.written.push({ table, op: 'delete-days', row: ids })
+          return Promise.resolve({ error: null })
+        },
       }),
     }),
   },
@@ -127,6 +142,8 @@ const meeting = (over: Record<string, unknown> = {}) => ({
   created_by: 'u9',
   creator: { first_name: 'Grace', last_name: 'Mensah' },
   department: null,
+  // What 0262 gave every entry already in the diary: those that repeat are Meetings.
+  category: over.repeat_rule ? 'meeting' : 'event',
   ...over,
 })
 
@@ -135,6 +152,8 @@ beforeEach(() => {
   state.written = []
   state.people = []
   state.couples = []
+  state.rpcs = []
+  state.splitDays = []
 })
 
 function show(at = '/events') {
@@ -303,6 +322,7 @@ describe('editing an event', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Workday')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
 
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
@@ -484,6 +504,7 @@ describe('events that repeat', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
     await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
@@ -543,6 +564,7 @@ describe('events that repeat', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
+    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
     await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
@@ -623,6 +645,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Rehearsal')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).toBeChecked()
@@ -641,6 +664,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Picnic')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
@@ -667,6 +691,7 @@ describe('which teams an event is for', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Team night')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
@@ -706,6 +731,7 @@ describe('an event with links', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 name'), 'Join on Zoom')
@@ -729,6 +755,7 @@ describe('an event with links', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
     await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
+    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 address'), 'javascript:alert(1)')
@@ -790,3 +817,124 @@ describe('opening one event from elsewhere', () => {
     expect(within(card).getByRole('heading', { name: 'Prophetical Prayer' })).toBeInTheDocument()
   })
 })
+
+/*
+ * Event or Meeting is the maker's choice (0262), not whether it repeats.
+ */
+describe('event or meeting', () => {
+  it('asks which it is, and adds nothing until it is said', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
+    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Members meeting')
+    const form = screen.getByRole('dialog')
+    expect(within(form).getByRole('radio', { name: 'Event' })).not.toBeChecked()
+    expect(within(form).getByRole('radio', { name: 'Meeting' })).not.toBeChecked()
+    expect(within(form).getByRole('button', { name: /Add event/ })).toBeDisabled()
+
+    await userEvent.click(within(form).getByRole('radio', { name: 'Meeting' }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    // A one-off can be a meeting.
+    expect(state.written[0].row).toMatchObject({ title: 'Members meeting', category: 'meeting' })
+  })
+
+  it('shows what was chosen, not whether it repeats', async () => {
+    state.events = [
+      meeting({ id: 'm1', title: 'Members meeting', category: 'meeting' }),
+      meeting({ id: 'f1', title: 'Fundraiser', event_date: '2026-09-20', series_id: 'S', repeat_rule: 'weekly', category: 'event' }),
+    ]
+    show('/events?show=meetings')
+    expect(await screen.findByText('Members meeting')).toBeInTheDocument()
+    expect(screen.queryByText('Fundraiser')).toBeNull()
+  })
+
+  it('keeps an entry’s choice when it is edited', async () => {
+    state.events = [meeting({ id: 'm1', title: 'Members meeting', category: 'meeting' })]
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: 'Meeting' })).toBeChecked()
+  })
+})
+
+/*
+ * A run of days, changed a day at a time (0263): the same choices as a
+ * meeting's, said in days, and "every day of it" as well.
+ */
+describe('a run of days', () => {
+  const run = () =>
+    meeting({ id: 'r1', title: 'Conference', event_date: '2026-09-20', ends_on: '2026-09-22', start_time: '09:00:00', end_time: '17:00:00' })
+  const split = [
+    { id: 'd20', event_date: '2026-09-20' },
+    { id: 'd21', event_date: '2026-09-21' },
+    { id: 'd22', event_date: '2026-09-22' },
+  ]
+  /** The Edit on the run's second day in the list. */
+  const editDay = async (n: number) => {
+    const edits = await screen.findAllByRole('button', { name: 'Edit' })
+    await userEvent.click(edits[n])
+  }
+
+  it('is changed whole unless somebody says otherwise', async () => {
+    state.events = [run()]
+    show()
+    await editDay(1)
+    const form = screen.getByRole('dialog')
+    expect(within(form).getByRole('radio', { name: 'Every day of it' })).toBeChecked()
+    await userEvent.click(within(form).getByRole('button', { name: /Save/ }))
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ op: 'update', id: 'r1' })
+    expect(state.rpcs).toEqual([])
+  })
+
+  it('changes only the day it was opened from, splitting the run once', async () => {
+    state.events = [run()]
+    state.splitDays = split
+    show()
+    await editDay(1)
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('radio', { name: /Only this day/ }))
+    const where = within(form).getByPlaceholderText(/Main hall|Where/i) as HTMLInputElement
+    await userEvent.clear(where)
+    await userEvent.type(where, 'Upper room')
+    await userEvent.click(within(form).getByRole('button', { name: /Save/ }))
+
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.rpcs).toEqual([['event_run_split', { p_event: 'r1' }]])
+    expect(state.written[0]).toMatchObject({ op: 'update', id: 'd21' })
+    // The day on its own: its own date, and none of the run's times (it had neither).
+    expect(state.written[0].row).toMatchObject({ location: 'Upper room', event_date: '2026-09-21', ends_on: null, start_time: null, end_time: null })
+  })
+
+  it('changes that day and the days after it, and leaves the days before', async () => {
+    state.events = [run()]
+    state.splitDays = split
+    show()
+    await editDay(1)
+    const form = screen.getByRole('dialog')
+    await userEvent.click(within(form).getByRole('radio', { name: 'This day and the days after it' }))
+    await userEvent.click(within(form).getByRole('button', { name: /Save/ }))
+    await waitFor(() => expect(state.written).toHaveLength(2))
+    expect(state.written.map((w) => w.id).sort()).toEqual(['d21', 'd22'])
+  })
+
+  it('takes away one day of it, or all of it', async () => {
+    state.events = [run()]
+    state.splitDays = split
+    show()
+    const removes = await screen.findAllByRole('button', { name: /Remove/ })
+    await userEvent.click(removes[1])
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Only this day' }))
+    await waitFor(() => expect(state.written).toEqual([{ table: 'church_events', op: 'delete-days', row: ['d21'] }]))
+    expect(state.rpcs).toEqual([['event_run_split', { p_event: 'r1' }]])
+  })
+
+  it('reads as one event across its days once split', async () => {
+    state.events = split.map((d) =>
+      meeting({ id: d.id, title: 'Conference', event_date: d.event_date, series_id: 'RUN', repeat_rule: 'daily', category: 'event' }),
+    )
+    show()
+    expect(await screen.findByText(/Day 2 of 3/)).toBeInTheDocument()
+    expect(screen.queryByText(/Repeats/)).toBeNull()
+  })
+})
+
