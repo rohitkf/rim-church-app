@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'during-the-service-checklist',
+    date: '2026-11-08',
+    title: 'During the service',
+    lead: 'A third part to every role’s checklist, between before and after.',
+    points: [
+      'A Team Head adds lines under “During the service” on a role’s checklist, under Teams.',
+      'They open when the service starts, and count in readiness like the rest.',
+      'On the rota, a role can be given before, during and after — or only some of them.',
+    ],
+    link: { to: '/checklists', label: 'Open Checklists' },
+    page: '/checklists',
+  },
+  {
     key: 'optional-checklist-lines',
     date: '2026-11-08',
     title: 'Optional checklist lines',

@@ -345,7 +345,11 @@ function RoleChecklistEditor({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder={
-              phase === 'pre' ? 'Check batteries, test focus…' : 'Batteries on charge, cards filed…'
+              phase === 'pre'
+                ? 'Check batteries, test focus…'
+                : phase === 'during'
+                  ? 'Start the recording, wide shot for the sermon…'
+                  : 'Batteries on charge, cards filed…'
             }
             /* Its own line until there is room beside the button: sharing
                one left the placeholder cut off mid-word. */
@@ -894,9 +898,10 @@ function RoleRow({
 
       {showChecklist && (
         /*
-         * Two lists, not one: the jobs before the doors open and the jobs
-         * once everyone has gone are done hours apart, and reading them as
-         * a single column means scanning past half of it at both ends.
+         * Three lists, not one: the jobs before the doors open, while the
+         * service runs, and once everyone has gone are done hours apart,
+         * and reading them as a single column means scanning past most of
+         * it each time (during the service is 0260).
          *
          * Side by side where there is room. Stacked, the panel was four
          * boxes of equal weight — a copy-from, two phases and a suggestion
@@ -906,7 +911,7 @@ function RoleRow({
          * them rather than over.
          */
         <div className="mt-3 w-full rounded-[var(--radius-card)] bg-surface-lowest/70 p-3 hairline sm:p-4">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
             {PHASES.map((p) => (
               <section
                 key={p.value}

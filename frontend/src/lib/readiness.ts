@@ -42,6 +42,7 @@ interface AssignmentLike {
   role_id: string | null
   /** Which halves it carries; both when not said (0112). */
   include_pre?: boolean
+  include_during?: boolean
   include_post?: boolean
 }
 interface RoleItemLike {
@@ -119,15 +120,16 @@ export function serviceReadiness(input: {
 }
 
 /**
- * Whether an assignment carries this half of its role's checklist. An
- * assignment that has not said carries both, which is what every one did
- * before 0112.
+ * Whether an assignment carries this part of its role's checklist. An
+ * assignment that has not said carries every part, which is what every one
+ * did before 0112 (and, for during the service, before 0260).
  */
 export function carriesPhase(
-  assignment: { include_pre?: boolean; include_post?: boolean },
+  assignment: { include_pre?: boolean; include_during?: boolean; include_post?: boolean },
   phase: string | undefined,
 ): boolean {
   if (phase === 'pre') return assignment.include_pre !== false
+  if (phase === 'during') return assignment.include_during !== false
   if (phase === 'post') return assignment.include_post !== false
   return true
 }

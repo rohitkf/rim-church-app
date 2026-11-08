@@ -1,12 +1,13 @@
 import type { ChecklistPhase } from './types'
 
 /**
- * The two halves of a role's checklist.
+ * The three parts of a role's checklist, in the order the morning runs.
  *
- * A camera operator checks the batteries before the doors open and puts
- * them on charge after everyone has gone. Those are different jobs at
- * different ends of the morning, and one undivided list means reading past
- * half of it twice — or ticking something that cannot be true yet.
+ * A camera operator checks the batteries before the doors open, starts the
+ * recording when the service begins, and puts the batteries on charge after
+ * everyone has gone. Those are different jobs at different points in the
+ * morning, and one undivided list means reading past most of it each time —
+ * or ticking something that cannot be true yet. During the service is 0260.
  */
 export const PHASES: { value: ChecklistPhase; label: string; blurb: string }[] = [
   {
@@ -15,13 +16,18 @@ export const PHASES: { value: ChecklistPhase; label: string; blurb: string }[] =
     blurb: 'Done before the doors open.',
   },
   {
+    value: 'during',
+    label: 'During the service',
+    blurb: 'Done while the service runs.',
+  },
+  {
     value: 'post',
     label: 'After the service',
     blurb: 'Done once everyone has gone.',
   },
 ]
 
-/** Pre before post, whatever order they arrived in. */
+/** One part's items, in the order they arrived in. */
 export function byPhase<T extends { phase: ChecklistPhase }>(
   items: T[],
   phase: ChecklistPhase,

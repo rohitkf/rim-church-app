@@ -126,6 +126,13 @@ Other things that are true and not guessable:
   120, 0115), both in `checklist_item_writable`, Admins included. A
   service with no end time keeps it shut until End service is pressed.
   The page keeps such a service out of Finished until that closes.
+  A list has a third part between the two, **"During the service"**
+  (`phase = 'during'`, 0260): it opens when the service starts (its
+  first session's start; with no times, with the before half) and closes
+  with the before half. An assignment carries each part by its own flag —
+  `include_pre`, `include_during`, `include_post`, never all off — and
+  SQL asks `assignment_carries_part()`, the app `carriesPhase()` /
+  `lib/checklistParts.ts`.
 - **A checklist item climbs a fixed chain**, and the order never changes:
   `pending` → `member_complete` → `head_verified` → `coordinator_verified`
   (the `checklist_item_status` enum, mirrored 1:1 by the `status-*` colour
