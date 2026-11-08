@@ -235,6 +235,8 @@ export const roleChecklistItemSchema = z.object({
   label: z.string(),
   sort_order: z.number(),
   phase: checklistPhaseSchema,
+  /** Counts only once the person holding the role ticks it (0259). */
+  optional: z.boolean().default(false),
 })
 export type RoleChecklistItem = z.infer<typeof roleChecklistItemSchema>
 

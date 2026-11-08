@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'optional-checklist-lines',
+    date: '2026-11-08',
+    title: 'Optional checklist lines',
+    lead: 'A job worth writing down that is not owed every Sunday.',
+    points: [
+      'A Team Head can mark any line on a role’s checklist as optional, under Teams.',
+      'An optional line does not count towards readiness until the person on that role ticks it.',
+      'Once ticked, it counts like any other line — verified, signed off, and in the team’s percentage.',
+    ],
+    link: { to: '/checklists', label: 'Open Checklists' },
+    page: '/checklists',
+  },
+  {
     key: 'reception',
     date: '2026-11-04',
     title: 'Reception',

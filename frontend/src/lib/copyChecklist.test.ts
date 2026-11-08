@@ -115,4 +115,15 @@ describe('rolesWithChecklists', () => {
   it('offers nothing when the team has written nothing down yet', () => {
     expect(rolesWithChecklists({ items: [], roles, excludeRoleId: 'cam1' })).toEqual([])
   })
+
+  it('keeps an optional line optional on the role it is copied to', () => {
+    const items = [
+      item({ role_id: 'cam1', label: 'Check batteries', sort_order: 0 }),
+      item({ role_id: 'cam1', label: 'Film a clip for socials', sort_order: 1, optional: true }),
+    ]
+    expect(itemsToCopy({ items, fromRoleId: 'cam1', toRoleId: 'cam2' })).toEqual([
+      { label: 'Check batteries', phase: 'pre', sort_order: 0 },
+      { label: 'Film a clip for socials', phase: 'pre', sort_order: 1, optional: true },
+    ])
+  })
 })

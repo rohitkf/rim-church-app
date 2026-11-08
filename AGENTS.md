@@ -130,6 +130,12 @@ Other things that are true and not guessable:
   `pending` → `member_complete` → `head_verified` → `coordinator_verified`
   (the `checklist_item_status` enum, mirrored 1:1 by the `status-*` colour
   tokens). A new stage means a new token, never a reused accent.
+- **An optional checklist line counts only once it is taken on** (0259,
+  `department_role_checklist_items.optional`). Untaken (pending) it is
+  out of every percentage, of `awaiting_checklist`'s reminders and of
+  Check all; from the assignee's tick it is an ordinary item. Anything
+  that counts a role's list asks `countsTowardReadiness()`
+  (`lib/readiness.ts`) rather than counting rows.
 - **Head and Assisting Head are identical in every rule.** Do not write a
   policy that distinguishes them.
 - **The Team Coordinator is a rota role, not a rank.** Whoever holds it for
