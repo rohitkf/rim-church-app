@@ -53,7 +53,18 @@ function formatDay(iso: string) {
   })
 }
 
-function OccasionRow({ occasion, isMe, ages }: { occasion: Occasion; isMe: boolean; ages: boolean }) {
+function OccasionRow({
+  occasion,
+  isMe,
+  ages,
+  seesAges,
+}: {
+  occasion: Occasion
+  isMe: boolean
+  ages: boolean
+  /** Whether this viewer may see how old somebody is turning. */
+  seesAges: boolean
+}) {
   const kind = KIND[occasion.kind]
   const today = occasion.daysAway === 0
 
@@ -74,7 +85,7 @@ function OccasionRow({ occasion, isMe, ages }: { occasion: Occasion; isMe: boole
           </span>
           <span className="flex items-center gap-2">
             <span className={`rounded-full px-1.5 py-0.5 font-mono text-label-sm ${kind.chip}`}>{kind.label}</span>
-            {ages && occasion.years !== null && (
+            {ages && occasion.years !== null && (occasion.kind !== 'birthday' || seesAges) && (
               <span className="text-label-sm text-on-surface-variant">
                 {occasion.kind === 'birthday'
                   ? `Turns ${occasion.years}`
@@ -105,7 +116,10 @@ function OccasionRow({ occasion, isMe, ages }: { occasion: Occasion; isMe: boole
  * above it, it is not there at all when there is nothing to say.
  */
 export function CelebrationsPanel({ settings, className = '' }: { settings: Celebrations; className?: string }) {
-  const { session } = useAuth()
+  const { session, isAdmin, isSuperAdmin } = useAuth()
+  // How old somebody is turning is the Owner's and Admins' to see, whatever
+  // the church's display setting says (November 2026).
+  const seesAges = isAdmin || isSuperAdmin
   const { canOpen } = usePageAccess()
   const today = todayIso()
 
@@ -167,6 +181,7 @@ export function CelebrationsPanel({ settings, className = '' }: { settings: Cele
             occasion={o}
             isMe={!!myId && (o.personId === myId || !!o.couple?.ids.includes(myId))}
             ages={settings.ages}
+            seesAges={seesAges}
           />
         ))}
       </ul>

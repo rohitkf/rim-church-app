@@ -201,6 +201,31 @@ describe('moving somebody between core and guest', () => {
   })
 })
 
+/*
+ * Ages are the Owner's and Admins' to see (November 2026). Everybody on a
+ * team used to see everybody's.
+ */
+describe('members’ ages', () => {
+  const withDob = () => member({ profiles: { ...member().profiles, dob: '1990-01-01' } })
+
+  it('are hidden from somebody on the team who is not an Admin', async () => {
+    state.canManage = false
+    state.members = [withDob()]
+    show()
+    await screen.findAllByText(/Grace Mensah/)
+    expect(screen.queryByText(/years old/)).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'Age' })).toBeNull()
+  })
+
+  it('are shown to the Owner', async () => {
+    state.owner = true
+    state.members = [withDob()]
+    show()
+    expect((await screen.findAllByText(/years old/)).length).toBeGreaterThan(0)
+    expect(screen.getByRole('columnheader', { name: 'Age' })).toBeInTheDocument()
+  })
+})
+
 describe('members’ email addresses', () => {
   it('are shown to the Owner, in the cards and the table', async () => {
     state.owner = true
