@@ -155,11 +155,25 @@ function opening(kind: Kind, orders: Order[]): { subject: string; lead: string }
       lead: many ? `Here are your tickets for ${ev.title}.` : `You are registered for ${ev.title}. Here is your ticket.`,
     }
   }
+  // Still to pay. "Your registration" under a QR code was read as a ticket
+  // (the Owner, November 2026), so the subject and the first line say what
+  // is owed and that there is no ticket yet. A receipt already sent and
+  // being checked is not chased for money again.
+  const owing = orders.filter((o) => o.payment_status === 'awaiting')
+  if (owing.length === 0) {
+    return {
+      subject: many ? `Your registrations for ${ev.title}` : `Your registration: ${ev.title}`,
+      lead: many
+        ? `Here are your registrations for ${ev.title}. Your payment is being checked; each becomes a ticket once it is matched.`
+        : `You are registered for ${ev.title}. Your payment is being checked; this becomes your ticket once it is matched.`,
+    }
+  }
+  const owed = pounds(owing.reduce((sum, o) => sum + o.total_pence, 0))
   return {
-    subject: many ? `Your registrations for ${ev.title}` : `Your registration: ${ev.title}`,
-    lead: many
-      ? `Here are your registrations for ${ev.title}. Each becomes a ticket once its payment is in.`
-      : `You are registered for ${ev.title}. Your place is held; this becomes your ticket once the payment is in.`,
+    subject: `Payment needed: ${ev.title}`,
+    lead:
+      `You are registered for ${ev.title}, but you do not have a ticket yet. Pay ${owed} to get your ticket` +
+      `${many ? 's' : ''} — how to pay is on your registration page, below${ev.allow_pay_at_reception ? ', or you can pay at reception on the day' : ''}. Your place is held until then.`,
   }
 }
 
@@ -202,7 +216,9 @@ function ticketEmail(asked: Kind, orders: Order[], siteUrl: string, tz: string):
           ? ev.attendance === 'online'
             ? 'The link to join is on your ticket.'
             : 'Show the QR code on it at the door.'
-          : 'Show the QR code on it at reception to pay; once it is paid, it is your ticket for the door.'
+          : o.payment_status === 'awaiting'
+            ? `This is not a ticket yet: ${pounds(o.total_pence)} is still to pay.${ev.allow_pay_at_reception ? ' Paying at reception? Show the code on it there.' : ''}`
+            : 'This is not a ticket yet: it becomes one once your payment is matched.'
     const text = [
       `${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'} for ${o.name}`,
       ...lines,

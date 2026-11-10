@@ -148,19 +148,47 @@ beforeEach(() => {
 })
 
 describe('the ticket page', () => {
-  it('shows the QR code, the code, every ticket and what is owed — a registration until it is paid', async () => {
+  /*
+   * People registered, saw a QR code under a green "Registered" and took it
+   * for a ticket (the Owner, November 2026). So an unpaid order leads with
+   * what to pay, says in words that it is not a ticket, and has no
+   * ticket-shaped QR card.
+   */
+  it('leads an unpaid order with what to pay, and says it is not a ticket yet', async () => {
     show()
-    expect(await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
-    expect(screen.getByText(/Show this at reception to pay/)).toBeInTheDocument()
-    expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThan(0)
-    expect(screen.getByText('Registered')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Pay £36.00 to get your ticket' })).toBeInTheDocument()
+    expect(screen.getByText(/You are registered, but you do not have a ticket yet/)).toBeInTheDocument()
+    expect(screen.getByText('Not a ticket yet')).toBeInTheDocument()
+    expect(screen.queryByText('Registered')).toBeNull()
     expect(screen.getByText('Awaiting payment')).toBeInTheDocument()
+    expect(screen.getByText('Not a ticket — not paid')).toBeInTheDocument()
+    // Paying comes before the code, not under everything else.
+    const paying = screen.getByRole('region', { name: 'Paying' })
+    const registration = screen.getByRole('region', { name: 'Your registration' })
+    expect(paying.compareDocumentPosition(registration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Your ticket' })).toBeNull()
+
+    expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThan(0)
     expect(screen.getByText(/Kofi Owusu/)).toBeInTheDocument()
     expect(screen.getByText('−£4.00')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'To pay: £36.00' })).toBeInTheDocument()
     expect(screen.getByText('Please pay within a week.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Pay with PayPal/ })).toHaveAttribute('href', 'https://paypal.me/rim')
     expect(screen.getByRole('link', { name: 'Event page' })).toHaveAttribute('href', '/register/pastors-2026')
+  })
+
+  it('keeps a small QR code for reception to take the payment, marked as not a ticket', async () => {
+    show()
+    const qr = await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
+    expect(qr).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    expect(screen.getByText('This is not a ticket. Reception scans it to take your payment.')).toBeInTheDocument()
+  })
+
+  it('shows no QR code at all on an unpaid order when the event takes no payment at reception', async () => {
+    state.order = order({ event: { ...order().event, allow_pay_at_reception: false } })
+    show()
+    expect(await screen.findByText('Not a ticket — not paid')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /ABCDEFGHJKMN/ })).toBeNull()
+    expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThan(0)
   })
 
   it('asks, on coming back from the payment link, whether it went through', async () => {

@@ -437,7 +437,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             </div>
             {totals.total > 0 && (
               <p className="mt-2 text-label-md text-on-surface-variant">
-                You’ll be shown how to pay on your ticket{event.allow_pay_at_reception ? ', or you can pay at reception' : ''}.
+                Registering holds your place. It is not a ticket until it is paid: the next page shows how to pay
+                {event.allow_pay_at_reception ? ', or you can pay at reception' : ''}.
               </p>
             )}
           </div>
@@ -453,7 +454,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
           <div className="flex flex-col gap-2">
             <ActionButton type="submit" disabled={register.isPending || problems.length > 0 || !event.open || soldOut}>
-              {register.isPending ? 'Registering…' : totals.total > 0 ? `Register · ${pounds(totals.total)}` : 'Register'}
+              {register.isPending ? 'Registering…' : totals.total > 0 ? `Register, then pay ${pounds(totals.total)}` : 'Register'}
             </ActionButton>
             {problems.length > 0 && totals.quantity > 0 && (
               <p className="text-label-md text-on-surface-faint">Still needed: {problems.join(' ')}</p>
