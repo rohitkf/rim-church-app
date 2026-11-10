@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, GRID_ROLES, hasCell, ruleFor, type Reach } from './permissions'
+import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, GRID_ROLES, PASTOR_LOCKED, hasCell, ruleFor, type Reach } from './permissions'
 import { PERMISSIONS } from './permissionMatrix'
 
 /*
@@ -70,16 +70,33 @@ describe('the permission catalog', () => {
     }
   })
 
-  it('gives Overwatch its five cells and a Pastor the three prayer rows, and nothing more (0214)', () => {
-    const cells = (role: 'overwatch' | 'pastor') => CAPABILITY_KEYS.filter((cap) => hasCell(cap, role)).sort()
-    expect(cells('overwatch')).toEqual(['debrief.as_overwatch', 'issue.as_overwatch', 'msg.board_post', 'msg.chat', 'msg.polls'])
-    for (const cap of cells('overwatch')) expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
-    expect(cells('pastor')).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral'])
-    for (const cap of cells('pastor')) expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['all'], byDefault: 'all' })
+  it('gives Overwatch its five cells and nothing more (0214)', () => {
+    const cells = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'overwatch')).sort()
+    expect(cells).toEqual(['debrief.as_overwatch', 'issue.as_overwatch', 'msg.board_post', 'msg.chat', 'msg.polls'])
+    for (const cap of cells) expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     // A thing done as Overwatch is nobody else's to be given.
     for (const cap of ['issue.as_overwatch', 'debrief.as_overwatch'] as const) {
       for (const role of GRANT_ROLES) expect(CATALOG[cap][role].reaches, `${cap} / ${role}`).toEqual(['none'])
     }
+  })
+
+  it('gives a Pastor a cell on every row but four, No out of the box bar prayer and registrations (0267, 0268)', () => {
+    const without = CAPABILITY_KEYS.filter((cap) => !hasCell(cap, 'pastor')).sort()
+    expect(without).toEqual([...PASTOR_LOCKED].sort())
+    expect(without).toEqual(['app.permissions', 'debrief.as_overwatch', 'issue.as_overwatch', 'page.prayer'])
+    // Always: the three prayer rows, not the church's to take away.
+    for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
+      expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['all'], byDefault: 'all' })
+    }
+    // Out of the box: reading both registrations pages, and verifying payments.
+    const yes = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'pastor') && ruleFor(cap, 'pastor').byDefault !== 'none').sort()
+    expect(yes).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view'])
+    // Every other cell is a choice, and starts at No.
+    for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'pastor') && !yes.includes(c))) {
+      expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
+    }
+    // Verifying is nobody's out of the box but a Pastor's: "Run registrations" is not it.
+    for (const role of GRANT_ROLES) expect(CATALOG['reg.verify'][role].byDefault, role).toBe('none')
   })
 
   it('asks may() only about capabilities it catalogues', () => {

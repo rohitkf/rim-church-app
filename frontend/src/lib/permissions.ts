@@ -23,9 +23,11 @@ export const GRANT_ROLES: readonly GrantRole[] = ['admin', 'head', 'assistant', 
 
 /**
  * Overwatch and Pastor (0214): church-wide standings with columns of their
- * own, though only a handful of cells each. A capability that names
- * neither gives them a fixed No. They are never a team's to set, and
- * nothing is granted through them.
+ * own. Overwatch has a handful of cells; a capability that does not name
+ * it gives it a fixed No. A Pastor has a cell on every row since 0268 —
+ * No out of the box unless the row says otherwise — bar the few in
+ * PASTOR_LOCKED. They are never a team's to set, and nothing is granted
+ * through them.
  */
 export type StandingRole = 'overwatch' | 'pastor'
 
@@ -616,6 +618,30 @@ export const CATALOG = {
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
     newcomer: fixed(),
+    // A Pastor reads registrations out of the box (0267).
+    pastor: offer('none all', 'all'),
+  },
+  // Verify a payment (0267): say it arrived in the bank or PayPal. Its own
+  // right — "Run registrations" does not give it — and a Pastor's out of
+  // the box, because the Pastor is who can see the accounts.
+  'reg.verify': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+    pastor: offer('none all', 'all'),
+  },
+  // See Reception without working it (0267): the list and the counts.
+  'reg.door_view': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: fixed(),
+    pastor: offer('none all', 'all'),
   },
   'reg.edit': {
     admin: offer('none all', 'none'),
@@ -775,20 +801,34 @@ export function isCapabilityKey(value: string): value is CapabilityKey {
 
 const NO_CELL: Rule = fixed()
 
-/** One cell's rule. A column a capability does not name (Overwatch's, a Pastor's) is a fixed No. */
+/**
+ * A Pastor's cell on a row that does not name one (0268): the church's to
+ * give, No out of the box. `may()` reads a Pastor as a church-wide tier,
+ * so the choice is No or Everywhere.
+ */
+const PASTOR_CELL: Rule = offer('none all', 'none')
+
+/**
+ * The rows a Pastor has no cell on: the grid itself (an Admin's alone),
+ * the two things done as Overwatch, and opening Prayer Requests, which a
+ * Pastor always may (pageOpening) and no cell says.
+ */
+export const PASTOR_LOCKED: readonly string[] = ['app.permissions', 'issue.as_overwatch', 'debrief.as_overwatch', 'page.prayer']
+
+/** One cell's rule. A column a capability does not name is a fixed No — or, a Pastor's, the church's choice (0268). */
 export function ruleFor(cap: CapabilityKey, role: GridRole): Rule {
   const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
-  return entry[role] ?? NO_CELL
+  return entry[role] ?? (role === 'pastor' && !PASTOR_LOCKED.includes(cap) ? PASTOR_CELL : NO_CELL)
 }
 
 export function isFixed(cap: CapabilityKey, role: GridRole): boolean {
   return ruleFor(cap, role).reaches.length === 1
 }
 
-/** Whether this capability names its own rule for Overwatch or a Pastor (0214). */
+/** Whether Overwatch or a Pastor has a cell of its own on this row (0214, 0268). */
 export function hasCell(cap: CapabilityKey, role: GridRole): boolean {
   const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
-  return !!entry[role]
+  return !!entry[role] || (role === 'pastor' && !PASTOR_LOCKED.includes(cap))
 }
 
 /** A thing only Overwatch does, as Overwatch: nobody else's to be given (0214). */

@@ -89,7 +89,9 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
   // What this person may do at the door (0251); the database checks the same.
   const rights = useRegistrationRights()
   const errorText = useErrorText()
-  const [tab, setTab] = useState<Tab>('scan')
+  // Somebody here to look only (0267, "See Reception"): the list, nothing to press.
+  const readOnly = !rights.checkIn
+  const [tab, setTab] = useState<Tab>(readOnly ? 'find' : 'scan')
   const [error, setError] = useState<string | null>(null)
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', eventId], queryFn: () => fetchRegistrationEvent(eventId) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', eventId], queryFn: () => fetchRegistrationOrders(eventId) })
@@ -175,20 +177,24 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
         </p>
       )}
 
-      <SegmentedControl
-        label="At the door"
-        kind="tab"
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: 'scan', label: 'Scan' },
-          { value: 'find', label: 'Find' },
-          ...(rights.walkIn ? [{ value: 'walk_in' as const, label: 'Walk-in' }] : []),
-        ]}
-        className="mb-4"
-      />
+      {readOnly ? (
+        <p className="mb-4 text-body-sm text-on-surface-variant">You are here to look: who has registered, who has paid and who is in. Checking people in and taking payments are for whoever works the door.</p>
+      ) : (
+        <SegmentedControl
+          label="At the door"
+          kind="tab"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'scan', label: 'Scan' },
+            { value: 'find', label: 'Find' },
+            ...(rights.walkIn ? [{ value: 'walk_in' as const, label: 'Walk-in' }] : []),
+          ]}
+          className="mb-4"
+        />
+      )}
 
-      {tab === 'scan' && (
+      {tab === 'scan' && !readOnly && (
         <section aria-label="Scan tickets">
           <p className="mb-3 text-body-sm text-on-surface-variant">Start scanning and point the camera at the QR code on a ticket. A paid ticket is checked in as it is read.</p>
           <ScannerPanel
@@ -211,6 +217,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           onUndo={(order) => undoCheckIn.mutate(order)}
           onPaid={(order, andIn) => paid.mutate({ order, andIn })}
           canTakePayment={rights.takePayment}
+          canCheckIn={rights.checkIn}
         />
       )}
       {tab === 'walk_in' && rights.walkIn && (
@@ -248,6 +255,7 @@ function Find({
   onUndo,
   onPaid,
   canTakePayment,
+  canCheckIn,
 }: {
   orders: OrderRow[]
   dates: EventDate[]
@@ -256,6 +264,8 @@ function Find({
   onUndo: (order: OrderRow) => void
   onPaid: (order: OrderRow, andIn: boolean) => void
   canTakePayment: boolean
+  /** False for somebody here to look only: no buttons at all. */
+  canCheckIn: boolean
 }) {
   const [query, setQuery] = useState('')
   const shown = orders
@@ -301,6 +311,11 @@ function Find({
                     <Pill tone="neutral">Checked in {new Date(o.checked_in_at).toLocaleDateString([], { weekday: 'short' })} · not yet today</Pill>
                   ) : null}
                   {o.status === 'confirmed' && o.total_pence > 0 && <Pill tone={PAY_TONE[o.payment_status]}>{PAYMENT_WORDS[o.payment_status]}</Pill>}
+                  {o.status === 'confirmed' && o.total_pence > 0 && o.payment_verified_at && (
+                    <Pill tone="green" dot>
+                      Verified payment
+                    </Pill>
+                  )}
                   {o.status === 'confirmed' && o.total_pence === 0 && o.promo_code && <Pill tone="neutral">Free with code {o.promo_code}</Pill>}
                 </div>
                 {o.tickets.some((t) => t.attendee_name) && (
@@ -319,7 +334,7 @@ function Find({
                   {o.email && ` · ${o.email}`}
                   {o.phone && ` · ${o.phone}`}
                 </p>
-                {o.status === 'confirmed' && (
+                {o.status === 'confirmed' && canCheckIn && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {/* Not while it owes (0266): the money first, then the door. */}
                     {!inToday && !owes && (

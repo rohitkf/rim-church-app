@@ -53,7 +53,7 @@ export const ROLES = [
     key: 'pastor',
     label: ROLE_NAME.pastor,
     blurb:
-      'Reads private prayer requests, asks people to pray and runs prayer lists — always. Everything else a Pastor may do comes from their other profiles. Made from Volunteers.',
+      'Reads private prayer requests, asks people to pray and runs prayer lists — always. Out of the box also reads Registrations and Reception and verifies payments. Every other cell is No until the church changes it — and a No only means being a Pastor adds nothing there: they keep whatever their other roles give. Made from Volunteers.',
   },
   {
     key: 'head',
@@ -946,6 +946,13 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Sends the “your ticket is confirmed” email. Includes taking payments at the door.',
       },
       {
+        action: 'Verify payments: say a payment has arrived in the bank or PayPal',
+        key: 'reg.verify',
+        short: 'Verify payments',
+        can: granted('reg.verify'),
+        note: 'Puts the “Verified payment” tag on a registration, for the office and Reception to go by. Its own right: “Run registrations” does not include it. The Owner always may, and a Pastor out of the box, because the Pastor is who can see the accounts. Opens the Registrations page.',
+      },
+      {
         action: 'Refunds: see where to send one, and mark it refunded',
         key: 'reg.refund',
         short: 'Refunds',
@@ -965,6 +972,13 @@ export const PERMISSIONS: PermissionArea[] = [
         short: 'Check people in',
         can: granted('reg.door'),
         note: 'Opens Reception and nothing else. Give it to the welcome team for the day, or to named people.',
+      },
+      {
+        action: 'See Reception, read only: who is here, who has paid',
+        key: 'reg.door_view',
+        short: 'See Reception (read only)',
+        can: granted('reg.door_view'),
+        note: 'Opens Reception to look: the counts and the list, with nothing to press. A Pastor has it out of the box.',
       },
       {
         action: 'Take payments at the door, and check people in',

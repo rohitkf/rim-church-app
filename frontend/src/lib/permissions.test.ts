@@ -99,13 +99,16 @@ describe('overrides and saving', () => {
       overridesFrom([
         { role_key: 'member', capability: 'rota.assign', reach: 'team' },
         { role_key: 'member', capability: 'rota.nonsense', reach: 'team' },
-        { role_key: 'pastor', capability: 'rota.assign', reach: 'team' },
+        // A Pastor has a cell on the rota since 0268, and none on the grid itself.
+        { role_key: 'pastor', capability: 'rota.assign', reach: 'all' },
+        { role_key: 'pastor', capability: 'app.permissions', reach: 'all' },
         { role_key: 'deacon', capability: 'rota.assign', reach: 'team' },
         { role_key: 'head', capability: 'rota.tag', reach: 'sometimes' },
-        // Overwatch's own cell (0214) is read; a Pastor has none on the rota.
+        // Overwatch's own cell (0214) is read; it has none on the rota.
         { role_key: 'overwatch', capability: 'msg.chat', reach: 'none' },
+        { role_key: 'overwatch', capability: 'rota.assign', reach: 'all' },
       ]),
-    ).toEqual({ 'rota.assign': { member: 'team' }, 'msg.chat': { overwatch: 'none' } })
+    ).toEqual({ 'rota.assign': { member: 'team', pastor: 'all' }, 'msg.chat': { overwatch: 'none' } })
   })
 
   it('sends only the cells whose answer would change', () => {
