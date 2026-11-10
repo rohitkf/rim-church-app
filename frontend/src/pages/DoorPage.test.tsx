@@ -369,9 +369,14 @@ describe('Reception', () => {
     const card = screen.getByRole('region', { name: 'Ticket found' })
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
     expect(within(card).queryByRole('button', { name: /Paid now/ })).toBeNull()
-    expect(within(card).getByRole('button', { name: 'Check in' })).toBeInTheDocument()
+    // An unpaid one is not theirs to let in (0266): they are told where to send them.
+    expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(within(card).getByText(/cannot be checked in until it is paid/)).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Find' }))
-    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByRole('button', { name: /Paid now/ })).toBeNull()
+    const row = screen.getByRole('listitem', { name: 'Ama Owusu' })
+    expect(within(row).queryByRole('button', { name: /Paid now/ })).toBeNull()
+    expect(within(row).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(within(row).getByText(/Cannot be checked in until it is paid/)).toBeInTheDocument()
   })
 
   it('lets a walk-in be registered as still to pay by somebody who cannot take money', async () => {
@@ -383,9 +388,12 @@ describe('Reception', () => {
     await user.type(within(form).getByRole('textbox', { name: 'Name' }), 'Joel Skaria')
     await user.click(within(form).getByRole('button', { name: 'One more With lunch' }))
     expect(within(form).queryByRole('checkbox', { name: /Paid now/ })).toBeNull()
+    // Registered, but not let in while it owes (0266).
+    expect(within(form).getByRole('checkbox', { name: /Here now/ })).toBeDisabled()
+    expect(within(form).getByText(/cannot be checked in until it is paid/)).toBeInTheDocument()
     await user.click(within(form).getByRole('button', { name: 'Register' }))
     await waitFor(() => expect(state.walkIns).toHaveLength(1))
-    expect(state.walkIns[0]).toMatchObject(['e1', { paid: false }])
+    expect(state.walkIns[0]).toMatchObject(['e1', { paid: false, checked_in: false }])
   })
 
   it('says so when nothing is on', async () => {

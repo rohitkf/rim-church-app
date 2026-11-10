@@ -81,7 +81,8 @@ beforeEach(() => {
 })
 
 describe('the ticket scanner', () => {
-  it('brings up a scanned ticket, says what is owed, and checks them in — paid or not', async () => {
+  // Nobody is checked in owing (0266): the money first, then the door.
+  it('brings up a scanned ticket, says what is owed, and checks them in only by taking the payment', async () => {
     const user = show()
     expect(screen.getByRole('dialog', { name: 'Scan tickets' })).toBeInTheDocument()
     scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
@@ -91,10 +92,11 @@ describe('the ticket scanner', () => {
     expect(within(card).getByText('Awaiting payment')).toBeInTheDocument()
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
     expect(within(card).getByText('For Ama Owusu, Kofi Owusu')).toBeInTheDocument()
+    expect(within(card).getByText('Not a ticket yet: take the payment to check them in.')).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
     await user.click(within(card).getByRole('button', { name: 'Paid now, check in' }))
     expect(calls.paid).toEqual(['o1'])
-    await user.click(within(card).getByRole('button', { name: 'Check in' }))
-    expect(calls.checkIn).toEqual(['o1'])
+    expect(calls.checkIn).toEqual([])
   })
 
   it('ignores the same code while it stays in view, and moves on to the next', async () => {
