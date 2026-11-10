@@ -125,6 +125,7 @@ export function usePermissions() {
     .map((r) => r.department_id as string)
     .join('|')
   const pastor = (roles ?? []).some((r) => r.role_type === 'pastor')
+  const overwatch = (roles ?? []).some((r) => r.role_type === 'overwatch')
   const holder: Holder = useMemo(
     () => ({
       myId,
@@ -139,9 +140,10 @@ export function usePermissions() {
       // is told so where it matters, by `where.coordinating`.
       coordinatesAnywhere: !!previewCoordinates,
       pastor,
+      overwatch,
       grants,
     }),
-    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, pastor, grants],
+    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, pastor, overwatch, grants],
   )
 
   /*

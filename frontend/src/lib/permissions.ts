@@ -80,7 +80,7 @@ const STAGE_RULE = {
   assistant: offer('none all', 'none'),
   coordinator: offer('none all', 'none'),
   member: offer('none all', 'none'),
-  newcomer: fixed(),
+  newcomer: offer('none all', 'none'),
 }
 
 /** One planner button (0211): nobody's out of the box, anybody's but a Church Member's to be given. */
@@ -90,7 +90,7 @@ const PLANNER_RULE = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   }
 
 /**
@@ -143,113 +143,113 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'rota.tag': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'rota.release_ask': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
-    member: offer('none team', 'none'),
-    newcomer: fixed(),
+    coordinator: offer('none team all', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: offer('none all', 'none'),
   },
   'rota.release_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
-    member: offer('none team', 'none'),
-    newcomer: fixed(),
+    coordinator: offer('none team all', 'none'),
+    member: offer('none team all', 'none'),
+    newcomer: offer('none all', 'none'),
   },
   'rota.release_delete': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
-    member: fixed(),
-    newcomer: fixed(),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
   },
   'svc.manage': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.templates': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.sessions': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.guests': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.repeat': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.events': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'svc.call_times': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.create': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Who approves a request to be clocked in (0213): Admins always;
   // anybody else as the church says, or by a grant — a team's, perhaps for
@@ -260,7 +260,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Who sees the Clock In page and every clock-in (0209): Admins always;
   // anybody else as the church says, or by a grant (0208).
@@ -268,9 +268,9 @@ export const CATALOG = {
     admin: fixed('all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Prayer's three (0210): the Pastors (their own column since 0214) and
   // the Owner always; anybody else as the church says, or by a grant.
@@ -279,27 +279,27 @@ export const CATALOG = {
     admin: offer('none all', 'none'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     pastor: fixed('all'),
   },
   'prayer.assign': {
     admin: offer('none all', 'none'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     pastor: fixed('all'),
   },
   'prayer.lists': {
     admin: offer('none all', 'none'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     pastor: fixed('all'),
   },
   // The Service Planner's buttons on their own (0211): whoever plans the
@@ -322,10 +322,10 @@ export const CATALOG = {
   // Asking to join a team (0190): out of the box a Church Member is added
   // by a head rather than asking.
   'team.request_join': {
-    admin: fixed(),
+    admin: offer('none all', 'none'),
     head: offer('none all', 'all'),
     assistant: offer('none all', 'all'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'all'),
     newcomer: offer('none all', 'none'),
   },
@@ -333,154 +333,154 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.roles': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.groups': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.checklists': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'team.join': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'day.verify': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'team'),
+    coordinator: offer('none team all', 'team'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Check all (0232): the Owner always; nobody else until the church says so.
   'day.check_all': {
     admin: offer('none all', 'none'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'day.ready': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'team'),
+    coordinator: offer('none team all', 'team'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'day.attendance': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'day.nudge': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'avail.edit_others': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'avail.add_others': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'avail.late_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'avail.nudge': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'avail.history': {
     admin: offer('none all', 'all'),
     head: offer('none own team all', 'team'),
     assistant: offer('none own team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none own team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'inv.items': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'inv.stock': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'inv.purchase_ask': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'team'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'inv.purchase_decide': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Overwatch's three switches on these rows (0214) are things done as
   // Overwatch, read by overwatch_may() rather than may(): the church-wide
@@ -489,84 +489,84 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'team'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     overwatch: offer('none all', 'all'),
   },
   'msg.board_moderate': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'msg.chat': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'team'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     overwatch: offer('none all', 'all'),
   },
   'msg.chat_moderate': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'msg.polls': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     overwatch: offer('none all', 'all'),
   },
   'msg.updates': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'msg.alert_team': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'msg.alert': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'issue.mark': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'issue.delete': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Overwatch's alone (0214): raised as Overwatch, in a group of their own.
   'issue.as_overwatch': OVERWATCH_ONLY,
@@ -576,9 +576,9 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Registrations (0244): events anybody can sign up for. The Owner
   // always; an Admin or anybody else only by the church's choice.
@@ -586,9 +586,9 @@ export const CATALOG = {
     admin: offer('none all', 'none'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // See the Countdown page (0264): every role a choice, teams and people by
   // grant. Opens the page only; what it shows is the Service Planner's.
@@ -608,7 +608,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // The parts of registrations, each its own right (0251).
   'reg.view': {
@@ -617,7 +617,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     // A Pastor reads registrations out of the box (0267).
     pastor: offer('none all', 'all'),
   },
@@ -630,7 +630,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     pastor: offer('none all', 'all'),
   },
   // See Reception without working it (0267): the list and the counts.
@@ -640,7 +640,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
     pastor: offer('none all', 'all'),
   },
   'reg.edit': {
@@ -649,7 +649,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'reg.approve': {
     admin: offer('none all', 'none'),
@@ -657,7 +657,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'reg.refund': {
     admin: offer('none all', 'none'),
@@ -665,7 +665,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'reg.cancel': {
     admin: offer('none all', 'none'),
@@ -673,7 +673,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'reg.door_pay': {
     admin: offer('none all', 'none'),
@@ -681,7 +681,7 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'reg.walk_in': {
     admin: offer('none all', 'none'),
@@ -689,31 +689,31 @@ export const CATALOG = {
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'team'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'debrief.manage': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'debrief.contribute': {
     admin: offer('none all', 'none'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: offer('none team', 'none'),
+    coordinator: offer('none team all', 'none'),
     member: offer('none team all', 'team'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // Overwatch's alone (0214): its own write-up of a service, beside every team's.
   'debrief.as_overwatch': OVERWATCH_ONLY,
@@ -721,41 +721,41 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'people.edit_others': {
     admin: offer('none all', 'all'),
-    head: fixed(),
-    assistant: fixed(),
-    coordinator: fixed(),
-    member: fixed(),
-    newcomer: fixed(),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
   },
   'people.invite': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
     assistant: offer('none team all', 'team'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'people.clear_records': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'people.onboard': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),
     assistant: offer('none team all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none team all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   // How old people are (0258): the whole date of birth. Everybody keeps
   // their own and everybody's birthday (the day, without the year).
@@ -763,17 +763,17 @@ export const CATALOG = {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
-    coordinator: fixed(),
+    coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
-    newcomer: fixed(),
+    newcomer: offer('none all', 'none'),
   },
   'people.remove': {
     admin: offer('none all', 'all'),
-    head: fixed(),
-    assistant: fixed(),
-    coordinator: fixed(),
-    member: fixed(),
-    newcomer: fixed(),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
   },
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
@@ -815,10 +815,30 @@ const PASTOR_CELL: Rule = offer('none all', 'none')
  */
 export const PASTOR_LOCKED: readonly string[] = ['app.permissions', 'issue.as_overwatch', 'debrief.as_overwatch', 'page.prayer']
 
-/** One cell's rule. A column a capability does not name is a fixed No — or, a Pastor's, the church's choice (0268). */
+/**
+ * The five things Overwatch does *as Overwatch* (0214): its cells there
+ * are read by overwatch_may(), each only on a page Settings › Overwatch
+ * leaves open — never by may().
+ */
+export const OVERWATCH_OWN: readonly string[] = ['msg.board_post', 'msg.chat', 'msg.polls', 'issue.as_overwatch', 'debrief.as_overwatch']
+
+/**
+ * Whether Overwatch has no cell of the ordinary kind on a row (0270): the
+ * grid itself, and what it already reads through its own room — every
+ * page's opening, the clock-ins and the availability history — where a
+ * cell saying No would be untrue.
+ */
+export function overwatchLocked(cap: string): boolean {
+  return cap === 'app.permissions' || cap === 'clockin.view' || cap === 'avail.history' || cap.startsWith('page.')
+}
+
+/** One cell's rule. A column a capability does not name is a fixed No — or, a Pastor's (0268) or Overwatch's (0270), the church's choice. */
 export function ruleFor(cap: CapabilityKey, role: GridRole): Rule {
   const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
-  return entry[role] ?? (role === 'pastor' && !PASTOR_LOCKED.includes(cap) ? PASTOR_CELL : NO_CELL)
+  if (entry[role]) return entry[role]
+  if (role === 'pastor' && !PASTOR_LOCKED.includes(cap)) return PASTOR_CELL
+  if (role === 'overwatch' && !overwatchLocked(cap)) return PASTOR_CELL
+  return NO_CELL
 }
 
 export function isFixed(cap: CapabilityKey, role: GridRole): boolean {
@@ -828,12 +848,12 @@ export function isFixed(cap: CapabilityKey, role: GridRole): boolean {
 /** Whether Overwatch or a Pastor has a cell of its own on this row (0214, 0268). */
 export function hasCell(cap: CapabilityKey, role: GridRole): boolean {
   const entry: Partial<Record<GridRole, Rule>> = CATALOG[cap]
-  return !!entry[role] || (role === 'pastor' && !PASTOR_LOCKED.includes(cap))
+  return !!entry[role] || (role === 'pastor' && !PASTOR_LOCKED.includes(cap)) || (role === 'overwatch' && !overwatchLocked(cap))
 }
 
 /** A thing only Overwatch does, as Overwatch: nobody else's to be given (0214). */
 export function isOverwatchOnly(cap: CapabilityKey): boolean {
-  return hasCell(cap, 'overwatch') && GRANT_ROLES.every((role) => isFixed(cap, role) && ruleFor(cap, role).byDefault === 'none')
+  return OVERWATCH_OWN.includes(cap) && GRANT_ROLES.every((role) => isFixed(cap, role) && ruleFor(cap, role).byDefault === 'none')
 }
 
 /** The church's changes, cell by cell. A cell it never touched is absent. */
@@ -1010,6 +1030,8 @@ export interface Holder {
   coordinatesAnywhere?: boolean
   /** Whether they are a Pastor (0214). Left out, not. */
   pastor?: boolean
+  /** Whether they are Overwatch (0270). Left out, not. */
+  overwatch?: boolean
   /**
    * The church's grants (0208): one thing more, for a person by name or
    * for everybody on a team. Left out, none.
@@ -1065,7 +1087,7 @@ export interface Where {
 }
 
 /** Who gave a yes: the Owner, the profile whose reach covered it, or a grant (0208). */
-export type Granter = 'owner' | GrantRole | 'pastor' | 'grant'
+export type Granter = 'owner' | GrantRole | 'pastor' | 'overwatch' | 'grant'
 
 /**
  * Which of this person's profiles lets them do this, here — the first, in
@@ -1095,10 +1117,16 @@ export function grantedBy(
   reach = reachOf(overrides, cap, 'admin')
   if (reach !== 'none' && holder.admin && (reach === 'all' || mine)) return 'admin'
 
-  // A Pastor (0214), church-wide as an Admin is. Overwatch is not asked
-  // here: its cells are what overwatch_may() reads, not may().
+  // A Pastor (0214), church-wide as an Admin is.
   reach = reachOf(overrides, cap, 'pastor')
   if (reach !== 'none' && holder.pastor && (reach === 'all' || mine)) return 'pastor'
+
+  // Overwatch (0270), the same — but never on the five things it does as
+  // Overwatch: those cells are what overwatch_may() reads, not may().
+  if (holder.overwatch && !OVERWATCH_OWN.includes(cap)) {
+    reach = reachOf(overrides, cap, 'overwatch')
+    if (reach !== 'none' && (reach === 'all' || mine)) return 'overwatch'
+  }
 
   // The Head and the Assisting Head: two profiles since 0162, the same
   // rules unless the church says otherwise. A holder that does not say
