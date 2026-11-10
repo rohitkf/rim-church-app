@@ -5,6 +5,17 @@
       "destination": "https://optfeyksexpokamihksp.supabase.co/:path*"
     },
     {
+      "source": "/register/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Applebot|SkypeUriPreview|Pinterestbot|redditbot|Embedly|Iframely|vkShare|Google-PageRenderer|Googlebot|bingbot|Mastodon|MicrosoftPreview).*"
+        }
+      ],
+      "destination": "/api/register-preview?slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
