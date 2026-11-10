@@ -606,6 +606,16 @@ Each of these has already cost real time. None of them show up in review.
   it from `public.gen_random_bytes` for a script that registers.
 - **A countdown asserted to the second fails a second later.** Give the
   target 30 seconds of margin, or use fake timers.
+- **A storage policy says who it is for.** Every policy on
+  `storage.objects` is evaluated for whoever asks, a visitor included, and
+  one that calls a function `anon` may not execute (`may()`,
+  `registration_can()`, `can_open_page()` …) does not answer "no" — it
+  raises *permission denied for function* and the whole statement fails.
+  That stopped every visitor's receipt upload and the logo on the public
+  pages until 0271. A policy that needs a signed-in person is written
+  `to authenticated`; only `registration_proofs_insert`,
+  `branding_public_select` and `registration_images_select` are for
+  everybody.
 
 ## 9. Recipes
 
