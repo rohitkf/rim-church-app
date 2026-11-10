@@ -68,6 +68,7 @@ function Ticket({ order }: { order: OrderView }) {
   // Each minute: when the event starts, the countdown gives way to "Happening now".
   const now = useNow(true, 30_000)
   const [showBank, setShowBank] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [mailed, setMailed] = useState<string | null>(null)
   const paid = order.payment_status === 'not_needed' || order.payment_status === 'received' || order.payment_status === 'waived'
   const noun = paid ? 'ticket' : 'registration'
@@ -150,6 +151,8 @@ function Ticket({ order }: { order: OrderView }) {
   const eventOff = !!event.cancelled_at
   const needsPayment = !eventOff && order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
+  /** A link or a bank account to pay by: the reference and the screenshot matter. */
+  const payOnline = order.payment.links.length > 0 || order.payment.accounts.length > 0
   const title = cancelled ? 'Ticket' : paid ? 'Ticket' : 'Registration'
   // The date to count down to: the one booked, or the next of the event's
   // dates still to start — or one under way now. None once it is all over.
@@ -201,10 +204,55 @@ function Ticket({ order }: { order: OrderView }) {
               {order.proof_reference ? `, reference ${order.proof_reference}` : ''}. Once the church matches it, this becomes your ticket, and you will get an email to say so.
             </p>
           ) : (
-            <p className="mt-1 text-body-sm text-on-surface-variant">
-              Use <span className="font-mono text-on-surface">{order.code}</span> as the reference, so it can be matched to your registration.
-              {order.payment_method === 'reception' && ' You chose to pay at reception; you can still pay another way below.'}
-            </p>
+            <>
+              {order.payment_method === 'reception' && (
+                <p className="mt-1 text-body-sm text-on-surface-variant">You chose to pay at reception; you can still pay another way below.</p>
+              )}
+              {/*
+                Paying online is three things, and the last two were being
+                missed (the Owner, November 2026): the reference, without
+                which the church cannot tell whose money it is, and the
+                screenshot, which is what gets it matched quickly. So they
+                are numbered steps, not a line of small print.
+              */}
+              {payOnline && (
+                <ol aria-label="How to pay online" className="mt-3 flex flex-col gap-3 text-body-sm text-on-surface">
+                  <li className="flex gap-3">
+                    <StepNumber n={1} />
+                    <span>
+                      <span className="font-semibold">Pay {pounds(order.total_pence)}</span> with one of the buttons below.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <StepNumber n={2} />
+                    <span className="min-w-0">
+                      <span className="font-semibold">Put this as the payment reference</span>, exactly as it is. Without it the church cannot tell the payment is yours.
+                      <span className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span className="rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-md font-semibold tracking-[0.14em] text-on-surface hairline">
+                          {order.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(order.code)
+                            setCopied(true)
+                          }}
+                          className="tap rounded-full px-3 text-label-md font-medium text-accent-blue-soft hairline hover:bg-raised"
+                        >
+                          {copied ? 'Copied' : 'Copy reference'}
+                        </button>
+                      </span>
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <StepNumber n={3} />
+                    <span>
+                      <span className="font-semibold">Come back here and send a screenshot</span> of the payment. It is the quickest way to get your ticket confirmed.
+                    </span>
+                  </li>
+                </ol>
+              )}
+            </>
           )}
           {event.payment_note && <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant">{event.payment_note}</p>}
           {order.payment_status === 'awaiting' && (
@@ -247,9 +295,16 @@ function Ticket({ order }: { order: OrderView }) {
                     />
                   ))}
                   <ActionButton tone="success" onClick={() => setProofFor('bank')} disabled={report.isPending}>
-                    I’ve sent the transfer
+                    I’ve sent the transfer — send my screenshot
                   </ActionButton>
                 </div>
+              )}
+              {/* Step 3, always in reach: the come-back prompt only appears
+                  if the payment page was opened from here, in this tab. */}
+              {payOnline && (
+                <ActionButton tone="success" onClick={() => setProofFor(showBank || order.payment.links.length === 0 ? 'bank' : 'paypal')} disabled={report.isPending}>
+                  I’ve paid — send my screenshot
+                </ActionButton>
               )}
               {event.allow_pay_at_reception && order.payment_method !== 'reception' && (
                 <ActionButton tone="ghost" onClick={() => report.mutate({ method: 'reception', done: false })} disabled={report.isPending}>
@@ -521,7 +576,7 @@ function ProofStep({ code, method, onDone, onClose }: { code: string; method: On
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!file && !reference.trim()) {
-      setProblem('Attach the receipt, or type the payment reference — one or the other, so the church can match it.')
+      setProblem('Attach a screenshot of the payment, or type its reference — one or the other, so the church can match it.')
       return
     }
     send.mutate()
@@ -529,11 +584,14 @@ function ProofStep({ code, method, onDone, onClose }: { code: string; method: On
   return (
     <Overlay label="Your receipt" onDismiss={onClose}>
       <form onSubmit={submit} className="w-full max-w-sm rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]">
-        <h2 className="text-headline-md text-on-surface">Your receipt</h2>
+        <h2 className="text-headline-md text-on-surface">Send your receipt</h2>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          A screenshot or PDF of the {METHOD_WORDS[method] === 'bank transfer' ? 'transfer' : 'payment'}, or its reference, or both. The church matches it and confirms your ticket by email.
+          Attach a screenshot (or PDF) of the {METHOD_WORDS[method] === 'bank transfer' ? 'transfer' : 'payment'}. It is the quickest way for the church to find your payment and confirm your ticket by email.
         </p>
-        <Field label="Screenshot or PDF" className="mt-4">
+        <p className="mt-2 text-body-sm text-on-surface">
+          The reference on your payment should be <span className="font-mono font-semibold">{code}</span>.
+        </p>
+        <Field label="Screenshot of the payment — quickest" className="mt-4">
           <input
             type="file"
             accept={PROOF_TYPES}
@@ -542,7 +600,7 @@ function ProofStep({ code, method, onDone, onClose }: { code: string; method: On
           />
         </Field>
         {file && <p className="mt-1 text-label-md text-on-surface-variant">{file.name}</p>}
-        <Field label="Payment reference" hint="From your bank or the payment page, if you have it." className="mt-4">
+        <Field label="No screenshot? The payment’s own reference" hint="The transaction number your bank or the payment page shows. Matching it takes longer than a screenshot." className="mt-4">
           <input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} autoCapitalize="characters" autoCorrect="off" className={inputClasses} />
         </Field>
         {problem && (
@@ -679,3 +737,13 @@ function RefundSection({ order, onSent }: { order: OrderView; onSent: () => void
     </section>
   )
 }
+
+/** A step's number, in a filled circle: read before the words beside it. */
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span aria-hidden="true" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-label-sm font-semibold text-on-primary">
+      {n}
+    </span>
+  )
+}
+

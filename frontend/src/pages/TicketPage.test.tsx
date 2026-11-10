@@ -176,6 +176,35 @@ describe('the ticket page', () => {
     expect(screen.getByRole('link', { name: 'Event page' })).toHaveAttribute('href', '/register/pastors-2026')
   })
 
+  /*
+   * The reference and the screenshot were being missed (the Owner, November
+   * 2026): numbered steps in the pay box, and a button for the screenshot
+   * that is always there.
+   */
+  it('spells out paying online in three steps: pay, use the reference, send a screenshot', async () => {
+    const user = show()
+    const steps = within(await screen.findByRole('list', { name: 'How to pay online' })).getAllByRole('listitem')
+    expect(steps).toHaveLength(3)
+    expect(steps[0]).toHaveTextContent('Pay £36.00')
+    expect(steps[1]).toHaveTextContent('Put this as the payment reference')
+    expect(steps[1]).toHaveTextContent('ABCDEFGHJKMN')
+    expect(within(steps[1]).getByRole('button', { name: 'Copy reference' })).toBeInTheDocument()
+    expect(steps[2]).toHaveTextContent('Come back here and send a screenshot')
+
+    await user.click(screen.getByRole('button', { name: 'I’ve paid — send my screenshot' }))
+    const dialog = screen.getByRole('dialog', { name: 'Your receipt' })
+    expect(within(dialog).getByText(/The reference on your payment should be/)).toHaveTextContent('ABCDEFGHJKMN')
+    expect(within(dialog).getByText('Screenshot of the payment — quickest')).toBeInTheDocument()
+  })
+
+  it('leaves the steps out when the event takes no payment online', async () => {
+    state.order = order({ payment: { links: [], accounts: [] } })
+    show()
+    expect(await screen.findByRole('heading', { name: 'Pay £36.00 to get your ticket' })).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'How to pay online' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /send my screenshot/ })).toBeNull()
+  })
+
   it('keeps a small QR code for reception to take the payment, marked as not a ticket', async () => {
     show()
     const qr = await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
@@ -199,7 +228,7 @@ describe('the ticket page', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Yes, I’ve paid' }))
     // Then the receipt: here the reference alone.
     const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
-    await user.type(within(proof).getByRole('textbox', { name: /Payment reference/ }), 'PP-123')
+    await user.type(within(proof).getByRole('textbox', { name: /The payment’s own reference/ }), 'PP-123')
     await user.click(within(proof).getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(state.reported).toEqual([{ code: 'ABCDEFGHJKMN', method: 'paypal', done: true, path: null, reference: 'PP-123' }]))
     expect(state.uploaded).toEqual([])
@@ -226,9 +255,9 @@ describe('the ticket page', () => {
     // The reference is the code, so the transfer can be matched to the ticket.
     expect(screen.getByRole('button', { name: 'Copy Reference' })).toBeInTheDocument()
     expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThanOrEqual(2)
-    await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer' }))
+    await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer — send my screenshot' }))
     const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
-    await user.upload(within(proof).getByLabelText('Screenshot or PDF'), new File(['png'], 'transfer.png', { type: 'image/png' }))
+    await user.upload(within(proof).getByLabelText('Screenshot of the payment — quickest'), new File(['png'], 'transfer.png', { type: 'image/png' }))
     expect(within(proof).getByText('transfer.png')).toBeInTheDocument()
     await user.click(within(proof).getByRole('button', { name: 'Send' }))
     // The file goes up under the order's own code, and its path is reported with the payment.
@@ -239,10 +268,10 @@ describe('the ticket page', () => {
   it('wants the receipt or the reference, one at least, before it takes their word', async () => {
     const user = show()
     await user.click(await screen.findByRole('button', { name: 'Bank transfer' }))
-    await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer' }))
+    await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer — send my screenshot' }))
     const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
     await user.click(within(proof).getByRole('button', { name: 'Send' }))
-    expect(within(proof).getByRole('alert')).toHaveTextContent(/Attach the receipt, or type the payment reference/)
+    expect(within(proof).getByRole('alert')).toHaveTextContent(/Attach a screenshot of the payment, or type its reference/)
     expect(state.reported).toEqual([])
     await user.click(within(proof).getByRole('button', { name: 'Not now' }))
     expect(screen.queryByRole('dialog')).toBeNull()
