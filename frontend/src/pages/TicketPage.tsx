@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
-import { ActionButton, Field, Overlay, Pill, inputClasses } from '../components/Surface'
+import { ActionButton, Field, Overlay, Pill, Steps, inputClasses } from '../components/Surface'
 import { QrCode } from '../components/QrCode'
 import { Countdown } from '../components/Countdown'
 import { useNow } from '../lib/timeLeft'
@@ -12,6 +12,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
+import { paysOnline, registrationSteps, stepNumber } from '../lib/registrationSteps'
 import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
@@ -152,7 +153,12 @@ function Ticket({ order }: { order: OrderView }) {
   const needsPayment = !eventOff && order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
   /** A link or a bank account to pay by: the reference and the screenshot matter. */
-  const payOnline = order.payment.links.length > 0 || order.payment.accounts.length > 0
+  const payOnline = paysOnline(order)
+  // Where it stands, as steps (lib/registrationSteps); the pay box below
+  // wears the same numbers, so the bar and the box never disagree.
+  const stepsView = registrationSteps(order, pounds)
+  const payNumber = (stepsView && stepNumber(stepsView, 'pay')) ?? 2
+  const receiptNumber = (stepsView && stepNumber(stepsView, 'receipt')) ?? 3
   const title = cancelled ? 'Ticket' : paid ? 'Ticket' : 'Registration'
   // The date to count down to: the one booked, or the next of the event's
   // dates still to start — or one under way now. None once it is all over.
@@ -173,6 +179,7 @@ function Ticket({ order }: { order: OrderView }) {
       <p className="text-body-md text-on-surface-variant">
         {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'} for {order.name}
       </p>
+      {stepsView && <Steps steps={stepsView.steps} caption={stepsView.caption} label="Your registration, step by step" className="mt-4" />}
       {eventOff && (
         <section aria-label="Event cancelled" className="mt-4 rounded-[var(--radius-card)] bg-error-container px-4 py-3 text-on-error-container">
           <p className="text-body-md font-semibold">This event has been cancelled</p>
@@ -209,24 +216,19 @@ function Ticket({ order }: { order: OrderView }) {
                 <p className="mt-1 text-body-sm text-on-surface-variant">You chose to pay at reception; you can still pay another way below.</p>
               )}
               {/*
-                Paying online is three things, and the last two were being
-                missed (the Owner, November 2026): the reference, without
-                which the church cannot tell whose money it is, and the
-                screenshot, which is what gets it matched quickly. So they
-                are numbered steps, not a line of small print.
+                Paying online has two parts that were being missed (the
+                Owner, November 2026): the reference, without which the
+                church cannot tell whose money it is, and the screenshot,
+                which is what gets it matched quickly. They are numbered
+                as the bar above numbers them — Pay, then Receipt.
               */}
               {payOnline && (
                 <ol aria-label="How to pay online" className="mt-3 flex flex-col gap-3 text-body-sm text-on-surface">
                   <li className="flex gap-3">
-                    <StepNumber n={1} />
-                    <span>
-                      <span className="font-semibold">Pay {pounds(order.total_pence)}</span> with one of the buttons below.
-                    </span>
-                  </li>
-                  <li className="flex gap-3">
-                    <StepNumber n={2} />
+                    <StepNumber n={payNumber} />
                     <span className="min-w-0">
-                      <span className="font-semibold">Put this as the payment reference</span>, exactly as it is. Without it the church cannot tell the payment is yours.
+                      <span className="font-semibold">Pay {pounds(order.total_pence)}</span> with one of the buttons below, and{' '}
+                      <span className="font-semibold">put this as the payment reference</span>, exactly as it is. Without it the church cannot tell the payment is yours.
                       <span className="mt-1.5 flex flex-wrap items-center gap-2">
                         <span className="rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-md font-semibold tracking-[0.14em] text-on-surface hairline">
                           {order.code}
@@ -245,7 +247,7 @@ function Ticket({ order }: { order: OrderView }) {
                     </span>
                   </li>
                   <li className="flex gap-3">
-                    <StepNumber n={3} />
+                    <StepNumber n={receiptNumber} />
                     <span>
                       <span className="font-semibold">Come back here and send a screenshot</span> of the payment. It is the quickest way to get your ticket confirmed.
                     </span>

@@ -302,6 +302,68 @@ export function Pill({
 }
 
 /* ------------------------------------------------------------------ *
+ * Steps
+ * ------------------------------------------------------------------ */
+
+export interface StepItem {
+  key: string
+  label: string
+  state: 'done' | 'current' | 'todo'
+}
+
+/**
+ * A few steps in a row, joined by a line: which are done, which one it is
+ * now, which are still ahead. For a short path somebody walks once (a
+ * registration: Register → Pay → Receipt → Ticket) — not a count, which is
+ * a `Statistic`, nor a share of something, which is a `StackedBar`.
+ *
+ * Nothing is said by colour alone: a done step wears a tick and is read
+ * out as done, the current one is `aria-current="step"`, bold, and
+ * repeated in words by `caption`. Two to five steps; the labels are one
+ * word each so four fit a 360px phone.
+ */
+export function Steps({ steps, caption, label = 'Progress', className = '' }: { steps: StepItem[]; caption?: ReactNode; label?: string; className?: string }) {
+  return (
+    <div className={className}>
+      <ol aria-label={label} className="flex">
+        {steps.map((step, i) => (
+          <li key={step.key} aria-current={step.state === 'current' ? 'step' : undefined} className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+            {/* The line in from the step before: filled once this one is reached. */}
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                className={`absolute left-[-50%] right-[50%] top-4 h-0.5 -translate-y-1/2 ${step.state === 'todo' ? 'bg-track' : 'bg-accent-green'}`}
+              />
+            )}
+            <span
+              aria-hidden="true"
+              className={`relative flex h-8 w-8 items-center justify-center rounded-full font-mono text-label-md font-semibold ${
+                step.state === 'done'
+                  ? 'bg-accent-green text-accent-green-ink'
+                  : step.state === 'current'
+                    ? 'bg-primary text-on-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_22%,transparent)]'
+                    : 'bg-surface-lowest text-on-surface-faint hairline'
+              }`}
+            >
+              {step.state === 'done' ? '✓' : i + 1}
+            </span>
+            <span
+              className={`max-w-full px-0.5 text-label-md [overflow-wrap:anywhere] ${
+                step.state === 'current' ? 'font-semibold text-on-surface' : step.state === 'done' ? 'text-on-surface-variant' : 'text-on-surface-faint'
+              }`}
+            >
+              {step.label}
+              <span className="sr-only">{step.state === 'done' ? ' — done' : step.state === 'current' ? ' — current step' : ' — still to do'}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {caption && <p className="mt-3 text-body-sm font-medium text-on-surface">{caption}</p>}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ *
  * Segmented control
  * ------------------------------------------------------------------ */
 

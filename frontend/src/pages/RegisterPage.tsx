@@ -2,7 +2,8 @@ import { type FormEvent, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
-import { ActionButton, Field, FieldGroup, Pill, inputClasses } from '../components/Surface'
+import { ActionButton, Field, FieldGroup, Pill, Steps, inputClasses } from '../components/Surface'
+import { registerFormSteps } from '../lib/registrationSteps'
 import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
 import { Countdown } from '../components/Countdown'
@@ -451,6 +452,14 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           {!event.open && event.status === 'draft' && (
             <p className="text-body-sm text-on-surface-variant">A draft takes no registrations. Publish it first.</p>
           )}
+
+          {/* What is ahead, before they start: registering is step one of
+              three when there is something to pay (lib/registrationSteps).
+              Only then — a free order is done by registering. */}
+          {totals.total > 0 && (() => {
+            const view = registerFormSteps(pounds(totals.total))
+            return <Steps steps={view.steps} caption={view.caption} label="What happens next" />
+          })()}
 
           <div className="flex flex-col gap-2">
             <ActionButton type="submit" disabled={register.isPending || problems.length > 0 || !event.open || soldOut}>
