@@ -22,12 +22,14 @@ describe('the preview of a registration link', () => {
     expect(p).toMatchObject({
       title: 'Pastors & Leaders Conference 2026',
       description: 'Three days of teaching, worship and fellowship for everyone who leads.',
-      image: 'https://db.example.co/storage/v1/object/public/registration-images/events/abc%201.jpg',
+      image: 'https://db.example.co/storage/v1/render/image/public/registration-images/events/abc%201.jpg?width=1200&height=630&resize=cover&quality=75',
       url: 'https://church.example/register/leaders-2026',
       large: true,
     })
     const page = previewPage(p)
-    expect(page).toContain('<meta property="og:image" content="https://db.example.co/storage/v1/object/public/registration-images/events/abc%201.jpg">')
+    // Resized to the card, so WhatsApp does not drop a picture uploaded at full size.
+    expect(page).toContain('<meta property="og:image" content="https://db.example.co/storage/v1/render/image/public/registration-images/events/abc%201.jpg?width=1200&amp;height=630&amp;resize=cover&amp;quality=75">')
+    expect(page).toContain('<meta property="og:image:width" content="1200">')
     expect(page).toContain('<meta property="og:title" content="Pastors &amp; Leaders Conference 2026">')
     expect(page).toContain('<meta name="twitter:card" content="summary_large_image">')
   })
@@ -57,7 +59,9 @@ describe('the preview of a registration link', () => {
     const s = summary(long)
     expect(s.length).toBeLessThanOrEqual(180)
     expect(s.endsWith('word…')).toBe(true)
-    expect(imageUrl('https://db.example.co/', 'a/b.png')).toBe('https://db.example.co/storage/v1/object/public/registration-images/a/b.png')
+    expect(imageUrl('https://db.example.co/', 'a/b.png')).toBe(
+      'https://db.example.co/storage/v1/render/image/public/registration-images/a/b.png?width=1200&height=630&resize=cover&quality=75',
+    )
   })
 })
 

@@ -36,16 +36,21 @@ export function summary(text, max = 180) {
   return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:!?-]+$/, '')}…`
 }
 
+/** The size a preview card is drawn at. */
+export const CARD = { width: 1200, height: 630 }
+
 /**
- * The public address of a picture in the registration-images bucket, which
- * is public (0244).
+ * The address of a picture in the registration-images bucket (public,
+ * 0244), resized by Supabase to the card's size. The original can be
+ * several megabytes, and WhatsApp drops a preview picture much over a few
+ * hundred kilobytes: 1.4 MB as uploaded, about 110 KB as served here.
  * @param {string} supabaseUrl
  * @param {string} path
  */
 export function imageUrl(supabaseUrl, path) {
   const base = supabaseUrl.replace(/\/+$/, '')
   const encoded = path.split('/').map(encodeURIComponent).join('/')
-  return `${base}/storage/v1/object/public/registration-images/${encoded}`
+  return `${base}/storage/v1/render/image/public/registration-images/${encoded}?width=${CARD.width}&height=${CARD.height}&resize=cover&quality=75`
 }
 
 /**
@@ -97,7 +102,7 @@ export function previewPage(p) {
 <meta property="og:description" content="${d}">
 <meta property="og:url" content="${url}">
 <meta property="og:image" content="${img}">
-<meta property="og:image:alt" content="${t}">
+<meta property="og:image:alt" content="${t}">${p.large ? `\n<meta property="og:image:width" content="${CARD.width}">\n<meta property="og:image:height" content="${CARD.height}">` : ''}
 <meta name="twitter:card" content="${p.large ? 'summary_large_image' : 'summary'}">
 <meta name="twitter:title" content="${t}">
 <meta name="twitter:description" content="${d}">
