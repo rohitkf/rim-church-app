@@ -337,12 +337,16 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               const allowed = area.capabilities.filter((c) => c.can[role] !== 'no').length
               const total = area.capabilities.length
               const isOpen = open.has(area.area)
-              // A row this role can be given stays put even at "No":
-              // hiding it the moment it is set would take the control with it.
+              // Almost every cell is the church's to set now (0269), so
+              // "can be given" no longer narrows anything: the filter shows
+              // what the role may do. A row changed and not yet saved stays
+              // put even at "No" — hiding it the moment it is set would
+              // take the control with it.
               const settable = (c: Capability) =>
                 editable && live && !!c.key && role !== 'owner' && !isFixed(c.key, role as GridRole)
+              const changing = (c: Capability) => !!c.key && touched.includes(c.key)
               const rows = onlyAllowed
-                ? area.capabilities.filter((c) => c.can[role] !== 'no' || settable(c))
+                ? area.capabilities.filter((c) => c.can[role] !== 'no' || changing(c))
                 : area.capabilities
               const panel = `area-${area.area.replace(/[^a-z]+/gi, '-').toLowerCase()}`
               return (

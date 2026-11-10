@@ -1,0 +1,191 @@
+/*
+ * Every cell that can be the church's to set, is (asked for by the Owner,
+ * November 2026: "only the unchangeable things that would break things
+ * should stay read only").
+ *
+ * A third of the grid was fixed at No and drawn as a dash: a Church
+ * Member's cell on almost every row, a Team Coordinator's on most, and a
+ * handful of others. Each was a judgement — "nothing on the rota is a
+ * Church Member's to be given" — not a limit of the database: may() reads
+ * any cell the catalog offers. Those judgements are the church's to make
+ * now. Every such cell becomes a choice, No or Everywhere, and starts at
+ * No, so nothing changes for anybody until a cell is changed.
+ *
+ * The narrow choices widen too: a cell that offered No or Their team now
+ * offers Everywhere as well. Its default stays where it was.
+ *
+ * What stays fixed, because changing it would not do what the cell says,
+ * or would hand somebody the keys:
+ *   app.permissions            the grid itself: every Admin, nobody else
+ *   issue/debrief.as_overwatch done as Overwatch, nobody else's
+ *   page.*                     a page's level is set as a level
+ *                              (Page by Page), and Admins and Heads always
+ *                              open every page: can_open_page() says so
+ *   an Admin's fixed Yes       on Clock In and Stage Layout: their
+ *                              functions pass an Admin before they ask
+ *                              may(), so a No there would be untrue
+ *   a Pastor's three prayer rows, always theirs (0214)
+ *
+ * No function changes. A wider catalog also widens what may be given to
+ * one person or one team as a grant (permission_grant_is_valid reads the
+ * catalog): anything a non-Admin profile can now be offered.
+ */
+
+insert into public.permission_catalog (capability, role_key, reaches, default_reach) values
+  ('rota.assign', 'coordinator', '{none,team,all}', 'none'),
+  ('rota.assign', 'newcomer', '{none,all}', 'none'),
+  ('rota.tag', 'coordinator', '{none,team,all}', 'none'),
+  ('rota.tag', 'newcomer', '{none,all}', 'none'),
+  ('rota.release_ask', 'coordinator', '{none,team,all}', 'none'),
+  ('rota.release_ask', 'member', '{none,team,all}', 'none'),
+  ('rota.release_ask', 'newcomer', '{none,all}', 'none'),
+  ('rota.release_decide', 'coordinator', '{none,team,all}', 'none'),
+  ('rota.release_decide', 'member', '{none,team,all}', 'none'),
+  ('rota.release_decide', 'newcomer', '{none,all}', 'none'),
+  ('rota.release_delete', 'coordinator', '{none,all}', 'none'),
+  ('rota.release_delete', 'member', '{none,all}', 'none'),
+  ('rota.release_delete', 'newcomer', '{none,all}', 'none'),
+  ('svc.manage', 'coordinator', '{none,all}', 'none'),
+  ('svc.manage', 'newcomer', '{none,all}', 'none'),
+  ('svc.templates', 'coordinator', '{none,all}', 'none'),
+  ('svc.templates', 'newcomer', '{none,all}', 'none'),
+  ('svc.sessions', 'coordinator', '{none,all}', 'none'),
+  ('svc.sessions', 'newcomer', '{none,all}', 'none'),
+  ('svc.guests', 'coordinator', '{none,all}', 'none'),
+  ('svc.guests', 'newcomer', '{none,all}', 'none'),
+  ('svc.repeat', 'coordinator', '{none,all}', 'none'),
+  ('svc.repeat', 'newcomer', '{none,all}', 'none'),
+  ('svc.events', 'coordinator', '{none,all}', 'none'),
+  ('svc.events', 'newcomer', '{none,all}', 'none'),
+  ('svc.call_times', 'coordinator', '{none,all}', 'none'),
+  ('svc.call_times', 'newcomer', '{none,all}', 'none'),
+  ('team.create', 'coordinator', '{none,all}', 'none'),
+  ('team.create', 'newcomer', '{none,all}', 'none'),
+  ('team.edit', 'coordinator', '{none,all}', 'none'),
+  ('team.edit', 'newcomer', '{none,all}', 'none'),
+  ('clockin.approve', 'newcomer', '{none,all}', 'none'),
+  ('clockin.view', 'coordinator', '{none,all}', 'none'),
+  ('clockin.view', 'newcomer', '{none,all}', 'none'),
+  ('prayer.pastoral', 'coordinator', '{none,all}', 'none'),
+  ('prayer.pastoral', 'newcomer', '{none,all}', 'none'),
+  ('prayer.assign', 'coordinator', '{none,all}', 'none'),
+  ('prayer.assign', 'newcomer', '{none,all}', 'none'),
+  ('prayer.lists', 'coordinator', '{none,all}', 'none'),
+  ('prayer.lists', 'newcomer', '{none,all}', 'none'),
+  ('planner.start', 'newcomer', '{none,all}', 'none'),
+  ('planner.hold', 'newcomer', '{none,all}', 'none'),
+  ('planner.add_time', 'newcomer', '{none,all}', 'none'),
+  ('planner.skip', 'newcomer', '{none,all}', 'none'),
+  ('planner.substitute', 'newcomer', '{none,all}', 'none'),
+  ('planner.add_below', 'newcomer', '{none,all}', 'none'),
+  ('planner.remove', 'newcomer', '{none,all}', 'none'),
+  ('planner.end', 'newcomer', '{none,all}', 'none'),
+  ('stage.add', 'newcomer', '{none,all}', 'none'),
+  ('stage.edit', 'newcomer', '{none,all}', 'none'),
+  ('stage.delete', 'newcomer', '{none,all}', 'none'),
+  ('stage.comment', 'newcomer', '{none,all}', 'none'),
+  ('stage.templates', 'newcomer', '{none,all}', 'none'),
+  ('team.request_join', 'admin', '{none,all}', 'none'),
+  ('team.request_join', 'coordinator', '{none,all}', 'none'),
+  ('team.members', 'coordinator', '{none,all}', 'none'),
+  ('team.members', 'newcomer', '{none,all}', 'none'),
+  ('team.roles', 'coordinator', '{none,all}', 'none'),
+  ('team.roles', 'newcomer', '{none,all}', 'none'),
+  ('team.groups', 'coordinator', '{none,all}', 'none'),
+  ('team.groups', 'newcomer', '{none,all}', 'none'),
+  ('team.checklists', 'coordinator', '{none,all}', 'none'),
+  ('team.checklists', 'newcomer', '{none,all}', 'none'),
+  ('team.join', 'coordinator', '{none,all}', 'none'),
+  ('team.join', 'newcomer', '{none,all}', 'none'),
+  ('day.verify', 'coordinator', '{none,team,all}', 'team'),
+  ('day.verify', 'newcomer', '{none,all}', 'none'),
+  ('day.check_all', 'coordinator', '{none,team,all}', 'none'),
+  ('day.check_all', 'newcomer', '{none,all}', 'none'),
+  ('day.ready', 'coordinator', '{none,team,all}', 'team'),
+  ('day.ready', 'newcomer', '{none,all}', 'none'),
+  ('day.attendance', 'coordinator', '{none,all}', 'none'),
+  ('day.attendance', 'newcomer', '{none,all}', 'none'),
+  ('day.nudge', 'coordinator', '{none,team,all}', 'none'),
+  ('day.nudge', 'newcomer', '{none,all}', 'none'),
+  ('avail.edit_others', 'coordinator', '{none,all}', 'none'),
+  ('avail.edit_others', 'newcomer', '{none,all}', 'none'),
+  ('avail.add_others', 'coordinator', '{none,all}', 'none'),
+  ('avail.add_others', 'newcomer', '{none,all}', 'none'),
+  ('avail.late_decide', 'coordinator', '{none,all}', 'none'),
+  ('avail.late_decide', 'newcomer', '{none,all}', 'none'),
+  ('avail.nudge', 'coordinator', '{none,all}', 'none'),
+  ('avail.nudge', 'newcomer', '{none,all}', 'none'),
+  ('avail.history', 'coordinator', '{none,all}', 'none'),
+  ('avail.history', 'newcomer', '{none,all}', 'none'),
+  ('inv.items', 'coordinator', '{none,all}', 'none'),
+  ('inv.items', 'newcomer', '{none,all}', 'none'),
+  ('inv.stock', 'coordinator', '{none,all}', 'none'),
+  ('inv.stock', 'newcomer', '{none,all}', 'none'),
+  ('inv.purchase_ask', 'coordinator', '{none,all}', 'none'),
+  ('inv.purchase_ask', 'newcomer', '{none,all}', 'none'),
+  ('inv.purchase_decide', 'coordinator', '{none,all}', 'none'),
+  ('inv.purchase_decide', 'newcomer', '{none,all}', 'none'),
+  ('msg.board_post', 'coordinator', '{none,all}', 'none'),
+  ('msg.board_post', 'newcomer', '{none,all}', 'none'),
+  ('msg.board_moderate', 'coordinator', '{none,all}', 'none'),
+  ('msg.board_moderate', 'newcomer', '{none,all}', 'none'),
+  ('msg.chat', 'coordinator', '{none,all}', 'none'),
+  ('msg.chat', 'newcomer', '{none,all}', 'none'),
+  ('msg.chat_moderate', 'coordinator', '{none,all}', 'none'),
+  ('msg.chat_moderate', 'newcomer', '{none,all}', 'none'),
+  ('msg.polls', 'coordinator', '{none,all}', 'none'),
+  ('msg.polls', 'newcomer', '{none,all}', 'none'),
+  ('msg.updates', 'coordinator', '{none,all}', 'none'),
+  ('msg.updates', 'newcomer', '{none,all}', 'none'),
+  ('msg.alert_team', 'coordinator', '{none,team,all}', 'none'),
+  ('msg.alert_team', 'newcomer', '{none,all}', 'none'),
+  ('msg.alert', 'coordinator', '{none,all}', 'none'),
+  ('msg.alert', 'newcomer', '{none,all}', 'none'),
+  ('issue.mark', 'coordinator', '{none,all}', 'none'),
+  ('issue.mark', 'newcomer', '{none,all}', 'none'),
+  ('issue.delete', 'coordinator', '{none,all}', 'none'),
+  ('issue.delete', 'newcomer', '{none,all}', 'none'),
+  ('songs.edit', 'coordinator', '{none,team,all}', 'none'),
+  ('songs.edit', 'newcomer', '{none,all}', 'none'),
+  ('reg.manage', 'coordinator', '{none,all}', 'none'),
+  ('reg.manage', 'newcomer', '{none,all}', 'none'),
+  ('reg.door', 'newcomer', '{none,all}', 'none'),
+  ('reg.view', 'newcomer', '{none,all}', 'none'),
+  ('reg.verify', 'newcomer', '{none,all}', 'none'),
+  ('reg.door_view', 'newcomer', '{none,all}', 'none'),
+  ('reg.edit', 'newcomer', '{none,all}', 'none'),
+  ('reg.approve', 'newcomer', '{none,all}', 'none'),
+  ('reg.refund', 'newcomer', '{none,all}', 'none'),
+  ('reg.cancel', 'newcomer', '{none,all}', 'none'),
+  ('reg.door_pay', 'newcomer', '{none,all}', 'none'),
+  ('reg.walk_in', 'newcomer', '{none,all}', 'none'),
+  ('set.edit', 'coordinator', '{none,all}', 'none'),
+  ('set.edit', 'newcomer', '{none,all}', 'none'),
+  ('debrief.manage', 'coordinator', '{none,all}', 'none'),
+  ('debrief.manage', 'newcomer', '{none,all}', 'none'),
+  ('debrief.contribute', 'coordinator', '{none,team,all}', 'none'),
+  ('debrief.contribute', 'newcomer', '{none,all}', 'none'),
+  ('give.edit', 'coordinator', '{none,all}', 'none'),
+  ('give.edit', 'newcomer', '{none,all}', 'none'),
+  ('people.edit_others', 'head', '{none,all}', 'none'),
+  ('people.edit_others', 'assistant', '{none,all}', 'none'),
+  ('people.edit_others', 'coordinator', '{none,all}', 'none'),
+  ('people.edit_others', 'member', '{none,all}', 'none'),
+  ('people.edit_others', 'newcomer', '{none,all}', 'none'),
+  ('people.invite', 'coordinator', '{none,all}', 'none'),
+  ('people.invite', 'newcomer', '{none,all}', 'none'),
+  ('people.clear_records', 'coordinator', '{none,all}', 'none'),
+  ('people.clear_records', 'newcomer', '{none,all}', 'none'),
+  ('people.onboard', 'coordinator', '{none,all}', 'none'),
+  ('people.onboard', 'newcomer', '{none,all}', 'none'),
+  ('people.ages', 'coordinator', '{none,all}', 'none'),
+  ('people.ages', 'newcomer', '{none,all}', 'none'),
+  ('people.remove', 'head', '{none,all}', 'none'),
+  ('people.remove', 'assistant', '{none,all}', 'none'),
+  ('people.remove', 'coordinator', '{none,all}', 'none'),
+  ('people.remove', 'member', '{none,all}', 'none'),
+  ('people.remove', 'newcomer', '{none,all}', 'none')
+on conflict (capability, role_key) do update
+  set reaches = excluded.reaches, default_reach = excluded.default_reach;
+
+notify pgrst, 'reload schema';

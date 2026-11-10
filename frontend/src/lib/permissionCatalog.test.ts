@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, GRID_ROLES, PASTOR_LOCKED, hasCell, ruleFor, type Reach } from './permissions'
+import { CATALOG, CAPABILITY_KEYS, GRANT_ROLES, GRID_ROLES, OVERWATCH_OWN, PASTOR_LOCKED, hasCell, ruleFor, type CapabilityKey, type Reach } from './permissions'
 import { PERMISSIONS } from './permissionMatrix'
 
 /*
@@ -70,10 +70,14 @@ describe('the permission catalog', () => {
     }
   })
 
-  it('gives Overwatch its five cells and nothing more (0214)', () => {
-    const cells = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'overwatch')).sort()
-    expect(cells).toEqual(['debrief.as_overwatch', 'issue.as_overwatch', 'msg.board_post', 'msg.chat', 'msg.polls'])
-    for (const cap of cells) expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
+  it('gives Overwatch its five own cells at Everywhere, and a cell at No on every other row it does not already read (0214, 0270)', () => {
+    for (const cap of OVERWATCH_OWN) expect(ruleFor(cap as CapabilityKey, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
+    const without = CAPABILITY_KEYS.filter((cap) => !hasCell(cap, 'overwatch'))
+    expect(without.filter((c) => !c.startsWith('page.')).sort()).toEqual(['app.permissions', 'avail.history', 'clockin.view'])
+    expect(without.filter((c) => c.startsWith('page.')).length).toBe(CAPABILITY_KEYS.filter((c) => c.startsWith('page.')).length)
+    for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'overwatch') && !OVERWATCH_OWN.includes(c))) {
+      expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
+    }
     // A thing done as Overwatch is nobody else's to be given.
     for (const cap of ['issue.as_overwatch', 'debrief.as_overwatch'] as const) {
       for (const role of GRANT_ROLES) expect(CATALOG[cap][role].reaches, `${cap} / ${role}`).toEqual(['none'])
@@ -114,10 +118,17 @@ describe('the permission catalog', () => {
     for (const role of GRANT_ROLES.filter((r) => r !== 'admin')) {
       expect(CATALOG['app.permissions'][role].reaches, role).toEqual(['none'])
     }
-    // A Church Member is everybody signed in: nothing on the rota is theirs to be given.
+    // Since 0269 a Church Member's cell is the church's to set wherever
+    // the database can honour it — but always No out of the box where it
+    // was fixed, and never "their team": they are on none.
     for (const cap of CAPABILITY_KEYS.filter((c) => c.startsWith('rota.'))) {
-      expect(CATALOG[cap].newcomer.reaches, cap).toEqual(['none'])
+      expect(CATALOG[cap].newcomer, cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
+    for (const cap of CAPABILITY_KEYS) expect(CATALOG[cap].newcomer.reaches, cap).not.toContain('team')
+    // No dashes left but the ones that would lie or hand over the keys:
+    // the grid itself, the two things done as Overwatch, a page's level.
+    const fixedNo = CAPABILITY_KEYS.flatMap((cap) => GRANT_ROLES.filter((role) => ruleFor(cap, role).reaches.length === 1 && ruleFor(cap, role).byDefault === 'none').map(() => cap))
+    expect([...new Set(fixedNo.filter((c) => !c.startsWith('page.')))].sort()).toEqual(['app.permissions', 'debrief.as_overwatch', 'issue.as_overwatch'])
   })
 
   it('is described once each on the Access page', () => {

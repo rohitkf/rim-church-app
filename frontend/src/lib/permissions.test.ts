@@ -86,10 +86,50 @@ describe('decide(), with the church’s changes', () => {
   })
 
   it('ignores a choice the catalog no longer offers, as the database does', () => {
-    // A Church Member is offered nothing on the rota; a stray row cannot change that.
-    const stray = { 'rota.assign': { newcomer: 'all' } } as unknown as Overrides
-    expect(reachOf(stray, 'rota.assign', 'newcomer')).toBe('none')
-    expect(decide(stray, nobody, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    // Nobody but an Admin is offered the grid itself; a stray row cannot change that.
+    const stray = { 'app.permissions': { newcomer: 'all' } } as unknown as Overrides
+    expect(reachOf(stray, 'app.permissions', 'newcomer')).toBe('none')
+    expect(decide(stray, nobody, 'app.permissions', { departmentId: TEAM_A })).toBe(false)
+    // Nor is a Church Member offered "their team": they are on none.
+    const odd = { 'rota.assign': { newcomer: 'team' } } as unknown as Overrides
+    expect(reachOf(odd, 'rota.assign', 'newcomer')).toBe('none')
+    expect(decide(odd, nobody, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+  })
+})
+
+describe('Overwatch and a Pastor, as church-wide standings (0268, 0270)', () => {
+  const watcher = { ...nobody, overwatch: true }
+  const pastor = { ...nobody, pastor: true }
+
+  it('gives neither anything new out of the box', () => {
+    for (const cap of ['rota.assign', 'svc.manage', 'people.remove', 'reg.manage'] as const) {
+      expect(decide({}, watcher, cap, { departmentId: TEAM_A }), cap).toBe(false)
+      expect(decide({}, pastor, cap, { departmentId: TEAM_A }), cap).toBe(false)
+    }
+  })
+
+  it('gives each what its own cell says, and not the other’s', () => {
+    const grid: Overrides = { 'rota.assign': { overwatch: 'all' }, 'svc.manage': { pastor: 'all' } }
+    expect(decide(grid, watcher, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    expect(decide(grid, pastor, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    expect(decide(grid, pastor, 'svc.manage')).toBe(true)
+    expect(decide(grid, watcher, 'svc.manage')).toBe(false)
+    expect(decide(grid, nobody, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+  })
+
+  it('never reads Overwatch’s five own cells as an ordinary right: overwatch_may() does', () => {
+    // Everywhere out of the box, and still not a yes from decide().
+    for (const cap of ['msg.board_post', 'msg.chat', 'msg.polls'] as const) {
+      expect(decide({}, watcher, cap, { departmentId: TEAM_A }), cap).toBe(false)
+    }
+  })
+
+  it('opens the widened choices: a Church Member or a Team Coordinator, everywhere', () => {
+    const grid: Overrides = { 'rota.assign': { newcomer: 'all' } }
+    expect(decide(grid, nobody, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    expect(decide({}, nobody, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    const coordinating: Overrides = { 'rota.release_decide': { coordinator: 'all' } }
+    expect(decide(coordinating, { ...nobody, coordinatesAnywhere: true }, 'rota.release_decide', { departmentId: TEAM_A })).toBe(true)
   })
 })
 
@@ -104,11 +144,12 @@ describe('overrides and saving', () => {
         { role_key: 'pastor', capability: 'app.permissions', reach: 'all' },
         { role_key: 'deacon', capability: 'rota.assign', reach: 'team' },
         { role_key: 'head', capability: 'rota.tag', reach: 'sometimes' },
-        // Overwatch's own cell (0214) is read; it has none on the rota.
+        // Overwatch's cells are read (0214, 0270); it has none on a page's opening.
         { role_key: 'overwatch', capability: 'msg.chat', reach: 'none' },
         { role_key: 'overwatch', capability: 'rota.assign', reach: 'all' },
+        { role_key: 'overwatch', capability: 'page.rota', reach: 'all' },
       ]),
-    ).toEqual({ 'rota.assign': { member: 'team', pastor: 'all' }, 'msg.chat': { overwatch: 'none' } })
+    ).toEqual({ 'rota.assign': { member: 'team', pastor: 'all', overwatch: 'all' }, 'msg.chat': { overwatch: 'none' } })
   })
 
   it('sends only the cells whose answer would change', () => {

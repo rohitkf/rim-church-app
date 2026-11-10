@@ -57,6 +57,7 @@ export function holderOf(p: PersonFacts, grants: readonly PermissionGrant[] = []
     memberTeams: p.memberTeams,
     coordinatesAnywhere: p.coordinatorTeams.length > 0,
     pastor: p.pastor,
+    overwatch: p.overwatch,
     grants,
   }
 }

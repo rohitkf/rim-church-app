@@ -47,7 +47,7 @@ export const ROLES = [
     key: 'overwatch',
     label: ROLE_NAME.overwatch,
     blurb:
-      'Sees every team — rotas, availability, checklists, chats, debriefs and issues — on the pages Settings › Overwatch leaves open to it, and changes almost nothing. Its five cells here are what it may do, each as itself and only on a page open to it. Made from Volunteers.',
+      'Sees every team — rotas, availability, checklists, chats, debriefs and issues — on the pages Settings › Overwatch leaves open to it, and out of the box changes almost nothing: five things it does as itself, each only on a page open to it. Every other cell is No until the church changes it. Made from Volunteers.',
   },
   {
     key: 'pastor',
