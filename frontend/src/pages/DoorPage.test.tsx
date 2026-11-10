@@ -379,6 +379,20 @@ describe('Reception', () => {
     expect(within(row).getByText(/Cannot be checked in until it is paid/)).toBeInTheDocument()
   })
 
+  it('shows somebody here to look the list and the counts, and nothing to press (0267)', async () => {
+    rights.now = { office: false, door: true, edit: false, approve: false, takePayment: false, refund: false, cancel: false, delete: false, checkIn: false, walkIn: false }
+    state.orders = state.orders.map((o, i) => (i === 0 ? { ...(o as object), payment_status: 'received', payment_verified_at: '2026-11-20T08:00:00Z' } : o))
+    show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    expect(screen.getByText(/You are here to look/)).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Start scanning/ })).toBeNull()
+    const row = screen.getByRole('listitem', { name: 'Ama Owusu' })
+    expect(within(row).getByText('Verified payment')).toBeInTheDocument()
+    expect(within(row).queryByRole('button')).toBeNull()
+    for (const li of screen.getAllByRole('listitem')) expect(within(li).queryByRole('button')).toBeNull()
+  })
+
   it('lets a walk-in be registered as still to pay by somebody who cannot take money', async () => {
     rights.now = { ...rights.now, takePayment: false, approve: false }
     const user = show()

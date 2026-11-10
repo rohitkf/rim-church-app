@@ -162,10 +162,11 @@ describe('PermissionsCard', () => {
     const user = show()
     await compare(user)
     // A row with a choice is there, its fixed cells (the Owner's, a Church
-    // Member's, and Overwatch's and a Pastor's, who have no say in the
-    // rota) said plainly — no padlock, as if a setting were switched off.
+    // Member's, and Overwatch's, which has no say in the rota) said plainly
+    // — no padlock, as if a setting were switched off. A Pastor's is a
+    // choice since 0268.
     const assign = rowFor('Assign somebody to a role')
-    expect(within(assign).getAllByText('(fixed)')).toHaveLength(4)
+    expect(within(assign).getAllByText('(fixed)')).toHaveLength(3)
     expect(assign.querySelector('svg rect')).toBeNull()
     // A row nobody can change waits a tap away.
     expect(screen.queryByRole('rowheader', { name: /See visa, DBS and safeguarding details/ })).toBeNull()
@@ -199,18 +200,20 @@ describe('PermissionsCard', () => {
       // A Church Member and the Owner are not offered a choice at all.
       expect(assign.queryByRole('combobox', { name: /Church Member/ })).toBeNull()
       expect(assign.queryByRole('combobox', { name: /Owner/ })).toBeNull()
-      expect(assign.queryByRole('combobox', { name: /Overwatch|Pastor/ })).toBeNull()
-      expect(assign.getAllByText('(fixed)')).toHaveLength(4)
+      expect(assign.queryByRole('combobox', { name: /Overwatch/ })).toBeNull()
+      // A Pastor's cell is the church's on every row (0268): No, or everywhere.
+      expect(await options('Pastor')).toEqual(['No', 'All'])
+      expect(assign.getAllByText('(fixed)')).toHaveLength(3)
     })
 
-    it('gives Overwatch its own cells, and a Pastor the prayer rows, fixed (0214)', async () => {
+    it('gives Overwatch its own cells, and a Pastor a choice everywhere but the prayer rows (0214, 0268)', async () => {
       const user = show()
       await compare(user)
       const chat = within(rowFor('Read and post in a team’s chat'))
       const list = await openOptions(user, chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Overwatch' }))
       expect(within(list).getAllByRole('option').map((o) => o.firstChild?.textContent)).toEqual(['No', 'All'])
       await user.keyboard('{Escape}')
-      expect(chat.queryByRole('combobox', { name: /Pastor/ })).toBeNull()
+      expect(chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Pastor' })).toBeInTheDocument()
       const prayer = within(rowFor('Read private prayer requests'))
       expect(prayer.queryByRole('combobox', { name: /Pastor/ })).toBeNull()
       expect(prayer.queryByRole('combobox', { name: /Overwatch/ })).toBeNull()

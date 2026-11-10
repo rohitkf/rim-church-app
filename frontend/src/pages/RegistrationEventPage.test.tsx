@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -51,6 +51,10 @@ vi.mock('../lib/registrations', async (original) => ({
   fetchRegistrationOrders: () => Promise.resolve(state.orders),
   markOrder: (id: string, action: string) => {
     state.marked.push([id, action])
+    return Promise.resolve()
+  },
+  verifyOrderPayment: (id: string, verified: boolean) => {
+    state.marked.push([id, verified ? 'verify' : 'unverify'])
     return Promise.resolve()
   },
   setOrderNotes: (id: string, notes: string) => {
@@ -258,6 +262,69 @@ describe('an event’s page', () => {
     expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([expect.stringContaining('Put back'), 'Add a note'])
     await user.click(within(menu).getByRole('menuitem', { name: /Put back/ }))
     await waitFor(() => expect(state.marked).toContainEqual(['o-asha', 'restore']))
+  })
+
+  /*
+   * Verifying (0267): the Pastor, who can see the bank and PayPal, says a
+   * payment arrived. A right of its own — the office's rights above do not
+   * include it — and a tag everybody else goes by.
+   */
+  it('offers no verifying to the office, whatever else it may do', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Dan Reported' })
+    expect(screen.queryByRole('button', { name: 'Verify payment' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /to verify/ })).toBeNull()
+    const menu = await openMenu(user, 'Dan Reported')
+    expect(within(menu).queryByRole('menuitem', { name: /Verify payment/ })).toBeNull()
+  })
+
+  it('gives whoever may verify a button on each payment said to be in, and says how many wait', async () => {
+    rights.now = { office: true, door: true, verify: true }
+    const user = show()
+    // Dan says he paid, Ben is marked received: two to verify. Ama has not paid; Grace's is free.
+    const wanting = await screen.findByRole('button', { name: /2\s*payments to verify/ })
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByRole('button', { name: 'Verify payment' })).toBeNull()
+    expect(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).queryByRole('button', { name: 'Verify payment' })).toBeNull()
+    await user.click(wanting)
+    expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('aria-label')).filter(Boolean)).toEqual(expect.arrayContaining(['Dan Reported', 'Ben Joseph']))
+    expect(screen.queryByRole('listitem', { name: 'Ama Owusu' })).toBeNull()
+
+    // Read only otherwise: nothing of the office's to press on the row.
+    const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
+    expect(within(dan).queryByRole('button', { name: 'Mark as received' })).toBeNull()
+    await user.click(within(dan).getByRole('button', { name: 'Verify payment' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-dan', 'verify']]))
+  })
+
+  it('lets a payment not yet reported be verified from the menu, and nothing else changed by a verifier', async () => {
+    rights.now = { office: true, door: true, verify: true }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    const menu = await openMenu(user, 'Ama Owusu')
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([expect.stringContaining('Verify payment'), 'Add a note'])
+  })
+
+  it('shows the Verified payment tag to everybody, with who and when, and lets the verifier take it back', async () => {
+    state.orders = orders().map((o) => (o.id === 'o-dan' ? { ...o, payment_verified_at: at(2026, 11, 20, 8, 0), verifier: { first_name: 'Pastor', last_name: 'John' } } : o))
+    // The office sees the tag and carries on from it.
+    const first = show()
+    const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
+    expect(within(dan).getByText('Verified payment')).toBeInTheDocument()
+    expect(within(dan).getByText(/^Verified .* by Pastor John$/)).toBeInTheDocument()
+    expect(within(dan).getByRole('button', { name: 'Mark as received' })).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).queryByText('Verified payment')).toBeNull()
+    let menu = await openMenu(first, 'Dan Reported')
+    expect(within(menu).queryByRole('menuitem', { name: /verification/ })).toBeNull()
+    await first.keyboard('{Escape}')
+    cleanup()
+
+    rights.now = { office: true, door: true, verify: true }
+    const user = show()
+    const again = await screen.findByRole('listitem', { name: 'Dan Reported' })
+    expect(within(again).queryByRole('button', { name: 'Verify payment' })).toBeNull()
+    menu = await openMenu(user, 'Dan Reported')
+    await user.click(within(menu).getByRole('menuitem', { name: /Take back the verification/ }))
+    await waitFor(() => expect(state.marked).toEqual([['o-dan', 'unverify']]))
   })
 
   it('cancels a registration only after asking', async () => {

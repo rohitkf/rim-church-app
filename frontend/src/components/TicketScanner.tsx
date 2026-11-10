@@ -151,6 +151,11 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                 ) : (
                   <Pill tone="green">Valid</Pill>
                 )}
+                {order.status === 'confirmed' && order.total_pence > 0 && order.payment_verified_at && (
+                  <Pill tone="green" dot>
+                    Verified payment
+                  </Pill>
+                )}
                 {order.status === 'confirmed' && order.total_pence === 0 && order.promo_code && <Pill tone="neutral">Free with code {order.promo_code}</Pill>}
                 {order.status === 'confirmed' && order.total_pence > 0 && (
                   <Pill tone={order.payment_status === 'received' || order.payment_status === 'waived' ? 'green' : 'orange'}>{PAYMENT_WORDS[order.payment_status]}</Pill>

@@ -33,6 +33,10 @@ import {
   orderMatches,
   proofUrl,
   receiverName,
+  verifierName,
+  verifyOrderPayment,
+  canBeVerified,
+  wantsVerifying,
   registrationExportFileName,
   setOrderNotes,
   setRegistrationStatus,
@@ -111,6 +115,16 @@ export function RegistrationEventPage() {
   const ticketConfirmed = (order: OrderRow) => {
     if (order.email) void notifyPayment('paid', order.code)
   }
+  // The Pastor (or the Owner) has seen the money in the bank or PayPal (0267).
+  const verify = useMutation({
+    mutationFn: ({ order, verified }: { order: OrderRow; verified: boolean }) => verifyOrderPayment(order.id, verified),
+    onSuccess: (_r, { verified }) => {
+      setError(null)
+      showToast(verified ? 'Payment verified' : 'Verification taken back')
+      return refresh()
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
+  })
   const mark = useMutation({
     mutationFn: ({ order, action }: { order: OrderRow; action: OrderAction }) => markOrder(order.id, action),
     onSuccess: (_r, { order, action }) => {
@@ -203,6 +217,8 @@ export function RegistrationEventPage() {
   const countOf = (f: OrderFilter) => rows.filter((o) => orderMatches(o, f, '')).length
   const reported = confirmed.filter((o) => o.payment_status === 'reported').length
   const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
+  // Only whoever may verify is told what waits on them.
+  const toVerify = rights.verify ? rows.filter(wantsVerifying).length : 0
   // A tap on what wants doing shows those orders, and goes to them.
   const showOrders = (f: OrderFilter) => {
     setFilter(f)
@@ -376,7 +392,7 @@ export function RegistrationEventPage() {
         </Tile>
       </div>
 
-      {(reported > 0 || awaitingOnly > 0 || owed.length > 0) && (
+      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
             <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
@@ -384,6 +400,14 @@ export function RegistrationEventPage() {
                 {reported}
               </Pill>
               {reported === 1 ? 'receipt to check' : 'receipts to check'}
+            </ActionButton>
+          )}
+          {toVerify > 0 && !cancelled && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_verify')}>
+              <Pill tone="blue" dot className="-ml-1">
+                {toVerify}
+              </Pill>
+              {toVerify === 1 ? 'payment to verify' : 'payments to verify'}
             </ActionButton>
           )}
           {awaitingOnly > 0 && !cancelled && (
@@ -504,9 +528,9 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
-                  busy={mark.isPending}
-                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights)}
-                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights)}
+                  busy={mark.isPending || verify.isPending}
+                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }))}
+                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }))}
                 />
               ))}
             </ul>
@@ -673,6 +697,7 @@ function orderActions(
   eventCancelled: boolean,
   refundDetails: () => void,
   r: RegistrationRights,
+  verify: (verified: boolean) => void,
 ): MenuAction[] {
   const actions: MenuAction[] = []
   // A refund owed comes first: it is what this order needs.
@@ -685,6 +710,14 @@ function orderActions(
     return actions
   }
   if (o.status === 'confirmed') {
+    // Verifying (0267): the Pastor's and the Owner's, apart from the office's "received".
+    if (r.verify && canBeVerified(o)) {
+      actions.push(
+        o.payment_verified_at
+          ? { label: 'Take back the verification', onSelect: () => verify(false), hint: 'It was verified by mistake' }
+          : { label: 'Verify payment', tone: 'accent', onSelect: () => verify(true), hint: 'You have seen it in the bank account or PayPal' },
+      )
+    }
     if (o.payment_status !== 'not_needed') {
       if (o.payment_status !== 'received' && r.takePayment) {
         actions.push({
@@ -719,19 +752,28 @@ function orderActions(
 }
 
 /** The one thing an order is waiting on, as buttons on its row; the ⋯ menu has the rest. */
-function nextSteps(o: OrderRow, act: (action: OrderAction) => void, notReceived: () => void, refundDetails: () => void, r: RegistrationRights): NextStep[] {
+function nextSteps(
+  o: OrderRow,
+  act: (action: OrderAction) => void,
+  notReceived: () => void,
+  refundDetails: () => void,
+  r: RegistrationRights,
+  verify?: () => void,
+): NextStep[] {
   if (o.refund_status === 'owed' && r.refund) {
     return [
       { label: 'Mark as refunded', onClick: () => act('refunded'), tone: 'primary' },
       { label: 'Where to send it', onClick: refundDetails, tone: 'quiet' },
     ]
   }
+  const steps: NextStep[] = []
+  // Whoever can see the accounts goes first (0267): the office goes by their tag.
+  if (verify && r.verify && wantsVerifying(o)) steps.push({ label: 'Verify payment', onClick: verify, tone: 'primary' })
   if (o.status === 'confirmed' && o.payment_status === 'reported' && r.takePayment) {
-    const steps: NextStep[] = [{ label: 'Mark as received', onClick: () => act('received'), tone: 'primary' }]
+    steps.push({ label: 'Mark as received', onClick: () => act('received'), tone: steps.length > 0 ? 'quiet' : 'primary' })
     if (r.approve) steps.push({ label: 'Not received', onClick: notReceived, tone: 'quiet' })
-    return steps
   }
-  return []
+  return steps
 }
 type NextStep = { label: string; onClick: () => void; tone: 'primary' | 'quiet' }
 
@@ -812,6 +854,7 @@ function OrderLine({
   busy: boolean
 }) {
   const receiver = receiverName(order)
+  const verifier = verifierName(order)
   const refunder = [order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).join(' ')
   const [viewing, setViewing] = useState(false)
   const live = order.status === 'confirmed'
@@ -850,6 +893,11 @@ function OrderLine({
             ) : (
               <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : 'Free'}</Pill>
             )}
+            {live && order.payment_verified_at && order.total_pence > 0 && (
+              <Pill tone="green" dot>
+                Verified payment
+              </Pill>
+            )}
             {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
             {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
@@ -872,6 +920,12 @@ function OrderLine({
               {order.payment_status === 'waived' ? 'Waived' : 'Received'} {stamp(order.received_at)}
               {receiver && ` by ${receiver}`}
               {order.payment_method && ` · ${METHOD_WORDS[order.payment_method]}`}
+            </p>
+          )}
+          {live && order.payment_verified_at && (
+            <p className="mt-1 text-label-md text-on-surface-faint">
+              Verified {stamp(order.payment_verified_at)}
+              {verifier && ` by ${verifier}`}
             </p>
           )}
           {order.refund_status === 'owed' && (

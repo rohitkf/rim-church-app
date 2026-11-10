@@ -333,7 +333,11 @@ export function PagesCard() {
           <p className="px-1 text-label-sm text-on-surface-faint">
             The Owner always holds every permission, and every Admin can always change these — that is how a
             wrong setting gets put right. A team’s own rule reaches no wider than the team; “Everywhere” stays the
-            church’s to give.
+            church’s to give. For one person only, whatever their role:{' '}
+            <Link to="/settings/access?tab=person" className="text-accent-blue-soft hover:underline">
+              Access &amp; Privileges › By person
+            </Link>
+            .
           </p>
         </div>
       )}

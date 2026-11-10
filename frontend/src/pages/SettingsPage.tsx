@@ -284,6 +284,28 @@ export function AccessSettingsPane() {
   const areas = withPageAccess(levels, settings.issues_raise_scope, settings.overwatch_pages)
   return (
     <div className="flex flex-col gap-4">
+      {/* The two ways to give access, said first: the Owner asked where
+          one person's own access is set, and it was a tab nobody read. */}
+      <div aria-label="Two ways to give access" role="group" className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setTab('rules')}
+          aria-pressed={tab === 'rules'}
+          className={`tap rounded-[var(--radius-row)] p-3.5 text-left hairline ${tab === 'rules' ? 'bg-raised' : 'bg-surface-lowest hover:bg-raised'}`}
+        >
+          <span className="block text-body-md font-medium text-on-surface">By role</span>
+          <span className="mt-0.5 block text-body-sm text-on-surface-variant">Set what everybody with a role may do — every Pastor, every Team Head, every Team Member.</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('person')}
+          aria-pressed={tab === 'person'}
+          className={`tap rounded-[var(--radius-row)] p-3.5 text-left hairline ${tab === 'person' ? 'bg-raised' : 'bg-surface-lowest hover:bg-raised'}`}
+        >
+          <span className="block text-body-md font-medium text-on-surface">By person</span>
+          <span className="mt-0.5 block text-body-sm text-on-surface-variant">Give one person something extra, without changing their role — for good, or until a date. See everything they may do, and why.</span>
+        </button>
+      </div>
       <p className="px-1 text-body-sm text-on-surface-variant">
         To set one page’s rules team by team — who on Worship may change answers, say — open{' '}
         <Link to="/settings/pages" className="text-accent-blue-soft hover:underline">

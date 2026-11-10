@@ -1046,6 +1046,9 @@ export const orderRowSchema = z.object({
   received_at: z.string().nullable().optional(),
   received_by: z.string().nullable().optional(),
   receiver: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
+  /** Somebody who can see the bank and PayPal said the money arrived (0267): when, and who. */
+  payment_verified_at: z.string().nullable().optional(),
+  verifier: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
   refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
   refund_at: z.string().nullable().optional(),
   refunder: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
@@ -1058,7 +1061,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1083,18 +1086,39 @@ export async function markOrder(id: string, action: OrderAction): Promise<void> 
   if (error) throw error
 }
 
+/**
+ * Say a payment arrived in the bank or PayPal, or take that back (0267).
+ * Its own right (reg.verify): the Pastor's and the Owner's out of the box.
+ * It does not mark the order received; the office does that.
+ */
+export async function verifyOrderPayment(id: string, verified: boolean): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_verify', { p_id: id, p_verified: verified })
+  if (error) throw error
+}
+
+/** Whether an order has a payment somebody could verify: live, something to pay, not waived. */
+export function canBeVerified(o: Pick<OrderRow, 'status' | 'total_pence' | 'payment_status'>): boolean {
+  return o.status === 'confirmed' && o.total_pence > 0 && o.payment_status !== 'waived' && o.payment_status !== 'not_needed'
+}
+
+/** Said to be paid — by them or by the office — and not yet verified against the accounts. */
+export function wantsVerifying(o: Pick<OrderRow, 'status' | 'total_pence' | 'payment_status' | 'payment_verified_at'>): boolean {
+  return canBeVerified(o) && !o.payment_verified_at && (o.payment_status === 'reported' || o.payment_status === 'received')
+}
+
 /** The church's own note on an order; blank clears it. */
 export async function setOrderNotes(id: string, notes: string): Promise<void> {
   const { error } = await supabase.rpc('registration_order_note', { p_id: id, p_notes: notes })
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
+export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
 
 export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'to_pay', label: 'To pay' },
   { key: 'to_check', label: 'Receipts' },
+  { key: 'to_verify', label: 'To verify' },
   { key: 'paid', label: 'Paid' },
   { key: 'checked_in', label: 'Checked in' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -1111,6 +1135,8 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
         ? live && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
         : filter === 'to_check'
           ? live && o.payment_status === 'reported'
+        : filter === 'to_verify'
+          ? wantsVerifying(o)
         : filter === 'paid'
           ? live && (o.payment_status === 'received' || o.payment_status === 'waived')
           : filter === 'checked_in'
@@ -1166,6 +1192,8 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       { label: 'Received at', width: 20 },
       { label: 'Received by', width: 20 },
       { label: 'Receipt reference', width: 20 },
+      { label: 'Verified at', width: 20 },
+      { label: 'Verified by', width: 20 },
       { label: 'Refund', width: 12 },
       { label: 'Refunded at', width: 20 },
       { label: 'Refunded by', width: 20 },
@@ -1191,6 +1219,8 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       stamp(o.received_at ?? null),
       receiverName(o),
       o.proof_reference ?? '',
+      stamp(o.payment_verified_at ?? null),
+      verifierName(o),
       o.refund_status === 'owed' ? 'Owed' : o.refund_status === 'refunded' ? 'Refunded' : '',
       stamp(o.refund_at ?? null),
       [o.refunder?.first_name, o.refunder?.last_name].filter(Boolean).join(' '),
@@ -1311,6 +1341,11 @@ export async function walkIn(eventId: string, order: WalkInRequest): Promise<str
 /** Who marked the money received or waived, as the page and the export name them. */
 export function receiverName(o: Pick<OrderRow, 'receiver'>): string {
   return [o.receiver?.first_name, o.receiver?.last_name].filter(Boolean).join(' ')
+}
+
+/** Who verified the payment against the accounts (0267). */
+export function verifierName(o: Pick<OrderRow, 'verifier'>): string {
+  return [o.verifier?.first_name, o.verifier?.last_name].filter(Boolean).join(' ')
 }
 
 export function notifyPayment(kind: 'paid' | 'unmatched', code: string): Promise<TicketMailResult> {
