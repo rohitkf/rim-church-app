@@ -179,6 +179,18 @@ describe('the public register page', () => {
     ])
   })
 
+  it('shows the steps ahead once there is something to pay, and none on a free order', async () => {
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    // Nothing chosen, nothing to pay: registering is all of it.
+    expect(screen.queryByRole('list', { name: 'What happens next' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    const steps = within(screen.getByRole('list', { name: 'What happens next' })).getAllByRole('listitem')
+    expect(steps.map((li) => li.textContent)).toEqual(['1Register — current step', '2Pay — still to do', '3Ticket — still to do'])
+    expect(screen.getByText('Step 1 of 3: register. Next you pay £20.00, and then it is your ticket.')).toBeInTheDocument()
+  })
+
   it('prices the order, with a promo code, before anything is sent', async () => {
     state.promo = { ok: true, code: 'EARLY', kind: 'percent', value: 10, ticket_type_ids: [] }
     const user = show()

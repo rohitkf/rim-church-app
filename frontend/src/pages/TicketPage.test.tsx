@@ -181,15 +181,19 @@ describe('the ticket page', () => {
    * 2026): numbered steps in the pay box, and a button for the screenshot
    * that is always there.
    */
-  it('spells out paying online in three steps: pay, use the reference, send a screenshot', async () => {
+  it('spells out paying online under the bar’s own numbers: 2 pay with the reference, 3 send a screenshot', async () => {
     const user = show()
     const steps = within(await screen.findByRole('list', { name: 'How to pay online' })).getAllByRole('listitem')
-    expect(steps).toHaveLength(3)
+    // Two, not three: they carry the progress bar's numbers (2 Pay, 3
+    // Receipt), so the page has one count of steps and not two.
+    expect(steps).toHaveLength(2)
+    expect(steps[0]).toHaveTextContent(/^2/)
     expect(steps[0]).toHaveTextContent('Pay £36.00')
-    expect(steps[1]).toHaveTextContent('Put this as the payment reference')
-    expect(steps[1]).toHaveTextContent('ABCDEFGHJKMN')
-    expect(within(steps[1]).getByRole('button', { name: 'Copy reference' })).toBeInTheDocument()
-    expect(steps[2]).toHaveTextContent('Come back here and send a screenshot')
+    expect(steps[0]).toHaveTextContent('put this as the payment reference')
+    expect(steps[0]).toHaveTextContent('ABCDEFGHJKMN')
+    expect(within(steps[0]).getByRole('button', { name: 'Copy reference' })).toBeInTheDocument()
+    expect(steps[1]).toHaveTextContent(/^3/)
+    expect(steps[1]).toHaveTextContent('Come back here and send a screenshot')
 
     await user.click(screen.getByRole('button', { name: 'I’ve paid — send my screenshot' }))
     const dialog = screen.getByRole('dialog', { name: 'Your receipt' })
@@ -203,6 +207,80 @@ describe('the ticket page', () => {
     expect(await screen.findByRole('heading', { name: 'Pay £36.00 to get your ticket' })).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'How to pay online' })).toBeNull()
     expect(screen.queryByRole('button', { name: /send my screenshot/ })).toBeNull()
+  })
+
+  /*
+   * The progress bar (lib/registrationSteps): where this registration has
+   * got to, of Register, Pay, Receipt, Ticket.
+   */
+  const bar = async () => {
+    const list = await screen.findByRole('list', { name: 'Your registration, step by step' })
+    return within(list)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent)
+  }
+
+  it('shows an unpaid order at step 2 of 4, Pay, with the receipt and the ticket still to come', async () => {
+    show()
+    expect(await bar()).toEqual(['✓Register — done', '2Pay — current step', '3Receipt — still to do', '4Ticket — still to do'])
+    expect(screen.getByText('Step 2 of 4: pay £36.00, then send your receipt.')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').filter((li) => li.getAttribute('aria-current') === 'step')).toHaveLength(1)
+  })
+
+  it('keeps the bar on Pay for somebody who chose reception, and still offers paying online', async () => {
+    state.order = order({ payment_method: 'reception' })
+    show()
+    expect((await bar())[1]).toBe('2Pay — current step')
+    expect(screen.getByText('Step 2 of 4: pay £36.00 at reception — or pay online now, below.')).toBeInTheDocument()
+  })
+
+  it('is three steps, with no receipt, when the event takes no payment online', async () => {
+    state.order = order({ payment: { links: [], accounts: [] } })
+    show()
+    expect(await bar()).toEqual(['✓Register — done', '2Pay — current step', '3Ticket — still to do'])
+    expect(screen.getByText('Step 2 of 3: pay £36.00 at reception.')).toBeInTheDocument()
+  })
+
+  it('moves the bar to Ticket, waiting, once a receipt is in', async () => {
+    state.order = order({ payment_status: 'reported', payment_method: 'bank', proof_reference: 'TR-77', proof_at: '2026-11-02T10:00:00Z' })
+    show()
+    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Receipt — done', '4Ticket — current step'])
+    expect(screen.getByText(/^Step 4 of 4: your receipt is being checked\./)).toBeInTheDocument()
+  })
+
+  it('ticks all four steps on a ticket paid online, and says no more', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'bank' })
+    show()
+    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Receipt — done', '✓Ticket — done'])
+    expect(screen.queryByText(/^Step \d of \d/)).toBeNull()
+  })
+
+  it('ticks three steps on a ticket paid at reception', async () => {
+    state.order = order({ payment_status: 'received', payment_method: 'reception' })
+    show()
+    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Ticket — done'])
+  })
+
+  it('shows no bar on a free order: registering was all of it', async () => {
+    state.order = order({ total_pence: 0, subtotal_pence: 0, discount_pence: 0, promo_code: null, payment_status: 'not_needed' })
+    show()
+    await screen.findByRole('img', { name: 'Ticket ABCDEFGHJKMN' })
+    expect(screen.queryByRole('list', { name: 'Your registration, step by step' })).toBeNull()
+  })
+
+  it('shows no bar on a cancelled registration', async () => {
+    state.order = order({ status: 'cancelled', can_cancel: false })
+    show()
+    await screen.findByText('Cancelled')
+    expect(screen.queryByRole('list', { name: 'Your registration, step by step' })).toBeNull()
+  })
+
+  it('shows no bar when the event itself is cancelled', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, cancelled_at: '2026-11-04T10:00:00Z', cancel_note: null } }
+    show()
+    await screen.findByRole('region', { name: 'Event cancelled' })
+    expect(screen.queryByRole('list', { name: 'Your registration, step by step' })).toBeNull()
   })
 
   it('keeps a small QR code for reception to take the payment, marked as not a ticket', async () => {
