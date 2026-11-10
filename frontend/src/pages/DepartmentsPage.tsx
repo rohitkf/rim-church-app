@@ -19,7 +19,7 @@ import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 
 export function DepartmentsPage() {
-  const { isAdmin, seesAllTeams, ledDepartmentIds, session } = useAuth()
+  const { seesAllTeams, ledDepartmentIds, session } = useAuth()
   // Making and removing teams, and clearing answered requests, are the
   // church's to grant (Settings › Access & Privileges). Seeing every team
   // stays an Admin's view.
@@ -43,14 +43,13 @@ export function DepartmentsPage() {
   const joinRequests = joinRequestsQuery.data ?? []
   const myId = session?.user.id
   const myRequests = joinRequests.filter((r) => r.user_id === myId)
-  // Only the asks this person can answer — an Admin, or the team's head
-  // (respond_team_join). Overwatch reads everybody's (0187) and answers
-  // none, so the rest are not put in front of it as if they were its to do.
+  // Only the asks this person can answer: whoever the grid gives
+  // "Answer requests to join" for that team (team.join) — the same rule
+  // respond_team_join asks, so a right given to anybody else puts the
+  // request in front of them too. Overwatch reads everybody's (0187) and
+  // out of the box answers none.
   const waitingOnMe = joinRequests.filter(
-    (r) =>
-      r.status === 'pending' &&
-      r.user_id !== myId &&
-      (isAdmin || ledDepartmentIds.includes(r.department_id)),
+    (r) => r.status === 'pending' && r.user_id !== myId && can('team.join', { departmentId: r.department_id }),
   )
   const memberDeptIds = ownDeptsQuery.teamIds
 
