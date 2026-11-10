@@ -178,12 +178,20 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                   {order.payment_status === 'reported' && ` They say they paid${order.proof_reference ? ` (ref ${order.proof_reference})` : ''}; it has not been matched yet.`}
                 </p>
               )}
+              {owes && !inToday && (
+                <p className="mt-1 text-body-sm font-medium text-on-surface">
+                  {canTakePayment
+                    ? 'Not a ticket yet: take the payment to check them in.'
+                    : 'Not a ticket yet: they cannot be checked in until it is paid. Send them to whoever is taking payments.'}
+                </p>
+              )}
               {order.notes && <p className="mt-1 text-body-sm text-on-surface-variant">Note: {order.notes}</p>}
               <p className="mt-1 font-mono text-label-sm text-on-surface-faint">{order.code}</p>
             </>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            {order && order.status === 'confirmed' && !inToday && !found.auto && (
+            {/* Not while it owes (0266): the money first, then the door. */}
+            {order && order.status === 'confirmed' && !inToday && !found.auto && !owes && (
               <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
                 Check in
               </ActionButton>

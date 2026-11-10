@@ -321,10 +321,14 @@ function Find({
                 </p>
                 {o.status === 'confirmed' && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {!inToday && (
+                    {/* Not while it owes (0266): the money first, then the door. */}
+                    {!inToday && !owes && (
                       <ActionButton size="sm" tone="success" onClick={() => onCheckIn(o)} disabled={busy}>
                         Check in
                       </ActionButton>
+                    )}
+                    {!inToday && owes && !canTakePayment && (
+                      <p className="text-body-sm font-medium text-on-surface">Cannot be checked in until it is paid. Send them to whoever is taking payments.</p>
                     )}
                     {owes && canTakePayment && (
                       <ActionButton size="sm" tone="quiet" onClick={() => onPaid(o, !inToday)} disabled={busy}>
@@ -424,6 +428,8 @@ function WalkIn({
     else if (t.min_donation_pence && pence < t.min_donation_pence) problems.push(`At least ${pounds(t.min_donation_pence)} for ${t.name}.`)
   }
 
+  /** Money on it and not taken now: registered, but not let in yet (0266). */
+  const owing = total > 0 && !paidNow
   const register = useMutation({
     mutationFn: () =>
       walkIn(eventId, {
@@ -433,7 +439,8 @@ function WalkIn({
         date_id: dateMode === 'choose' ? dateId : null,
         lines,
         paid: total > 0 && paidNow,
-        checked_in: here,
+        // Nobody is checked in owing (0266): registered now, in once paid.
+        checked_in: here && !owing,
       }),
     onSuccess: (code) => {
       const address = email.trim() || null
@@ -441,7 +448,7 @@ function WalkIn({
       if (address) void sendTicketEmail(code)
       setDone({ code, name: name.trim(), email: address })
       setError(null)
-      showToast(here ? 'Registered, and checked in' : 'Registered')
+      showToast(here && !owing ? 'Registered, and checked in' : owing ? 'Registered — not checked in until it is paid' : 'Registered')
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not register them.')),
@@ -577,11 +584,15 @@ function WalkIn({
             Paid now · {pounds(total)}
           </label>
         )}
-        <label className="flex items-center gap-2 text-body-md text-on-surface">
-          <input type="checkbox" checked={here} onChange={(e) => setHere(e.target.checked)} className="accent-[var(--color-primary)]" />
+        <label className={`flex items-center gap-2 text-body-md ${owing ? 'text-on-surface-faint' : 'text-on-surface'}`}>
+          <input type="checkbox" checked={here && !owing} disabled={owing} onChange={(e) => setHere(e.target.checked)} className="accent-[var(--color-primary)]" />
           Here now — check them in
         </label>
-        {total > 0 && !paidNow && <p className="text-body-sm text-on-surface-variant">They will owe {pounds(total)}; their ticket says so until it is paid.</p>}
+        {owing && (
+          <p className="text-body-sm text-on-surface-variant">
+            They will owe {pounds(total)}, and cannot be checked in until it is paid. Their registration says so, and how to pay.
+          </p>
+        )}
       </div>
 
       {submitted && problems.length > 0 && (

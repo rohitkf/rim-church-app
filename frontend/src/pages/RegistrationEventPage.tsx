@@ -704,7 +704,10 @@ function orderActions(
       actions.push(
         o.checked_in_at
           ? { label: 'Undo check-in', onSelect: () => act('undo_check_in') }
-          : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
+          : // Not while it owes (0266): the database refuses it, so say why here.
+            o.total_pence > 0 && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
+            ? { label: 'Check in', onSelect: () => undefined, disabled: true, hint: 'Not until it is paid: mark it received or waive it first' }
+            : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
       )
     }
   } else if (o.refund_status !== 'refunded' && r.cancel) {
