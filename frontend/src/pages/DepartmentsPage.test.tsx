@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   own: [] as string[],
   /** The grid's team.request_join for this person (0190). */
   mayAsk: true,
+  answers: false,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -30,7 +31,12 @@ vi.mock('../auth/AuthContext', () => ({
   }),
 }))
 vi.mock('../lib/usePermissions', () => ({
-  usePermissions: () => ({ can: (cap: string) => cap === 'team.request_join' && state.mayAsk }),
+  // Asking to join is a switch here; answering an ask (team.join) is, as
+  // out of the box, the head's of that team.
+  usePermissions: () => ({
+    can: (cap: string, where?: { departmentId?: string }) =>
+      cap === 'team.request_join' ? state.mayAsk : cap === 'team.join' ? state.answers || (!!where?.departmentId && state.led.includes(where.departmentId)) : false,
+  }),
 }))
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'dot' }) }))
 
@@ -92,6 +98,7 @@ beforeEach(() => {
   state.led = []
   state.own = []
   state.mayAsk = true
+  state.answers = false
 })
 
 describe('the Teams page', () => {
@@ -122,6 +129,20 @@ describe('the Teams page', () => {
     state.own = ['media']
     show()
     expect(await screen.findByText('Asha Mathew')).toBeInTheDocument()
+  })
+
+  it('puts an ask in front of anybody the grid lets answer it, a head or not', async () => {
+    state.own = ['media']
+    state.answers = true
+    show()
+    expect(await screen.findByText('Asha Mathew')).toBeInTheDocument()
+  })
+
+  it('keeps an ask from somebody on the team who may not answer it', async () => {
+    state.own = ['media']
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByText('Asha Mathew')).toBeNull()
   })
 
   it('counts each team’s core members, guests and everybody', async () => {

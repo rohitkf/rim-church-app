@@ -75,7 +75,9 @@ describe('the permission catalog', () => {
     const without = CAPABILITY_KEYS.filter((cap) => !hasCell(cap, 'overwatch'))
     expect(without.filter((c) => !c.startsWith('page.')).sort()).toEqual(['app.permissions', 'avail.history', 'clockin.view'])
     expect(without.filter((c) => c.startsWith('page.')).length).toBe(CAPABILITY_KEYS.filter((c) => c.startsWith('page.')).length)
-    for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'overwatch') && !OVERWATCH_OWN.includes(c))) {
+    // One row is fixed at No (0272): request_team_join() refuses Overwatch whatever a cell says.
+    expect(ruleFor('team.request_join', 'overwatch')).toEqual({ reaches: ['none'], byDefault: 'none' })
+    for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'overwatch') && !OVERWATCH_OWN.includes(c) && c !== 'team.request_join')) {
       expect(ruleFor(cap, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
     // A thing done as Overwatch is nobody else's to be given.

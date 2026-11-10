@@ -328,6 +328,9 @@ export const CATALOG = {
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'all'),
     newcomer: offer('none all', 'none'),
+    // Overwatch is on no team by asking: request_team_join() refuses it
+    // whatever a cell says, so there is no cell to set (0272).
+    overwatch: fixed(),
   },
   'team.members': {
     admin: offer('none all', 'all'),
