@@ -258,6 +258,12 @@ frontend/src/
   pages/DoorPage.tsx         Reception (0247): scan, find, walk-in, for whoever
                              works the door
   lib/qrPng.ts               a QR code as a PNG to download (the event's link)
+frontend/api/                Vercel functions. register-preview.js answers
+                             /register/<slug> to link-preview robots only
+                             (vercel.json routes by user agent): title, a line
+                             and the event's picture as og:/twitter: tags, read
+                             through registration_public_event. Plain JS, no
+                             build step; a person always gets the app
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
