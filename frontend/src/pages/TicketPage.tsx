@@ -123,6 +123,25 @@ function Ticket({ order }: { order: OrderView }) {
     }
   }, [pending])
 
+  // The paid card is white in both themes, so it keeps fixed colours.
+  const emailButton = (onWhite: boolean) => (
+    <>
+      <button
+        type="button"
+        onClick={() => mail.mutate()}
+        disabled={mail.isPending}
+        className={`tap mt-2 rounded-full px-4 text-label-md font-medium hover:underline disabled:opacity-60 ${onWhite ? 'text-[#0a66ff]' : 'text-accent-blue-soft'}`}
+      >
+        {mail.isPending ? 'Sending…' : `Email me this ${noun}`}
+      </button>
+      {mailed && (
+        <p role="status" className={`mt-1 text-label-md ${onWhite ? 'text-[#5a5a72]' : 'text-on-surface-variant'}`}>
+          {mailed}
+        </p>
+      )}
+    </>
+  )
+
   const event = order.event
   const image = registrationImageUrl(event.image_path)
   const directions = directionsUrl(event.location)
@@ -141,7 +160,9 @@ function Ticket({ order }: { order: OrderView }) {
   return (
     <PublicShell title={`${title} · ${event.title}`} logoPath={order.logo_path}>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone="green">Registered</Pill>}
+        {/* A green "Registered" over an unpaid order read as "all done" (the
+            Owner, November 2026: people registered and did not pay). */}
+        {cancelled ? <Pill tone="red">Cancelled</Pill> : paid || eventOff ? <Pill tone="green">Registered</Pill> : <Pill tone="orange">Not a ticket yet</Pill>}
         {order.total_pence > 0 && !cancelled && <Pill tone={STATUS_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>}
         {order.checked_in_at && <Pill tone="blue">Checked in</Pill>}
       </div>
@@ -157,6 +178,96 @@ function Ticket({ order }: { order: OrderView }) {
         </section>
       )}
       {order.refund_status && <RefundSection order={order} onSent={() => void refresh()} />}
+      {needsPayment && (
+        <section
+          aria-label="Paying"
+          className={`mt-4 rounded-[var(--radius-card)] p-5 ${
+            order.payment_status === 'reported'
+              ? 'bg-surface-lowest hairline'
+              : 'bg-[color-mix(in_oklab,var(--color-accent-orange)_12%,var(--color-surface-lowest))] shadow-[inset_0_0_0_1.5px_color-mix(in_oklab,var(--color-accent-orange)_55%,transparent)]'
+          }`}
+        >
+          <h2 className="text-headline-md text-on-surface">
+            {order.payment_status === 'reported' ? 'Thank you — your receipt is being checked' : `Pay ${pounds(order.total_pence)} to get your ticket`}
+          </h2>
+          {order.payment_status === 'awaiting' && (
+            <p className="mt-1 text-body-md font-medium text-on-surface">
+              You are registered, but you do not have a ticket yet. Your place is held; it becomes a ticket once the payment is in.
+            </p>
+          )}
+          {order.payment_status === 'reported' ? (
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              You said you paid{order.payment_method && order.payment_method !== 'reception' ? ` by ${METHOD_WORDS[order.payment_method]}` : ''}
+              {order.proof_reference ? `, reference ${order.proof_reference}` : ''}. Once the church matches it, this becomes your ticket, and you will get an email to say so.
+            </p>
+          ) : (
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              Use <span className="font-mono text-on-surface">{order.code}</span> as the reference, so it can be matched to your registration.
+              {order.payment_method === 'reception' && ' You chose to pay at reception; you can still pay another way below.'}
+            </p>
+          )}
+          {event.payment_note && <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant">{event.payment_note}</p>}
+          {order.payment_status === 'awaiting' && (
+            <div className="mt-4 flex flex-col gap-2">
+              {order.payment.links.map((l, i) => (
+                <a
+                  key={i}
+                  href={l.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setPending('paypal')}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform active:scale-[0.97]"
+                >
+                  {l.label} <span aria-hidden="true">↗</span>
+                </a>
+              ))}
+              {order.payment.accounts.length > 0 && (
+                <ActionButton tone="quiet" onClick={() => setShowBank((s) => !s)} aria-expanded={showBank}>
+                  {showBank ? 'Hide bank details' : 'Bank transfer'}
+                </ActionButton>
+              )}
+              {showBank && (
+                <div className="flex flex-col gap-3">
+                  {order.payment.accounts.map((a, i) => (
+                    <AccountCard
+                      key={i}
+                      account={{
+                        id: String(i),
+                        label: a.label,
+                        account_name: a.account_name,
+                        bank_name: a.bank_name ?? null,
+                        sort_code: a.sort_code ?? null,
+                        account_number: a.account_number ?? null,
+                        iban: a.iban ?? null,
+                        bic: a.bic ?? null,
+                        reference: order.code,
+                        notes: null,
+                        sort_order: i,
+                      }}
+                    />
+                  ))}
+                  <ActionButton tone="success" onClick={() => setProofFor('bank')} disabled={report.isPending}>
+                    I’ve sent the transfer
+                  </ActionButton>
+                </div>
+              )}
+              {event.allow_pay_at_reception && order.payment_method !== 'reception' && (
+                <ActionButton tone="ghost" onClick={() => report.mutate({ method: 'reception', done: false })} disabled={report.isPending}>
+                  I’ll pay at reception
+                </ActionButton>
+              )}
+            </div>
+          )}
+          {order.payment_status === 'reported' && (
+            <div className="mt-4">
+              <ActionButton tone="ghost" onClick={() => setProofFor(order.payment_method === 'paypal' ? 'paypal' : 'bank')}>
+                Send another receipt
+              </ActionButton>
+            </div>
+          )}
+        </section>
+      )}
+
       {!cancelled && !eventOff && nextDate && (
         <div className="mt-4">
           {new Date(nextDate.starts_at).getTime() > now.getTime() ? (
@@ -167,33 +278,46 @@ function Ticket({ order }: { order: OrderView }) {
         </div>
       )}
 
-      {!cancelled && !eventOff && (
-        <section aria-label={paid ? 'Your ticket' : 'Your registration'} className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
-          <p className="font-mono text-label-sm uppercase tracking-wide text-[#5a5a72]">{paid ? 'Ticket' : 'Registration'}</p>
-          <QrCode text={ticketUrl(order.code)} label={`${paid ? 'Ticket' : 'Registration'} ${order.code}`} className="mx-auto mt-2 h-48 w-48" />
+      {!cancelled && !eventOff && paid && (
+        <section aria-label="Your ticket" className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
+          <p className="font-mono text-label-sm uppercase tracking-wide text-[#5a5a72]">Ticket</p>
+          <QrCode text={ticketUrl(order.code)} label={`Ticket ${order.code}`} className="mx-auto mt-2 h-48 w-48" />
           <p className="mt-3 font-mono text-headline-sm tracking-[0.2em] text-[#14143a]">{order.code}</p>
           <p className="mt-1 text-label-md text-[#5a5a72]">
-            {paid
-              ? event.attendance === 'online'
-                ? 'Save this page’s link — it is your ticket, and the way in is below.'
-                : 'Show this at the door. Save this page’s link — it is your ticket.'
-              : order.payment_status === 'reported'
-                ? 'Your receipt is being checked. Once the payment is matched, this becomes your ticket — show it at the door.'
-                : 'Show this at reception to pay, or pay below. Once it is paid, this becomes your ticket.'}
+            {event.attendance === 'online'
+              ? 'Save this page’s link — it is your ticket, and the way in is below.'
+              : 'Show this at the door. Save this page’s link — it is your ticket.'}
           </p>
-          <button
-            type="button"
-            onClick={() => mail.mutate()}
-            disabled={mail.isPending}
-            className="tap mt-2 rounded-full px-4 text-label-md font-medium text-[#0a66ff] hover:underline disabled:opacity-60"
-          >
-            {mail.isPending ? 'Sending…' : `Email me this ${noun}`}
-          </button>
-          {mailed && (
-            <p role="status" className="mt-1 text-label-md text-[#5a5a72]">
-              {mailed}
-            </p>
+          {emailButton(true)}
+        </section>
+      )}
+      {/*
+        Not paid: no ticket to show, so no ticket-shaped card. The big QR
+        code under a green "Registered" was read as the ticket itself. The
+        code stays, as the payment reference; the QR is kept small and
+        labelled, only where reception can use it — to take the payment, or
+        to find a receipt that is being checked.
+      */}
+      {!cancelled && !eventOff && !paid && (
+        <section aria-label="Your registration" className="mt-5 rounded-[var(--radius-card)] bg-surface-lowest p-5 text-center hairline">
+          <p className="font-mono text-label-sm font-semibold uppercase tracking-wide text-accent-orange-soft">
+            {order.payment_status === 'reported' ? 'Not a ticket yet — payment being checked' : 'Not a ticket — not paid'}
+          </p>
+          <p className="mt-2 text-label-md text-on-surface-variant">Registration code</p>
+          <p className="font-mono text-headline-sm tracking-[0.2em] text-on-surface">{order.code}</p>
+          {(order.payment_status === 'reported' || event.allow_pay_at_reception) && (
+            <div className="mt-3">
+              <div className="mx-auto w-fit rounded-[var(--radius-chip)] bg-white p-2">
+                <QrCode text={ticketUrl(order.code)} label={`Registration ${order.code}`} className="h-28 w-28" />
+              </div>
+              <p className="mx-auto mt-2 max-w-xs text-label-md text-on-surface-variant">
+                {order.payment_status === 'reported'
+                  ? 'This is not a ticket. Once the church matches your payment it becomes one, and you will get an email to say so.'
+                  : 'This is not a ticket. Reception scans it to take your payment.'}
+              </p>
+            </div>
           )}
+          {emailButton(false)}
         </section>
       )}
 
@@ -290,84 +414,6 @@ function Ticket({ order }: { order: OrderView }) {
           )}
         </div>
       </section>
-
-      {needsPayment && (
-        <section aria-label="Paying" className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="text-headline-sm text-on-surface">
-            {order.payment_status === 'reported' ? 'Thank you — your receipt is being checked' : `To pay: ${pounds(order.total_pence)}`}
-          </h2>
-          {order.payment_status === 'reported' ? (
-            <p className="mt-1 text-body-sm text-on-surface-variant">
-              You said you paid{order.payment_method && order.payment_method !== 'reception' ? ` by ${METHOD_WORDS[order.payment_method]}` : ''}
-              {order.proof_reference ? `, reference ${order.proof_reference}` : ''}. Once the church matches it, this becomes your ticket, and you will get an email to say so.
-            </p>
-          ) : (
-            <p className="mt-1 text-body-sm text-on-surface-variant">
-              Use <span className="font-mono text-on-surface">{order.code}</span> as the reference, so it can be matched to your registration.
-              {order.payment_method === 'reception' && ' You chose to pay at reception; you can still pay another way below.'}
-            </p>
-          )}
-          {event.payment_note && <p className="mt-2 whitespace-pre-line text-body-sm text-on-surface-variant">{event.payment_note}</p>}
-          {order.payment_status === 'awaiting' && (
-            <div className="mt-4 flex flex-col gap-2">
-              {order.payment.links.map((l, i) => (
-                <a
-                  key={i}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setPending('paypal')}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-on-primary transition-transform active:scale-[0.97]"
-                >
-                  {l.label} <span aria-hidden="true">↗</span>
-                </a>
-              ))}
-              {order.payment.accounts.length > 0 && (
-                <ActionButton tone="quiet" onClick={() => setShowBank((s) => !s)} aria-expanded={showBank}>
-                  {showBank ? 'Hide bank details' : 'Bank transfer'}
-                </ActionButton>
-              )}
-              {showBank && (
-                <div className="flex flex-col gap-3">
-                  {order.payment.accounts.map((a, i) => (
-                    <AccountCard
-                      key={i}
-                      account={{
-                        id: String(i),
-                        label: a.label,
-                        account_name: a.account_name,
-                        bank_name: a.bank_name ?? null,
-                        sort_code: a.sort_code ?? null,
-                        account_number: a.account_number ?? null,
-                        iban: a.iban ?? null,
-                        bic: a.bic ?? null,
-                        reference: order.code,
-                        notes: null,
-                        sort_order: i,
-                      }}
-                    />
-                  ))}
-                  <ActionButton tone="success" onClick={() => setProofFor('bank')} disabled={report.isPending}>
-                    I’ve sent the transfer
-                  </ActionButton>
-                </div>
-              )}
-              {event.allow_pay_at_reception && order.payment_method !== 'reception' && (
-                <ActionButton tone="ghost" onClick={() => report.mutate({ method: 'reception', done: false })} disabled={report.isPending}>
-                  I’ll pay at reception
-                </ActionButton>
-              )}
-            </div>
-          )}
-          {order.payment_status === 'reported' && (
-            <div className="mt-4">
-              <ActionButton tone="ghost" onClick={() => setProofFor(order.payment_method === 'paypal' ? 'paypal' : 'bank')}>
-                Send another receipt
-              </ActionButton>
-            </div>
-          )}
-        </section>
-      )}
 
       {error && (
         <p role="alert" className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
