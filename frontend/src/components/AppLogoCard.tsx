@@ -9,6 +9,8 @@ import { AppMark } from './AppMark'
 import { useConfirmAction } from './ConfirmAction'
 import { Overlay } from './Surface'
 import { normaliseLogo } from '../lib/logoImage'
+import { applyPageIcons, syncAppIcons } from '../lib/appIcon'
+import { APP_ICON_KEY, useAppIconStatus } from '../lib/useAppIconSync'
 
 /** What a browser will draw, matched to the bucket's own mime list. */
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/svg+xml'
@@ -130,8 +132,9 @@ export function AppLogoCard() {
   return (
     <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <p className="text-body-sm text-on-surface-variant">
-        The mark at the top-left of every page, and the church&rsquo;s face. Who may change it is its own
-        row in Access &amp; Privileges — the Owner alone, out of the box.
+        The mark at the top-left of every page, the icon the app wears once it is installed, and the
+        church&rsquo;s face. Who may change it is its own row in Access &amp; Privileges — the Owner alone,
+        out of the box.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-5">
@@ -214,6 +217,8 @@ export function AppLogoCard() {
         </p>
       )}
 
+      <InstalledIcon logoPath={settings.logo_url} />
+
       {tooBig && (
         <Overlay onDismiss={() => setTooBig(null)} label="That file is too big" closable={false}>
           <div
@@ -244,5 +249,81 @@ export function AppLogoCard() {
 
       {dialog}
     </section>
+  )
+}
+
+
+/**
+ * The icon the app wears once it is installed, which is this logo.
+ *
+ * It is made from the logo by the app itself (lib/appIcon, and the app
+ * shell does it without being asked), so there is nothing to choose here:
+ * this says where it stands, shows the picture, and offers to make it now
+ * when it has not caught up. The last line is the one thing nobody can do
+ * from here: a phone keeps the icon it was installed with until the phone
+ * decides to look again.
+ */
+function InstalledIcon({ logoPath }: { logoPath: string | null }) {
+  const errorText = useErrorText()
+  const queryClient = useQueryClient()
+  const status = useAppIconStatus(logoPath)
+  const make = useMutation({
+    mutationFn: () => syncAppIcons(logoPath),
+    onSuccess: (result) => {
+      applyPageIcons(result.set)
+      queryClient.invalidateQueries({ queryKey: APP_ICON_KEY })
+    },
+  })
+
+  const behind = !!logoPath && status.loaded && !status.current
+  return (
+    <div className="mt-6 border-t border-border-subtle pt-5">
+      <h3 className="text-body-md font-medium text-on-surface">The installed app’s icon</h3>
+      <div className="mt-3 flex items-start gap-4">
+        <img
+          // The church's own when it is made; the app's own until then, and with no logo.
+          src={logoPath && status.current && status.preview ? status.preview : '/icon-192.png'}
+          alt=""
+          width={56}
+          height={56}
+          className="h-14 w-14 shrink-0 rounded-[22%] hairline"
+          // A link that has run out says nothing rather than a broken picture.
+          onError={(e) => {
+            e.currentTarget.style.visibility = 'hidden'
+          }}
+        />
+        <div className="min-w-0">
+          <p className="text-body-sm text-on-surface-variant">
+            {!logoPath
+              ? 'With no logo, the installed app wears the app’s own icon. Upload a logo and the icon becomes that logo.'
+              : status.current
+                ? 'Made from this logo. It is what a phone or a computer shows once the app is installed, and the icon on the browser’s tab.'
+                : make.isPending
+                  ? 'Making the icon from this logo…'
+                  : 'Not made from this logo yet. The app does it by itself while you have it open; it should only take a moment.'}
+          </p>
+          {behind && (
+            <button
+              type="button"
+              disabled={make.isPending}
+              onClick={() => make.mutate()}
+              className="tap mt-2 rounded-full bg-raised-strong px-3.5 py-1.5 text-label-md font-semibold text-on-surface hairline disabled:opacity-50"
+            >
+              {make.isPending ? 'Making it…' : 'Make it now'}
+            </button>
+          )}
+          {make.isError && (
+            <p role="alert" className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
+              {errorText(make.error, 'The icon could not be made.')}
+            </p>
+          )}
+        </div>
+      </div>
+      <p className="mt-3 text-label-sm text-on-surface-faint">
+        A device that already has the app keeps the icon it was installed with for a while. An Android phone changes
+        it by itself within a few days of the app being opened. On an iPhone or iPad, remove the app from the Home
+        Screen and add it again.
+      </p>
+    </div>
   )
 }

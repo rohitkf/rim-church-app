@@ -272,7 +272,18 @@ frontend/api/                Vercel functions. register-preview.js answers
                              (vercel.json routes by user agent): title, a line
                              and the event's picture as og:/twitter: tags, read
                              through registration_public_event. Plain JS, no
-                             build step; a person always gets the app
+                             build step; a person always gets the app.
+                             manifest.js answers /manifest.webmanifest and
+                             app-icon.js answers /app-icon/<set>/<file>.png:
+                             the installed app's icon is the App Logo (see
+                             "The installed icon" in §8). Vercel makes a
+                             function of every file here that does not
+                             start with `_`, tests included: helpers and
+                             tests are `_name.js`
+  lib/appIcon.ts             the icon set made from the App Logo: the
+                             arithmetic, the canvas, the bucket; and
+                             lib/useAppIconSync.ts, which keeps it current
+                             from the app shell for whoever may change the logo
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
@@ -551,6 +562,25 @@ Each of these has already cost real time. None of them show up in review.
   the same change through as an edit. `user_roles` has both triggers now
   (0033 delete, 0151 update); a new "only X may remove Y" rule needs both.
 
+- **The installed icon is the App Logo, and four things have to keep
+  agreeing for it to stay so.** The app makes an icon set from the logo in
+  the browser of whoever holds `settings.logo` (`lib/appIcon.ts`,
+  `useAppIconSync` in the app shell: no button, it follows the logo) and
+  stores it in the `branding` bucket at `icon/<set>/<file>`. No migration:
+  that bucket is already readable by anybody and writable by that
+  capability. (1) On Vercel `/manifest.webmanifest` is `api/manifest.js`,
+  which names the newest set; **the build deletes the static manifest from
+  Vercel's output** (`build/manifestFromFunction.ts`), because Vercel
+  serves a file before it looks at a rewrite and the function would never
+  be asked. (2) `public/manifest.webmanifest` and `api/_manifestBase.js`
+  are two copies; `api/_appIcon.test.js` fails when they differ, so change
+  both. (3) The set's file names are in `lib/appIcon.ts` and
+  `api/_appIcon.js`; the same test holds them. (4) `public/sw.js` asks for
+  the manifest from the network first. Cache-first there pins every phone
+  to the icon of the day it installed. An iPhone takes its icon from the
+  page's `apple-touch-icon` link, not the manifest, so `main.tsx` points
+  that link at the set on opening. With no logo, or the database out of
+  reach, everything answers with the app's own icons: never an error.
 - **`public/sw.js` must keep `const BUILD_ID = '__RIM_BUILD_ID__'`.** A
   browser installs a new service worker only when `sw.js` differs byte for
   byte; without the placeholder it is identical every deploy and the "a new

@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolveBuildId, serviceWorkerBuildId } from './build/swBuildId.ts'
+import { manifestFromFunction } from './build/manifestFromFunction.ts'
 
 // One id, spent in two places: stamped into the service worker so the file
 // differs between deploys, and handed to the app so a page can tell whether
@@ -9,7 +10,7 @@ import { resolveBuildId, serviceWorkerBuildId } from './build/swBuildId.ts'
 const buildId = resolveBuildId()
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId)],
+  plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId), manifestFromFunction()],
   define: { __RIM_BUILD_ID__: JSON.stringify(buildId) },
   // The project root and the push sender, and nothing more of the repo:
   // a test reads push-notify's copy of the notification map to hold it to

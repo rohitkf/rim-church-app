@@ -28,6 +28,7 @@ const CURRENT_CACHES = [SHELL_CACHE, ASSET_CACHE, FONT_CACHE]
 
 const SHELL_URL = '/index.html'
 const OFFLINE_URL = '/offline.html'
+const MANIFEST_URL = '/manifest.webmanifest'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -98,15 +99,16 @@ self.addEventListener('push', (event) => {
 
   const title = payload.title || 'Rehoboth International Ministries'
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: payload.body || 'Something needs you in the app.',
-      icon: '/icon-192.png',
-      badge: '/badge-96.png',
-      // One per kind: ten new posts should be one line and one buzz, not
-      // ten of each.
-      tag: payload.tag || 'rim',
-      data: { href: payload.href || '/' },
-    }),
+    (async () =>
+      self.registration.showNotification(title, {
+        body: payload.body || 'Something needs you in the app.',
+        icon: await notificationIcon(),
+        badge: '/badge-96.png',
+        // One per kind: ten new posts should be one line and one buzz, not
+        // ten of each.
+        tag: payload.tag || 'rim',
+        data: { href: payload.href || '/' },
+      }))(),
   )
 })
 
@@ -154,6 +156,38 @@ async function cacheFirst(request, cacheName) {
     cache.put(request, response.clone())
   }
   return response
+}
+
+/** The network's answer when there is one; the last one kept when there is not. */
+async function networkFirst(request, cacheName) {
+  const cache = await caches.open(cacheName)
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) cache.put(request, response.clone())
+    return response
+  } catch {
+    return (await cache.match(request)) ?? Response.error()
+  }
+}
+
+/**
+ * The picture beside a notification: the church's own icon when the
+ * manifest last read names one (the App Logo, see api/_appIcon.js), the
+ * app's own otherwise. Read from the kept copy, never the network: a push
+ * has to be shown at once, with or without a connection.
+ */
+async function notificationIcon() {
+  try {
+    const cache = await caches.open(ASSET_CACHE)
+    const kept = await cache.match(MANIFEST_URL)
+    const manifest = kept ? await kept.json() : null
+    const icons = manifest && Array.isArray(manifest.icons) ? manifest.icons : []
+    const own = icons.find((icon) => icon && icon.sizes === '192x192' && typeof icon.src === 'string')
+    if (own && own.src.startsWith('/app-icon/')) return own.src
+  } catch {
+    // No kept copy, or one that is not a manifest. The app's own icon.
+  }
+  return '/icon-192.png'
 }
 
 /**
@@ -216,6 +250,14 @@ self.addEventListener('fetch', (event) => {
 
   if (isFontRequest(url)) {
     event.respondWith(cacheFirst(request, FONT_CACHE))
+    return
+  }
+
+  // The manifest names the church's own icon, and that changes when the
+  // logo does (api/manifest.js). Asked for fresh every time; the copy kept
+  // is for when there is no network, and for the notification's icon.
+  if (url.origin === self.location.origin && url.pathname === MANIFEST_URL) {
+    event.respondWith(networkFirst(request, ASSET_CACHE))
     return
   }
 

@@ -1,0 +1,99 @@
+/*
+ * The app's manifest as it stands with no logo of the church's: the same
+ * thing public/manifest.webmanifest says, as something a function can
+ * import. Two copies, held together by a test (_appIcon.test.js) that fails
+ * the moment they differ; the static file is what every host but Vercel
+ * serves, and what a build without the functions falls back to.
+ */
+export const BASE_MANIFEST = {
+  "name": "Rehoboth International Ministries",
+  "short_name": "RIM",
+  "description": "Service planning, rotas, checklists and team coordination for Rehoboth International Ministries.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": [
+    "productivity",
+    "lifestyle"
+  ],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Checklists",
+      "short_name": "Checklists",
+      "url": "/checklists",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Availability Tracker",
+      "short_name": "Availability",
+      "url": "/availability",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Team Rota",
+      "short_name": "Rota",
+      "url": "/rota",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Message Board",
+      "short_name": "Messages",
+      "url": "/messages",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
