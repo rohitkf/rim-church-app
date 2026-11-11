@@ -5,8 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NavLayoutCard } from './NavLayoutCard'
 import type { NavLayout } from '../lib/navLayout'
 
+// Whether this person holds the Menu room (settings.menu, 0277): Admins out of the box.
 const auth = vi.hoisted(() => ({ isAdmin: true }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+vi.mock('../lib/usePermissions', () => ({
+  PERMISSIONS_KEY: ['role-permissions'],
+  usePermissions: () => ({ can: (cap: string) => cap === 'settings.menu' && auth.isAdmin, overrides: {}, teams: {}, grants: [], settled: true }),
+}))
 
 const db = vi.hoisted(() => ({ saved: null as unknown, writes: [] as unknown[], refused: false }))
 vi.mock('../lib/supabaseClient', () => ({

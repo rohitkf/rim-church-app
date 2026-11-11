@@ -5,6 +5,7 @@ import { useNow } from '../lib/useNow'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { formatRelativeTime } from '../lib/relativeTime'
 import {
@@ -46,7 +47,12 @@ import { ActionButton, IconBadge, PageHeader, Pill, SectionTile, SegmentedContro
  * This is about the app. A broken projector at a service is an Issue.
  */
 export function FeedbackPage() {
-  const { isSuperAdmin: isOwner, session } = useAuth()
+  const { session } = useAuth()
+  // Two rows in the grid (0277): who reads everybody's — the Owner alone out
+  // of the box — and who may send any, which is anybody on a team.
+  const { can } = usePermissions()
+  const isOwner = can('feedback.manage')
+  const maySend = can('feedback.send')
   const myId = session?.user.id
   const [params] = useSearchParams()
   const openedId = params.get('feedback')
@@ -70,7 +76,7 @@ export function FeedbackPage() {
       />
       <Lifespan page="feedback" className="mb-4" />
 
-      <Composer />
+      {maySend && <Composer />}
 
       {isOwner && (
         <SegmentedControl

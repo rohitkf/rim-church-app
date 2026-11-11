@@ -44,10 +44,11 @@ function opensTo(path: string, role: GridRole, grid: Overrides): boolean {
     if (role === 'pastor') return cap === 'page.prayer' || on(cap, 'pastor')
     return false
   }
-  // Clock In opens by "See every clock-in"; Registrations, Reception and the
-  // Countdown open by their own rights, which is the right being given.
+  // Clock In opens by "See every clock-in"; Registrations, Reception, the
+  // Countdown and Feedback open by their own rights, which is the right
+  // being given.
   if (path === '/clock-in') return on('clockin.view', role)
-  if (path === '/registrations' || path === '/door' || path === '/countdown') return true
+  if (path === '/registrations' || path === '/door' || path === '/countdown' || path === '/feedback') return true
   const rule = PAGE_RULES[path]
   if (!rule) return true
   if (rule.default === 'everyone') return true

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchDepartments } from '../lib/queries'
 import { useGrantList } from '../lib/useGrantList'
 import { GrantEffects } from './GrantEffects'
@@ -23,7 +23,9 @@ import { AudienceEditor } from './AudienceEditor'
  * person shows them like any other.
  */
 export function PrayerSettingsCard() {
-  const { isAdmin } = useAuth()
+  // The room's own row (0277), Admins out of the box — or whoever may change the grid.
+  const { can } = usePermissions()
+  const mayChange = can('settings.prayer') || can('app.permissions')
   const carers = useGrantList('prayer.pastoral')
   const assigners = useGrantList('prayer.assign')
   const runners = useGrantList('prayer.lists')
@@ -32,7 +34,7 @@ export function PrayerSettingsCard() {
     [carers.changes, assigners.changes, runners.changes],
   )
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  if (!isAdmin) return null
+  if (!mayChange) return null
   const allTeams = (teamsQuery.data ?? []).map((d) => ({ id: d.id, name: d.name }))
   const lists = [carers, assigners, runners]
   const changed = lists.some((l) => l.changed)
@@ -45,7 +47,7 @@ export function PrayerSettingsCard() {
       </p>
       <SectionTile
         title="Who reads private requests"
-        hint="The Pastors and the Owner always do. Admins do not, unless they are named here."
+        hint="The Pastors do out of the box, and the Owner always. Admins do not, unless they are named here. Each role’s own answer is in Access & Privileges."
       >
         <AudienceEditor
           label="Who else reads private requests"
@@ -54,7 +56,7 @@ export function PrayerSettingsCard() {
           allTeams={allTeams}
           withPeople
           editable
-          empty="Only the Pastors and the Owner."
+          empty="Nobody else: the Pastors, out of the box, and the Owner."
           onChange={carers.set}
         />
         <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
@@ -64,7 +66,7 @@ export function PrayerSettingsCard() {
       </SectionTile>
       <SectionTile
         title="Who asks people to pray"
-        hint="The pastors always can. On any request they can see, they ask members to pray on their behalf."
+        hint="The pastors can, out of the box. On any request they can see, they ask members to pray on their behalf."
       >
         <AudienceEditor
           label="Who else asks people to pray"
@@ -79,7 +81,7 @@ export function PrayerSettingsCard() {
       </SectionTile>
       <SectionTile
         title="Who runs prayer lists"
-        hint="The pastors always can. A list is a set of requests seen by the people and teams on it, for chain prayer."
+        hint="The pastors can, out of the box. A list is a set of requests seen by the people and teams on it, for chain prayer."
       >
         <AudienceEditor
           label="Who else runs prayer lists"

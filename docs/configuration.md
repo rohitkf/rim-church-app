@@ -34,10 +34,13 @@ Four profiles, the same four "View as" previews:
 | `admins` | Admins and the Owner only |
 
 Each page with a choice is a row of the permission grid since 0215,
-`page.<key>` (a hyphen becomes an underscore), and its level is two cells: a
-Church Member's (open to everyone) and a Team Member's (open to teams); Admins
-and every team's Heads are always let in, and a Team Coordinator opens a page as
-the Team Member they are. Page by Page still offers levels and writes the
+`page.<key>` (a hyphen becomes an underscore), and its level is its cells, one
+for each rung: a Church Member's (open to everyone), a Team Member's (open to
+teams), a Team Head's and Assisting Head's (kept to Heads) and an Admin's (kept
+to the Admins; closed there too, the Owner alone — 0274). A Team Coordinator
+opens a page as the Team Member they are. Since 0277 every page but the
+Dashboard has a choice: each one below also offers **admins** and **owner**,
+which the table leaves out. Page by Page still offers levels and writes the
 cells; `can_open_page()` asks `may()`, so a grant of `page.<key>` opens a page
 to one person or a whole team whatever its level. Until 0215 the levels were
 `app_settings.page_access` (a page key to the lowest level that may open it),
@@ -46,23 +49,24 @@ honour (`PAGE_RULES` in `lib/pageAccess.ts`, mirrored by the `page.*` cells):
 
 | Page | Default | Choices | Enforced by |
 |---|---|---|---|
-| Dashboard | everyone | fixed | — (where everybody lands) |
+| Dashboard | everyone | not a choice | — (where everybody lands) |
 | Service Planner | everyone | everyone · team · leads | the page (services also feed the Dashboard) |
-| Availability | team | fixed | the page and the database (you answer for your team) |
-| Team Rota | team | everyone · team | the database (`rota_assignments`, call times, readiness) — opening it is a widening only, because other team pages read the same rows |
-| Checklists | team | fixed | the database |
+| Availability | team | team · leads (0277) | the page (you answer for a team, so never a Church Member's) |
+| Team Rota | team | everyone · team · leads (0277) | the database (`rota_assignments`, call times, readiness) — opening it is a widening only, because other team pages read the same rows |
+| Checklists | team | team · leads (0277) | the page |
 | Set Lists | everyone | everyone · team · leads | the page |
 | Debriefs | team | team · leads | the database (`service_debriefs`, items) |
 | Issues | — | set by "Who can raise one", under Issues in Page by Page | the database (`may_raise_issue`) |
 | Messages | team | everyone · team · leads | the database (`messages`) |
-| Team Chat | team | fixed | the database (it is per team) |
+| Team Chat | team | team · leads (0277) | the page (each room is per team, in the database) |
 | Church Updates | everyone | everyone · team · leads | the database (`church_updates`) |
-| Polls | everyone | everyone · team | the database (`team_polls` and its options and votes; on an anonymous poll the answer rows reach only their own voter and whoever `poll_voters_seen_by` names — the Owner always, 0172) |
+| Polls | everyone | everyone · team · leads (0277) | the database (`team_polls` and its options and votes; on an anonymous poll the answer rows reach only their own voter and whoever `poll_voters_seen_by` names — the Owner always, 0172) |
 | Events | everyone | everyone · team · leads | the database (`church_events`) |
 | Giving | everyone | everyone · team · leads | the database (the three giving tables and the `giving` bucket) |
-| Teams | everyone | everyone · team | the page |
-| Volunteers | admins | fixed | the database (roles and sensitive details are Admin-only) |
-| Feedback | team | fixed | the database (0124: anybody on a team sends; only the Owner reads everybody's — 0125) |
+| Teams | team | everyone · team · leads (0277) | the page |
+| Volunteers | admins | team · leads · admins · owner (0277) | the page, and the reads it needs: who holds which role and who is on which team follow `can_open_page(…, 'volunteers')`. Each thing done on it is its own row (`people.*`) |
+| Songs | everyone | everyone · team · leads (0277) | the page |
+| Feedback | — | by its own rows (0277): `feedback.send` (anybody on a team out of the box) and `feedback.manage` (the Owner alone out of the box) | the database (`submit_feedback`, `mark_feedback`, `app_feedback`'s read policy) |
 | Inventory | team | team · leads | the database (the four inventory tables and the `inventory-docs` bucket) |
 | Stage Layout | everyone | everyone · team · leads | the database (layouts, blocks, comments, log). Who may *draw* is the grid's `stage.*` rows, given to teams from Settings › Stage Layout (`stage_may()` asks `may()`, 0212) |
 
@@ -169,3 +173,35 @@ the reverse) never break each other.
 Each room saves only its own columns (`useSettingsDraft(keys)`), so two Admins
 in two rooms can never undo each other's changes — the bug the old whole-row
 save had to dodge for `coordinator_color`.
+
+### Who may open each room, and change what is in it (0277)
+
+Every room is a row in the permission grid, under **Settings & the keys** in
+Access & Privileges, so it can be given to a role, to a team or to one person.
+Each starts where it was fixed: the church's rooms with every Admin, four with
+nobody but the Owner — who always may, whatever the grid says.
+
+| Room | Permission | Out of the box | What the database guards |
+|---|---|---|---|
+| Access & Privileges | `app.permissions` | Admins | `set_permissions()`, `set_permission_grants()`, `set_permission_blocks()`, the History log |
+| Page by Page | `settings.pages` | Admins | every column of `app_settings` not named below; grants of `planner.*` |
+| General | `settings.general` | Admins | `timezone`, `notification_keep_count`, `notification_retention_days` |
+| Menu | `settings.menu` | Admins | `nav_layout` |
+| Overwatch | `settings.overwatch` | Admins | `overwatch_pages`; Overwatch's five own cells |
+| Team Rota | `settings.rota` | Admins | `coordinator_color`, `rota_tags` |
+| Stage Layout | `settings.stage` | Admins | `stage_clear_*`, `stage_areas`, template requests; grants of `stage.*` |
+| Clock in | `settings.clockin` | Admins | `clock_in_*`, `clock_in_place`; grants of `clockin.*` |
+| Prayer | `settings.prayer` | Admins | `prayer_*`; grants of `prayer.*` |
+| Giving | `give.edit` | Admins | the three giving tables |
+| Send an Alert | `msg.alert` | Admins | `send_announcement()` |
+| Onboarding | `people.onboard` | Admins | `may_onboard()` |
+| App Logo | `settings.logo` | the Owner | `logo_url`, the `branding` bucket |
+| Video Tutorial | `settings.video` | the Owner | `video_tutorial_url` |
+| Feedback | `settings.feedback` | the Owner | `feedback_retention_days` |
+| Erase Data | `settings.erase` | the Owner | `admin_reset_data()` — which never removes the Owner's account |
+
+`app_setting_rooms(column)` is the column-to-room map; the
+`app_settings_guard_rooms` trigger checks every changed column against it. A
+room that lists rights by team and by person gives out its own
+(`permission_room()`), so a room given to somebody is a room they can run.
+Profile, Appearance and Notifications are your own and have no row.

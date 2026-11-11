@@ -17,7 +17,8 @@ import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { fetchDepartments } from '../lib/queries'
 import type { AppSettings } from '../lib/appSettings'
 import { controlGrantChanges, controlsFromGrants, type PlannerControls } from '../lib/plannerControls'
-import { PERMISSIONS_KEY } from '../lib/usePermissions'
+import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
+import { maySee, sectionFor } from '../lib/settingsSections'
 import { useErrorText } from '../lib/useErrorText'
 import { supabase } from '../lib/supabaseClient'
 import { useQueryClient } from '@tanstack/react-query'
@@ -76,6 +77,14 @@ export function PagesCard() {
   const room = useSettingsDraft(ALL_KEYS)
   const perms = usePermissionDraft()
   const { editable, working, stored, storedTeams, pending } = perms
+  /*
+   * Two rights meet in this room (0277). The rules — who opens a page, who
+   * may do what on it, team by team — are the grid's (`editable`). Each
+   * page's own settings are the room's own row, which also gives out the
+   * planner's buttons. Somebody with one and not the other is shown, and
+   * may save, their half.
+   */
+  const maySettings = usePermissions().can('settings.pages')
   const departments = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const { hash } = useLocation()
 
@@ -252,6 +261,7 @@ export function PagesCard() {
                       for (const { role, reach } of cellsForLevel(cap, level)) perms.chooseChurch(cap, role, reach)
                     }}
                     editable={editable}
+                    maySettings={maySettings}
                     teams={departments.data ?? []}
                     openTeams={openTeams}
                     onToggleTeam={(dept) => toggleIn(setOpenTeams, `${page.to}:${dept}`)}
@@ -266,7 +276,7 @@ export function PagesCard() {
                             setSaved(false)
                             setControlsDraft(next)
                           }}
-                          editable={editable}
+                          editable={editable || maySettings}
                           teams={departments.data ?? []}
                         />
                       ) : page.to === APP ? (
@@ -290,7 +300,7 @@ export function PagesCard() {
             />
           )}
 
-          {editable && changed && (
+          {(editable || maySettings) && changed && (
             <Tile tone="warning" as="section">
               <h2 className="text-body-md font-medium text-on-surface">
                 {changeCount === 1 ? 'One change' : `${changeCount} changes`} to save
@@ -320,7 +330,7 @@ export function PagesCard() {
             </Tile>
           )}
 
-          {editable && (
+          {(editable || maySettings) && (
             <SaveBar
               changed={changed}
               saving={perms.saving || room.saving}
@@ -332,8 +342,8 @@ export function PagesCard() {
           )}
 
           <p className="px-1 text-label-sm text-on-surface-faint">
-            The Owner always holds every permission, and every Admin can always change these — that is how a
-            wrong setting gets put right. A team’s own rule reaches no wider than the team; “Everywhere” stays the
+            The Owner always holds every permission — that is how a wrong setting gets put right — and
+            Admins change these unless Access &amp; Privileges says otherwise. A team’s own rule reaches no wider than the team; “Everywhere” stays the
             church’s to give. For one person only, whatever their role:{' '}
             <Link to="/settings/access?tab=person" className="text-accent-blue-soft hover:underline">
               Access &amp; Privileges › By person
@@ -360,6 +370,7 @@ function PageSection({
   level,
   chooseOpen,
   editable,
+  maySettings,
   teams,
   openTeams,
   onToggleTeam,
@@ -381,6 +392,8 @@ function PageSection({
   level: AccessLevel
   chooseOpen: (key: string, level: AccessLevel) => void
   editable: boolean
+  /** Whether this person may change the page's own settings (settings.pages, 0277). */
+  maySettings: boolean
   teams: { id: string; name: string; color: string | null }[]
   openTeams: Set<string>
   onToggleTeam: (dept: string) => void
@@ -395,8 +408,13 @@ function PageSection({
   const renamed = useNavNames()[page.to]
   const label = renamed ?? page.label
   const rule = PAGE_RULES[page.to]
-  const { isSuperAdmin } = useAuth()
-  const rooms = (PAGE_ROOMS[page.to] ?? []).filter((r) => !r.ownerOnly || isSuperAdmin)
+  // A pointer to a room is drawn only for somebody who could follow it.
+  const { isAdmin, isSuperAdmin } = useAuth()
+  const { can } = usePermissions()
+  const rooms = (PAGE_ROOMS[page.to] ?? []).filter((r) => {
+    const room = sectionFor(r.to.split('#')[0])
+    return !room || maySee(room, { isAdmin, isSuperAdmin, can })
+  })
   const rows = teamRows(areas)
   const rules = areas.flatMap((a) => a.capabilities).filter((c) => c.key).length
   const panel = `page-${pageSlug(page.to)}`
@@ -450,6 +468,9 @@ function PageSection({
                       options={rule.choices.map((choice) => ({ value: choice, label: short(choice) }))}
                       className="w-fit"
                     />
+                  ) : rule.enforcement === 'permission' ? (
+                    // No level: the page opens by a row of its own, drawn with its rules below.
+                    <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">By permission</span>
                   ) : (
                     <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">{short(level)}</span>
                   )}
@@ -460,7 +481,7 @@ function PageSection({
                 {(level === 'admins' || level === 'owner') && rule.choices.length > 1 && (
                   <p role="note" className="mt-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-label-md text-on-surface-variant">
                     {level === 'owner'
-                      ? `Only the Owner opens ${label}. Admins lose the page and what it shows, as Heads and their teams do, until it is opened again here — Access & Privileges stays open to every Admin, so one can always put it back.`
+                      ? `Only the Owner opens ${label}. Admins lose the page and what it shows, as Heads and their teams do, until it is opened again here.`
                       : `Only Admins and the Owner open ${label}. Team Heads and their teams lose the page and what it shows until it is opened again here.`}{' '}
                     Somebody can still be given the page by name in Access &amp; Privileges › By person.
                   </p>
@@ -485,7 +506,7 @@ function PageSection({
                       {areas.length > 1 && (
                         <h4 className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-on-surface">
                           {area.area}
-                          {!live && <Pill tone="neutral">Fixed</Pill>}
+                          {!live && <Pill tone="neutral">Follows the page</Pill>}
                         </h4>
                       )}
                       {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
@@ -550,8 +571,9 @@ function PageSection({
 
             {extra}
 
-            {/* An Admin's room: somebody who may only read the rules is shown the rules. */}
-            {editable && (entries.length > 0 || rooms.length > 0) && (
+            {/* The page's own settings: for whoever holds the room's row. Somebody
+                who may only set the rules is shown the rules. */}
+            {maySettings && (entries.length > 0 || rooms.length > 0) && (
               <section>
                 <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Settings</h3>
                 {entries.length > 0 && (

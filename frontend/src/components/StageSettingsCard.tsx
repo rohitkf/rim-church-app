@@ -24,6 +24,7 @@ import {
   type StageTeamAccess,
 } from '../lib/stage'
 import { ActionButton, SectionTile, inputClasses } from './Surface'
+import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from './QueryState'
 import { GrantEffects } from './GrantEffects'
 import { SaveBar, SettingList } from './SettingRows'
@@ -57,6 +58,14 @@ const blank = (department_id: string): StageTeamAccess => ({
 })
 
 export function StageSettingsCard() {
+  /*
+   * The room's own row (0277), Admins out of the box: the areas, when
+   * layouts clear, the template requests — and who may draw, which whoever
+   * may change the grid can set here too.
+   */
+  const { can } = usePermissions()
+  const mine = can('settings.stage')
+  const givesRights = mine || can('app.permissions')
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const { ask, dialog } = useConfirmAction()
@@ -162,103 +171,109 @@ export function StageSettingsCard() {
         </p>
       )}
 
-      <SectionTile
-        title="Who may draw"
-        hint="Everybody signed in can look. Tick what each team may do. The Owner always may, and Admins unless Access & Privileges says otherwise."
-      >
-        <QueryState isLoading={teams.isLoading || access.isLoading} error={teams.error ?? access.error} isEmpty={(teams.data ?? []).length === 0} emptyMessage="No teams yet.">
-          <ul className="flex flex-col gap-2">
-            {(teams.data ?? []).map((team) => {
-              const row = rowFor(team.id)
-              return (
-                <li key={team.id} className="rounded-[var(--radius-row)] bg-raised px-4 py-3">
-                  <span className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
-                    <TeamMark color={team.color} />
-                    {team.name}
-                  </span>
-                  <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-2">
-                    {PRIVILEGES.map((p) => (
-                      <label key={p.key} className="flex items-center gap-2 text-body-sm text-on-surface" title={p.blurb}>
-                        <input
-                          type="checkbox"
-                          checked={row[p.column] === true}
-                          onChange={() => toggle(team.id, p.column)}
-                          aria-label={`${team.name}: ${p.label}`}
-                        />
-                        {p.label}
-                      </label>
-                    ))}
-                  </div>
+      {givesRights && (
+        <SectionTile
+          title="Who may draw"
+          hint="Everybody who can open the page can look. Tick what each team may do. Each role’s own answer — an Admin’s included — is in Access & Privileges."
+        >
+          <QueryState isLoading={teams.isLoading || access.isLoading} error={teams.error ?? access.error} isEmpty={(teams.data ?? []).length === 0} emptyMessage="No teams yet.">
+            <ul className="flex flex-col gap-2">
+              {(teams.data ?? []).map((team) => {
+                const row = rowFor(team.id)
+                return (
+                  <li key={team.id} className="rounded-[var(--radius-row)] bg-raised px-4 py-3">
+                    <span className="flex items-center gap-2 text-body-sm font-medium text-on-surface">
+                      <TeamMark color={team.color} />
+                      {team.name}
+                    </span>
+                    <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-2">
+                      {PRIVILEGES.map((p) => (
+                        <label key={p.key} className="flex items-center gap-2 text-body-sm text-on-surface" title={p.blurb}>
+                          <input
+                            type="checkbox"
+                            checked={row[p.column] === true}
+                            onChange={() => toggle(team.id, p.column)}
+                            aria-label={`${team.name}: ${p.label}`}
+                          />
+                          {p.label}
+                        </label>
+                      ))}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <ul className="mt-3 flex flex-col gap-1 text-label-md text-on-surface-variant">
+              {PRIVILEGES.map((p) => (
+                <li key={p.key}>
+                  <span className="font-medium text-on-surface">{p.label}</span> — {p.blurb}
                 </li>
-              )
-            })}
-          </ul>
-          <ul className="mt-3 flex flex-col gap-1 text-label-md text-on-surface-variant">
-            {PRIVILEGES.map((p) => (
-              <li key={p.key}>
-                <span className="font-medium text-on-surface">{p.label}</span> — {p.blurb}
-              </li>
-            ))}
-          </ul>
-          <GrantEffects changes={gridChanges} />
-          <div className="mt-4 flex items-center gap-3">
-            <ActionButton onClick={() => saveGrid.mutate()} disabled={!gridChanged || saveGrid.isPending}>
-              {saveGrid.isPending ? 'Saving…' : 'Save who may draw'}
-            </ActionButton>
-            {gridChanged && <span className="text-label-md text-on-surface-faint">Unsaved changes</span>}
-          </div>
-        </QueryState>
-      </SectionTile>
+              ))}
+            </ul>
+            <GrantEffects changes={gridChanges} />
+            <div className="mt-4 flex items-center gap-3">
+              <ActionButton onClick={() => saveGrid.mutate()} disabled={!gridChanged || saveGrid.isPending}>
+                {saveGrid.isPending ? 'Saving…' : 'Save who may draw'}
+              </ActionButton>
+              {gridChanged && <span className="text-label-md text-on-surface-faint">Unsaved changes</span>}
+            </div>
+          </QueryState>
+        </SectionTile>
+      )}
 
-      <SectionTile title="Areas" hint="The regions of every service’s workspace, drawn top to bottom in this order. Each has its own size and edge labels.">
-        <QueryState isLoading={areas.isLoading} error={areas.error}>
-          <ul className="flex flex-col gap-2">
-            {(areas.data ?? []).map((a) => (
-              <AreaRow
-                key={a.id}
-                area={a}
-                busy={areaWrite.isPending}
-                onSave={(patch) => areaWrite.mutate({ kind: 'update', id: a.id, patch })}
-                onDelete={() =>
-                  ask({
-                    title: `Delete the area ${a.name}?`,
-                    body: 'Every layout and template drawn for it goes too.',
-                    onConfirm: () => areaWrite.mutate({ kind: 'delete', id: a.id }),
-                  })
-                }
-              />
-            ))}
-          </ul>
-          <NewArea busy={areaWrite.isPending} onAdd={(area) => areaWrite.mutate({ kind: 'add', area })} />
-        </QueryState>
-      </SectionTile>
+      {mine && (
+        <SectionTile title="Areas" hint="The regions of every service’s workspace, drawn top to bottom in this order. Each has its own size and edge labels.">
+          <QueryState isLoading={areas.isLoading} error={areas.error}>
+            <ul className="flex flex-col gap-2">
+              {(areas.data ?? []).map((a) => (
+                <AreaRow
+                  key={a.id}
+                  area={a}
+                  busy={areaWrite.isPending}
+                  onSave={(patch) => areaWrite.mutate({ kind: 'update', id: a.id, patch })}
+                  onDelete={() =>
+                    ask({
+                      title: `Delete the area ${a.name}?`,
+                      body: 'Every layout and template drawn for it goes too.',
+                      onConfirm: () => areaWrite.mutate({ kind: 'delete', id: a.id }),
+                    })
+                  }
+                />
+              ))}
+            </ul>
+            <NewArea busy={areaWrite.isPending} onAdd={(area) => areaWrite.mutate({ kind: 'add', area })} />
+          </QueryState>
+        </SectionTile>
+      )}
 
-      <SectionTile
-        title="Template requests"
-        hint="A layout somebody asked to keep. Yes puts it in the library; the asker is told either way."
-        aside={pending.length > 0 ? <span className="rounded-full bg-accent-orange/15 px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">{pending.length} waiting</span> : undefined}
-      >
-        <QueryState isLoading={requests.isLoading} error={requests.error} isEmpty={pending.length === 0} emptyMessage="Nothing waiting.">
-          <ul className="flex flex-col gap-2">
-            {pending.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-[var(--radius-row)] bg-raised px-4 py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-body-sm font-medium text-on-surface">{r.name}</span>
-                  <span className="block font-mono text-label-sm text-on-surface-faint">
-                    {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
+      {mine && (
+        <SectionTile
+          title="Template requests"
+          hint="A layout somebody asked to keep. Yes puts it in the library; the asker is told either way."
+          aside={pending.length > 0 ? <span className="rounded-full bg-accent-orange/15 px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">{pending.length} waiting</span> : undefined}
+        >
+          <QueryState isLoading={requests.isLoading} error={requests.error} isEmpty={pending.length === 0} emptyMessage="Nothing waiting.">
+            <ul className="flex flex-col gap-2">
+              {pending.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-[var(--radius-row)] bg-raised px-4 py-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-body-sm font-medium text-on-surface">{r.name}</span>
+                    <span className="block font-mono text-label-sm text-on-surface-faint">
+                      {r.blocks.length} {r.blocks.length === 1 ? 'block' : 'blocks'} · {personName(r.requester)} · {formatRelativeTime(r.requested_at)}
+                    </span>
                   </span>
-                </span>
-                <ActionButton size="sm" onClick={() => decide.mutate({ id: r.id, approve: true })} disabled={decide.isPending}>
-                  Approve
-                </ActionButton>
-                <ActionButton size="sm" tone="quiet" onClick={() => decide.mutate({ id: r.id, approve: false })} disabled={decide.isPending}>
-                  Decline
-                </ActionButton>
-              </li>
-            ))}
-          </ul>
-        </QueryState>
-      </SectionTile>
+                  <ActionButton size="sm" onClick={() => decide.mutate({ id: r.id, approve: true })} disabled={decide.isPending}>
+                    Approve
+                  </ActionButton>
+                  <ActionButton size="sm" tone="quiet" onClick={() => decide.mutate({ id: r.id, approve: false })} disabled={decide.isPending}>
+                    Decline
+                  </ActionButton>
+                </li>
+              ))}
+            </ul>
+          </QueryState>
+        </SectionTile>
+      )}
 
       <SectionTile title="Template library" hint="Kept until somebody deletes them. They are never cleared with the layouts.">
         <QueryState isLoading={templates.isLoading} error={templates.error} isEmpty={(templates.data ?? []).length === 0} emptyMessage="No templates yet. Keep one from any stage layout.">
@@ -290,35 +305,37 @@ export function StageSettingsCard() {
         </QueryState>
       </SectionTile>
 
-      <SectionTile title="When layouts clear" hint="In the church’s own time. Only layouts of services already held; templates stay.">
-        <QueryState isLoading={room.query.isLoading} error={room.query.error}>
-          {room.draft && (
-            <>
-              <SettingList>
-                <SettingEntries
-                  entries={['stage_clear_dow', 'stage_clear_hour'].map(settingEntry)}
-                  draft={room.draft}
-                  stored={room.query.data ?? {}}
-                  set={(patch) => {
-                    if ('stage_clear_dow' in patch) room.set('stage_clear_dow', patch.stage_clear_dow ?? null)
-                    if ('stage_clear_hour' in patch) room.set('stage_clear_hour', patch.stage_clear_hour ?? 3)
-                  }}
-                  open={null}
-                  onToggle={() => {}}
+      {mine && (
+        <SectionTile title="When layouts clear" hint="In the church’s own time. Only layouts of services already held; templates stay.">
+          <QueryState isLoading={room.query.isLoading} error={room.query.error}>
+            {room.draft && (
+              <>
+                <SettingList>
+                  <SettingEntries
+                    entries={['stage_clear_dow', 'stage_clear_hour'].map(settingEntry)}
+                    draft={room.draft}
+                    stored={room.query.data ?? {}}
+                    set={(patch) => {
+                      if ('stage_clear_dow' in patch) room.set('stage_clear_dow', patch.stage_clear_dow ?? null)
+                      if ('stage_clear_hour' in patch) room.set('stage_clear_hour', patch.stage_clear_hour ?? 3)
+                    }}
+                    open={null}
+                    onToggle={() => {}}
+                  />
+                </SettingList>
+                <SaveBar
+                  changed={room.changed}
+                  saving={room.saving}
+                  saved={room.saved}
+                  error={room.error}
+                  onSave={room.save}
+                  onRestore={room.restoreDefaults}
                 />
-              </SettingList>
-              <SaveBar
-                changed={room.changed}
-                saving={room.saving}
-                saved={room.saved}
-                error={room.error}
-                onSave={room.save}
-                onRestore={room.restoreDefaults}
-              />
-            </>
-          )}
-        </QueryState>
-      </SectionTile>
+              </>
+            )}
+          </QueryState>
+        </SectionTile>
+      )}
       {dialog}
     </div>
   )

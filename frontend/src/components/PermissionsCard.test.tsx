@@ -129,17 +129,19 @@ describe('PermissionsCard', () => {
   it('says which areas are the church’s to set, and that the database follows them', () => {
     show()
     expect(screen.getByText(/The database reads them on every request/)).toBeVisible()
-    expect(screen.getByText(/fixed on purpose/)).toBeVisible()
+    expect(screen.getByText(/not a rule of its own/)).toBeVisible()
   })
 
-  it('marks every area editable except the two kept fixed on purpose', () => {
+  it('marks every area editable: none is kept fixed any more (0277)', () => {
     show()
     for (const area of PERMISSIONS) {
       const button = screen.getByRole('button', { name: new RegExp(`^${area.area}`) })
-      expect(within(button).getByText(area.fixed ? 'Fixed' : 'Editable'), area.area).toBeInTheDocument()
+      expect(within(button).getByText('Editable'), area.area).toBeInTheDocument()
     }
-    // Stage Layout was fixed here until 0212 made its switches rows in the grid.
-    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual(['Feedback', 'The app itself'])
+    // Feedback and the app itself were fixed here until 0277 made their rows the church's.
+    expect(PERMISSIONS.filter((a) => a.fixed).map((a) => a.area)).toEqual([])
+    expect(PERMISSIONS.map((a) => a.area)).toEqual(expect.arrayContaining(['Feedback', 'Settings & the keys']))
+    expect(screen.queryByText('Fixed')).toBeNull()
     expect(screen.queryByText('Coming soon')).toBeNull()
   })
 
@@ -165,9 +167,9 @@ describe('PermissionsCard', () => {
     expect(within(assign).getAllByText('(fixed)')).toHaveLength(1)
     expect(assign.querySelector('svg rect')).toBeNull()
     // A row nobody can change waits a tap away.
-    expect(screen.queryByRole('rowheader', { name: /See visa, DBS and safeguarding details/ })).toBeNull()
+    expect(screen.queryByRole('rowheader', { name: /Edit your own profile/ })).toBeNull()
     await unfoldFixed(user)
-    expect(rowFor('See visa, DBS and safeguarding details')).toBeInTheDocument()
+    expect(rowFor('Edit your own profile')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Hide what the app sets' }).length).toBeGreaterThan(0)
   })
 
@@ -202,7 +204,7 @@ describe('PermissionsCard', () => {
       expect(assign.getAllByText('(fixed)')).toHaveLength(1)
     })
 
-    it('gives Overwatch its own cells, and a Pastor a choice everywhere but the prayer rows (0214, 0268)', async () => {
+    it('gives Overwatch its own cells, and a Pastor a choice everywhere — the prayer rows included (0214, 0268, 0277)', async () => {
       const user = show()
       await compare(user)
       const chat = within(rowFor('Read and post in a team’s chat'))
@@ -211,7 +213,8 @@ describe('PermissionsCard', () => {
       await user.keyboard('{Escape}')
       expect(chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Pastor' })).toBeInTheDocument()
       const prayer = within(rowFor('Read private prayer requests'))
-      expect(prayer.queryByRole('combobox', { name: /Pastor/ })).toBeNull()
+      // A Pastor's own three rows are a choice since 0277, starting at Yes.
+      expect(prayer.getByRole('combobox', { name: /Pastor/ })).toHaveTextContent('All')
       expect(prayer.getByRole('combobox', { name: /Overwatch/ })).toBeInTheDocument()
 
       await chooseOption(user, chat.getByRole('combobox', { name: 'Read and post in a team’s chat — Overwatch' }), 'No')
@@ -310,12 +313,18 @@ describe('PermissionsCard', () => {
       expect(screen.getByRole('list', { name: 'Changes to save' })).toBeInTheDocument()
     })
 
-    it('offers no choice in an area kept fixed, and says why', async () => {
+    it('offers a choice in the areas that were kept fixed (0277)', { ...WHOLE_GRID }, async () => {
       const user = show()
       await compare(user)
       const feedback = screen.getByRole('heading', { name: /^Feedback/ }).closest('section')!
-      expect(within(feedback).queryAllByRole('combobox')).toHaveLength(0)
-      expect(within(feedback).getByText(/stays the Owner’s/)).toBeInTheDocument()
+      expect(within(feedback).queryAllByRole('combobox').length).toBeGreaterThan(0)
+      expect(within(feedback).getByText(/Your own feedback is always yours/)).toBeInTheDocument()
+      // The grid itself: an Admin's cell is a choice, starting at Yes.
+      const keys = within(rowFor('Change who can do what — Access & Privileges'))
+      expect(keys.getByRole('combobox', { name: /— Admin$/ })).toHaveTextContent('All')
+      // And one row is still nobody's to set: handing ownership over.
+      await unfoldFixed(user)
+      expect(within(rowFor('Hand over ownership')).queryAllByRole('combobox')).toHaveLength(0)
     })
 
     it('is a description, not a control, for somebody who cannot change it', async () => {
@@ -328,31 +337,28 @@ describe('PermissionsCard', () => {
   })
 
   describe('the answers it gives', () => {
-    it('lets everybody see their own visa and DBS, and nobody else’s but the Owner', async () => {
+    it('keeps everybody else’s visa and DBS to the Owner out of the box, and lets the church give it (0277)', async () => {
       // Verified against production (0126 dry run): a Head, and an Admin
       // who is not the Owner, reading profile_sensitive get exactly their
-      // own row and zero of anybody else's; the Owner gets every row.
+      // own row and zero of anybody else's; the Owner gets every row. Since
+      // 0277 that is a row in the grid, every cell starting at No.
       const user = show()
       await compare(user)
-      await unfoldFixed(user)
-      const row = rowFor('See visa, DBS and safeguarding details')
-      const cells = within(row).getAllByRole('cell')
-      expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
-      expect(within(cells[1]).getByText('own')).toBeInTheDocument() // Admin
-      expect(within(cells[2]).getByText('own')).toBeInTheDocument() // Head
-      expect(within(cells[4]).getByText('own')).toBeInTheDocument() // Team Member
-      expect(within(row).getByText(/Only the Owner sees anybody else’s/)).toBeInTheDocument()
+      const row = within(rowFor('See and correct everybody’s visa, DBS and safeguarding details'))
+      expect(within(row.getAllByRole('cell')[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
+      for (const role of ['Admin', 'Team Head', 'Team Member', 'Pastor']) {
+        expect(row.getByRole('combobox', { name: new RegExp(`— ${role}$`) }), role).toHaveTextContent('No')
+      }
     })
 
-    it('keeps email addresses and phone numbers to their owner and the Owner', async () => {
+    it('keeps everybody else’s email addresses and phone numbers to the Owner out of the box, and lets the church give them (0277)', async () => {
       const user = show()
       await compare(user)
-      await unfoldFixed(user)
-      const row = rowFor('See somebody’s email address and phone number')
-      const cells = within(row).getAllByRole('cell')
-      expect(within(cells[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
-      expect(within(cells[1]).getByText('own')).toBeInTheDocument() // Admin
-      expect(within(cells[4]).getByText('own')).toBeInTheDocument() // Team Member
+      const row = within(rowFor('See everybody’s email address, phone number and household'))
+      expect(within(row.getAllByRole('cell')[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
+      for (const role of ['Admin', 'Team Member']) {
+        expect(row.getByRole('combobox', { name: new RegExp(`— ${role}$`) }), role).toHaveTextContent('No')
+      }
     })
 
     it('gives the Coordinator, out of the box, the Sunday morning and nothing else', () => {
@@ -431,10 +437,8 @@ describe('PermissionsCard', () => {
       const ownerOnly = PERMISSIONS.flatMap((a) =>
         a.capabilities.filter((c) => !c.key && c.can.owner === 'yes' && c.can.admin === 'no'),
       )
-      expect(ownerOnly.map((c) => c.action)).toEqual([
-        'Read everybody’s feedback, mark where it stands and reply',
-        'Hand over ownership',
-      ])
+      // Only one is left that is not the church's to give (0277).
+      expect(ownerOnly.map((c) => c.action)).toEqual(['Hand over ownership'])
     })
   })
 })

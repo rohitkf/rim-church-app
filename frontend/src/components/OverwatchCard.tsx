@@ -11,6 +11,7 @@ import { reachOf } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
 import { QueryState } from './QueryState'
 import { SectionTile } from './Surface'
+import { usePermissions } from '../lib/usePermissions'
 import { InlineRow, SaveBar, SettingList, Switch } from './SettingRows'
 
 /**
@@ -65,6 +66,13 @@ const ACTS: { act: OverwatchAct; label: string; summary: string; help: string }[
 const KEYS = ['overwatch_pages', 'issues_raise_scope'] as const
 
 export function OverwatchCard() {
+  /*
+   * The room's own row (0277), Admins out of the box: its pages, and the
+   * five things it does as itself — which whoever may change the grid can
+   * set here too.
+   */
+  const { can } = usePermissions()
+  const mine = can('settings.overwatch')
   const room = useSettingsDraft(KEYS)
   // The five, as Overwatch's cells in the grid (0214).
   const perms = usePermissionDraft()
@@ -103,37 +111,39 @@ export function OverwatchCard() {
           <p className="px-1 text-body-sm text-on-surface-variant">
             Overwatch sees every team — rotas, availability, checklists, chats, debriefs and issues — and changes
             almost nothing. Make somebody Overwatch from the Volunteers page. Contact details, visas, DBS and families
-            stay the Owner’s.
+            are not Overwatch’s by standing: each is its own row in Access &amp; Privileges.
           </p>
 
-          <SectionTile title="Pages it can open" hint="Turn a page off and Overwatch no longer sees it in the menu or opens it.">
-            <ul aria-label="Pages Overwatch can open" className="-mx-2 flex flex-col">
-              {pages.map((page) => {
-                const everyone = levelOf(page.to, levels, draft.issues_raise_scope) === 'everyone'
-                const open = everyone || overwatchOpens(page.to, draft.overwatch_pages)
-                const label = names[page.to] ?? page.label
-                return (
-                  <li key={page.key} className="flex items-center gap-3 px-2 py-2.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-body-sm font-medium text-on-surface">{label}</span>
-                      {everyone && (
-                        <span className="block text-label-md text-on-surface-faint">
-                          Open to everyone signed in, so always open to Overwatch.
-                        </span>
-                      )}
-                    </span>
-                    {everyone ? (
-                      <span className="rounded-full bg-raised px-3 py-1 font-mono text-label-sm text-on-surface-variant">
-                        Open
+          {mine && (
+            <SectionTile title="Pages it can open" hint="Turn a page off and Overwatch no longer sees it in the menu or opens it.">
+              <ul aria-label="Pages Overwatch can open" className="-mx-2 flex flex-col">
+                {pages.map((page) => {
+                  const everyone = levelOf(page.to, levels, draft.issues_raise_scope) === 'everyone'
+                  const open = everyone || overwatchOpens(page.to, draft.overwatch_pages)
+                  const label = names[page.to] ?? page.label
+                  return (
+                    <li key={page.key} className="flex items-center gap-3 px-2 py-2.5">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-body-sm font-medium text-on-surface">{label}</span>
+                        {everyone && (
+                          <span className="block text-label-md text-on-surface-faint">
+                            Open to everyone signed in, so always open to Overwatch.
+                          </span>
+                        )}
                       </span>
-                    ) : (
-                      <Switch label={`Overwatch can open ${label}`} checked={open} onChange={(on) => choose(page.key, on)} />
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          </SectionTile>
+                      {everyone ? (
+                        <span className="rounded-full bg-raised px-3 py-1 font-mono text-label-sm text-on-surface-variant">
+                          Open
+                        </span>
+                      ) : (
+                        <Switch label={`Overwatch can open ${label}`} checked={open} onChange={(on) => choose(page.key, on)} />
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </SectionTile>
+          )}
 
           <SectionTile title="What it may do" hint="Everything else stays read-only. Each needs its page open as well.">
             <SettingList>

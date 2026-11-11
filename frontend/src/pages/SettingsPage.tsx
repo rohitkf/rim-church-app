@@ -55,7 +55,7 @@ import {
  */
 export function SettingsPage() {
   const { isAdmin, isSuperAdmin } = useAuth()
-  const { can } = usePermissions()
+  const { can, query } = usePermissions()
   const { pathname } = useLocation()
   const standing = { isAdmin, isSuperAdmin, can }
   const groups = visibleGroups(standing)
@@ -80,7 +80,13 @@ export function SettingsPage() {
   }
 
   // A room this person has no key to: back to the hall, not an empty page.
-  if (!maySee(current, standing)) return <Navigate to="/settings" replace />
+  // Not until the grid has been read, though: a room given to somebody by
+  // name (0277) is theirs by a grant, and a redirect on a guess would send
+  // them away from a room they may open.
+  if (!maySee(current, standing)) {
+    if (query?.isLoading) return null
+    return <Navigate to="/settings" replace />
+  }
 
   return (
     <div>

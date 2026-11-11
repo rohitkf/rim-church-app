@@ -6,7 +6,11 @@ import { VideoTutorialCard } from './VideoTutorialCard'
 
 const state = vi.hoisted(() => ({ owner: true, saved: null as string | null, writes: [] as unknown[] }))
 
+// Whether this person holds the Video Tutorial room (settings.video, 0277): the Owner out of the box.
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isSuperAdmin: state.owner }) }))
+vi.mock('../lib/usePermissions', () => ({
+  usePermissions: () => ({ can: (cap: string) => cap === 'settings.video' && state.owner }),
+}))
 vi.mock('../lib/appSettings', async (original) => ({
   // The real updateSettings, so the write goes through the faked Supabase below.
   ...(await original<typeof import('../lib/appSettings')>()),

@@ -46,9 +46,14 @@ export const STANDINGS: { value: Standing; label: string; blurb: string }[] = [
  * `widen` — the database follows a wider choice; the page's rows are also
  *   read by other team pages, so the teams always keep them.
  * `page` — only the page is hidden; what it shows is on other pages too.
- * `fixed` — not a choice; the reason says why.
+ * `permission` — the page opens by a row of its own in Access &
+ *   Privileges rather than by a level: each role yes or no, and teams or
+ *   people by name. `by` names the rows.
+ * `follows` — the page follows another of the church's choices, said in
+ *   the note.
+ * `fixed` — not a choice; the reason says why. Only the Dashboard.
  */
-export type Enforcement = 'database' | 'widen' | 'page' | 'fixed'
+export type Enforcement = 'database' | 'widen' | 'page' | 'permission' | 'follows' | 'fixed'
 
 export interface PageRule {
   /** The page's key, when it has a choice: its capability is `page.<key>` (0215). */
@@ -56,6 +61,8 @@ export interface PageRule {
   default: AccessLevel
   choices: AccessLevel[]
   enforcement: Enforcement
+  /** The rows in Access & Privileges that open the page, when it opens by permission. */
+  by?: readonly string[]
   /** Said beside the control: what the choice does, or why there is none. */
   note: string
 }
@@ -79,27 +86,30 @@ export const PAGE_RULES: Record<string, PageRule> = {
     // so each role is a choice and a team or a person can be given it.
     default: 'admins',
     choices: ['admins'],
-    enforcement: 'fixed',
+    enforcement: 'permission',
+    by: ['countdown.view'],
     note: 'Whoever Access & Privileges gives “See the Countdown” — each role yes or no, and teams or people by name — and the Owner. Hides the page only.',
   },
   '/availability': {
+    key: 'availability',
     default: 'team',
-    choices: ['team'],
-    enforcement: 'fixed',
-    note: 'You answer for a team, so it needs one.',
+    choices: ['team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Hides the page. You answer for a team, so it is never a Church Member’s; kept to Heads, a team’s members are no longer asked here.',
   },
   '/rota': {
     key: 'rota',
     default: 'team',
-    choices: ['everyone', 'team'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'widen',
-    note: 'Opening it lets Church Members read who is serving. Teams always keep it — Availability and Checklists read the same rows.',
+    note: 'Opening it lets Church Members read who is serving. Narrower than teams only hides the page: Availability and Checklists read the same rows.',
   },
   '/checklists': {
+    key: 'checklists',
     default: 'team',
-    choices: ['team'],
-    enforcement: 'fixed',
-    note: 'Ticked by whoever the rota put on, so it needs a team.',
+    choices: ['team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Hides the page. Ticked by whoever the rota put on, so it is never a Church Member’s.',
   },
   '/set-lists': {
     key: 'set-lists',
@@ -109,10 +119,11 @@ export const PAGE_RULES: Record<string, PageRule> = {
     note: 'Hides the page.',
   },
   '/songs': {
+    key: 'songs',
     default: 'everyone',
-    choices: ['everyone'],
-    enforcement: 'fixed',
-    note: 'The song library, which everybody may read as they may read set lists. Who may add to it is chosen under Songs.',
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Hides the page. Who may add to the library is chosen under Songs.',
   },
   '/debriefs': {
     key: 'debriefs',
@@ -124,7 +135,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/issues': {
     default: 'team',
     choices: ['team'],
-    enforcement: 'fixed',
+    enforcement: 'follows',
     note: 'Follows “Who can raise one”, under Issues in Page by Page — Everyone signed in opens it to Church Members too.',
   },
   '/messages': {
@@ -135,10 +146,11 @@ export const PAGE_RULES: Record<string, PageRule> = {
     note: 'The whole board follows the choice.',
   },
   '/team-chat': {
+    key: 'team-chat',
     default: 'team',
-    choices: ['team'],
-    enforcement: 'fixed',
-    note: 'Each team’s own room, so it needs a team.',
+    choices: ['team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Hides the page. Each team’s own room, so it is never a Church Member’s.',
   },
   '/updates': {
     key: 'updates',
@@ -150,7 +162,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/polls': {
     key: 'polls',
     default: 'everyone',
-    choices: ['everyone', 'team'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'Still only the polls addressed to each person.',
   },
@@ -173,46 +185,51 @@ export const PAGE_RULES: Record<string, PageRule> = {
     // For people on a team (0189): a Church Member is added by a head
     // rather than asking their way in.
     default: 'team',
-    choices: ['everyone', 'team'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'page',
     note: 'Opened to everyone, Church Members can ask to join a team from here. Out of the box a head adds them instead — the database refuses the request too.',
   },
   '/prayer': {
     key: 'prayer',
     default: 'everyone',
-    choices: ['everyone', 'team'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
-    note: 'Private requests are only ever the Pastors’ and the Owner’s, whatever this says.',
+    note: 'Private requests are only ever the pastors’, whatever this says — and the pastors always open the page.',
   },
   '/clock-in': {
     default: 'admins',
     choices: ['admins'],
-    enforcement: 'fixed',
+    enforcement: 'permission',
+    by: ['clockin.view'],
     note: 'The Owner, Overwatch, and whoever “See the Clock In page” says in Access & Privileges — Admins out of the box — with the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
   },
   '/registrations': {
     default: 'admins',
     choices: ['admins'],
-    enforcement: 'fixed',
+    enforcement: 'permission',
+    by: ['reg.manage', 'reg.view', 'reg.edit', 'reg.approve', 'reg.refund', 'reg.cancel', 'reg.verify'],
     note: 'The Owner, and whoever the grid gives “Run registrations” (Access & Privileges) — an Admin only with that cell. The public pages, /register/… and /ticket/…, need no sign-in.',
   },
   '/door': {
     default: 'admins',
     choices: ['admins'],
-    enforcement: 'fixed',
+    enforcement: 'permission',
+    by: ['reg.manage', 'reg.door', 'reg.door_view', 'reg.door_pay', 'reg.walk_in'],
     note: 'Reception: the Owner, whoever the grid gives “Run registrations”, and whoever it gives “Work the door” (Access & Privileges) — an Admin only with one of those cells.',
   },
   '/volunteers': {
+    key: 'volunteers',
     default: 'admins',
-    choices: ['admins'],
-    enforcement: 'fixed',
-    note: 'Roles and safeguarding details are an Admin’s.',
+    choices: ['team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Opens the page and who holds which role. What may be done on it — invite, give roles, remove, see contact or safeguarding details — is each its own row under People.',
   },
   '/feedback': {
     default: 'team',
     choices: ['team'],
-    enforcement: 'fixed',
-    note: 'Anybody on a team can send feedback; only the Owner reads everybody’s.',
+    enforcement: 'permission',
+    by: ['feedback.send', 'feedback.manage'],
+    note: 'Whoever Access & Privileges gives “Send feedback about the app” — anybody on a team out of the box — and whoever it gives “Read everybody’s feedback”.',
   },
   '/stage': {
     key: 'stage',

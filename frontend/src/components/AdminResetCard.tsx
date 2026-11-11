@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { ActionButton, Overlay, SectionTile, inputClasses } from './Surface'
 
@@ -14,12 +14,14 @@ const CONFIRM_PHRASE = 'RESET'
  * again. Two levels, because "start fresh" usually means either "clear what
  * we did" or "clear everything including the setup".
  *
- * Not an Admin's. Admin is a job several people hold and is handed out
- * freely; the one irreversible button in the app belongs with ownership,
- * which is held by a single account on purpose.
+ * Not an Admin's out of the box. Admin is a job several people hold and
+ * is handed out freely; the one irreversible button in the app starts with
+ * ownership, which is held by a single account on purpose. Since 0277 the
+ * Owner can give it — "Erase the app's data" in Access & Privileges — and
+ * whoever presses it, the Owner's own account is never removed.
  */
 export function AdminResetCard() {
-  const { isSuperAdmin } = useAuth()
+  const mayErase = usePermissions().can('settings.erase')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<Mode | null>(null)
@@ -50,7 +52,7 @@ export function AdminResetCard() {
     onError: (err: unknown) => setError(errorText(err, 'Could not reset the data.')),
   })
 
-  if (!isSuperAdmin) return null
+  if (!mayErase) return null
 
   const needsPhrase = mode === 'everything'
   const canConfirm = !needsPhrase || typed.trim().toUpperCase() === CONFIRM_PHRASE

@@ -108,6 +108,21 @@ const OVERWATCH_ONLY = {
 }
 
 /**
+ * A room of Settings, one of the keys, or a thing that was the Owner's
+ * alone (0277): anybody's as the church gives it — a role's cell, or a
+ * grant to a team or a person. `admin` is where an Admin starts: Yes for
+ * what was an Admin's by standing, No for what was the Owner's.
+ */
+const given = (admin: Reach, others: Partial<Record<'head' | 'assistant' | 'member', Reach>> = {}) => ({
+  admin: offer('none all', admin),
+  head: offer('none all', others.head ?? 'none'),
+  assistant: offer('none all', others.assistant ?? 'none'),
+  coordinator: offer('none all', 'none'),
+  member: offer('none all', others.member ?? 'none'),
+  newcomer: offer('none all', 'none'),
+})
+
+/**
  * Who may open a page (0215): its level in Settings › Page by Page, as
  * cells. Admins and the leads start let in, and where a page can be kept
  * to Heads their cells are a choice too (0274: Admins only, the Owner only); a
@@ -116,14 +131,17 @@ const OVERWATCH_ONLY = {
  * Coordinator opens a page as the Team Member they are. `levels` is the
  * page's choices, `open` its default.
  */
-const page = (levels: 'everyone team' | 'everyone team leads' | 'team leads', open: 'everyone' | 'team') => ({
-  // Where a page can be kept to Heads it can be kept to the Admins, or to
-  // the Owner, as well (0274): each cell a choice, starting at Yes.
-  admin: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
-  head: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
-  assistant: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
+const page = (levels: 'everyone team leads' | 'team leads', open: 'everyone' | 'team' | 'admins') => ({
+  // Every rung is a choice (0274, 0277): a page can be kept to the Heads,
+  // to the Admins, or to the Owner, each cell starting where its level
+  // puts it. `admins` is a page that starts as the Admins' alone.
+  admin: offer('none all', 'all'),
+  head: offer('none all', open === 'admins' ? 'none' : 'all'),
+  assistant: offer('none all', open === 'admins' ? 'none' : 'all'),
+  // A Team Coordinator opens a page as the Team Member they are.
   coordinator: fixed(),
-  member: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
+  member: offer('none all', open === 'admins' ? 'none' : 'all'),
+  // Where the page needs a team to mean anything, a Church Member has no cell.
   newcomer: levels.includes('everyone') ? offer('none all', open === 'everyone' ? 'all' : 'none') : fixed(),
 })
 
@@ -134,14 +152,37 @@ const page = (levels: 'everyone team' | 'everyone team leads' | 'team leads', op
  * the policies that read them.
  */
 export const CATALOG = {
-  'app.permissions': {
-    admin: fixed('all'),
-    head: fixed(),
-    assistant: fixed(),
-    coordinator: fixed(),
-    member: fixed(),
-    newcomer: fixed(),
-  },
+  // The grid itself (0277): every cell a choice. It was every Admin's and
+  // nobody else's; the Owner always passes, which is how a wrong setting —
+  // this one included — gets put right.
+  'app.permissions': given('all'),
+  // Who is given a role (0277): an Admin's row, and every other role's.
+  'people.roles': given('all'),
+  'people.admins': given('all'),
+  // Taking Admin from somebody else was the Owner's alone.
+  'people.unadmin': given('none'),
+  // The rooms of Settings (0277), each its own row.
+  'settings.general': given('all'),
+  'settings.menu': given('all'),
+  'settings.pages': given('all'),
+  'settings.rota': given('all'),
+  'settings.stage': given('all'),
+  'settings.clockin': given('all'),
+  'settings.prayer': given('all'),
+  'settings.overwatch': given('all'),
+  // These four were the Owner's alone.
+  'settings.logo': given('none'),
+  'settings.video': given('none'),
+  'settings.feedback': given('none'),
+  'settings.erase': given('none'),
+  // Feedback (0277): sending it was anybody's on a team; reading and
+  // answering everybody's was the Owner's.
+  'feedback.send': given('all', { head: 'all', assistant: 'all', member: 'all' }),
+  'feedback.manage': given('none'),
+  // Everybody's contact details and households, and everybody's visa and
+  // DBS details (0277): the Owner's alone until the Owner says otherwise.
+  'people.contacts': given('none'),
+  'people.compliance': given('none'),
   'rota.assign': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
@@ -286,7 +327,8 @@ export const CATALOG = {
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
-    pastor: fixed('all'),
+    // A choice since 0277, starting where it was fixed.
+    pastor: offer('none all', 'all'),
   },
   'prayer.assign': {
     admin: offer('none all', 'none'),
@@ -295,7 +337,8 @@ export const CATALOG = {
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
-    pastor: fixed('all'),
+    // A choice since 0277, starting where it was fixed.
+    pastor: offer('none all', 'all'),
   },
   'prayer.lists': {
     admin: offer('none all', 'none'),
@@ -304,7 +347,8 @@ export const CATALOG = {
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
-    pastor: fixed('all'),
+    // A choice since 0277, starting where it was fixed.
+    pastor: offer('none all', 'all'),
   },
   // The Service Planner's buttons on their own (0211): whoever plans the
   // running order or runs the service has them all through svc.sessions
@@ -784,18 +828,24 @@ export const CATALOG = {
   },
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
-  'page.rota': page('everyone team', 'team'),
+  'page.rota': page('everyone team leads', 'team'),
   'page.set_lists': page('everyone team leads', 'everyone'),
   'page.debriefs': page('team leads', 'team'),
   'page.messages': page('everyone team leads', 'team'),
   'page.updates': page('everyone team leads', 'everyone'),
-  'page.polls': page('everyone team', 'everyone'),
+  'page.polls': page('everyone team leads', 'everyone'),
   'page.events': page('everyone team leads', 'everyone'),
   'page.giving': page('everyone team leads', 'everyone'),
-  'page.departments': page('everyone team', 'team'),
-  'page.prayer': page('everyone team', 'everyone'),
+  'page.departments': page('everyone team leads', 'team'),
+  'page.prayer': page('everyone team leads', 'everyone'),
   'page.stage': page('everyone team leads', 'everyone'),
   'page.inventory': page('team leads', 'team'),
+  // The pages that had one level and no choice (0277).
+  'page.availability': page('team leads', 'team'),
+  'page.checklists': page('team leads', 'team'),
+  'page.team_chat': page('team leads', 'team'),
+  'page.songs': page('everyone team leads', 'everyone'),
+  'page.volunteers': page('team leads', 'admins'),
 } as const satisfies Record<string, Record<GrantRole, Rule> & Partial<Record<StandingRole, Rule>>>
 
 export type CapabilityKey = keyof typeof CATALOG
@@ -816,11 +866,11 @@ const NO_CELL: Rule = fixed()
 const PASTOR_CELL: Rule = offer('none all', 'none')
 
 /**
- * The rows a Pastor has no cell on: the grid itself (an Admin's alone),
- * the two things done as Overwatch, and opening Prayer Requests, which a
- * Pastor always may (pageOpening) and no cell says.
+ * The rows a Pastor has no cell on: the two things done as Overwatch, and
+ * opening Prayer Requests, which a Pastor always may (pageOpening) and no
+ * cell says. The grid itself is a choice since 0277.
  */
-export const PASTOR_LOCKED: readonly string[] = ['app.permissions', 'issue.as_overwatch', 'debrief.as_overwatch', 'page.prayer']
+export const PASTOR_LOCKED: readonly string[] = ['issue.as_overwatch', 'debrief.as_overwatch', 'page.prayer']
 
 /**
  * The five things Overwatch does *as Overwatch* (0214): its cells there
@@ -830,13 +880,13 @@ export const PASTOR_LOCKED: readonly string[] = ['app.permissions', 'issue.as_ov
 export const OVERWATCH_OWN: readonly string[] = ['msg.board_post', 'msg.chat', 'msg.polls', 'issue.as_overwatch', 'debrief.as_overwatch']
 
 /**
- * Whether Overwatch has no cell of the ordinary kind on a row (0270): the
- * grid itself, and what it already reads through its own room — every
- * page's opening, the clock-ins and the availability history — where a
- * cell saying No would be untrue.
+ * Whether Overwatch has no cell of the ordinary kind on a row (0270):
+ * what it already reads through its own room — every page's opening, the
+ * clock-ins and the availability history — where a cell saying No would
+ * be untrue.
  */
 export function overwatchLocked(cap: string): boolean {
-  return cap === 'app.permissions' || cap === 'clockin.view' || cap === 'avail.history' || cap.startsWith('page.')
+  return cap === 'clockin.view' || cap === 'avail.history' || cap.startsWith('page.')
 }
 
 /** One cell's rule. A column a capability does not name is a fixed No — or, a Pastor's (0268) or Overwatch's (0270), the church's choice. */

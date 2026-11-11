@@ -30,6 +30,8 @@ export function ExportVolunteersDialog({
   adminIds,
   ownerId,
   isOwner,
+  seesContacts = isOwner,
+  seesCompliance = isOwner,
   onClose,
 }: {
   departments: Department[]
@@ -44,6 +46,13 @@ export function ExportVolunteersDialog({
    * rather than shipping them empty.
    */
   isOwner: boolean
+  /**
+   * Since 0277 each is its own row in the grid — the Owner's out of the
+   * box: contact details and households, and visa and DBS details. Left
+   * out, they follow `isOwner`.
+   */
+  seesContacts?: boolean
+  seesCompliance?: boolean
   onClose: () => void
 }) {
   const errorText = useErrorText()
@@ -78,7 +87,7 @@ export function ExportVolunteersDialog({
     setError(null)
     try {
       let sensitive: Map<string, SensitiveByUser> | undefined
-      if (isOwner && includeCompliance) {
+      if (seesCompliance && includeCompliance) {
         const { data, error: readError } = await supabase
           .from('profile_sensitive')
           .select('user_id, visa_type, has_dbs, visa_expiry, visa_note')
@@ -91,8 +100,8 @@ export function ExportVolunteersDialog({
         }
       }
 
-      // Households are the Owner's to read (0149); RLS returns them all.
-      const family = isOwner && includeFamily ? await fetchHouseholds() : undefined
+      // Households come with contact details (0149, 0277); RLS returns them all.
+      const family = seesContacts && includeFamily ? await fetchHouseholds() : undefined
 
       const sheets = buildVolunteerWorkbook({
         family,
@@ -105,7 +114,7 @@ export function ExportVolunteersDialog({
         adminIds,
         ownerId,
         includeUnassigned,
-        includeContacts: isOwner,
+        includeContacts: seesContacts,
       })
 
       await writeWorkbook(sheets, exportFileName())
@@ -187,7 +196,7 @@ export function ExportVolunteersDialog({
               </span>
             </label>
 
-            {isOwner && (
+            {seesCompliance && (
             <label className="flex items-start gap-3 text-body-sm text-on-surface">
               <input
                 type="checkbox"
@@ -205,7 +214,7 @@ export function ExportVolunteersDialog({
             </label>
             )}
 
-            {isOwner && (
+            {seesContacts && (
             <label className="flex items-start gap-3 text-body-sm text-on-surface">
               <input
                 type="checkbox"

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { SETTINGS_KEY, updateSettings, useAppSettings } from '../lib/appSettings'
 import { BRANDING_BUCKET, useAppLogo } from '../lib/appLogo'
@@ -43,7 +43,8 @@ function megabytes(bytes: number): string {
  * back to it, here and in the header, the moment there is no logo.
  */
 export function AppLogoCard() {
-  const { isSuperAdmin } = useAuth()
+  // Whoever the grid gives "Change the app’s logo" (0277): the Owner alone out of the box.
+  const mayChange = usePermissions().can('settings.logo')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const { ask, dialog } = useConfirmAction()
@@ -113,12 +114,12 @@ export function AppLogoCard() {
     onError: (err: unknown) => setError(errorText(err, 'Could not remove the logo.')),
   })
 
-  if (!isSuperAdmin) {
+  if (!mayChange) {
     return (
       <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
         <p className="text-body-sm text-on-surface-variant">
-          The mark at the top of every page is the owner&rsquo;s to choose. Ask whoever owns this
-          app to change it.
+          Changing the mark at the top of every page is not open to you. Whoever owns this app can
+          change it, or give you the room in Access &amp; Privileges.
         </p>
       </section>
     )
@@ -129,8 +130,8 @@ export function AppLogoCard() {
   return (
     <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
       <p className="text-body-sm text-on-surface-variant">
-        The mark at the top-left of every page. Yours to choose, and yours alone — an Admin can set
-        the church&rsquo;s clocks but not its face.
+        The mark at the top-left of every page, and the church&rsquo;s face. Who may change it is its own
+        row in Access &amp; Privileges — the Owner alone, out of the box.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-5">

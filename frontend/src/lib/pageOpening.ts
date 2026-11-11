@@ -66,6 +66,17 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   if (path === '/countdown') {
     return who.isOwner || !!who.opens?.('countdown.view') ? { open: true, via: 'grant', level } : { open: false, level }
   }
+  // Feedback (0277): whoever the grid lets send it — anybody on a team out
+  // of the box — and whoever reads everybody's. Asked by standing only
+  // where the caller brought no grid to ask.
+  if (path === '/feedback') {
+    if (who.opens) {
+      return who.isOwner || who.opens('feedback.send') || who.opens('feedback.manage')
+        ? { open: true, via: standingMayOpen(who.standing, level) ? 'level' : 'grant', level }
+        : { open: false, level }
+    }
+    return standingMayOpen(who.standing, level) ? { open: true, via: 'level', level } : { open: false, level }
+  }
   // Reception (0247): the same people, and whoever works the door.
   if (path === '/door') {
     return who.isOwner || !!who.regManager || !!who.doorWorker ? { open: true, via: 'door', level } : { open: false, level }

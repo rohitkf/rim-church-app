@@ -26,9 +26,11 @@ const db = vi.hoisted(() => ({
   rpc: [] as { fn: string; args: unknown }[],
   grants: [] as unknown[],
 }))
+// Which rights this person holds: everything, unless a test narrows it.
+const held = vi.hoisted(() => ({ caps: null as string[] | null }))
 vi.mock('../lib/usePermissions', () => ({
   PERMISSIONS_KEY: ['role-permissions'],
-  usePermissions: () => ({ grants: db.grants, can: () => true }),
+  usePermissions: () => ({ grants: db.grants, can: (cap: string) => held.caps === null || held.caps.includes(cap) }),
 }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -53,6 +55,7 @@ beforeEach(() => {
   db.writes = []
   db.rpc = []
   db.grants = []
+  held.caps = null
 })
 
 function show() {
@@ -155,5 +158,33 @@ describe('Settings › Clock in', () => {
       p_changes: [{ capability: 'clockin.view', team: '22222222-2222-2222-2222-222222222222', reach: null }],
     })
     expect(db.writes).toHaveLength(0)
+  })
+
+  it('shows somebody who may only change the grid the two lists of who, and not the room’s own settings (0277)', async () => {
+    held.caps = ['app.permissions']
+    show()
+    expect(await screen.findByRole('heading', { name: 'Who sees the Clock In page' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Who approves a request' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'When, and how strict' })).toBeNull()
+  })
+
+  it('shows the room’s holder everything in it, the lists of who included (0277)', async () => {
+    held.caps = ['settings.clockin']
+    show()
+    expect(await screen.findByRole('heading', { name: 'When, and how strict' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Who sees the Clock In page' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+  })
+
+  it('is not there for somebody who holds neither', () => {
+    held.caps = []
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <NavNamesContext.Provider value={{}}>
+          <ClockInCard />
+        </NavNamesContext.Provider>
+      </QueryClientProvider>,
+    )
+    expect(container).toBeEmptyDOMElement()
   })
 })

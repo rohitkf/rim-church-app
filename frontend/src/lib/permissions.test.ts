@@ -87,10 +87,10 @@ describe('decide(), with the church’s changes', () => {
   })
 
   it('ignores a choice the catalog no longer offers, as the database does', () => {
-    // Nobody but an Admin is offered the grid itself; a stray row cannot change that.
-    const stray = { 'app.permissions': { newcomer: 'all' } } as unknown as Overrides
-    expect(reachOf(stray, 'app.permissions', 'newcomer')).toBe('none')
-    expect(decide(stray, nobody, 'app.permissions', { departmentId: TEAM_A })).toBe(false)
+    // A thing done as Overwatch is nobody else's to be given; a stray row cannot change that.
+    const stray = { 'issue.as_overwatch': { newcomer: 'all' } } as unknown as Overrides
+    expect(reachOf(stray, 'issue.as_overwatch', 'newcomer')).toBe('none')
+    expect(decide(stray, nobody, 'issue.as_overwatch', { departmentId: TEAM_A })).toBe(false)
     // Nor is a Church Member offered "their team": they are on none.
     const odd = { 'rota.assign': { newcomer: 'team' } } as unknown as Overrides
     expect(reachOf(odd, 'rota.assign', 'newcomer')).toBe('none')
@@ -140,9 +140,9 @@ describe('overrides and saving', () => {
       overridesFrom([
         { role_key: 'member', capability: 'rota.assign', reach: 'team' },
         { role_key: 'member', capability: 'rota.nonsense', reach: 'team' },
-        // A Pastor has a cell on the rota since 0268, and none on the grid itself.
+        // A Pastor has a cell on the rota since 0268, and none on a thing done as Overwatch.
         { role_key: 'pastor', capability: 'rota.assign', reach: 'all' },
-        { role_key: 'pastor', capability: 'app.permissions', reach: 'all' },
+        { role_key: 'pastor', capability: 'issue.as_overwatch', reach: 'all' },
         { role_key: 'deacon', capability: 'rota.assign', reach: 'team' },
         { role_key: 'head', capability: 'rota.tag', reach: 'sometimes' },
         // Overwatch's cells are read (0214, 0270); it has none on a page's opening.
@@ -301,9 +301,18 @@ describe('a grant', () => {
   it('may be given only what the grid could give a profile other than Admin', () => {
     expect(grantIsValid('rota.assign', 'all')).toBe(true)
     expect(grantIsValid('rota.assign', 'team')).toBe(true)
-    expect(grantIsValid('app.permissions', 'all')).toBe(false)
-    expect(grantableCapabilities().some((cap) => cap.startsWith('app.'))).toBe(false)
+    // A thing done as Overwatch is nobody's to be given.
+    expect(grantIsValid('issue.as_overwatch', 'all')).toBe(false)
     expect(grantableCapabilities()).toContain('set.edit')
+  })
+
+  it('may be given a room of Settings, or the grid itself (0277)', () => {
+    // Everywhere, never "their team": a room is the whole church's.
+    for (const cap of ['app.permissions', 'settings.general', 'settings.logo', 'settings.erase', 'people.roles', 'feedback.manage'] as const) {
+      expect(grantIsValid(cap, 'all'), cap).toBe(true)
+      expect(grantIsValid(cap, 'team'), cap).toBe(false)
+      expect(grantableCapabilities(), cap).toContain(cap)
+    }
   })
 })
 
@@ -311,14 +320,14 @@ describe('Overwatch and a Pastor, as columns of their own (0214)', () => {
   const pastor: Holder = { ...nobody, pastor: true }
   const watcher: Holder = { ...nobody }
 
-  it('gives a Pastor the three prayer rows, always, and nothing else', () => {
+  it('gives a Pastor the three prayer rows out of the box, and nothing else', () => {
     for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
       expect(grantedBy({}, pastor, cap), cap).toBe('pastor')
       expect(decide({}, nobody, cap), cap).toBe(false)
     }
     expect(decide({}, pastor, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
-    // A Pastor's cell is fixed: a stored change to it is not one the catalog offers.
-    expect(decide({ 'prayer.pastoral': { pastor: 'none' } }, pastor, 'prayer.pastoral')).toBe(true)
+    // A Pastor's cell is a choice since 0277: the church can say No.
+    expect(decide({ 'prayer.pastoral': { pastor: 'none' } }, pastor, 'prayer.pastoral')).toBe(false)
   })
 
   it('leaves Overwatch’s cells out of may(), which does not read them', () => {
@@ -388,7 +397,8 @@ describe('refused by name (0273)', () => {
     expect(offered).toContain('rota.assign')
     expect(offered).toContain('msg.chat')
     expect(offered.some((cap) => cap.startsWith('page.'))).toBe(false)
-    expect(offered).not.toContain('app.permissions')
+    // The grid itself can be refused by name too, now that it can be given (0277).
+    expect(offered).toContain('app.permissions')
     for (const cap of offered) expect(grantableCapabilities()).toContain(cap)
     expect(blockableCapabilities(true)).not.toContain('msg.chat')
   })
@@ -401,10 +411,12 @@ describe('an Admin’s Yes on Clock In and Stage Layout is a choice (0275)', () 
     for (const cap of caps) {
       expect(decide({}, admin, cap), cap).toBe(true)
       expect(decide({ [cap]: { admin: 'none' } }, admin, cap), cap).toBe(false)
-      // The Owner always; and the grid itself is never an Admin's to lose.
+      // The Owner always.
       expect(decide({ [cap]: { admin: 'none' } }, owner, cap), cap).toBe(true)
     }
-    expect(decide({ 'app.permissions': { admin: 'none' } } as Overrides, admin, 'app.permissions')).toBe(true)
+    // The grid itself is an Admin's cell like any other since 0277 — and never the Owner's to lose.
+    expect(decide({ 'app.permissions': { admin: 'none' } } as Overrides, admin, 'app.permissions')).toBe(false)
+    expect(decide({ 'app.permissions': { admin: 'none' } } as Overrides, owner, 'app.permissions')).toBe(true)
   })
 })
 
