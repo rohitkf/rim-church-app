@@ -17,7 +17,7 @@
 
 import { ROLE_NAME } from './roleNames'
 
-export type AccessLevel = 'everyone' | 'team' | 'leads' | 'admins'
+export type AccessLevel = 'everyone' | 'team' | 'leads' | 'admins' | 'owner'
 
 /** Who somebody is, for the purpose of opening pages. */
 export type Standing = 'church' | 'member' | 'lead' | 'admin'
@@ -27,6 +27,8 @@ export const ACCESS_LEVELS: { value: AccessLevel; label: string; short: string }
   { value: 'team', label: 'Anyone on a team', short: 'Teams' },
   { value: 'leads', label: 'Team Heads and Admins', short: 'Heads' },
   { value: 'admins', label: 'Admins only', short: 'Admins' },
+  // Closed to the Admins too (0274): the Owner alone, and whoever is given the page by name.
+  { value: 'owner', label: 'The Owner only', short: 'Owner' },
 ]
 
 export const STANDINGS: { value: Standing; label: string; blurb: string }[] = [
@@ -68,7 +70,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/service-planner': {
     key: 'service-planner',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'page',
     note: 'Hides the page. The services themselves still show on the Dashboard.',
   },
@@ -102,7 +104,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/set-lists': {
     key: 'set-lists',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'page',
     note: 'Hides the page.',
   },
@@ -115,7 +117,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/debriefs': {
     key: 'debriefs',
     default: 'team',
-    choices: ['team', 'leads'],
+    choices: ['team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'Heads only keeps a team’s minutes to its leaders.',
   },
@@ -128,7 +130,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/messages': {
     key: 'messages',
     default: 'team',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'The whole board follows the choice.',
   },
@@ -141,7 +143,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/updates': {
     key: 'updates',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'Updates follow the choice.',
   },
@@ -155,14 +157,14 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/events': {
     key: 'events',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'The diary follows the choice, Dashboard included.',
   },
   '/giving': {
     key: 'giving',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'Links and bank details follow the choice.',
   },
@@ -215,14 +217,14 @@ export const PAGE_RULES: Record<string, PageRule> = {
   '/stage': {
     key: 'stage',
     default: 'everyone',
-    choices: ['everyone', 'team', 'leads'],
+    choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'The layouts, their comments and history follow the choice. Who may draw is set in Settings › Stage Layout.',
   },
   '/inventory': {
     key: 'inventory',
     default: 'team',
-    choices: ['team', 'leads'],
+    choices: ['team', 'leads', 'admins', 'owner'],
     enforcement: 'database',
     note: 'The registers follow the choice.',
   },
@@ -231,7 +233,8 @@ export const PAGE_RULES: Record<string, PageRule> = {
 export type PageAccess = Partial<Record<string, AccessLevel>>
 
 const RANK: Record<Standing, number> = { church: 0, member: 1, lead: 2, admin: 3 }
-const NEEDS: Record<AccessLevel, number> = { everyone: 0, team: 1, leads: 2, admins: 3 }
+// Nobody's standing reaches `owner`: the Owner is asked for by name (pageOpening).
+const NEEDS: Record<AccessLevel, number> = { everyone: 0, team: 1, leads: 2, admins: 3, owner: 4 }
 
 /** The rule a path is governed by: its own, or the page it sits under. */
 export function ruleFor(path: string): { path: string; rule: PageRule } | null {

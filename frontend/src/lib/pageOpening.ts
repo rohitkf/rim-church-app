@@ -70,11 +70,19 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   if (path === '/door') {
     return who.isOwner || !!who.regManager || !!who.doorWorker ? { open: true, via: 'door', level } : { open: false, level }
   }
-  if (standingMayOpen(who.standing, level)) return { open: true, via: 'level', level }
-  // A page given to them by name or through a team (0215), whatever its
-  // level — the same may() can_open_page asks.
+  // A page in the grid (0215) opens by the grid's own answer — the same
+  // may() can_open_page asks — so a cell closed to Heads or to Admins
+  // (0274) closes it for them, and a grant by name or through a team opens
+  // it whatever its level. Asked by standing only where there is no grid
+  // answer to ask: a page with no cells, or a caller that brought none.
   const cap = pageCapability(path)
-  if (cap && who.opens?.(cap)) return { open: true, via: 'grant', level }
+  if (cap && who.opens) {
+    if (who.isOwner || who.opens(cap)) {
+      return { open: true, via: standingMayOpen(who.standing, level) ? 'level' : 'grant', level }
+    }
+  } else if (standingMayOpen(who.standing, level)) {
+    return { open: true, via: 'level', level }
+  }
   // Overwatch opens what the church left open to it (Settings ›
   // Overwatch, 0187), and whatever its own teams would open besides.
   if (who.isOverwatch && overwatchOpens(path, settings.overwatch_pages)) return { open: true, via: 'overwatch', level }

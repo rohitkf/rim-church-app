@@ -109,16 +109,19 @@ const OVERWATCH_ONLY = {
 
 /**
  * Who may open a page (0215): its level in Settings › Page by Page, as
- * cells. Admins and the leads are let in at every level a page offers; a
+ * cells. Admins and the leads start let in, and where a page can be kept
+ * to Heads their cells are a choice too (0274: Admins only, the Owner only); a
  * Team Member's cell is a choice only where the page can be kept to Heads,
  * a Church Member's only where it can be opened to everyone; a Team
  * Coordinator opens a page as the Team Member they are. `levels` is the
  * page's choices, `open` its default.
  */
 const page = (levels: 'everyone team' | 'everyone team leads' | 'team leads', open: 'everyone' | 'team') => ({
-  admin: fixed('all'),
-  head: fixed('all'),
-  assistant: fixed('all'),
+  // Where a page can be kept to Heads it can be kept to the Admins, or to
+  // the Owner, as well (0274): each cell a choice, starting at Yes.
+  admin: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
+  head: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
+  assistant: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
   coordinator: fixed(),
   member: levels.includes('leads') ? offer('none all', 'all') : fixed('all'),
   newcomer: levels.includes('everyone') ? offer('none all', open === 'everyone' ? 'all' : 'none') : fixed(),

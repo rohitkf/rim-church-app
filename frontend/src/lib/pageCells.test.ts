@@ -36,11 +36,30 @@ describe('who may open a page, as cells', () => {
     }
   })
 
-  it('lets every team’s Heads and the Admins in, and a Coordinator only as a Team Member', () => {
+  it('lets a page be kept to the Admins or the Owner exactly where it can be kept to Heads (0274)', () => {
     for (const { capability } of PAGE_CAPABILITIES) {
-      for (const role of ['admin', 'head', 'assistant'] as const) expect(ruleFor(capability, role).reaches, role).toEqual(['all'])
+      const toHeads = ruleFor(capability, 'member').reaches.length > 1
+      for (const role of ['admin', 'head', 'assistant'] as const) {
+        // A choice that starts at Yes, or — where a Team Member always opens it — fixed at Yes.
+        expect(ruleFor(capability, role).reaches, `${capability} ${role}`).toEqual(toHeads ? ['none', 'all'] : ['all'])
+        expect(ruleFor(capability, role).byDefault).toBe('all')
+      }
       expect(ruleFor(capability, 'coordinator').reaches).toEqual(['none'])
     }
+    expect(ruleFor('page.rota', 'admin').reaches).toEqual(['all'])
+  })
+
+  it('reads the two new levels from the cells, and writes the whole ladder for a level (0274)', () => {
+    const cap = 'page.inventory' as const
+    const cellsOf = (level: Parameters<typeof cellsForLevel>[1]) =>
+      Object.fromEntries(cellsForLevel(cap, level).map((c) => [c.role, c.reach]))
+    expect(cellsOf('admins')).toEqual({ member: 'none', head: 'none', assistant: 'none', admin: 'all' })
+    expect(cellsOf('owner')).toEqual({ member: 'none', head: 'none', assistant: 'none', admin: 'none' })
+    // Opening it again opens it to its Heads and Admins too.
+    expect(cellsOf('team')).toEqual({ member: 'all', head: 'all', assistant: 'all', admin: 'all' })
+    expect(levelFromCells({ [cap]: cellsOf('admins') }, cap)).toBe('admins')
+    expect(levelFromCells({ [cap]: cellsOf('owner') }, cap)).toBe('owner')
+    expect(levelFromCells({ [cap]: cellsOf('leads') }, cap)).toBe('leads')
   })
 
   it('never offers a cell a page cannot honour', () => {

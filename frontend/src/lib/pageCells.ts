@@ -33,11 +33,17 @@ export function isPageCapability(cap: CapabilityKey): boolean {
   return PAGE_CAPABILITIES.some((p) => p.capability === cap)
 }
 
-/** One page's level, as its cells say it: open to Church Members, then Team Members, else Heads. */
+/**
+ * One page's level, as its cells say it: the widest profile it is open to
+ * — Church Members, then Team Members, then Heads, then Admins (0274),
+ * else the Owner alone.
+ */
 export function levelFromCells(overrides: Overrides, cap: CapabilityKey): AccessLevel {
   if (reachOf(overrides, cap, 'newcomer') === 'all') return 'everyone'
   if (reachOf(overrides, cap, 'member') === 'all') return 'team'
-  return 'leads'
+  if (reachOf(overrides, cap, 'head') === 'all' || reachOf(overrides, cap, 'assistant') === 'all') return 'leads'
+  if (reachOf(overrides, cap, 'admin') === 'all') return 'admins'
+  return 'owner'
 }
 
 /** Every page's level, as the grid has it — what `app_settings.page_access` said until 0215. */
@@ -49,7 +55,12 @@ export function levelsFrom(overrides: Overrides): PageAccess {
 export function cellsForLevel(cap: CapabilityKey, level: AccessLevel): { role: GridRole; reach: Reach }[] {
   const wanted: { role: GridRole; reach: Reach }[] = [
     { role: 'newcomer', reach: level === 'everyone' ? 'all' : 'none' },
-    { role: 'member', reach: level === 'leads' || level === 'admins' ? 'none' : 'all' },
+    { role: 'member', reach: level === 'everyone' || level === 'team' ? 'all' : 'none' },
+    // A level is the whole ladder (0274): choosing one sets every rung, so
+    // a page opened again is opened to its Heads and Admins too.
+    { role: 'head', reach: level === 'admins' || level === 'owner' ? 'none' : 'all' },
+    { role: 'assistant', reach: level === 'admins' || level === 'owner' ? 'none' : 'all' },
+    { role: 'admin', reach: level === 'owner' ? 'none' : 'all' },
   ]
   return wanted.filter(({ role }) => !isFixed(cap, role))
 }
