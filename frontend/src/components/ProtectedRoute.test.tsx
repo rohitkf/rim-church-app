@@ -12,6 +12,9 @@ const standing = vi.hoisted(() =>
   vi.fn(() => ({ standing: null as unknown, deciding: false, checking: false, recheck: () => {} })),
 )
 vi.mock('../lib/useStanding', () => ({ useStanding: () => standing() }))
+// Starting the app again is a page reload, which a test can only watch being asked for.
+const reloadApp = vi.hoisted(() => vi.fn())
+vi.mock('../lib/reloadApp', () => ({ reloadApp }))
 // Its own tests (pages/JoiningPage*.test.tsx); here only which form, if any.
 vi.mock('../pages/JoiningPage', () => ({
   JoiningPage: ({ completing = false }: { completing?: boolean }) => (
@@ -21,6 +24,7 @@ vi.mock('../pages/JoiningPage', () => ({
 
 beforeEach(() => {
   standing.mockReturnValue({ standing: null, deciding: false, checking: false, recheck: () => {} })
+  reloadApp.mockClear()
 })
 
 function renderStuck() {
@@ -152,7 +156,7 @@ describe('who is held at the joining form', () => {
 describe('when the app is closed for maintenance', () => {
   const closed = { title: 'App maintenance', body: 'Moving servers.', from: '2026-11-15T09:00:00Z', until: '2026-11-16T09:00:00Z' }
 
-  function renderSignedIn() {
+  function signedIn() {
     const value = {
       session: { user: { id: 'u1' } },
       profile: null,
@@ -161,7 +165,7 @@ describe('when the app is closed for maintenance', () => {
       authError: null,
       signOut: async () => {},
     }
-    return render(
+    return (
       <MemoryRouter>
         <AuthContext.Provider value={value as never}>
           <Routes>
@@ -170,9 +174,10 @@ describe('when the app is closed for maintenance', () => {
             </Route>
           </Routes>
         </AuthContext.Provider>
-      </MemoryRouter>,
+      </MemoryRouter>
     )
   }
+  const renderSignedIn = () => render(signedIn())
 
   it('shows the closed page instead of the app, with why and until when', () => {
     standing.mockReturnValue({ standing: { closed, may_enter: false }, deciding: false, checking: false, recheck: () => {} })
@@ -181,6 +186,75 @@ describe('when the app is closed for maintenance', () => {
     expect(screen.getByText('Moving servers.')).toBeInTheDocument()
     expect(screen.getByText(/opens again on/)).toBeInTheDocument()
     expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('shows a blocked account the page that says so, and none of the app', () => {
+    standing.mockReturnValue({
+      standing: { closed: null, may_enter: true, blocked: { at: '2026-11-11T15:42:00Z' } },
+      deciding: false,
+      checking: false,
+      recheck: () => {},
+    })
+    renderSignedIn()
+    expect(screen.getByRole('heading', { name: 'Your account has been blocked by an administrator' })).toBeInTheDocument()
+    expect(screen.getByText(/contact a church Admin/)).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('says blocked, not closed, to somebody who is both: it will still be true tomorrow', () => {
+    standing.mockReturnValue({
+      standing: { closed, may_enter: false, blocked: { at: '2026-11-11T15:42:00Z' } },
+      deciding: false,
+      checking: false,
+      recheck: () => {},
+    })
+    renderSignedIn()
+    expect(screen.getByText('Account blocked')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'App maintenance' })).toBeNull()
+  })
+
+  it('blocks even somebody who may keep working while the app is closed', () => {
+    standing.mockReturnValue({
+      standing: { closed, may_enter: true, blocked: { at: '2026-11-11T15:42:00Z' } },
+      deciding: false,
+      checking: false,
+      recheck: () => {},
+    })
+    renderSignedIn()
+    expect(screen.getByText('Account blocked')).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('starts the app afresh when a block is lifted, rather than drawing it with what was refused', () => {
+    const blockedStanding = { closed: null, may_enter: true, blocked: { at: '2026-11-11T15:42:00Z' } }
+    standing.mockReturnValue({ standing: blockedStanding, deciding: false, checking: false, recheck: () => {} })
+    const view = renderSignedIn()
+    expect(screen.getByText('Account blocked')).toBeInTheDocument()
+    expect(reloadApp).not.toHaveBeenCalled()
+
+    standing.mockReturnValue({ standing: { closed: null, may_enter: true, blocked: null }, deciding: false, checking: false, recheck: () => {} })
+    view.rerender(signedIn())
+    expect(reloadApp).toHaveBeenCalledTimes(1)
+    // Not the app with nobody's name on it while the page turns over.
+    expect(screen.queryByText('the app')).toBeNull()
+    expect(screen.getByText(/Loading/)).toBeInTheDocument()
+  })
+
+  it('starts the app afresh when a closure ends for somebody who was kept out', () => {
+    standing.mockReturnValue({ standing: { closed, may_enter: false, blocked: null }, deciding: false, checking: false, recheck: () => {} })
+    const view = renderSignedIn()
+    standing.mockReturnValue({ standing: { closed: null, may_enter: true, blocked: null }, deciding: false, checking: false, recheck: () => {} })
+    view.rerender(signedIn())
+    expect(reloadApp).toHaveBeenCalledTimes(1)
+  })
+
+  it('reloads nothing for somebody who was never kept out', () => {
+    standing.mockReturnValue({ standing: { closed, may_enter: true, blocked: null }, deciding: false, checking: false, recheck: () => {} })
+    const view = renderSignedIn()
+    standing.mockReturnValue({ standing: { closed: null, may_enter: true, blocked: null }, deciding: false, checking: false, recheck: () => {} })
+    view.rerender(signedIn())
+    expect(screen.getByText('the app')).toBeInTheDocument()
+    expect(reloadApp).not.toHaveBeenCalled()
   })
 
   it('lets in whoever may keep working', () => {

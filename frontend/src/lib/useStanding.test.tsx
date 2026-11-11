@@ -37,7 +37,7 @@ describe('where somebody stands', () => {
     const { result } = run('u1')
     expect(result.current.deciding).toBe(true)
     await waitFor(() => expect(result.current.deciding).toBe(false))
-    expect(result.current.standing).toEqual({ closed: null, may_enter: true })
+    expect(result.current.standing).toEqual({ closed: null, may_enter: true, blocked: null })
   })
 
   it('says so when the app is closed to this person', async () => {
@@ -45,6 +45,13 @@ describe('where somebody stands', () => {
     const { result } = run('u1')
     await waitFor(() => expect(result.current.standing?.closed?.title).toBe('App maintenance'))
     expect(result.current.standing?.may_enter).toBe(false)
+  })
+
+  it('says so when this person\'s account is blocked', async () => {
+    answer.mockResolvedValue({ data: { closed: null, may_enter: true, blocked: { at: '2026-11-11T15:42:00Z' } }, error: null })
+    const { result } = run('u1')
+    await waitFor(() => expect(result.current.standing?.blocked?.at).toBe('2026-11-11T15:42:00Z'))
+    expect(result.current.deciding).toBe(false)
   })
 
   it('keeps nobody waiting when the question fails: no answer is not "closed"', async () => {

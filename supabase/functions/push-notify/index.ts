@@ -191,6 +191,18 @@ Deno.serve(async (req) => {
     }
   }
 
+  // A blocked account's phone stays quiet (0279). The bell keeps the line
+  // for the day the block is lifted; the pocket does not buzz with things
+  // the person may not open. Only a plain yes stops it: a database that
+  // has not heard of blocking, or could not be asked, sends as before.
+  const { data: blocked } = await supabase.rpc('account_is_blocked', { uid: userId })
+  if (blocked === true) {
+    return new Response(JSON.stringify({ sent: 0, reason: 'this account is blocked' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   const known = NOTIFICATIONS[type]
   const payload = JSON.stringify({
     title: 'Rehoboth International Ministries',

@@ -15,7 +15,7 @@ import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
-import { STANDING_KEY, isAppClosed } from './lib/standing'
+import { STANDING_KEY, isTurnedAway } from './lib/standing'
 import { ConfigErrorPage } from './pages/ConfigErrorPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -57,16 +57,17 @@ const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (isAccountRemoved(error)) void handleAccountRemoved()
-      // The app closed for maintenance while it was open (0278): ask where
-      // this person stands, and the closed page takes over from there.
-      if (isAppClosed(error)) askStandingAgain()
+      // The app closed for maintenance while it was open (0278), or this
+      // account was blocked (0279): ask where this person stands, and the
+      // page that says so takes over from there.
+      if (isTurnedAway(error)) askStandingAgain()
     },
   }),
   // A write refused for the same reason: somebody pressing Save a minute
   // after the door shut should get the page that says so, not a red line.
   mutationCache: new MutationCache({
     onError: (error) => {
-      if (isAppClosed(error)) askStandingAgain()
+      if (isTurnedAway(error)) askStandingAgain()
     },
   }),
   defaultOptions: {

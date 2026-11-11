@@ -103,6 +103,7 @@ the thing most likely to waste your time:
 | `service_session_assignees` | who is taking a session — a list, one row per person. `is_substitute` (0182) marks whoever steps in if they cannot: a second list on the same rows, from the session's ⋯ › Assign substitute, drawn apart (amber, dashed, Sub) on the planner, its Preview and the exported sheet. `peopleOn` is the people taking it only; `substitutesOn` the rest. A person is on a session once, in one list |
 | `announcements` | the alert an Admin sends from Settings |
 | `app_notices` (0278) | a **notice**: a line at the top of every page for as long as it is true. Not an alert: nobody is interrupted, no phone buzzes, nothing is pressed. Three kinds (`info`, which a person may put away on their device, `warning`, `maintenance`), shown between `starts_at` and `ends_at`. A maintenance notice may also **close the app** between `closed_from` and `closed_until` (`closes_app`): those are not the showing times, because the notice warns before it closes. Written in Settings › App Notices by whoever holds `settings.notices` (the Owner alone out of the box); `app.open_when_closed` (Admins out of the box) is who keeps working while it is closed. `lib/appNotices.ts`, `AppNoticeBanner` in the shell, `AppNoticesCard` |
+| `account_blocks` (0279) | a **block**: one person's account stopped without being removed. They can still sign in and meet `pages/BlockedPage` ("blocked by an administrator, contact a church Admin"); nothing of theirs is touched, and taking the row away puts everything back. Not a `permission_blocks` row, which refuses one person one capability. Written only by `block_account(target, why)` / `unblock_account(target)` — the table has a read policy and no write policy — for whoever holds `people.block` (Admins out of the box), with removal's rules: never yourself, never the Owner, an Admin only by the Owner. `reason` is a note for the people who may block; the person blocked is never shown it. Enforced in the database in three places: the hook (`account_blocked`), `may()` (a blocked account's every answer is no, so the edge functions that ask on a person's behalf refuse too) and one restrictive policy on `storage.objects`. `account_is_blocked(uid)` is the one definition (never true of the Owner; a trigger on `app_owner` clears a block from whoever becomes it), and push-notify asks it before buzzing a phone. `lib/accountBlocks.ts`, `BlockAccountDialog`, Block / Unblock on the People page |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
@@ -289,10 +290,12 @@ frontend/api/                Vercel functions. register-preview.js answers
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
   lib/standing.ts            whether the app is open to this person right now
-                             (0278): my_standing(), and recognising the
-                             hook's app_closed among other refusals;
-                             lib/useStanding.ts asks, pages/ClosedPage.tsx
-                             is what a closed app shows
+                             (0278, 0279): my_standing(), and recognising
+                             the hook's app_closed and account_blocked among
+                             other refusals; lib/useStanding.ts asks,
+                             pages/ClosedPage.tsx is what a closed app shows
+                             and pages/BlockedPage.tsx what a blocked
+                             account meets
   lib/serviceClock.ts        the running order's countdown: what it counts to
                              now. The planner's rail and the Countdown page
                              (/countdown, 0261) both read it — never a copy
@@ -556,13 +559,16 @@ Each of these has already cost real time. None of them show up in review.
   refuses a request whose `request.path` names one of the database's own
   helpers (0175, the `helpers` list in its body). A new policy helper
   belongs on that list; a new RPC the app calls must not be on it.
-- **The pre-request hook refuses for three reasons now, and the app has to
-  tell them apart.** `reject_removed_user` (0070, last 0278) raises 42501
+- **The pre-request hook refuses for four reasons now, and the app has to
+  tell them apart.** `reject_removed_user` (0070, last 0279) raises 42501
   with a `detail`: `account_removed` (signed out, `lib/accountRemoved`),
-  `not_an_rpc`, and `app_closed` while a maintenance closure runs (0278).
+  `not_an_rpc`, `account_blocked` for a person blocked by name (0279), and
+  `app_closed` while a maintenance closure runs (0278) — in that order, so
+  somebody blocked during a closure is told blocked.
   42501 is also every ordinary RLS refusal, so nothing may act on the code
-  alone. For `app_closed` the query and mutation caches (`App.tsx`) ask
-  `my_standing()` again, and `ProtectedRoute` draws `ClosedPage` in place
+  alone. For `account_blocked` and `app_closed` (`isTurnedAway`) the query
+  and mutation caches (`App.tsx`) ask `my_standing()` again, and
+  `ProtectedRoute` draws `BlockedPage` or `ClosedPage` in place
   of the whole app. `my_standing` is the one RPC the hook lets through
   while the door is shut; a new reason to turn people away needs the same:
   a way for the app to ask why. **Not being able to ask is never "closed"**
@@ -780,6 +786,18 @@ on somebody later made an Admin sleeps. Written only through
 `blockableCapabilities()` offers — never opening a page, whose levels the
 pages draw. A new rule that answers from somewhere other than `may()`
 will not honour a block: say so there, or ask `may()`.
+
+**A whole account can be blocked (0279), and that is a different thing.**
+`account_blocks` stops one person using the app at all, Admins included
+(an Admin only by the Owner); `may()` answers no to everything for them,
+straight after the Owner's pass, and the hook turns their requests away.
+The app's `decide()` does not mirror it and does not need to: a blocked
+person never gets far enough to draw a button, and nobody else's answers
+change. `may()`'s body is production's (`pg_get_functiondef`) plus that
+one clause — the same rule as the hook: never rebuild it from an old
+migration. A new way in that is neither the Data API, nor `may()`, nor
+storage (a new edge function that acts for a person without asking
+`may()`) has to ask `account_is_blocked()` itself.
 
 **A right is no use behind a closed page.** `lib/pageNeeds.ts` reads the
 changes waiting to be saved in Access & Privileges and names each one that

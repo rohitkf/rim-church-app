@@ -831,6 +831,9 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
   },
+  // Blocking an account without removing it (0279): they can sign in and
+  // do nothing else until somebody takes it back.
+  'people.block': given('all'),
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
   'page.rota': page('everyone team leads', 'team'),
