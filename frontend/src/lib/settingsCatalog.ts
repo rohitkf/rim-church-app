@@ -29,6 +29,10 @@ export type Patch = Partial<AppSettings>
  */
 export type PageRef = string
 
+/** Settings › General: set once for the whole church (the time zone, the bell). */
+export const GENERAL_ROOM = '/settings/general'
+/** Settings › Feedback: the Owner's own mailbox. */
+export const FEEDBACK_ROOM = '/settings/feedback'
 export const BELL = 'bell'
 export const ALERTS = 'alerts'
 export const APP = 'app'
@@ -71,6 +75,12 @@ interface Base {
   /** The whole story, for whoever opens "How this works". */
   help: string
   affects: PageRef[]
+  /**
+   * The Settings room that holds it, when that is not Page by Page: the
+   * church's own (General) and the Owner's (Feedback). `affects` still says
+   * which page it moves; the page points to the room instead of drawing it.
+   */
+  room?: string
   /** The columns this entry reads and writes — one, or `display`. */
   keys: readonly (keyof AppSettings)[]
   /** Shown only while this holds: the hour under a day that is not Never. */
@@ -389,10 +399,11 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
   {
     ...column('timezone'),
     kind: 'timezone',
-    label: 'On the clock in',
-    summary: 'Summer time looks after itself.',
-    help: 'An IANA name, like Europe/London. The database refuses one it has never heard of rather than storing a typo that would break the deadline.',
+    label: 'The church’s time zone',
+    summary: 'Every deadline and call time is on this clock. Summer time looks after itself.',
+    help: 'An IANA name, like Europe/London. The availability deadline, the week’s call times and the nightly clear-outs all read it. The database refuses one it has never heard of rather than storing a typo that would break the deadline.',
     affects: ['/availability'],
+    room: GENERAL_ROOM,
   },
 
   /* ---- The Dashboard ---- */
@@ -845,6 +856,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     summary: 'Their newest ones; older ones are deleted as new ones arrive.',
     help: 'When a notification arrives and somebody already has this many, their oldest is deleted — read or unread. The things they point at are not touched.',
     affects: [BELL],
+    room: GENERAL_ROOM,
     min: 5,
     max: 50,
     majorEvery: 5,
@@ -857,6 +869,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     summary: 'On top of the per-person limit above.',
     help: 'Any notification older than this is deleted each night, read or unread, even if the person has fewer than their limit. “For ever” leaves it to the limit alone.',
     affects: [BELL],
+    room: GENERAL_ROOM,
   },
   {
     ...weekday('alert_clear_dow'),
@@ -876,6 +889,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     summary: 'Done and Won’t do only — open feedback always stays.',
     help: 'Feedback the Owner has marked Done or Won’t do is deleted this long after it was settled, with its reply. Anything New or Looking into it is never cleared on a clock.',
     affects: ['/feedback'],
+    room: FEEDBACK_ROOM,
   },
 
   /* ---- Stage layouts ---- */
@@ -1006,7 +1020,12 @@ export function settingEntry(id: string): SettingEntry {
 
 /** The settings that are this page's own, in the catalog's order. */
 export function settingsForPage(page: string): SettingEntry[] {
-  return SETTINGS_CATALOG.filter((e) => e.affects.some((ref) => affectsPage(ref, page)))
+  return SETTINGS_CATALOG.filter((e) => !e.room && e.affects.some((ref) => affectsPage(ref, page)))
+}
+
+/** The settings a room of its own holds, in the catalog's order. */
+export function settingsForRoom(room: string): SettingEntry[] {
+  return SETTINGS_CATALOG.filter((e) => e.room === room)
 }
 
 /** The columns a set of entries reads and writes, each once. */

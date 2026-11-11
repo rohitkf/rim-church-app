@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -101,7 +101,7 @@ async function show(at = '/settings/pages', names: Record<string, string> = {}) 
 }
 
 // A section's name is the page's, then what it holds; a setting's row can start with the same word.
-const section = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}\\s*(\\d|opens|Nothing)`) })
+const section = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}\\s*(\\d|opens|Nothing|in Settings)`) })
 const teamCard = (name: string) =>
   within(screen.getByRole('region', { name: 'Team by team' })).getByRole('button', { name: new RegExp(`^${name}`) })
 
@@ -112,7 +112,8 @@ describe('Page by Page', () => {
     for (const heading of ['Home', 'Sunday', 'Talk', 'Everywhere']) expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     expect(section('Team Rota')).toHaveTextContent(/\d+ settings · \d+ rules · opens to Teams/)
     expect(section('Team Chat')).toHaveTextContent('1 setting · 3 rules')
-    expect(section('Notifications')).toHaveTextContent('2 settings')
+    // The bell's two settings are the whole church's: they live in General, and the section says so.
+    expect(section('Notifications')).toHaveTextContent('in Settings › General')
     expect(screen.queryByRole('table')).toBeNull()
   })
 
@@ -124,6 +125,17 @@ describe('Page by Page', () => {
       expect(screen.getByRole('button', { name })).toBeInTheDocument()
     }
     expect(screen.getByRole('switch', { name: /Upcoming services start open/ })).toBeInTheDocument()
+  })
+
+  it('points to the Owner’s Feedback room only for the Owner', async () => {
+    const user = await show()
+    await user.click(section('Feedback'))
+    expect(screen.queryByRole('link', { name: /Settings › Feedback/ })).toBeNull()
+    cleanup()
+    viewer = { ...viewer, owner: true }
+    const owner = await show()
+    await owner.click(section('Feedback'))
+    expect(screen.getByRole('link', { name: /Settings › Feedback/ })).toHaveAttribute('href', '/settings/feedback')
   })
 
   it('opens a page to its settings, the room with its own controls, who can open it, each team, and the church’s rule', async () => {

@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthContext'
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useNavNames } from '../lib/navNames'
@@ -394,7 +395,8 @@ function PageSection({
   const renamed = useNavNames()[page.to]
   const label = renamed ?? page.label
   const rule = PAGE_RULES[page.to]
-  const rooms = PAGE_ROOMS[page.to] ?? []
+  const { isSuperAdmin } = useAuth()
+  const rooms = (PAGE_ROOMS[page.to] ?? []).filter((r) => !r.ownerOnly || isSuperAdmin)
   const rows = teamRows(areas)
   const rules = areas.flatMap((a) => a.capabilities).filter((c) => c.key).length
   const panel = `page-${pageSlug(page.to)}`
@@ -406,7 +408,9 @@ function PageSection({
     rule ? `opens to ${short(level)}` : null,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(' · ') ||
+    // Nothing of its own left here: its settings have a room, and it says which.
+    (rooms.length > 0 ? `in ${rooms[0].label.includes('›') ? rooms[0].label : `Settings › ${rooms[0].label}`}` : '')
 
   return (
     <li id={panel}>

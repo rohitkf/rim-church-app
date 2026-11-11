@@ -2,6 +2,8 @@ import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
 import { QuestionIcon,
+  FeedbackIcon,
+  SettingsIcon,
   BellIcon,
   ChecklistIcon,
   ClipboardUserIcon,
@@ -119,6 +121,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     heading: 'Church',
     sections: [
+      {
+        to: '/settings/general',
+        label: 'General',
+        blurb: 'The church’s time zone, and the bell.',
+        icon: SettingsIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'general timezone time zone clock bell notifications keep cleared church wide',
+      },
       {
         to: '/settings/menu',
         label: 'Menu',
@@ -238,6 +249,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         tone: 'blue',
         needs: 'owner',
         keywords: 'video tutorial help how to youtube link',
+      },
+      {
+        to: '/settings/feedback',
+        label: 'Feedback',
+        blurb: 'How long settled feedback is kept.',
+        icon: FeedbackIcon,
+        tone: 'blue',
+        needs: 'owner',
+        keywords: 'feedback bug suggestion retention kept settled done',
       },
       {
         to: '/settings/data',

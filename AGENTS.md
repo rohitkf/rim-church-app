@@ -700,6 +700,14 @@ in `lib/permissionMatrix.ts`, or its own `at` when the area spans several,
 and a `short` name for the team-by-team grids. `settingsCatalog.test.ts`
 checks every row lands on a page.
 
+**A setting that is the whole church's, or the Owner's alone, has a room
+instead of a page.** Give its catalog entry a `room` (`GENERAL_ROOM`,
+`FEEDBACK_ROOM`): `SettingsRoomCard` draws the room from the catalog and
+saves only its columns, Page by Page stops drawing it, and the page it
+moves points to the room in `PAGE_ROOMS` (`ownerOnly` hides a pointer
+nobody else could follow). The catalog test fails if a setting ends up
+drawn twice or nowhere.
+
 **A right is no use behind a closed page.** `lib/pageNeeds.ts` reads the
 changes waiting to be saved in Access & Privileges and names each one that
 hands a role (Newcomer, Team Member, Pastor) something on a page that role

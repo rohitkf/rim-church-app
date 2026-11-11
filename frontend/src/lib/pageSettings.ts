@@ -3,7 +3,7 @@ import { BellIcon, CalendarIcon, MegaphoneIcon, SettingsIcon } from '../componen
 import { NAV_ITEMS } from './navItems'
 import { SERVING_TABS } from './serving'
 import { type Capability, type PermissionArea } from './permissionMatrix'
-import { ALERTS, APP, BELL, SERVICE_PAGES, SERVICE_PAGES_REF, affectsPage } from './settingsCatalog'
+import { ALERTS, APP, BELL, FEEDBACK_ROOM, GENERAL_ROOM, SERVICE_PAGES, SERVICE_PAGES_REF, affectsPage } from './settingsCatalog'
 import { TEAM_ROLES, isTeamSettable } from './permissions'
 
 /**
@@ -83,10 +83,12 @@ const SHARED_SERVICES = {
   blurb: 'Shared by every service page: days ahead, when a service is on, how long editing stays open, how long services are kept.',
 }
 
-export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: string }[]> = {
+/** `ownerOnly`: a room only the Owner can open, so nobody else is shown a door that will not. */
+export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: string; ownerOnly?: boolean }[]> = {
   // Each service page points to the settings they share, rather than
   // drawing the same control six times.
   ...Object.fromEntries(SERVICE_PAGES.map((to) => [to, [SHARED_SERVICES]])),
+  '/availability': [SHARED_SERVICES, { to: GENERAL_ROOM, label: 'General', blurb: 'The church’s time zone, which the deadline is on.' }],
   '/issues': [SHARED_SERVICES],
   '/rota': [SHARED_SERVICES, { to: '/settings/rota', label: 'Team Rota', blurb: 'Role tags, and how the Team Coordinator stands out.' }],
   '/clock-in': [{ to: '/settings/clock-in', label: 'Clock In', blurb: 'Where church is, who sees it, who approves, and whose phone allows location.' }],
@@ -98,6 +100,8 @@ export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: stri
   '/giving': [{ to: '/settings/giving', label: 'Giving', blurb: 'Links, a QR code and bank details.' }],
   '/stage': [{ to: '/settings/stage', label: 'Stage Layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
   '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Send the tour of the app, and see who has taken it.' }],
+  [BELL]: [{ to: GENERAL_ROOM, label: 'General', blurb: 'How many notifications each person’s bell keeps, and for how long.' }],
+  '/feedback': [{ to: FEEDBACK_ROOM, label: 'Feedback', blurb: 'How long settled feedback is kept. The Owner’s alone.', ownerOnly: true }],
   [ALERTS]: [{ to: '/settings/alerts', label: 'Send an Alert', blurb: 'Send one, and the record of what went out.' }],
   [APP]: [
     { to: '/settings/menu', label: 'Menu', blurb: 'How the More menu is arranged, for everybody.' },

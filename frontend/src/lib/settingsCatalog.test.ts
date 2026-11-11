@@ -14,6 +14,9 @@ import {
   columnsOf,
   pageName,
   settingsForPage,
+  FEEDBACK_ROOM,
+  GENERAL_ROOM,
+  settingsForRoom,
 } from './settingsCatalog'
 
 /*
@@ -97,7 +100,18 @@ describe('the settings catalog', () => {
     // No setting is filed under two pages.
     for (const entry of SETTINGS_CATALOG) expect(entry.affects, entry.id).toHaveLength(1)
     expect(settingsForPage('/team-chat').map((e) => e.id)).toEqual(['team_chat_retention_days'])
-    expect(settingsForPage(BELL).map((e) => e.id)).toEqual(['notification_keep_count', 'notification_retention_days'])
+    // What is the whole church's has a room of its own, and its page points there.
+    expect(settingsForPage(BELL)).toEqual([])
+    expect(settingsForRoom(GENERAL_ROOM).map((e) => e.id)).toEqual(['timezone', 'notification_keep_count', 'notification_retention_days'])
+    expect(settingsForRoom(FEEDBACK_ROOM).map((e) => e.id)).toEqual(['feedback_retention_days'])
+    expect(PAGE_ROOMS[BELL].map((r) => r.to)).toContain(GENERAL_ROOM)
+    expect(PAGE_ROOMS['/availability'].map((r) => r.to)).toContain(GENERAL_ROOM)
+    expect(PAGE_ROOMS['/feedback'].map((r) => r.to)).toContain(FEEDBACK_ROOM)
+    // Every setting is drawn somewhere exactly once: in its room, or under its page.
+    for (const entry of SETTINGS_CATALOG) {
+      const homes = (entry.room ? 1 : 0) + SETTINGS_PAGES.filter((p) => settingsForPage(p.to).includes(entry)).length
+      expect(homes, entry.id).toBe(1)
+    }
     // Every service page points to them instead.
     for (const page of SERVICE_PAGES) expect(PAGE_ROOMS[page].map((r) => r.to)).toContain('/settings/pages#service-pages')
   })

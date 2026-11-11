@@ -13,6 +13,8 @@ import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { NotificationsCard } from '../components/NotificationsCard'
+import { SettingsRoomCard } from '../components/SettingsRoomCard'
+import { FEEDBACK_ROOM, GENERAL_ROOM } from '../lib/settingsCatalog'
 import { PageAccessCard } from '../components/PageAccessCard'
 import { PermissionLogCard } from '../components/PermissionLogCard'
 import { TeamAccessCard } from '../components/TeamAccessCard'
@@ -401,6 +403,16 @@ export function GivingSettingsPane() {
 }
 
 /** The More menu's arrangement, for everybody. */
+/** Set once for the whole church: its time zone, and the bell. */
+export function GeneralSettingsPane() {
+  return <SettingsRoomCard room={GENERAL_ROOM} footnote="These are the whole church’s, not a page’s — every page reads them." />
+}
+
+/** The Owner's own mailbox: how long settled feedback is kept. */
+export function FeedbackSettingsPane() {
+  return <SettingsRoomCard room={FEEDBACK_ROOM} footnote="Open feedback is never cleared on a clock." />
+}
+
 export function MenuSettingsPane() {
   return <NavLayoutCard />
 }
