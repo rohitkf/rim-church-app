@@ -102,6 +102,7 @@ the thing most likely to waste your time:
 | `planner.*` (0184, 0211) | the planner's **buttons given to a team or a person** — capabilities `planner.start` `planner.hold` `planner.add_time` `planner.skip` `planner.substitute` `planner.add_below` `planner.remove` `planner.end`, held through the grid or a grant (0208); until 0211 they were `app_settings.planner_controls`, dropped in 0217. Whoever has `svc.sessions` (or `svc.manage`, for End service) has them all; these only add. Edited in Settings › Page by Page › Service Planner (`PlannerControlsCard`, saved as grants); read by `planner_control(variadic text[])` — `may()` for each — in the policies, and by `usePlannerControls` to draw the menu. A guard trigger on `service_sessions` and on `services` refuses any column outside what the holder's buttons write (a holder of Add time cannot rename a session) |
 | `service_session_assignees` | who is taking a session — a list, one row per person. `is_substitute` (0182) marks whoever steps in if they cannot: a second list on the same rows, from the session's ⋯ › Assign substitute, drawn apart (amber, dashed, Sub) on the planner, its Preview and the exported sheet. `peopleOn` is the people taking it only; `substitutesOn` the rest. A person is on a session once, in one list |
 | `announcements` | the alert an Admin sends from Settings |
+| `app_notices` (0278) | a **notice**: a line at the top of every page for as long as it is true. Not an alert: nobody is interrupted, no phone buzzes, nothing is pressed. Three kinds (`info`, which a person may put away on their device, `warning`, `maintenance`), shown between `starts_at` and `ends_at`. A maintenance notice may also **close the app** between `closed_from` and `closed_until` (`closes_app`): those are not the showing times, because the notice warns before it closes. Written in Settings › App Notices by whoever holds `settings.notices` (the Owner alone out of the box); `app.open_when_closed` (Admins out of the box) is who keeps working while it is closed. `lib/appNotices.ts`, `AppNoticeBanner` in the shell, `AppNoticesCard` |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
@@ -287,6 +288,11 @@ frontend/api/                Vercel functions. register-preview.js answers
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
+  lib/standing.ts            whether the app is open to this person right now
+                             (0278): my_standing(), and recognising the
+                             hook's app_closed among other refusals;
+                             lib/useStanding.ts asks, pages/ClosedPage.tsx
+                             is what a closed app shows
   lib/serviceClock.ts        the running order's countdown: what it counts to
                              now. The planner's rail and the Countdown page
                              (/countdown, 0261) both read it — never a copy
@@ -550,6 +556,22 @@ Each of these has already cost real time. None of them show up in review.
   refuses a request whose `request.path` names one of the database's own
   helpers (0175, the `helpers` list in its body). A new policy helper
   belongs on that list; a new RPC the app calls must not be on it.
+- **The pre-request hook refuses for three reasons now, and the app has to
+  tell them apart.** `reject_removed_user` (0070, last 0278) raises 42501
+  with a `detail`: `account_removed` (signed out, `lib/accountRemoved`),
+  `not_an_rpc`, and `app_closed` while a maintenance closure runs (0278).
+  42501 is also every ordinary RLS refusal, so nothing may act on the code
+  alone. For `app_closed` the query and mutation caches (`App.tsx`) ask
+  `my_standing()` again, and `ProtectedRoute` draws `ClosedPage` in place
+  of the whole app. `my_standing` is the one RPC the hook lets through
+  while the door is shut; a new reason to turn people away needs the same:
+  a way for the app to ask why. **Not being able to ask is never "closed"**
+  (`useStanding`): a failed or slow answer opens the app, and the database
+  still refuses each request. The hook's body must be copied from
+  production (`pg_get_functiondef`) when it is changed, not from an old
+  migration: every migration that touched it replaced all of it. Signed-out
+  requests pass the hook untouched, so the registration pages stay open
+  during a closure, on purpose.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
   `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,

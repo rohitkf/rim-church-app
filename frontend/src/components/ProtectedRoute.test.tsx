@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -6,12 +6,22 @@ import { AuthContext } from '../auth/AuthContext'
 
 const resetApp = vi.hoisted(() => vi.fn(() => Promise.resolve()))
 vi.mock('../lib/resetApp', () => ({ resetApp }))
+// Whether the app is open to this person (lib/useStanding has its own tests):
+// open and decided, unless a test says otherwise.
+const standing = vi.hoisted(() =>
+  vi.fn(() => ({ standing: null as unknown, deciding: false, checking: false, recheck: () => {} })),
+)
+vi.mock('../lib/useStanding', () => ({ useStanding: () => standing() }))
 // Its own tests (pages/JoiningPage*.test.tsx); here only which form, if any.
 vi.mock('../pages/JoiningPage', () => ({
   JoiningPage: ({ completing = false }: { completing?: boolean }) => (
     <p>{completing ? 'the form, completing' : 'the form, joining'}</p>
   ),
 }))
+
+beforeEach(() => {
+  standing.mockReturnValue({ standing: null, deciding: false, checking: false, recheck: () => {} })
+})
 
 function renderStuck() {
   const value = {
@@ -134,3 +144,79 @@ describe('who is held at the joining form', () => {
     expect(screen.getByText('the app')).toBeInTheDocument()
   })
 })
+
+/*
+ * Closed for maintenance (0278): the page that says so stands in for the
+ * whole app, for everybody the database is turning away.
+ */
+describe('when the app is closed for maintenance', () => {
+  const closed = { title: 'App maintenance', body: 'Moving servers.', from: '2026-11-15T09:00:00Z', until: '2026-11-16T09:00:00Z' }
+
+  function renderSignedIn() {
+    const value = {
+      session: { user: { id: 'u1' } },
+      profile: null,
+      profileGaps: null,
+      loading: false,
+      authError: null,
+      signOut: async () => {},
+    }
+    return render(
+      <MemoryRouter>
+        <AuthContext.Provider value={value as never}>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="*" element={<p>the app</p>} />
+            </Route>
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('shows the closed page instead of the app, with why and until when', () => {
+    standing.mockReturnValue({ standing: { closed, may_enter: false }, deciding: false, checking: false, recheck: () => {} })
+    renderSignedIn()
+    expect(screen.getByRole('heading', { name: 'App maintenance' })).toBeInTheDocument()
+    expect(screen.getByText('Moving servers.')).toBeInTheDocument()
+    expect(screen.getByText(/opens again on/)).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('lets in whoever may keep working', () => {
+    standing.mockReturnValue({ standing: { closed, may_enter: true }, deciding: false, checking: false, recheck: () => {} })
+    renderSignedIn()
+    expect(screen.getByText('the app')).toBeInTheDocument()
+  })
+
+  it('waits, briefly, for the first answer rather than drawing an app the database is refusing', () => {
+    standing.mockReturnValue({ standing: null, deciding: true, checking: true, recheck: () => {} })
+    renderSignedIn()
+    expect(screen.getByText(/Loading/)).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('keeps nobody out because it could not ask', () => {
+    standing.mockReturnValue({ standing: null, deciding: false, checking: false, recheck: () => {} })
+    renderSignedIn()
+    expect(screen.getByText('the app')).toBeInTheDocument()
+  })
+
+  it('never shows it to somebody signed out: they are sent to sign in', () => {
+    standing.mockReturnValue({ standing: { closed, may_enter: false }, deciding: false, checking: false, recheck: () => {} })
+    render(
+      <MemoryRouter initialEntries={['/rota']}>
+        <AuthContext.Provider value={{ session: null, loading: false, authError: null, profile: null } as never}>
+          <Routes>
+            <Route path="/login" element={<p>sign in</p>} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="*" element={<p>the app</p>} />
+            </Route>
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('sign in')).toBeInTheDocument()
+  })
+})
+

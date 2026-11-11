@@ -1215,6 +1215,20 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'The Owner alone out of the box.',
       },
       {
+        action: 'Write notices for the whole app, and close it for maintenance — App Notices',
+        key: 'settings.notices',
+        short: 'App notices',
+        can: granted('settings.notices'),
+        note: 'The Owner alone out of the box. Whoever holds it can always get in while the app is closed, to end the closure.',
+      },
+      {
+        action: 'Use the app while it is closed for maintenance',
+        key: 'app.open_when_closed',
+        short: 'Open when closed',
+        can: granted('app.open_when_closed'),
+        note: 'Everybody else sees a page that says the app is closed and when it opens. The Owner is never shut out.',
+      },
+      {
         action: 'Set the Video tutorial link — Video Tutorial',
         key: 'settings.video',
         short: 'Video link',

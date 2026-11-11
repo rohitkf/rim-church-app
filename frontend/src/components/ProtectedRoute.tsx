@@ -3,6 +3,9 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { resetApp } from '../lib/resetApp'
 import { JoiningPage } from '../pages/JoiningPage'
+import { ClosedPage } from '../pages/ClosedPage'
+import { isShutOut } from '../lib/standing'
+import { useStanding } from '../lib/useStanding'
 
 /** How long "Loading…" may stand on its own before it owes an explanation. */
 const PATIENCE_MS = 5_000
@@ -26,6 +29,8 @@ function ResetButton({ children }: { children: React.ReactNode }) {
 
 export function ProtectedRoute() {
   const { session, loading, authError, profile, profileGaps } = useAuth()
+  // Whether the app is open to this person right now (0278, lib/standing).
+  const { standing, deciding, checking, recheck } = useStanding(session?.user.id ?? null)
 
   // A spinner with no end is the worst thing a page can do: it looks like
   // progress, so people wait instead of acting. If the session could not be
@@ -58,6 +63,20 @@ export function ProtectedRoute() {
   if (loading) return <LoadingScreen />
 
   if (!session) return <Navigate to="/login" replace />
+
+  /*
+   * Closed for maintenance, and this person is not one of those who may
+   * keep working: the page that says so stands in for the whole app.
+   *
+   * Before everything below, because everything below reads the database
+   * and the database is refusing them. The wait for the first answer is
+   * short and has an end (useStanding): not being able to ask is never a
+   * reason to keep somebody out.
+   */
+  if (deciding) return <LoadingScreen />
+  if (standing?.closed && isShutOut(standing)) {
+    return <ClosedPage closed={standing.closed} checking={checking} onRetry={recheck} />
+  }
 
   /*
    * Somebody who has not finished joining gets the joining form, whichever

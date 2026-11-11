@@ -173,6 +173,8 @@ export const LIVE_TABLES: LiveTable[] = [
 
   /* ---- settings everyone reads ------------------------------------ */
   { table: 'app_settings', keys: ['app-settings', 'nav-layout', 'my-requests'] },
+  // A notice posted, changed or ended, and with it whether the app is closed (0278).
+  { table: 'app_notices', keys: ['app-notices', 'my-standing'] },
   { table: 'rota_tags', keys: ['rota-tags', 'rota'] },
   { table: 'rota_assignment_tags', keys: ['rota', 'rota-assignments', 'checklist-assignments'] },
   { table: 'service_team_readiness', keys: ['team-readiness'] },

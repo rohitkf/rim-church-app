@@ -11,6 +11,7 @@ import { PermissionsCard } from '../components/PermissionsCard'
 import { PagesCard } from '../components/PagesCard'
 import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
+import { AppNoticesCard } from '../components/AppNoticesCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { NotificationsCard } from '../components/NotificationsCard'
 import { SettingsRoomCard } from '../components/SettingsRoomCard'
@@ -422,6 +423,11 @@ export function FeedbackSettingsPane() {
 
 export function MenuSettingsPane() {
   return <NavLayoutCard />
+}
+
+/** A line at the top of every page, and closing the app for maintenance (0278). */
+export function AppNoticesPane() {
+  return <AppNoticesCard />
 }
 
 /** The church's own mark. Owner only, and the database agrees. */
