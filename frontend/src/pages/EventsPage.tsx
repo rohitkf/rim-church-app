@@ -913,8 +913,10 @@ export function EventsPage() {
       <QueryState isLoading={isLoading} error={loadError}>
         <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-headline-md">{monthTitle(cursor.year, cursor.month)}</div>
-            <div className="flex items-center gap-1">
+            {/* A size down on the narrowest phones, so "September 2026" stays on
+                one line beside the three buttons that will not shrink. */}
+            <div className="min-w-0 text-headline-md max-[400px]:text-headline-sm">{monthTitle(cursor.year, cursor.month)}</div>
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => shiftMonth(-1)}

@@ -742,7 +742,7 @@ export function AvailabilityPage() {
     const open =
       (opensByDefault(inNowGroup, finished) || service.id === focusServiceId) !== isToggled(service.id)
     const heading = (
-        <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
+        <div className="flex w-full flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
           <h2 className="text-headline-md">{service.service_type}</h2>
           <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
             {finished && (
@@ -768,7 +768,9 @@ export function AvailabilityPage() {
                   Answers closed
                 </span>
               ) : (
-                <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">
+                // The chip's corner, not a full pill: on a phone this is two
+                // lines, and a pill two lines tall is a lozenge.
+                <span className="rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-orange-soft">
                   <ServiceCountdown
                     startsAt={answersClose.toISOString()}
                     label="to answer"
@@ -809,7 +811,8 @@ export function AvailabilityPage() {
       {open && !finished && can('avail.nudge', { departmentId: null }) && (
         <div className="mt-4">
           <NudgeButton rpc="nudge_availability_all" args={{ svc_id: service.id }} nobodyLabel="Everyone has answered, or has a reminder already">
-            Remind everyone who hasn&rsquo;t answered
+            {/* Short enough to stay one line in its pill on a 360px phone. */}
+            Remind everyone still to answer
           </NudgeButton>
         </div>
       )}
@@ -907,10 +910,13 @@ export function AvailabilityPage() {
               }`}
               style={summary.noAnswer > 0 ? undefined : teamWash(dept.color, teamStyle)}
             >
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <div className="flex items-center gap-2.5">
+              {/* On a phone the count always sits under the name. It used to sit
+                  beside a short name and under a long one, so a column of teams
+                  had its numbers in two different places. */}
+              <div className="flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <TeamMark color={dept.color} />
-                  <span className="text-body-md font-medium text-on-surface">{dept.name}</span>
+                  <span className="min-w-0 break-words text-body-md font-medium text-on-surface">{dept.name}</span>
                 </div>
                 <span
                   className={`font-mono text-label-sm ${
@@ -969,7 +975,7 @@ export function AvailabilityPage() {
                     args={{ dept_id: dept.id, svc_id: service.id }}
                     nobodyLabel="Only you left to answer"
                   >
-                    Remind the {summary.noAnswer} who haven&rsquo;t answered
+                    Remind the {summary.noAnswer} still to answer
                   </NudgeButton>
                 </div>
               )}

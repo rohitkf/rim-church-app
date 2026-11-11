@@ -550,9 +550,13 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
             draft, so you can see what it would do before saving. Admins, Overwatch, Pastors, who opens which page and each
             team’s own rules stay as they are.
           </p>
-          <ul className="mt-3 flex flex-col gap-2">
+          {/* One shape for all three: beside the button where there is room for every blurb, under it on a phone. */}
+          <ul className="mt-3 flex flex-col gap-3 sm:gap-2">
             {PRESETS.map((preset) => (
-              <li key={preset.key} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <li
+                key={preset.key}
+                className="flex flex-col items-start gap-1 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center sm:gap-x-3"
+              >
                 <ActionButton
                   tone="quiet"
                   size="sm"
@@ -563,7 +567,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                 >
                   {preset.label}
                 </ActionButton>
-                <span className="min-w-0 flex-1 basis-48 text-body-sm text-on-surface-variant">{preset.blurb}</span>
+                <span className="min-w-0 text-body-sm text-on-surface-variant">{preset.blurb}</span>
               </li>
             ))}
           </ul>

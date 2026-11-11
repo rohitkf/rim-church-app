@@ -1,10 +1,10 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useVisibleBottom } from '../lib/useVisibleBottom'
 import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { MoreIcon } from './icons'
 import { Overlay } from './Surface'
-import { dockWindow } from '../lib/dockWindow'
+import { dockHasMore, dockSlots, dockWindow } from '../lib/dockWindow'
 import { groupItems } from '../lib/navGroups'
 import { QuickNavButton } from './QuickNav'
 
@@ -29,15 +29,20 @@ export interface DockItem {
 }
 
 
-/**
- * How many destinations the bar itself carries on a phone.
- *
- * The rest go behind More. Three is what survives the widest label
- * ("Service Planner") being spelled out next to two icons and the More
- * button on a 360px screen, which is the narrowest phone worth designing
- * for.
- */
-const PHONE_SLOTS = 3
+const onResize = (notify: () => void) => {
+  window.addEventListener('resize', notify)
+  return () => window.removeEventListener('resize', notify)
+}
+
+/** How many destinations this screen's bar has room for (lib/dockWindow). */
+function useDockSlots(total: number, hasTrailing: boolean): number {
+  return useSyncExternalStore(onResize, () => dockSlots(window.innerWidth, total, hasTrailing))
+}
+
+/** Whether this screen's bar needs More beside them. */
+function useDockHasMore(total: number, hasTrailing: boolean): boolean {
+  return useSyncExternalStore(onResize, () => dockHasMore(window.innerWidth, total, hasTrailing))
+}
 
 /**
  * The floating dock.
@@ -51,8 +56,9 @@ const PHONE_SLOTS = 3
  * A phone cannot hold twelve of those at once. It used to try, in a strip
  * that scrolled sideways with its scrollbar hidden, which meant most
  * destinations existed only for whoever thought to swipe a bar that gave
- * no sign it could be swiped. So below `md` the bar carries a few and
- * More opens the rest as a sheet.
+ * no sign it could be swiped. So the bar carries as many as the screen
+ * has room for (three on a phone) and More opens the rest as a sheet. A
+ * screen wide enough for all of them has no More.
  *
  * The few it carries slide with you rather than being the first three:
  * see lib/dockWindow. Standing on the third destination used to show
@@ -97,10 +103,12 @@ export function DockNav({
   const isCurrent = (item: DockItem) => onPath(item.to) || (item.tabs ?? []).some(onPath)
   const activeIndex = items.findIndex((item) => isCurrent(item))
 
-  // The window that slides. Always the same number of slots, so the dock
-  // never grows or shrinks as you walk along it.
-  const shown = new Set(dockWindow(items.length, activeIndex, PHONE_SLOTS))
-  const onPhoneBar = (index: number) => shown.has(index)
+  // The window that slides. Always the same number of slots at one width,
+  // so the dock never grows or shrinks as you walk along it.
+  const slots = useDockSlots(items.length, trailing != null)
+  const shown = new Set(dockWindow(items.length, activeIndex, slots))
+  const onBar = (index: number) => shown.has(index)
+  const hasMore = useDockHasMore(items.length, trailing != null)
 
   /*
    * Measure, then move.
@@ -130,7 +138,7 @@ export function DockNav({
     if (last) setTravelling(true)
     measured.current = next
     setPill(next)
-  }, [pathname, items.length, activeIndex])
+  }, [pathname, items.length, activeIndex, slots])
 
   useLayoutEffect(() => {
     if (!travelling) return
@@ -143,7 +151,7 @@ export function DockNav({
   return (
     <nav
       aria-label={label}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] max-[380px]:px-2 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
     >
       <div
         ref={barRef}
@@ -154,7 +162,10 @@ export function DockNav({
           opacity: bottom.keyboard ? 0 : undefined,
           visibility: bottom.keyboard ? 'hidden' : undefined,
         }}
-        className="glass pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)]"
+        // Under 380px every pixel between the icons is given to the one
+        // label: "Church Updates" and "Service Planner" lost their last
+        // letters to an ellipsis on a 360px phone.
+        className="glass pointer-events-auto relative flex max-w-full items-center gap-1.5 rounded-full p-2.5 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] max-[380px]:gap-1 max-[380px]:p-2"
       >
         {/*
           The highlight, as one travelling object.
@@ -172,7 +183,7 @@ export function DockNav({
         {pill && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)]"
+            className="pointer-events-none absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)] max-[380px]:top-2"
             style={{
               left: pill.left,
               width: pill.width,
@@ -197,11 +208,11 @@ export function DockNav({
                 const isActive = onIt || isCurrent(item)
                 return [
                   'group/dock relative z-10 h-11 items-center justify-center gap-2 rounded-full transition-[color,background-color,width] duration-300 ease-[var(--ease-glide)]',
-                  onPhoneBar(index) ? 'flex dock-slot' : 'hidden md:flex',
+                  onBar(index) ? 'flex dock-slot' : 'hidden',
                   isActive
                     ? // No background of its own — the travelling pill is
                       // behind it, and two blues would fight.
-                      'min-w-0 px-4 text-on-primary'
+                      'min-w-0 px-4 text-on-primary max-[380px]:px-3'
                     : 'w-11 shrink-0 text-on-surface-variant hover:bg-raised-strong hover:text-on-surface',
                 ].join(' ')
               }}
@@ -246,14 +257,16 @@ export function DockNav({
         {/* Everything the bar could not hold, plus whatever is trailing —
             the assistant has no room on a phone bar either. */}
         {/* Tap for the sheet; hold and slide for the quick menu. */}
-        <QuickNavButton
-          items={items}
-          onTap={() => setMoreOpen(true)}
-          expanded={moreOpen}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface md:hidden"
-        >
-          <MoreIcon width={19} height={19} />
-        </QuickNavButton>
+        {hasMore && (
+          <QuickNavButton
+            items={items}
+            onTap={() => setMoreOpen(true)}
+            expanded={moreOpen}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised-strong hover:text-on-surface"
+          >
+            <MoreIcon width={19} height={19} />
+          </QuickNavButton>
+        )}
 
         {trailing && (
           <>

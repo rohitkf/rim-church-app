@@ -54,18 +54,20 @@ export function RegistrationsPage() {
       <Lifespan page="registrations" className="mb-4" />
 
       <QueryState isLoading={events.isLoading} error={events.error} isEmpty={rows.length === 0} emptyMessage="No events yet. Make one, publish it, and share its link.">
+        {/* The word under the figure in all four. Left to wrap, "4 events"
+            sat on one line and "£120.00 received" on two, at every width. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile>
-            <Statistic value={rows.length} unit={rows.length === 1 ? 'event' : 'events'} />
+            <Statistic className="flex-col" value={rows.length} unit={rows.length === 1 ? 'event' : 'events'} />
           </Tile>
           <Tile>
-            <Statistic value={totals.orders} unit={`${totals.orders === 1 ? 'order' : 'orders'} · ${totals.tickets} tickets`} />
+            <Statistic className="flex-col" value={totals.orders} unit={`${totals.orders === 1 ? 'order' : 'orders'} · ${totals.tickets} tickets`} />
           </Tile>
           <Tile>
-            <Statistic value={<Money>{pounds(totals.received)}</Money>} unit="received" />
+            <Statistic className="flex-col" value={<Money>{pounds(totals.received)}</Money>} unit="received" />
           </Tile>
           <Tile tone={totals.attention > 0 ? 'warning' : 'plain'}>
-            <Statistic value={totals.attention} unit={totals.attention === 1 ? 'needs a look' : 'need a look'} />
+            <Statistic className="flex-col" value={totals.attention} unit={totals.attention === 1 ? 'needs a look' : 'need a look'} />
           </Tile>
         </div>
 

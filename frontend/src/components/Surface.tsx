@@ -434,8 +434,11 @@ export function SegmentedControl<T extends string>({
   // Four or five segments share a phone's width: the labels keep their size
   // and give up some of their room instead.
   const padding = options.length >= 4 ? 'px-1.5' : 'px-3'
+  // Five equal shares of a phone are narrower than "By person": there each
+  // segment takes what its label needs, and the short ones give up the room.
+  const shares = options.length >= 5 ? 'max-[420px]:w-full max-[420px]:auto-cols-[minmax(0,auto)]' : ''
   return (
-    <div role={groupRole} aria-label={label} className={`${segmentTrackClasses} ${className}`}>
+    <div role={groupRole} aria-label={label} className={`${segmentTrackClasses} ${shares} ${className}`}>
       {options.map((o) => {
         const on = o.value === value
         const state =

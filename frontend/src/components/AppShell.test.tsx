@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -170,6 +170,10 @@ describe('AppShell dock', () => {
     // The bar shows a fixed number of destinations on a phone and hides
     // the rest with `hidden`. Messages is well past that cut, so this is
     // the case that would otherwise leave the phone dock unlabelled.
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    })
     render(
       <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={['/messages']}>
@@ -192,6 +196,16 @@ describe('AppShell dock', () => {
    * was to open More and read a menu.
    */
   describe('the phone dock slides with you', () => {
+    // How many the bar carries is worked out from the screen's width now
+    // (lib/dockWindow), not from a class that only a phone's CSS obeys, so
+    // these have to be a phone. jsdom's own window is 1024 wide.
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    })
+    afterEach(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    })
+
     const onBar = (label: string) =>
       !screen.getByRole('link', { name: label }).classList.contains('hidden')
 

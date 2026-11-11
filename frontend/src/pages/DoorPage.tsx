@@ -164,10 +164,12 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
             </Link>
           )}
         </div>
+        {/* A third of a phone holds "0 here" on one line and not "0 still to
+            pay", so there each word goes under its figure: three alike. */}
         <div className="mt-4 grid grid-cols-3 gap-3">
-          <Statistic value={here} unit="here" />
-          <Statistic value={tickets} unit="tickets" />
-          <Statistic value={owing} unit="still to pay" />
+          <Statistic className="flex-col sm:flex-row" value={here} unit="here" />
+          <Statistic className="flex-col sm:flex-row" value={tickets} unit="tickets" />
+          <Statistic className="flex-col sm:flex-row" value={owing} unit="still to pay" />
         </div>
       </Tile>
 

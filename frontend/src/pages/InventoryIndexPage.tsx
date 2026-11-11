@@ -113,7 +113,9 @@ export function InventoryIndexPage() {
             tone={tile.tone}
             className={tile.label === 'Value in service' ? 'order-first col-span-2 sm:order-none sm:col-span-1' : ''}
           >
-            <Eyebrow>{tile.label}</Eyebrow>
+            {/* A block, so that on a phone, where "Items on the books" takes two
+                lines, they sit at the label's own leading and not the tile's. */}
+            <Eyebrow className="block">{tile.label}</Eyebrow>
             <Statistic className="mt-2.5" value={tile.value} unit={tile.note} />
           </Tile>
         ))}

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -82,5 +82,62 @@ describe('DockNav', () => {
     expect(label?.textContent).toBe('Dashboard')
     // No JS-held opacity: the delay is 90ms of CSS, not a 520ms timer.
     expect((label as HTMLElement).style.opacity).toBe('')
+  })
+})
+
+
+/*
+ * Past a phone the bar used to carry every destination. An Owner's two
+ * dozen did not fit a tablet or a laptop, and the ones past the edge of the
+ * screen were simply not there. The bar now carries what it has room for,
+ * and More holds the rest at every width.
+ */
+describe('DockNav on a screen too narrow for every destination', () => {
+  const many: DockItem[] = Array.from({ length: 27 }, (_, i) => ({
+    to: i === 0 ? '/' : `/page-${i}`,
+    label: `Page ${i}`,
+    icon: GridIcon,
+  }))
+  const at = (width: number) => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+    return render(
+      <MemoryRouter initialEntries={['/']}>
+        <DockNav items={many} />
+      </MemoryRouter>,
+    )
+  }
+  const onBar = (container: HTMLElement) => [...container.querySelectorAll('a')].filter((a) => !a.className.includes('hidden'))
+
+  afterEach(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+  })
+
+  it('carries only what fits a tablet, and offers More for the rest', () => {
+    const { container } = at(768)
+    expect(onBar(container)).toHaveLength(11)
+    expect(screen.getByRole('button', { name: /more|all destinations/i })).toBeInTheDocument()
+  })
+
+  it('carries three on a phone', () => {
+    const { container } = at(390)
+    expect(onBar(container)).toHaveLength(3)
+  })
+
+  it('carries them all on a screen wide enough, with no More', () => {
+    const { container } = at(1920)
+    expect(onBar(container)).toHaveLength(27)
+    expect(screen.queryByRole('button', { name: /more|all destinations/i })).toBeNull()
+  })
+
+  // A phone's bar has no room for the assistant: More's sheet is where it
+  // lives, so somebody whose pages all fit still needs More to reach it.
+  it('keeps More on a phone for the assistant, even when every page is on the bar', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <DockNav items={many.slice(0, 3)} trailing={<button type="button">Ask</button>} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: /more|all destinations/i })).toBeInTheDocument()
   })
 })

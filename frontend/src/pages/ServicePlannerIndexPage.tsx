@@ -370,8 +370,10 @@ export function ServicePlannerIndexPage() {
       <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
         <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-headline-md">{monthTitle(cursor.year, cursor.month)}</div>
-            <div className="flex items-center gap-1">
+            {/* A size down on the narrowest phones, so "September 2026" stays on
+                one line beside the three buttons that will not shrink. */}
+            <div className="min-w-0 text-headline-md max-[400px]:text-headline-sm">{monthTitle(cursor.year, cursor.month)}</div>
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => shiftMonth(-1)}
@@ -470,11 +472,13 @@ export function ServicePlannerIndexPage() {
                             aria-hidden="true"
                             className={`h-1.5 w-1.5 rounded-full sm:hidden ${tone.dot}`}
                           />
+                          {/* A tablet's seventh is about 90px: a long word takes a
+                              hyphen there rather than leaving one letter on a line. */}
                           <button
                             type="button"
                             onClick={() => navigate(`/service-planner/${s.id}`)}
                             title={`${s.service_type} — ${s.date}`}
-                            className={`pointer-events-auto hidden w-full break-words rounded-sm px-1.5 py-1 text-left text-label-sm font-medium sm:block ${tone.chip}`}
+                            className={`pointer-events-auto hidden w-full hyphens-auto break-words rounded-sm px-1 py-1 text-left text-label-sm font-medium sm:block lg:px-1.5 ${tone.chip}`}
                           >
                             {s.service_type}
                           </button>

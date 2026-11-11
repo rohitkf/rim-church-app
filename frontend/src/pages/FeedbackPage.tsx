@@ -134,7 +134,7 @@ function Composer() {
   return (
     <SectionTile title="Send feedback" hint="Pick what kind it is, then say it in your own words.">
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <div role="radiogroup" aria-label="Kind of feedback" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div role="radiogroup" aria-label="Kind of feedback" className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:grid-cols-3">
           {FEEDBACK_KINDS.map((k) => {
             const on = kind === k.value
             return (

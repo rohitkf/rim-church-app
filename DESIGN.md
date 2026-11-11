@@ -325,8 +325,18 @@ half dots and half gradients.
 A floating dock, not a sidebar (`components/DockNav.tsx`). It costs no
 horizontal space, it sits where a thumb already is, and **only the
 destination you are on wears a label** — which is what lets the others be
-icons without the row becoming a puzzle. The row scrolls rather than
-wraps: a dock that changes height moves the content underneath it.
+icons without the row becoming a puzzle. The row never wraps: a dock that
+changes height moves the content underneath it.
+
+**The bar carries what the screen has room for, and More carries the
+rest.** Three on a phone; past that, as many as fit beside the current
+page's name, the More button and the assistant (`dockSlots` in
+`lib/dockWindow.ts`, worked out from the window's width, not from a
+breakpoint class). An Owner has two dozen destinations, and a fixed 44px
+each ran off the right of a tablet and a laptop. The arithmetic uses the
+real widths of the things on the bar; change one of them (the assistant's
+button, a slot, the gap) and change it there too, or the current page's
+name is the thing that gets cut.
 
 Adding a destination is one entry in `navItems` in `AppShell.tsx`, plus its
 wash colour.
@@ -372,8 +382,15 @@ The interface talks like a person who knows the job.
 4. Statuses are `Pill`s. Numbers are `Statistic`s. Progress is a
    `StackedBar` or a ring.
 5. Add the route's wash colour to `WASH` in `AppShell.tsx`.
-6. Check it at 393px wide. The dock overlays the page, so the last element
-   needs room beneath it — `main` already reserves it.
+6. Check it at 360px and 393px wide, and at a tablet's 768px, with real
+   content: a double-barrelled name, a long email, a team called
+   "Hospitality & Welcome Team". Most of what looks wrong on a phone only
+   shows with those. A name wraps (`break-words`); it is not cut with an
+   ellipsis. A row whose parts are "left to wrap" lines up differently
+   card by card as the names change length: stack it on a phone
+   (`flex-col`, then `sm:flex-row`) so every card has the same shape. The
+   dock overlays the page, so the last element needs room beneath it —
+   `main` already reserves it.
 
 ### Checklist before you ship a screen
 
