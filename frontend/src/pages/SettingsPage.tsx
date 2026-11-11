@@ -12,6 +12,7 @@ import { PagesCard } from '../components/PagesCard'
 import { SendAlertCard } from '../components/SendAlertCard'
 import { AppLogoCard } from '../components/AppLogoCard'
 import { AppearanceCard } from '../components/AppearanceCard'
+import { NotificationsCard } from '../components/NotificationsCard'
 import { PageAccessCard } from '../components/PageAccessCard'
 import { PermissionLogCard } from '../components/PermissionLogCard'
 import { TeamAccessCard } from '../components/TeamAccessCard'
@@ -239,9 +240,26 @@ function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z]+/g, '-')
 }
 
-/** How the app looks to you, and whether it can reach your phone. */
+/** How the app looks to you. */
 export function AppearanceSettingsPane() {
-  return <AppearanceCard />
+  return (
+    <div className="flex flex-col gap-4">
+      <AppearanceCard />
+      {/* Phone notifications lived here until November 2026; whoever
+          comes looking is one tap from where they went. */}
+      <Link
+        to="/settings/notifications"
+        className="self-start rounded-full px-2 text-body-sm text-on-surface-variant underline-offset-4 hover:text-on-surface hover:underline"
+      >
+        Looking for phone notifications? They are in Settings › Notifications.
+      </Link>
+    </div>
+  )
+}
+
+/** Whether the app may reach your phone, and with what. */
+export function NotificationsSettingsPane() {
+  return <NotificationsCard />
 }
 
 /**

@@ -1,13 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppearanceCard } from './AppearanceCard'
 
-// The push row talks to the browser and the database; its own tests cover it.
-vi.mock('./PushPermission', () => ({ PushPermissionRow: () => <p>push row</p> }))
-vi.mock('./PushPreferences', () => ({ PushPreferences: () => <p>push choices</p> }))
-
-describe('Appearance & Alerts', () => {
+describe('Appearance', () => {
   it('chooses the theme from one segmented control, and it takes at once', async () => {
     const user = userEvent.setup()
     render(<AppearanceCard />)
@@ -30,10 +26,8 @@ describe('Appearance & Alerts', () => {
     expect(within(style).getByRole('radio', { name: 'Gradient' })).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('offers phone notifications here too, not only under the bell', () => {
+  it('leaves phone notifications to their own room', () => {
     render(<AppearanceCard />)
-    expect(screen.getByRole('heading', { name: 'Phone notifications' })).toBeInTheDocument()
-    expect(screen.getByText('push row')).toBeInTheDocument()
-    expect(screen.getByText('push choices')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Phone notifications' })).toBeNull()
   })
 })
