@@ -31,6 +31,13 @@ vi.mock('../lib/appLogo', () => ({
 }))
 vi.mock('./AppMark', () => ({ AppMark: () => <span>the mark</span> }))
 
+// Where the installed app's icon stands against the logo (lib/useAppIconSync),
+// and the making of it (lib/appIcon), which needs a canvas and has its own tests.
+const iconStatus = vi.fn(() => ({ loaded: true, preview: null as string | null, current: false, hasSet: false }))
+vi.mock('../lib/useAppIconSync', () => ({ APP_ICON_KEY: ['app-icon-set'], useAppIconStatus: () => iconStatus() }))
+const madeIcon = vi.fn<(path: string | null) => Promise<{ set: string | null; changed: boolean }>>()
+vi.mock('../lib/appIcon', () => ({ syncAppIcons: (path: string | null) => madeIcon(path), applyPageIcons: vi.fn() }))
+
 const uploaded = vi.fn()
 const removed = vi.fn()
 const saved = vi.fn()
@@ -167,3 +174,52 @@ describe('the owner’s logo', () => {
     expect(screen.queryByRole('alertdialog', { name: /too big/i })).toBeNull()
   })
 })
+
+/*
+ * The icon the app wears once installed is this logo. The card says where
+ * that stands; the making is automatic (the app shell does it), with a
+ * button for when it has not caught up.
+ */
+describe('the installed app’s icon', () => {
+  beforeEach(() => {
+    owner.mockReturnValue(true)
+    madeIcon.mockReset()
+    iconStatus.mockReturnValue({ loaded: true, preview: null, current: false, hasSet: false })
+  })
+
+  it('is the app’s own, and says so, when there is no logo', () => {
+    settings.mockReturnValue({ logo_url: null })
+    show()
+    const note = screen.getByRole('heading', { name: 'The installed app’s icon' }).parentElement as HTMLElement
+    expect(within(note).getByText(/wears the app’s own icon/)).toBeInTheDocument()
+    expect(note.querySelector('img')).toHaveAttribute('src', '/icon-192.png')
+    expect(within(note).queryByRole('button', { name: 'Make it now' })).toBeNull()
+  })
+
+  it('shows the icon made from the logo in use', () => {
+    settings.mockReturnValue({ logo_url: 'logo/old.png' })
+    iconStatus.mockReturnValue({ loaded: true, preview: 'https://signed/icon-192.png', current: true, hasSet: true })
+    show()
+    const note = screen.getByRole('heading', { name: 'The installed app’s icon' }).parentElement as HTMLElement
+    expect(within(note).getByText(/Made from this logo/)).toBeInTheDocument()
+    expect(note.querySelector('img')).toHaveAttribute('src', 'https://signed/icon-192.png')
+    expect(within(note).queryByRole('button', { name: 'Make it now' })).toBeNull()
+  })
+
+  it('offers to make it now when it has not caught up with the logo, and says when it could not', async () => {
+    settings.mockReturnValue({ logo_url: 'logo/old.png' })
+    madeIcon.mockRejectedValue(new Error('The storage is not answering.'))
+    const user = show()
+    await user.click(screen.getByRole('button', { name: 'Make it now' }))
+    expect(madeIcon).toHaveBeenCalledWith('logo/old.png')
+    // In the app's own words (useErrorText keeps a raw error for those who may read one).
+    expect(await screen.findByRole('alert')).toHaveTextContent('The icon could not be made.')
+  })
+
+  it('says what a phone that already has the app will do', () => {
+    settings.mockReturnValue({ logo_url: 'logo/old.png' })
+    show()
+    expect(screen.getByText(/remove the app from the Home\s+Screen and add it again/)).toBeInTheDocument()
+  })
+})
+

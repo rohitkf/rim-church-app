@@ -16,6 +16,14 @@
       "destination": "/api/register-preview?slug=:slug"
     },
     {
+      "source": "/manifest.webmanifest",
+      "destination": "/api/manifest"
+    },
+    {
+      "source": "/app-icon/:set/:file",
+      "destination": "/api/app-icon?set=:set&file=:file"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -64,7 +72,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=600"
         }
       ]
     },

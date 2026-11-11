@@ -155,7 +155,8 @@ export async function normaliseLogo(file: File): Promise<Blob> {
   }
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+/** A picture, once the browser has read it. Shared with lib/appIcon. */
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)

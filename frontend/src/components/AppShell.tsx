@@ -8,6 +8,7 @@ import { AccountMenu } from './AccountMenu'
 import { InstallAppBadge } from './InstallApp'
 import { AppMark } from './AppMark'
 import { useNotificationRouting } from '../lib/useNotificationRouting'
+import { useAppIconSync } from '../lib/useAppIconSync'
 import { useScrolled } from '../lib/useScrolled'
 import { GlobalSearch } from './GlobalSearch'
 import { ComingSoonDialog } from './ComingSoonDialog'
@@ -87,6 +88,8 @@ export function AppShell() {
   useNotificationRouting()
   // Whether this phone allows location, for Settings › Onboarding (0228).
   useReportLocationAccess(!!profile)
+  // The installed app's icon follows the App Logo (lib/appIcon).
+  useAppIconSync()
   const scrolled = useScrolled()
   // Its height, for what floats beneath it (FloatingServiceTitle).
   const headerRef = useHeaderHeight<HTMLElement>()

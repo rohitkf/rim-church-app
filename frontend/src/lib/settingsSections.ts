@@ -258,12 +258,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/logo',
         label: 'App Logo',
-        blurb: 'The mark at the top of every page.',
+        blurb: 'The mark at the top of every page, and the installed app’s icon.',
         icon: ImageIcon,
         tone: 'blue',
         needs: 'owner',
         capability: 'settings.logo',
-        keywords: 'logo brand mark image',
+        keywords: 'logo brand mark image icon install home screen favicon',
       },
       {
         to: '/settings/video',
