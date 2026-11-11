@@ -86,6 +86,19 @@ const COLUMN: Record<Preview, GridRole> = {
   overwatch: 'overwatch',
   pastor: 'pastor',
 }
+/**
+ * Every column a preview answers from: may() passes whoever any of their
+ * profiles lets through, and everybody signed in is a Church Member — so a
+ * Pastor opens what a Church Member opens, and a Head what their team does.
+ */
+const TIERS: Record<Preview, GridRole[]> = {
+  church: ['newcomer'],
+  member: ['newcomer', 'member'],
+  lead: ['newcomer', 'member', 'head'],
+  admin: ['newcomer', 'admin'],
+  overwatch: ['newcomer', 'overwatch'],
+  pastor: ['newcomer', 'pastor'],
+}
 const somebody = (p: { value: Preview; label: string }) =>
   p.value === 'overwatch' ? p.label : /^[AEIOU]/.test(p.label) ? `an ${p.label}` : `a ${p.label}`
 
@@ -108,7 +121,15 @@ export function PageAccessCard() {
       path,
       // The profile's own cells answer for a page that opens by one, as
       // may() would for somebody with nothing given them by name.
-      { ...NOBODY, ...WHO[preview], opens: (cap) => reachOf(overrides, cap, COLUMN[preview]) !== 'none' },
+      {
+        ...NOBODY,
+        ...WHO[preview],
+        opens: (cap) =>
+          // The Countdown opens by its own column alone (0264); a page opens to any tier they hold.
+          (cap === 'countdown.view' ? [COLUMN[preview]] : TIERS[preview]).some((role) => reachOf(overrides, cap, role) !== 'none'),
+        // Clock In opens by its cell, an Admin's included (0275).
+        clockInViewer: TIERS[preview].some((role) => reachOf(overrides, 'clockin.view', role) !== 'none'),
+      },
       settings,
       access,
     ).open

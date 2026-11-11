@@ -42,6 +42,8 @@ describe('who sees what', () => {
     const prayer = within(screen.getByRole('list', { name: 'Pages a Pastor can open' }))
     expect(prayer.getByRole('listitem', { name: 'Prayer Requests: can open' })).toBeInTheDocument()
     expect(prayer.getByRole('listitem', { name: 'Team Rota: cannot open' })).toBeInTheDocument()
+    // A Pastor is a Church Member too: what opens to everyone opens to them.
+    expect(prayer.getByRole('listitem', { name: 'Giving: can open' })).toBeInTheDocument()
   })
 
   it('previews a Church Member’s pages, as the app has them out of the box', async () => {

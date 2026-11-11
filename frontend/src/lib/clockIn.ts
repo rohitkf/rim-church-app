@@ -38,17 +38,17 @@ export type ClockInAudience = z.infer<typeof clockInAudienceSchema>
  * database's `may_see_clock_ins()`, which is what really decides.
  */
 export function maySeeClockIns(who: {
-  isAdmin: boolean
   isOwner: boolean
   /** Overwatch, with the page left open to it (Settings › Overwatch). */
   watching: boolean
   /**
-   * The grid's `clockin.view` (0209): a profile the church gave it, or a
-   * grant by name or through a team.
+   * The grid's `clockin.view` (0209): a profile the church gave it — an
+   * Admin's cell too, a choice since 0275 — or a grant by name or through
+   * a team.
    */
   granted: boolean
 }): boolean {
-  return who.isAdmin || who.isOwner || who.watching || who.granted
+  return who.isOwner || who.watching || who.granted
 }
 
 /** Metres between two points on the Earth — the database works it out the same way. */

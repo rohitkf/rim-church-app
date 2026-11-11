@@ -74,7 +74,7 @@ describe('Settings › Clock in', () => {
     expect(screen.getByText('100 m')).toBeInTheDocument()
     expect(screen.getByText('50 m')).toBeInTheDocument()
     expect(screen.getByText('Nobody else yet.')).toBeInTheDocument()
-    expect(screen.getByText('Only the Owner and Admins approve.')).toBeInTheDocument()
+    expect(screen.getByText('No team approves — only whoever Access & Privileges says, Admins out of the box.')).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /People who said Yes/ })).not.toBeChecked()
   })
 

@@ -164,7 +164,7 @@ export function StageSettingsCard() {
 
       <SectionTile
         title="Who may draw"
-        hint="Everybody signed in can look. Tick what each team may do. Admins and the Owner always may."
+        hint="Everybody signed in can look. Tick what each team may do. The Owner always may, and Admins unless Access & Privileges says otherwise."
       >
         <QueryState isLoading={teams.isLoading || access.isLoading} error={teams.error ?? access.error} isEmpty={(teams.data ?? []).length === 0} emptyMessage="No teams yet.">
           <ul className="flex flex-col gap-2">
