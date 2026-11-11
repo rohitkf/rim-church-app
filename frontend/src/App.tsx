@@ -6,7 +6,7 @@ import {
   Route,
   RouterProvider,
 } from 'react-router-dom'
-import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PageGate } from './components/PageGate'
@@ -15,6 +15,7 @@ import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
+import { STANDING_KEY, isAppClosed } from './lib/standing'
 import { ConfigErrorPage } from './pages/ConfigErrorPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -44,7 +45,11 @@ function page<M>(load: () => Promise<M>, name: keyof M) {
   return async () => ({ Component: (await load())[name] as ComponentType })
 }
 
-const queryClient = new QueryClient({
+function askStandingAgain() {
+  void queryClient.invalidateQueries({ queryKey: STANDING_KEY })
+}
+
+const queryClient: QueryClient = new QueryClient({
   // Every read in the app comes through here, which makes it the one place
   // that sees a session the database has stopped accepting. Somebody
   // removed while they had the app open is signed out rather than left
@@ -52,6 +57,16 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (isAccountRemoved(error)) void handleAccountRemoved()
+      // The app closed for maintenance while it was open (0278): ask where
+      // this person stands, and the closed page takes over from there.
+      if (isAppClosed(error)) askStandingAgain()
+    },
+  }),
+  // A write refused for the same reason: somebody pressing Save a minute
+  // after the door shut should get the page that says so, not a red line.
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (isAppClosed(error)) askStandingAgain()
     },
   }),
   defaultOptions: {
@@ -124,6 +139,7 @@ const router = createBrowserRouter(
             <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
+            <Route path="notices" lazy={page(() => import('./pages/SettingsPage'), 'AppNoticesPane')} />
             <Route path="onboarding" lazy={page(() => import('./pages/SettingsPage'), 'OnboardingPane')} />
             <Route path="stage" lazy={page(() => import('./pages/SettingsPage'), 'StageSettingsPane')} />
             <Route path="overwatch" lazy={page(() => import('./pages/SettingsPage'), 'OverwatchSettingsPane')} />

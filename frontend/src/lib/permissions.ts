@@ -175,6 +175,11 @@ export const CATALOG = {
   'settings.video': given('none'),
   'settings.feedback': given('none'),
   'settings.erase': given('none'),
+  // Notices for the whole app, and closing it for maintenance (0278): the
+  // Owner's alone out of the box. Who may keep working while it is closed
+  // is its own row: every Admin, as shipped.
+  'settings.notices': given('none'),
+  'app.open_when_closed': given('all'),
   // Feedback (0277): sending it was anybody's on a team; reading and
   // answering everybody's was the Owner's.
   'feedback.send': given('all', { head: 'all', assistant: 'all', member: 'all' }),
