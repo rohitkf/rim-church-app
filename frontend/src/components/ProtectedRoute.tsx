@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { reloadApp } from '../lib/reloadApp'
 import { resetApp } from '../lib/resetApp'
 import { JoiningPage } from '../pages/JoiningPage'
+import { BlockedPage } from '../pages/BlockedPage'
 import { ClosedPage } from '../pages/ClosedPage'
 import { isShutOut } from '../lib/standing'
 import { useStanding } from '../lib/useStanding'
@@ -29,8 +31,27 @@ function ResetButton({ children }: { children: React.ReactNode }) {
 
 export function ProtectedRoute() {
   const { session, loading, authError, profile, profileGaps } = useAuth()
-  // Whether the app is open to this person right now (0278, lib/standing).
+  // Whether the app is open to this person right now (0278, 0279, lib/standing).
   const { standing, deciding, checking, recheck } = useStanding(session?.user.id ?? null)
+
+  /*
+   * Shut out a moment ago, let in now: the block was taken back, or the
+   * maintenance ended. Everything the app read while it was being refused
+   * is missing — who this is, their roles, every page's data — and it was
+   * read by more than one thing, so the app does not try to mend itself
+   * piece by piece: it starts again from a clean page, which is what
+   * somebody would do by hand if it did not.
+   *
+   * Remembered in state, not a ref, so the render that notices is the one
+   * that stops drawing the app with nobody's name on it.
+   */
+  const shutOut = !!session && isShutOut(standing)
+  const [wasShutOut, setWasShutOut] = useState(false)
+  if (shutOut && !wasShutOut) setWasShutOut(true)
+  const reopening = wasShutOut && !shutOut && !!session
+  useEffect(() => {
+    if (reopening) reloadApp()
+  }, [reopening])
 
   // A spinner with no end is the worst thing a page can do: it looks like
   // progress, so people wait instead of acting. If the session could not be
@@ -73,7 +94,14 @@ export function ProtectedRoute() {
    * short and has an end (useStanding): not being able to ask is never a
    * reason to keep somebody out.
    */
-  if (deciding) return <LoadingScreen />
+  if (deciding || reopening) return <LoadingScreen />
+  // Blocked by name (0279) comes first: it is about this person, and it
+  // will still be true when the maintenance is over.
+  if (standing?.blocked) {
+    return (
+      <BlockedPage blocked={standing.blocked} email={session.user.email ?? null} checking={checking} onRetry={recheck} />
+    )
+  }
   if (standing?.closed && isShutOut(standing)) {
     return <ClosedPage closed={standing.closed} checking={checking} onRetry={recheck} />
   }

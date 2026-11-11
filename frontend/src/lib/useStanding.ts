@@ -9,9 +9,10 @@ const PATIENCE_MS = 1_500
  * Whether the signed-in person may use the app right now (lib/standing).
  *
  * Asked as soon as there is a session, again whenever a request is refused
- * because the app is closed (App.tsx invalidates the key), and every
- * minute while somebody is shut out, so the closed page lifts by itself
- * when the app opens again.
+ * because the app is closed or the account is blocked (App.tsx invalidates
+ * the key), and every minute while somebody is shut out, so the page that
+ * says why lifts by itself when the app opens again or the block is taken
+ * back.
  *
  * `deciding` is the moment before the first answer. The app waits through
  * it rather than drawing a shell full of refused requests, but only

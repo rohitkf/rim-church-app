@@ -23,6 +23,9 @@ import { Chevron, useExpanded } from '../components/Collapsible'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { Select, selectPillClasses } from '../components/Select'
 import { ROLE_NAME } from '../lib/roleNames'
+import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
+import { BlockAccountDialog } from '../components/BlockAccountDialog'
+import { momentWords } from '../lib/appNotices'
 
 /**
  * The one section that is open when the page loads.
@@ -135,12 +138,15 @@ export function VolunteersPage() {
   const makesAdmins = can('people.admins')
   const removesAdmins = can('people.unadmin')
   const seesContacts = can('people.contacts')
+  // Blocking an account without removing it (0279).
+  const blocksPeople = can('people.block')
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
   const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
+  const [blocking, setBlocking] = useState<Volunteer | null>(null)
   const [exporting, setExporting] = useState(false)
   const [inviting, setInviting] = useState(false)
 
@@ -220,6 +226,23 @@ export function VolunteersPage() {
     onError: (err: unknown) => setError(errorText(err, 'Could not add them to that team.')),
   })
 
+  // Who is blocked. The table answers only for somebody who may block, so
+  // nobody else is asked, and for them no card says anything about it.
+  const blocksQuery = useQuery({
+    queryKey: ACCOUNT_BLOCKS_KEY,
+    queryFn: fetchAccountBlocks,
+    enabled: opensPage && blocksPeople,
+  })
+
+  const unblock = useMutation({
+    mutationFn: unblockAccount,
+    onSuccess: () => {
+      setError(null)
+      queryClient.invalidateQueries({ queryKey: ACCOUNT_BLOCKS_KEY })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not unblock that account.')),
+  })
+
   const removeVolunteer = useMutation({
     mutationFn: async (userId: string) => {
       // Deleting the auth user is what actually removes someone —
@@ -255,6 +278,8 @@ export function VolunteersPage() {
   const memberships = membersQuery.data ?? []
   const departments = departmentsQuery.data ?? []
   const deptById = new Map(departments.map((d) => [d.id, d]))
+  const blockOf = new Map((blocksQuery.data ?? []).map((b) => [b.user_id, b]))
+  const nameOf = new Map((volunteersQuery.data ?? []).map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()]))
 
   const isLoading =
     volunteersQuery.isLoading || departmentsQuery.isLoading || grantsQuery.isLoading || membersQuery.isLoading
@@ -344,6 +369,16 @@ export function VolunteersPage() {
     const canManageAdmin = (!holdsAdmin && (givesRoles || makesAdmins || isAdmin)) || (holdsAdmin && !isOwner && (removesAdmins || isSuperAdmin))
     const canRemove =
       can('people.remove') && v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
+    // Blocked, as far as this viewer is told (only whoever may block is).
+    const block = blockOf.get(v.id)
+    const canBlock = mayBlock({
+      hasRight: blocksPeople,
+      viewerId: session?.user.id,
+      viewerIsOwner: isSuperAdmin,
+      targetId: v.id,
+      targetIsOwner: isOwner,
+      targetIsAdmin: holdsAdmin,
+    })
 
     return (
       <li
@@ -386,8 +421,13 @@ export function VolunteersPage() {
                 </span>
               )}
               {/* What they are across the whole app, not on any one team. */}
-              {(isOwner || holdsAdmin || overwatchGrant || pastorGrant) && (
+              {(isOwner || holdsAdmin || overwatchGrant || pastorGrant || block) && (
                 <span className="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto">
+                  {block && (
+                    <span className="rounded-full bg-error-container px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-error-container">
+                      Blocked
+                    </span>
+                  )}
                   {isOwner && (
                     <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
                       Owner
@@ -427,6 +467,14 @@ export function VolunteersPage() {
                 </Link>
               )}
             </div>
+            {/* For whoever may block: when, by whom, and the note they left themselves. */}
+            {block && (
+              <p className="mt-1 text-label-md text-on-surface-variant [overflow-wrap:anywhere]">
+                Blocked {momentWords(block.blocked_at)}
+                {block.blocked_by && nameOf.get(block.blocked_by) ? ` by ${nameOf.get(block.blocked_by)}` : ''}
+                {block.reason ? `: ${block.reason}` : ''}
+              </p>
+            )}
           </div>
         </div>
 
@@ -548,7 +596,7 @@ export function VolunteersPage() {
             of the card rather than tucked in beside the name. Nothing here
             is reversible by the person it happens to, so it reads as a row
             of decisions and not as part of the heading. */}
-        {(canManageAdmin || canRemove) && (
+        {(canManageAdmin || canRemove || canBlock) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
             {(() => {
               const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
@@ -681,6 +729,33 @@ export function VolunteersPage() {
                 className={cardActionClasses}
               >
                 Transfer ownership
+              </button>
+            )}
+            {canBlock && !block && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  setBlocking(v)
+                }}
+                className={cardDangerClasses}
+              >
+                Block
+              </button>
+            )}
+            {canBlock && block && (
+              <button
+                disabled={unblock.isPending}
+                onClick={() =>
+                  ask({
+                    title: `Unblock ${v.first_name} ${v.last_name}?`,
+                    body: 'They can use the app again straight away, exactly as they could before.',
+                    confirmLabel: 'Unblock',
+                    onConfirm: () => unblock.mutate(v.id),
+                  })
+                }
+                className={cardActionClasses}
+              >
+                Unblock
               </button>
             )}
             {canRemove && (
@@ -908,6 +983,8 @@ export function VolunteersPage() {
           onError={setError}
         />
       )}
+
+      {blocking && <BlockAccountDialog person={blocking} onClose={() => setBlocking(null)} />}
 
       {confirmingRemoval && (
         <div

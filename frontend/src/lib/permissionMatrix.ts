@@ -867,6 +867,13 @@ export const PERMISSIONS: PermissionArea[] = [
         can: granted('people.remove'),
         note: 'Only the Owner can remove another Admin. Nobody can remove the Owner.',
       },
+      {
+        action: 'Block somebody’s account, and unblock it',
+        key: 'people.block',
+        short: 'Block accounts',
+        can: granted('people.block'),
+        note: 'A blocked person can still sign in, and meets a page saying the account is blocked and to speak to an Admin; nothing of theirs is removed, and unblocking puts everything back (0279). Only the Owner can block or unblock another Admin. Nobody can block the Owner.',
+      },
     ],
   },
   {
