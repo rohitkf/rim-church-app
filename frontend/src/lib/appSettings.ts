@@ -100,7 +100,10 @@ export const appSettingsSchema = z.object({
   clock_in_radius_m: z.number().int().min(20).max(2000).default(100),
   clock_in_accuracy_m: z.number().int().min(5).max(1000).default(50),
   clock_in_include_yes: z.boolean().default(false),
-  clock_in_retention_days: z.number().int().min(1).max(365).default(30),
+  /** Four weeks out of the box (0280): what is kept is what the Clock In page can show. */
+  clock_in_retention_days: z.number().int().min(1).max(365).default(28),
+  /** This long after the call time or more is late: red, and at the top of the day's list (0280). */
+  clock_in_late_minutes: z.number().int().min(1).max(240).default(30),
   prayer_closed_retention_days: z.number().int().min(1).max(365).default(30),
   /** Null: testimonies are kept until somebody removes them. */
   prayer_testimony_retention_days: z.number().int().min(1).max(3650).nullable().default(30),
@@ -159,7 +162,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clock_in_radius_m: 100,
   clock_in_accuracy_m: 50,
   clock_in_include_yes: false,
-  clock_in_retention_days: 30,
+  clock_in_retention_days: 28,
+  clock_in_late_minutes: 30,
   prayer_closed_retention_days: 30,
   prayer_testimony_retention_days: 30,
   feedback_retention_days: 14,

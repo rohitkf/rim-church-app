@@ -195,7 +195,7 @@ export const LIVE_TABLES: LiveTable[] = [
   // button and its "still to arrive" move on every screen at once.
   {
     table: 'clock_ins',
-    keys: ['clock-ins', 'clock-in-teams', 'clock-in-still-out', 'my-clock-in', 'availability', 'dashboard-rosters'],
+    keys: ['clock-ins', 'clock-in-teams', 'clock-in-still-out', 'clock-in-arrivals', 'my-clock-in', 'availability', 'dashboard-rosters'],
   },
   { table: 'clock_in_history', keys: ['clock-in-history'] },
   { table: 'clock_in_requests', keys: ['clock-in-requests', 'my-clock-in', 'clock-in-still-out'] },

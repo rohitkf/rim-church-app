@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { offsetAt } from './availabilityDeadline'
 import { updateSettings } from './appSettings'
+import { sortForDay } from './clockInPunctuality'
 
 /**
  * Clock in (0191): the shared pieces.
@@ -189,6 +190,12 @@ export const clockInSchema = z.object({
   address: z.string().nullable(),
   /** Lookups tried; after three it is given up on (0192). */
   address_tries: z.number().optional(),
+  /**
+   * Their first call that day, as it stood when they clocked in (0280).
+   * Null when it could not be known; missing from a database that does
+   * not keep it yet, which reads the same.
+   */
+  call_at: z.string().nullable().optional(),
   person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
 })
 export type ClockIn = z.infer<typeof clockInSchema>
@@ -198,12 +205,37 @@ export async function fetchClockIns(onDate: string): Promise<ClockIn[]> {
   const { data, error } = await supabase
     .from('clock_ins')
     .select(
-      'id, user_id, on_date, clocked_at, method, latitude, longitude, accuracy_m, distance_m, address, address_tries, person:profiles!clock_ins_user_id_fkey(first_name, last_name)',
+      'id, user_id, on_date, clocked_at, call_at, method, latitude, longitude, accuracy_m, distance_m, address, address_tries, person:profiles!clock_ins_user_id_fkey(first_name, last_name)',
     )
     .eq('on_date', onDate)
     .order('clocked_at')
   if (error) throw error
   return z.array(clockInSchema).parse(data)
+}
+
+export const arrivalRowSchema = z.object({
+  user_id: z.string(),
+  on_date: z.string(),
+  clocked_at: z.string(),
+  call_at: z.string().nullable(),
+  person: z.object({ first_name: z.string(), last_name: z.string() }).nullable(),
+})
+export type ArrivalRow = z.infer<typeof arrivalRowSchema>
+
+/**
+ * Every clock-in kept since `since`, with the call time each was for:
+ * what each person's record of arrivals is made from (0280,
+ * lib/clockInPunctuality). No position and no address — who was where is
+ * the day's list's to show, one day at a time.
+ */
+export async function fetchArrivals(since: string): Promise<ArrivalRow[]> {
+  const { data, error } = await supabase
+    .from('clock_ins')
+    .select('user_id, on_date, clocked_at, call_at, person:profiles!clock_ins_user_id_fkey(first_name, last_name)')
+    .gte('on_date', since)
+    .order('on_date')
+  if (error) throw error
+  return z.array(arrivalRowSchema).parse(data)
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +466,8 @@ export interface ClockInGroup {
 
 /**
  * The day's clock-ins team by team, teams in name order, each with who on
- * its rota is still to arrive. Somebody on two teams is under both;
+ * its rota is still to arrive. Within a team whoever is late comes first,
+ * the latest at the top (lib/clockInPunctuality), then the rest as they came. Somebody on two teams is under both;
  * somebody an Admin added who was on no rota comes last, under "Not on the
  * rota".
  */
@@ -443,6 +476,8 @@ export function groupClockIns(
   teams: readonly { user_id: string; department_id: string }[],
   teamName: (id: string) => string | null,
   stillOut: readonly StillOut[] = [],
+  /** Minutes after the call that count as late: those rows come first in each team, the latest at the top (0280). */
+  lateAfter: number = Number.POSITIVE_INFINITY,
 ): ClockInGroup[] {
   const groups = new Map<string, { rows: ClockIn[]; stillOut: StillOut[] }>()
   const group = (id: string) => {
@@ -465,12 +500,12 @@ export function groupClockIns(
     .map(([teamId, g]) => ({
       teamId,
       name: teamName(teamId)!,
-      rows: g.rows,
+      rows: sortForDay(g.rows, lateAfter),
       stillOut: [...g.stillOut].sort((a, b) => a.call_at.localeCompare(b.call_at)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const elsewhere = rows.filter((r) => !placed.has(r.id))
-  if (elsewhere.length > 0) out.push({ teamId: null, name: 'Not on the rota', rows: elsewhere, stillOut: [] })
+  if (elsewhere.length > 0) out.push({ teamId: null, name: 'Not on the rota', rows: sortForDay(elsewhere, lateAfter), stillOut: [] })
   return out
 }
 

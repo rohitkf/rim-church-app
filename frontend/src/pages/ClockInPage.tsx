@@ -5,6 +5,7 @@ import { usePermissions } from '../lib/usePermissions'
 import { ActionButton, PageHeader, SectionTile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
 import { ClockInPlaceCard } from '../components/ClockInPlaceCard'
+import { ClockInPunctuality } from '../components/ClockInPunctuality'
 import { ClockInRequests } from '../components/ClockInRequests'
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { Select } from '../components/Select'
@@ -28,6 +29,7 @@ import {
   type ClockIn,
   type ClockInHistoryEntry,
 } from '../lib/clockIn'
+import { isLate, minutesAfterCall, spanWords, windowWords } from '../lib/clockInPunctuality'
 import { todayIso } from '../lib/monthGrid'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
@@ -64,6 +66,8 @@ export function ClockInPage() {
   const { can } = usePermissions()
   const settings = useAppSettings()
   const timeZone = settings.timezone
+  // How long after the call counts as late (Settings › Clock in, 30 min out of the box).
+  const lateAfter = settings.clock_in_late_minutes
   const queryClient = useQueryClient()
   const { teamStyle } = useTeamStyle()
   const [day, setDay] = useState(todayIso)
@@ -95,7 +99,9 @@ export function ClockInPage() {
     teamsQuery.data ?? [],
     (id) => departmentsQuery.data?.find((d) => d.id === id)?.name ?? null,
     stillOutQuery.data ?? [],
+    lateAfter,
   )
+  const lateToday = rows.filter((r) => isLate(r, lateAfter)).length
 
   // Anything still without an address is asked for once a visit; the
   // lookup itself goes one a second, whoever starts it.
@@ -135,7 +141,7 @@ export function ClockInPage() {
           title="Clock-ins"
           collapsible
           defaultOpen={false}
-          hint={`${formatServiceDay(day)} · ${rows.length} clocked in${
+          hint={`${formatServiceDay(day)} · ${rows.length} clocked in${lateToday > 0 ? ` · ${lateToday} late` : ''}${
             (stillOutQuery.data ?? []).length > 0
               ? ` · ${new Set((stillOutQuery.data ?? []).map((o) => o.user_id)).size} still to arrive`
               : ''
@@ -199,10 +205,32 @@ export function ClockInPage() {
                         <h3 className="break-words text-body-lg font-semibold text-on-surface">{group.name}</h3>
                         <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                           {group.rows.length} in
+                          {group.rows.some((r) => isLate(r, lateAfter)) &&
+                            ` · ${group.rows.filter((r) => isLate(r, lateAfter)).length} late`}
                           {group.stillOut.length > 0 && ` · ${group.stillOut.length} to come`}
                         </p>
                       </div>
                     </div>
+
+                    {/* Who is still to come, first: it is who somebody opens this to chase (0280). */}
+                    {group.stillOut.length > 0 && (
+                      <div className="mt-3">
+                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Still to arrive</p>
+                        <ul aria-label={`${group.name}: still to arrive`} className="mt-1.5 flex flex-wrap gap-1.5">
+                          {group.stillOut.map((o) => (
+                            <li
+                              key={o.user_id}
+                              className="rounded-full bg-surface-lowest/70 px-2.5 py-1 text-label-md text-on-surface hairline"
+                            >
+                              {personName(o.user_id)}{' '}
+                              <span className="font-mono text-on-surface-faint">
+                                {o.asked ? 'asked' : churchClock(o.call_at, timeZone)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     {group.rows.length > 0 && (
                       <ul aria-label={`${group.name}: clocked in`} className="mt-3 flex flex-col divide-y divide-border-subtle">
@@ -213,6 +241,8 @@ export function ClockInPage() {
                           const open = runsIt && editing === editKey
                           const theirs = historyOf(row.user_id)
                           const fixed = theirs.some((e) => e.kind === 'changed')
+                          const after = minutesAfterCall(row)
+                          const late = isLate(row, lateAfter)
                           return (
                             <li
                               key={row.id}
@@ -232,14 +262,23 @@ export function ClockInPage() {
                                         : 'Address not found')}
                                 </p>
                                 <p className="font-mono text-label-sm text-on-surface-faint">
+                                  {row.call_at && `Call ${churchClock(row.call_at, timeZone)} · `}
                                   {METHOD_LABEL[row.method]}
                                   {fixed && ' · time fixed'}
                                   {row.distance_m !== null && ` · ${formatDistance(row.distance_m)} from church`}
                                   {row.accuracy_m !== null && ` · ± ${Math.round(row.accuracy_m)} m`}
                                 </p>
                               </div>
-                              <span className="shrink-0 font-mono text-body-lg tabular-nums text-on-surface">
-                                {churchClock(row.clocked_at, timeZone)}
+                              {/* Late is red and says so in words: never the colour alone. */}
+                              <span className="shrink-0 text-right">
+                                <span
+                                  className={`block font-mono text-body-lg tabular-nums ${late ? 'font-semibold text-error' : 'text-on-surface'}`}
+                                >
+                                  {churchClock(row.clocked_at, timeZone)}
+                                </span>
+                                {late && after !== null && (
+                                  <span className="block font-mono text-label-sm text-error">{spanWords(after)} late</span>
+                                )}
                               </span>
                               {runsIt && (
                                 <ActionButton
@@ -282,24 +321,6 @@ export function ClockInPage() {
                       </ul>
                     )}
 
-                    {group.stillOut.length > 0 && (
-                      <div className="mt-3">
-                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Still to arrive</p>
-                        <ul aria-label={`${group.name}: still to arrive`} className="mt-1.5 flex flex-wrap gap-1.5">
-                          {group.stillOut.map((o) => (
-                            <li
-                              key={o.user_id}
-                              className="rounded-full bg-surface-lowest/70 px-2.5 py-1 text-label-md text-on-surface hairline"
-                            >
-                              {personName(o.user_id)}{' '}
-                              <span className="font-mono text-on-surface-faint">
-                                {o.asked ? 'asked' : churchClock(o.call_at, timeZone)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </li>
                 )
               })}
@@ -330,6 +351,16 @@ export function ClockInPage() {
               ))}
             </ul>
           </QueryState>
+        </SectionTile>
+
+        {/* Each person's arrivals over the weeks kept (0280). Shut until asked for, like the rest. */}
+        <SectionTile
+          title="Arrivals, person by person"
+          collapsible
+          defaultOpen={false}
+          hint={`Each person’s clock-ins against their call time over the last ${windowWords(settings.clock_in_retention_days)}.`}
+        >
+          <ClockInPunctuality />
         </SectionTile>
       </div>
     </div>
