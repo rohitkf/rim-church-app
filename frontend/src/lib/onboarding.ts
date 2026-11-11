@@ -17,10 +17,13 @@ export const onboardingRowSchema = z.object({
   pushed_by: z.string().nullable().optional(),
   /** Release keys announced to this person, each with when (0156). */
   releases_seen: z.record(z.string(), z.string()).optional().default({}),
+  /** The last time somebody asked them to finish setting up, and when they closed that card (0276). */
+  setup_asked_at: z.string().nullable().optional(),
+  setup_closed_at: z.string().nullable().optional(),
 })
 export type OnboardingRow = z.infer<typeof onboardingRowSchema>
 
-const COLUMNS = 'user_id, seen, pushed_at, pushed_by, releases_seen'
+const COLUMNS = 'user_id, seen, pushed_at, pushed_by, releases_seen, setup_asked_at, setup_closed_at'
 
 /** My own row, or null before the tour has ever touched me. */
 export async function fetchMyOnboarding(myId: string): Promise<OnboardingRow | null> {

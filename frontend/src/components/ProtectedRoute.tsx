@@ -25,7 +25,7 @@ function ResetButton({ children }: { children: React.ReactNode }) {
 }
 
 export function ProtectedRoute() {
-  const { session, loading, authError, profile } = useAuth()
+  const { session, loading, authError, profile, profileGaps } = useAuth()
 
   // A spinner with no end is the worst thing a page can do: it looks like
   // progress, so people wait instead of acting. If the session could not be
@@ -74,6 +74,19 @@ export function ProtectedRoute() {
    * everybody on every cold start.
    */
   if (profile && !profile.onboarded_at) return <JoiningPage />
+
+  /*
+   * And so does somebody who went through before the form existed, or
+   * before it asked what it asks now, and has a blank where the church
+   * needs an answer (0276). The same form, with what they gave already in
+   * it and the blanks marked — the joining form's rule held for everybody,
+   * not a second, softer one for whoever was early.
+   *
+   * `profileGaps` is null until the database has answered, and when it
+   * could not be asked. Neither is "incomplete": only a list with
+   * something in it closes the door.
+   */
+  if (profile && profileGaps && profileGaps.length > 0) return <JoiningPage completing />
 
   return <Outlet />
 }

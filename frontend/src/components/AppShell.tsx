@@ -25,6 +25,7 @@ import { ActionButton, Overlay } from './Surface'
 import { Tour } from './Tour'
 import { PhoneCheckDialog } from './PhoneCheckDialog'
 import { WhatsNew } from './WhatsNew'
+import { SetupPrompt } from './SetupPrompt'
 import { ViewAsBanner } from './ViewAsBanner'
 import { Toaster } from './Toaster'
 import { useReportLocationAccess } from '../lib/locationAccess'
@@ -202,6 +203,9 @@ export function AppShell() {
 
       {/* Older phone numbers have no country code; this asks once per visit. */}
       <PhoneCheckDialog />
+
+      {/* Asked to finish setting up (0276): what is left on this phone, closable. */}
+      <SetupPrompt />
 
       {/* What is new since they last looked, once each. See lib/releases. */}
       <WhatsNew />

@@ -99,7 +99,7 @@ export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: stri
   ],
   '/giving': [{ to: '/settings/giving', label: 'Giving', blurb: 'Links, a QR code and bank details.' }],
   '/stage': [{ to: '/settings/stage', label: 'Stage Layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
-  '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Send the tour of the app, and see who has taken it.' }],
+  '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Who has set up what — details, tour, location, notifications — and asking the rest.' }],
   [BELL]: [{ to: GENERAL_ROOM, label: 'General', blurb: 'How many notifications each person’s bell keeps, and for how long.' }],
   '/feedback': [{ to: FEEDBACK_ROOM, label: 'Feedback', blurb: 'How long settled feedback is kept. The Owner’s alone.', ownerOnly: true }],
   [ALERTS]: [{ to: '/settings/alerts', label: 'Send an Alert', blurb: 'Send one, and the record of what went out.' }],

@@ -367,7 +367,7 @@ export function SendAlertPane() {
   return <SendAlertCard />
 }
 
-/** The tour of the app: send it to everyone or a few, and see who has taken it. */
+/** Who has set up what, asking the rest, and sending the tour of the app. */
 export function OnboardingPane() {
   return <OnboardingCard />
 }

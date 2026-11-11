@@ -46,6 +46,7 @@ export const NOTIFICATION_TYPES = [
   'prayer_answered',
   'call_time',
   'location_prompt',
+  'setup_prompt',
   'registration_sold_out',
 ] as const
 
@@ -115,6 +116,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   call_time: { label: 'When your team is due in', href: '/rota' },
   // Sent from Settings › Onboarding (0228): the steps to allow location.
   location_prompt: { label: 'Please allow location for the app', href: '/location' },
+  // The card itself opens over whichever page they land on (components/SetupPrompt).
+  setup_prompt: { label: 'A few things are left to set up in the app', href: '/' },
   registration_sold_out: { label: 'A ticket type has sold out', href: '/registrations' },
 }
 
