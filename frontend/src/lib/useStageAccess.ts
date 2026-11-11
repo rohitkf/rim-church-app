@@ -7,7 +7,7 @@ import type { StagePrivilege } from './stage'
  *
  * The database decides for real (`stage_may`, which asks the grid since
  * 0212); this asks the app's copy of the same grid, so a button is drawn
- * only where pressing it would work. Admins and the Owner always may;
+ * only where pressing it would work. the Owner always may, an Admin by their cell (0275);
  * everybody else as the church gives `stage.<key>` — to a profile, a team
  * they are on or lead, or them by name.
  */

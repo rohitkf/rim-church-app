@@ -70,6 +70,18 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   if (path === '/door') {
     return who.isOwner || !!who.regManager || !!who.doorWorker ? { open: true, via: 'door', level } : { open: false, level }
   }
+  // Clock In (0209) opens to whoever the grid gives `clockin.view` — a
+  // profile the church said yes for, an Admin's cell included since 0275,
+  // or a grant — and to Overwatch where its room leaves it open. Never by
+  // level, so an Admin the church said no for does not see it.
+  if (path === '/clock-in' || path.startsWith('/clock-in/')) {
+    if (maySeeClockIns({ isOwner: who.isOwner, watching: false, granted: who.clockInViewer })) {
+      return { open: true, via: standingMayOpen(who.standing, level) ? 'level' : 'clock-in', level }
+    }
+    return who.isOverwatch && overwatchOpens(path, settings.overwatch_pages)
+      ? { open: true, via: 'overwatch', level }
+      : { open: false, level }
+  }
   // A page in the grid (0215) opens by the grid's own answer — the same
   // may() can_open_page asks — so a cell closed to Heads or to Admins
   // (0274) closes it for them, and a grant by name or through a team opens
@@ -86,15 +98,6 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   // Overwatch opens what the church left open to it (Settings ›
   // Overwatch, 0187), and whatever its own teams would open besides.
   if (who.isOverwatch && overwatchOpens(path, settings.overwatch_pages)) return { open: true, via: 'overwatch', level }
-  // Clock In is also open to whoever the grid gives `clockin.view` (0209):
-  // a profile the church said yes for, or a grant by name or through a
-  // team — not a level.
-  if (
-    path === '/clock-in' &&
-    maySeeClockIns({ isAdmin: who.isAdmin, isOwner: who.isOwner, watching: false, granted: who.clockInViewer })
-  ) {
-    return { open: true, via: 'clock-in', level }
-  }
   // Prayer Requests is always open to the pastors — the Pastor role, the
   // Owner, and whoever Settings › Prayer adds (0197) — whatever level
   // Page by page sets for everybody else.

@@ -73,9 +73,9 @@ const offer = (reaches: string, byDefault: Reach): Rule => ({
 })
 const fixed = (reach: Reach = 'none'): Rule => ({ reaches: [reach], byDefault: reach })
 
-/** One Stage Layout switch (0212): Admins always; anybody else as the church gives it. */
+/** One Stage Layout switch (0212): anybody's as the church gives it — an Admin's too, starting at Yes (0275). */
 const STAGE_RULE = {
-  admin: fixed('all'),
+  admin: offer('none all', 'all'),
   head: offer('none all', 'none'),
   assistant: offer('none all', 'none'),
   coordinator: offer('none all', 'none'),
@@ -254,21 +254,22 @@ export const CATALOG = {
     member: offer('none team all', 'none'),
     newcomer: offer('none all', 'none'),
   },
-  // Who approves a request to be clocked in (0213): Admins always;
-  // anybody else as the church says, or by a grant — a team's, perhaps for
-  // its Heads alone.
+  // Who approves a request to be clocked in (0213): Admins out of the box
+  // (a choice since 0275); anybody else as the church says, or by a grant —
+  // a team's, perhaps for its Heads alone.
   'clockin.approve': {
-    admin: fixed('all'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
   },
-  // Who sees the Clock In page and every clock-in (0209): Admins always;
-  // anybody else as the church says, or by a grant (0208).
+  // Who sees the Clock In page and every clock-in (0209): Admins out of
+  // the box (a choice since 0275); anybody else as the church says, or by
+  // a grant (0208).
   'clockin.view': {
-    admin: fixed('all'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),

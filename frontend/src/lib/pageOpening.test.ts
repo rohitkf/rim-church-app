@@ -67,6 +67,30 @@ describe('a page kept to the Admins, or to the Owner (0274)', () => {
     expect(decide(owner, given, 'page.inventory')).toBe(true)
   })
 
+  it('opens Clock In by its cell, an Admin’s included (0275)', () => {
+    // opens() here is decide() on the page's own capability; Clock In asks clockin.view.
+    const ask = (p: (typeof everyone)[number], overrides: Overrides) =>
+      pageOpening(
+        '/clock-in',
+        {
+          myId: 'me',
+          standing: people[p].admin ? 'admin' : 'church',
+          isAdmin: people[p].admin,
+          isOwner: people[p].owner,
+          isOverwatch: false,
+          isPastor: false,
+          teamIds: [],
+          clockInViewer: decide(overrides, people[p], 'clockin.view'),
+          prayerCarer: false,
+        },
+        DEFAULT_SETTINGS,
+        {},
+      ).open
+    expect(everyone.filter((p) => ask(p, {}))).toEqual(['owner', 'admin'])
+    expect(everyone.filter((p) => ask(p, { 'clockin.view': { admin: 'none' } }))).toEqual(['owner'])
+    expect(everyone.filter((p) => ask(p, { 'clockin.view': { admin: 'none', head: 'all' } }))).toEqual(['owner', 'head'])
+  })
+
   it('leaves a page with no cells to standing, as before', () => {
     // Volunteers is not in the grid: Admins by standing.
     expect(who('/volunteers', {})).toEqual(['owner', 'admin'])

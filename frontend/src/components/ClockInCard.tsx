@@ -101,7 +101,7 @@ export function ClockInCard() {
               allTeams={allTeams}
               withPeople={false}
               editable
-              empty="Only the Owner and Admins approve."
+              empty="No team approves — only whoever Access & Privileges says, Admins out of the box."
               onChange={(next) => approvers.set({ teams: next.teams, people: approvers.working.people })}
             />
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
@@ -117,7 +117,7 @@ export function ClockInCard() {
               />
             </div>
             <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
-              The Owner and Admins can always approve. Heads means a team’s Head and Assisting Heads; anyone on it
+              The Owner always can, and Admins unless Access &amp; Privileges says otherwise. Heads means a team’s Head and Assisting Heads; anyone on it
               is a Welcome team at the door, say. To give it to every Team Head at once, set “Approve clock-in
               requests” in Access &amp; Privileges.
             </p>

@@ -393,3 +393,18 @@ describe('refused by name (0273)', () => {
     expect(blockableCapabilities(true)).not.toContain('msg.chat')
   })
 })
+
+describe('an Admin’s Yes on Clock In and Stage Layout is a choice (0275)', () => {
+  const caps = ['clockin.view', 'clockin.approve', 'stage.add', 'stage.edit', 'stage.delete', 'stage.comment', 'stage.templates'] as const
+
+  it('starts at Yes, and follows the cell', () => {
+    for (const cap of caps) {
+      expect(decide({}, admin, cap), cap).toBe(true)
+      expect(decide({ [cap]: { admin: 'none' } }, admin, cap), cap).toBe(false)
+      // The Owner always; and the grid itself is never an Admin's to lose.
+      expect(decide({ [cap]: { admin: 'none' } }, owner, cap), cap).toBe(true)
+    }
+    expect(decide({ 'app.permissions': { admin: 'none' } } as Overrides, admin, 'app.permissions')).toBe(true)
+  })
+})
+

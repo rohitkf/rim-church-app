@@ -188,7 +188,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'admins',
     choices: ['admins'],
     enforcement: 'fixed',
-    note: 'Admins, the Owner and Overwatch, and the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
+    note: 'The Owner, Overwatch, and whoever “See the Clock In page” says in Access & Privileges — Admins out of the box — with the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
   },
   '/registrations': {
     default: 'admins',

@@ -13,10 +13,9 @@ import {
 } from './clockIn'
 
 describe('who may see the Clock In page', () => {
-  const base = { isAdmin: false, isOwner: false, watching: false, granted: false }
+  const base = { isOwner: false, watching: false, granted: false }
 
-  it('is the Owner, Admins and Overwatch out of the box, and nobody else', () => {
-    expect(maySeeClockIns({ ...base, isAdmin: true })).toBe(true)
+  it('is the Owner, Overwatch, and whoever the grid says — an Admin by their cell, not by standing (0275)', () => {
     expect(maySeeClockIns({ ...base, isOwner: true })).toBe(true)
     expect(maySeeClockIns({ ...base, watching: true })).toBe(true)
     expect(maySeeClockIns(base)).toBe(false)
