@@ -455,6 +455,16 @@ function PageSection({
                   )}
                   <p className="min-w-0 flex-1 basis-56 text-label-md text-on-surface-faint">{rule.note}</p>
                 </div>
+                {/* Kept from the Heads, or from the Admins too (0274): said in
+                    plain words, because the database follows it as well. */}
+                {(level === 'admins' || level === 'owner') && rule.choices.length > 1 && (
+                  <p role="note" className="mt-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-label-md text-on-surface-variant">
+                    {level === 'owner'
+                      ? `Only the Owner opens ${label}. Admins lose the page and what it shows, as Heads and their teams do, until it is opened again here — Access & Privileges stays open to every Admin, so one can always put it back.`
+                      : `Only Admins and the Owner open ${label}. Team Heads and their teams lose the page and what it shows until it is opened again here.`}{' '}
+                    Somebody can still be given the page by name in Access &amp; Privileges › By person.
+                  </p>
+                )}
               </section>
             )}
 
