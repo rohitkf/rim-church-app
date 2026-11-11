@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { errorSummary, isChunkLoadError, mayReloadOnce } from '../lib/pageErrors'
+import { reloadApp } from '../lib/reloadApp'
+import { BrokenPageScreen, StalePageScreen } from './ErrorScreen'
 
 interface Props {
   children: ReactNode
@@ -8,6 +11,16 @@ interface State {
   error: Error | null
 }
 
+/**
+ * The last net: whatever throws above the router, or in something the
+ * router does not own (the providers, the update dialog).
+ *
+ * A page that fails is caught lower down, by the router's own error page
+ * (pages/RouteErrorPage); this draws the same screens for the same
+ * reasons, from the same judgement (lib/pageErrors), so somebody cannot
+ * tell which net caught them — only that the app said what happened and
+ * offered the way back.
+ */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 
@@ -17,25 +30,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled UI error:', error, info.componentStack)
+    // A release behind: reload for them, once.
+    if (isChunkLoadError(error) && mayReloadOnce()) reloadApp()
   }
 
   render() {
-    if (this.state.error) {
-      return (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-          <div className="text-headline-lg">Something went wrong</div>
-          <p className="max-w-sm text-body-sm text-on-surface-variant">
-            {this.state.error.message || 'An unexpected error occurred.'}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="rounded-full bg-primary px-4 py-2.5 text-body-sm font-semibold text-on-primary hover:opacity-90"
-          >
-            Reload
-          </button>
-        </div>
-      )
-    }
-    return this.props.children
+    const { error } = this.state
+    if (!error) return this.props.children
+    const path = typeof window === 'undefined' ? '/' : window.location.pathname
+    if (isChunkLoadError(error)) return <StalePageScreen onDashboard={path === '/'} />
+    return <BrokenPageScreen path={path} summary={errorSummary(error)} />
   }
 }

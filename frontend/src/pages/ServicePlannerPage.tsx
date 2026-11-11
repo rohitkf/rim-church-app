@@ -830,7 +830,11 @@ export function ServicePlannerPage() {
       isLoading={serviceQuery.isLoading}
       error={serviceQuery.error}
       isEmpty={serviceQuery.data === null}
-      emptyMessage="Service not found."
+      missing={{
+        title: 'Service not found',
+        body: 'It may have been deleted, or the link may be wrong.',
+        back: { to: '/service-planner', label: 'Service Planner' },
+      }}
     >
       <div>
         <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">

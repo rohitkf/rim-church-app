@@ -14,6 +14,8 @@ import type { StageBlock, StageLayout } from '../lib/stage'
  */
 
 const db = vi.hoisted(() => ({
+  /** The address names a service that is not there. */
+  noService: false,
   layout: null as StageLayout | null,
   blocks: [] as StageBlock[],
   added: [] as string[],
@@ -53,7 +55,8 @@ vi.mock('../lib/supabaseClient', () => ({
     from: (table: string) => ({
       select: () => ({
         eq: () => ({
-          single: () => Promise.resolve({ data: { id: 'svc', date: '2026-10-18', service_type: 'English Service' }, error: null }),
+          // The service itself: maybeSingle, so a service that is not there is a null and not a failure.
+          maybeSingle: () => Promise.resolve({ data: db.noService ? null : { id: 'svc', date: '2026-10-18', service_type: 'English Service' }, error: null }),
         }),
         order: () => Promise.resolve({ data: table === 'profiles' ? [{ id: 'p1', first_name: 'Jolsna', last_name: 'R' }] : [], error: null }),
       }),
@@ -162,6 +165,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  db.noService = false
   db.layout = layout()
   db.blocks = [block()]
   db.added = []
@@ -554,5 +558,16 @@ describe('a session’s stage', () => {
     await user.type(await screen.findByRole('textbox', { name: 'Template name' }), 'Sunday')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(db.kept).toEqual(['Sunday']))
+  })
+})
+
+describe('a stage layout for a service that is not there', () => {
+  it('says the service was not found, with the way to the layouts and the Dashboard, and draws no layout', async () => {
+    db.noService = true
+    show()
+    expect(await screen.findByRole('heading', { name: 'Service not found' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Stage Layouts' })).toHaveAttribute('href', '/stage')
+    expect(screen.getByRole('link', { name: 'Back to the Dashboard' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('button', { name: 'Keyboard' })).toBeNull()
   })
 })

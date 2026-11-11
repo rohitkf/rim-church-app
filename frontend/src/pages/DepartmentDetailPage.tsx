@@ -484,7 +484,12 @@ export function DepartmentDetailPage() {
   }
 
   return (
-    <QueryState isLoading={deptQuery.isLoading} error={deptQuery.error} isEmpty={deptQuery.data === null} emptyMessage="Department not found, or you don't have access to it.">
+    <QueryState
+      isLoading={deptQuery.isLoading}
+      error={deptQuery.error}
+      isEmpty={deptQuery.data === null}
+      missing={{ title: 'Team not found', back: { to: '/departments', label: 'All teams' } }}
+    >
       <div>
         {/* The handbook controls are 199px of buttons that were pinned to
             the right of the title with nowhere to go on a phone, so they

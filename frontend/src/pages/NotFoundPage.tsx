@@ -1,15 +1,20 @@
-import { Link } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { NotFoundScreen } from '../components/ErrorScreen'
 
+/**
+ * No page at this address.
+ *
+ * The route of last resort: whatever nothing else matched. It shows the
+ * address that was asked for, because the commonest cause is a link cut
+ * short or a letter mistyped and the person can see which, and it has the
+ * way back to the Dashboard. "Go back" is offered only where there is
+ * somewhere to go back to — a link opened in a fresh tab has no history,
+ * and a button that does nothing is worse than none.
+ */
 export function NotFoundPage() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center">
-      <div className="text-headline-xl">404</div>
-      <p className="text-body-md text-on-surface-variant">
-        This page doesn't exist, or you don't have access to it.
-      </p>
-      <Link to="/" className="mt-2 text-body-sm font-medium text-accent-blue-soft">
-        Back to Dashboard
-      </Link>
-    </div>
-  )
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  // React Router numbers this tab's entries; the first is 0.
+  const hasHistory = typeof window !== 'undefined' && Number((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0
+  return <NotFoundScreen path={pathname} onBack={hasHistory ? () => navigate(-1) : undefined} />
 }

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
+import { isNoSuchRow } from '../lib/pageErrors'
 import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, SegmentedControl, inputClasses } from '../components/Surface'
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
@@ -221,6 +222,15 @@ export function InventoryPage() {
   // The chips and their numbers come from the same rule, so pressing one
   // always shows exactly as many rows as it said it would.
   const chipCounts = useMemo(() => filterCounts(items, today), [items, today])
+
+  // No such team: say so, rather than an empty register with nobody's name on it.
+  if ((deptQuery.isSuccess && deptQuery.data === null) || isNoSuchRow(deptQuery.error)) {
+    return (
+      <QueryState isLoading={false} error={null} isEmpty missing={{ title: 'Team not found', back: { to: '/inventory', label: 'Inventory' } }}>
+        {null}
+      </QueryState>
+    )
+  }
 
   return (
     <div>

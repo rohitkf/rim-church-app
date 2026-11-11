@@ -1,10 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ErrorBoundary } from './ErrorBoundary'
 
-function Bomb(): never {
-  throw new Error('kaboom')
+/*
+ * The last net, above the router: the same screens as the router's own
+ * error page, for whatever it does not catch.
+ */
+
+const reloadApp = vi.hoisted(() => vi.fn())
+vi.mock('../lib/reloadApp', () => ({ reloadApp }))
+
+function Bomb({ error }: { error: Error }): never {
+  throw error
 }
+
+beforeEach(() => {
+  reloadApp.mockClear()
+  window.sessionStorage.clear()
+  // React logs the caught error to console.error; that noise is not this test's.
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})
 
 describe('ErrorBoundary', () => {
   it('renders children normally when nothing throws', () => {
@@ -16,20 +31,37 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('All good')).toBeInTheDocument()
   })
 
-  it('catches a render error and shows the fallback with the error message', () => {
-    // React logs the caught error to console.error; suppress that noise for this test.
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
+  it('catches a render error and shows the page that says so, with the error kept for whoever fixes it', () => {
     render(
       <ErrorBoundary>
-        <Bomb />
+        <Bomb error={new Error('kaboom')} />
       </ErrorBoundary>,
     )
+    expect(screen.getByRole('heading', { name: 'This page ran into a problem' })).toBeInTheDocument()
+    expect(screen.getByText('Technical details').closest('details')).toHaveTextContent('Error: kaboom')
+    // jsdom starts every test on "/", which is the Dashboard: a reload, not a link to here.
+    expect(screen.getByRole('button', { name: 'Reload the app' })).toBeInTheDocument()
+    expect(reloadApp).not.toHaveBeenCalled()
+  })
 
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
-    expect(screen.getByText('kaboom')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
+  it('reloads by itself, once, for code that would not download', () => {
+    render(
+      <ErrorBoundary>
+        <Bomb error={new TypeError('Failed to fetch dynamically imported module: /assets/index-abc.js')} />
+      </ErrorBoundary>,
+    )
+    expect(screen.getByRole('heading', { name: 'This page couldn’t be loaded' })).toBeInTheDocument()
+    expect(reloadApp).toHaveBeenCalledTimes(1)
+  })
 
-    consoleSpy.mockRestore()
+  it('does not reload twice in a row', () => {
+    window.sessionStorage.setItem('rim:reloaded-for-stale-page', String(Date.now()))
+    render(
+      <ErrorBoundary>
+        <Bomb error={new TypeError('Importing a module script failed.')} />
+      </ErrorBoundary>,
+    )
+    expect(screen.getByRole('heading', { name: 'This page couldn’t be loaded' })).toBeInTheDocument()
+    expect(reloadApp).not.toHaveBeenCalled()
   })
 })
