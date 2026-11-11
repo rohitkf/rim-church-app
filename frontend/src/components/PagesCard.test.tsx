@@ -116,13 +116,25 @@ describe('Page by Page', () => {
     expect(screen.queryByRole('table')).toBeNull()
   })
 
+  it('keeps what every service page shares in one place, Services', async () => {
+    const user = await show()
+    await user.click(section('Services'))
+    expect(screen.getByRole('button', { name: /^Days ahead/ })).toHaveTextContent('7 days')
+    for (const name of [/^Editing stays open for/, /^Doors open before/, /^Still on after/, /^Services are kept for/]) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('switch', { name: /Upcoming services start open/ })).toBeInTheDocument()
+  })
+
   it('opens a page to its settings, the room with its own controls, who can open it, each team, and the church’s rule', async () => {
     const user = await show()
     await user.click(section('Team Rota'))
-    // Its own settings, as rows — the same rows the Timings room draws.
-    expect(screen.getByRole('button', { name: /^Days ahead/ })).toHaveTextContent('7 days')
+    // Its own settings, as rows. What every service page shares is not
+    // drawn again here (each setting has one home): the page points to it.
+    expect(screen.queryByRole('button', { name: /^Days ahead/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Services are kept for/ })).toBeNull()
+    expect(screen.getByRole('link', { name: /Page by Page › Services/ })).toHaveAttribute('href', '/settings/pages#service-pages')
     expect(screen.getByRole('switch', { name: 'Always show a service somebody is rostered on' })).toBeChecked()
-    expect(screen.getByRole('button', { name: /^Services are kept for/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Raising opens before the service/ })).toBeNull()
     expect(screen.getByRole('link', { name: /Settings › Team Rota/ })).toHaveAttribute('href', '/settings/rota')
     expect(screen.getByRole('radiogroup', { name: 'Who can open Team Rota' })).toBeInTheDocument()
@@ -341,7 +353,7 @@ describe('a setting’s row on its page', () => {
   })
 
   it('says a change is not saved yet, keeps Save in reach, and sends only the number typed', async () => {
-    const user = await show('/settings/pages#checklists')
+    const user = await show('/settings/pages#service-pages')
     await typeInto(user, 'Editing stays open for', '720')
     expect(screen.getByText(/Not saved yet/)).toBeInTheDocument()
     expect(db.writes).toHaveLength(0)
@@ -368,7 +380,7 @@ describe('a setting’s row on its page', () => {
   })
 
   it('marks a moved setting until it is saved, and offers its default back', async () => {
-    const user = await show('/settings/pages#checklists')
+    const user = await show('/settings/pages#service-pages')
     await typeInto(user, 'Editing stays open for', '720')
     const row = screen.getByRole('button', { name: /^Editing stays open for/ })
     expect(within(row).getByLabelText('Changed, not saved yet')).toBeInTheDocument()
