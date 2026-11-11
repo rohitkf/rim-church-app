@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { errorMessage } from './errorMessage'
 
 describe('errorMessage', () => {
@@ -40,5 +41,30 @@ describe('errorMessage', () => {
     expect(errorMessage({}, 'fallback')).toBe('fallback')
     expect(errorMessage({ message: '   ' }, 'fallback')).toBe('fallback')
     expect(errorMessage(new Error(''), 'fallback')).toBe('fallback')
+  })
+
+  /*
+   * What came back was not in the shape the app expects. Zod's own
+   * message is every mismatch as a page of JSON, which is what an Admin
+   * used to be shown in a red box.
+   */
+  it('says a data-shape mismatch in a line: where, and what was wrong with it', () => {
+    const result = z.object({ id: z.string(), name: z.string() }).safeParse({ id: 'd1', name: null })
+    const said = errorMessage(result.error, 'fallback')
+    expect(said).toMatch(/^The data that came back was not in the shape the app expects: name — /)
+    expect(said).not.toContain('[')
+    expect(said).not.toContain('{')
+    expect(said).not.toContain('\n')
+  })
+
+  it('names the first mismatch by its path and counts the rest', () => {
+    const rows = z.array(z.object({ id: z.string(), starts_at: z.string() }))
+    const result = rows.safeParse([{ id: 'a', starts_at: 't' }, { id: 7, starts_at: null }])
+    expect(errorMessage(result.error, 'fallback')).toMatch(/expects: 1\.id — .* \(and 1 more\)$/)
+  })
+
+  it('says where when the whole answer is the wrong kind of thing', () => {
+    const result = z.array(z.string()).safeParse(null)
+    expect(errorMessage(result.error, 'fallback')).toMatch(/expects: the answer itself — /)
   })
 })

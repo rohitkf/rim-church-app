@@ -213,6 +213,16 @@ export function ShieldIcon(props: IconProps) {
   )
 }
 
+/** A compass: looking for somewhere that is not on the map (a page that does not exist). */
+export function CompassIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" />
+    </svg>
+  )
+}
+
 /** A closed padlock: something held shut on purpose (a blocked account). */
 export function LockIcon(props: IconProps) {
   return (

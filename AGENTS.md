@@ -296,6 +296,18 @@ frontend/api/                Vercel functions. register-preview.js answers
                              pages/ClosedPage.tsx is what a closed app shows
                              and pages/BlockedPage.tsx what a blocked
                              account meets
+  lib/pageErrors.ts          what went wrong with a page, as the three things
+                             a person can do something about: not-found,
+                             stale (its code would not download) and broken
+                             (it threw). components/ErrorScreen.tsx draws
+                             each, with the way back to the Dashboard;
+                             pages/RouteErrorPage.tsx is the router's
+                             errorElement (on the root route),
+                             pages/NotFoundPage.tsx the `*` route, and
+                             components/ErrorBoundary.tsx the net above the
+                             router. components/QueryState.tsx is every
+                             read's loading / failed / empty, and a detail
+                             page's "not found" (`missing`)
   lib/serviceClock.ts        the running order's countdown: what it counts to
                              now. The planner's rail and the Countdown page
                              (/countdown, 0261) both read it — never a copy
@@ -578,6 +590,24 @@ Each of these has already cost real time. None of them show up in review.
   migration: every migration that touched it replaced all of it. Signed-out
   requests pass the hook untouched, so the registration pages stay open
   during a closure, on purpose.
+- **A page that fails has a page of its own, and the router's is never
+  shown.** The app is a data router, so a route that throws or whose lazy
+  import rejects is caught by the router before `ErrorBoundary` sees it,
+  and with no `errorElement` it draws its developer screen ("Unexpected
+  Application Error!"). `RouteErrorPage` on the root route is that
+  element (a test pins it there). The commonest cause is not a bug: each
+  release renames the lazily loaded files, so a tab opened before the
+  release fails on the first page it has not visited yet. That is
+  `stale`, and it **reloads by itself, once** (`mayReloadOnce`, a stamp in
+  sessionStorage for a minute) so the person gets the page they asked for;
+  a second failure shows the page with the button rather than loop. The
+  way back on these screens is a plain `<a href="/">`, a full load, on
+  purpose: it must work when the app's own state is what broke.
+  `QueryState`'s failure strip offers *Try again* (it refetches every
+  failed query on the page, not only its own) and *Dashboard*; give a page
+  about one thing `missing={{ title, back }}` and a row that is not there
+  — null, PGRST116, or an id that is not a uuid (22P02, a link cut short)
+  — is the not-found panel instead of a red line.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
   `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,

@@ -23,6 +23,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { RouteErrorPage } from './pages/RouteErrorPage'
 import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
 import { ChurchSettingsRedirect } from './pages/ChurchSettingsRedirect'
 
@@ -100,7 +101,10 @@ if (typeof window !== 'undefined') {
 const router = createBrowserRouter(
   createRoutesFromElements(
     // Shown while a page opened straight from a link fetches its code.
-    <Route hydrateFallbackElement={<PageLoading />}>
+    // …and whatever a page does instead of opening: its code would not
+    // download, or it threw. Without an errorElement the router shows a
+    // screen written for developers.
+    <Route hydrateFallbackElement={<PageLoading />} errorElement={<RouteErrorPage />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />

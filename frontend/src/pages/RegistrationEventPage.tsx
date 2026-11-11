@@ -198,7 +198,12 @@ export function RegistrationEventPage() {
   if (full.isLoading) return <QueryState isLoading error={null}>{null}</QueryState>
   if (full.error || !full.data) {
     return (
-      <QueryState isLoading={false} error={full.error ?? new Error('No such event.')}>
+      <QueryState
+        isLoading={false}
+        error={full.error}
+        isEmpty
+        missing={{ title: 'Event not found', back: { to: '/registrations', label: 'Registrations' } }}
+      >
         {null}
       </QueryState>
     )

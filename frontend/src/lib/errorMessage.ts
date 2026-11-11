@@ -1,3 +1,5 @@
+import { ZodError } from 'zod'
+
 /**
  * Pulls a human-readable message out of whatever was thrown.
  *
@@ -7,6 +9,10 @@
  * fallback and has no idea what actually failed.
  */
 export function errorMessage(err: unknown, fallback: string): string {
+  // What the database sent did not have the shape the app expects. Zod's
+  // own message is every mismatch as a page of JSON; the first one, said
+  // in a line, is what whoever fixes it needs.
+  if (err instanceof ZodError) return shapeMismatch(err)
   if (err instanceof Error && err.message) return err.message
 
   if (typeof err === 'object' && err !== null) {
@@ -24,4 +30,12 @@ export function errorMessage(err: unknown, fallback: string): string {
   if (typeof err === 'string' && err.trim()) return err
 
   return fallback
+}
+
+function shapeMismatch(err: ZodError): string {
+  const [first, ...rest] = err.issues
+  if (!first) return 'The data that came back was not in the shape the app expects.'
+  const where = first.path.length > 0 ? first.path.map(String).join('.') : 'the answer itself'
+  const more = rest.length > 0 ? ` (and ${rest.length} more)` : ''
+  return `The data that came back was not in the shape the app expects: ${where} — ${first.message}${more}`
 }

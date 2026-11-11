@@ -41,7 +41,7 @@ export function DepartmentPrepPage() {
       isLoading={deptQuery.isLoading || serviceQuery.isLoading}
       error={deptQuery.error || serviceQuery.error}
       isEmpty={deptQuery.data === null || serviceQuery.data === null}
-      emptyMessage="Department or service not found, or you don't have access."
+      missing={{ title: 'Checklist not found', back: { to: '/checklists', label: 'Checklists' } }}
     >
       <div>
         <Link to="/checklists" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">

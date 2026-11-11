@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionButton, Overlay, PageHeader, Pill, SegmentedControl, Tile, inputClasses } from '../components/Surface'
 import { Select, triggerClasses } from '../components/Select'
 import { QueryState } from '../components/QueryState'
+import { isNoSuchRow } from '../lib/pageErrors'
 import { Lifespan } from '../components/Lifespan'
 import { StageCanvas, type BlockBox } from '../components/StageCanvas'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -79,10 +80,11 @@ import { UNDO_DEPTH, describeChange, inverseOf, isEmptyPatch, resolveId, snapsho
 
 const serviceRowSchema = z.object({ id: z.string(), date: z.string(), service_type: z.string() })
 
+/** The service, or null when there is none with that id: the page says so rather than failing. */
 async function fetchService(id: string) {
-  const { data, error } = await supabase.from('services').select('id, date, service_type').eq('id', id).single()
+  const { data, error } = await supabase.from('services').select('id, date, service_type').eq('id', id).maybeSingle()
   if (error) throw error
-  return serviceRowSchema.parse(data)
+  return data ? serviceRowSchema.parse(data) : null
 }
 
 const personSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
@@ -451,6 +453,24 @@ export function StageLayoutPage() {
     }
   }
   const notesOn = (blockId: string) => (commentsQuery.data ?? []).filter((c) => c.block_id === blockId)
+
+  // No such service: say so, rather than a layout for nothing.
+  if ((serviceQuery.isSuccess && !service) || isNoSuchRow(serviceQuery.error)) {
+    return (
+      <QueryState
+        isLoading={false}
+        error={null}
+        isEmpty
+        missing={{
+          title: 'Service not found',
+          body: 'It may have been deleted, or the link may be wrong.',
+          back: { to: '/stage', label: 'Stage Layouts' },
+        }}
+      >
+        {null}
+      </QueryState>
+    )
+  }
 
   return (
     <div>
