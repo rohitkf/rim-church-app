@@ -1,3 +1,4 @@
+import { LocationAccessCard } from './LocationAccessCard'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -121,6 +122,10 @@ export function ClockInCard() {
               requests” in Access &amp; Privileges.
             </p>
           </SectionTile>
+
+          {/* Whose phone allows location: it is about clocking in, so it
+              lives here (it sat under Onboarding until the redesign). */}
+          <LocationAccessCard />
 
           <GrantEffects changes={grantChanges} />
           <SaveBar

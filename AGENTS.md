@@ -616,6 +616,13 @@ Each of these has already cost real time. None of them show up in review.
   `to authenticated`; only `registration_proofs_insert`,
   `branding_public_select` and `registration_images_select` are for
   everybody.
+- **Settings is six groups, and each setting has one home** (the Owner's
+  redesign, November 2026; `lib/settingsSections.ts`): You, Access, Church,
+  Pages, Tools, Owner only. A setting about one page belongs to that
+  page's settings, never to the room it happened to be built beside —
+  "Location on their phones" sat under Onboarding until it moved to Clock
+  In. The agreed design, screen by screen, is the Settings redesign canvas
+  the Owner approved; build new rooms to it.
 
 ## 9. Recipes
 

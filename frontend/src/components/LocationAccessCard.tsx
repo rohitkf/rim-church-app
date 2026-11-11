@@ -19,8 +19,9 @@ import { QueryState } from './QueryState'
 import { useConfirmAction } from './ConfirmAction'
 
 /**
- * Settings › Onboarding: whose phone allows location (0228), and asking the
- * rest to allow it — beside the tour, and to the same people.
+ * Settings › Clock In: whose phone allows location (0228), and asking the
+ * rest to allow it. It sat under Onboarding until the Settings redesign;
+ * it is about clocking in, so it lives with Clock In's own settings.
  *
  * Each phone says its answer whenever the app opens on it, so the list is
  * as fresh as the last time each person opened the app. Asking sends a

@@ -1,3 +1,6 @@
+import { LocationAccessCard } from './LocationAccessCard'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -15,7 +18,6 @@ import {
 import { ActionButton, SectionTile, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
 import { useConfirmAction } from './ConfirmAction'
-import { LocationAccessCard } from './LocationAccessCard'
 
 /**
  * Settings › Onboarding: send the tour, and see who has taken it.
@@ -59,6 +61,7 @@ function StatusChip({ status }: { status: TourStatus }) {
 
 export function OnboardingCard() {
   const { can } = usePermissions()
+  const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const { ask, dialog } = useConfirmAction()
@@ -176,7 +179,21 @@ export function OnboardingCard() {
         </QueryState>
       </SectionTile>
 
-      <LocationAccessCard />
+      {/* Whose phone allows location moved to Clock In's settings in the
+          redesign. That room is an Admin's, so somebody who may send the
+          tour without being one keeps the list here; an Admin is pointed
+          to where it went. */}
+      {isAdmin ? (
+        <p className="px-1 text-body-sm text-on-surface-variant">
+          Looking for whose phone allows location? It is about clocking in, so it has moved to{' '}
+          <Link to="/settings/clock-in" className="text-accent-blue-soft hover:underline">
+            Clock In’s settings
+          </Link>
+          .
+        </p>
+      ) : (
+        <LocationAccessCard />
+      )}
       {dialog}
     </div>
   )
