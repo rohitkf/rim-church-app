@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { SETTINGS_KEY, useAppSettings } from '../lib/appSettings'
 import { useErrorText } from '../lib/useErrorText'
 import { safeVideoLink, saveVideoLink } from '../lib/videoTutorial'
@@ -9,11 +9,11 @@ import { ActionButton, SectionTile, inputClasses } from './Surface'
 
 /**
  * Settings › Video Tutorial (0233): the link behind "Video tutorial" in
- * everybody's account menu. The Owner's alone; with no link, the menu
- * item is not there.
+ * everybody's account menu. The Owner's out of the box, and whoever the
+ * grid gives the room (0277); with no link, the menu item is not there.
  */
 export function VideoTutorialCard() {
-  const { isSuperAdmin } = useAuth()
+  const mayChange = usePermissions().can('settings.video')
   const settings = useAppSettings()
   const queryClient = useQueryClient()
   const errorText = useErrorText()
@@ -32,7 +32,7 @@ export function VideoTutorialCard() {
     },
   })
 
-  if (!isSuperAdmin) return null
+  if (!mayChange) return null
   const trimmed = draft.trim()
   const valid = trimmed === '' || safeVideoLink(trimmed) !== null
   const changed = trimmed !== saved

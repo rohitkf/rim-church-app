@@ -16,6 +16,11 @@ const state = {
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ isAdmin: state.admin || state.owner, isSuperAdmin: state.owner, session: { user: { id: state.me } } }),
 }))
+// Two rows in the grid (0277): sending is anybody's on a team out of the
+// box — everybody in these tests — and reading everybody's is the Owner's.
+vi.mock('../lib/usePermissions', () => ({
+  usePermissions: () => ({ can: (cap: string) => (cap === 'feedback.manage' ? state.owner : cap === 'feedback.send') }),
+}))
 vi.mock('../components/Lifespan', () => ({ Lifespan: () => null }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {

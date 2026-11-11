@@ -94,6 +94,7 @@ the thing most likely to waste your time:
 | `permission_roles`, `permission_catalog`, `role_permissions`, `department_permissions` | who may do what: six profiles (Admin, Team Head, Assisting Head — its own column since 0162 — Team Coordinator, Team Member, Church Member), and since 0214 two church-wide standings with a few cells of their own — Overwatch (its five, below) and Pastor (the three prayer rows, fixed at Everywhere; since 0268 a cell on every other row too, No or Everywhere, No out of the box bar the three registrations cells of 0267 — all but `PASTOR_LOCKED` in `lib/permissions.ts`; `may()` reads it as a tier like an Admin's). Since 0269 every cell that can honestly be the church's is: what was a fixed No (a Church Member's and a Team Coordinator's on most rows) is a choice of No or Everywhere, No out of the box, and a No-or-team choice offers Everywhere too. Since 0270 Overwatch has a cell on every row as well, read by `may()` as a Pastor's is — never its five own cells (`OVERWATCH_OWN`), which stay `overwatch_may()`'s. What stays fixed, because a cell there would lie or hand over the keys: `app.permissions`, the two `*.as_overwatch` rows, `page.*` on the pages a Team Member always opens (Team Rota, Polls, Teams, Prayer Requests — elsewhere, since 0274, a page can be kept to the Admins or to the Owner: its Admin, Team Head and Assisting Head cells are a choice starting at Yes, `can_open_page()` asks `may()` without passing an Admin first, and the app opens a page in the grid by `decide()`, not by standing), (until 0275, an Admin's Yes on Clock In and Stage Layout — now a choice starting at Yes: `may_see_clock_ins()`, `may_approve_clock_ins()` and `stage_may()` ask `may()` alone, and the Clock In page opens by `clockin.view`, never by standing; what is not a row in the grid stays an Admin's by standing — where church is, correcting a clock-in, approving a block move), a Pastor's three prayer rows, and for Overwatch what it already reads through its room (`overwatchLocked`) — what each can be given, the church's own choices, and one team's own choices (0162: no wider than the team; `may(uid, cap, dept)` reads the team's cell for `dept` first). Settings › Page by Page (a page at a time, team by team), or Access & Privileges (by role, by person, by team, or by page-opening rule) |
 | `permission_grants` (0208) | one thing more: a capability for a person by name, or for everybody on a team (roster, Head, Assisting Heads), on their teams or everywhere. `may()` asks it last, so it only adds; only what the grid could give a non-Admin profile, never the keys to the app (`permission_grant_is_valid`). May end on a date (`expires_at`, 0218): `may()` passes an ended one by, the app filters it out on read, and `delete_expired_permission_grants()` removes its row nightly. Written by `set_permission_grants()` (`until` on a change sets or clears the date; a change that leaves it out keeps a live date); Access & Privileges › By person, By team |
 | `department_guests` | the guest roll's people on a team, `core` or `guest`, until they sign up: linking a guest to an account (`guests.became_member`) moves their rows into `department_members` (0161). Their availability answers are given for them and kept apart in `guest_availability` (+ `guest_availability_history`, 0166), and their rota roles in `guest_rota_assignments` (0167: one role per service, never Team Coordinator, no checklist or tags; the rota page reads both, keyed `guest:<id>` — lib/guestRota). Both move onto the account at sign-up; reminders, readiness, polls, checklists and late-answer asks read `rota_assignments`/`availability` and so count account holders only |
+| `settings.*`, `app.permissions`, `people.roles` / `people.admins` / `people.unadmin`, `feedback.send` / `feedback.manage`, `people.contacts` / `people.compliance`, `page.availability` / `page.checklists` / `page.team_chat` / `page.songs` / `page.volunteers` (0277) | **nothing in Settings is fixed** (the Owner's instruction, November 2026). Every room of Settings is a row in the grid — `settings.general`, `.menu`, `.pages`, `.rota`, `.stage`, `.clockin`, `.prayer`, `.overwatch` (Admins out of the box) and `.logo`, `.video`, `.feedback`, `.erase` (nobody but the Owner out of the box) — so a room opens to a role's cell, or to a team or a person given it by name (`lib/settingsSections.ts`: `capability`, and `also` for rooms that hold the grid's rules too). The settings row is guarded column by column: `app_setting_rooms(col)` names the rooms a column belongs to, the `app_settings_guard_rooms` trigger refuses a changed column whose room the caller does not hold, and a column not named there is Page by Page's. The grid itself (`app.permissions`) is a choice in every cell — every Admin out of the box; the Owner always passes `may()`, so nothing here can lock the Owner out. Roles: `people.roles` gives and takes Head, Assisting Head, Overwatch, Pastor and Service Flow Coordinator rows of `user_roles`, `people.admins` makes an Admin, `people.unadmin` takes Admin from somebody else (anybody may still give up their own; the Owner's cannot be taken). Feedback: `feedback.send` (anybody on a team out of the box; it opens /feedback) and `feedback.manage` (reads and answers everybody's; told of new feedback). `people.contacts` (everybody's email, phone, households: `people_contacts()`) and `people.compliance` (everybody's `profile_sensitive`) were the Owner's alone. **A room gives out its own rights**: `permission_room(cap)` maps `clockin.*`, `prayer.*`, `stage.*` and `planner.*` to their room, and `set_permission_grants()` lets the room's holder give those (and only those) without the grid; `set_permissions()` lets the Overwatch room's holder set Overwatch's five own cells. Rooms draw each section for whoever may change it (`mine` / `givesRights` in the cards). Every page but the Dashboard has a level since 0277 — the four a Team Member always opened (Team Rota, Polls, Teams, Prayer Requests) can be kept to Heads, Admins or the Owner, and Availability, Checklists, Team Chat, Songs and Volunteers have rows of their own; Clock In, the Countdown, Registrations, Reception and Feedback open by their own rows (`enforcement: 'permission'`, `by`), Issues follows who may raise one (`'follows'`). **Still fixed, because a choice would be untrue**: handing over ownership, the Owner's own Admin role, the Dashboard (where everybody lands), a Team Coordinator's and — on pages that need a team — a Church Member's cell on a page's row, the two things done as Overwatch, and your own things. `admin_reset_data()` never deletes the Owner's account, whoever runs it |
 | `permission_changes` (0216) | who changed which rule: a row for every insert, change or delete in `role_permissions`, `department_permissions` and `permission_grants`, written by the `log_permission_change()` trigger with `auth.uid()` (none when the app itself did it, in a migration); team and person kept as bare ids so a row outlives them; a grant's end date before and after (0218). Read by whoever may change the grid; Access & Privileges › History |
 | `user_roles.role_type` | `admin`, `department_head`, `assisting_head`, `service_flow_coordinator`, `overwatch`, `pastor` |
 | `role_type = 'overwatch'` (0186, 0187) | **Overwatch** — sees every team as an Admin does (`can_view_department_content` / `may_read_team` say yes, and the reads that ask other things have an `*_overwatch_read` policy beside theirs), changes almost nothing: `may()` gives it nothing. It may do five things, each its cell in the grid's Overwatch column (0214: `msg.board_post`, `msg.chat`, `msg.polls`, and its own `issue.as_overwatch` and `debrief.as_overwatch`, which nobody else may be given) read by `overwatch_may()` — never by `may()`, because each is done as Overwatch, church-wide on the board, as themselves, on a page open to it. Until 0214 they were `app_settings.overwatch_*` switches, dropped in 0217. It opens the pages `app_settings.overwatch_pages` leaves open (page → open; Volunteers starts closed) through `can_open_page` / `overwatch_sees()`. Its issues carry `raised_as_overwatch`; its debrief is the one with `department_id` null (one per service, `unique nulls not distinct`). Given from Volunteers (Admins), set in Settings › Overwatch (its pages, and the same five cells) or its column in Access & Privileges. On screen `seesAllTeams` (Admin or Overwatch) is for what is drawn only — never for what may be changed. Contacts, compliance and households stay the Owner's |
@@ -343,18 +344,22 @@ Since 0133 the church sets some of them itself, in Settings › Access &
 privileges. That does not move authorization into the app: the grid is
 rows in `role_permissions`, the policies ask `may()`, and `may()` reads
 the rows. The app's `can()` only decides which buttons to draw. The Owner
-always passes `may()`, and Admin can always edit the grid
-(`app.permissions` is fixed) — that is how a wrong setting gets put right.
+always passes `may()` — that is how a wrong setting gets put right; an
+Admin edits the grid unless the church has said otherwise
+(`app.permissions` is a cell like any other since 0277).
 Every area is converted (0133–0144), with the defaults reproducing the
 old rules exactly — each was dry-run against the live data, old rule
-against `may()`, for every person and row, before it went live. Fixed on
-purpose, and outside the grid: what anybody can *see* (that follows team
-membership and the Pages tab), your own things (your profile, your
-answers, withdrawing your own request), the guards that are about time
-rather than people (`service_has_finished`, the checklist and debrief
-windows), Feedback (the Owner's), and The app itself — who is an Admin or
-a Head, settings, the grid itself — because whoever could change those
-could hand themselves everything else.
+against `may()`, for every person and row, before it went live. Outside
+the grid, because they are not rules about who: what anybody can *see*
+(that follows team membership and each page's level), your own things
+(your profile, your answers, withdrawing your own request, your own
+feedback), and the guards that are about time rather than people
+(`service_has_finished`, the checklist and debrief windows). Feedback and
+"the app itself" — who is an Admin or a Head, each room of Settings, the
+grid itself — were fixed until 0277, on the reasoning that whoever could
+change them could hand themselves everything else; the Owner asked for
+them to be the church's to give, and they are rows now. Only handing over
+ownership is not: it is the Owner's own to give.
 
 - Add `supabase/migrations/00NN_a_sentence_about_it.sql`. **Never edit a
   migration that has shipped.**
@@ -499,7 +504,8 @@ Each of these has already cost real time. None of them show up in review.
   0128) and their select policies hide them the moment it passes. Anything
   that reads them with the service role has to filter for itself.
 - **`profiles` is readable column by column** (0127). Email, phone and
-  marital status are closed to everybody; the Owner reads others' through
+  marital status are closed to everybody; whoever holds `people.contacts`
+  (the Owner alone out of the box, 0277) reads others' through
   `people_contacts()`, everyone reads their own through `my_profile()`,
   and a Head adds by address through `person_by_email()` (0126). Date of
   birth is closed too (0257): `dob` comes through `birth_dates()` (0256,
@@ -681,7 +687,9 @@ is the page starting to lie.
 **A new app-wide setting**: first decide which kind it is
 (`docs/configuration.md`). **A rule** the database must obey —
 `app_settings` column with a check constraint in a migration →
-`lib/appSettings.ts`. **A preference only the screens read** — a key in
+`lib/appSettings.ts`. The column is Page by Page's (`settings.pages`)
+unless the same migration names another room for it in
+`app_setting_rooms()` (0277). **A preference only the screens read** — a key in
 `lib/display.ts` (`DISPLAY_DEFAULTS` and `readDisplay`, which falls back
 per key), no migration → read it with `useDisplay()`. Either way, **one
 entry in `lib/settingsCatalog.ts`**: its name, one line, the long
@@ -745,8 +753,16 @@ capability (`openingFor()`) — is also said in `lib/personAccess.ts`, or
 By person will tell an Admin somebody can't do what they can.
 
 **A new Settings room**: an entry in `SETTINGS_GROUPS`
-(`lib/settingsSections.ts`) with its glyph, tone and `needs`, a child
-route in `App.tsx`, and a pane export in `pages/SettingsPage.tsx`. The
+(`lib/settingsSections.ts`) with its glyph, tone, `needs` and — since
+0277, always — its own `capability` (`settings.<room>`: eight catalog
+lines in a migration, the same in `lib/permissions.ts` with `given()`, a
+row under "Settings & the keys" in `lib/permissionMatrix.ts`), a child
+route in `App.tsx`, and a pane export in `pages/SettingsPage.tsx`. If it
+writes columns of `app_settings`, name them in `app_setting_rooms()`; if
+it writes a table, that table's write policies ask
+`may(auth.uid(), 'settings.<room>')`; if it lists rights by team and
+person, map their prefix in `permission_room()`. The pane decides with
+`can()`, never `isAdmin` or `isSuperAdmin`. The
 shell draws its title and blurb, so the room itself starts with content,
 not a heading.
 
@@ -792,3 +808,35 @@ So a session that starts from nothing works the way the last one did:
 7. **Keep this file current** in the same commit as the change it
    describes; the vocabulary table (§3) carries what each table and
    function is for, §8 every trap that cost a real bug.
+
+## 12. The skills installed in this repo
+
+`.claude/skills/` holds eight skill sets copied in at a pinned commit, each
+with a `SOURCE.md` saying where it came from, its licence and what was
+left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
+`impeccable`, `hallmark`, `i-have-adhd` and `graphify` (beside
+`security-audit`, and `frontend/.claude/skills/verify`). All but
+`graphify` and `security-audit` are plugin folders: they load as
+`<set>@skills-dir` and their skills are called `<set>:<skill>`.
+
+**Read the `rim-toolbox` skill before picking one.** It says which skill
+fits which job here and, more to the point, where these skills are
+overruled: they were written for other projects, and several say MUST
+about things this file forbids (making a branch, opening a PR, writing a
+one-line commit). This file wins; `rim-toolbox` lists the collisions.
+
+- **Nothing is fetched when a session starts.** To take a newer version
+  of a set, copy the new commit in, read the difference, and update its
+  `SOURCE.md`. Their auto-running hooks are left out on purpose; the one
+  exception is ponytail's, which its panel needs and which were read
+  first (they run `git ls-files` and write flag files; no network).
+- **Two panels sit above the prompt**: ponytail's own, and caveman's,
+  which is written here (`.claude/skills/caveman/hooks/band/`, with tests
+  in `tests/`: `claude plugin validate` and `claude plugin test` on that
+  folder). Caveman starts off; a mode shapes chat replies only, never
+  anything that is kept.
+- **The code graph is not committed.** `graphify extract . --code-only`
+  then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in
+  about twenty seconds with no model calls (`pip install
+  "graphifyy[sql]"` first in a fresh container). `.graphifyignore` keeps
+  the copied skills and built output out of it.

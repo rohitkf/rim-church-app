@@ -15,7 +15,6 @@ import { userRoleSchema } from '../auth/types'
 import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { fetchBirthDates, fullDate } from '../lib/birthDates'
-import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
@@ -159,7 +158,6 @@ function Age({ dob }: { dob: string | null | undefined }) {
 
 export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { isSuperAdmin: isOwner } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   // Each of this team's controls is its own permission (Settings › Access
@@ -169,6 +167,10 @@ export function DepartmentDetailPage() {
   // Who sees how old people are is the church's to say (people.ages,
   // 0258) — out of the box the Owner and Admins. A preview follows it.
   const seesAges = can('people.ages')
+  // Contact details, and visa and DBS details, are each their own row since
+  // 0277 — the Owner's alone out of the box. A preview follows them.
+  const seesContacts = can('people.contacts')
+  const seesCompliance = can('people.compliance')
   const here = { departmentId: id ?? null }
   const canManage = can('team.members', here)
   const canEditTeam = can('team.edit', here)
@@ -189,8 +191,8 @@ export function DepartmentDetailPage() {
   })
 
   const membersQuery = useQuery({
-    queryKey: ['department-members', id, isOwner, seesAges],
-    queryFn: () => fetchMembers(id!, isOwner, seesAges),
+    queryKey: ['department-members', id, seesContacts, seesAges],
+    queryFn: () => fetchMembers(id!, seesContacts, seesAges),
     enabled: !!id,
   })
 
@@ -239,8 +241,8 @@ export function DepartmentDetailPage() {
   const sensitiveQuery = useQuery({
     queryKey: ['department-members-sensitive', id, memberIds],
     queryFn: () => fetchSensitive(memberIds),
-    // Visa and DBS are the Owner's to see (0126); nobody else is asked.
-    enabled: isOwner && memberIds.length > 0,
+    // Visa and DBS are for whoever the grid names (0126, 0277); nobody else is asked.
+    enabled: seesCompliance && memberIds.length > 0,
   })
 
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
@@ -599,7 +601,7 @@ export function DepartmentDetailPage() {
                       {/* An email has no spaces to wrap at, so it needs
                           permission to break mid-word or it sets the card's
                           width for it. The Owner's alone to see. */}
-                      {isOwner && m.profiles?.email && (
+                      {seesContacts && m.profiles?.email && (
                         <div className="mt-1 break-all text-body-sm text-on-surface-variant">
                           {m.profiles.email}
                         </div>
@@ -610,7 +612,7 @@ export function DepartmentDetailPage() {
                         </div>
                       )}
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-                        {isOwner ? <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} /> : <span />}
+                        {seesCompliance ? <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} /> : <span />}
                         {canManage && (
                           <span className="flex items-center gap-3">
                             {moveButton(
@@ -654,8 +656,8 @@ export function DepartmentDetailPage() {
                       <th className="py-2 pr-4">Member</th>
                       {seesAges && <th className="py-2 pr-4">Age</th>}
                       <th className="py-2 pr-4">On this team</th>
-                      {isOwner && <th className="py-2 pr-4">Contact</th>}
-                      {isOwner && <th className="py-2 pr-4">Compliance</th>}
+                      {seesContacts && <th className="py-2 pr-4">Contact</th>}
+                      {seesCompliance && <th className="py-2 pr-4">Compliance</th>}
                       {canManage && <th className="py-2" />}
                     </tr>
                   </thead>
@@ -673,12 +675,12 @@ export function DepartmentDetailPage() {
                           <td className="py-3 pr-4 text-on-surface-variant">
                             {DESIGNATION_LABEL[designationOf(m.user_id)]}
                           </td>
-                          {isOwner && (
+                          {seesContacts && (
                             <td className="py-3 pr-4 break-all text-on-surface-variant">
                               {m.profiles?.email}
                             </td>
                           )}
-                          {isOwner && (
+                          {seesCompliance && (
                             <td className="py-3 pr-4">
                               <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
                             </td>
@@ -714,7 +716,7 @@ export function DepartmentDetailPage() {
                       ))}
                     {rollCore.map((g) => (
                       <tr key={g.id} className="border-b border-border-subtle last:border-0">
-                        <td colSpan={2 + (seesAges ? 1 : 0) + (isOwner ? 2 : 0) + (canManage ? 1 : 0)} className="py-3">
+                        <td colSpan={2 + (seesAges ? 1 : 0) + (seesContacts ? 1 : 0) + (seesCompliance ? 1 : 0) + (canManage ? 1 : 0)} className="py-3">
                           <div className="flex items-center justify-between gap-3">{rollRow(g, 'guest')}</div>
                         </td>
                       </tr>
@@ -868,7 +870,7 @@ export function DepartmentDetailPage() {
                         <div className="text-body-sm font-medium text-on-surface">
                           {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                         </div>
-                        {isOwner && m.profiles?.email && (
+                        {seesContacts && m.profiles?.email && (
                           <div className="break-all text-body-sm text-on-surface-variant">
                             {m.profiles.email}
                           </div>

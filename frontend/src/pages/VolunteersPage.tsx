@@ -125,9 +125,16 @@ const designationClass: Record<string, string> = {
 
 export function VolunteersPage() {
   const { isAdmin, isSuperAdmin, seesAllTeams, ownerId, session } = useAuth()
-  // Removing an account and inviting are the church's to grant (Settings ›
-  // Access & Privileges); who holds Admin or heads a team stays an Admin's.
+  // Everything on this page is the church's to grant (Settings › Access &
+  // Privileges): opening it, inviting, removing an account — and, since
+  // 0277, giving out roles, making and unmaking Admins, and seeing
+  // people's contact details. Each button asks for its own row.
   const { can } = usePermissions()
+  const opensPage = seesAllTeams || can('page.volunteers')
+  const givesRoles = can('people.roles')
+  const makesAdmins = can('people.admins')
+  const removesAdmins = can('people.unadmin')
+  const seesContacts = can('people.contacts')
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -138,19 +145,20 @@ export function VolunteersPage() {
   const [inviting, setInviting] = useState(false)
 
   const volunteersQuery = useQuery({
-    queryKey: ['volunteers', isSuperAdmin],
-    queryFn: () => fetchVolunteers(isSuperAdmin),
-    // Overwatch may be given this page to read (0187); every action on it stays an Admin's.
-    enabled: seesAllTeams,
+    queryKey: ['volunteers', seesContacts],
+    queryFn: () => fetchVolunteers(seesContacts),
+    // Whoever the page opens to reads it — Overwatch too, where its room
+    // leaves it open (0187); each action on it is its own row.
+    enabled: opensPage,
   })
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: seesAllTeams })
-  const grantsQuery = useQuery({ queryKey: ['all-user-roles'], queryFn: fetchAllGrants, enabled: seesAllTeams })
+  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: opensPage })
+  const grantsQuery = useQuery({ queryKey: ['all-user-roles'], queryFn: fetchAllGrants, enabled: opensPage })
 
   const allDeptIds = useMemo(() => (departmentsQuery.data ?? []).map((d) => d.id), [departmentsQuery.data])
   const membersQuery = useQuery({
     queryKey: ['volunteer-memberships', allDeptIds],
     queryFn: () => fetchMembersForDepartments(allDeptIds),
-    enabled: seesAllTeams && allDeptIds.length > 0,
+    enabled: opensPage && allDeptIds.length > 0,
   })
 
   const refresh = () => {
@@ -240,7 +248,8 @@ export function VolunteersPage() {
   const { ask, dialog } = useConfirmAction()
   const sectionOpen = (id: string) => (id === UNATTACHED) !== isToggled(id)
 
-  if (!seesAllTeams) return <Navigate to="/" replace />
+  // The route's own gate (PageGate) has waited for the grid already.
+  if (!opensPage) return <Navigate to="/" replace />
 
   const grants = grantsQuery.data ?? []
   const memberships = membersQuery.data ?? []
@@ -332,7 +341,7 @@ export function VolunteersPage() {
     const shownDeptIds = [...new Set([...core.map((m) => m.department_id), ...ledDeptIds])]
     // Whether the foot of the card has anything on it at all. An account
     // nobody present can act on shouldn't grow an empty bar for it.
-    const canManageAdmin = !holdsAdmin || (isSuperAdmin && !isOwner)
+    const canManageAdmin = (!holdsAdmin && (givesRoles || makesAdmins || isAdmin)) || (holdsAdmin && !isOwner && (removesAdmins || isSuperAdmin))
     const canRemove =
       can('people.remove') && v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
 
@@ -366,7 +375,7 @@ export function VolunteersPage() {
                 </span>
               )}
               {/* Everything they can open and do, and why: Access & Privileges › By person. */}
-              {isAdmin && (
+              {can('app.permissions') && (
                 <Link
                   to={`/settings/access?tab=person&person=${v.id}`}
                   aria-label={`What ${v.first_name} ${v.last_name} can do`}
@@ -376,8 +385,8 @@ export function VolunteersPage() {
                 </Link>
               )}
             </div>
-            {/* The Owner's alone: nobody else is sent it. */}
-            {isSuperAdmin && v.email && (
+            {/* For whoever the grid gives contact details: nobody else is sent it. */}
+            {seesContacts && v.email && (
               <div className="truncate text-body-sm text-on-surface-variant">{v.email}</div>
             )}
           </div>
@@ -442,7 +451,7 @@ export function VolunteersPage() {
                       >
                         {designation}
                       </span>
-                      {!isAdmin ? null : leadGrant ? (
+                      {!givesRoles ? null : leadGrant ? (
                         <button
                           onClick={() =>
                             ask({
@@ -521,12 +530,13 @@ export function VolunteersPage() {
             of the card rather than tucked in beside the name. Nothing here
             is reversible by the person it happens to, so it reads as a row
             of decisions and not as part of the heading. */}
-        {isAdmin && (canManageAdmin || canRemove) && (
+        {(canManageAdmin || canRemove) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
             {(() => {
               const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
               const open = (departmentsQuery.data ?? []).filter((d) => !onTeams.has(d.id))
-              if (open.length === 0) return null
+              // Putting somebody on any team at all is an Admin's, as it was.
+              if (!isAdmin || open.length === 0) return null
               const chosen = placeIn[v.id] ?? ''
               return (
                 <span className="mr-auto flex flex-wrap items-center gap-2">
@@ -550,7 +560,7 @@ export function VolunteersPage() {
                 </span>
               )
             })()}
-            {!holdsAdmin && (
+            {!holdsAdmin && makesAdmins && (
               <button
                 onClick={() =>
                   grantRole.mutate({ userId: v.id, roleType: 'admin', departmentId: null })
@@ -562,7 +572,7 @@ export function VolunteersPage() {
             )}
             {/* Overwatch (0187): sees every team, changes almost nothing.
                 An Admin already sees everything, so it is not offered to one. */}
-            {isAdmin && !holdsAdmin && !overwatchGrant && (
+            {givesRoles && !holdsAdmin && !overwatchGrant && (
               <button
                 onClick={() =>
                   ask({
@@ -577,7 +587,7 @@ export function VolunteersPage() {
                 Make Overwatch
               </button>
             )}
-            {isAdmin && overwatchGrant && (
+            {givesRoles && overwatchGrant && (
               <button
                 onClick={() =>
                   ask({
@@ -594,7 +604,7 @@ export function VolunteersPage() {
             )}
             {/* Pastor (0197): reads the private prayer requests, and is who
                 the Prayer Requests page means by "the pastors". */}
-            {isAdmin && !pastorGrant && (
+            {givesRoles && !pastorGrant && (
               <button
                 onClick={() =>
                   ask({
@@ -609,7 +619,7 @@ export function VolunteersPage() {
                 Make Pastor
               </button>
             )}
-            {isAdmin && pastorGrant && (
+            {givesRoles && pastorGrant && (
               <button
                 onClick={() =>
                   ask({
@@ -624,11 +634,12 @@ export function VolunteersPage() {
                 Remove Pastor
               </button>
             )}
-            {/* Taking Admin away is the owner's, or your own to give up.
-                One Admin removing another is how a disagreement becomes a
-                lockout, so the button simply isn't there. Never your own
-                either — stepping yourself down locks the door behind you. */}
-            {holdsAdmin && isSuperAdmin && !isOwner && adminGrant && v.id !== session?.user.id && (
+            {/* Taking Admin away is the Owner's out of the box, and whoever
+                the grid gives it (0277). One Admin removing another is how
+                a disagreement becomes a lockout, so for anybody else the
+                button simply isn't there. Never your own either — stepping
+                yourself down locks the door behind you. */}
+            {holdsAdmin && removesAdmins && !isOwner && adminGrant && v.id !== session?.user.id && (
               <button
                 onClick={() =>
                   ask({
@@ -711,6 +722,8 @@ export function VolunteersPage() {
           adminIds={new Set(grants.filter((g) => g.role_type === 'admin').map((g) => g.user_id))}
           ownerId={ownerId}
           isOwner={isSuperAdmin}
+          seesContacts={seesContacts}
+          seesCompliance={can('people.compliance')}
           onClose={() => setExporting(false)}
         />
       )}

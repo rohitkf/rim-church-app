@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
 import { SETTINGS_KEY, fetchAppSettings, updateSettings } from '../lib/appSettings'
 import {
@@ -31,8 +31,9 @@ import { ActionButton, SectionTile, inputClasses } from './Surface'
  * colour dialog cannot promise.
  */
 export function RotaLookCard() {
-  const { isAdmin } = useAuth()
-  if (!isAdmin) return null
+  // The room's own row (0277): Admins out of the box.
+  const mayChange = usePermissions().can('settings.rota')
+  if (!mayChange) return null
   return (
     <div className="flex flex-col gap-4">
       <SectionTile

@@ -1,0 +1,8 @@
+# What graphify leaves out of the project's graph: other people's code and built output.
+.claude/
+frontend/.claude/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+graphify-out/
+docs/*.html

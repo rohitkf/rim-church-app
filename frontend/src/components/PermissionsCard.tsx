@@ -273,8 +273,8 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
         ) : (
           <>Areas marked Editable are set by the church’s Admins; the database follows them on every request.</>
         )}{' '}
-        A row with no choice is fixed on purpose: what anybody can see, what is your own, and the
-        keys to the app itself.
+        A row with no choice is not a rule of its own: what anybody can see follows who can open
+        the page, and what is your own is always yours.
       </p>
 
       <SegmentedControl
@@ -633,8 +633,9 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
       {/* Said out loud, because a reference that quietly goes stale is
           worse than none: somebody would trust it. */}
       <p className="px-1 text-label-sm text-on-surface-faint">
-        The Owner always holds every permission, and every Admin can always change this grid — that is
-        how a wrong setting gets put right. The fixed rows were read from the database’s own policies
+        The Owner always holds every permission — that is how a wrong setting gets put right. Who
+        else may change this grid is its own row, under Settings &amp; the keys. The rows the app sets
+        were read from the database’s own policies
         on {CHECKED_ON}. Adding a rule later will not update them by itself — if one disagrees with
         what the app does, the app is right and this needs correcting.
       </p>

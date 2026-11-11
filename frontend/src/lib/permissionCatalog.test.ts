@@ -73,7 +73,7 @@ describe('the permission catalog', () => {
   it('gives Overwatch its five own cells at Everywhere, and a cell at No on every other row it does not already read (0214, 0270)', () => {
     for (const cap of OVERWATCH_OWN) expect(ruleFor(cap as CapabilityKey, 'overwatch'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     const without = CAPABILITY_KEYS.filter((cap) => !hasCell(cap, 'overwatch'))
-    expect(without.filter((c) => !c.startsWith('page.')).sort()).toEqual(['app.permissions', 'avail.history', 'clockin.view'])
+    expect(without.filter((c) => !c.startsWith('page.')).sort()).toEqual(['avail.history', 'clockin.view'])
     expect(without.filter((c) => c.startsWith('page.')).length).toBe(CAPABILITY_KEYS.filter((c) => c.startsWith('page.')).length)
     // One row is fixed at No (0272): request_team_join() refuses Overwatch whatever a cell says.
     expect(ruleFor('team.request_join', 'overwatch')).toEqual({ reaches: ['none'], byDefault: 'none' })
@@ -86,13 +86,13 @@ describe('the permission catalog', () => {
     }
   })
 
-  it('gives a Pastor a cell on every row but four, No out of the box bar prayer and registrations (0267, 0268)', () => {
+  it('gives a Pastor a cell on every row but three, No out of the box bar prayer and registrations (0267, 0268)', () => {
     const without = CAPABILITY_KEYS.filter((cap) => !hasCell(cap, 'pastor')).sort()
     expect(without).toEqual([...PASTOR_LOCKED].sort())
-    expect(without).toEqual(['app.permissions', 'debrief.as_overwatch', 'issue.as_overwatch', 'page.prayer'])
-    // Always: the three prayer rows, not the church's to take away.
+    expect(without).toEqual(['debrief.as_overwatch', 'issue.as_overwatch', 'page.prayer'])
+    // The three prayer rows: Yes out of the box, and the church's to change since 0277.
     for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
-      expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['all'], byDefault: 'all' })
+      expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     }
     // Out of the box: reading both registrations pages, and verifying payments.
     const yes = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'pastor') && ruleFor(cap, 'pastor').byDefault !== 'none').sort()
@@ -114,12 +114,24 @@ describe('the permission catalog', () => {
     for (const cap of asked) expect(CAPABILITY_KEYS, cap).toContain(cap)
   })
 
-  it('keeps the essentials locked', () => {
-    // The Admin can always change the grid; nobody else is offered it.
-    expect(CATALOG['app.permissions'].admin).toEqual({ reaches: ['all'], byDefault: 'all' })
+  it('starts the keys where they were fixed, and leaves them the church’s to give (0277)', () => {
+    // The grid itself: every Admin out of the box, nobody else — and every cell a choice.
+    expect(CATALOG['app.permissions'].admin).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     for (const role of GRANT_ROLES.filter((r) => r !== 'admin')) {
-      expect(CATALOG['app.permissions'][role].reaches, role).toEqual(['none'])
+      expect(CATALOG['app.permissions'][role], role).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
+    // What was an Admin's by standing starts as every Admin's; what was the Owner's alone, as nobody's.
+    const admins = ['people.roles', 'people.admins', 'settings.general', 'settings.menu', 'settings.pages', 'settings.rota', 'settings.stage', 'settings.clockin', 'settings.prayer', 'settings.overwatch'] as const
+    const owners = ['people.unadmin', 'settings.logo', 'settings.video', 'settings.feedback', 'settings.erase', 'feedback.manage', 'people.contacts', 'people.compliance'] as const
+    for (const cap of admins) expect(CATALOG[cap].admin.byDefault, cap).toBe('all')
+    for (const cap of [...admins, ...owners]) {
+      for (const role of GRID_ROLES) {
+        expect(ruleFor(cap, role).reaches, `${cap} ${role}`).toEqual(['none', 'all'])
+        if (role !== 'admin' || owners.includes(cap as (typeof owners)[number])) expect(ruleFor(cap, role).byDefault, `${cap} ${role}`).toBe('none')
+      }
+    }
+    // Sending feedback was anybody's on a team.
+    expect(GRID_ROLES.filter((role) => ruleFor('feedback.send', role).byDefault === 'all')).toEqual(['admin', 'head', 'assistant', 'member'])
     // Since 0269 a Church Member's cell is the church's to set wherever
     // the database can honour it — but always No out of the box where it
     // was fixed, and never "their team": they are on none.
@@ -127,10 +139,13 @@ describe('the permission catalog', () => {
       expect(CATALOG[cap].newcomer, cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
     for (const cap of CAPABILITY_KEYS) expect(CATALOG[cap].newcomer.reaches, cap).not.toContain('team')
-    // No dashes left but the ones that would lie or hand over the keys:
-    // the grid itself, the two things done as Overwatch, a page's level.
+    // No dashes left but the ones that would lie: the two things done as
+    // Overwatch, and a page's cell for somebody it cannot mean anything to.
     const fixedNo = CAPABILITY_KEYS.flatMap((cap) => GRANT_ROLES.filter((role) => ruleFor(cap, role).reaches.length === 1 && ruleFor(cap, role).byDefault === 'none').map(() => cap))
-    expect([...new Set(fixedNo.filter((c) => !c.startsWith('page.')))].sort()).toEqual(['app.permissions', 'debrief.as_overwatch', 'issue.as_overwatch'])
+    expect([...new Set(fixedNo.filter((c) => !c.startsWith('page.')))].sort()).toEqual(['debrief.as_overwatch', 'issue.as_overwatch'])
+    // And nothing at all is fixed at Yes.
+    const fixedYes = CAPABILITY_KEYS.flatMap((cap) => GRID_ROLES.filter((role) => ruleFor(cap, role).reaches.length === 1 && ruleFor(cap, role).byDefault !== 'none').map(() => cap))
+    expect(fixedYes).toEqual([])
   })
 
   it('is described once each on the Access page', () => {

@@ -32,11 +32,15 @@ describe('a right somebody could not reach', () => {
     expect(needs([give('pastor', 'reg.manage')])).toEqual([])
   })
 
-  it('says so, with no cell to offer, where the page is fixed to teams or Admins', () => {
+  it('says so, with no cell to offer, where the role has none on the page', () => {
+    // Availability needs a team: a Church Member has no cell to open it by.
     expect(needs([give('newcomer', 'avail.nudge')])).toEqual([
       { role: 'newcomer', capability: 'avail.nudge', page: '/availability', pageName: 'Availability', opener: null },
     ])
-    expect(needs([give('pastor', 'people.remove')])[0]).toMatchObject({ page: '/volunteers', opener: null })
+  })
+
+  it('offers the page’s own row where the page has a choice (0277)', () => {
+    expect(needs([give('pastor', 'people.remove')])[0]).toMatchObject({ page: '/volunteers', opener: 'page.volunteers' })
   })
 
   it('offers "See every clock-in" as what opens Clock In', () => {

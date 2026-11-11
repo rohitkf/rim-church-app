@@ -465,7 +465,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/data',
         title: 'Erase Data',
-        body: 'The one that empties the diary. It asks twice, and it is yours alone.',
+        body: 'The one that empties the diary. It asks twice, and it is yours alone until you give it to somebody in Access & Privileges.',
       },
     ],
   },

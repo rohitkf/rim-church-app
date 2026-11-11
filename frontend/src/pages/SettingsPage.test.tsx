@@ -7,6 +7,8 @@ import { ChurchSettingsRedirect } from './ChurchSettingsRedirect'
 import { SETTINGS_SECTIONS } from '../lib/settingsSections'
 
 let standing = { isAdmin: false, isSuperAdmin: false }
+/** Rights given to this person by name (permission_grants), for the tests that give one. */
+let given: string[] = []
 const profile = { first_name: 'Grace', last_name: 'Mensah', email: 'grace@example.test' }
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ ...standing, profile }) }))
@@ -16,7 +18,18 @@ vi.mock('../lib/usePermissions', async () => {
   return {
     usePermissions: () => ({
       can: (cap: Parameters<typeof decide>[2]) =>
-        decide({}, { myId: 'me', owner: standing.isSuperAdmin, admin: standing.isAdmin, ledTeams: [], memberTeams: [] }, cap),
+        decide(
+          {},
+          {
+            myId: 'me',
+            owner: standing.isSuperAdmin,
+            admin: standing.isAdmin,
+            ledTeams: [],
+            memberTeams: [],
+            grants: given.map((capability, i) => ({ id: String(i), capability, userId: 'me', departmentId: null, reach: 'all' as const, leadsOnly: false })) as never,
+          },
+          cap,
+        ),
     }),
   }
 })
@@ -72,7 +85,7 @@ describe('the Settings hall', () => {
     ])
     // And no heading over a group they have nothing in.
     expect(screen.queryByRole('heading', { name: 'Pages' })).toBeNull()
-    expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'The app itself' })).toBeNull()
   })
 
   it('gives an Admin access, the church, its pages and the tools, but not the owner’s', () => {
@@ -80,7 +93,7 @@ describe('the Settings hall', () => {
     for (const heading of ['You', 'Access', 'Church', 'Pages', 'Tools']) {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
-    expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'The app itself' })).toBeNull()
     const hrefs = roomLinks().map((a) => a.getAttribute('href'))
     expect(hrefs).toEqual(
       expect.arrayContaining(['/settings/pages', '/settings/rota', '/settings/giving', '/settings/menu']),
@@ -95,9 +108,25 @@ describe('the Settings hall', () => {
   it('gives the Owner every room, erasing included, under its own heading', () => {
     show('/settings', { isAdmin: true, isSuperAdmin: true })
     expect(roomLinks()).toHaveLength(SETTINGS_SECTIONS.length)
-    const owner = screen.getByRole('heading', { name: 'Owner only' }).closest('section')!
+    const owner = screen.getByRole('heading', { name: 'The app itself' }).closest('section')!
     expect(within(owner).getByRole('link', { name: /Erase Data/ })).toBeInTheDocument()
     expect(within(owner).getByRole('link', { name: /App Logo/ })).toBeInTheDocument()
+  })
+
+  it('opens a room to somebody given it by name, and only that room (0277)', () => {
+    given = ['settings.logo', 'settings.general']
+    show('/settings')
+    const hrefs = roomLinks().map((a) => a.getAttribute('href'))
+    expect(hrefs).toEqual(['/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/general', '/settings/logo'])
+    expect(screen.getByRole('heading', { name: 'The app itself' })).toBeInTheDocument()
+    given = []
+  })
+
+  it('keeps an Admin out of a room the church closed to Admins (0277)', () => {
+    // The grid at its defaults gives an Admin no room that was the Owner's.
+    show('/settings/logo', { isAdmin: true })
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/settings$/)
+    expect(screen.queryByText('App Logo pane')).toBeNull()
   })
 
   it('says what each room is for in a line', () => {

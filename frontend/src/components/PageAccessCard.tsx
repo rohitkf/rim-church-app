@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
 import { pagesWithRules } from '../lib/pageList'
 import { ACCESS_LEVELS, STANDINGS, levelOf, type AccessLevel, type Standing } from '../lib/pageAccess'
 import { pageOpening, type PageWho } from '../lib/pageOpening'
@@ -35,7 +34,13 @@ const ENFORCEMENT: Record<string, { label: string; tone: 'green' | 'blue' | 'neu
   database: { label: 'Database', tone: 'green' },
   widen: { label: 'Database', tone: 'green' },
   page: { label: 'Hides page', tone: 'neutral' },
-  fixed: { label: 'Fixed', tone: 'neutral' },
+  // Opens by a row of its own in the grid (0277): each role yes or no, and
+  // teams or people by name — a choice, only not a level.
+  permission: { label: 'By permission', tone: 'blue' },
+  // Follows another of the church's choices, named in its note.
+  follows: { label: 'Follows a setting', tone: 'neutral' },
+  // The Dashboard alone: where everybody lands.
+  fixed: { label: 'Always open', tone: 'neutral' },
 }
 
 const short = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
@@ -103,14 +108,15 @@ const somebody = (p: { value: Preview; label: string }) =>
   p.value === 'overwatch' ? p.label : /^[AEIOU]/.test(p.label) ? `an ${p.label}` : `a ${p.label}`
 
 export function PageAccessCard() {
-  const { isAdmin } = useAuth()
+  // Inside Access & Privileges, which opens by this row (0277).
+  const mayRead = usePermissions().can('app.permissions')
   const { settings, settled } = useAppSettingsState()
   const [preview, setPreview] = useState<Preview>('church')
   // Each page's level, as the grid holds it (0215).
   const access = usePageLevels()
   const { overrides } = usePermissions()
 
-  if (!isAdmin) return null
+  if (!mayRead) return null
 
   // Issues follows "Who can raise one" in Page by Page.
   const scope = settings.issues_raise_scope
@@ -220,9 +226,30 @@ export function PageAccessCard() {
                           )}
                           <Pill tone={tag.tone}>{tag.label}</Pill>
                         </span>
-                        <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">
-                          {short(level)}
-                        </span>
+                        {/* A page that opens by permission has no level to show: its rows say who. */}
+                        {rule.enforcement !== 'permission' && (
+                          <span className="rounded-full bg-raised px-3 py-1.5 font-mono text-label-md text-on-surface-variant">
+                            {short(level)}
+                          </span>
+                        )}
+                        {rule.enforcement === 'permission' && (
+                          <Link
+                            to={`/settings/pages#${pageSlug(item.to)}`}
+                            aria-label={`Change who can open ${item.label}, in Page by Page`}
+                            className="tap rounded-full px-2 py-1 text-label-md text-accent-blue-soft hover:text-on-surface"
+                          >
+                            Change
+                          </Link>
+                        )}
+                        {rule.enforcement === 'follows' && (
+                          <Link
+                            to={`/settings/pages#${pageSlug(item.to)}`}
+                            aria-label={`Change what ${item.label} follows, in Page by Page`}
+                            className="tap rounded-full px-2 py-1 text-label-md text-accent-blue-soft hover:text-on-surface"
+                          >
+                            Change
+                          </Link>
+                        )}
                         {settable && (
                           <Link
                             to={`/settings/pages#${pageSlug(item.to)}`}
@@ -242,9 +269,10 @@ export function PageAccessCard() {
         ))}
 
         <p className="px-1 text-label-sm text-on-surface-faint">
-          Admins can always open every page — that is how a wrong setting gets put right. “Database”
-          means the rows themselves follow the choice, not only the menu. Each page’s choice is made in
-          Page by Page, under that page.
+          The Owner can always open every page — that is how a wrong setting gets put right. “Database”
+          means the rows themselves follow the choice, not only the menu; “By permission” means the
+          page opens by a row of its own, role by role, team by team or person by person. Each page’s
+          choice is made in Page by Page, under that page.
         </p>
       </div>
     </QueryState>

@@ -142,10 +142,10 @@ describe('Settings › Access › By person', () => {
     const row = (await screen.findByText('Assign somebody to a role')).closest('li')!
     expect(within(row).getByText('Media')).toBeInTheDocument()
     expect(within(row).getByText('As Team Head')).toBeInTheDocument()
-    // The grid's own key, held by Admins alone, is hidden until asked for.
-    expect(screen.queryByText('Change who can do what — this grid')).not.toBeInTheDocument()
+    // The grid's own key, held by Admins out of the box, is hidden until asked for.
+    expect(screen.queryByText('Change who can do what — Access & Privileges')).not.toBeInTheDocument()
     await user.click(screen.getByRole('checkbox', { name: 'Show what they can’t' }))
-    const keys = screen.getByText('Change who can do what — this grid').closest('li')!
+    const keys = screen.getByText('Change who can do what — Access & Privileges').closest('li')!
     expect(within(keys).getByText('No')).toBeInTheDocument()
   })
 
@@ -198,7 +198,8 @@ describe('Settings › Access › By person', () => {
     const tile = (await screen.findByRole('heading', { name: 'Blocked from' })).closest('section')!
     expect(within(tile).getByText('Nothing. They may do whatever their profiles give.')).toBeInTheDocument()
     await user.click(within(tile).getByRole('combobox', { name: 'Block them from' }))
-    expect(screen.queryByRole('option', { name: 'Change who can do what — this grid' })).toBeNull()
+    // The grid itself can be given since 0277, so it can be refused by name as well.
+    expect(screen.getByRole('option', { name: 'Change who can do what — Access & Privileges' })).toBeInTheDocument()
     await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
     await user.click(within(tile).getByRole('button', { name: 'Block' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
@@ -227,8 +228,11 @@ describe('Settings › Access › By person', () => {
     const { user } = show()
     await chooseAsha(user)
     await user.click(await screen.findByRole('combobox', { name: 'Give them' }))
-    // The keys to the app are never on offer.
-    expect(screen.queryByRole('option', { name: 'Change who can do what — this grid' })).toBeNull()
+    // The keys to the app are the Owner's to give since 0277: on offer like any room of Settings.
+    expect(screen.getByRole('option', { name: 'Change who can do what — Access & Privileges' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Change the app’s logo — App Logo' })).toBeInTheDocument()
+    // A thing done as Overwatch is still nobody else's.
+    expect(screen.queryByRole('option', { name: /as Overwatch/ })).toBeNull()
     await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
     // She heads Media, so on her team she assigns already: nothing moves yet.
     expect(await screen.findByText('— nobody’s answer changes.')).toBeInTheDocument()

@@ -1,7 +1,7 @@
 import { LocationAccessCard } from './LocationAccessCard'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { fetchDepartments } from '../lib/queries'
 import { useSettingsDraft } from '../lib/useSettingsDraft'
 import { settingEntry, type Patch } from '../lib/settingsCatalog'
@@ -35,13 +35,20 @@ const KEYS = [
 ] as const
 
 export function ClockInCard() {
-  const { isAdmin } = useAuth()
+  /*
+   * The room's own row (0277), Admins out of the box: when it opens, how
+   * near counts, where church is — and who sees it and who approves, which
+   * whoever may change the grid can set here too.
+   */
+  const { can } = usePermissions()
+  const mine = can('settings.clockin')
+  const givesRights = mine || can('app.permissions')
   const room = useSettingsDraft(KEYS)
   const viewers = useGrantList('clockin.view')
   const approvers = useGrantList('clockin.approve', { withLeads: true })
   const grantChanges = useMemo(() => [...viewers.changes, ...approvers.changes], [viewers.changes, approvers.changes])
   const teamsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
-  if (!isAdmin) return null
+  if (!givesRights && !can('people.onboard')) return null
 
   const draft = room.draft
   const stored = room.query.data ?? {}
@@ -64,70 +71,77 @@ export function ClockInCard() {
             Clock In page.
           </p>
 
-          <SectionTile title="When, and how strict" hint="One opening time for the button and the reminder.">
-            <SettingList>
-              {rows(['clock_in_lead_minutes', 'clock_in_radius_m', 'clock_in_accuracy_m', 'clock_in_include_yes'])}
-            </SettingList>
-          </SectionTile>
+          {mine && (
+            <SectionTile title="When, and how strict" hint="One opening time for the button and the reminder.">
+              <SettingList>
+                {rows(['clock_in_lead_minutes', 'clock_in_radius_m', 'clock_in_accuracy_m', 'clock_in_include_yes'])}
+              </SettingList>
+            </SectionTile>
+          )}
 
-          <SectionTile
-            title="Who sees the Clock In page"
-            hint="Admins, the Owner and Overwatch always do (Overwatch unless Settings › Overwatch closes it)."
-          >
-            <AudienceEditor
-              label="Who else sees Clock In"
-              teams={viewers.working.teams}
-              people={viewers.working.people}
-              allTeams={allTeams}
-              withPeople
-              editable
-              empty="Nobody else yet."
-              onChange={viewers.set}
-            />
-            <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
-              A team means everybody on it, its Head and its Assisting Heads. They see every clock-in: names,
-              times and where each person was. To give it to every Team Head or Team Member at once, set
-              “See clock-ins” in Access &amp; Privileges.
-            </p>
-          </SectionTile>
-
-          <SectionTile
-            title="Who approves a request"
-            hint="When a phone cannot be placed at church, its owner can ask to be clocked in."
-          >
-            <AudienceEditor
-              label="Teams that approve requests"
-              teams={approvers.working.teams}
-              allTeams={allTeams}
-              withPeople={false}
-              editable
-              empty="No team approves — only whoever Access & Privileges says, Admins out of the box."
-              onChange={(next) => approvers.set({ teams: next.teams, people: approvers.working.people })}
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
-              <span className="text-body-sm text-on-surface">In an approving team, who approves</span>
-              <SegmentedControl
-                label="In an approving team, who approves"
-                value={approvers.leadsOnly ? 'leads' : 'members'}
-                onChange={(next) => approvers.setLeadsOnly(next === 'leads')}
-                options={[
-                  { value: 'leads', label: 'Heads' },
-                  { value: 'members', label: 'Anyone on it' },
-                ]}
+          {givesRights && (
+            <SectionTile
+              title="Who sees the Clock In page"
+              hint="Each role’s own answer — an Admin’s included — is “See the Clock In page” in Access & Privileges; Overwatch, unless Settings › Overwatch closes it. Add teams and people here."
+            >
+              <AudienceEditor
+                label="Who else sees Clock In"
+                teams={viewers.working.teams}
+                people={viewers.working.people}
+                allTeams={allTeams}
+                withPeople
+                editable
+                empty="Nobody else yet."
+                onChange={viewers.set}
               />
-            </div>
-            <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
-              The Owner always can, and Admins unless Access &amp; Privileges says otherwise. Heads means a team’s Head and Assisting Heads; anyone on it
-              is a Welcome team at the door, say. To give it to every Team Head at once, set “Approve clock-in
-              requests” in Access &amp; Privileges.
-            </p>
-          </SectionTile>
+              <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
+                A team means everybody on it, its Head and its Assisting Heads. They see every clock-in: names,
+                times and where each person was. To give it to every Team Head or Team Member at once, set
+                “See clock-ins” in Access &amp; Privileges.
+              </p>
+            </SectionTile>
+          )}
+
+          {givesRights && (
+            <SectionTile
+              title="Who approves a request"
+              hint="When a phone cannot be placed at church, its owner can ask to be clocked in."
+            >
+              <AudienceEditor
+                label="Teams that approve requests"
+                teams={approvers.working.teams}
+                allTeams={allTeams}
+                withPeople={false}
+                editable
+                empty="No team approves — only whoever Access & Privileges says, Admins out of the box."
+                onChange={(next) => approvers.set({ teams: next.teams, people: approvers.working.people })}
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
+                <span className="text-body-sm text-on-surface">In an approving team, who approves</span>
+                <SegmentedControl
+                  label="In an approving team, who approves"
+                  value={approvers.leadsOnly ? 'leads' : 'members'}
+                  onChange={(next) => approvers.setLeadsOnly(next === 'leads')}
+                  options={[
+                    { value: 'leads', label: 'Heads' },
+                    { value: 'members', label: 'Anyone on it' },
+                  ]}
+                />
+              </div>
+              <p className="mt-2 px-1 text-label-sm text-on-surface-faint">
+                Each role’s own answer is in Access &amp; Privileges. Heads means a team’s Head and Assisting Heads; anyone on it
+                is a Welcome team at the door, say. To give it to every Team Head at once, set “Approve clock-in
+                requests” in Access &amp; Privileges.
+              </p>
+            </SectionTile>
+          )}
 
           {/* Whose phone allows location: it is about clocking in, so it
               lives here (it sat under Onboarding until the redesign). */}
-          <LocationAccessCard />
+          {can('people.onboard') && <LocationAccessCard />}
 
-          <GrantEffects changes={grantChanges} />
+          {givesRights && <GrantEffects changes={grantChanges} />}
+          {givesRights && (
           <SaveBar
             changed={room.changed || viewers.changed || approvers.changed}
             saving={room.saving || viewers.saving || approvers.saving}
@@ -147,6 +161,7 @@ export function ClockInCard() {
             }}
             label="Save"
           />
+          )}
         </div>
       )}
     </QueryState>

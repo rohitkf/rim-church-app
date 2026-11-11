@@ -88,9 +88,18 @@ describe('who sees what', () => {
       'href',
       '/settings/pages#inventory',
     )
-    // A fixed page has nothing to change, and says why.
-    expect(within(row('Checklists')).queryByRole('link')).toBeNull()
-    expect(screen.getByText('Ticked by whoever the rota put on, so it needs a team.')).toBeInTheDocument()
+    // Checklists had one level and no choice until 0277; it links like the rest now.
+    expect(within(row('Checklists')).getByRole('link', { name: 'Change who can open Checklists, in Page by Page' })).toHaveAttribute(
+      'href',
+      '/settings/pages#checklists',
+    )
+    // Only the Dashboard has nothing to change, and says why.
+    expect(within(row('Dashboard')).queryByRole('link')).toBeNull()
+    expect(within(row('Dashboard')).getByText('Always open')).toBeInTheDocument()
+    expect(screen.getByText('Where everybody lands. What is on it follows the other pages.')).toBeInTheDocument()
+    // A page that opens by a row of its own says so, and links to where that row is set.
+    expect(within(row('Clock In')).getByText('By permission')).toBeInTheDocument()
+    expect(within(row('Clock In')).getByRole('link', { name: 'Change who can open Clock In, in Page by Page' })).toBeInTheDocument()
   })
 
   it('says, page by page, whether the database follows the choice or only the menu does', async () => {

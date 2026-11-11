@@ -1,0 +1,10 @@
+{
+  "name": "impeccable",
+  "version": "4.8.2",
+  "description": "Design fluency for frontend work: one skill with 24 commands (polish, audit, critique, ...) and anti-pattern detection.",
+  "author": {
+    "name": "Paul Bakaus"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://impeccable.style"
+}

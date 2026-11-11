@@ -46,7 +46,7 @@ function show() {
 describe('Settings › Prayer', () => {
   it('starts with only the Pastors and the Owner', async () => {
     show()
-    expect(await screen.findByText('Only the Pastors and the Owner.')).toBeInTheDocument()
+    expect(await screen.findByText('Nobody else: the Pastors, out of the box, and the Owner.')).toBeInTheDocument()
     expect(screen.getAllByText('Only the pastors.')).toHaveLength(2)
   })
 
@@ -69,6 +69,6 @@ describe('Settings › Prayer', () => {
     show()
     const assigners = await screen.findByRole('list', { name: 'Who else asks people to pray' })
     expect(within(assigners).getByText('Welcome')).toBeInTheDocument()
-    expect(screen.getByText('Only the Pastors and the Owner.')).toBeInTheDocument()
+    expect(screen.getByText('Nobody else: the Pastors, out of the box, and the Owner.')).toBeInTheDocument()
   })
 })

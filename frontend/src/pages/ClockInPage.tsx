@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { ActionButton, PageHeader, SectionTile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
 import { ClockInPlaceCard } from '../components/ClockInPlaceCard'
@@ -60,6 +61,7 @@ const awaitingAddress = (row: ClockIn) => row.address === null && row.latitude !
 export function ClockInPage() {
   const { isAdmin, isSuperAdmin } = useAuth()
   const runsIt = isAdmin || isSuperAdmin
+  const { can } = usePermissions()
   const settings = useAppSettings()
   const timeZone = settings.timezone
   const queryClient = useQueryClient()
@@ -125,7 +127,8 @@ export function ClockInPage() {
       />
 
       <div className="flex flex-col gap-5">
-        {runsIt && <ClockInPlaceCard />}
+        {/* Where church is: the Clock in room's own row (0277), Admins out of the box. */}
+        {can('settings.clockin') && <ClockInPlaceCard />}
         <ClockInRequests />
 
         <SectionTile

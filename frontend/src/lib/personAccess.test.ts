@@ -239,8 +239,10 @@ describe('the pages they can open', () => {
     const opens = (cap: string) => cap === 'page.inventory'
     expect(openingFor(person(), '/inventory', settings(), { opens })).toMatchObject({ open: true, via: 'grant' })
     expect(openingFor(person(), '/rota', settings(), { opens })).toMatchObject({ open: false })
-    // A page without a choice is never a grant's.
-    expect(openingFor(person(), '/volunteers', settings(), { opens: () => true })).toMatchObject({ open: false })
+    // Volunteers is a page with a choice since 0277, so it can be given by name too.
+    expect(openingFor(person(), '/volunteers', settings(), { opens: (cap: string) => cap === 'page.volunteers' })).toMatchObject({ open: true, via: 'grant' })
+    // The Dashboard has no row to give: it opens to everybody anyway.
+    expect(openingFor(person(), '/', settings(), { opens: () => false })).toMatchObject({ open: true, via: 'level' })
   })
 
   it('opens to Overwatch what the church left open to it', () => {

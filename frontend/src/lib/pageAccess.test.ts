@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-// page_level()'s defaults, as they stand since 0217 stopped it reading
-// page_access. Which levels each page offers is its page.* cells since
-// 0215 — pageCells.test.ts and permissionCatalog.test.ts hold those to
+// page_level()'s defaults, as they stand since 0277 gave the last pages a
+// choice. Which levels each page offers is its page.* cells since 0215 —
+// pageCells.test.ts and permissionCatalog.test.ts hold those to
 // PAGE_RULES and to the database.
-import levels from '../../../supabase/migrations/0217_drop_the_settings_the_grid_replaced.sql?raw'
+import levels from '../../../supabase/migrations/0277_nothing_in_settings_is_fixed.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,
@@ -17,10 +17,11 @@ import { NAV_ITEMS } from './navItems'
 
 
 /** The defaults page_level() falls back on, read out of the SQL. */
-function sqlDefaults(): { everyone: string[] } {
+function sqlDefaults(): { everyone: string[]; admins: string[] } {
   const body = levels.slice(levels.indexOf('function public.page_level'))
   const block = body.slice(0, body.indexOf("else 'team'"))
-  return { everyone: [...block.matchAll(/when '([a-z-]+)'\s+then 'everyone'/g)].map((m) => m[1]) }
+  const at = (level: string) => [...block.matchAll(new RegExp(`when '([a-z-]+)'\\s+then '${level}'`, 'g'))].map((m) => m[1])
+  return { everyone: at('everyone'), admins: at('admins') }
 }
 
 describe('the page rules', () => {
@@ -31,8 +32,11 @@ describe('the page rules', () => {
       .map((r) => r.key!)
       .sort()
     expect(fromApp).toEqual(everyone)
+    // One page starts as the Admins' alone (0277); every other is a team's.
+    const admins = sqlDefaults().admins
+    expect(admins).toEqual(['volunteers'])
     for (const r of Object.values(PAGE_RULES)) {
-      if (r.key && r.default !== 'everyone') expect(r.default, r.key).toBe('team')
+      if (r.key && r.default !== 'everyone') expect(r.default, r.key).toBe(admins.includes(r.key) ? 'admins' : 'team')
     }
   })
 

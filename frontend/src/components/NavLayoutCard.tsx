@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
+import { usePermissions } from '../lib/usePermissions'
 import { NAV_ITEMS } from '../lib/navItems'
 import {
   NAV_LAYOUT_KEY,
@@ -99,7 +99,8 @@ const defaultLabel = (to: string) => NAV_ITEMS.find((i) => i.to === to)?.label ?
 const levelShort = (level: AccessLevel) => ACCESS_LEVELS.find((l) => l.value === level)?.short ?? level
 
 export function NavLayoutCard() {
-  const { isAdmin } = useAuth()
+  // The room's own row (0277): Admins out of the box.
+  const isAdmin = usePermissions().can('settings.menu')
   // Who each page is open to, beside its name: the church's own choice,
   // as the grid holds it (0215).
   const settings = useAppSettings()

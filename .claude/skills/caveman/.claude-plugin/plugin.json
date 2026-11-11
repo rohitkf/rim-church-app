@@ -1,0 +1,13 @@
+{
+  "name": "caveman",
+  "version": "4.1.0-rim.1",
+  "description": "Terse caveman voice for replies, with a panel above the prompt to switch it and see what it saves.",
+  "author": {
+    "name": "Julius Brussee",
+    "url": "https://github.com/JuliusBrussee"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/JuliusBrussee/caveman",
+  "hooks": "./hooks/hooks.json",
+  "types": "./types/index.d.ts"
+}

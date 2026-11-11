@@ -10,8 +10,13 @@ import { AppLogoCard, MAX_BYTES } from './AppLogoCard'
 const normalised = new Blob(['png'], { type: 'image/png' })
 vi.mock('../lib/logoImage', () => ({ normaliseLogo: () => Promise.resolve(normalised) }))
 
+// Whether this person holds "Change the app’s logo" (settings.logo, 0277):
+// the Owner out of the box, and whoever the Owner gives the room.
 const owner = vi.fn(() => true)
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isSuperAdmin: owner() }) }))
+vi.mock('../lib/usePermissions', () => ({
+  usePermissions: () => ({ can: (cap: string) => cap === 'settings.logo' && owner() }),
+}))
 
 const settings = vi.fn(() => ({ logo_url: null as string | null }))
 vi.mock('../lib/appSettings', async (original) => ({
@@ -131,7 +136,7 @@ describe('the owner’s logo', () => {
   it('tells an Admin whose decision this is, rather than offering them the form', () => {
     owner.mockReturnValue(false)
     show()
-    expect(screen.getByText(/owner’s to choose/i)).toBeInTheDocument()
+    expect(screen.getByText(/is not open to you/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Upload/ })).toBeNull()
   })
 

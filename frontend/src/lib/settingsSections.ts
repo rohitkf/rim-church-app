@@ -31,7 +31,9 @@ import { QuestionIcon,
  * Six groups, and each room in exactly one (the Owner's redesign, November
  * 2026): You; Access — who can do what; Church — set once for everybody;
  * Pages — each page's own settings; Tools — things you do rather than
- * settings you leave; and the Owner's alone. Each choice lives in
+ * settings you leave; and the app itself — its face, its help link, its
+ * mailbox and the button that empties it, the Owner's out of the box and
+ * anybody's the Owner gives them to (0277). Each choice lives in
  * one room: a page's clocks, what it keeps and what it shows are its own,
  * in Page by Page, not a second room each.
  */
@@ -48,11 +50,18 @@ export interface SettingsSection {
   /** Who it is for. Everybody, unless it says otherwise. */
   needs?: SettingsNeeds
   /**
-   * When the room is one permission in the church's grid, that one: the
-   * room is open to whoever holds it, Admin or not (Settings › Access &
-   * privileges). Rooms without one stay with their `needs`.
+   * The room's own row in the church's grid (0277): it opens to whoever
+   * holds it — a role's cell, or a team or a person given it by name —
+   * Admin or not. Only your own three rooms have none. `needs` is who that
+   * is out of the box, and what is asked while the grid is not known.
    */
   capability?: CapabilityKey
+  /**
+   * Other rows that open the room too: part of what it holds is theirs.
+   * Page by Page, say, is each page's settings (its own row) and each
+   * page's rules (the grid's), and either is reason to come in.
+   */
+  also?: readonly CapabilityKey[]
   /** The one that destroys things. Dressed as such, so it never gets
       clicked on the way to somewhere else. */
   danger?: boolean
@@ -105,6 +114,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ShieldIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'app.permissions',
         keywords: 'permissions roles admin head coordinator member pages profiles church member see hide person someone why',
       },
       {
@@ -114,6 +124,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: EyeIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'settings.overwatch',
+        also: ['app.permissions'],
         keywords: 'overwatch read only observer elder pastor watch see everything',
       },
     ],
@@ -128,6 +140,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: SettingsIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'settings.general',
         keywords: 'general timezone time zone clock bell notifications keep cleared church wide',
       },
       {
@@ -137,6 +150,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ListIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'settings.menu',
         keywords: 'navigation more menu groups order arrange',
       },
     ],
@@ -151,6 +165,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ChecklistIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'settings.pages',
+        also: ['app.permissions'],
         // Timings, Data & Retention and Dashboard & Lists were rooms of
         // their own, each a second way to the same rows; they live here now.
         keywords:
@@ -163,6 +179,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ClipboardUserIcon,
         tone: 'blue',
         needs: 'admin',
+        capability: 'settings.rota',
         keywords: 'tags shadow coordinator colour sky',
       },
       {
@@ -182,6 +199,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: StageIcon,
         tone: 'blue',
         needs: 'admin',
+        capability: 'settings.stage',
+        also: ['app.permissions'],
         keywords: 'stage layout band positions templates clear tuesday',
       },
       {
@@ -191,6 +210,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: MapPinIcon,
         tone: 'green',
         needs: 'admin',
+        capability: 'settings.clockin',
+        also: ['app.permissions', 'people.onboard'],
         keywords: 'clock in attendance arrival location gps geolocation radius present check in',
       },
       {
@@ -200,6 +221,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: PrayIcon,
         tone: 'indigo',
         needs: 'admin',
+        capability: 'settings.prayer',
+        also: ['app.permissions'],
         keywords: 'prayer requests pastor pastors private testimonies chain prayer',
       },
     ],
@@ -230,7 +253,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    heading: 'Owner only',
+    heading: 'The app itself',
     sections: [
       {
         to: '/settings/logo',
@@ -239,6 +262,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: ImageIcon,
         tone: 'blue',
         needs: 'owner',
+        capability: 'settings.logo',
         keywords: 'logo brand mark image',
       },
       {
@@ -248,6 +272,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: QuestionIcon,
         tone: 'blue',
         needs: 'owner',
+        capability: 'settings.video',
         keywords: 'video tutorial help how to youtube link',
       },
       {
@@ -257,6 +282,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: FeedbackIcon,
         tone: 'blue',
         needs: 'owner',
+        capability: 'settings.feedback',
         keywords: 'feedback bug suggestion retention kept settled done',
       },
       {
@@ -266,6 +292,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: TrashIcon,
         tone: 'red',
         needs: 'owner',
+        capability: 'settings.erase',
         danger: true,
         keywords: 'reset delete clear',
       },
@@ -284,7 +311,10 @@ export interface SettingsStanding {
 
 /** Whether somebody of this standing may open a room. */
 export function maySee(section: SettingsSection, standing: SettingsStanding) {
-  if (section.capability && standing.can) return standing.can(section.capability)
+  if (section.capability && standing.can) {
+    const can = standing.can
+    return can(section.capability) || (section.also ?? []).some((cap) => can(cap))
+  }
   if (section.needs === 'owner') return standing.isSuperAdmin
   if (section.needs === 'admin') return standing.isAdmin
   return true
