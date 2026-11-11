@@ -1,3 +1,5 @@
+import { usePermissions } from '../lib/usePermissions'
+import { withBlocks } from '../lib/personAccess'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAppSettings } from '../lib/appSettings'
@@ -32,9 +34,15 @@ export function ChangeEffects({
   const people = useQuery({ queryKey: ['everyone-access'], queryFn: fetchEveryonesFacts, enabled: pending, staleTime: 60_000 })
   const teams = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments, enabled: pending })
   const teamIds = useMemo(() => (teams.data ?? []).map((t) => t.id), [teams.data])
+  // Somebody blocked from a thing (0273) gains nothing from a wider rule for it.
+  const { blocks = [] } = usePermissions()
+  const everyone = useMemo(
+    () => people.data?.map((p) => ({ ...p, facts: withBlocks(p.facts, blocks) })),
+    [people.data, blocks],
+  )
   const effects = useMemo(
-    () => (people.data ? changeEffects(people.data, before, after, touched, teamIds, settings) : []),
-    [people.data, before, after, touched, teamIds, settings],
+    () => (everyone ? changeEffects(everyone, before, after, touched, teamIds, settings) : []),
+    [everyone, before, after, touched, teamIds, settings],
   )
 
   if (!pending) return null

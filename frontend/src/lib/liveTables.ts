@@ -234,6 +234,7 @@ export const LIVE_TABLES: LiveTable[] = [
   { table: 'role_permissions', keys: ['role-permissions'] },
   { table: 'department_permissions', keys: ['role-permissions'] },
   { table: 'permission_grants', keys: ['role-permissions', 'person-access', 'stage'] },
+  { table: 'permission_blocks', keys: ['role-permissions', 'person-access', 'stage'] },
   { table: 'onboarding', keys: ['onboarding', 'onboarding-people'] },
 
   /* ---- the message board and debriefs ------------------------------ */

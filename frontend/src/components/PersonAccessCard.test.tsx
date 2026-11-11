@@ -12,10 +12,10 @@ vi.mock('../lib/appSettings', async (original) => {
   return { ...real, useAppSettings: () => real.DEFAULT_SETTINGS }
 })
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, session: { user: { id: 'me' } } }) }))
-const perms = vi.hoisted(() => ({ grants: [] as unknown[], rpc: [] as { fn: string; args: unknown }[] }))
+const perms = vi.hoisted(() => ({ grants: [] as unknown[], blocks: [] as { userId: string; capability: string }[], rpc: [] as { fn: string; args: unknown }[] }))
 vi.mock('../lib/usePermissions', () => ({
   PERMISSIONS_KEY: ['role-permissions'],
-  usePermissions: () => ({ overrides: {}, teams: {}, grants: perms.grants, can: () => true }),
+  usePermissions: () => ({ overrides: {}, teams: {}, grants: perms.grants, blocks: perms.blocks, can: () => true }),
 }))
 vi.mock('../lib/queries', () => ({
   fetchDepartments: () =>
@@ -75,6 +75,7 @@ vi.mock('../lib/supabaseClient', () => ({
 
 beforeEach(() => {
   perms.grants = []
+  perms.blocks = []
   perms.rpc = []
 })
 
@@ -188,6 +189,37 @@ describe('Settings › Access › By person', () => {
     expect(perms.rpc[0]).toEqual({
       fn: 'set_permission_grants',
       args: { p_changes: [{ capability: 'set.edit', person: '33333333-3333-3333-3333-333333333333', reach: null }] },
+    })
+  })
+
+  it('blocks them from one thing, never from opening a page or the keys to the app (0273)', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    const tile = (await screen.findByRole('heading', { name: 'Blocked from' })).closest('section')!
+    expect(within(tile).getByText('Nothing. They may do whatever their profiles give.')).toBeInTheDocument()
+    await user.click(within(tile).getByRole('combobox', { name: 'Block them from' }))
+    expect(screen.queryByRole('option', { name: 'Change who can do what — this grid' })).toBeNull()
+    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(within(tile).getByRole('button', { name: 'Block' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0]).toEqual({
+      fn: 'set_permission_blocks',
+      args: { p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', blocked: true }] },
+    })
+  })
+
+  it('says a block where the answer would be, and lifts it (0273)', async () => {
+    perms.blocks = [{ userId: '33333333-3333-3333-3333-333333333333', capability: 'rota.assign' }]
+    const { user } = show()
+    await chooseAsha(user)
+    // She heads Media, but the answer is the block, with its reason.
+    const row = (await screen.findAllByText('Assign somebody to a role'))[0].closest('li')!
+    expect(within(row).getByText('Blocked')).toBeInTheDocument()
+    expect(within(row).queryByText('As Team Head')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Unblock: Assign somebody to a role' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    expect(perms.rpc[0].args).toEqual({
+      p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', blocked: false }],
     })
   })
 

@@ -13,7 +13,7 @@ export interface PermissionChangeRow {
   id: string
   changed_at: string
   changed_by: string | null
-  kind: 'cell' | 'team' | 'grant'
+  kind: 'cell' | 'team' | 'grant' | 'block'
   capability: string
   role_key: string | null
   department_id: string | null
@@ -37,6 +37,7 @@ export const CHANGE_KINDS: { value: ChangeKind | ''; label: string }[] = [
   { value: 'cell', label: 'The church’s cells' },
   { value: 'team', label: 'Teams’ own rules' },
   { value: 'grant', label: 'Grants' },
+  { value: 'block', label: 'Blocks' },
 ]
 
 export async function fetchChanges(): Promise<PermissionChangeRow[]> {
@@ -76,6 +77,10 @@ export function describeChange(
     const team = row.department_id ? teamName(row.department_id) : 'A team'
     return `${team} · ${roleOf(row.role_key)} · ${action}: ${row.before ? reachLabel(row.before) : 'As the church'} → ${row.after ? reachLabel(row.after) : 'As the church'}`
   }
+  if (row.kind === 'block') {
+    const person = row.user_id ? personName(row.user_id) : 'somebody'
+    return row.after ? `Blocked ${person} from “${action}”` : `Unblocked ${person} from “${action}”`
+  }
   const leads = row.leads_only_after ?? row.leads_only_before
   const team = row.department_id ? teamName(row.department_id) : 'a team'
   const who = row.user_id ? personName(row.user_id) : leads ? `the Heads of ${team}` : `everybody on ${team}`
@@ -106,6 +111,7 @@ export function changeMatches(
 
 /** The call that undoes one change: the rule as it was before, said again. */
 export type PutBack =
+  | { fn: 'set_permission_blocks'; args: { p_changes: { capability: string; person: string; blocked: boolean }[] } }
   | { fn: 'set_permissions'; args: { p_changes: { role: string; capability: string; reach: string | null; department?: string }[] } }
   | {
       fn: 'set_permission_grants'
@@ -118,6 +124,11 @@ export type PutBack =
  * again with its old date would be refused; By person gives it anew).
  */
 export function putBack(row: PermissionChangeRow): PutBack | null {
+  if (row.kind === 'block') {
+    if (!row.user_id) return null
+    // Undoing a block lifts it; undoing a lift blocks again.
+    return { fn: 'set_permission_blocks', args: { p_changes: [{ capability: row.capability, person: row.user_id, blocked: !row.after }] } }
+  }
   if (row.kind === 'grant') {
     if (row.before && row.until_before && !inDate(row.until_before)) return null
     if (!row.user_id && !row.department_id) return null

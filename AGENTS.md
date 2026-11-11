@@ -708,6 +708,16 @@ moves points to the room in `PAGE_ROOMS` (`ownerOnly` hides a pointer
 nobody else could follow). The catalog test fails if a setting ends up
 drawn twice or nowhere.
 
+**One person can be refused one thing (0273).** `permission_blocks` (a
+person, a capability) is asked by `may()` before every tier, so a block
+wins over role, team and grant; `decide()` mirrors it through
+`Holder.blocked`. Never the Owner; an Admin cannot be blocked, and a block
+on somebody later made an Admin sleeps. Written only through
+`set_permission_blocks()`, from Access & Privileges › By person. Only what
+`blockableCapabilities()` offers — never opening a page, whose levels the
+pages draw. A new rule that answers from somewhere other than `may()`
+will not honour a block: say so there, or ask `may()`.
+
 **A right is no use behind a closed page.** `lib/pageNeeds.ts` reads the
 changes waiting to be saved in Access & Privileges and names each one that
 hands a role (Newcomer, Team Member, Pastor) something on a page that role
