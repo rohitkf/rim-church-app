@@ -1116,12 +1116,12 @@ describe('guests on a team', () => {
   })
 })
 
-describe('Remind everyone who hasn’t answered (0221)', () => {
+describe('Remind everyone still to answer (0221)', () => {
   it('offers an Admin one reminder for the whole service', async () => {
     state.admin = true
     show()
     const card = (await waitFor(() => cardFor(/Today/))) as HTMLElement
-    const button = await within(card).findByRole('button', { name: 'Remind everyone who hasn’t answered' })
+    const button = await within(card).findByRole('button', { name: 'Remind everyone still to answer' })
     expect(button).toHaveAttribute('data-rpc', 'nudge_availability_all')
   })
 

@@ -238,7 +238,7 @@ export function IssuesPage() {
           onClick={() => toggle(service.id)}
           aria-expanded={open}
           aria-controls={`issues-${service.id}`}
-          className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
+          className="flex w-full flex-col items-start gap-y-1 text-left sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-3"
         >
           <span className="min-w-0 text-headline-md">{service.service_type}</span>
           <span className="flex items-baseline gap-2.5">

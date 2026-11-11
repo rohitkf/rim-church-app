@@ -53,7 +53,7 @@ export function NudgeButton({
   })
 
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
+    <span className={`inline-flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
       <button
         type="button"
         onClick={() => {

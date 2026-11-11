@@ -542,9 +542,12 @@ export function DebriefsPage() {
                             onClick={() => toggle(service.id)}
                             aria-expanded={open}
                             aria-controls={`debrief-teams-${service.id}`}
-                            className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left"
+                            // Stacked on a phone, always: left to wrap, a short
+                            // name kept its count beside it and a long one
+                            // dropped it underneath, card by card.
+                            className="flex w-full flex-col items-start gap-y-1 text-left sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-3"
                           >
-                            <span className="min-w-0 text-headline-md">
+                            <span className="min-w-0 break-words text-headline-md">
                               {service.service_type}
                             </span>
                             <span className="flex items-baseline gap-2.5">

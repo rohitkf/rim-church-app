@@ -357,7 +357,18 @@ export function VolunteersPage() {
             scanned down the left edge rather than read. Everything else —
             what they hold, what you may do about it — is quieter and
             lower, in its own band. */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5 pb-4">
+        {/*
+          One column beside the initials, read top to bottom: the name and
+          what they are across the whole app, then how to reach them.
+
+          It used to be three things in a row (initials, name, badges) with
+          the badges refusing to shrink. On a phone that left the name a
+          strip to wrap in and the email a dozen characters before its
+          ellipsis, which is the one thing on the card somebody copies. The
+          badges now wrap under the name when there is no room beside it,
+          and the email breaks rather than hides.
+        */}
+        <div className="flex items-start gap-3 p-5 pb-4">
           <span
             aria-hidden="true"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised font-mono text-label-md uppercase text-on-surface-variant"
@@ -365,53 +376,57 @@ export function VolunteersPage() {
             {initialsOf(v)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-headline-sm font-medium text-on-surface">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <span className="min-w-0 break-words text-headline-sm font-medium text-on-surface">
                 {v.first_name} {v.last_name}
               </span>
               {v.id === session?.user.id && (
-                <span className="rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
+                <span className="shrink-0 rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
                   You
                 </span>
+              )}
+              {/* What they are across the whole app, not on any one team. */}
+              {(isOwner || holdsAdmin || overwatchGrant || pastorGrant) && (
+                <span className="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto">
+                  {isOwner && (
+                    <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
+                      Owner
+                    </span>
+                  )}
+                  {holdsAdmin && (
+                    <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
+                      Admin
+                    </span>
+                  )}
+                  {overwatchGrant && (
+                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                      Overwatch
+                    </span>
+                  )}
+                  {pastorGrant && (
+                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                      Pastor
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              {/* For whoever the grid gives contact details: nobody else is sent it. */}
+              {seesContacts && v.email && (
+                <span className="min-w-0 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{v.email}</span>
               )}
               {/* Everything they can open and do, and why: Access & Privileges › By person. */}
               {can('app.permissions') && (
                 <Link
                   to={`/settings/access?tab=person&person=${v.id}`}
                   aria-label={`What ${v.first_name} ${v.last_name} can do`}
-                  className="text-label-md text-accent-blue-soft hover:text-on-surface"
+                  className="shrink-0 whitespace-nowrap text-label-md text-accent-blue-soft hover:text-on-surface"
                 >
                   What they can do
                 </Link>
               )}
             </div>
-            {/* For whoever the grid gives contact details: nobody else is sent it. */}
-            {seesContacts && v.email && (
-              <div className="truncate text-body-sm text-on-surface-variant">{v.email}</div>
-            )}
-          </div>
-          {/* What they are across the whole app, not on any one team. */}
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            {isOwner && (
-              <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
-                Owner
-              </span>
-            )}
-            {holdsAdmin && (
-              <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
-                Admin
-              </span>
-            )}
-            {overwatchGrant && (
-              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
-                Overwatch
-              </span>
-            )}
-            {pastorGrant && (
-              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
-                Pastor
-              </span>
-            )}
           </div>
         </div>
 
@@ -443,7 +458,10 @@ export function VolunteersPage() {
                       className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[var(--radius-chip)] bg-raised px-3 py-2"
                     >
                       <TeamMark color={dept?.color ?? null} />
-                      <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-on-surface">
+                      {/* Room of its own, so the badge and the buttons go to a
+                          second line before the name is squeezed, and a long
+                          name wraps: "Media & Live…" told nobody which team. */}
+                      <span className="min-w-[8.5rem] flex-1 break-words text-body-sm font-medium text-on-surface">
                         {dept?.name ?? 'Unknown team'}
                       </span>
                       <span
@@ -516,7 +534,7 @@ export function VolunteersPage() {
                     className="flex items-center gap-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm"
                   >
                     <TeamMark color={deptById.get(m.department_id)?.color ?? null} />
-                    <span className="min-w-0 truncate font-medium text-on-surface">
+                    <span className="min-w-0 break-words font-medium text-on-surface">
                       {deptById.get(m.department_id)?.name ?? 'Unknown team'}
                     </span>
                   </li>
@@ -760,11 +778,11 @@ export function VolunteersPage() {
                 style={teamHeadingStyle(dept.color, teamStyle)}
               >
                 <TeamMark color={dept.color} />
-                <h2 className="text-headline-md">{dept.name}</h2>
-                <span className="font-mono text-label-sm text-on-surface-variant">
+                <h2 className="min-w-0 break-words text-headline-md">{dept.name}</h2>
+                <span className="shrink-0 whitespace-nowrap font-mono text-label-sm text-on-surface-variant">
                   {people.length} {people.length === 1 ? 'person' : 'people'}
                 </span>
-                <span className="ml-auto">
+                <span className="ml-auto shrink-0">
                   <Chevron open={sectionOpen(dept.id)} />
                 </span>
               </button>

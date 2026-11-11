@@ -252,6 +252,7 @@ export function NavLayoutCard() {
             const item = NAV_ITEMS.find((i) => i.to === row.to)
             const original = defaultLabel(row.to)
             const renamed = !!row.label.trim() && row.label.trim() !== original
+            const level = item ? levelOf(item.to, access, settings.issues_raise_scope) : 'everyone'
             return (
               <li
                 key={row.id}
@@ -278,14 +279,19 @@ export function NavLayoutCard() {
                     className={`${inputClasses} min-w-0 flex-1 px-3 py-1.5`}
                   />
                 ) : (
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">{nameOf(row)}</span>
-                    {renamed && <span className="truncate text-label-sm text-on-surface-faint">was {original}</span>}
+                  <span className="flex min-w-0 flex-1 flex-col py-1">
+                    {/* A page's name is what this card is for: it wraps, it is never cut. */}
+                    <span className="break-words">{nameOf(row)}</span>
+                    {renamed && <span className="break-words text-label-sm text-on-surface-faint">was {original}</span>}
+                    {/* On a phone the row has no room for the name and who-may-open side by side. */}
+                    {level !== 'everyone' && (
+                      <span className="font-mono text-label-sm text-on-surface-faint sm:hidden">{levelShort(level)}</span>
+                    )}
                   </span>
                 )}
-                {item && levelOf(item.to, access, settings.issues_raise_scope) !== 'everyone' && (
-                  <span className="font-mono text-label-sm text-on-surface-faint">
-                    {levelShort(levelOf(item.to, access, settings.issues_raise_scope))}
+                {level !== 'everyone' && (
+                  <span className={`shrink-0 font-mono text-label-sm text-on-surface-faint ${naming === row.id ? '' : 'max-sm:hidden'}`}>
+                    {levelShort(level)}
                   </span>
                 )}
                 {naming !== row.id && (

@@ -393,7 +393,11 @@ export function GlobalSearch() {
         className="tap flex w-full min-w-0 max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-200 ease-[var(--ease-glide)] hover:ring-secondary/50 dark:bg-surface-container dark:ring-white/10"
       >
         <SearchIcon width={16} height={16} className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">Search anything…</span>
+        {/* The narrowest phones have room for the word and not the phrase:
+            "Search a…" read as a fault, "Search" reads as a button. */}
+        <span className="min-w-0 flex-1 truncate text-left">
+          Search<span className="max-[400px]:hidden"> anything…</span>
+        </span>
         {/* The key this keyboard actually has. It advertised ⌘K to
             everybody, including the people who do not have that key. */}
         <kbd className="hidden shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">

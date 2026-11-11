@@ -573,7 +573,10 @@ export function DateTimeField({
   const date = value.slice(0, 10)
   const time = value.slice(11, 16)
   return (
-    <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
+    // One above the other on the narrowest phones: side by side in 280px the
+    // date read "Fri, Dec 11,…" and the time "05:3…", in a control whose
+    // whole job is to show the value it holds.
+    <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <DateField
         value={date}
         min={min}

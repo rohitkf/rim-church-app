@@ -119,11 +119,15 @@ export function ServiceCountdown({
       {label && (
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           {label}
+          {/* The comma belongs to this half, so when the line breaks between
+              the two on a phone the second does not open with a stray dot. */}
+          {moment && ','}
         </span>
       )}
       {moment && (
-        <span className="font-mono text-label-sm text-on-surface-faint">
-          · {until} {moment}
+        <span className="whitespace-nowrap font-mono text-label-sm text-on-surface-faint">
+          {!label && '· '}
+          {until} {moment}
         </span>
       )}
     </span>

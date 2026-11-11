@@ -626,35 +626,39 @@ function SongRow({
 
   return (
     <Row variant="raised" stack>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex items-center gap-x-3">
         {grip}
         <span className="shrink-0 font-mono text-label-sm tabular text-on-surface-faint">
           {index + 1}
         </span>
-        {/* A floor under the title, so on a phone the leader button wraps
-            to the next line instead of squeezing the song to a word a line. */}
-        <span className="min-w-[9rem] flex-1 break-words text-body-md font-medium text-on-surface">
-          {song.title}
-          {song.song_key && (
-            <span className="ml-2 inline-block rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_16%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-normal text-accent-indigo-soft">
-              {song.song_key}
-            </span>
-          )}
-        </span>
-        {song.leader ? (
-          <span className="shrink-0 text-body-sm text-on-surface-variant">
-            {song.leader.first_name} {song.leader.last_name}
+        {/* On a phone whoever leads it goes under the song, on the song's own
+            left edge. Left to wrap, a long name dropped to the row's edge
+            under the grip and a short one stayed beside the title, so no two
+            rows of a set list lined up. */}
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-y-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1">
+          <span className="min-w-0 break-words text-body-md font-medium text-on-surface sm:min-w-[9rem] sm:flex-1">
+            {song.title}
+            {song.song_key && (
+              <span className="ml-2 inline-block rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_16%,transparent)] px-2 py-0.5 align-middle font-mono text-label-sm font-normal text-accent-indigo-soft">
+                {song.song_key}
+              </span>
+            )}
           </span>
-        ) : canEdit ? (
-          // Not a shrug: the commonest reason a song has nobody against it
-          // is that the rota was not filled when it was added, and this is
-          // the moment somebody can fix it.
-          <ActionButton size="sm" tone="quiet" onClick={startEditing}>
-            Add who leads it
-          </ActionButton>
-        ) : (
-          <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">Nobody yet</span>
-        )}
+          {song.leader ? (
+            <span className="min-w-0 break-words text-body-sm text-on-surface-variant sm:shrink-0">
+              {song.leader.first_name} {song.leader.last_name}
+            </span>
+          ) : canEdit ? (
+            // Not a shrug: the commonest reason a song has nobody against it
+            // is that the rota was not filled when it was added, and this is
+            // the moment somebody can fix it.
+            <ActionButton size="sm" tone="quiet" onClick={startEditing}>
+              Add who leads it
+            </ActionButton>
+          ) : (
+            <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">Nobody yet</span>
+          )}
+        </div>
       </div>
 
       {/* Every one of these was a blue underlined word in a row of blue

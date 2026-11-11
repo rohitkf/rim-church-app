@@ -237,14 +237,14 @@ export function OnboardingCard() {
             placeholder="Find somebody"
             className={`${inputClasses} sm:flex-1`}
           />
-          <div role="group" aria-label="Show" className="flex gap-1">
+          <div role="group" aria-label="Show" className="flex flex-wrap gap-1">
             {SHOW.map((s) => (
               <button
                 key={s.value}
                 type="button"
                 aria-pressed={show === s.value}
                 onClick={() => setShow(s.value)}
-                className={`tap rounded-full px-3 py-1 text-label-md ${
+                className={`tap whitespace-nowrap rounded-full px-3 py-1 text-label-md ${
                   show === s.value ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -254,6 +254,8 @@ export function OnboardingCard() {
           </div>
         </div>
 
+        {/* The gap is here, not on the table: "Loading…" and "Nobody here." need it as much. */}
+        <div className="mt-3">
         <QueryState
           isLoading={people.isLoading || tours.isLoading || setup.isLoading || locations.isLoading}
           error={people.error || tours.error || setup.error || locations.error}
@@ -266,7 +268,7 @@ export function OnboardingCard() {
               three screens down still says which column it is in. (Headings
               can only stay put inside the box that scrolls, so the list has
               a height of its own rather than running the length of the page.) */}
-          <div className="relative mt-3 -mx-2 max-h-[70svh] overflow-auto overscroll-contain px-2">
+          <div className="relative -mx-2 max-h-[70svh] overflow-auto overscroll-contain px-2">
             <table aria-label="Getting set up" className="w-full min-w-[40rem] border-collapse text-body-sm">
               <thead>
                 <tr>
@@ -319,6 +321,7 @@ export function OnboardingCard() {
             </table>
           </div>
         </QueryState>
+        </div>
       </SectionTile>
 
       {/* Which phone and browser each person opens the app on — what to

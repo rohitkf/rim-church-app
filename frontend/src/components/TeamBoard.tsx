@@ -438,12 +438,14 @@ export function TeamBoard({
           rows={1}
           disabled={post.isPending}
           onSubmit={() => post.mutate()}
-          placeholder={`Message ${department?.name ?? 'your team'}…  @ to mention`}
+          // Short enough for one line on a phone: the room's name is in the
+          // header above, and a hint that wrapped was cut off by the box.
+          placeholder="Message the team…"
           className="w-full resize-none rounded-[var(--radius-chip)] bg-raised px-4 py-2.5 text-body-sm text-on-surface hairline placeholder:text-on-surface-faint focus:outline-none focus:ring-1 focus:ring-secondary"
         />
         <div className="mt-2 flex items-center justify-between gap-3">
           <span className="font-mono text-label-sm text-on-surface-faint">
-            Enter sends · Shift+Enter for a new line
+            @ to mention · Enter sends · Shift+Enter for a new line
           </span>
           <button
             type="button"

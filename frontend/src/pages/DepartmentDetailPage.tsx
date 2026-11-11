@@ -564,12 +564,19 @@ export function DepartmentDetailPage() {
 
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               {/*
-                Four columns need about 420px and a phone has 360, so the
-                table used to hand a phone a sideways scroll with the
-                compliance badge parked off the edge where nobody found it.
-                Below `sm` each member is a card instead — same fields,
-                stacked, nothing hidden. The table returns where it fits.
+                The table needs room for every column it has, and for an
+                Admin that is six: a name, an age, a standing, an email, a
+                badge and two actions, about 880px. It used to appear at
+                640px of *screen*, where those six shared the width of a
+                tablet: headings broke in two and "Make a guest" stood three
+                words tall.
+
+                So each member is a card until the section itself is wide
+                enough for the table (a container query, not a screen
+                width: this section is half the page on some layouts). Same
+                fields, stacked, nothing hidden.
               */}
+              <div className="@container">
               {/*
                 Name, then who they are, then how to reach them, then the
                 one badge — in that order down the card rather than fought
@@ -577,7 +584,7 @@ export function DepartmentDetailPage() {
                 text: it is the rarest thing anyone does here and it used to
                 be the loudest thing on every row.
               */}
-              <ul className="mt-4 flex flex-col gap-2.5 sm:hidden">
+              <ul className="mt-4 flex flex-col gap-2.5 @3xl:hidden">
                 {coreMembers.map((m) => {
                   const rank = designationOf(m.user_id)
                   return (
@@ -649,13 +656,13 @@ export function DepartmentDetailPage() {
                 ))}
               </ul>
 
-              <div className="mt-4 hidden overflow-x-auto sm:block">
+              <div className="mt-4 hidden overflow-x-auto @3xl:block">
                 <table className="w-full text-left text-body-sm">
                   <thead>
                     <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
                       <th className="py-2 pr-4">Member</th>
-                      {seesAges && <th className="py-2 pr-4">Age</th>}
-                      <th className="py-2 pr-4">On this team</th>
+                      {seesAges && <th className="whitespace-nowrap py-2 pr-4">Age</th>}
+                      <th className="whitespace-nowrap py-2 pr-4">On this team</th>
                       {seesContacts && <th className="py-2 pr-4">Contact</th>}
                       {seesCompliance && <th className="py-2 pr-4">Compliance</th>}
                       {canManage && <th className="py-2" />}
@@ -668,11 +675,11 @@ export function DepartmentDetailPage() {
                             {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                           </td>
                           {seesAges && (
-                            <td className="py-3 pr-4 text-on-surface-variant">
+                            <td className="whitespace-nowrap py-3 pr-4 text-on-surface-variant">
                               <Age dob={m.profiles?.dob} />
                             </td>
                           )}
-                          <td className="py-3 pr-4 text-on-surface-variant">
+                          <td className="whitespace-nowrap py-3 pr-4 text-on-surface-variant">
                             {DESIGNATION_LABEL[designationOf(m.user_id)]}
                           </td>
                           {seesContacts && (
@@ -686,7 +693,7 @@ export function DepartmentDetailPage() {
                             </td>
                           )}
                           {canManage && (
-                            <td className="py-3 text-right">
+                            <td className="whitespace-nowrap py-3 text-right">
                               <span className="inline-flex items-center gap-3">
                                 {moveButton(
                                   m,
@@ -723,9 +730,11 @@ export function DepartmentDetailPage() {
                     ))}
                   </tbody>
                 </table>
-                {coreMembers.length === 0 && rollCore.length === 0 && (
-                  <p className="py-4 text-body-sm text-on-surface-variant">No core members yet.</p>
-                )}
+              </div>
+              {/* Outside the table, so the cards say it too. */}
+              {coreMembers.length === 0 && rollCore.length === 0 && (
+                <p className="py-4 text-body-sm text-on-surface-variant">No core members yet.</p>
+              )}
               </div>
             </QueryState>
 

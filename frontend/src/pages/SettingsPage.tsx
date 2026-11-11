@@ -188,10 +188,11 @@ function SettingsHome({ groups }: { groups: SettingsGroup[] }) {
             {initials || '?'}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-headline-md text-on-surface">
+            <span className="block break-words text-headline-md text-on-surface">
               {profile.first_name ? `Hi, ${profile.first_name}` : 'Your profile'}
             </span>
-            <span className="block truncate text-body-sm text-on-surface-variant">{profile.email}</span>
+            {/* Wrapped, not cut: this is where somebody checks which address they signed in with. */}
+            <span className="block text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{profile.email}</span>
           </span>
           <ChevronRightIcon
             width={18}
