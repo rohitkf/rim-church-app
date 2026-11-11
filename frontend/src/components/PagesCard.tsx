@@ -431,43 +431,9 @@ function PageSection({
 
         {open && (
           <div id={`${panel}-body`} className="flex flex-col gap-5 px-5 pb-5">
-            {/* An Admin's room: somebody who may only read the rules is shown the rules. */}
-            {editable && (entries.length > 0 || rooms.length > 0) && (
-              <section>
-                <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Settings</h3>
-                {entries.length > 0 && (
-                  <div className="mt-1">
-                    <SettingList>
-                      <SettingEntries entries={entries} draft={draft} stored={stored} set={set} open={openRow} onToggle={onToggleRow} />
-                    </SettingList>
-                  </div>
-                )}
-                {rooms.length > 0 && (
-                  <ul className="mt-2 flex flex-col gap-1.5" aria-label="Also in Settings">
-                    {rooms.map((r) => (
-                      <li key={r.to}>
-                        <Link
-                          to={r.to}
-                          className="group/room flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 transition-colors duration-200 hover:bg-raised-strong"
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-body-sm font-medium text-on-surface">{r.label.includes("›") ? r.label : `Settings › ${r.label}`}</span>
-                            <span className="block text-label-md text-on-surface-variant">{r.blurb}</span>
-                          </span>
-                          <ChevronRightIcon
-                            width={16}
-                            height={16}
-                            aria-hidden="true"
-                            className="shrink-0 text-on-surface-faint transition-transform duration-300 group-hover/room:translate-x-0.5"
-                          />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )}
-
+            {/* The same order on every page (the Settings redesign): who can open
+                it, who can do what on it — the church's rule, then each team's
+                own — and then the page's settings and its own rooms. */}
             {rule && (
               <section>
                 <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Who can open it</h3>
@@ -486,25 +452,6 @@ function PageSection({
                   <p className="min-w-0 flex-1 basis-56 text-label-md text-on-surface-faint">{rule.note}</p>
                 </div>
               </section>
-            )}
-
-            {extra}
-
-            {rows.length > 0 && teams.length > 0 && (
-              <PageTeamAccess
-                rows={rows}
-                teams={teams}
-                editable={editable}
-                working={perms.working}
-                workingTeams={perms.workingTeams}
-                storedTeams={perms.storedTeams}
-                onChoose={(dept, cap, role, reach) => {
-                  onSaved()
-                  perms.chooseTeam(dept, cap, role, reach)
-                }}
-                open={openHere}
-                onToggle={onToggleTeam}
-              />
             )}
 
             {areas.length > 0 && (
@@ -569,6 +516,63 @@ function PageSection({
                 })}
               </section>
             )}
+
+            {rows.length > 0 && teams.length > 0 && (
+              <PageTeamAccess
+                rows={rows}
+                teams={teams}
+                editable={editable}
+                working={perms.working}
+                workingTeams={perms.workingTeams}
+                storedTeams={perms.storedTeams}
+                onChoose={(dept, cap, role, reach) => {
+                  onSaved()
+                  perms.chooseTeam(dept, cap, role, reach)
+                }}
+                open={openHere}
+                onToggle={onToggleTeam}
+              />
+            )}
+
+            {extra}
+
+            {/* An Admin's room: somebody who may only read the rules is shown the rules. */}
+            {editable && (entries.length > 0 || rooms.length > 0) && (
+              <section>
+                <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Settings</h3>
+                {entries.length > 0 && (
+                  <div className="mt-1">
+                    <SettingList>
+                      <SettingEntries entries={entries} draft={draft} stored={stored} set={set} open={openRow} onToggle={onToggleRow} />
+                    </SettingList>
+                  </div>
+                )}
+                {rooms.length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1.5" aria-label="Also in Settings">
+                    {rooms.map((r) => (
+                      <li key={r.to}>
+                        <Link
+                          to={r.to}
+                          className="group/room flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 transition-colors duration-200 hover:bg-raised-strong"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body-sm font-medium text-on-surface">{r.label.includes("›") ? r.label : `Settings › ${r.label}`}</span>
+                            <span className="block text-label-md text-on-surface-variant">{r.blurb}</span>
+                          </span>
+                          <ChevronRightIcon
+                            width={16}
+                            height={16}
+                            aria-hidden="true"
+                            className="shrink-0 text-on-surface-faint transition-transform duration-300 group-hover/room:translate-x-0.5"
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
           </div>
         )}
       </Tile>

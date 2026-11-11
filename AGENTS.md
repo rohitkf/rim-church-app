@@ -700,6 +700,18 @@ in `lib/permissionMatrix.ts`, or its own `at` when the area spans several,
 and a `short` name for the team-by-team grids. `settingsCatalog.test.ts`
 checks every row lands on a page.
 
+**A right is no use behind a closed page.** `lib/pageNeeds.ts` reads the
+changes waiting to be saved in Access & Privileges and names each one that
+hands a role (Newcomer, Team Member, Pastor) something on a page that role
+cannot open; the save review offers "Open the page for them too", which
+adds the page's own capability to the same save. It only ever offers —
+nothing is opened unasked. A page gated by something other than a `page.*`
+capability must be told to it there (`/clock-in` by `clockin.view`).
+
+**Every page in Page by Page reads in one order**: who can open it, the
+church's rule, team by team, then its settings and the rooms it points
+to. Keep a new block inside that order.
+
 **Who can open which pages** is chosen in Page by Page, under each page.
 Access & Privileges › Pages (`PageAccessCard`) only shows it — a preview
 per profile and each page's level, linking to its section — so the
