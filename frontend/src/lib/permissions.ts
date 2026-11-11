@@ -1040,6 +1040,30 @@ export interface Holder {
    * for everybody on a team. Left out, none.
    */
   grants?: readonly PermissionGrant[]
+  /**
+   * What this person is refused by name (0273), whatever their profiles,
+   * their teams or a grant say. Left out, nothing. Passed by for an Admin,
+   * as `may()` passes it by.
+   */
+  blocked?: readonly string[]
+}
+
+/** One person refused one capability (0273). */
+export interface PermissionBlock {
+  userId: string
+  capability: string
+}
+
+/**
+ * What one person may be blocked from: what a grant could give — the rows
+ * `may()` alone answers — less opening a page, which the pages' own levels
+ * draw, and — for somebody who is Overwatch — less the five things done
+ * as Overwatch, which `overwatch_may()` answers and a block would not reach.
+ */
+export function blockableCapabilities(overwatch = false): CapabilityKey[] {
+  return grantableCapabilities().filter(
+    (cap) => !cap.startsWith('page.') && !(overwatch && OVERWATCH_OWN.includes(cap)),
+  )
 }
 
 /**
@@ -1110,6 +1134,8 @@ export function grantedBy(
 ): Granter | null {
   if (!holder.myId) return null
   if (holder.owner) return 'owner'
+  // Refused by name (0273): asked before every tier, as may() asks it.
+  if (!holder.admin && holder.blocked?.includes(cap)) return null
   const mine = !!where.ownerId && where.ownerId === holder.myId
   const dept = where.departmentId ?? null
   const on = (role: GrantRole) => reachOn(overrides, teams, dept, cap, role)

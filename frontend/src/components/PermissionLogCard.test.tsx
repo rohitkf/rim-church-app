@@ -226,3 +226,23 @@ describe('putting a change back', () => {
     expect(changeMatches(r, 'worship', person, team)).toBe(false)
   })
 })
+
+describe('a block in the log (0273)', () => {
+  const block = (over: Partial<PermissionChangeRow>): PermissionChangeRow => ({
+    id: 'b1', changed_at: '2026-11-11T10:00:00Z', changed_by: 'me', kind: 'block', capability: 'rota.assign', role_key: null,
+    department_id: null, user_id: 'asha', before: null, after: 'blocked', leads_only_before: null, leads_only_after: null,
+    until_before: null, until_after: null, ...over,
+  })
+  const person = (id: string) => (id === 'asha' ? 'Asha Mathew' : 'Somebody')
+  const team = () => 'A team'
+
+  it('is said as a sentence, both ways', () => {
+    expect(describeChange(block({}), person, team)).toBe('Blocked Asha Mathew from “Assign somebody to a role”')
+    expect(describeChange(block({ before: 'blocked', after: null }), person, team)).toBe('Unblocked Asha Mathew from “Assign somebody to a role”')
+  })
+
+  it('is put back by lifting it, or by blocking again', () => {
+    expect(putBack(block({}))).toEqual({ fn: 'set_permission_blocks', args: { p_changes: [{ capability: 'rota.assign', person: 'asha', blocked: false }] } })
+    expect(putBack(block({ before: 'blocked', after: null }))).toEqual({ fn: 'set_permission_blocks', args: { p_changes: [{ capability: 'rota.assign', person: 'asha', blocked: true }] } })
+  })
+})

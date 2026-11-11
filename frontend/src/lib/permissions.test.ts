@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   type PermissionGrant,
+  blockableCapabilities,
   grantableCapabilities,
   grantIsValid,
   grantedBy,
@@ -356,5 +357,39 @@ describe('opening a page, as a capability (0215)', () => {
     expect(decide({}, { ...nobody, grants: [given] }, 'page.inventory')).toBe(true)
     // A Coordinator opens a page as the Team Member they are, not as a Coordinator.
     expect(decide({}, { ...nobody, coordinatesAnywhere: true }, 'page.inventory')).toBe(false)
+  })
+})
+
+describe('refused by name (0273)', () => {
+  // Each answer here is the one the local database gave for the same case.
+  const grant: PermissionGrant = { capability: 'rota.assign', userId: 'me', departmentId: null, reach: 'all' }
+
+  it('says no to the one thing, whatever their profile gives', () => {
+    expect(decide({}, headOfA, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    const blocked: Holder = { ...headOfA, blocked: ['rota.assign'] }
+    expect(decide({}, blocked, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    // …and to nothing else.
+    expect(decide({}, blocked, 'rota.tag', { departmentId: TEAM_A })).toBe(decide({}, headOfA, 'rota.tag', { departmentId: TEAM_A }))
+  })
+
+  it('wins over a grant, and over what is their own', () => {
+    expect(decide({}, { ...nobody, grants: [grant] }, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    expect(decide({}, { ...nobody, grants: [grant], blocked: ['rota.assign'] }, 'rota.assign', { departmentId: TEAM_A })).toBe(false)
+    expect(decide({}, { ...nobody, grants: [grant], blocked: ['rota.assign'] }, 'rota.assign', { ownerId: 'me' })).toBe(false)
+  })
+
+  it('never reaches the Owner, and sleeps for an Admin', () => {
+    expect(decide({}, { ...owner, blocked: ['rota.assign'] }, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+    expect(decide({}, { ...admin, blocked: ['rota.assign'] }, 'rota.assign', { departmentId: TEAM_A })).toBe(true)
+  })
+
+  it('offers what a grant could give, less opening a page — and, for Overwatch, less its own five', () => {
+    const offered = blockableCapabilities()
+    expect(offered).toContain('rota.assign')
+    expect(offered).toContain('msg.chat')
+    expect(offered.some((cap) => cap.startsWith('page.'))).toBe(false)
+    expect(offered).not.toContain('app.permissions')
+    for (const cap of offered) expect(grantableCapabilities()).toContain(cap)
+    expect(blockableCapabilities(true)).not.toContain('msg.chat')
   })
 })

@@ -14,6 +14,7 @@ import {
   type CapabilityKey,
   type Holder,
   type Overrides,
+  type PermissionBlock,
   type PermissionGrant,
   type TeamOverrides,
   type Where,
@@ -33,11 +34,15 @@ const grantRowSchema = z.object({
   expires_at: z.string().nullable().default(null),
 })
 
+const blockRowSchema = z.object({ user_id: z.string(), capability: z.string() })
+
 export interface StoredPermissions {
   church: Overrides
   teams: TeamOverrides
   /** One thing more, for a person or a team (0208). */
   grants: PermissionGrant[]
+  /** One person refused one thing (0273). */
+  blocks: PermissionBlock[]
 }
 
 /**
@@ -46,14 +51,16 @@ export interface StoredPermissions {
  * set_permission_grants() write.
  */
 export async function fetchOverrides(): Promise<StoredPermissions> {
-  const [church, teams, grants] = await Promise.all([
+  const [church, teams, grants, blocks] = await Promise.all([
     supabase.from('role_permissions').select('role_key, capability, reach'),
     supabase.from('department_permissions').select('department_id, role_key, capability, reach'),
     supabase.from('permission_grants').select('id, capability, user_id, department_id, reach, leads_only, expires_at'),
+    supabase.from('permission_blocks').select('user_id, capability'),
   ])
   if (church.error) throw church.error
   if (teams.error) throw teams.error
   if (grants.error) throw grants.error
+  if (blocks.error) throw blocks.error
   return {
     church: overridesFrom(z.array(rowSchema).parse(church.data ?? [])),
     teams: teamOverridesFrom(z.array(teamRowSchema).parse(teams.data ?? [])),
@@ -72,10 +79,14 @@ export async function fetchOverrides(): Promise<StoredPermissions> {
         leadsOnly: g.leads_only,
         expiresAt: g.expires_at,
       })),
+    blocks: z
+      .array(blockRowSchema)
+      .parse(blocks.data ?? [])
+      .map((b) => ({ userId: b.user_id, capability: b.capability })),
   }
 }
 
-const NONE: StoredPermissions = { church: {}, teams: {}, grants: [] }
+const NONE: StoredPermissions = { church: {}, teams: {}, grants: [], blocks: [] }
 
 /**
  * The church's permissions, and `can()` for the signed-in person.
@@ -108,6 +119,12 @@ export function usePermissions() {
   const all = loaded.grants ?? NONE.grants
   const previewing = !!viewAs
   const grants = useMemo(() => (previewing ? all.filter((g) => !!g.departmentId) : all), [all, previewing])
+  // Blocks are by name (0273), so a preview of a profile carries none.
+  const blocks = loaded.blocks ?? NONE.blocks
+  const blocked = useMemo(
+    () => (previewing || !myId ? [] : blocks.filter((b) => b.userId === myId).map((b) => b.capability)),
+    [blocks, previewing, myId],
+  )
 
   // Both lists are rebuilt every render; what they hold is what matters.
   const led = (ledDepartmentIds ?? []).join('|')
@@ -142,8 +159,9 @@ export function usePermissions() {
       pastor,
       overwatch,
       grants,
+      blocked,
     }),
-    [myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, pastor, overwatch, grants],
+    [blocked, myId, isSuperAdmin, isAdmin, led, known, headed, assisted, member, isDepartmentHead, previewCoordinates, pastor, overwatch, grants],
   )
 
   /*
@@ -172,5 +190,5 @@ export function usePermissions() {
     [overrides, teams, holder, watching],
   )
 
-  return { can, watches, overrides, teams, grants, query, holder }
+  return { can, watches, overrides, teams, grants, blocks, query, holder }
 }

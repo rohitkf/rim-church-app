@@ -11,6 +11,8 @@ vi.mock('../lib/peopleFacts', () => ({
       { id: 'o', name: 'Rohit K', facts: { id: 'o', owner: true, admin: true, overwatch: false, pastor: false, headTeams: [], assistTeams: [], memberTeams: [], coordinatorTeams: [] } },
     ]),
 }))
+const perms = vi.hoisted(() => ({ blocks: [] as { userId: string; capability: string }[] }))
+vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ blocks: perms.blocks }) }))
 vi.mock('../lib/queries', () => ({ fetchDepartments: () => Promise.resolve([{ id: 'w', name: 'Worship' }]) }))
 
 type Props = Parameters<typeof ChangeEffects>[0]
@@ -37,6 +39,13 @@ describe('what saving would do', () => {
     expect(row).toHaveTextContent('Lets one more person do it, or do it further: Asha Mathew.')
     expect(row).not.toHaveTextContent('Ben Joseph')
     expect(row).not.toHaveTextContent('Rohit K')
+  })
+
+  it('leaves out somebody blocked from it by name (0273)', async () => {
+    perms.blocks = [{ userId: 'a', capability: 'rota.assign' }]
+    show(['rota.assign'], { church: { 'rota.assign': { member: 'team' } }, teams: {} })
+    expect(await screen.findByText('— nobody’s answer changes.')).toBeInTheDocument()
+    perms.blocks = []
   })
 
   it('says so when nobody’s answer changes', async () => {

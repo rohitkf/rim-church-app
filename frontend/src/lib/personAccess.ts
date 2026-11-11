@@ -10,6 +10,7 @@ import {
   type Granter,
   type Holder,
   type Overrides,
+  type PermissionBlock,
   type PermissionGrant,
   type TeamOverrides,
 } from './permissions'
@@ -42,6 +43,14 @@ export interface PersonFacts {
   memberTeams: readonly string[]
   /** Teams the rota has them in Team Coordinator for, at some service. */
   coordinatorTeams: readonly string[]
+  /** What they are refused by name (0273). Left out, nothing. */
+  blocked?: readonly string[]
+}
+
+/** A person with the church's blocks on them (0273) laid over their facts. */
+export function withBlocks<T extends PersonFacts>(p: T, blocks: readonly PermissionBlock[]): T {
+  const blocked = blocks.filter((b) => b.userId === p.id).map((b) => b.capability)
+  return blocked.length > 0 ? { ...p, blocked } : p
 }
 
 /** A person as `decide()` takes them, with the church's grants (0208). */
@@ -59,6 +68,7 @@ export function holderOf(p: PersonFacts, grants: readonly PermissionGrant[] = []
     pastor: p.pastor,
     overwatch: p.overwatch,
     grants,
+    blocked: p.blocked,
   }
 }
 

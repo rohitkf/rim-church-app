@@ -11,13 +11,14 @@ import { ACCESS_LEVELS } from '../lib/pageAccess'
 import { isPageCapability, levelsFrom } from '../lib/pageCells'
 import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
 import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
-import { decide, grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
+import { blockableCapabilities, decide, grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
 import { useErrorText } from '../lib/useErrorText'
 import {
   explainCapability,
   explainFixed,
   grantsFor,
   holderOf,
+  withBlocks,
   openingFor,
   type Answer,
   type PersonFacts,
@@ -152,7 +153,7 @@ const FIXED_LABEL: Record<Allowed, string> = { yes: 'Yes', own: 'Their own', tea
 
 export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
   const settings = useAppSettings()
-  const { overrides, teams: teamRules, grants = [] } = usePermissions()
+  const { overrides, teams: teamRules, grants = [], blocks = [] } = usePermissions()
   // Every page's level, as the grid has it (0215).
   const levels = useMemo(() => levelsFrom(overrides), [overrides])
   // The person lives in the address, so a link can open their answer.
@@ -191,7 +192,8 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
     [levels, settings.issues_raise_scope, settings.overwatch_pages],
   )
 
-  const facts = person.data?.facts
+  // Their facts, with what they are refused by name (0273) laid over them.
+  const facts = useMemo(() => (person.data ? withBlocks(person.data.facts, blocks) : undefined), [person.data, blocks])
   const guestTeams = person.data?.guestTeams ?? []
   const chosen = people.data?.find((p) => p.id === personId)
   const name = chosen ? `${chosen.first_name} ${chosen.last_name}`.trim() : ''
@@ -277,6 +279,10 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                     const rows = area.capabilities.map((c) => {
                       if (c.key && live) {
                         const answer = explainCapability(facts, c.key, overrides, teamRules, teamIds, settings, grants)
+                        // Refused by name: said as that, not as a plain No with no reason.
+                        if (!facts.admin && !facts.owner && facts.blocked?.includes(c.key)) {
+                          return { c, no: false, cell: <Reasoned tone="neutral" label="Blocked" why="by name" /> }
+                        }
                         return { c, no: answer.kind === 'none', cell: <AnswerPill answer={answer} teamName={teamName} teamIds={teamIds} /> }
                       }
                       const fixed = explainFixed(facts, c, settings, levels)
@@ -330,6 +336,8 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
               </SectionTile>
 
               <GivenMore facts={facts} name={name} grants={grants} teamName={teamName} />
+
+              <BlockedFrom facts={facts} name={name} />
 
             </>
           )}
@@ -568,6 +576,125 @@ function GivenMore({
             A grant only ever adds to what their profiles give, and never reaches further than the grid could
             give a Team Head or a Team Member. One given until a day ends as that day does, on its own. The
             database follows it at once.
+          </p>
+        </div>
+      )}
+    </SectionTile>
+  )
+}
+
+/**
+ * Refused by name (0273): what this one person may not do, whatever their
+ * profiles, their teams or a grant say — and the place to block one more
+ * thing, or lift a block.
+ */
+function BlockedFrom({ facts, name }: { facts: PersonFacts; name: string }) {
+  const { can } = usePermissions()
+  const editable = can('app.permissions')
+  const queryClient = useQueryClient()
+  const errorText = useErrorText()
+  const [cap, setCap] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const held = useMemo(() => [...(facts.blocked ?? [])].sort((a, b) => actionOf(a).localeCompare(actionOf(b))), [facts.blocked])
+  const choices = useMemo(
+    () =>
+      blockableCapabilities(facts.overwatch)
+        .filter((key) => !held.includes(key))
+        .map((key) => ({ value: key, label: actionOf(key) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [held, facts.overwatch],
+  )
+
+  const save = useMutation({
+    mutationFn: async (change: { capability: string; blocked: boolean }) => {
+      const { error } = await supabase.rpc('set_permission_blocks', {
+        p_changes: [{ capability: change.capability, person: facts.id, blocked: change.blocked }],
+      })
+      if (error) throw error
+    },
+    onSuccess: async () => {
+      setError(null)
+      setCap('')
+      await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
+    },
+    onError: (err: unknown) => setError(errorText(err, 'Could not save that.')),
+  })
+
+  // The Owner holds everything; an Admin's standing is not the grid's to take away.
+  if (facts.owner || facts.admin) {
+    return (
+      <SectionTile title="Blocked from" hint="Whatever their profiles give.">
+        <p className="text-body-sm text-on-surface-variant">
+          {facts.owner
+            ? 'The Owner cannot be blocked from anything.'
+            : 'An Admin cannot be blocked. To stop them, take their Admin role away in Volunteers first.'}
+        </p>
+      </SectionTile>
+    )
+  }
+
+  return (
+    <SectionTile
+      title="Blocked from"
+      hint={`What ${name || 'they'} may not do, whatever their profiles, their teams or a grant say. Nobody else is changed.`}
+    >
+      {held.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant">Nothing. They may do whatever their profiles give.</p>
+      ) : (
+        <ul aria-label="Blocked from" className="flex flex-col gap-1">
+          {held.map((key) => (
+            <li
+              key={key}
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[var(--radius-row)] px-2 py-2.5 odd:bg-raised"
+            >
+              <span className="min-w-0 flex-1 basis-48 text-body-sm text-on-surface">{actionOf(key)}</span>
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                <Pill>Blocked</Pill>
+                {editable && (
+                  <button
+                    type="button"
+                    onClick={() => save.mutate({ capability: key, blocked: false })}
+                    disabled={save.isPending}
+                    aria-label={`Unblock: ${actionOf(key)}`}
+                    className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:text-on-surface"
+                  >
+                    Unblock
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editable && (
+        <div className="mt-4 flex flex-col gap-2">
+          <Select
+            aria-label="Block them from"
+            placeholder="Block them from one thing…"
+            value={cap}
+            onChange={setCap}
+            options={choices}
+          />
+          {cap && (
+            <div className="flex flex-wrap items-center gap-2">
+              <ActionButton tone="quiet" onClick={() => save.mutate({ capability: cap, blocked: true })} disabled={save.isPending}>
+                Block
+              </ActionButton>
+              <span className="min-w-0 flex-1 basis-48 text-label-md text-on-surface-variant">
+                {name || 'They'} could no longer “{actionOf(cap)}”, on any team. The database follows it at once.
+              </span>
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="text-body-sm text-error">
+              {error}
+            </p>
+          )}
+          <p className="text-label-md text-on-surface-faint">
+            A block wins over everything else for this one person, and stays until it is lifted here. Opening a
+            page is not blocked here — close the page for their role in Page by Page. Every block is in History.
           </p>
         </div>
       )}
