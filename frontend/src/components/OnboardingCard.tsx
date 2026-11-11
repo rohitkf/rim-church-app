@@ -260,12 +260,17 @@ export function OnboardingCard() {
           isEmpty={shown.length === 0}
           emptyMessage={filter.trim() ? 'Nobody by that name.' : 'Nobody here.'}
         >
-          {/* Ten columns will not fit a phone; it scrolls inside itself, the names staying put. */}
-          <div className="relative mt-3 -mx-2 overflow-x-auto px-2">
+          {/* Ten columns will not fit a phone, and forty-eight rows will not
+              fit a screen: it scrolls inside itself both ways, the names
+              staying put at the side and the headings at the top — a tick
+              three screens down still says which column it is in. (Headings
+              can only stay put inside the box that scrolls, so the list has
+              a height of its own rather than running the length of the page.) */}
+          <div className="relative mt-3 -mx-2 max-h-[70svh] overflow-auto overscroll-contain px-2">
             <table aria-label="Getting set up" className="w-full min-w-[40rem] border-collapse text-body-sm">
               <thead>
                 <tr>
-                  <th scope="col" className="sticky left-0 z-10 min-w-40 bg-surface-lowest px-2 pb-2 text-left align-bottom font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant">
+                  <th scope="col" className="sticky left-0 top-0 z-30 min-w-40 bg-surface-lowest px-2 pb-2 pt-1 text-left align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant">
                     Name
                   </th>
                   {SETUP_COLUMNS.map((c) => (
@@ -273,7 +278,7 @@ export function OnboardingCard() {
                       key={c.key}
                       scope="col"
                       title={c.label}
-                      className="px-1.5 pb-2 text-center align-bottom font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                      className="sticky top-0 z-20 bg-surface-lowest px-1.5 pb-2 pt-1 text-center align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
                     >
                       <span aria-hidden="true">{c.short}</span>
                       <span className="sr-only">{c.label}</span>
