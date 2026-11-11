@@ -64,7 +64,7 @@ describe('the settings catalog', () => {
     }
     expect(pageName('/rota')).toBe('Team Rota')
     expect(pageName(BELL)).toBe('Notifications')
-    expect(pageName(SERVICE_PAGES_REF)).toBe('Every service page')
+    expect(pageName(SERVICE_PAGES_REF)).toBe('Services')
   })
 
   it('reads back what it writes, at every default', () => {
@@ -84,14 +84,22 @@ describe('the settings catalog', () => {
   })
 
   it('gives each page the settings that move it', () => {
+    // Each setting has one home. The rota keeps what is only the rota's…
     const rota = settingsForPage('/rota').map((e) => e.id)
-    expect(rota).toEqual(
-      expect.arrayContaining(['rota_window_days', 'always_show_my_services', 'lead_in_minutes', 'edit_grace_minutes', 'display.lists.upcomingOpen', 'service_retention_days']),
-    )
+    expect(rota).toContain('always_show_my_services')
     expect(rota).not.toContain('issue_open_minutes_before')
+    // …and what every service page shares is in Services, once.
+    const shared = settingsForPage(SERVICE_PAGES_REF).map((e) => e.id)
+    expect(shared).toEqual(
+      expect.arrayContaining(['rota_window_days', 'lead_in_minutes', 'edit_grace_minutes', 'display.lists.upcomingOpen', 'display.lists.finishedOpen', 'service_retention_days']),
+    )
+    for (const id of shared) expect(rota, id).not.toContain(id)
+    // No setting is filed under two pages.
+    for (const entry of SETTINGS_CATALOG) expect(entry.affects, entry.id).toHaveLength(1)
     expect(settingsForPage('/team-chat').map((e) => e.id)).toEqual(['team_chat_retention_days'])
     expect(settingsForPage(BELL).map((e) => e.id)).toEqual(['notification_keep_count', 'notification_retention_days'])
-    for (const page of SERVICE_PAGES) expect(settingsForPage(page).map((e) => e.id)).toContain('display.lists.finishedOpen')
+    // Every service page points to them instead.
+    for (const page of SERVICE_PAGES) expect(PAGE_ROOMS[page].map((r) => r.to)).toContain('/settings/pages#service-pages')
   })
 })
 

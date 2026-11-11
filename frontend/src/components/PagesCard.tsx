@@ -451,7 +451,7 @@ function PageSection({
                           className="group/room flex items-center gap-3 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 transition-colors duration-200 hover:bg-raised-strong"
                         >
                           <span className="min-w-0 flex-1">
-                            <span className="block text-body-sm font-medium text-on-surface">Settings › {r.label}</span>
+                            <span className="block text-body-sm font-medium text-on-surface">{r.label.includes("›") ? r.label : `Settings › ${r.label}`}</span>
                             <span className="block text-label-md text-on-surface-variant">{r.blurb}</span>
                           </span>
                           <ChevronRightIcon

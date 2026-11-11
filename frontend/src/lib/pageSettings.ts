@@ -1,9 +1,9 @@
 import type { ComponentType, SVGProps } from 'react'
-import { BellIcon, MegaphoneIcon, SettingsIcon } from '../components/icons'
+import { BellIcon, CalendarIcon, MegaphoneIcon, SettingsIcon } from '../components/icons'
 import { NAV_ITEMS } from './navItems'
 import { SERVING_TABS } from './serving'
 import { type Capability, type PermissionArea } from './permissionMatrix'
-import { ALERTS, APP, BELL, affectsPage } from './settingsCatalog'
+import { ALERTS, APP, BELL, SERVICE_PAGES, SERVICE_PAGES_REF, affectsPage } from './settingsCatalog'
 import { TEAM_ROLES, isTeamSettable } from './permissions'
 
 /**
@@ -37,6 +37,9 @@ export const SETTINGS_PAGES: SettingsPage[] = [
         }))
       : [{ to: item.to, label: item.label, group: item.group ?? 'Home', icon: item.icon }],
   ),
+  // What every service page shares, once (the Settings redesign): days
+  // ahead, when a service is on, how long editing stays open, what is kept.
+  { to: SERVICE_PAGES_REF, label: 'Services', group: 'Everywhere', icon: CalendarIcon },
   { to: BELL, label: 'Notifications', group: 'Everywhere', icon: BellIcon },
   { to: ALERTS, label: 'Send an Alert', group: 'Everywhere', icon: MegaphoneIcon },
   { to: APP, label: 'The app itself', group: 'Everywhere', icon: SettingsIcon },
@@ -74,8 +77,24 @@ export function teamRows(areas: PermissionArea[]): Capability[] {
  * The rooms with a page's own controls — the ones that are more than a
  * row (the rota's tags, the Giving links, which teams may draw the stage).
  */
+const SHARED_SERVICES = {
+  to: '/settings/pages#service-pages',
+  label: 'Page by Page › Services',
+  blurb: 'Shared by every service page: days ahead, when a service is on, how long editing stays open, how long services are kept.',
+}
+
 export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: string }[]> = {
-  '/rota': [{ to: '/settings/rota', label: 'Team Rota', blurb: 'Role tags, and how the Team Coordinator stands out.' }],
+  // Each service page points to the settings they share, rather than
+  // drawing the same control six times.
+  ...Object.fromEntries(SERVICE_PAGES.map((to) => [to, [SHARED_SERVICES]])),
+  '/issues': [SHARED_SERVICES],
+  '/rota': [SHARED_SERVICES, { to: '/settings/rota', label: 'Team Rota', blurb: 'Role tags, and how the Team Coordinator stands out.' }],
+  '/clock-in': [{ to: '/settings/clock-in', label: 'Clock In', blurb: 'Where church is, who sees it, who approves, and whose phone allows location.' }],
+  '/prayer': [{ to: '/settings/prayer', label: 'Prayer', blurb: 'Who reads private requests, asks people to pray, and runs prayer lists.' }],
+  '/': [
+    { to: '/settings/pages#clock-in', label: 'Page by Page › Clock In', blurb: 'When clock-in opens, which the dashboard’s card follows.' },
+    { to: '/settings/pages#messages', label: 'Page by Page › Message Board', blurb: 'When the board clears, which the dashboard’s panel follows.' },
+  ],
   '/giving': [{ to: '/settings/giving', label: 'Giving', blurb: 'Links, a QR code and bank details.' }],
   '/stage': [{ to: '/settings/stage', label: 'Stage Layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
   '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Send the tour of the app, and see who has taken it.' }],

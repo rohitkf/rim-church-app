@@ -41,7 +41,7 @@ const SPECIAL_NAMES: Record<string, string> = {
   [BELL]: 'Notifications',
   [ALERTS]: 'Send an Alert',
   [APP]: 'The app itself',
-  [SERVICE_PAGES_REF]: 'Every service page',
+  [SERVICE_PAGES_REF]: 'Services',
 }
 
 /** A page's name as the menu says it. */
@@ -52,9 +52,15 @@ export function pageName(ref: PageRef): string {
   return NAV_ITEMS.find((i) => i.to === ref)?.label ?? ref
 }
 
-/** Whether a setting that names `ref` is one of this page's. */
+/**
+ * Whether a setting that names `ref` is one of this page's. Each setting
+ * has one home (the Settings redesign, November 2026): the ones every
+ * service page shares live in "Services" and nowhere else, and each
+ * service page points there (lib/pageSettings PAGE_ROOMS) rather than
+ * drawing the same control again.
+ */
 export function affectsPage(ref: PageRef, page: string): boolean {
-  return ref === page || (ref === SERVICE_PAGES_REF && SERVICE_PAGES.includes(page))
+  return ref === page
 }
 
 interface Base {
@@ -184,7 +190,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Days ahead',
     summary: 'How far ahead the rota, availability and checklists list services.',
     help: 'Every service dated within this many days of today is listed — not the next few services, which on a busy Sunday would be spent on one day and hide the week after. Two rules ride along and cannot be turned off: if nothing falls inside the window the nearest day that has a service is shown instead, so the page is never blank; and a service that has finished stops holding the window open, so the moment today’s service ends, next Sunday’s is already there.',
-    affects: ['/rota', '/availability', '/checklists'],
+    affects: [SERVICE_PAGES_REF],
     min: 1,
     max: 120,
     dialMax: 60,
@@ -243,7 +249,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Doors open before',
     summary: 'A service reads as “on now” this long before it starts.',
     help: 'A service starts wearing the “on now” badge this long before its first session, so the rota highlights the right service while teams are setting up. Both ends are read from the running order, so a service with no running order planned is never “on now”.',
-    affects: ['/rota'],
+    affects: [SERVICE_PAGES_REF],
     min: 0,
     max: 240,
     unit: 'minutes',
@@ -254,7 +260,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Still on after',
     summary: 'And it keeps reading as “on now” this long after it ends.',
     help: 'It keeps the badge this long after the last session ends, so it does not blink out mid-handshake. Set it to 0 for the badge to go the second the service does.',
-    affects: ['/rota'],
+    affects: [SERVICE_PAGES_REF],
     min: 0,
     max: 240,
     unit: 'minutes',
@@ -267,7 +273,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Editing stays open for',
     summary: 'How long a finished service can still be corrected.',
     help: 'How long after a service ends its record stays open for correction. The clock starts when End service was pressed, or, if nobody pressed it, at the planned end of the last session. When it runs out the database itself starts refusing changes to the running order, checklist ticks and sign-offs, availability answers, and rota assignments for that service — so this is a real lock, not a hidden button. An hour is “walk off the stage and fix what you noticed”; a day suits a team that does its paperwork on Monday.',
-    affects: ['/service-planner', '/checklists', '/availability', '/rota'],
+    affects: [SERVICE_PAGES_REF],
     min: 0,
     max: 10080,
     // A week in minutes is a real ceiling and a ridiculous drag, so the
@@ -690,7 +696,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'The message board clears every',
     summary: 'Every post, and the activity feed with it.',
     help: 'At 00:00 UTC on this day, the message board empties — every post, plus the bell notifications pointing at them, so the bell never points at something that is gone — and the dashboard’s activity feed clears with it. The planner’s Finished list resets on the same clock, so nobody has to learn two different weeks.',
-    affects: ['/messages', '/', '/service-planner'],
+    affects: ['/messages'],
     ariaLabel: 'Day the board clears',
     options: weekdayOptions,
     fallbackText: `${WEEKDAY_NAMES[DEFAULT_SETTINGS.board_clear_dow]}, two days after Sunday`,
@@ -806,7 +812,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Services are kept for',
     summary: 'Then the service and everything about it is deleted.',
     help: 'Counted from the service date. When it is up, the service goes with its running order, rota, availability answers, checklist ticks, set list, team readiness, debrief, every issue (resolved or not) and any poll about it. Upcoming services are never touched.',
-    affects: [SERVICE_PAGES_REF, '/issues'],
+    affects: [SERVICE_PAGES_REF],
     min: 7,
     max: 365,
     majorEvery: 7,
@@ -908,7 +914,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Clock-in opens',
     summary: 'Before somebody’s call time — and their reminder goes out then too.',
     help: 'This many minutes before somebody’s earliest call time of the day, the big CLOCK IN button appears on their Dashboard and their phone is sent a reminder. The two always go together. It stays open until the day’s last service has ended.',
-    affects: ['/', '/clock-in'],
+    affects: ['/clock-in'],
     min: 0,
     max: 240,
     dialMax: 60,
@@ -949,7 +955,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'People who said Yes clock in too',
     summary: 'Not only those the rota gave a role.',
     help: 'Out of the box only people the Team Rota put on a role that day clock in. On, anybody who said Yes on Availability for one of the day’s services does too, with their team’s call time.',
-    affects: ['/', '/clock-in'],
+    affects: ['/clock-in'],
   },
   {
     ...column('clock_in_retention_days'),
