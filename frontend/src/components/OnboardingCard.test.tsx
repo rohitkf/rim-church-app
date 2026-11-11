@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { OnboardingCard } from './OnboardingCard'
 
 const db = vi.hoisted(() => ({
+  admin: true,
   people: [
     { id: 'a', first_name: 'Ada', last_name: 'Grace' },
     { id: 'b', first_name: 'Ben', last_name: 'Okafor' },
@@ -19,8 +21,8 @@ const db = vi.hoisted(() => ({
 }))
 
 // Its own test (LocationAccessCard.test.tsx); here it would list everybody twice.
-vi.mock('./LocationAccessCard', () => ({ LocationAccessCard: () => null }))
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true }) }))
+vi.mock('./LocationAccessCard', () => ({ LocationAccessCard: () => <p>location list</p> }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: db.admin }) }))
 vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => db.allowed }) }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -41,7 +43,9 @@ vi.mock('../lib/supabaseClient', () => ({
 function show() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <OnboardingCard />
+      <MemoryRouter>
+        <OnboardingCard />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -97,5 +101,18 @@ describe('Settings › Onboarding', () => {
     db.allowed = false
     show()
     expect(screen.queryByText('Send the tour')).toBeNull()
+  })
+
+  it('points an Admin to Clock In for the location list, and keeps it here for somebody who cannot open that room', async () => {
+    db.admin = true
+    const first = show()
+    expect(await screen.findByRole('link', { name: 'Clock In’s settings' })).toHaveAttribute('href', '/settings/clock-in')
+    expect(screen.queryByText('location list')).toBeNull()
+    first.unmount()
+    db.admin = false
+    show()
+    expect(await screen.findByText('location list')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Clock In’s settings' })).toBeNull()
+    db.admin = true
   })
 })

@@ -70,13 +70,13 @@ describe('the Settings hall', () => {
       '/settings/appearance',
     ])
     // And no heading over a group they have nothing in.
-    expect(screen.queryByRole('heading', { name: 'Church set-up' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Pages' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
   })
 
-  it('gives an Admin the church’s set-up, permissions and tools, but not the owner’s', () => {
+  it('gives an Admin access, the church, its pages and the tools, but not the owner’s', () => {
     show('/settings', { isAdmin: true })
-    for (const heading of ['You', 'Church set-up', 'People & permissions', 'Tools']) {
+    for (const heading of ['You', 'Access', 'Church', 'Pages', 'Tools']) {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
     expect(screen.queryByRole('heading', { name: 'Owner only' })).toBeNull()
@@ -125,7 +125,7 @@ describe('a Settings room', () => {
   it('keeps the hall beside it as a grouped sidebar, marking where you are', () => {
     show('/settings/giving', { isAdmin: true })
     const nav = screen.getByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByText('Church set-up')).toBeInTheDocument()
+    expect(within(nav).getByText('Pages')).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Giving' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).queryByRole('link', { name: 'Erase Data' })).toBeNull()
   })

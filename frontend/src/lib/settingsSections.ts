@@ -25,9 +25,10 @@ import { QuestionIcon,
  * One list, read by the Settings home, its sidebar and the search — so a
  * room cannot be added to one of them and forgotten in the others.
  *
- * Grouped by whose it is rather than by what kind of control it holds:
- * yours, the church's set-up, who may do what, the tools an Admin reaches
- * for, and the two that belong to the owner alone. Each choice lives in
+ * Six groups, and each room in exactly one (the Owner's redesign, November
+ * 2026): You; Access — who can do what; Church — set once for everybody;
+ * Pages — each page's own settings; Tools — things you do rather than
+ * settings you leave; and the Owner's alone. Each choice lives in
  * one room: a page's clocks, what it keeps and what it shows are its own,
  * in Page by Page, not a second room each.
  */
@@ -84,7 +85,44 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    heading: 'Church set-up',
+    heading: 'Access',
+    sections: [
+      {
+        to: '/settings/access',
+        label: 'Access & Privileges',
+        blurb: 'Who can open each page, and who can do what.',
+        icon: ShieldIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'permissions roles admin head coordinator member pages profiles church member see hide person someone why',
+      },
+      {
+        to: '/settings/overwatch',
+        label: 'Overwatch',
+        blurb: 'Which pages Overwatch sees, and what it may post or raise.',
+        icon: EyeIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'overwatch read only observer elder pastor watch see everything',
+      },
+    ],
+  },
+  {
+    heading: 'Church',
+    sections: [
+      {
+        to: '/settings/menu',
+        label: 'Menu',
+        blurb: 'How the More menu is arranged, for everybody.',
+        icon: ListIcon,
+        tone: 'indigo',
+        needs: 'admin',
+        keywords: 'navigation more menu groups order arrange',
+      },
+    ],
+  },
+  {
+    heading: 'Pages',
     sections: [
       {
         to: '/settings/pages',
@@ -127,38 +165,6 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         keywords: 'stage layout band positions templates clear tuesday',
       },
       {
-        to: '/settings/menu',
-        label: 'Menu',
-        blurb: 'How the More menu is arranged, for everybody.',
-        icon: ListIcon,
-        tone: 'indigo',
-        needs: 'admin',
-        keywords: 'navigation more menu groups order arrange',
-      },
-    ],
-  },
-  {
-    heading: 'People & permissions',
-    sections: [
-      {
-        to: '/settings/access',
-        label: 'Access & Privileges',
-        blurb: 'Who can open each page, and who can do what.',
-        icon: ShieldIcon,
-        tone: 'indigo',
-        needs: 'admin',
-        keywords: 'permissions roles admin head coordinator member pages profiles church member see hide person someone why',
-      },
-      {
-        to: '/settings/overwatch',
-        label: 'Overwatch',
-        blurb: 'Which pages Overwatch sees, and what it may post or raise.',
-        icon: EyeIcon,
-        tone: 'indigo',
-        needs: 'admin',
-        keywords: 'overwatch read only observer elder pastor watch see everything',
-      },
-      {
         to: '/settings/clock-in',
         label: 'Clock in',
         blurb: 'When it opens, how near counts, who sees it and who approves.',
@@ -182,16 +188,6 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     heading: 'Tools',
     sections: [
       {
-        to: '/settings/onboarding',
-        label: 'Onboarding',
-        blurb: 'Send the tour of the app to everyone, or to a few.',
-        icon: SparklesIcon,
-        tone: 'blue',
-        needs: 'admin',
-        capability: 'people.onboard',
-        keywords: 'tour tutorial welcome walkthrough new intro guide',
-      },
-      {
         to: '/settings/alerts',
         label: 'Send an Alert',
         blurb: 'Interrupt everybody, a team, or a few people.',
@@ -200,6 +196,16 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         needs: 'admin',
         capability: 'msg.alert',
         keywords: 'announcement broadcast urgent',
+      },
+      {
+        to: '/settings/onboarding',
+        label: 'Onboarding',
+        blurb: 'Send the tour of the app to everyone, or to a few.',
+        icon: SparklesIcon,
+        tone: 'blue',
+        needs: 'admin',
+        capability: 'people.onboard',
+        keywords: 'tour tutorial welcome walkthrough new intro guide',
       },
     ],
   },

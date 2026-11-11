@@ -386,7 +386,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/onboarding',
         title: 'Onboarding',
-        body: 'Send this tour to anybody, everyone at once or a few. It opens for them the next time they open the app. Below it, whose phone allows location, and a button to ask the rest.',
+        body: 'Send this tour to anybody, everyone at once or a few. It opens for them the next time they open the app. Whose phone allows location, and a button to ask the rest, is in Clock In’s settings.',
       },
       {
         path: '/settings',
