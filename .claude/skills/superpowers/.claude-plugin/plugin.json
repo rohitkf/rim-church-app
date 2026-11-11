@@ -1,0 +1,10 @@
+{
+  "name": "superpowers",
+  "version": "7.0.2",
+  "description": "Core skills library: brainstorming, plans, TDD, systematic debugging, code review, verification before completion.",
+  "author": {
+    "name": "Jesse Vincent"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/obra/superpowers"
+}

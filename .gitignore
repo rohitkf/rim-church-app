@@ -9,3 +9,6 @@ node_modules/
 # Supabase CLI state (supabase link / start)
 supabase/.temp/
 supabase/.branches/
+
+# The code graph graphify builds (rebuild: graphify extract . --code-only). Generated, large, and stale by the next commit.
+graphify-out/

@@ -1,0 +1,10 @@
+{
+  "name": "hallmark",
+  "version": "2.0.0",
+  "description": "A design skill that refuses to look AI-generated: build, audit, redesign, study.",
+  "author": {
+    "name": "Nutlope"
+  },
+  "license": "MIT",
+  "homepage": "https://www.usehallmark.com"
+}

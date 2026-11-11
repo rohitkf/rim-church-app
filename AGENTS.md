@@ -808,3 +808,35 @@ So a session that starts from nothing works the way the last one did:
 7. **Keep this file current** in the same commit as the change it
    describes; the vocabulary table (§3) carries what each table and
    function is for, §8 every trap that cost a real bug.
+
+## 12. The skills installed in this repo
+
+`.claude/skills/` holds eight skill sets copied in at a pinned commit, each
+with a `SOURCE.md` saying where it came from, its licence and what was
+left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
+`impeccable`, `hallmark`, `i-have-adhd` and `graphify` (beside
+`security-audit`, and `frontend/.claude/skills/verify`). All but
+`graphify` and `security-audit` are plugin folders: they load as
+`<set>@skills-dir` and their skills are called `<set>:<skill>`.
+
+**Read the `rim-toolbox` skill before picking one.** It says which skill
+fits which job here and, more to the point, where these skills are
+overruled: they were written for other projects, and several say MUST
+about things this file forbids (making a branch, opening a PR, writing a
+one-line commit). This file wins; `rim-toolbox` lists the collisions.
+
+- **Nothing is fetched when a session starts.** To take a newer version
+  of a set, copy the new commit in, read the difference, and update its
+  `SOURCE.md`. Their auto-running hooks are left out on purpose; the one
+  exception is ponytail's, which its panel needs and which were read
+  first (they run `git ls-files` and write flag files; no network).
+- **Two panels sit above the prompt**: ponytail's own, and caveman's,
+  which is written here (`.claude/skills/caveman/hooks/band/`, with tests
+  in `tests/`: `claude plugin validate` and `claude plugin test` on that
+  folder). Caveman starts off; a mode shapes chat replies only, never
+  anything that is kept.
+- **The code graph is not committed.** `graphify extract . --code-only`
+  then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in
+  about twenty seconds with no model calls (`pip install
+  "graphifyy[sql]"` first in a fresh container). `.graphifyignore` keeps
+  the copied skills and built output out of it.
