@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { Select, triggerClasses } from '../components/Select'
@@ -20,6 +20,7 @@ import {
   missingAnswers,
   toProfileRows,
   type JoiningAnswers,
+  type MaritalStatus,
 } from '../lib/joining'
 
 /**
@@ -95,7 +96,22 @@ function YesNo({
   )
 }
 
-export function JoiningPage() {
+/** What is already on record of the half only they and the Owner can read. */
+interface StoredStatus {
+  visa_type: string | null
+  visa_has_expiry: boolean | null
+  visa_expiry: string | null
+  has_dbs: boolean | null
+  visa_note: string | null
+}
+
+/**
+ * `completing` is the same form for somebody already in (0276): one of its
+ * questions has no answer on their profile, so they are back at the door
+ * until it does. What they gave before is filled in, the blanks are marked
+ * from the start, and the words say why they are seeing it.
+ */
+export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const { profile, refreshProfile, signOut } = useAuth()
   const errorText = useErrorText()
   const [saving, setSaving] = useState(false)
@@ -110,7 +126,25 @@ export function JoiningPage() {
    */
   const [signedOut, setSignedOut] = useState(false)
   /** Set on the first attempt to finish, so nothing is red before it is due. */
-  const [tried, setTried] = useState(false)
+  const [tried, setTried] = useState(completing)
+  /** Their status and DBS answer as saved, read once, when completing. */
+  const [stored, setStored] = useState<StoredStatus | null>(null)
+  const profileId = profile?.id
+  useEffect(() => {
+    if (!completing || !profileId) return
+    let cancelled = false
+    void supabase
+      .from('profile_sensitive')
+      .select('visa_type, has_dbs, visa_expiry, visa_has_expiry, visa_note')
+      .eq('user_id', profileId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) setStored(data as StoredStatus)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [completing, profileId])
   /** Whether what is in the phone box is a number; the box itself knows. */
   const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('empty')
 
@@ -125,18 +159,23 @@ export function JoiningPage() {
    */
   const [edits, setEdits] = useState<Partial<JoiningAnswers>>({})
 
+  const savedMarital: MaritalStatus | '' =
+    MARITAL_STATUSES.find((m) => m.value === profile?.marital_status)?.value ?? ''
+
   const answers: JoiningAnswers = {
     firstName: edits.firstName ?? profile?.first_name ?? '',
     lastName: edits.lastName ?? profile?.last_name ?? '',
     phone: edits.phone ?? profile?.phone ?? '',
     dob: edits.dob ?? profile?.dob ?? '',
-    maritalStatus: edits.maritalStatus ?? '',
+    maritalStatus: edits.maritalStatus ?? savedMarital,
     anniversary: edits.anniversary ?? profile?.anniversary ?? '',
-    visaType: edits.visaType ?? '',
-    visaHasExpiry: edits.visaHasExpiry ?? null,
-    visaExpiry: edits.visaExpiry ?? '',
-    hasDbs: edits.hasDbs ?? null,
-    visaNote: edits.visaNote ?? '',
+    visaType: edits.visaType ?? stored?.visa_type ?? '',
+    // A date on record says there is one, whether or not the yes was ever stored.
+    visaHasExpiry: edits.visaHasExpiry ?? stored?.visa_has_expiry ?? (stored?.visa_expiry ? true : null),
+    visaExpiry: edits.visaExpiry ?? stored?.visa_expiry ?? '',
+    // Asked afresh of a newcomer; somebody completing has answered it before.
+    hasDbs: edits.hasDbs ?? (completing && stored ? stored.has_dbs === true : null),
+    visaNote: edits.visaNote ?? stored?.visa_note ?? '',
   }
 
   const set = <K extends keyof JoiningAnswers>(key: K, value: JoiningAnswers[K]) =>
@@ -225,7 +264,7 @@ export function JoiningPage() {
     const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
       supabase
         .from('profiles')
-        .update({ ...rows.profile, onboarded_at: new Date().toISOString() })
+        .update({ ...rows.profile, onboarded_at: profile.onboarded_at ?? new Date().toISOString() })
         .eq('id', profile.id),
       supabase.from('profile_sensitive').update(rows.sensitive).eq('user_id', profile.id),
     ])
@@ -254,11 +293,16 @@ export function JoiningPage() {
       </div>
 
       <h1 className="text-headline-lg">
-        {profile?.first_name ? `Welcome, ${profile.first_name}.` : 'Welcome.'}
+        {completing
+          ? 'A few details are missing.'
+          : profile?.first_name
+            ? `Welcome, ${profile.first_name}.`
+            : 'Welcome.'}
       </h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
-        A few things before you start — they go straight onto your profile, and you can change any
-        of them later.
+        {completing
+          ? 'The church now asks everybody for these. What you gave before is filled in — add what is marked below and you are straight back in.'
+          : 'A few things before you start — they go straight onto your profile, and you can change any of them later.'}
       </p>
       <p className="mt-2 text-body-sm text-on-surface-variant">
         Every question needs an answer unless it says optional.
@@ -488,7 +532,7 @@ export function JoiningPage() {
           disabled={saving}
           className="rounded-full bg-primary px-5 py-3 text-body-md font-semibold text-on-primary hover:opacity-90 disabled:opacity-60"
         >
-          {saving ? 'Saving…' : 'Finish and go in'}
+          {saving ? 'Saving…' : completing ? 'Save and carry on' : 'Finish and go in'}
         </button>
       </form>
     </div>

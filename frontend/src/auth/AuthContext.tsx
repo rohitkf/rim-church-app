@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/errorMessage'
 import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
 import { z } from 'zod'
 import { isTeamPreview } from '../lib/viewAs'
+import { fetchMyProfileGaps } from '../lib/gettingSetUp'
 
 /**
  * Who an Admin is previewing the app as. The pages, the dock and the
@@ -68,6 +69,12 @@ interface AuthContextValue {
    * same authority as the Head for their own team. */
   ledDepartmentIds: string[]
   refreshProfile: () => Promise<void>
+  /**
+   * The joining form's questions this person has not answered (0276), by
+   * its field names. Null until it is known, and when it could not be
+   * asked — which is never a reason to shut anybody out. See ProtectedRoute.
+   */
+  profileGaps?: string[] | null
   signOut: () => Promise<void>
   /** Whether this person may preview the app as somebody else: an Admin, or the owner. */
   canPreview: boolean
@@ -86,6 +93,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileGaps, setProfileGaps] = useState<string[] | null>(null)
   const [realRoles, setRoles] = useState<UserRole[]>([])
   // Who owns the app. One account holds it; it decides who may take Admin
   // away, and it can only move by being offered and accepted.
@@ -99,14 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [viewAsState, setViewAsState] = useState<ViewAs | null>(readViewAs)
 
   async function loadProfileAndRoles(userId: string) {
-    const [{ data: profileData }, { data: roleData }, { data: ownerData }] = await Promise.all([
+    const [{ data: profileData }, { data: roleData }, { data: ownerData }, gaps] = await Promise.all([
       // Your own row, every column, through my_profile() (0126): email,
       // phone and marital status are closed on `profiles` to everybody
       // but the Owner's function (0127), so `select('*')` would be refused.
       supabase.rpc('my_profile').maybeSingle(),
       supabase.from('user_roles').select('id, role_type, department_id, service_id').eq('user_id', userId),
       supabase.from('app_owner').select('user_id').maybeSingle(),
+      // Which of the joining form's questions are still blank (0276).
+      fetchMyProfileGaps(),
     ])
+    setProfileGaps(gaps)
 
     setOwnerId(
       ownerData && typeof (ownerData as { user_id?: unknown }).user_id === 'string'
@@ -183,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, 0)
       } else {
         setProfile(null)
+        setProfileGaps(null)
         setRoles([])
       }
     })
@@ -285,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDepartmentHead,
         ledDepartmentIds,
         refreshProfile,
+        profileGaps,
         signOut,
         canPreview,
         previewCoordinates,
