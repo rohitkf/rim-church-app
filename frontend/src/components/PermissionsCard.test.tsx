@@ -272,6 +272,33 @@ describe('PermissionsCard', () => {
       })
     })
 
+    it('says when a right’s page is closed to the role, and opens it in the same save if asked', async () => {
+      const user = show()
+      await compare(user)
+      const assign = within(rowFor('Assign somebody to a role'))
+      await chooseOption(user, assign.getByRole('combobox', { name: 'Assign somebody to a role — Pastor' }), 'All')
+      const closed = screen.getByRole('list', { name: 'Pages still closed' })
+      expect(closed).toHaveTextContent('The Team Rota page is closed to a Pastor')
+      await user.click(within(closed).getByRole('button', { name: 'Open the page for them too' }))
+      expect(screen.queryByRole('list', { name: 'Pages still closed' })).toBeNull()
+      await user.click(screen.getByRole('button', { name: 'Save permissions' }))
+      expect(rpc).toHaveBeenCalledWith('set_permissions', {
+        p_changes: expect.arrayContaining([
+          { role: 'pastor', capability: 'rota.assign', reach: 'all' },
+          { role: 'pastor', capability: 'page.rota', reach: 'all' },
+        ]),
+      })
+    })
+
+    it('asks nothing when the page is already open to the role', async () => {
+      const user = show()
+      await compare(user)
+      const assign = within(rowFor('Assign somebody to a role'))
+      await chooseOption(user, assign.getByRole('combobox', { name: 'Assign somebody to a role — Team Member' }), 'All')
+      expect(screen.getByRole('list', { name: 'Changes to save' })).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Pages still closed' })).toBeNull()
+    })
+
     it('lets the chosen role be edited on a phone, without the grid', async () => {
       const user = show()
       await user.click(screen.getByRole('radio', { name: 'Team Coordinator' }))

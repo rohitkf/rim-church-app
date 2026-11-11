@@ -1,3 +1,4 @@
+import { pageNeeds } from '../lib/pageNeeds'
 import { useMemo, useState } from 'react'
 import {
   CHECKED_ON,
@@ -212,6 +213,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
     [working, perms.workingTeams, perms.grants],
   )
   const touched = useMemo(() => capabilitiesIn(pending), [pending])
+  const needs = useMemo(() => pageNeeds(pending, working), [pending, working])
 
   const choose = (capability: CapabilityKey, who: GridRole, reach: Reach) => {
     setSaved(false)
@@ -583,6 +585,28 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
             ))}
           </ul>
           <ChangeEffects touched={touched} before={before} after={after} actionOf={actionOf} />
+          {/* A right whose page is closed to the role would do nothing they
+              could see: say so, and offer to open the page in this save. */}
+          {needs.length > 0 && (
+            <ul aria-label="Pages still closed" className="mt-3 flex flex-col gap-2">
+              {needs.map((need) => (
+                <li
+                  key={`${need.role}:${need.page}`}
+                  className="flex flex-col items-start gap-2 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                >
+                  <span className="min-w-0 text-body-sm text-on-surface sm:flex-1">
+                    The {need.pageName} page is closed to {somebody(need.role)}, so they could not reach “{actionOf(need.capability)}”.
+                    {!need.opener && ' That page only opens to people on a team or to Admins; somebody who is also on a team will reach it.'}
+                  </span>
+                  {need.opener && (
+                    <ActionButton size="sm" tone="quiet" onClick={() => choose(need.opener!, need.role, 'all')}>
+                      Open the page for them too
+                    </ActionButton>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </Tile>
       )}
 
