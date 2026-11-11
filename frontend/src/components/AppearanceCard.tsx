@@ -3,13 +3,12 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { PushPermissionRow } from './PushPermission'
-import { PushPreferences } from './PushPreferences'
-import { MoonIcon, SunIcon, BellIcon } from './icons'
+import { MoonIcon, SunIcon } from './icons'
 import { SegmentedControl, Tile } from './Surface'
 
 /**
- * How the app looks to you, and whether it may reach your phone.
+ * How the app looks to you. (Whether it may reach your phone is its own
+ * room, Notifications — `NotificationsCard`.)
  *
  * These lived only in the account menu (and as two unlabelled glyphs in
  * the top bar), which is where somebody who knows they exist finds them.
@@ -56,23 +55,6 @@ export function AppearanceCard() {
         />
         <TeamPreview style={teamStyle} />
       </Setting>
-
-      <Tile padded={false} className="overflow-hidden">
-        <div className="flex items-start gap-3 px-5 pb-3 pt-5">
-          <span className="mt-0.5 text-on-surface-variant" aria-hidden="true">
-            <BellIcon width={18} height={18} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-body-md font-medium text-on-surface">Phone notifications</h2>
-            <p className="mt-0.5 text-body-sm text-on-surface-variant">
-              Rota changes, alerts, reminders, board posts and team chat, even while the app is closed.
-              Turning it on is for this device; what reaches it is for your account.
-            </p>
-          </div>
-        </div>
-        <PushPermissionRow />
-        <PushPreferences />
-      </Tile>
 
       <p className="px-2 text-label-sm text-on-surface-faint">
         These are yours and this browser’s — nobody else’s screen changes.

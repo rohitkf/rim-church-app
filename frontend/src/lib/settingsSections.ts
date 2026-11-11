@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
 import { QuestionIcon,
+  BellIcon,
   ChecklistIcon,
   ClipboardUserIcon,
   EyeIcon,
@@ -76,11 +77,19 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         to: '/settings/appearance',
-        label: 'Appearance & Alerts',
-        blurb: 'Light or dark, how teams are drawn, and phone notifications.',
+        label: 'Appearance',
+        blurb: 'Light or dark, and how teams are drawn.',
         icon: PaletteIcon,
         tone: 'indigo',
-        keywords: 'theme dark light mode team style gradient dot notifications push',
+        keywords: 'theme dark light mode team style gradient dot',
+      },
+      {
+        to: '/settings/notifications',
+        label: 'Notifications',
+        blurb: 'What buzzes your phone.',
+        icon: BellIcon,
+        tone: 'blue',
+        keywords: 'notifications push phone alerts buzz bell device mute',
       },
     ],
   },

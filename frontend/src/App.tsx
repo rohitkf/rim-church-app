@@ -110,6 +110,7 @@ const router = createBrowserRouter(
             <Route path="profile" lazy={page(() => import('./pages/ProfilePage'), 'ProfilePage')} />
             <Route path="pages" lazy={page(() => import('./pages/SettingsPage'), 'PagesPane')} />
             <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
+            <Route path="notifications" lazy={page(() => import('./pages/SettingsPage'), 'NotificationsSettingsPane')} />
             {/* Timings, Data & Retention and Dashboard & Lists were rooms
                 of their own, each a second way to rows Page by Page holds
                 under their pages. Their addresses still land there. */}

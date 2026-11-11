@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SettingsPage } from './SettingsPage'
+import { AppearanceSettingsPane, SettingsPage } from './SettingsPage'
 import { ChurchSettingsRedirect } from './ChurchSettingsRedirect'
 import { SETTINGS_SECTIONS } from '../lib/settingsSections'
 
@@ -68,6 +68,7 @@ describe('the Settings hall', () => {
     expect(roomLinks().map((a) => a.getAttribute('href'))).toEqual([
       '/settings/profile',
       '/settings/appearance',
+      '/settings/notifications',
     ])
     // And no heading over a group they have nothing in.
     expect(screen.queryByRole('heading', { name: 'Pages' })).toBeNull()
@@ -114,6 +115,21 @@ describe('a Settings room', () => {
     show('/settings/profile')
     expect(screen.getByText('Profile pane')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument()
+  })
+
+  it('keeps phone notifications in a room of their own, signposted from where they were', () => {
+    show('/settings/notifications')
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument()
+    cleanup()
+    render(
+      <MemoryRouter>
+        <AppearanceSettingsPane />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: /Looking for phone notifications/ })).toHaveAttribute(
+      'href',
+      '/settings/notifications',
+    )
   })
 
   it('carries a way back to the hall', async () => {
