@@ -72,7 +72,7 @@ const T = {
 
 const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists', '/debriefs', '/issues', '/set-lists',
   '/messages', '/team-chat', '/updates', '/polls', '/events', '/giving', '/departments', '/departments/d1',
-  '/volunteers', '/inventory', '/settings', '/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/timings',
+  '/volunteers', '/inventory', '/settings', '/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/general', '/settings/feedback', '/settings/timings',
   '/settings/retention', '/settings/display', '/settings/rota', '/settings/giving', '/settings/menu',
   '/feedback', '/stage', '/settings/stage', '/settings/access', '/settings/pages', '/settings/alerts', '/settings/logo',
   '/settings/data']

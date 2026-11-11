@@ -119,6 +119,8 @@ const router = createBrowserRouter(
             <Route path="display" element={<Navigate to="/settings/pages#dashboard" replace />} />
             <Route path="rota" lazy={page(() => import('./pages/SettingsPage'), 'RotaSettingsPane')} />
             <Route path="giving" lazy={page(() => import('./pages/SettingsPage'), 'GivingSettingsPane')} />
+            <Route path="general" lazy={page(() => import('./pages/SettingsPage'), 'GeneralSettingsPane')} />
+            <Route path="feedback" lazy={page(() => import('./pages/SettingsPage'), 'FeedbackSettingsPane')} />
             <Route path="menu" lazy={page(() => import('./pages/SettingsPage'), 'MenuSettingsPane')} />
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
