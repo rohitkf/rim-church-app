@@ -1033,14 +1033,18 @@ Each of these has already cost real time. None of them show up in review.
   - *It is not an outage.* GitHub's status page had Actions operational
     all that day, and every workflow here shows as `active`.
 
-  What is left is the Owner's, in this order: switch the Uptime workflow
-  off and on again (Actions › Uptime › ⋯ › Disable workflow, then
-  Enable) — GitHub's own way of re-enabling a schedule — and look for a
-  run marked *Scheduled* within the hour; and, whatever that shows,
-  point a free outside uptime service at
-  `https://rim-church-app.vercel.app/api/health`, which is the right
-  tool for "is it up" in any case (`uptime.yml` says as much). Until one
-  of those is done, **nothing outside the app is watching it**.
+  - *Switching the workflows off and on did not start them either.* The
+    Owner did that for all three at 20:30 UTC the same evening (GitHub
+    recorded it); the 20:38 and 21:08 slots passed with nothing.
+
+  So GitHub's timer is not to be relied on here at all. What is left is
+  an outside uptime service pointed at
+  `https://rim-church-app.vercel.app/api/health` (200 when the site and
+  the database both answer, 503 when the database does not) — the right
+  tool for "is it up" in any case, as `uptime.yml` says. Until that is
+  set up, **nothing outside the app is watching it**, and the two weekly
+  checks run only when somebody starts them (Actions › the workflow ›
+  *Run workflow*).
 
   The rule that comes out of it: a pull request that adds or changes a
   schedule is merged by a person, and **a timed workflow is not working
