@@ -747,6 +747,18 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
   },
+  // Correct an attendee's email address, which sends their email again
+  // (0283). The one registrations right an Admin has out of the box — the
+  // Owner asked for it so — and it opens the Registrations page, because
+  // nobody can correct a list they cannot see.
+  'reg.email': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
+  },
   'set.edit': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'none'),

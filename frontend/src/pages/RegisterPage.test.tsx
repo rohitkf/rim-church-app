@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   mailed: [] as string[],
   resent: [] as unknown[],
   resendAnswer: { ok: true, sent: true } as unknown,
+  refuse: null as string | null,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -41,7 +42,7 @@ vi.mock('../lib/registrations', async (original) => ({
   checkPromoCode: () => Promise.resolve(state.promo),
   registerForEvent: (slug: string, order: unknown) => {
     state.registered.push({ slug, order })
-    return Promise.resolve('ABCDEFGHJKMN')
+    return state.refuse ? Promise.reject(new Error(state.refuse)) : Promise.resolve('ABCDEFGHJKMN')
   },
   sendTicketEmail: (code: string) => {
     state.mailed.push(code)
@@ -116,7 +117,14 @@ beforeEach(() => {
   state.mailed = []
   state.resent = []
   state.resendAnswer = { ok: true, sent: true }
+  state.refuse = null
 })
+
+/** The address is shown back before anything is sent (0283): say it is right. */
+const confirmEmail = async (user: ReturnType<typeof userEvent.setup>, label = 'Register') => {
+  const dialog = await screen.findByRole('dialog', { name: 'Is this your email address?' })
+  await user.click(within(dialog).getByRole('button', { name: `Yes, it’s right — ${label}` }))
+}
 
 describe('the public register page', () => {
   it('says what, when, where and what is left, with a way to get there', async () => {
@@ -159,6 +167,7 @@ describe('the public register page', () => {
     await fillWho(user)
     expect(screen.getByText('2 tickets')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
 
     expect(await screen.findByText('ticket page ABCDEFGHJKMN')).toBeInTheDocument()
     // The ticket goes by email too, without anything waiting on it.
@@ -206,6 +215,7 @@ describe('the public register page', () => {
 
     await fillWho(user)
     await user.click(screen.getByRole('button', { name: 'Register, then pay £18.00' }))
+    await confirmEmail(user, 'Register, then pay £18.00')
     await waitFor(() => expect(state.registered).toHaveLength(1))
     expect(state.registered[0]).toMatchObject({ order: { promo_code: 'EARLY', lines: [{ ticket_type_id: 't-lunch', quantity: 1 }] } })
   })
@@ -240,8 +250,95 @@ describe('the public register page', () => {
     await user.click(screen.getByRole('button', { name: 'One more Standard' }))
     await fillWho(user)
     await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
     await waitFor(() => expect(state.registered).toHaveLength(1))
     expect(state.registered[0]).toMatchObject({ order: { date_id: 'd2' } })
+  })
+
+  describe('asks whether the email address is right before registering (0283)', () => {
+    const ready = async (email: string) => {
+      const user = show()
+      await screen.findByRole('heading', { level: 1 })
+      await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+      await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Ama Owusu')
+      await user.type(screen.getByRole('textbox', { name: 'Email' }), email)
+      await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
+      await user.click(screen.getByRole('button', { name: 'Register' }))
+      return { user, dialog: await screen.findByRole('dialog', { name: 'Is this your email address?' }) }
+    }
+
+    it('shows the address on its own, and registers nothing until it is said to be right', async () => {
+      const { user, dialog } = await ready('  ama@example.org ')
+      expect(within(dialog).getByTestId('email-to-confirm')).toHaveTextContent(/^ama@example\.org$/)
+      expect(within(dialog).getByText(/Your ticket is sent here, and nowhere else/)).toBeInTheDocument()
+      expect(state.registered).toHaveLength(0)
+
+      await user.click(within(dialog).getByRole('button', { name: 'Yes, it’s right — Register' }))
+      expect(await screen.findByText('ticket page ABCDEFGHJKMN')).toBeInTheDocument()
+      expect(state.registered).toHaveLength(1)
+      expect(state.registered[0]).toMatchObject({ order: { email: 'ama@example.org' } })
+    })
+
+    it('goes back to the form on No, with everything as it was and the email field to hand', async () => {
+      const { user, dialog } = await ready('ama@exmaple.org')
+      await user.click(within(dialog).getByRole('button', { name: 'No, change it' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(state.registered).toHaveLength(0)
+      const field = screen.getByRole('textbox', { name: 'Email' })
+      await waitFor(() => expect(field).toHaveFocus())
+      expect(field).toHaveValue('ama@exmaple.org')
+      expect(screen.getByRole('textbox', { name: 'Your name' })).toHaveValue('Ama Owusu')
+      expect(screen.getByText('1 ticket')).toBeInTheDocument()
+
+      // Put right, and asked again with the new address.
+      await user.clear(field)
+      await user.type(field, 'ama@example.org')
+      await user.click(screen.getByRole('button', { name: 'Register' }))
+      const again = await screen.findByRole('dialog', { name: 'Is this your email address?' })
+      expect(within(again).getByTestId('email-to-confirm')).toHaveTextContent('ama@example.org')
+    })
+
+    it('closes on Escape without registering', async () => {
+      const { user } = await ready('ama@example.org')
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(state.registered).toHaveLength(0)
+    })
+
+    it('offers the right spelling of a well-known provider, and registers with it', async () => {
+      const { user, dialog } = await ready('ama@gmial.com')
+      expect(within(dialog).getByText('ama@gmail.com')).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Yes, use that one' }))
+      expect(within(dialog).getByTestId('email-to-confirm')).toHaveTextContent(/^ama@gmail\.com$/)
+      expect(within(dialog).queryByRole('button', { name: 'Yes, use that one' })).toBeNull()
+      await user.click(within(dialog).getByRole('button', { name: 'Yes, it’s right — Register' }))
+      await waitFor(() => expect(state.registered).toHaveLength(1))
+      expect(state.registered[0]).toMatchObject({ order: { email: 'ama@gmail.com' } })
+    })
+
+    it('says nothing about spelling when there is nothing to say', async () => {
+      const { dialog } = await ready('ama@owusu.family')
+      expect(within(dialog).queryByText(/Did you mean/)).toBeNull()
+    })
+
+    it('goes back to the form, with the reason, when the database refuses the order', async () => {
+      state.refuse = 'Registration has closed.'
+      const { user, dialog } = await ready('ama@example.org')
+      await user.click(within(dialog).getByRole('button', { name: 'Yes, it’s right — Register' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Could not register. Try again.')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ama@example.org')
+    })
+
+    it('does not open for a form with something still missing', async () => {
+      const user = show()
+      await screen.findByRole('heading', { level: 1 })
+      await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+      await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Ama Owusu')
+      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@example')
+      expect(screen.getByRole('button', { name: 'Register' })).toBeDisabled()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
   })
 
   it('says when registration is not open, and shows no form', async () => {

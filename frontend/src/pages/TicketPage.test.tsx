@@ -22,6 +22,9 @@ const state = vi.hoisted(() => ({
   cancelled: 0,
   mailed: [] as string[],
   mailAnswer: { ok: true, sent: true } as unknown,
+  // An address put right after a bounce (0283): what was asked, and whether the database took it.
+  fixed: [] as unknown[],
+  fixRefused: false,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -62,6 +65,13 @@ vi.mock('../lib/registrations', async (original) => ({
     state.mailed.push(code)
     return Promise.resolve(state.mailAnswer)
   },
+  fixOrderEmail: (code: string, email: string) => {
+    state.fixed.push([code, email])
+    if (state.fixRefused) return Promise.reject(new Error('refused'))
+    // As the database leaves it: the new address, with nothing known about it yet.
+    state.order = { ...(state.order as object), email: email.trim().toLowerCase(), email_state: 'none', email_can_fix: false }
+    return Promise.resolve()
+  },
 }))
 
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString()
@@ -71,6 +81,8 @@ const order = (over: Partial<OrderView> = {}): OrderView => ({
   status: 'confirmed',
   refund_details_wanted: false,
   refund_details_sent: false,
+  email_state: 'none',
+  email_can_fix: false,
   name: 'Ama Owusu',
   email: 'ama@example.org',
   phone: '07700 900123',
@@ -107,6 +119,20 @@ const order = (over: Partial<OrderView> = {}): OrderView => ({
   logo_path: null,
   ...over,
 })
+
+/** The page, with a way to take it down again: for a test that shows it more than once. */
+function showOnce() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/ticket/ABCDEFGHJKMN']}>
+        <Routes>
+          <Route path="/ticket/:code" element={<TicketPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
 
 function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -145,6 +171,8 @@ beforeEach(() => {
   state.cancelled = 0
   state.mailed = []
   state.mailAnswer = { ok: true, sent: true }
+  state.fixed = []
+  state.fixRefused = false
 })
 
 describe('the ticket page', () => {
@@ -545,5 +573,108 @@ describe('the ticket page', () => {
     state.order = null
     show()
     expect(await screen.findByRole('heading', { name: 'No such ticket' })).toBeInTheDocument()
+  })
+})
+
+describe('an email that bounced, on the ticket page (0283)', () => {
+  const bounced = (over: Partial<OrderView> = {}) => order({ email: 'jerry4chrost@example.org', email_state: 'bounced', email_can_fix: true, ...over })
+
+  it('says the email came back, to which address, and takes the right one', async () => {
+    state.order = bounced()
+    const user = show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    expect(section.getByRole('heading', { name: 'We could not email you' })).toBeInTheDocument()
+    expect(section.getByText('jerry4chrost@example.org')).toBeInTheDocument()
+    expect(section.getByText(/This page is your registration either way/)).toBeInTheDocument()
+    // The address as they typed it, to mend rather than type again; the same one again is no correction.
+    const field = section.getByRole('textbox', { name: 'Your email address' })
+    expect(field).toHaveValue('jerry4chrost@example.org')
+    expect(section.getByRole('button', { name: 'Send my registration' })).toBeDisabled()
+
+    await user.clear(field)
+    await user.type(field, ' Jerry4Christ@example.org ')
+    await user.click(section.getByRole('button', { name: 'Send my registration' }))
+    await waitFor(() => expect(state.fixed).toEqual([['ABCDEFGHJKMN', 'Jerry4Christ@example.org']]))
+    // The ticket follows the address.
+    await waitFor(() => expect(state.mailed).toEqual(['ABCDEFGHJKMN']))
+    // The warning gives way to where it is going now.
+    const thanks = await screen.findByRole('status')
+    expect(thanks).toHaveTextContent('Your registration is on its way to jerry4christ@example.org')
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your email address' })).toBeNull())
+  })
+
+  it('calls it a ticket once the order is paid', async () => {
+    state.order = bounced({ payment_status: 'received' })
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    expect(section.getByText(/your ticket has not reached your inbox/)).toBeInTheDocument()
+    expect(section.getByRole('button', { name: 'Send my ticket' })).toBeInTheDocument()
+  })
+
+  it('offers a well-known provider’s right spelling', async () => {
+    state.order = bounced({ email: 'jerry@gmial.com' })
+    const user = show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    await user.click(section.getByRole('button', { name: 'jerry@gmail.com' }))
+    expect(section.getByRole('textbox', { name: 'Your email address' })).toHaveValue('jerry@gmail.com')
+    expect(section.getByRole('button', { name: 'Send my registration' })).toBeEnabled()
+  })
+
+  it('will not send something that is not an address', async () => {
+    state.order = bounced()
+    const user = show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    const field = section.getByRole('textbox', { name: 'Your email address' })
+    await user.clear(field)
+    await user.type(field, 'jerry4christ')
+    expect(section.getByRole('button', { name: 'Send my registration' })).toBeDisabled()
+    expect(state.fixed).toEqual([])
+  })
+
+  it('says so when the database refuses, and keeps what was typed', async () => {
+    state.order = bounced()
+    state.fixRefused = true
+    const user = show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    const field = section.getByRole('textbox', { name: 'Your email address' })
+    await user.clear(field)
+    await user.type(field, 'jerry4christ@example.org')
+    await user.click(section.getByRole('button', { name: 'Send my registration' }))
+    expect(await section.findByRole('alert')).toHaveTextContent('Could not change the address. Try again.')
+    expect(field).toHaveValue('jerry4christ@example.org')
+    expect(state.mailed).toEqual([])
+  })
+
+  it('sends them to the church once the page may change it no more', async () => {
+    state.order = bounced({ email_can_fix: false })
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Your email address' }))
+    expect(section.getByText('Please contact the church to put your email address right.')).toBeInTheDocument()
+    expect(section.queryByRole('textbox')).toBeNull()
+  })
+
+  it('says nothing while the email is on its way, once it has arrived, or when nothing is known', async () => {
+    for (const email_state of ['waiting', 'delivered', 'none'] as const) {
+      state.order = order({ email_state })
+      const { unmount } = showOnce()
+      await screen.findByRole('heading', { level: 1 })
+      expect(screen.queryByRole('region', { name: 'Your email address' }), email_state).toBeNull()
+      unmount()
+    }
+  })
+
+  it('says nothing on a cancelled registration', async () => {
+    state.order = bounced({ status: 'cancelled' })
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('region', { name: 'Your email address' })).toBeNull()
+  })
+
+  it('reads an order from a database that has not heard of any of this as nothing to say', async () => {
+    const { email_state: _state, email_can_fix: _fix, ...old } = order()
+    state.order = old as OrderView
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('region', { name: 'Your email address' })).toBeNull()
   })
 })

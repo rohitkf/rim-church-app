@@ -121,4 +121,18 @@ describe('the ticket the database sends', () => {
     delete raw.refund_details_sent
     expect(orderViewSchema.parse(raw).refund_details_wanted).toBe(false)
   })
+
+  it('reads what became of the email, and whether the page may correct the address (0283)', () => {
+    // A database from before the migration says nothing: nothing to say, nothing to fix.
+    const before = orderViewSchema.parse(live())
+    expect(before.email_state).toBe('none')
+    expect(before.email_can_fix).toBe(false)
+    for (const state of ['none', 'waiting', 'delivered', 'bounced'] as const) {
+      expect(orderViewSchema.parse({ ...live(), email_state: state }).email_state).toBe(state)
+    }
+    expect(orderViewSchema.parse({ ...live(), email_state: 'bounced', email_can_fix: true }).email_can_fix).toBe(true)
+    expect(orderViewSchema.parse({ ...live(), email_can_fix: null }).email_can_fix).toBe(false)
+    // A word a later database might say: read as nothing, not as "No such ticket" for everybody.
+    expect(orderViewSchema.parse({ ...live(), email_state: 'held' }).email_state).toBe('none')
+  })
 })

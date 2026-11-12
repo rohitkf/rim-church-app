@@ -43,3 +43,9 @@ verify_jwt = true
 # to the address an order already holds, ten minutes apart at most.
 [functions.registration-email]
 verify_jwt = true
+
+# What became of an email (0283): called by Resend, which has no account
+# here, so there is no token to verify. The function checks Resend's own
+# signature on every call (RESEND_WEBHOOK_SECRET) and writes nothing without it.
+[functions.registration-email-status]
+verify_jwt = false

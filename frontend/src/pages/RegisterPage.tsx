@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
@@ -8,6 +8,8 @@ import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
 import { Countdown } from '../components/Countdown'
 import { PhoneField } from '../components/PhoneField'
+import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
+import { looksLikeEmail } from '../lib/emailDelivery'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
@@ -40,6 +42,11 @@ import {
  * and writes through registration_register, which does every check again
  * under a lock; what this page checks is only so the form can say so
  * before the button is pressed.
+ *
+ * Between the button and the registering it asks one thing (0283): "Is
+ * this your email address?", with the address on its own
+ * (components/ConfirmEmailDialog). The ticket goes there and nowhere
+ * else, and a slip in it was the one mistake the form could not see.
  */
 
 /** How many of each type is wanted, and any names and donation amounts. */
@@ -82,6 +89,17 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const [promoNote, setPromoNote] = useState<string | null>(null)
   const [website, setWebsite] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /** Register was pressed: the address is being shown back before anything is sent. */
+  const [confirming, setConfirming] = useState(false)
+  const emailField = useRef<HTMLInputElement>(null)
+  /** "No, change it" was pressed: once the dialog has gone, the email field is the one to be in. */
+  const backToEmail = useRef(false)
+  useEffect(() => {
+    if (confirming || !backToEmail.current) return
+    backToEmail.current = false
+    emailField.current?.focus()
+    emailField.current?.select()
+  }, [confirming])
 
   const image = registrationImageUrl(event.image_path)
   const directions = directionsUrl(event.location)
@@ -150,7 +168,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         onRegistered()
       }
     },
-    onError: (err: unknown) => setError(errorText(err, 'Could not register. Try again.')),
+    onError: (err: unknown) => {
+      // Back to the form, where the reason is said and can be put right.
+      setConfirming(false)
+      setError(errorText(err, 'Could not register. Try again.'))
+    },
   })
 
   const problems: string[] = []
@@ -167,13 +189,20 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
     }
   }
   if (!name.trim()) problems.push('Your name.')
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push('An email address that looks right.')
+  if (!looksLikeEmail(email)) problems.push('An email address that looks right.')
   if (phoneStatus !== 'valid' || !phone) problems.push('A phone number that looks right.')
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (problems.length > 0 || !event.open) return
-    register.mutate()
+    // Not yet: first the address, shown back on its own (0283).
+    setError(null)
+    setConfirming(true)
+  }
+  const registerLabel = totals.total > 0 ? `Register, then pay ${pounds(totals.total)}` : 'Register'
+  const changeEmail = () => {
+    backToEmail.current = true
+    setConfirming(false)
   }
 
   const closedWords =
@@ -383,7 +412,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
               <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={120} className={inputClasses} />
             </Field>
             <Field label="Email">
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
+              <input ref={emailField} value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
             </Field>
             <PhoneField value={phone} onChange={setPhone} onStatus={setPhoneStatus} label="Phone" eyebrow />
           </div>
@@ -463,13 +492,24 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
           <div className="flex flex-col gap-2">
             <ActionButton type="submit" disabled={register.isPending || problems.length > 0 || !event.open || soldOut}>
-              {register.isPending ? 'Registering…' : totals.total > 0 ? `Register, then pay ${pounds(totals.total)}` : 'Register'}
+              {register.isPending ? 'Registering…' : registerLabel}
             </ActionButton>
             {problems.length > 0 && totals.quantity > 0 && (
               <p className="text-label-md text-on-surface-faint">Still needed: {problems.join(' ')}</p>
             )}
           </div>
         </form>
+      )}
+
+      {confirming && (
+        <ConfirmEmailDialog
+          email={email.trim()}
+          confirmLabel={registerLabel}
+          busy={register.isPending}
+          onConfirm={() => register.mutate()}
+          onChange={changeEmail}
+          onUse={setEmail}
+        />
       )}
 
       <TicketAgain slug={event.slug} />
@@ -507,7 +547,7 @@ function TicketAgain({ slug }: { slug: string }) {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) send.mutate()
+        if (looksLikeEmail(email)) send.mutate()
       }}
       aria-label="Get your ticket again"
       className="mt-8 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline"

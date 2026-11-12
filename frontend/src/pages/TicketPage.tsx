@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
@@ -7,6 +7,8 @@ import { QrCode } from '../components/QrCode'
 import { Countdown } from '../components/Countdown'
 import { useNow } from '../lib/timeLeft'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { TicketEmailFix } from '../components/TicketEmailFix'
+import { EMAIL_WATCH_EVERY_MS, watchesEmail } from '../lib/emailDelivery'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
@@ -30,10 +32,23 @@ import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImag
  * payment reference, or both — which whoever runs registrations matches
  * against the account; "being checked" stays until they do. Or they
  * choose to pay at reception.
+ *
+ * And the one place a wrong address can be caught (0283): the page of
+ * somebody who has just registered asks again, for a few minutes, what
+ * became of their email, and if it bounced says so and takes the right
+ * address (components/TicketEmailFix).
  */
 export function TicketPage() {
   const { code = '' } = useParams()
-  const order = useQuery({ queryKey: ['ticket', code], queryFn: () => fetchOrder(code) })
+  const [openedAt] = useState(() => Date.now())
+  /** When this page last asked for an email: the watch for a bounce starts again from there. */
+  const askedAt = useRef<number | null>(null)
+  const order = useQuery({
+    queryKey: ['ticket', code],
+    queryFn: () => fetchOrder(code),
+    // While their email is on its way: a bounce comes back within the minute (lib/emailDelivery).
+    refetchInterval: (query) => (watchesEmail(query.state.data, { openedAt, askedAt: askedAt.current }, Date.now()) ? EMAIL_WATCH_EVERY_MS : false),
+  })
 
   if (order.isLoading) {
     return (
@@ -45,7 +60,14 @@ export function TicketPage() {
   if (order.error || !order.data) {
     return <PublicNothing title="No such ticket" body="This link doesn’t lead to a ticket. Check it against the one you were given." />
   }
-  return <Ticket order={order.data} />
+  return (
+    <Ticket
+      order={order.data}
+      onEmailAsked={() => {
+        askedAt.current = Date.now()
+      }}
+    />
+  )
 }
 
 const STATUS_TONE: Record<OrderView['payment_status'], 'neutral' | 'orange' | 'blue' | 'green'> = {
@@ -61,7 +83,7 @@ const METHOD_WORDS: Record<OnlineMethod, string> = { paypal: 'the online link', 
 const PROOF_TYPES = 'image/png,image/jpeg,image/webp,application/pdf'
 const PROOF_LIMIT = 5 * 1024 * 1024
 
-function Ticket({ order }: { order: OrderView }) {
+function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () => void }) {
   const queryClient = useQueryClient()
   const errorText = useErrorText()
   const { ask, dialog } = useConfirmAction()
@@ -71,11 +93,17 @@ function Ticket({ order }: { order: OrderView }) {
   const [showBank, setShowBank] = useState(false)
   const [copied, setCopied] = useState(false)
   const [mailed, setMailed] = useState<string | null>(null)
+  /** The address they have just put right, after a bounce: where the ticket is going now. */
+  const [fixedTo, setFixedTo] = useState<string | null>(null)
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['ticket', order.code] })
   const paid = order.payment_status === 'not_needed' || order.payment_status === 'received' || order.payment_status === 'waived'
   const noun = paid ? 'ticket' : 'registration'
   const mail = useMutation({
     mutationFn: () => sendTicketEmail(order.code),
-    onSuccess: (result) =>
+    onSuccess: (result) => {
+      // Asked for again: if it bounces, this page should hear (0283).
+      onEmailAsked()
+      void refresh()
       setMailed(
         result.reason === 'not configured'
           ? 'Email is not set up yet — save this page’s link instead.'
@@ -84,7 +112,8 @@ function Ticket({ order }: { order: OrderView }) {
             : result.ok
               ? `On its way to ${order.email}.`
               : 'Could not send just now. Save this page’s link instead.',
-      ),
+      )
+    },
   })
   /** Opened a payment link: when they come back, ask whether it went through. */
   const [pending, setPending] = useState<OnlineMethod | null>(null)
@@ -92,7 +121,6 @@ function Ticket({ order }: { order: OrderView }) {
   /** The receipt step, for the way they paid. */
   const [proofFor, setProofFor] = useState<OnlineMethod | null>(null)
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['ticket', order.code] })
   const report = useMutation({
     mutationFn: ({ method, done }: { method: 'paypal' | 'bank' | 'reception'; done: boolean }) => reportPayment(order.code, method, done),
     onSuccess: () => {
@@ -186,6 +214,22 @@ function Ticket({ order }: { order: OrderView }) {
           {event.cancel_note && <p className="mt-1 whitespace-pre-line text-body-sm">{event.cancel_note}</p>}
           {!order.refund_status && <p className="mt-1 text-body-sm">There is nothing for you to do.</p>}
         </section>
+      )}
+      {order.email_state === 'bounced' && !cancelled && (
+        <TicketEmailFix
+          order={order}
+          noun={noun}
+          onFixed={(email) => {
+            setFixedTo(email)
+            onEmailAsked()
+            void refresh()
+          }}
+        />
+      )}
+      {fixedTo && order.email_state !== 'bounced' && (
+        <p role="status" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 text-body-md text-on-surface hairline">
+          Thank you. Your {noun} is on its way to <strong className="break-all font-semibold">{fixedTo}</strong>. Check your inbox, and the junk folder.
+        </p>
       )}
       {order.refund_status && <RefundSection order={order} onSent={() => void refresh()} />}
       {needsPayment && (

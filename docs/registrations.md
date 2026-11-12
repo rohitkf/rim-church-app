@@ -27,6 +27,7 @@ flowchart LR
   subgraph App
     H[Church diary]
     I[Order + email<br/>ticket code · sold-out push]
+    N[Did the email arrive?<br/>delivered · bounced]
     F[Paid email<br/>join link if online]
     M[Tidy up<br/>names blanked after set days]
   end
@@ -37,6 +38,8 @@ flowchart LR
   B -- diary sync --> H
   B -- share link / QR --> C
   C --> I
+  I --> N
+  N -. bounced: put the address right .-> G
   D -- receipt --> E
   E --> F
   F --> G
@@ -48,8 +51,9 @@ flowchart LR
 ```
 
 Solid arrows are the usual path. Dashed arrows are the branches: free
-tickets skip paying, an event can be cancelled at any time, and personal
-details are tidied away after the event.
+tickets skip paying, an email that bounces is put right from the ticket
+page or by the office, an event can be cancelled at any time, and
+personal details are tidied away after the event.
 
 ## Who does what
 
@@ -68,8 +72,18 @@ details are tidied away after the event.
   the link cannot change: it is in emails and on posters.
 - Watch orders arrive, open receipts over the page, mark payments, add
   notes, and export to Excel. The event's page says up front what wants
-  doing (receipts to check, payments awaited, refunds owed), and an order
-  that needs a decision carries it as a button on its row.
+  doing (receipts to check, payments awaited, refunds owed, emails not
+  delivered), and an order that needs a decision carries it as a button
+  on its row.
+- See what became of each registration's email: **Email delivered**,
+  **Email sent** (on its way), **Email delayed**, **Email bounced** (with
+  the mail server's reason) or **Email not sent**. The **Undelivered**
+  filter shows the ones that did not arrive, and the Excel export has an
+  *Email status* column.
+- Put a wrong address right: **Correct email address** on the row (or
+  *Change email address* in its ⋯ menu) takes the right one and sends
+  their email to it ten seconds later — time to press **Undo**. Left as
+  it is, the same dialog just sends the email again.
 - Cancel the event and settle refunds. An event can be deleted only once
   every paid order is refunded. Cancelling or deleting it takes its diary
   entries with it.
@@ -78,10 +92,17 @@ details are tidied away after the event.
 
 - Opens the shared link, picks tickets and a date, adds names, and applies
   a promo code.
+- Before anything is saved, is shown the email address they typed, on its
+  own, and asked **Is this your email address?** A well-known provider
+  spelt nearly right (gmial.com) is offered spelt right.
 - Pays by bank transfer, the PayPal link, or at Reception, and uploads a
   receipt.
 - Gets an email with an **Open ticket** button. The ticket page shows the
   QR code, the payment state, and a countdown to the start.
+- If that email bounces, the ticket page says so — **We could not email
+  you**, and to which address — within a minute or so of registering,
+  without being reloaded, and takes the right address. Three corrections
+  at most; after that it says to contact the church.
 - For an online event, the join link appears once the ticket is confirmed
   and paid.
 - Can cancel their own ticket until they are checked in.
@@ -106,6 +127,9 @@ details are tidied away after the event.
 ### The app — database rules and emails
 
 - Creates the order and its ticket code, and sends the confirmation email.
+- Keeps what became of every email it sends: the email service (Resend)
+  reports back — delivered, delayed, bounced, held back, not sent — and
+  the registration shows it.
 - Puts the event on the church diary.
 - Notifies the organisers when a ticket type sells out.
 - Sends the "paid" email when a payment is marked, and the "cancelled"
@@ -147,6 +171,7 @@ protection.
 | Check people in | `reg.door` | Use Reception and the scanner |
 | Take payments at the door | `reg.door_pay` | "Paid now, check in" at Reception |
 | Register walk-ins | `reg.walk_in` | The Walk-in tab at Reception |
+| Correct email addresses | `reg.email` | Put an attendee's address right, which sends their email again. Opens the Registrations page to read. **Admins have this one out of the box**; every other right above is nobody's until it is given |
 
 ## Safety built in
 
@@ -160,8 +185,17 @@ protection.
   owed a refund. Cancelling keeps every order and who paid.
 - **Privacy.** Personal details are blanked after the event. Receipts and
   refund details are visible only to people with the right to see them.
+- **A wrong address is caught three times.** The register page shows the
+  address back before registering. If the email still bounces, the ticket
+  page tells the attendee and takes the right one — only after a bounce,
+  so a link that has been passed on cannot be used to send a ticket
+  somewhere else. And the office sees every bounce, with the reason, and
+  can correct it.
+- **Only Resend can say an email bounced.** The report-back address
+  checks a signature on every call and writes nothing without it.
 - **Undo.** Anything pressed on a registration — a payment marked
-  received, a check-in, a cancellation, a refund, a note, a walk-in —
+  received, a check-in, a cancellation, a refund, a note, a walk-in, an
+  email address changed —
   says what it did with **Undo** beside it for ten seconds, and the
   registration's own row keeps Undo for ten minutes (its ⋯ menu on the
   event's page, a line under it at Reception). Undo puts the registration
@@ -175,6 +209,9 @@ protection.
 
 - Migrations `0244`–`0251` (`supabase/migrations/`).
 - `supabase/functions/registration-email/` sends every email.
+- Email delivery: migration `0283`,
+  `supabase/functions/registration-email-status/` (Resend's webhook) and
+  `frontend/src/lib/emailDelivery.ts`.
 - `frontend/src/lib/registrations.ts` and `lib/registrationRights.ts`.
 - Undo: migration `0281` (`registration_order_undos`,
   `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
