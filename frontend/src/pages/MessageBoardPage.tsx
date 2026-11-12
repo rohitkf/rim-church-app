@@ -232,7 +232,8 @@ export function MessageBoardPage() {
             className={`${inputClasses} w-full resize-y`}
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            {error && <p className="min-w-0 flex-1 text-body-sm text-error">{error}</p>}
+            {/* Its own line on a phone: beside the controls there is room for two words a line. */}
+            {error && <p role="alert" className="w-full text-body-sm text-error sm:w-auto sm:min-w-0 sm:flex-1">{error}</p>}
             <div className="ml-auto flex items-center gap-3">
               {(postAsOptions.length > 0 || everywhere) && (
                 <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">

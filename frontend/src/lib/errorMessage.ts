@@ -1,4 +1,5 @@
 import { ZodError } from 'zod'
+import { noAnswerText } from './networkFailure'
 
 /**
  * Pulls a human-readable message out of whatever was thrown.
@@ -13,6 +14,11 @@ export function errorMessage(err: unknown, fallback: string): string {
   // own message is every mismatch as a page of JSON; the first one, said
   // in a line, is what whoever fixes it needs.
   if (err instanceof ZodError) return shapeMismatch(err)
+  // A request that got no answer. The client passes it on with the stack
+  // of the failed fetch as its `details` — a screenful of script
+  // addresses that says nothing to anybody, where one sentence does.
+  const noAnswer = noAnswerText(err)
+  if (noAnswer) return noAnswer
   if (err instanceof Error && err.message) return err.message
 
   if (typeof err === 'object' && err !== null) {

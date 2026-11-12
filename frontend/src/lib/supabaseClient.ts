@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { fetchWithTimeout } from './fetchTimeout'
+import { saveOnce } from './saveOnce'
 import { currentRoute, viaProxy } from './supabaseRoute'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -40,6 +41,11 @@ export const supabase = createClient(
     // gone to sleep — or a phone that lost signal mid-request — leaves
     // every awaiting button spinning for ever. A deadline turns that into
     // an ordinary error the UI already knows how to report.
-    global: { fetch: fetchWithTimeout(routedFetch(globalThis.fetch.bind(globalThis))) },
+    //
+    // saveOnce is outermost on purpose. It has to see that deadline pass —
+    // a save that got no answer is the one it must be able to send again
+    // without saving twice — and it has to see the address as the app
+    // wrote it, before the request is sent down another road.
+    global: { fetch: saveOnce(fetchWithTimeout(routedFetch(globalThis.fetch.bind(globalThis)))) },
   },
 )

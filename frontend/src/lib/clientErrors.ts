@@ -3,6 +3,9 @@ import { isStandalone, ownBuildId } from './pwa'
 import { isChunkLoadError, isNoSuchRow } from './pageErrors'
 import { isAccountRemoved } from './accountRemoved'
 import { isTurnedAway } from './standing'
+import { isNetworkFailure, nameOf, saidBy } from './networkFailure'
+
+export { isNetworkFailure }
 
 /**
  * Telling the church that something broke on somebody's device (0284).
@@ -46,45 +49,6 @@ const codeOf = (error: unknown): string => {
   if (!error || typeof error !== 'object') return ''
   const { code } = error as ApiError
   return typeof code === 'string' ? code : ''
-}
-
-/**
- * What an error calls itself. Read off anything that has a name, not only
- * an Error: a DOMException (an aborted request) is not one in every
- * engine, and one from another frame never is.
- */
-const nameOf = (error: unknown): string => {
-  if (!error || typeof error !== 'object') return ''
-  const { name } = error as { name?: unknown }
-  return typeof name === 'string' ? name : ''
-}
-
-const saidBy = (error: unknown): string => {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
-  if (error && typeof error === 'object' && typeof (error as ApiError).message === 'string') return (error as ApiError).message as string
-  return ''
-}
-
-/**
- * The request never got an answer: no signal, a dropped connection, a
- * deadline passed. Each browser words it its own way and none gives it a
- * type, so it is known by its words.
- */
-export function isNetworkFailure(error: unknown): boolean {
-  const name = nameOf(error)
-  if (name === 'AbortError' || name === 'RequestTimeoutError' || name === 'TimeoutError') return true
-  const said = saidBy(error)
-  return (
-    /failed to fetch/i.test(said) || // Chromium
-    /load failed/i.test(said) || // Safari
-    /networkerror when attempting to fetch/i.test(said) || // Firefox
-    /network request failed/i.test(said) ||
-    /the internet connection appears to be offline/i.test(said) ||
-    /the network connection was lost/i.test(said) ||
-    /fetch failed/i.test(said) ||
-    /took too long to respond/i.test(said)
-  )
 }
 
 /**

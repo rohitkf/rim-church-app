@@ -139,7 +139,8 @@ describe('when the session cannot be read at all', () => {
     )
 
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
-    expect(screen.getByTestId('error')).toHaveTextContent('Failed to fetch')
+    // In words, not the browser's: "Failed to fetch" tells nobody what to do next.
+    expect(screen.getByTestId('error')).toHaveTextContent('Could not reach the server. Check your connection and try again.')
     expect(screen.getByTestId('session')).toHaveTextContent('false')
   })
 })
