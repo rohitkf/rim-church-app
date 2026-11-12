@@ -132,6 +132,25 @@ Backend (`backend/`, FastAPI, AI assistant only): `pytest`.
 
 Single test file: `npx vitest run src/path/to/file.test.tsx`.
 
+**A test that fails one run in many holds every merge it lands in**, and
+passes here twelve times running. Two have been found, both in November
+2026, both by CI and neither by the machine that wrote them:
+
+- *It asserted before an effect had run* (`RouteErrorPage.test.tsx`). What
+  a component does in an effect is waited for — `await waitFor(…)` — never
+  read on the line after `render`.
+- *Its answer turned on the clock* (`AppHealthCard.test.tsx`). Two rows
+  each made "thirty minutes ago" are the same instant on a fast machine
+  and a millisecond apart on a slow one, and anything sorted by time then
+  comes out either way round. When a test's answer depends on the order
+  of two times, say both times outright.
+
+The second kind can be hunted. Add a second setup file that replaces
+`Date.now` — once so that it never returns the same millisecond twice,
+once so that it never moves — and run the whole suite under each; a test
+that passes one way and fails the other depends on the clock. Both runs
+were clean when this was written.
+
 ---
 
 ## 3. What this app is, in its own words
