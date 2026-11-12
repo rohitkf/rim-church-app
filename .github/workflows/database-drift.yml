@@ -20,11 +20,12 @@
 # the database, which needs the database's password; this uses only what
 # anybody may read.
 #
-# A change to the schedule below has to be merged by a person, not by
-# auto-merge, or GitHub never arms it: see the top of uptime.yml. (The
-# minute below moved by one in November 2026 for that reason alone — this
-# file had come in by auto-merge, and it is a change to the cron line
-# itself that GitHub says wakes a schedule.)
+# As of 12 November 2026 no timed workflow in this repository has ever
+# been started by GitHub on its timer, this one included: it runs when
+# started by hand (Actions › Run workflow). See the top of uptime.yml and
+# AGENTS.md §8 for what was tried — the minute below moved by one as part
+# of that — and do not count this as working until a run marked
+# "Scheduled" shows under Actions.
 
 name: Database drift
 
