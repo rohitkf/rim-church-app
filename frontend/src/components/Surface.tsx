@@ -368,8 +368,14 @@ export function Steps({ steps, caption, label = 'Progress', className = '' }: { 
  * ------------------------------------------------------------------ */
 
 /** The track every segmented control sits in: the system's grey, 2px in. */
-export const segmentTrackClasses =
-  'grid auto-cols-[minmax(0,1fr)] grid-flow-col gap-0.5 rounded-[9px] bg-track p-0.5'
+const segmentTrackBase = 'grid grid-flow-col gap-0.5 rounded-[9px] bg-track p-0.5'
+export const segmentTrackClasses = `${segmentTrackBase} auto-cols-[minmax(0,1fr)]`
+/**
+ * A track too long for a phone, in a parent that scrolls sideways: every
+ * segment is at least as wide as its label, so nothing is squeezed or cut,
+ * and on a wide screen they share what is left.
+ */
+const segmentScrollTrackClasses = `${segmentTrackBase} w-max min-w-full auto-cols-[minmax(max-content,1fr)]`
 
 /**
  * One segment. The chosen one is a raised plate — white on light, the
@@ -420,6 +426,7 @@ export function SegmentedControl<T extends string>({
   options,
   kind = 'radio',
   disabled,
+  scrolls = false,
   className = '',
 }: {
   label: string
@@ -428,6 +435,12 @@ export function SegmentedControl<T extends string>({
   options: { value: T; label: ReactNode; title?: string; tone?: SegmentTone; disabled?: boolean }[]
   kind?: 'radio' | 'tab' | 'pressed'
   disabled?: boolean
+  /**
+   * More segments than a phone can hold, inside a parent with
+   * `overflow-x-auto`: the row scrolls and no label is cut. Without it,
+   * five or more segments on a phone share the width and truncate.
+   */
+  scrolls?: boolean
   className?: string
 }) {
   const groupRole = kind === 'radio' ? 'radiogroup' : kind === 'tab' ? 'tablist' : 'group'
@@ -436,9 +449,12 @@ export function SegmentedControl<T extends string>({
   const padding = options.length >= 4 ? 'px-1.5' : 'px-3'
   // Five equal shares of a phone are narrower than "By person": there each
   // segment takes what its label needs, and the short ones give up the room.
-  const shares = options.length >= 5 ? 'max-[420px]:w-full max-[420px]:auto-cols-[minmax(0,auto)]' : ''
+  // Not a track that scrolls: that one was made as wide as its labels, and
+  // squeezing it back into the phone is what cut every label on the
+  // registrations filter ("To pay", "Receipt:o verify").
+  const shares = !scrolls && options.length >= 5 ? 'max-[420px]:w-full max-[420px]:auto-cols-[minmax(0,auto)]' : ''
   return (
-    <div role={groupRole} aria-label={label} className={`${segmentTrackClasses} ${shares} ${className}`}>
+    <div role={groupRole} aria-label={label} className={`${scrolls ? segmentScrollTrackClasses : segmentTrackClasses} ${shares} ${className}`}>
       {options.map((o) => {
         const on = o.value === value
         const state =

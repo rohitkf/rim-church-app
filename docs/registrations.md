@@ -160,11 +160,23 @@ protection.
   owed a refund. Cancelling keeps every order and who paid.
 - **Privacy.** Personal details are blanked after the event. Receipts and
   refund details are visible only to people with the right to see them.
+- **Undo.** Anything pressed on a registration — a payment marked
+  received, a check-in, a cancellation, a refund, a note, a walk-in —
+  says what it did with **Undo** beside it for ten seconds, and the
+  registration's own row keeps Undo for ten minutes (its ⋯ menu on the
+  event's page, a line under it at Reception). Undo puts the registration
+  back exactly as it was. Only the person who pressed can undo it, and not
+  once somebody else has changed that registration since. An email to the
+  attendee ("your ticket is confirmed", their ticket) waits for the ten
+  seconds, so a slip taken back in time never reaches them. Close
+  registration and Reopen offer Undo the same way.
 
 ## Where it lives
 
 - Migrations `0244`–`0251` (`supabase/migrations/`).
 - `supabase/functions/registration-email/` sends every email.
 - `frontend/src/lib/registrations.ts` and `lib/registrationRights.ts`.
+- Undo: migration `0281` (`registration_order_undos`,
+  `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
 - Pages: `RegistrationsPage`, `RegistrationEditorPage`,
   `RegistrationEventPage`, `RegisterPage`, `TicketPage` and `DoorPage`.

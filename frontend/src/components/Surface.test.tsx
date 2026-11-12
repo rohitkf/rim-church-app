@@ -49,4 +49,28 @@ describe('a segmented control', () => {
     expect(answer.className).toMatch(/\bbg-segment\b/)
     expect(answer.className).not.toMatch(/\bbg-primary\b/)
   })
+
+  /*
+   * Seven filters do not fit a phone. Five or more segments share a
+   * phone's width and truncate — right for "By person", wrong for a row
+   * that was put in a scrolling parent so that nothing would be cut: that
+   * rule squeezed the registrations filter until it read "Receipt:o
+   * verify". A row that scrolls says so, and is never squeezed.
+   */
+  it('never squeezes a row that scrolls: each segment keeps the width of its label', () => {
+    const seven = ['All', 'To pay', 'Receipts to verify', 'Paid', 'Checked in', 'Cancelled', 'Refunds'].map((label) => ({ value: label, label }))
+    render(<SegmentedControl label="Show" value="All" onChange={() => {}} options={seven} scrolls />)
+    const scrolling = screen.getByRole('radiogroup', { name: 'Show' })
+    expect(scrolling.className).toContain('auto-cols-[minmax(max-content,1fr)]')
+    expect(scrolling.className).toContain('w-max')
+    expect(scrolling.className).toContain('min-w-full')
+    expect(scrolling.className).not.toContain('max-[420px]')
+    expect(scrolling.className).not.toContain('auto-cols-[minmax(0,1fr)]')
+
+    // Without it the same seven share a phone, as they always did.
+    render(<SegmentedControl label="Fit" value="All" onChange={() => {}} options={seven} />)
+    const sharing = screen.getByRole('radiogroup', { name: 'Fit' })
+    expect(sharing.className).toContain('max-[420px]:w-full')
+    expect(sharing.className).toContain('auto-cols-[minmax(0,1fr)]')
+  })
 })

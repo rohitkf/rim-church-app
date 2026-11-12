@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DoorPage } from './DoorPage'
 import type { EventSummary, OrderRow, RegistrationEventFull } from '../lib/registrations'
+import { resetUndoForTests } from '../lib/registrationUndo'
 
 /*
  * Reception (0247): today's event comes up on its own; a scanned ticket is
@@ -20,6 +21,10 @@ const state = vi.hoisted(() => ({
   walkIns: [] as unknown[],
   notified: [] as unknown[],
   mailed: [] as string[],
+  // What the page said, with whatever it offered to take back (0281).
+  toasts: [] as { text: string; tone?: string; action?: { label: string; run: () => void } }[],
+  undone: [] as string[],
+  undoRefused: null as null | { message: string },
 }))
 const cam = vi.hoisted(() => ({ onText: null as null | ((text: string) => void) }))
 
@@ -31,7 +36,25 @@ vi.mock('../lib/registrationRights', async (original) => ({
   useRegistrationRights: () => rights.now,
 }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
-vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
+vi.mock('../lib/toast', () => ({
+  showToast: (text: string, tone?: string, _ms?: number, action?: { label: string; run: () => void }) => {
+    state.toasts.push({ text, tone, action })
+    return state.toasts.length
+  },
+  dismissToast: () => undefined,
+}))
+// The two things the page asks of the database itself: put a registration
+// back as it was, and which registration a walk-in's code belongs to.
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    rpc: (fn: string, args: { p_id: string }) => {
+      if (fn !== 'registration_order_undo') throw new Error(`unexpected rpc ${fn}`)
+      state.undone.push(args.p_id)
+      return Promise.resolve(state.undoRefused ? { data: null, error: state.undoRefused } : { data: 'change', error: null })
+    },
+    from: () => ({ select: () => ({ eq: (_c: string, code: string) => ({ maybeSingle: () => Promise.resolve({ data: { id: `order-of-${code}` }, error: null }) }) }) }),
+  },
+}))
 vi.mock('../lib/qrCamera', () => ({
   // Hears only while the camera is meant to be on, as the real one does.
   useQrCamera: (_ref: unknown, onText: (text: string) => void, active = true) => {
@@ -46,6 +69,10 @@ vi.mock('../lib/registrations', async (original) => ({
   fetchRegistrationOrders: () => Promise.resolve(state.orders),
   markOrder: (id: string, action: string) => {
     state.marked.push([id, action])
+    return Promise.resolve()
+  },
+  payAndCheckIn: (id: string) => {
+    state.marked.push([id, 'received_and_check_in'])
     return Promise.resolve()
   },
   walkIn: (eventId: string, order: unknown) => {
@@ -176,6 +203,11 @@ beforeEach(() => {
   state.walkIns = []
   state.notified = []
   state.mailed = []
+  state.toasts = []
+  state.undone = []
+  state.undoRefused = null
+  // Nothing remembered from the test before, and no ten seconds to wait for an email.
+  resetUndoForTests(0)
 })
 
 describe('Reception', () => {
@@ -209,7 +241,8 @@ describe('Reception', () => {
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
     expect(state.marked).toEqual([])
     await user.click(within(card).getByRole('button', { name: 'Paid now, check in' }))
-    await waitFor(() => expect(state.marked).toEqual([['o1', 'received'], ['o1', 'check_in']]))
+    // One call, so it is one thing to undo (0281).
+    await waitFor(() => expect(state.marked).toEqual([['o1', 'received_and_check_in']]))
     await waitFor(() => expect(state.notified).toEqual([['paid', 'ABCDEFGHJKMN']]))
   })
 
@@ -294,7 +327,7 @@ describe('Reception', () => {
     const done = await screen.findByRole('region', { name: 'Registered' })
     expect(within(done).getByText('WALKIN123456')).toBeInTheDocument()
     expect(within(done).getByText(/on its way to joel@example.org/)).toBeInTheDocument()
-    expect(state.mailed).toEqual(['WALKIN123456'])
+    await waitFor(() => expect(state.mailed).toEqual(['WALKIN123456']))
     await user.click(within(done).getByRole('button', { name: 'Another walk-in' }))
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('')
   })
@@ -314,6 +347,120 @@ describe('Reception', () => {
     const done = await screen.findByRole('region', { name: 'Registered' })
     expect(within(done).getByText(/No email address, so no ticket was sent/)).toBeInTheDocument()
     expect(state.mailed).toEqual([])
+  })
+
+  /*
+   * Undo (0281): a door is where a thumb lands on the wrong row. Every
+   * press says who it was done to, with Undo on it.
+   */
+  it('names who was checked in, with Undo that takes exactly that back', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    await user.click(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByRole('button', { name: 'Check in' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah']))
+    await user.click(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).getByRole('button', { name: 'Undo check-in' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah', 'Check-in undone for Ben Joseph']))
+
+    // Two people, two offers; each takes back its own.
+    state.toasts[0].action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o-grace']))
+    state.toasts[1].action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o-grace', 'o-ben']))
+    await waitFor(() => expect(state.toasts.filter((t) => t.text === 'Undone')).toHaveLength(2))
+  })
+
+  it('takes money and lets them in as one thing to undo, and an undone payment never emails them', async () => {
+    // An offer long enough to press: the email is waiting on it.
+    resetUndoForTests(60_000)
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    await user.click(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).getByRole('button', { name: 'Paid now, check in' }))
+    await waitFor(() => expect(state.marked).toEqual([['o1', 'received_and_check_in']]))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Received, and checked in Ama Owusu']))
+    expect(state.notified).toEqual([])
+    state.toasts[0].action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o1']))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.notified).toEqual([])
+  })
+
+  it('undoes a walk-in: the registration goes, its ticket is never sent, and the form is ready again', async () => {
+    resetUndoForTests(60_000)
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Walk-in' }))
+    const form = screen.getByRole('form', { name: 'Walk-in' })
+    await user.type(within(form).getByRole('textbox', { name: 'Name' }), 'Joel Skaria')
+    await user.type(within(form).getByRole('textbox', { name: 'Email (optional)' }), 'joel@example.org')
+    await user.click(within(form).getByRole('button', { name: 'One more With lunch' }))
+    await user.click(within(form).getByRole('button', { name: 'Register' }))
+    await screen.findByRole('region', { name: 'Registered' })
+    expect(state.toasts.map((t) => t.text)).toEqual(['Registered Joel Skaria, and checked in'])
+    expect(state.mailed).toEqual([])
+
+    state.toasts[0].action!.run()
+    // Found by its code, then put back — which for a walk-in is gone.
+    await waitFor(() => expect(state.undone).toEqual(['order-of-WALKIN123456']))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Registered' })).toBeNull())
+    expect(screen.getByRole('form', { name: 'Walk-in' })).toBeInTheDocument()
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.mailed).toEqual([])
+  })
+
+  it('keeps the offer on the row once the toast has gone, for the registration it was done to', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    // Nothing done yet: no row offers anything to take back.
+    expect(screen.queryByRole('button', { name: /^Undo: / })).toBeNull()
+    const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(within(ama).getByRole('button', { name: 'Paid now, check in' }))
+    await waitFor(() => expect(within(ama).getByText('Just now: Received, and checked in Ama Owusu.')).toBeInTheDocument())
+    // On hers and nobody else's.
+    expect(screen.getAllByRole('button', { name: /^Undo: / })).toHaveLength(1)
+    await user.click(within(ama).getByRole('button', { name: 'Undo: Received, and checked in Ama Owusu' }))
+    await waitFor(() => expect(state.undone).toEqual(['o1']))
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Undo: / })).toBeNull())
+    expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' })
+  })
+
+  it('leaves the offer on the row when the undo is refused, and says why', async () => {
+    state.undoRefused = { message: 'This registration has changed since. Use the menu to put it right.' }
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    const grace = screen.getByRole('listitem', { name: 'Grace Mensah' })
+    await user.click(within(grace).getByRole('button', { name: 'Check in' }))
+    await user.click(await within(grace).findByRole('button', { name: 'Undo: Checked in Grace Mensah' }))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Could not undo that.', tone: 'error' }))
+    expect(within(grace).getByRole('button', { name: 'Undo: Checked in Grace Mensah' })).toBeInTheDocument()
+  })
+
+  it('keeps Undo on the walk-in’s card for as long as it is up', async () => {
+    resetUndoForTests(60_000)
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Walk-in' }))
+    const form = screen.getByRole('form', { name: 'Walk-in' })
+    await user.type(within(form).getByRole('textbox', { name: 'Name' }), 'Joel Skaria')
+    await user.type(within(form).getByRole('textbox', { name: 'Email (optional)' }), 'joel@example.org')
+    await user.click(within(form).getByRole('button', { name: 'One more Standard' }))
+    await user.click(within(form).getByRole('button', { name: 'Register' }))
+    const card = await screen.findByRole('region', { name: 'Registered' })
+    await user.click(within(card).getByRole('button', { name: 'Undo this walk-in' }))
+    await waitFor(() => expect(state.undone).toEqual(['order-of-WALKIN123456']))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Registered' })).toBeNull())
+    // The form is there again as it was typed, to put right; and no ticket ever went.
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Joel Skaria')
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.mailed).toEqual([])
+    // The toast's Undo, pressed after, asks nothing more.
+    state.toasts[0].action!.run()
+    await Promise.resolve()
+    expect(state.undone).toEqual(['order-of-WALKIN123456'])
   })
 
   it('starts the camera only on a tap, and stops it again', async () => {
