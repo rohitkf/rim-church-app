@@ -72,7 +72,8 @@ Keep this file current in the same pull request that changes what it says.
 - **One kind of release is merged by a person: one that adds or changes
   a workflow's `schedule:`.** auto-merge's merges raise no events, so the
   timer is never armed (§8). Label it `do-not-merge`, wait for green,
-  merge it.
+  merge it — and when the point is to wake a schedule that is already on
+  `main`, the change has to be to the `cron` line itself.
 
 ## 2. Commands
 
@@ -1002,19 +1003,29 @@ Each of these has already cost real time. None of them show up in review.
   says nothing — Settings › App Health's *Timed jobs* list going empty is
   the sign. And it cannot see a push the sender took and one phone's push
   service refused: push-notify answers 200 whatever its devices said.
-- **A timed workflow that auto-merge brought to `main` is never armed.**
-  GitHub arms a `schedule:` when it handles a push to the default branch,
-  and a merge made by `auto-merge.yml` is not one it handles: the Actions
-  token raises no events (which is also why CI has not run on `main` since
-  merging stopped being done by hand). `uptime.yml`, `dependency-audit.yml`
-  and `database-drift.yml` all arrived that way, each was run once by hand
-  and reported as working, and none ever ran on its timer — found only
-  when Task 19 asked GitHub for runs whose event was `schedule` and got
-  none. **So a pull request that adds or changes a schedule is merged by a
-  person**: `do-not-merge` on it, wait for the checks, merge it (the
-  session's GitHub tools merge as the Owner, which counts). Then check,
-  an hour or so later, that a run with event `schedule` exists. "It ran
-  when I started it" says nothing about whether it will start itself.
+- **A timed workflow that auto-merge brought to `main` does not run on
+  its timer.** A merge made by `auto-merge.yml` uses the Actions token,
+  and what that token does raises no events — which is also why CI does
+  not run on `main` after one. `uptime.yml` arrived that way, was run
+  once by hand and reported as working, and for five hours ran only when
+  started: eight half-hourly slots, no runs — found only when Task 19
+  asked GitHub for runs whose event was `schedule` and got none.
+  (`dependency-audit.yml` and `database-drift.yml` arrived the same way.
+  They are weekly and had not reached a slot, so nothing was seen of them
+  either way.)
+  **Merging by hand is not enough by itself.** #363 changed only the
+  comments in those files; the Owner merged it, CI ran on `main` for the
+  first time in six weeks, and three more slots passed with nothing.
+  What GitHub's documentation says does it is *a user with write
+  permission making a commit that changes the `cron` schedule*. **So a
+  pull request that adds or changes a schedule is merged by a person** —
+  `do-not-merge` on it, wait for the checks, merge it (the session's
+  GitHub tools merge as the Owner, which counts, and takes the Owner's
+  yes each time) — **and to wake one that is already on `main` and dead,
+  the change is to the `cron` line itself**: move it a minute. Then
+  check, an hour or so later, that a run with event `schedule` exists.
+  "It ran when I started it" says nothing about whether it will start
+  itself, and neither does "it was merged the right way".
 - **The uptime check only runs from `main`, and GitHub switches the
   schedules of a quiet public repository off after sixty days.** Nothing
   says so when it does. If no "Uptime" run shows under Actions for a day,

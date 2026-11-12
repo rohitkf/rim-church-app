@@ -16,14 +16,17 @@
 # what the congregation is actually using.
 #
 # A change to the schedule below has to be merged by a person, not by
-# auto-merge, or GitHub never arms it: see the top of uptime.yml.
+# auto-merge, or GitHub never arms it: see the top of uptime.yml. (The
+# minute below moved by one in November 2026 for that reason alone — this
+# file had come in by auto-merge, and it is a change to the cron line
+# itself that GitHub says wakes a schedule.)
 
 name: Dependency audit
 
 on:
   schedule:
     # Monday, before Dependabot's own round at 06:00 London time.
-    - cron: '23 4 * * 1'
+    - cron: '24 4 * * 1'
   workflow_dispatch:
 
 permissions:
