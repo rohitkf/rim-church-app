@@ -13,7 +13,9 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../lib/pollAudience'
 import { QueryState } from '../components/QueryState'
-import { Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses, type PillTone } from '../components/Surface'
+import { ActionButton, Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses, type PillTone } from '../components/Surface'
+import { ShareIosIcon } from '../components/icons'
+import { pollLink, shareLink } from '../lib/shareLink'
 import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -224,6 +226,8 @@ export function PollsPage() {
   const [composing, setComposing] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** The poll whose link was just handed over, and how: said on its card. */
+  const [shared, setShared] = useState<{ id: string; how: 'copied' | 'failed' } | null>(null)
 
   const pollsQuery = useQuery({ queryKey: POLLS_KEY, queryFn: fetchPolls, enabled: !!myId })
 
@@ -243,6 +247,22 @@ export function PollsPage() {
     if (!openedId || !pollsQuery.data) return
     document.getElementById(`poll-${openedId}`)?.scrollIntoView?.({ block: 'center' })
   }, [openedId, pollsQuery.data])
+
+  // A link somebody was sent (lib/shareLink) to a poll that is not among
+  // theirs: it was asked of other people, or it has cleared. The database
+  // decides which; the page only knows it is not here, and says so rather
+  // than showing a list with nothing marked.
+  const linkedPollMissing = !!openedId && !!pollsQuery.data && !polls.some((p) => p.id === openedId)
+
+  /**
+   * Hand over the link to a poll. On a phone the system's sheet says all
+   * that needs saying; a copy, or a link that could not be copied, is said
+   * on the card.
+   */
+  const share = async (poll: Poll) => {
+    const how = await shareLink({ title: 'A poll for you', text: poll.question, url: pollLink(poll.id) })
+    setShared(how === 'copied' || how === 'failed' ? { id: poll.id, how } : null)
+  }
 
   // An answer also takes the poll off the dashboard's reminders.
   const invalidate = () => {
@@ -327,6 +347,12 @@ export function PollsPage() {
       {error && (
         <p className="mb-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
           {error}
+        </p>
+      )}
+
+      {linkedPollMissing && (
+        <p role="status" className="mb-4 rounded-[var(--radius-chip)] bg-raised px-3 py-2.5 text-body-sm text-on-surface hairline">
+          The poll that link was for isn’t on your list. It was asked of other people, or it has been cleared since.
         </p>
       )}
 
@@ -557,6 +583,41 @@ export function PollsPage() {
                     <p className="mt-2 text-label-sm text-on-surface-faint">
                       The deadline has passed — answers are final.
                     </p>
+                  )}
+
+                  {/* A link to this poll, to send wherever the people it was
+                      asked of will see it. It opens the poll for them and
+                      for nobody else: who may see a poll is the database's
+                      rule, and a link does not change it. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <ActionButton
+                      size="sm"
+                      tone="quiet"
+                      glyph={<ShareIosIcon width={15} height={15} aria-hidden="true" />}
+                      onClick={() => void share(poll)}
+                      aria-label={`Share poll: ${poll.question}`}
+                    >
+                      Share
+                    </ActionButton>
+                    {shared?.id === poll.id && shared.how === 'copied' && (
+                      <p role="status" className="min-w-0 flex-1 text-label-md text-on-surface-variant">
+                        Link copied. It opens this poll for the people it was asked of, once they are signed in.
+                      </p>
+                    )}
+                  </div>
+                  {shared?.id === poll.id && shared.how === 'failed' && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      <p role="status" className="text-label-md text-on-surface-variant">
+                        This browser would not copy it. Here is the link, to copy by hand:
+                      </p>
+                      <input
+                        readOnly
+                        value={pollLink(poll.id)}
+                        aria-label="Link to this poll"
+                        onFocus={(e) => e.currentTarget.select()}
+                        className={`${inputClasses} font-mono text-label-md`}
+                      />
+                    </div>
                   )}
                   </>
                   )}

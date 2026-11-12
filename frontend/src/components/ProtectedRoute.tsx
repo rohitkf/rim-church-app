@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { reloadApp } from '../lib/reloadApp'
 import { resetApp } from '../lib/resetApp'
@@ -31,6 +31,7 @@ function ResetButton({ children }: { children: React.ReactNode }) {
 
 export function ProtectedRoute() {
   const { session, loading, authError, profile, profileGaps } = useAuth()
+  const location = useLocation()
   // Whether the app is open to this person right now (0278, 0279, lib/standing).
   const { standing, deciding, checking, recheck } = useStanding(session?.user.id ?? null)
 
@@ -83,7 +84,13 @@ export function ProtectedRoute() {
 
   if (loading) return <LoadingScreen />
 
-  if (!session) return <Navigate to="/login" replace />
+  // Signed out, and headed somewhere: the sign-in page is told where, so a
+  // link somebody was sent (a poll, a notification) still leads there once
+  // they are in. It used to forget, and everybody landed on the Dashboard.
+  if (!session) {
+    const from = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to="/login" replace state={from === '/' ? undefined : { from }} />
+  }
 
   /*
    * Closed for maintenance, and this person is not one of those who may

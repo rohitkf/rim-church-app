@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
+import { whereTheyWereHeaded } from '../lib/afterSignIn'
 
 const signIn = vi.fn()
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { auth: { signInWithPassword: (...a: unknown[]) => signIn(...(a as [])) } },
 }))
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: null }) }))
+const who = vi.hoisted(() => ({ session: null as unknown }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => who }))
 
 async function submit() {
   const user = userEvent.setup()
@@ -51,5 +53,49 @@ describe('LoginPage', () => {
     signIn.mockRejectedValueOnce(new Error(''))
     await submit()
     expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument()
+  })
+})
+
+/*
+ * Somebody sent to sign in from a link (ProtectedRoute says where they
+ * were going) lands there once they are in, not on the Dashboard.
+ */
+describe('after signing in', () => {
+  function Where() {
+    const { pathname, search } = useLocation()
+    return <p>landed on {pathname + search}</p>
+  }
+  const signedInFrom = (state: unknown) => {
+    who.session = { user: { id: 'u1' } }
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    who.session = null
+  }
+
+  it('goes on to the place they were headed', () => {
+    signedInFrom({ from: '/polls?poll=q1' })
+    expect(screen.getByText('landed on /polls?poll=q1')).toBeInTheDocument()
+  })
+
+  it('goes to the Dashboard when they were headed nowhere', () => {
+    signedInFrom(null)
+    expect(screen.getByText('landed on /')).toBeInTheDocument()
+  })
+
+  it('only ever goes somewhere inside the app', () => {
+    expect(whereTheyWereHeaded({ from: '/polls?poll=q1' })).toBe('/polls?poll=q1')
+    expect(whereTheyWereHeaded({ from: '/settings/health#errors' })).toBe('/settings/health#errors')
+    for (const bad of [null, undefined, {}, { from: 7 }, { from: '' }, { from: 'https://elsewhere.example/' }, { from: '//elsewhere.example/' }, { from: '/\\elsewhere.example' }, { from: 'polls' }]) {
+      expect(whereTheyWereHeaded(bad), JSON.stringify(bad)).toBe('/')
+    }
+    // Not back to the page they are on.
+    expect(whereTheyWereHeaded({ from: '/login' })).toBe('/')
+    expect(whereTheyWereHeaded({ from: '/login?removed=1' })).toBe('/')
   })
 })

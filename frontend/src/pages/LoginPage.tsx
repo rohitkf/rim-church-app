@@ -5,6 +5,7 @@ import { probeAuthServer, reachabilityAdvice } from '../lib/authProbe'
 import { signInViaProxy } from '../lib/signInFallback'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
+import { whereTheyWereHeaded } from '../lib/afterSignIn'
 import { PasswordInput } from '../components/PasswordInput'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 
@@ -59,8 +60,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (session) {
-    const redirectTo = (location.state as { from?: string } | null)?.from ?? '/'
-    return <Navigate to={redirectTo} replace />
+    return <Navigate to={whereTheyWereHeaded(location.state)} replace />
   }
 
   async function handleSubmit(e: FormEvent) {

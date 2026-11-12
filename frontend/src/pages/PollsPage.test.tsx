@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -113,11 +113,11 @@ const poll = (over: Record<string, unknown>) => ({
   ...over,
 })
 
-function show() {
+function show(path = '/polls') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <PollsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -560,5 +560,101 @@ describe('the Polls page', () => {
     expect(await screen.findByText('Picnic Sunday?')).toBeInTheDocument()
     expect(screen.getByText(/Clears in 6 days/)).toBeInTheDocument()
     expect(screen.queryByText('Old question?')).toBeNull()
+  })
+})
+
+/*
+ * A link to a poll, to send wherever the people it was asked of will see
+ * it (November 2026). It opens the poll for them and for nobody else: who
+ * may see a poll is the database's rule, and a link does not change it.
+ */
+describe('sharing a poll', () => {
+  const question = 'Which Sunday suits the picnic?'
+  const link = `${window.location.origin}/polls?poll=q1`
+
+  afterEach(() => {
+    // Whatever a test put on the browser comes off again.
+    Reflect.deleteProperty(navigator, 'share')
+    Reflect.deleteProperty(window, 'matchMedia')
+    vi.restoreAllMocks()
+  })
+
+  it('is offered on every poll, to anybody who can see it', async () => {
+    state.polls = [poll({}), poll({ id: 'q2', question: 'Tea or coffee?' })]
+    show()
+    expect(await screen.findByRole('button', { name: `Share poll: ${question}` })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Share poll: Tea or coffee?' })).toBeEnabled()
+  })
+
+  it('copies the link at a desk, and says who it will open for', async () => {
+    state.polls = [poll({})]
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: `Share poll: ${question}` }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Link copied. It opens this poll for the people it was asked of, once they are signed in.',
+    )
+    expect(await navigator.clipboard.readText()).toBe(link)
+  })
+
+  it('says it on the card of the poll that was shared, not on the others', async () => {
+    state.polls = [poll({}), poll({ id: 'q2', question: 'Tea or coffee?' })]
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Share poll: Tea or coffee?' }))
+    const said = await screen.findByRole('status')
+    expect(said.closest('li')).toHaveAttribute('id', 'poll-q2')
+    expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/polls?poll=q2`)
+  })
+
+  it('opens the phone’s own share sheet, with the question and the link', async () => {
+    state.polls = [poll({})]
+    const share = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share })
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: (q: string) => ({ matches: q === '(pointer: coarse)' }) })
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: `Share poll: ${question}` }))
+    await waitFor(() => expect(share).toHaveBeenCalledWith({ title: 'A poll for you', text: question, url: link }))
+    // The sheet says what happened; the card adds nothing.
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('shows the link to copy by hand when the browser will not copy it', async () => {
+    state.polls = [poll({})]
+    const user = show()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('NotAllowedError'))
+    await user.click(await screen.findByRole('button', { name: `Share poll: ${question}` }))
+    expect(await screen.findByRole('status')).toHaveTextContent('This browser would not copy it. Here is the link, to copy by hand:')
+    expect(screen.getByRole('textbox', { name: 'Link to this poll' })).toHaveValue(link)
+  })
+
+  it('marks the poll a link is for', async () => {
+    state.polls = [poll({}), poll({ id: 'q2', question: 'Tea or coffee?' })]
+    show('/polls?poll=q2')
+    await screen.findByText('Tea or coffee?')
+    expect(document.getElementById('poll-q2')?.firstElementChild).toHaveClass('ring-2')
+    expect(document.getElementById('poll-q1')?.firstElementChild).not.toHaveClass('ring-2')
+    expect(screen.queryByText(/isn’t on your list/)).toBeNull()
+  })
+
+  it('says so when the link is for a poll that is not among theirs', async () => {
+    // Asked of another team, or cleared since: the database returns neither, and does not say which.
+    state.polls = [poll({})]
+    show('/polls?poll=somebody-elses')
+    expect(await screen.findByText(question)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The poll that link was for isn’t on your list. It was asked of other people, or it has been cleared since.',
+    )
+  })
+
+  it('says the same when they have no polls at all', async () => {
+    state.polls = []
+    show('/polls?poll=somebody-elses')
+    expect(await screen.findByRole('status')).toHaveTextContent(/isn’t on your list/)
+  })
+
+  it('says nothing of the kind on the page opened plainly', async () => {
+    state.polls = []
+    show()
+    expect(await screen.findByText('Nobody has asked you anything yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })
