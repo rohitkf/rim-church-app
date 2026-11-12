@@ -177,7 +177,16 @@ describe('errors from people’s devices', () => {
   })
 
   it('are put away only after being asked, all of a kind at once', async () => {
-    errors.mockReturnValue([report({ id: 'a1111111-0000-4000-8000-000000000000' }), report({ id: 'b2222222-0000-4000-8000-000000000000', user_id: 'u2' })])
+    // Each its own time, said outright. Left to the fixture both are "thirty
+    // minutes ago" by the clock when each was made, which is the same
+    // instant on a fast machine and a millisecond apart on a slow one — and
+    // a group lists its newest report first, so the order asked of the
+    // server turned on that millisecond. CI's first run on main for six
+    // weeks failed on it.
+    errors.mockReturnValue([
+      report({ id: 'a1111111-0000-4000-8000-000000000000', last_at: ago(10) }),
+      report({ id: 'b2222222-0000-4000-8000-000000000000', user_id: 'u2', last_at: ago(40) }),
+    ])
     const user = show()
     await user.click(await screen.findByRole('button', { name: 'Put away' }))
     expect(clearedErrors).not.toHaveBeenCalled()
