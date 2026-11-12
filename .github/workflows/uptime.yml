@@ -26,17 +26,27 @@
 #
 # Three things leave a schedule doing nothing, without a word:
 #
-#   It was never armed. GitHub arms a schedule when it handles a push to
-#   the default branch, and a merge made by auto-merge.yml is not one it
-#   handles: that workflow merges with the Actions token, and what that
+#   It was never armed. This file reached main in a merge made by
+#   auto-merge.yml, which merges with the Actions token, and what that
 #   token does raises no events (GitHub's rule, so workflows cannot set
-#   each other off for ever). This file reached main that way, and for its
-#   first three and a half hours ran only when started by hand — found on
-#   12 November 2026 by asking for its timed runs and getting none. So a
-#   pull request that ADDS OR CHANGES A SCHEDULE has to be merged by a
-#   person: put `do-not-merge` on it so auto-merge leaves it, wait for the
-#   checks, press Merge. Then look under Actions for a run whose event is
-#   `schedule`.
+#   each other off for ever) — the same reason CI does not run on main
+#   after such a merge. For its first five hours this ran only when
+#   started by hand: eight half-hourly slots, no runs. Found on
+#   12 November 2026 by asking for runs whose event was `schedule`.
+#
+#   Merging by hand is not enough by itself. A pull request that changed
+#   only this comment was merged by the Owner the same evening; CI ran on
+#   main for it, and three more slots passed with nothing. What GitHub's
+#   documentation says does it is "a user with write permissions to the
+#   repository makes a commit that changes the cron schedule". So:
+#     a pull request that ADDS OR CHANGES A SCHEDULE is merged by a
+#       person — `do-not-merge` on it so auto-merge leaves it, wait for
+#       the checks, press Merge;
+#     to wake a schedule that is already here and dead, the change has to
+#       be to the cron line itself. That is the only reason the half-hourly
+#       minutes below are 8 and 38 and were 7 and 37.
+#   Then look under Actions for a run whose event is `schedule`. What
+#   that showed is in AGENTS.md, §8.
 #
 #   The repository went quiet. GitHub disables the schedules of a public
 #   repository with no activity for sixty days (re-enable under Actions).
@@ -48,10 +58,13 @@ name: Uptime
 
 on:
   schedule:
-    # Sunday, 05:00 to 14:59 UTC: before the first team is in until after the last service.
-    - cron: '*/10 5-14 * * 0'
+    # Sunday, 05:00 to 14:59 UTC: before the first team is in until after the
+    # last service. Every ten minutes, and none of them on the hour — that
+    # is when GitHub is busiest and a timed run is likeliest to be late or
+    # dropped.
+    - cron: '3,13,23,33,43,53 5-14 * * 0'
     # Otherwise twice an hour, off the hour.
-    - cron: '7,37 * * * *'
+    - cron: '8,38 * * * *'
   workflow_dispatch:
 
 permissions:

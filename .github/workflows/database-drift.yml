@@ -21,14 +21,17 @@
 # anybody may read.
 #
 # A change to the schedule below has to be merged by a person, not by
-# auto-merge, or GitHub never arms it: see the top of uptime.yml.
+# auto-merge, or GitHub never arms it: see the top of uptime.yml. (The
+# minute below moved by one in November 2026 for that reason alone — this
+# file had come in by auto-merge, and it is a change to the cron line
+# itself that GitHub says wakes a schedule.)
 
 name: Database drift
 
 on:
   schedule:
     # Tuesday morning: after Monday's dependency round, before the midweek.
-    - cron: '41 5 * * 2'
+    - cron: '42 5 * * 2'
   workflow_dispatch:
 
 permissions:
