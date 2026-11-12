@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { REF_TAG, TOLERANCE_SECONDS, emailNews, verifySignature } from '../../../supabase/functions/registration-email-status/news'
 import senderSource from '../../../supabase/functions/registration-email/index.ts?raw'
 import migration from '../../../supabase/migrations/0283_an_email_that_bounced_says_so.sql?raw'
+
+/*
+ * The function's own file, found by pattern rather than named in an
+ * import. The Docker image is built from frontend/ alone, where a file
+ * outside it does not exist, and `tsc -b` — which reads the tests too —
+ * failed there on the import this used to be ("Cannot find module"). A
+ * pattern is only a string to the type check, and the tests are not run
+ * in the image. What that gives up, the function's types checked here, CI
+ * now does properly: its `functions` job runs `deno check` on it.
+ */
+interface News {
+  REF_TAG: string
+  TOLERANCE_SECONDS: number
+  emailNews: (event: unknown) => { ref: string; status: string; at: string | null; detail: string | null } | null
+  verifySignature: (
+    secret: string,
+    headers: { id: string | null; timestamp: string | null; signature: string | null },
+    body: string,
+    nowMs: number,
+  ) => Promise<boolean>
+}
+const [news] = Object.values(import.meta.glob('../../../supabase/functions/registration-email-status/news.ts', { eager: true })) as News[]
+const { REF_TAG, TOLERANCE_SECONDS, emailNews, verifySignature } = news
 
 /*
  * What Resend says about an email, as the registration-email-status

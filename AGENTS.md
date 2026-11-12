@@ -777,6 +777,15 @@ Each of these has already cost real time. None of them show up in review.
   all. Write each variant out in full. Inside an arbitrary variant a space
   is spelled `_`: `[@media(hover:hover)_and_(pointer:fine)]:opacity-0`.
   Verify against `dist/` when unsure.
+- **The Docker image is built from `frontend/` alone**, and `npm run
+  build` type-checks the tests too. A test that names a file outside
+  `frontend/` in an import (`from '../../../supabase/functions/…/news'`)
+  builds here, in CI's `frontend` job and on Vercel, and fails in the
+  image with *Cannot find module* — and CI builds the image only when the
+  Docker files or CI itself change, so it went a day unseen. Take the
+  file's text (`…?raw`) or find it by pattern (`import.meta.glob`), both
+  only strings to the type check; `outsideFrontend.test.ts` refuses the
+  other kind.
 - **jsdom has no `scrollIntoView`.** Guard calls to it.
 - **`window.open('', '_blank', 'noopener')` returns `null`.** The browser
   opens the tab but does not hand it back, so code that opens a blank tab
