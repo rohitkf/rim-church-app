@@ -32,6 +32,12 @@ updates:
       time: '06:00'
       timezone: Europe/London
     open-pull-requests-limit: 5
+    ignore:
+      # The types for Node move with the Node this project runs on (22: CI,
+      # frontend/Dockerfile), by hand, when that moves. Types for a later
+      # Node describe things that are not there to call.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     cooldown:
       default-days: 7
       semver-major-days: 30

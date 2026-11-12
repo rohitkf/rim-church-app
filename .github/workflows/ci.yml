@@ -59,7 +59,7 @@ jobs:
           # A change to CI itself runs everything, so the workflow is tested.
           any() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(any '^(backend/|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
-          echo "docker=$(any '^(backend/|frontend/(Dockerfile|nginx[^/]*|\.dockerignore)$|docker-compose\.yml$|\.env\.example$|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "docker=$(any '^(backend/|frontend/(Dockerfile|nginx[^/]*|\.dockerignore|package(-lock)?\.json)$|docker-compose\.yml$|\.env\.example$|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           echo "deps=$(any '^(frontend/package(-lock)?\.json$|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           echo "functions=$(any '^(supabase/functions/|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
 
