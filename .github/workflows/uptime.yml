@@ -24,10 +24,25 @@
 # this is a second pair of eyes, not a pager. A proper uptime service can
 # be pointed at /api/health as well, any time.
 #
-# Two things switch a schedule off without a word: GitHub disables the
-# schedules of a public repository that has had no activity for sixty
-# days (re-enable it under Actions), and a schedule only ever runs the
-# copy of this file on the default branch.
+# Three things leave a schedule doing nothing, without a word:
+#
+#   It was never armed. GitHub arms a schedule when it handles a push to
+#   the default branch, and a merge made by auto-merge.yml is not one it
+#   handles: that workflow merges with the Actions token, and what that
+#   token does raises no events (GitHub's rule, so workflows cannot set
+#   each other off for ever). This file reached main that way, and for its
+#   first three and a half hours ran only when started by hand — found on
+#   12 November 2026 by asking for its timed runs and getting none. So a
+#   pull request that ADDS OR CHANGES A SCHEDULE has to be merged by a
+#   person: put `do-not-merge` on it so auto-merge leaves it, wait for the
+#   checks, press Merge. Then look under Actions for a run whose event is
+#   `schedule`.
+#
+#   The repository went quiet. GitHub disables the schedules of a public
+#   repository with no activity for sixty days (re-enable under Actions).
+#
+#   It is not on the default branch. A schedule only ever runs the copy
+#   of this file there.
 
 name: Uptime
 
