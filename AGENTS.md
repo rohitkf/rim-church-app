@@ -299,6 +299,12 @@ frontend/api/                Vercel functions. register-preview.js answers
                              pages/ClosedPage.tsx is what a closed app shows
                              and pages/BlockedPage.tsx what a blocked
                              account meets
+  lib/showMore.ts            a long list a screen at a time: the first whole
+                             days of a list grouped by day, and how many are
+                             left. components/ShowMore.tsx is its foot (Show
+                             more, Show fewer, a status line). The Events
+                             page's two lists; nothing more is fetched by
+                             asking — it is the drawing that is saved
   lib/stickyHead.ts          the classes that keep a table's column headings
                              in sight, and when a table scrolls with the
                              page and when in a box of its own

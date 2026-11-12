@@ -938,3 +938,107 @@ describe('a run of days', () => {
   })
 })
 
+/*
+ * A screen at a time. The Owner: "add lazy loading to EVENTS page so that
+ * the page scrolling isn't so long. And that we load more events when we
+ * press show more." A year of the diary is some hundred and ninety rows.
+ */
+describe('a long diary, a screen at a time', () => {
+  // One event a day for forty days from tomorrow, and fifteen in the weeks before today.
+  const day = (offset: number) => new Date(Date.parse(TODAY) + offset * 86_400_000).toISOString().slice(0, 10)
+  const ahead = Array.from({ length: 40 }, (_, i) => meeting({ id: `a${i + 1}`, title: `Coming ${i + 1}`, event_date: day(i + 1) }))
+  const behind = Array.from({ length: 15 }, (_, i) => meeting({ id: `p${i + 1}`, title: `Held ${i + 1}`, event_date: day(-(i + 1)) }))
+  const comingUp = () => screen.getByRole('region', { name: 'Coming up' })
+  const titles = (within_: HTMLElement, prefix: string) =>
+    within(within_)
+      .queryAllByText(new RegExp(`^${prefix} \\d+$`))
+      .map((el) => el.textContent)
+
+  it('draws the first ten and says how many more there are, and up to when', async () => {
+    state.events = ahead
+    show()
+    await screen.findByText('Coming 1')
+    expect(titles(comingUp(), 'Coming')).toEqual(Array.from({ length: 10 }, (_, i) => `Coming ${i + 1}`))
+    expect(within(comingUp()).getByRole('status')).toHaveTextContent(/^30 more after .*Sep.* 23/)
+    // Nothing has been opened up, so there is nothing to fold back.
+    expect(within(comingUp()).queryByRole('button', { name: /Show fewer/ })).toBeNull()
+  })
+
+  it('brings twenty more each time Show more is pressed, until that is everything', async () => {
+    state.events = ahead
+    show()
+    await screen.findByText('Coming 1')
+    await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show more of what is coming up' }))
+    expect(titles(comingUp(), 'Coming')).toHaveLength(30)
+    expect(within(comingUp()).getByRole('status')).toHaveTextContent(/^10 more after /)
+    await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show more of what is coming up' }))
+    expect(titles(comingUp(), 'Coming')).toHaveLength(40)
+    expect(within(comingUp()).queryByRole('button', { name: /Show more/ })).toBeNull()
+    expect(within(comingUp()).getByRole('status')).toHaveTextContent('That is everything coming up.')
+  })
+
+  it('folds back to the first ten with Show fewer', async () => {
+    state.events = ahead
+    show()
+    await screen.findByText('Coming 1')
+    await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show more of what is coming up' }))
+    await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show fewer of what is coming up' }))
+    expect(titles(comingUp(), 'Coming')).toHaveLength(10)
+    expect(within(comingUp()).queryByRole('button', { name: /Show fewer/ })).toBeNull()
+  })
+
+  it('never cuts a day in half: a day with twelve things on shows all twelve', async () => {
+    state.events = [
+      ...Array.from({ length: 12 }, (_, i) => meeting({ id: `b${i}`, title: `Busy ${i + 1}`, event_date: day(1), start_time: `${String(8 + i).padStart(2, '0')}:00:00` })),
+      meeting({ id: 'later', title: 'Coming 99', event_date: day(2) }),
+    ]
+    show()
+    await screen.findByText('Busy 1')
+    expect(titles(comingUp(), 'Busy')).toHaveLength(12)
+    expect(within(comingUp()).queryByText('Coming 99')).toBeNull()
+    expect(within(comingUp()).getByRole('status')).toHaveTextContent(/^1 more after /)
+  })
+
+  it('offers nothing when the diary is shorter than a screen', async () => {
+    state.events = ahead.slice(0, 4)
+    show()
+    await screen.findByText('Coming 1')
+    expect(titles(comingUp(), 'Coming')).toHaveLength(4)
+    expect(within(comingUp()).queryByRole('button', { name: /Show (more|fewer)/ })).toBeNull()
+    expect(within(comingUp()).queryByRole('status')).toBeNull()
+  })
+
+  it('starts another kind from its top: more of everything is not more of the meetings', async () => {
+    state.events = [
+      ...ahead,
+      ...Array.from({ length: 14 }, (_, i) => meeting({ id: `m${i}`, title: `Weekly ${i + 1}`, event_date: day(50 + i), category: 'meeting' })),
+    ]
+    show()
+    await screen.findByText('Coming 1')
+    await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show more of what is coming up' }))
+    expect(titles(comingUp(), 'Coming')).toHaveLength(30)
+    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Meetings' }))
+    expect(titles(comingUp(), 'Weekly')).toHaveLength(10)
+    // Named for the kind it is showing.
+    expect(within(comingUp()).getByRole('button', { name: 'Show more meetings coming up' })).toBeInTheDocument()
+    // And back to everything: from its top again.
+    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Everything' }))
+    expect(titles(comingUp(), 'Coming')).toHaveLength(10)
+  })
+
+  it('pages what has been too, newest first, once Past events is opened', async () => {
+    state.events = [...behind, ahead[0]]
+    show()
+    await screen.findByText('Coming 1')
+    await userEvent.click(screen.getByRole('button', { name: /Past events/ }))
+    const pastList = screen.getByRole('region', { name: 'Past events' })
+    expect(titles(pastList, 'Held')).toEqual(Array.from({ length: 10 }, (_, i) => `Held ${i + 1}`))
+    expect(within(pastList).getByRole('status')).toHaveTextContent(/^5 more before /)
+    await userEvent.click(within(pastList).getByRole('button', { name: 'Show more past events' }))
+    expect(titles(pastList, 'Held')).toHaveLength(15)
+    expect(within(pastList).getByRole('status')).toHaveTextContent('That is every past event kept.')
+    // The calendar still dots every day: the lists are shorter, the diary is not.
+    expect(titles(comingUp(), 'Coming')).toEqual(['Coming 1'])
+  })
+})
+
