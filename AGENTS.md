@@ -105,6 +105,7 @@ the thing most likely to waste your time:
 | `app_notices` (0278) | a **notice**: a line at the top of every page for as long as it is true. Not an alert: nobody is interrupted, no phone buzzes, nothing is pressed. Three kinds (`info`, which a person may put away on their device, `warning`, `maintenance`), shown between `starts_at` and `ends_at`. A maintenance notice may also **close the app** between `closed_from` and `closed_until` (`closes_app`): those are not the showing times, because the notice warns before it closes. Written in Settings › App Notices by whoever holds `settings.notices` (the Owner alone out of the box); `app.open_when_closed` (Admins out of the box) is who keeps working while it is closed. `lib/appNotices.ts`, `AppNoticeBanner` in the shell, `AppNoticesCard` |
 | `account_blocks` (0279) | a **block**: one person's account stopped without being removed. They can still sign in and meet `pages/BlockedPage` ("blocked by an administrator, contact a church Admin"); nothing of theirs is touched, and taking the row away puts everything back. Not a `permission_blocks` row, which refuses one person one capability. Written only by `block_account(target, why)` / `unblock_account(target)` — the table has a read policy and no write policy — for whoever holds `people.block` (Admins out of the box), with removal's rules: never yourself, never the Owner, an Admin only by the Owner. `reason` is a note for the people who may block; the person blocked is never shown it. Enforced in the database in three places: the hook (`account_blocked`), `may()` (a blocked account's every answer is no, so the edge functions that ask on a person's behalf refuse too) and one restrictive policy on `storage.objects`. `account_is_blocked(uid)` is the one definition (never true of the Owner; a trigger on `app_owner` clears a block from whoever becomes it), and push-notify asks it before buzzing a phone. `lib/accountBlocks.ts`, `BlockAccountDialog`, Block / Unblock on the People page |
 | `clock_ins.call_at` (0280) | the **call time a clock-in was for**: that person's first call that day (`clock_in_first_call`), stamped by a trigger when the row is made, so every way in is covered. Kept because the question cannot be asked later — services are deleted a couple of weeks after they are held, the rota with them. Restamped only while the day is live (a team's call time moved today or for a day to come); **a day that has passed is never restamped**, or clearing old call times would turn every on-time arrival late against the 07:00 default. Null is "not known" and is never late. *Late* is `app_settings.clock_in_late_minutes` (30) or more after it: red and first in the day's list. `clock_in_retention_days` (28, four weeks) is both what `delete_old_clock_ins` keeps and how far back the Clock In page's *Arrivals, person by person* goes. `lib/clockInPunctuality.ts` is the sums; `components/ArrivalChart.tsx` the chart (HTML, not a library: a bar a clock-in from the call-time line, a readout instead of a tooltip, a legend and a table so nothing is colour alone) |
+| `registration_order_undos` (0281) | **Undo** on a registration: the registration as it was before the last thing somebody working registrations did to it (payment, check-in, cancellation, refund and the bank details it deleted, verification, a note; a walk-in's memory is "it was not there"). One row a registration, written by a trigger on `registration_orders`, so every way of changing one is covered without being taught; no grants and no policy, so nothing reads it but `registration_order_undo(p_id)`, which puts exactly that back. **Only whoever did it, within ten minutes, and never over somebody else's change** — the function compares the registration with what the change left and refuses in words the page shows. One transaction is one undo, which is why "Paid now, check in" is one call (`registration_order_pay_and_check_in`). A change by somebody who is not working registrations (the attendee uploading a receipt) wipes the memory. `registration_undos_expire()` clears old ones every five minutes. The app's half is `lib/registrationUndo.ts`: `offerUndo` says what was done in a toast with **Undo** on it (`lib/toast.ts` takes one action), holds back any email to the attendee until the offer has passed (ten seconds; sent at once if the page is leaving, dropped if undone), and remembers it so the registration's own row offers Undo for the ten minutes — its menu on the event's page, a line under it at Reception. An event's status (Close registration, Reopen) is undone by writing the status it had, not by this |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
@@ -297,6 +298,11 @@ frontend/api/                Vercel functions. register-preview.js answers
                              pages/ClosedPage.tsx is what a closed app shows
                              and pages/BlockedPage.tsx what a blocked
                              account meets
+  lib/registrationUndo.ts    Undo on the registration pages (0281): the offer
+                             in a toast, the email held back until it has
+                             passed, and what this browser did lately for the
+                             row's own Undo. What is put back, and who may,
+                             is registration_order_undo()'s
   lib/pageErrors.ts          what went wrong with a page, as the three things
                              a person can do something about: not-found,
                              stale (its code would not download) and broken
@@ -721,6 +727,26 @@ Each of these has already cost real time. None of them show up in review.
   "Location on their phones" sat under Onboarding until it moved to Clock
   In. The agreed design, screen by screen, is the Settings redesign canvas
   the Owner approved; build new rooms to it.
+- **A column the office changes on a registration is only undone if
+  `registration_order_state()` lists it** (0281). Undo restores the
+  columns in that function and compares them to decide whether somebody
+  else has changed the registration since. Add a column to
+  `registration_orders` that a press can change and leave it out, and
+  Undo says "Undone" with that column left as the slip made it — and no
+  longer notices a second person's change to it. Add it there in the same
+  migration. A new way of changing a registration needs nothing: the
+  trigger sees every write.
+- **An email that follows a press on a registration goes through
+  `offerUndo`'s `then`, never straight out.** Sent directly it reaches the
+  attendee before the ten seconds in which the press can be taken back,
+  and "your ticket is confirmed" for a payment marked by a slip cannot be
+  unsent.
+- **A `SegmentedControl` inside a parent that scrolls sideways must say
+  `scrolls`.** Five or more segments share a phone's width and truncate
+  (right for "By person"); that rule quietly squeezed the registrations
+  filter, which had been made wide on purpose, until its seven labels cut
+  into one another ("Receipt:o verify"). Nothing fails: it only shows on a
+  phone, on a page with enough segments.
 
 ## 9. Recipes
 

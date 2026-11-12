@@ -10,6 +10,7 @@ import { useConfirmAction } from '../components/ConfirmAction'
 import { useRegistrationRights, type RegistrationRights } from '../lib/registrationRights'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
+import { UNDO_OFFER_MS, offerUndo, runUndo, useRecentUndo } from '../lib/registrationUndo'
 import { pounds } from '../lib/money'
 import { registerUrl, ticketUrl } from '../lib/registrationLinks'
 import { downloadBlob, qrPngBlob } from '../lib/qrPng'
@@ -29,6 +30,7 @@ import {
   fetchRegistrationEvent,
   fetchRegistrationOrders,
   markOrder,
+  payAndCheckIn as takeAndAdmit,
   notifyPayment,
   orderMatches,
   proofUrl,
@@ -98,7 +100,24 @@ export function RegistrationEventPage() {
     mutationFn: (status: EventStatus) => setRegistrationStatus(full.data!.event, status),
     onSuccess: (_r, status) => {
       setError(null)
-      showToast(status === 'published' ? 'Published — share the link' : status === 'closed' ? 'Registration closed' : 'Saved')
+      // As it stood when the button was pressed: what Undo puts back.
+      const event = full.data?.event
+      const before = event?.status
+      showToast(
+        status === 'published' ? 'Published — share the link' : status === 'closed' ? 'Registration closed' : 'Saved',
+        'success',
+        before && before !== status ? UNDO_OFFER_MS : undefined,
+        event && before && before !== status
+          ? {
+              label: 'Undo',
+              run: () =>
+                void setRegistrationStatus(event, before)
+                  .then(() => showToast('Undone'))
+                  .catch((err: unknown) => showToast(errorText(err, 'Could not undo that.'), 'error', 6000))
+                  .finally(refresh),
+            }
+          : undefined,
+      )
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that.')),
@@ -111,16 +130,21 @@ export function RegistrationEventPage() {
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not delete this event.')),
   })
-  // The money is in: "your ticket is confirmed", to whoever gave an address. Nothing waits on it.
-  const ticketConfirmed = (order: OrderRow) => {
-    if (order.email) void notifyPayment('paid', order.code)
-  }
+  // The money is in: "your ticket is confirmed", to whoever gave an address.
+  // It waits for the offer of an undo to pass (0281): a payment marked
+  // received by a slip, and taken back, never writes to them.
+  const ticketConfirmed = (order: OrderRow) => (order.email ? () => void notifyPayment('paid', order.code) : undefined)
+  // What this browser did to a registration lately: its menu offers to take it back.
+  const lastDone = useRecentUndo()
+  // What was done, with Undo on it; the page reads again either way.
+  const done = (order: OrderRow, text: string, then?: () => void) =>
+    void offerUndo({ text, orderId: order.id, then, refresh, words: errorText })
   // The Pastor (or the Owner) has seen the money in the bank or PayPal (0267).
   const verify = useMutation({
     mutationFn: ({ order, verified }: { order: OrderRow; verified: boolean }) => verifyOrderPayment(order.id, verified),
-    onSuccess: (_r, { verified }) => {
+    onSuccess: (_r, { order, verified }) => {
       setError(null)
-      showToast(verified ? 'Payment verified' : 'Verification taken back')
+      done(order, verified ? 'Payment verified' : 'Verification taken back')
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
@@ -129,22 +153,17 @@ export function RegistrationEventPage() {
     mutationFn: ({ order, action }: { order: OrderRow; action: OrderAction }) => markOrder(order.id, action),
     onSuccess: (_r, { order, action }) => {
       setError(null)
-      if (action === 'received') ticketConfirmed(order)
-      showToast(ACTION_DONE[action])
+      done(order, ACTION_DONE[action], action === 'received' ? ticketConfirmed(order) : undefined)
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
   })
-  // Reception took the money and let them in: two marks, one tap.
+  // Reception took the money and let them in: two marks, one tap, and one thing to undo.
   const payAndCheckIn = useMutation({
-    mutationFn: async (order: OrderRow) => {
-      await markOrder(order.id, 'received')
-      await markOrder(order.id, 'check_in')
-    },
+    mutationFn: (order: OrderRow) => takeAndAdmit(order.id),
     onSuccess: (_r, order) => {
       setError(null)
-      ticketConfirmed(order)
-      showToast('Received, and checked in')
+      done(order, 'Received, and checked in', ticketConfirmed(order))
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
@@ -154,8 +173,12 @@ export function RegistrationEventPage() {
     mutationFn: (order: OrderRow) => markOrder(order.id, 'awaiting'),
     onSuccess: (_r, order) => {
       setError(null)
-      if (order.email) void notifyPayment('unmatched', order.code)
-      showToast(order.email ? 'Back to awaiting payment — they have been emailed' : 'Back to awaiting payment')
+      // The email that says so waits for the undo, like the other one.
+      done(
+        order,
+        order.email ? 'Back to awaiting payment — they will be emailed' : 'Back to awaiting payment',
+        order.email ? () => void notifyPayment('unmatched', order.code) : undefined,
+      )
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
@@ -179,9 +202,10 @@ export function RegistrationEventPage() {
   })
   const saveNote = useMutation({
     mutationFn: ({ order, notes }: { order: OrderRow; notes: string }) => setOrderNotes(order.id, notes),
-    onSuccess: () => {
+    onSuccess: (_r, { order }) => {
       setError(null)
       setNoteFor(null)
+      done(order, 'Note saved')
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save the note.')),
@@ -518,7 +542,7 @@ export function RegistrationEventPage() {
                     ),
                   }
                 })}
-                className="w-max min-w-full"
+                scrolls
               />
             </div>
           </div>
@@ -534,7 +558,11 @@ export function RegistrationEventPage() {
                   order={o}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
                   busy={mark.isPending || verify.isPending}
-                  actions={orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }))}
+                  actions={withUndo(
+                    lastDone(o.id),
+                    () => void runUndo({ orderId: o.id, refresh, words: errorText }),
+                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified })),
+                  )}
                   next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }))}
                 />
               ))}
@@ -690,6 +718,16 @@ const ACTION_DONE: Record<OrderAction, string> = {
   cancel: 'Registration cancelled',
   restore: 'Registration put back',
   refunded: 'Marked as refunded',
+}
+
+/**
+ * The registration's menu, with the last thing this browser did to it at
+ * the top for as long as the database will take it back (0281): the toast
+ * that offered Undo is gone in seconds, and a slip is often noticed after.
+ */
+function withUndo(last: string | null, undo: () => void, actions: MenuAction[]): MenuAction[] {
+  if (!last) return actions
+  return [{ label: 'Undo', tone: 'accent', onSelect: undo, hint: `“${last}” — puts it back exactly as it was` }, ...actions]
 }
 
 /** What reception can do to an order, as it stands. */

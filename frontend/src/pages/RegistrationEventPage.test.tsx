@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RegistrationEventPage } from './RegistrationEventPage'
 import type { OrderRow, RegistrationEventFull } from '../lib/registrations'
+import { resetUndoForTests } from '../lib/registrationUndo'
 
 /*
  * One event, run from its page (0244, 0245): the numbers, who has
@@ -24,6 +25,10 @@ const state = vi.hoisted(() => ({
   toldCancelled: [] as string[],
   downloaded: [] as string[],
   exported: [] as { sheets: { name: string; rows: unknown[][] }[]; file: string }[],
+  // What the page said, with whatever it offered to take back (0281).
+  toasts: [] as { text: string; tone?: string; action?: { label: string; run: () => void } }[],
+  undone: [] as string[],
+  undoRefused: null as null | { message: string },
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
@@ -33,7 +38,23 @@ vi.mock('../lib/registrationRights', async (original) => ({
   useRegistrationRights: () => rights.now,
 }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
-vi.mock('../lib/toast', () => ({ showToast: () => undefined }))
+vi.mock('../lib/toast', () => ({
+  showToast: (text: string, tone?: string, _ms?: number, action?: { label: string; run: () => void }) => {
+    state.toasts.push({ text, tone, action })
+    return state.toasts.length
+  },
+  dismissToast: () => undefined,
+}))
+// The one thing the page asks of the database itself: put a registration back as it was.
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    rpc: (fn: string, args: { p_id: string }) => {
+      if (fn !== 'registration_order_undo') throw new Error(`unexpected rpc ${fn}`)
+      state.undone.push(args.p_id)
+      return Promise.resolve(state.undoRefused ? { data: null, error: state.undoRefused } : { data: 'change', error: null })
+    },
+  },
+}))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
 vi.mock('../lib/qrPng', () => ({
   qrPngBlob: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
@@ -51,6 +72,10 @@ vi.mock('../lib/registrations', async (original) => ({
   fetchRegistrationOrders: () => Promise.resolve(state.orders),
   markOrder: (id: string, action: string) => {
     state.marked.push([id, action])
+    return Promise.resolve()
+  },
+  payAndCheckIn: (id: string) => {
+    state.marked.push([id, 'received_and_check_in'])
     return Promise.resolve()
   },
   verifyOrderPayment: (id: string, verified: boolean) => {
@@ -187,6 +212,11 @@ beforeEach(() => {
   state.toldCancelled = []
   state.downloaded = []
   state.exported = []
+  state.toasts = []
+  state.undone = []
+  state.undoRefused = null
+  // Nothing remembered from the test before, and no ten seconds to wait for an email.
+  resetUndoForTests(0)
 })
 
 describe('an event’s page', () => {
@@ -397,7 +427,7 @@ describe('an event’s page', () => {
     const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
     await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
     await waitFor(() => expect(state.marked).toEqual([['o-dan', 'received']]))
-    expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS'])
+    await waitFor(() => expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS']))
   })
 
   it('leads back to every event from the top', async () => {
@@ -423,12 +453,12 @@ describe('an event’s page', () => {
     expect(dialog).toHaveTextContent(/an email to dan@example.org/)
     await user.click(within(dialog).getByRole('button', { name: 'Ask again' }))
     await waitFor(() => expect(state.marked).toEqual([['o-dan', 'awaiting']]))
-    expect(state.notified).toEqual([['unmatched', 'EFGHJKMNPQRS']])
+    await waitFor(() => expect(state.notified).toEqual([['unmatched', 'EFGHJKMNPQRS']]))
 
     menu = await openMenu(user, 'Dan Reported')
     await user.click(within(menu).getByRole('menuitem', { name: /Mark as received/ }))
     await waitFor(() => expect(state.marked).toContainEqual(['o-dan', 'received']))
-    expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS'])
+    await waitFor(() => expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS']))
   })
 
   it('downloads the link as a QR code, and opens Reception', async () => {
@@ -603,5 +633,110 @@ describe('an event’s page', () => {
     show()
     expect(await screen.findByRole('button', { name: 'Publish' })).toBeDisabled()
     expect(screen.getByText(/Add at least one date and one ticket type/)).toBeInTheDocument()
+  })
+})
+
+/*
+ * Undo (0281). Every press that changes a registration says what it did
+ * with Undo beside it; the registration's own menu keeps the offer once
+ * the toast has gone; and an email to the attendee waits for the offer to
+ * pass. What is put back is the database's to decide and is proved there:
+ * here, that the page asks, and what it does with the answer.
+ */
+describe('taking a press back', () => {
+  const lastOffer = () => state.toasts.filter((t) => t.action).at(-1)!
+
+  it('says what was done with Undo on it, and a payment taken back never emails them', async () => {
+    // An offer long enough to press: the email is waiting on it.
+    resetUndoForTests(60_000)
+    const user = show()
+    const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
+    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Marked as received']))
+    expect(lastOffer().action!.label).toBe('Undo')
+    expect(state.notified).toEqual([])
+
+    lastOffer().action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o-dan']))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
+    // The email was dropped, not delayed: leaving the page sends whatever still waits, and nothing does.
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.notified).toEqual([])
+  })
+
+  it('sends the email after all when the undo is refused: the press stands', async () => {
+    resetUndoForTests(60_000)
+    state.undoRefused = { message: 'This registration has changed since. Use the menu to put it right.' }
+    const user = show()
+    const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
+    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
+    await waitFor(() => expect(state.toasts).toHaveLength(1))
+    lastOffer().action!.run()
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Could not undo that.', tone: 'error' }))
+    expect(state.notified).toEqual([['paid', 'EFGHJKMNPQRS']])
+  })
+
+  it('keeps Undo at the top of the registration’s menu once the toast has gone, and there only', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    let menu = await openMenu(user, 'Ben Joseph')
+    expect(within(menu).queryByRole('menuitem', { name: /^Undo/ })).toBeNull()
+    await user.click(within(menu).getByRole('menuitem', { name: /Check in/ }))
+    await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in']))
+
+    // Somebody else's row was not touched: no Undo on it.
+    menu = await openMenu(user, 'Ama Owusu')
+    expect(within(menu).queryByRole('menuitem', { name: /^Undo/ })).toBeNull()
+    await user.keyboard('{Escape}')
+
+    menu = await openMenu(user, 'Ben Joseph')
+    const first = within(menu).getAllByRole('menuitem')[0]
+    expect(first).toHaveTextContent('Undo')
+    expect(first).toHaveTextContent('“Checked in” — puts it back exactly as it was')
+    await user.click(first)
+    await waitFor(() => expect(state.undone).toEqual(['o-ben']))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
+
+    // Taken back: the menu is as it was.
+    menu = await openMenu(user, 'Ben Joseph')
+    expect(within(menu).queryByRole('menuitem', { name: /^Undo/ })).toBeNull()
+  })
+
+  it('offers Undo on a note, a cancellation and a verification alike', async () => {
+    rights.now = { ...rights.now, verify: true }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    let menu = await openMenu(user, 'Ben Joseph')
+    await user.click(within(menu).getByRole('menuitem', { name: 'Add a note' }))
+    const note = screen.getByRole('dialog', { name: 'A note on Ben Joseph’s registration' })
+    await user.type(within(note).getByRole('textbox', { name: 'Note' }), 'Paid cash at the door')
+    await user.click(within(note).getByRole('button', { name: 'Save note' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Note saved']))
+
+    menu = await openMenu(user, 'Ama Owusu')
+    await user.click(within(menu).getByRole('menuitem', { name: 'Cancel registration' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel it' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Note saved', 'Registration cancelled']))
+
+    await user.click(within(screen.getByRole('listitem', { name: 'Dan Reported' })).getByRole('button', { name: 'Verify payment' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Note saved', 'Registration cancelled', 'Payment verified']))
+    expect(state.toasts.every((t) => t.action?.label === 'Undo')).toBe(true)
+
+    // Each Undo is its own registration's.
+    state.toasts[1].action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o1']))
+  })
+
+  it('closes registration with Undo that opens it again', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Close registration' }))
+    await waitFor(() => expect(state.statuses).toEqual([['e1', 'closed']]))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Registration closed']))
+    lastOffer().action!.run()
+    await waitFor(() => expect(state.statuses).toEqual([['e1', 'closed'], ['e1', 'published']]))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
+    // An event's status is not a registration: the database's undo is not asked.
+    expect(state.undone).toEqual([])
   })
 })

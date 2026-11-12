@@ -1078,6 +1078,15 @@ export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow
 /* Running the event: acting on an order, finding one, the accounts     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Reception took the money and let them in: both marks in one go, so they
+ * are one thing to undo (0281). Each mark still checks its own right.
+ */
+export async function payAndCheckIn(id: string): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_pay_and_check_in', { p_id: id })
+  if (error) throw error
+}
+
 /** What registration_order_mark() (0245) does to an order. */
 export type OrderAction = 'received' | 'waived' | 'awaiting' | 'check_in' | 'undo_check_in' | 'cancel' | 'restore' | 'refunded'
 

@@ -9,7 +9,7 @@ import { ScannerPanel } from '../components/TicketScanner'
 import { QueryState } from '../components/QueryState'
 import { useErrorText } from '../lib/useErrorText'
 import { usePageAccess } from '../lib/usePageAccess'
-import { showToast } from '../lib/toast'
+import { offerUndo, orderIdOfCode, runUndo, useRecentUndo } from '../lib/registrationUndo'
 import { parsePounds, pounds } from '../lib/money'
 import { ticketUrl } from '../lib/registrationLinks'
 import type { PhoneStatus } from '../lib/phone'
@@ -24,6 +24,7 @@ import {
   isPaid,
   markOrder,
   notifyPayment,
+  payAndCheckIn,
   orderMatches,
   sendTicketEmail,
   todaysEvent,
@@ -97,37 +98,40 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', eventId], queryFn: () => fetchRegistrationOrders(eventId) })
 
   // Money taken at the door: marked received, and "your ticket is
-  // confirmed" to whoever gave an address. Nothing waits on the email.
-  const tookMoney = (order: OrderRow) => {
-    if (order.email) void notifyPayment('paid', order.code)
-  }
+  // confirmed" to whoever gave an address. The email waits for the offer
+  // of an undo to pass (0281): a slip taken back never writes to them.
+  const tookMoney = (order: OrderRow) => (order.email ? () => void notifyPayment('paid', order.code) : undefined)
+  // What was done, with Undo on it: a door is where a thumb lands on the wrong row.
+  const done = (order: OrderRow, text: string, then?: () => void) =>
+    void offerUndo({ text, orderId: order.id, then, refresh, words: errorText })
+  // The toast is gone in seconds; the row keeps the offer for as long as the database will take it back.
+  const lastDone = useRecentUndo()
+  const takeBack = (order: OrderRow) => void runUndo({ orderId: order.id, refresh, words: errorText })
   const checkIn = useMutation({
     mutationFn: (order: OrderRow) => markOrder(order.id, 'check_in'),
-    onSuccess: () => {
+    onSuccess: (_r, order) => {
       setError(null)
-      showToast('Checked in')
+      done(order, `Checked in ${order.name}`)
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not check them in.')),
   })
   const undoCheckIn = useMutation({
     mutationFn: (order: OrderRow) => markOrder(order.id, 'undo_check_in'),
-    onSuccess: () => {
+    onSuccess: (_r, order) => {
       setError(null)
-      showToast('Check-in undone')
+      done(order, `Check-in undone for ${order.name}`)
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not undo that.')),
   })
   const paid = useMutation({
-    mutationFn: async ({ order, andIn }: { order: OrderRow; andIn: boolean }) => {
-      await markOrder(order.id, 'received')
-      if (andIn) await markOrder(order.id, 'check_in')
-    },
+    // Both marks in one go when they are let in too, so it is one thing to undo.
+    mutationFn: ({ order, andIn }: { order: OrderRow; andIn: boolean }) =>
+      andIn ? payAndCheckIn(order.id) : markOrder(order.id, 'received'),
     onSuccess: (_r, { order, andIn }) => {
       setError(null)
-      tookMoney(order)
-      showToast(andIn ? 'Received, and checked in' : 'Received')
+      done(order, andIn ? `Received, and checked in ${order.name}` : `Received from ${order.name}`, tookMoney(order))
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not take that payment.')),
@@ -218,6 +222,8 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           onCheckIn={(order) => checkIn.mutate(order)}
           onUndo={(order) => undoCheckIn.mutate(order)}
           onPaid={(order, andIn) => paid.mutate({ order, andIn })}
+          lastDone={lastDone}
+          onTakeBack={takeBack}
           canTakePayment={rights.takePayment}
           canCheckIn={rights.checkIn}
         />
@@ -256,6 +262,8 @@ function Find({
   onCheckIn,
   onUndo,
   onPaid,
+  lastDone,
+  onTakeBack,
   canTakePayment,
   canCheckIn,
 }: {
@@ -265,6 +273,10 @@ function Find({
   onCheckIn: (order: OrderRow) => void
   onUndo: (order: OrderRow) => void
   onPaid: (order: OrderRow, andIn: boolean) => void
+  /** What this browser did to a registration in the last ten minutes, if anything (0281). */
+  lastDone: (orderId: string) => string | null
+  /** Put it back exactly as it was before that. */
+  onTakeBack: (order: OrderRow) => void
   canTakePayment: boolean
   /** False for somebody here to look only: no buttons at all. */
   canCheckIn: boolean
@@ -294,6 +306,7 @@ function Find({
             const day = o.date_id ? dates.find((d) => d.id === o.date_id) : undefined
             const owes = o.status === 'confirmed' && o.total_pence > 0 && !isPaid(o)
             const inToday = checkedInToday(o)
+            const last = lastDone(o.id)
             return (
               <li key={o.id} aria-label={o.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${o.status === 'cancelled' ? 'opacity-60' : ''}`}>
                 <p className="text-body-md font-medium text-on-surface">
@@ -359,6 +372,21 @@ function Find({
                     )}
                   </div>
                 )}
+                {/* A slip is often noticed after the toast has gone: the row keeps the offer (0281). */}
+                {last && (
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2 border-t border-outline-variant/60 pt-1 text-body-sm text-on-surface-variant">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">Just now: {last}.</span>
+                    <button
+                      type="button"
+                      onClick={() => onTakeBack(o)}
+                      disabled={busy}
+                      aria-label={`Undo: ${last}`}
+                      className="tap font-medium text-accent-blue-soft hover:underline disabled:opacity-50"
+                    >
+                      Undo
+                    </button>
+                  </p>
+                )}
               </li>
             )
           })}
@@ -405,7 +433,7 @@ function WalkIn({
   const [here, setHere] = useState(true)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ code: string; name: string; email: string | null } | null>(null)
+  const [done, setDone] = useState<{ code: string; name: string; email: string | null; undo: () => void } | null>(null)
   // Counts the walk-ins taken: the phone field keeps its own text, so a new one is keyed afresh.
   const [round, setRound] = useState(0)
 
@@ -461,11 +489,21 @@ function WalkIn({
       }),
     onSuccess: (code) => {
       const address = email.trim() || null
-      // Their ticket, to the address they gave; nothing waits on it.
-      if (address) void sendTicketEmail(code)
-      setDone({ code, name: name.trim(), email: address })
+      const who = name.trim()
       setError(null)
-      showToast(here && !owing ? 'Registered, and checked in' : owing ? 'Registered — not checked in until it is paid' : 'Registered')
+      // Undone, the walk-in is gone (0281) — so their ticket is not emailed
+      // until the offer has passed. The card below keeps the same Undo for
+      // as long as it is up.
+      const undo = offerUndo({
+        text: here && !owing ? `Registered ${who}, and checked in` : owing ? `Registered ${who} — not checked in until it is paid` : `Registered ${who}`,
+        orderId: () => orderIdOfCode(code),
+        then: address ? () => void sendTicketEmail(code) : undefined,
+        refresh,
+        // Gone: the card comes down and the form is there again, as it was typed, to put right.
+        onUndone: () => setDone((current) => (current?.code === code ? null : current)),
+        words: errorText,
+      })
+      setDone({ code, name: who, email: address, undo: () => void undo() })
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not register them.')),
@@ -504,6 +542,13 @@ function WalkIn({
             Open their ticket
           </a>
         </div>
+        {/* Registered by a slip, or twice: gone again, for as long as the database will take it back (0281). */}
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 border-t border-outline-variant/60 pt-1 text-body-sm text-on-surface-variant">
+          <span className="min-w-0">Registered by mistake?</span>
+          <button type="button" onClick={done.undo} className="tap font-medium text-accent-blue-soft hover:underline">
+            Undo this walk-in
+          </button>
+        </p>
       </section>
     )
   }
