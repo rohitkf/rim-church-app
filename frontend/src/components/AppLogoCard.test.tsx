@@ -219,7 +219,13 @@ describe('the installed app’s icon', () => {
   it('says what a phone that already has the app will do', () => {
     settings.mockReturnValue({ logo_url: 'logo/old.png' })
     show()
-    expect(screen.getByText(/remove the app from the Home\s+Screen and add it again/)).toBeInTheDocument()
+    // What each kind of device does, and that nothing here hurries it.
+    const says = screen.getByText(/A device that already has the app keeps the icon it was installed with/)
+    expect(says).toHaveTextContent(/An Android phone changes it by itself within a day or two of the app being opened, and asks first/)
+    expect(says).toHaveTextContent(/A computer offers it in the app window’s ⋮ menu/)
+    expect(says).toHaveTextContent(/An iPhone or iPad never does: the app has to be removed from the Home Screen and added again/)
+    // And that the people who have it are told (components/AppIdentityNotice).
+    expect(says).toHaveTextContent(/Everybody with the app installed is told, in their own device’s terms, the next time they open it/)
   })
 })
 

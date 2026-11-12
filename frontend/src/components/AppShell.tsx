@@ -17,6 +17,7 @@ import { PwaBanners } from './PwaBanners'
 import { useLiveData } from '../lib/useLiveData'
 import { AlertBanner } from './AlertBanner'
 import { AppNoticeBanner } from './AppNoticeBanner'
+import { AppIdentityNotice } from './AppIdentityNotice'
 import { DockNav } from './DockNav'
 import { NAV_ITEMS as navItems } from '../lib/navItems'
 import { usePageAccess } from '../lib/usePageAccess'
@@ -172,6 +173,8 @@ export function AppShell() {
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 lg:px-10 lg:pt-4">
         {/* The church's notices stand above whatever page this is (0278). */}
         <AppNoticeBanner />
+        {/* A new logo or name, said once on a device that already has the app (lib/installedIdentity). */}
+        <AppIdentityNotice />
         <Outlet />
       </main>
 
