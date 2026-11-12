@@ -98,6 +98,14 @@ export function deliveryWord(order: EmailFacts): string {
 export const looksLikeEmail = (address: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address.trim())
 
 /**
+ * The same address typed twice. Capitals and the spaces a phone's keyboard
+ * leaves at the end are not a difference: no mail system tells
+ * Ama@Example.org from ama@example.org, and stopping somebody for it would
+ * be stopping them for nothing.
+ */
+export const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
  * Well-known mail domains as fingers commonly mistype them. Only a domain
  * typed exactly as one of these is questioned — a small company's own
  * domain that happens to look like a slip is left alone.
