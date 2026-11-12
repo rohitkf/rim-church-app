@@ -6,6 +6,7 @@ import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
+import { RegistrationMessages } from '../components/RegistrationMessages'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
 import { deliveryOf, emailWantsDoing } from '../lib/emailDelivery'
@@ -539,6 +540,9 @@ export function RegistrationEventPage() {
           )
         })}
       </ul>
+
+      {/* What people have written to the organisers (0287). Nothing is drawn while there are none. */}
+      {rights.office && <RegistrationMessages eventId={id} eventTitle={event.title} codeOf={(orderId) => rows.find((o) => o.id === orderId)?.code ?? null} />}
 
       <section id="registered" className="mt-8 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

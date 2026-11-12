@@ -8,7 +8,7 @@ import { Lifespan } from '../components/Lifespan'
 import { pounds } from '../lib/money'
 import { registerUrl } from '../lib/registrationLinks'
 import { useNow } from '../lib/timeLeft'
-import { REGISTRATIONS_KEY, STATUS_TONE, STATUS_WORDS, fetchRegistrationEvents, groupEvents, whenWords, type EventSummary } from '../lib/registrations'
+import { REGISTRATIONS_KEY, STATUS_TONE, STATUS_WORDS, fetchRegistrationEvents, groupEvents, sweepRegistrationFiles, whenWords, type EventSummary } from '../lib/registrations'
 
 /**
  * Registrations (0244): every event people can sign up for, and how each
@@ -23,6 +23,18 @@ export function RegistrationsPage() {
   const navigate = useNavigate()
   const now = useNow(true, 60_000)
   const events = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'events'], queryFn: fetchRegistrationEvents })
+  // Housekeeping, once a visit (0287): receipts and pictures nothing points
+  // at any more — a deleted event's, an anonymised order's — are files the
+  // database cannot remove, so whoever may opens this page removes them.
+  // The database names none for somebody who could not; nothing is shown.
+  useQuery({
+    queryKey: ['registration-file-sweep'],
+    queryFn: sweepRegistrationFiles,
+    enabled: rights.office,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  })
   const rows = events.data ?? []
   const totals = rows.reduce(
     (t, e) => ({

@@ -9,6 +9,7 @@ import { PlaceMap } from '../components/PlaceMap'
 import { Countdown } from '../components/Countdown'
 import { PhoneField } from '../components/PhoneField'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
+import { ContactOrganisers } from '../components/ContactOrganisers'
 import { looksLikeEmail, sameEmail } from '../lib/emailDelivery'
 import { WarningIcon } from '../components/icons'
 import type { PhoneStatus } from '../lib/phone'
@@ -694,6 +695,9 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
       )}
 
       <TicketAgain slug={event.slug} />
+
+      {/* A way to reach the church from here (0287): shown whatever state the event is in. */}
+      <ContactOrganisers slug={event.slug} eventTitle={event.title} className="mt-6" />
     </PublicShell>
   )
 }
