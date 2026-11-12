@@ -24,29 +24,33 @@
 # this is a second pair of eyes, not a pager. A proper uptime service can
 # be pointed at /api/health as well, any time.
 #
-# Three things leave a schedule doing nothing, without a word:
+# AS OF 12 NOVEMBER 2026 THIS HAS NEVER RUN ON ITS TIMER. It answers when
+# started by hand (Actions › Uptime › Run workflow) and GitHub has yet to
+# start it once by itself. Until a run marked "Scheduled" shows under
+# Actions, nothing outside the app is watching it. What was seen and
+# tried is in AGENTS.md, §8; in short:
 #
-#   It was never armed. This file reached main in a merge made by
-#   auto-merge.yml, which merges with the Actions token, and what that
-#   token does raises no events (GitHub's rule, so workflows cannot set
-#   each other off for ever) — the same reason CI does not run on main
-#   after such a merge. For its first five hours this ran only when
-#   started by hand: eight half-hourly slots, no runs. Found on
-#   12 November 2026 by asking for runs whose event was `schedule`.
+#   This file reached main in a merge made by auto-merge.yml, which
+#   merges with the Actions token, and what that token does raises no
+#   events (GitHub's rule, so workflows cannot set each other off for
+#   ever) — the same reason CI does not run on main after such a merge.
+#   Eight half-hourly slots passed with no run before anybody asked
+#   GitHub for runs whose event was `schedule`.
 #
-#   Merging by hand is not enough by itself. A pull request that changed
-#   only this comment was merged by the Owner the same evening; CI ran on
-#   main for it, and three more slots passed with nothing. What GitHub's
-#   documentation says does it is "a user with write permissions to the
-#   repository makes a commit that changes the cron schedule". So:
-#     a pull request that ADDS OR CHANGES A SCHEDULE is merged by a
-#       person — `do-not-merge` on it so auto-merge leaves it, wait for
-#       the checks, press Merge;
-#     to wake a schedule that is already here and dead, the change has to
-#       be to the cron line itself. That is the only reason the half-hourly
-#       minutes below are 8 and 38 and were 7 and 37.
-#   Then look under Actions for a run whose event is `schedule`. What
-#   that showed is in AGENTS.md, §8.
+#   The Owner then merged, by hand, a pull request that changed only
+#   this comment: CI ran on main for it, and three more slots passed.
+#
+#   GitHub's documentation says a deactivated schedule is reactivated
+#   when "a user with write permissions to the repository makes a commit
+#   that changes the cron schedule". So the Owner merged a second one
+#   that moved the minutes below (they were 7 and 37): two more slots
+#   passed.
+#
+# What is left is the Owner's: switch this workflow off and on under
+# Actions, and — the right tool for the job in any case — point an
+# outside uptime service at /api/health.
+#
+# Two more things leave a schedule doing nothing, without a word:
 #
 #   The repository went quiet. GitHub disables the schedules of a public
 #   repository with no activity for sixty days (re-enable under Actions).
