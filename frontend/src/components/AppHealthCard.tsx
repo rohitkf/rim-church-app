@@ -20,6 +20,7 @@ import {
   groupErrors,
   healthVerdict,
   jobsInOrder,
+  ledgerWords,
   reporterName,
   sourceWords,
   timesWords,
@@ -27,6 +28,7 @@ import {
   type ErrorGroup,
   type HealthEvent,
 } from '../lib/appHealth'
+import { SCHEMA_NEEDS } from '../lib/schemaNeeds'
 import { useConfirmAction } from './ConfirmAction'
 import { QueryState } from './QueryState'
 import { ActionButton, Pill, Row, SectionTile, type PillTone } from './Surface'
@@ -93,6 +95,7 @@ export function AppHealthCard() {
   const known = !errors.isLoading && !events.isLoading && !errors.error && !events.error
   const verdict = healthVerdict({ groups: groups.length, events: failures.length, jobsFailing })
   const o = overview.data
+  const ledger = ledgerWords(o?.schema ?? null, SCHEMA_NEEDS)
 
   const askPutAway = (group: ErrorGroup) =>
     ask({
@@ -132,6 +135,12 @@ export function AppHealthCard() {
             </div>
           )}
         </QueryState>
+        {ledger && (
+          <p className={`mt-3 text-body-sm ${ledger.tone === 'orange' ? 'font-medium text-accent-orange-soft' : 'text-on-surface-variant'}`}>
+            {ledger.words}
+            {o?.schema?.latest ? <span className="block font-mono text-label-md font-normal text-on-surface-faint [overflow-wrap:anywhere]">{o.schema.latest}</span> : null}
+          </p>
+        )}
         <p className="mt-3 text-label-md text-on-surface-faint">
           Whoever can open this room is told once a day, in the bell, when something new has failed — and not otherwise. A check that
           runs outside the app watches whether the site and the database answer at all, and opens an issue on GitHub when either stops.

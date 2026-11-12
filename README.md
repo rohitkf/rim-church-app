@@ -589,7 +589,8 @@ builds both images and validates `docker-compose.yml`, and, when their
 own files change, `npm audit` on the packages and `deno check` on the
 edge functions. Dependabot proposes updates into `develop` weekly, and a
 weekly audit opens an issue when a package already in use turns out to
-have a known vulnerability.
+have a known vulnerability. A pull request into `main` is also held until
+production's database has reached the migration the release needs.
 
 ## Milestones
 

@@ -10,6 +10,7 @@ import {
   healthOverviewSchema,
   healthVerdict,
   jobsInOrder,
+  ledgerWords,
   reporterName,
   sourceWords,
   timesWords,
@@ -219,5 +220,39 @@ describe('what the database sends', () => {
 
   it('is kept as long as the page says', () => {
     expect(migration).toContain(`interval '${HEALTH_KEPT_DAYS} days'`)
+  })
+})
+
+describe('what the ledger says (0285)', () => {
+  const at = (version: number, recorded = version) => ({ version, recorded, latest: `0${version}_x`, latest_at: null })
+
+  it('says nothing for a database that keeps no ledger', () => {
+    expect(ledgerWords(null, 285)).toBeNull()
+    expect(healthOverviewSchema.parse({ at: 'x', jobs: [], pushes: { asked: 0, answered: 0, failed: 0, hours: 6 }, database: { bytes: 1, connections: 1, connections_max: 1 }, errors: { day: 0, kept: 0 } }).schema).toBeNull()
+  })
+
+  it('says the database is where the app needs it', () => {
+    expect(ledgerWords(at(285), 285)).toEqual({ tone: 'green', words: 'The database is at migration 285, which is what this version of the app needs.' })
+  })
+
+  it('says ahead plainly: the database always goes first', () => {
+    expect(ledgerWords(at(287), 285)).toEqual({ tone: 'green', words: 'The database is at migration 287, 2 ahead of what this version of the app needs.' })
+  })
+
+  it('warns when it is behind', () => {
+    expect(ledgerWords(at(284), 285)).toEqual({
+      tone: 'orange',
+      words: 'The database is at migration 284; this version of the app needs 285. Anything new will not work until the rest are applied.',
+    })
+  })
+
+  it('warns about migrations recorded after a gap, which do not count', () => {
+    expect(ledgerWords(at(285, 287), 285)).toEqual({ tone: 'orange', words: 'The database is at migration 285, which is what this version of the app needs. 2 recorded after a gap do not count.' })
+  })
+
+  it('reads the overview with the ledger in it, as health_overview() builds it', () => {
+    const answer = { at: 'x', jobs: [], pushes: { asked: 0, answered: 0, failed: 0, hours: 6 }, database: { bytes: 1, connections: 1, connections_max: 1 }, errors: { day: 0, kept: 0 },
+      schema: { version: 285, recorded: 285, latest: '0285_the_database_says_which_migrations_it_has', latest_at: '2026-11-12T13:40:00+00:00' } }
+    expect(healthOverviewSchema.parse(answer).schema?.version).toBe(285)
   })
 })

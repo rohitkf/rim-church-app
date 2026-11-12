@@ -136,6 +136,44 @@ jobs:
           deno-version: 2.5.4
       - run: deno check --no-lock supabase/functions/*/index.ts
 
+  # A release may not go out ahead of its database. The app is built
+  # knowing the migration it needs (frontend/src/lib/schemaNeeds.ts) and
+  # production says which it has reached (/api/health, from the ledger of
+  # 0285). The house rule — apply the migration, then open the pull
+  # request — was kept by hand, and this pull request merges and deploys
+  # itself: the day the order slipped, every phone was told "Could not
+  # find the table". Now a release that is ahead fails here, in words, and
+  # waits; apply the migration and re-run this job.
+  #
+  # Only on a pull request into main: that is the release. And only a
+  # clear, lower number stops it — a production that cannot be asked must
+  # not hold up the fix it is waiting for.
+  database:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production has reached the migration this release needs
+        env:
+          SITE: https://rim-church-app.vercel.app
+        run: |
+          needs=$(sed -n 's/^export const SCHEMA_NEEDS = \([0-9][0-9]*\)$/\1/p' frontend/src/lib/schemaNeeds.ts)
+          if [ -z "$needs" ]; then
+            echo "::error::Could not read SCHEMA_NEEDS from frontend/src/lib/schemaNeeds.ts."
+            exit 1
+          fi
+          answer=$(curl -sS --max-time 25 "$SITE/api/health" 2>/dev/null || true)
+          has=$(printf '%s' "$answer" | sed -n 's/.*"schema":\([0-9][0-9]*\)[,}].*/\1/p')
+          if [ -z "$has" ]; then
+            echo "::warning::Production did not say which migration it has reached, so this release is not held on a question that could not be asked. It needs $needs. What came back: $(printf '%s' "$answer" | head -c 200)"
+            exit 0
+          fi
+          if [ "$has" -lt "$needs" ]; then
+            echo "::error::Production's database is at migration $has; this release needs $needs. Apply the migrations up to $needs to production (AGENTS.md §7), then re-run this job. Merging first would show everybody a broken page."
+            exit 1
+          fi
+          echo "Production's database is at migration $has; this release needs $needs."
+
   backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
