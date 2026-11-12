@@ -11,6 +11,13 @@
 # the copy of this file that is already on the default branch, whatever the
 # branch under test says.
 #
+# One thing a merge made here does not do: raise events. It is made with
+# the Actions token, and GitHub starts nothing in answer to that token —
+# no CI run on main, and no arming of a schedule in a workflow the merge
+# brought with it. A pull request that adds or changes a `schedule:` has
+# to be merged by a person instead (put `do-not-merge` on it; see the top
+# of uptime.yml for how that was learnt).
+#
 # It merges only when every one of these is true, and says which one stopped
 # it otherwise:
 #   - the pull request is open, not a draft, targets main and comes from

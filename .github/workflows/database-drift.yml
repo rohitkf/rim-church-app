@@ -19,6 +19,9 @@
 # a column added in the dashboard. That needs the schema itself read from
 # the database, which needs the database's password; this uses only what
 # anybody may read.
+#
+# A change to the schedule below has to be merged by a person, not by
+# auto-merge, or GitHub never arms it: see the top of uptime.yml.
 
 name: Database drift
 
