@@ -1,12 +1,12 @@
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-supabase==2.10.0
-pydantic==2.10.3
-pydantic-settings==2.6.1
-python-dotenv==1.0.1
-python-multipart==0.0.20
-anthropic==1.0.0
-faster-whisper==1.1.1
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+supabase==2.34.0
+pydantic==2.14.3
+pydantic-settings==2.16.2
+python-dotenv==1.2.4
+python-multipart==0.0.33
+anthropic==1.17.0
+faster-whisper==1.2.1
 # faster-whisper imports requests directly but doesn't declare it as a
 # dependency in this release — pin it explicitly or the import breaks.
-requests==2.32.3
+requests==2.34.2
