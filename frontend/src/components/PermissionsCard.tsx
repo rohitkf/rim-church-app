@@ -23,7 +23,8 @@ import {
   type Reach,
 } from '../lib/permissions'
 import { usePermissionDraft } from '../lib/usePermissionDraft'
-import { ActionButton, Pill, SegmentedControl, Tile } from './Surface'
+import { ActionButton, Pill, SegmentedControl, TableScroll, Tile } from './Surface'
+import { HEAD_IN_BOX, ON_CARD } from '../lib/stickyHead'
 import { Chevron } from './Collapsible'
 import { SaveBar } from './SettingRows'
 import { Select, reachPickerClasses } from './Select'
@@ -472,22 +473,25 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       make them fit is how a table becomes unreadable on every
                       device instead of one. It scrolls inside itself — and is
                       positioned, so the hidden "(fixed)" labels scroll with
-                      it instead of stretching the page. */}
+                      it instead of stretching the page. Both ways: eighteen
+                      rules are two screens tall, and which column is the
+                      Team Head's must still be readable at the eighteenth
+                      (lib/stickyHead.ts). */}
                   {rows.length > 0 && (
-                    <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
+                    <TableScroll className="mt-2 -mx-2 px-2">
                       <table
                         className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[50rem]' : 'min-w-[42rem]'}`}
                       >
                         <thead>
                           <tr>
-                            <th className="w-[38%] min-w-48 px-2 pb-2 text-left font-normal text-on-surface-faint">
+                            <th className={`w-[38%] min-w-48 px-2 pb-2 pt-1 text-left font-normal text-on-surface-faint ${HEAD_IN_BOX} ${ON_CARD}`}>
                               <span className="sr-only">Action</span>
                             </th>
                             {ROLES.map((r) => (
                               <th
                                 key={r.key}
                                 scope="col"
-                                className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                                className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
                               >
                                 {r.label}
                               </th>
@@ -514,7 +518,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </TableScroll>
                   )}
                   {fixedCount > 0 && (
                     <button

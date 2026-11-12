@@ -27,7 +27,8 @@ import { Chevron } from './Collapsible'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
 import { Switch } from './SettingRows'
-import { ActionButton, Pill, SectionTile } from './Surface'
+import { ActionButton, Pill, SectionTile, TableScroll } from './Surface'
+import { HEAD_IN_BOX, ON_RAISED } from '../lib/stickyHead'
 import { GrantEffects } from './GrantEffects'
 import { DateField } from './DateTimeFields'
 import { earliestUntilDay, formatUntil, untilFromDay } from '../lib/grantUntil'
@@ -204,15 +205,19 @@ export function TeamAccessCard() {
                       <Chevron open={isOpen} />
                     </button>
                     {isOpen && (
-                      <div className="overflow-x-auto px-3.5 pb-3">
+                      <div className="px-3.5 pb-3">
+                        {/* The table alone scrolls, both ways, with the roles
+                            staying above it; the link under it stays put
+                            (lib/stickyHead.ts). */}
+                        <TableScroll>
                         <table className="w-full min-w-[22rem] border-collapse text-body-sm">
                           <thead>
                             <tr>
-                              <th className="pb-1 text-left font-normal text-on-surface-faint">
+                              <th className={`pb-1 pt-1 text-left font-normal text-on-surface-faint ${HEAD_IN_BOX} ${ON_RAISED}`}>
                                 <span className="sr-only">Action</span>
                               </th>
                               {roles.map((role) => (
-                                <th key={role} scope="col" className="px-1 pb-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant">
+                                <th key={role} scope="col" className={`px-1 pb-1 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}>
                                   {ROLE_SHORT[role]}
                                 </th>
                               ))}
@@ -246,6 +251,7 @@ export function TeamAccessCard() {
                             ))}
                           </tbody>
                         </table>
+                        </TableScroll>
                         <Link
                           to={`/settings/pages#${pageSlug(page.to)}`}
                           className="mt-2 inline-block text-label-md text-accent-blue-soft hover:text-on-surface"

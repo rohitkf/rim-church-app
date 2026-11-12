@@ -33,7 +33,8 @@ import { CopyTeamRules } from './CopyTeamRules'
 import { QueryState } from './QueryState'
 import { SaveBar, SettingList } from './SettingRows'
 import { SettingEntries } from './SettingEntry'
-import { Eyebrow, IconBadge, Pill, SegmentedControl, Tile, type BadgeTone } from './Surface'
+import { Eyebrow, IconBadge, Pill, SegmentedControl, TableScroll, Tile, type BadgeTone } from './Surface'
+import { HEAD_IN_BOX, ON_CARD } from '../lib/stickyHead'
 import { sameValue } from '../lib/sameValue'
 
 /**
@@ -510,19 +511,21 @@ function PageSection({
                         </h4>
                       )}
                       {area.fixed && <p className="mt-1 text-label-sm text-on-surface-faint">{area.fixed}</p>}
-                      {/* Nine columns will not fit a phone; it scrolls inside itself. */}
-                      <div className="relative mt-2 -mx-2 overflow-x-auto px-2">
+                      {/* Nine columns will not fit a phone; it scrolls inside
+                          itself, both ways, and the roles stay above the
+                          rules as it does (lib/stickyHead.ts). */}
+                      <TableScroll className="mt-2 -mx-2 px-2">
                         <table className="w-full min-w-[54rem] border-collapse text-body-sm">
                           <thead>
                             <tr>
-                              <th className="w-[34%] min-w-48 px-2 pb-2 text-left font-normal text-on-surface-faint">
+                              <th className={`w-[34%] min-w-48 px-2 pb-2 pt-1 text-left font-normal text-on-surface-faint ${HEAD_IN_BOX} ${ON_CARD}`}>
                                 <span className="sr-only">Action</span>
                               </th>
                               {ROLES.map((r) => (
                                 <th
                                   key={r.key}
                                   scope="col"
-                                  className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                                  className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
                                 >
                                   {r.label}
                                 </th>
@@ -545,7 +548,7 @@ function PageSection({
                             ))}
                           </tbody>
                         </table>
-                      </div>
+                      </TableScroll>
                     </div>
                   )
                 })}

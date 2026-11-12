@@ -17,7 +17,7 @@ import {
   promptSetup,
   setupTicksOf,
 } from '../lib/gettingSetUp'
-import { ActionButton, SectionTile, inputClasses } from './Surface'
+import { ActionButton, SectionTile, TableScroll, inputClasses } from './Surface'
 import { QueryState } from './QueryState'
 import { useConfirmAction } from './ConfirmAction'
 
@@ -268,7 +268,7 @@ export function OnboardingCard() {
               three screens down still says which column it is in. (Headings
               can only stay put inside the box that scrolls, so the list has
               a height of its own rather than running the length of the page.) */}
-          <div className="relative -mx-2 max-h-[70svh] overflow-auto overscroll-contain px-2">
+          <TableScroll className="-mx-2 px-2">
             <table aria-label="Getting set up" className="w-full min-w-[40rem] border-collapse text-body-sm">
               <thead>
                 <tr>
@@ -319,7 +319,7 @@ export function OnboardingCard() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </QueryState>
         </div>
       </SectionTile>
