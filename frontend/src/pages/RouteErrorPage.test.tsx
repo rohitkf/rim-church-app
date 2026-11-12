@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { RouteErrorPage } from './RouteErrorPage'
 import appSource from '../App.tsx?raw'
@@ -75,6 +75,13 @@ describe('a page whose code would not download', () => {
   it('reloads by itself, once: a tab a release behind gets the page it asked for', async () => {
     open('/events', { path: '/events', lazy: gone })
     expect(await screen.findByRole('heading', { name: 'This page couldn’t be loaded' })).toBeInTheDocument()
+    // Waited for, not looked for at once: the page reloads from an effect,
+    // which runs a beat after the heading is on the screen. Looked for at
+    // once, this passed or failed by how busy the machine was (CI, November
+    // 2026: red on one run of a commit and green on the other).
+    await waitFor(() => expect(reloadApp).toHaveBeenCalledTimes(1))
+    // And once only, however long it is left.
+    await new Promise((resolve) => setTimeout(resolve, 50))
     expect(reloadApp).toHaveBeenCalledTimes(1)
   })
 

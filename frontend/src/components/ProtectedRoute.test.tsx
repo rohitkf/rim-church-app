@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 import { AuthContext } from '../auth/AuthContext'
 
@@ -294,3 +294,39 @@ describe('when the app is closed for maintenance', () => {
   })
 })
 
+/*
+ * A link somebody was sent — a poll, a notification — opened while signed
+ * out. They are sent to sign in, and the sign-in page is told where they
+ * were going, so the link still leads there afterwards. It used to forget.
+ */
+describe('somebody signed out who was headed somewhere', () => {
+  function Where() {
+    const { state } = useLocation()
+    return <p data-testid="from">{JSON.stringify(state)}</p>
+  }
+  const open = (path: string) => {
+    standing.mockReturnValue({ standing: null, deciding: false, checking: false, recheck: () => {} })
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AuthContext.Provider value={{ session: null, loading: false, authError: null, profile: null } as never}>
+          <Routes>
+            <Route path="/login" element={<Where />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="*" element={<p>the app</p>} />
+            </Route>
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('is sent to sign in with the place remembered, what follows the path included', () => {
+    open('/polls?poll=q1')
+    expect(screen.getByTestId('from')).toHaveTextContent('{"from":"/polls?poll=q1"}')
+  })
+
+  it('carries nothing for the Dashboard: that is where sign-in leads anyway', () => {
+    open('/')
+    expect(screen.getByTestId('from')).toHaveTextContent('null')
+  })
+})
