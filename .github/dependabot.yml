@@ -1,0 +1,78 @@
+# Somebody to watch the packages this app is built from.
+#
+# Until November 2026 nothing did: no update was ever proposed, and the
+# first audit found four high-rated advisories already in the lockfile.
+#
+# Every pull request Dependabot opens here goes into `develop`, like all
+# other work (AGENTS.md §1). It is never merged by itself — auto-merge
+# only takes develop into main — so a person reads it, sees its checks
+# green, merges it into develop, and it reaches the congregation with the
+# next release, through the same gates as anything else.
+#
+# One thing this file cannot say: a *security* update (off unless turned
+# on in the repository's settings) ignores `target-branch` and is opened
+# against main. auto-merge.yml refuses any pull request into main that
+# does not come from develop, so such a pull request waits to be read too.
+#
+# Kept quiet on purpose: one round a week, minor and patch updates of a
+# kind in one pull request, and nothing younger than a week — a release
+# that is pulled or found poisoned is usually found out within days.
+# The edge functions' imports (supabase/functions/*, Deno) are not a
+# format Dependabot reads; they are pinned by hand and a test holds them
+# to one version (frontend/src/lib/functionImports.test.ts).
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The AI assistant's backend: built and tested, not deployed.
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/London
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    groups:
+      pip-minor-and-patch:
+        applies-to: version-updates
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The actions the workflows themselves run.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/London
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns: ['*']

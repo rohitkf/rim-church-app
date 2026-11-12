@@ -1,0 +1,91 @@
+# Telling the Owner that something is wrong, and that it is right again.
+#
+# A workflow that only fails tells nobody in particular: GitHub writes to
+# whoever last touched the schedule, which here is a merge made by a
+# workflow. So the watchers say it the way the Owner already hears things
+# from this repository — an issue, assigned to them, which GitHub emails
+# and the phone app buzzes for.
+#
+# One issue per `key`, never a pile:
+#   wrong, none open  -> opened, assigned to the repository's owner
+#   wrong, one open   -> its text is brought up to date, silently (an
+#                        edit notifies nobody; a check that runs every ten
+#                        minutes must not write every ten minutes)
+#   right, one open   -> a comment saying so, and closed
+#   right, none open  -> nothing
+#
+# The job that uses it needs `permissions: issues: write` and a checkout
+# (a local action is read from the working copy).
+
+name: Tell the Owner
+description: One issue per problem — opened when it starts, closed when it ends.
+
+inputs:
+  key:
+    description: The label that names this problem (dependencies, app-down). One open issue per key.
+    required: true
+  state:
+    description: wrong or right.
+    required: true
+  title:
+    description: The issue's title, when one is opened.
+    required: false
+    default: Something needs looking at
+  body:
+    description: What is wrong, in words. Markdown.
+    required: false
+    default: ''
+  resolved:
+    description: What to say when it is right again.
+    required: false
+    default: This is right again.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v7
+      env:
+        KEY: ${{ inputs.key }}
+        STATE: ${{ inputs.state }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        RESOLVED: ${{ inputs.resolved }}
+      with:
+        script: |
+          const { owner, repo } = context.repo
+          const { KEY: key, STATE: state, TITLE: title, BODY: body, RESOLVED: resolved } = process.env
+          if (!['wrong', 'right'].includes(state)) return core.setFailed(`state is "${state}"; it is wrong or right`)
+
+          const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
+          const { data: open } = await github.rest.issues.listForRepo({
+            owner, repo, state: 'open', labels: key, per_page: 10,
+          })
+          // Issues only: the same list carries pull requests.
+          const issue = open.find((i) => !i.pull_request)
+
+          if (state === 'right') {
+            if (!issue) return core.info(`${key}: nothing open, nothing to close`)
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issue.number,
+              body: `${resolved}\n\n[The run that found it so](${run})`,
+            })
+            await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' })
+            return core.notice(`${key}: closed #${issue.number}`)
+          }
+
+          const text = `${body}\n\n[The run that found it](${run})`
+          if (issue) {
+            await github.rest.issues.update({ owner, repo, issue_number: issue.number, body: text })
+            return core.notice(`${key}: still wrong, #${issue.number} brought up to date`)
+          }
+
+          const fresh = { owner, repo, title, body: text, labels: [key] }
+          let made
+          try {
+            made = await github.rest.issues.create({ ...fresh, assignees: [owner] })
+          } catch (error) {
+            // An organisation cannot be assigned an issue; its watchers are still told.
+            core.info(`could not assign to ${owner} (${error.message}); opening it unassigned`)
+            made = await github.rest.issues.create(fresh)
+          }
+          core.notice(`${key}: opened #${made.data.number}`)

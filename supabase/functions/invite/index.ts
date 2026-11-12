@@ -10,7 +10,7 @@
  * Head may invite anyone. Without that, anybody with the anon key could mail
  * the world from the church's address.
  */
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',

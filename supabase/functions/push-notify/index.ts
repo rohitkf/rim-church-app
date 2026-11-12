@@ -18,7 +18,7 @@
  * pages of the docs.
  */
 import webpush from 'npm:web-push@3.6.7'
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0'
 
 // Kept in step with frontend/src/lib/notificationLink.ts. Two copies is the
 // price of the sender living in Deno and the app in the browser; a type

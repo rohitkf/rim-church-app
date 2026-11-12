@@ -22,9 +22,9 @@ concurrency:
 # How long this takes is how long a merge to main waits before it deploys,
 # so the slow part — 240-odd test files, three minutes in one job — is
 # split four ways, and the jobs that only matter when their own files
-# change (the AI backend, the Docker images) are skipped otherwise. A
-# skipped job still reports, as skipped, which auto-merge counts as green.
-# Every job keeps its old name.
+# change (the AI backend, the Docker images, the packages' known
+# vulnerabilities) are skipped otherwise. A skipped job still reports, as
+# skipped, which auto-merge counts as green. Every job keeps its old name.
 
 jobs:
   changes:
@@ -32,6 +32,8 @@ jobs:
     outputs:
       backend: ${{ steps.diff.outputs.backend }}
       docker: ${{ steps.diff.outputs.docker }}
+      deps: ${{ steps.diff.outputs.deps }}
+      functions: ${{ steps.diff.outputs.functions }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,13 +53,15 @@ jobs:
             files=$(git diff --name-only "$BEFORE" "$AFTER")
           else
             # A new branch, or a history we cannot see: check everything.
-            echo "backend=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; exit 0
+            echo "backend=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; echo "deps=true" >> "$GITHUB_OUTPUT"; echo "functions=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "$files"
           # A change to CI itself runs everything, so the workflow is tested.
           any() { echo "$files" | grep -qE "$1" && echo true || echo false; }
           echo "backend=$(any '^(backend/|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
           echo "docker=$(any '^(backend/|frontend/(Dockerfile|nginx[^/]*|\.dockerignore)$|docker-compose\.yml$|\.env\.example$|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "deps=$(any '^(frontend/package(-lock)?\.json$|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
+          echo "functions=$(any '^(supabase/functions/|\.github/workflows/)')" >> "$GITHUB_OUTPUT"
 
   # Lint, the type checks and the production build: everything but the tests.
   frontend:
@@ -96,6 +100,42 @@ jobs:
       - run: npm ci
       - run: npx vitest run --shard=${{ matrix.shard }}/4
 
+  # Known vulnerabilities in what the app is built from, high and worse.
+  # Only when the packages themselves change (or CI does): a change to the
+  # packages has to come in clean, but an advisory published on a Saturday
+  # night must not turn Sunday morning's unrelated fix red. What is
+  # published later is the weekly run's to find (dependency-audit.yml),
+  # and Dependabot's to mend.
+  dependencies:
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm audit --audit-level=high
+
+  # The edge functions, as Deno reads them: every import fetched at the
+  # exact version it names, and the types checked. Nothing else here runs
+  # them — the app's tests are Node — and deploying does not check types,
+  # so a function could be deployed with a mistake only its first caller
+  # would find. Deno's own version is pinned too, and moved by hand.
+  functions:
+    needs: changes
+    if: needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.5.4
+      - run: deno check --no-lock supabase/functions/*/index.ts
+
   backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
@@ -116,11 +156,14 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
 
+  # Every migration, in order, on the Postgres that production runs (17:
+  # supabase/config.toml says the same). It was 16 until November 2026,
+  # so a migration could pass here and behave differently live.
   migrations:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
         options: >-

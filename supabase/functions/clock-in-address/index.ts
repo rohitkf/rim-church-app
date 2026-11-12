@@ -14,7 +14,7 @@
  * only ever works the queue the database gives it, with the service role,
  * and returns nothing but a count.
  */
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',

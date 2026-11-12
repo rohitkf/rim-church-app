@@ -1,0 +1,91 @@
+# Known vulnerabilities in what the app is built from, looked for weekly.
+#
+# CI asks the same question, but only of a change to the packages
+# themselves (ci.yml, `dependencies`): a pull request about something else
+# must not go red because an advisory was published overnight. That leaves
+# the advisories published *after* a package came in, and nothing was
+# looking for those — the first audit ever run here (November 2026) found
+# four rated high that had been sitting in the lockfile for weeks.
+#
+# So once a week this asks, and when the answer is not clean it opens one
+# issue assigned to the Owner (and closes it again by itself once it is).
+# Dependabot (.github/dependabot.yml) usually has the mending pull request
+# open by then; this is the check that it was enough.
+#
+# A scheduled workflow runs the copy on the default branch, so this audits
+# what the congregation is actually using.
+
+name: Dependency audit
+
+on:
+  schedule:
+    # Monday, before Dependabot's own round at 06:00 London time.
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: npm audit, high and worse
+        id: audit
+        working-directory: frontend
+        run: |
+          # The registry being out of reach is not a finding: say so and
+          # leave last week's answer standing.
+          set +e
+          npm audit --audit-level=high > audit.txt 2>&1
+          code=$?
+          cat audit.txt
+          if grep -qiE 'ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN|audit endpoint returned an error' audit.txt; then
+            echo "state=unknown" >> "$GITHUB_OUTPUT"
+            echo "::warning::npm could not be asked; nothing is concluded this week"
+            exit 0
+          fi
+          if [ "$code" = 0 ]; then
+            echo "state=right" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=wrong" >> "$GITHUB_OUTPUT"
+            {
+              echo 'summary<<RIM_END'
+              # The count line and the names, not the whole report.
+              grep -E '^[0-9]+ vulnerabilit|^[@a-z0-9/._-]+  ' audit.txt | head -40
+              echo 'RIM_END'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tell the Owner
+        if: steps.audit.outputs.state == 'wrong' || steps.audit.outputs.state == 'right'
+        uses: ./.github/actions/tell-owner
+        with:
+          key: dependencies
+          state: ${{ steps.audit.outputs.state }}
+          title: 'Dependencies: a package the app is built from has a known vulnerability'
+          body: |
+            `npm audit --audit-level=high` in `frontend/` is not clean:
+
+            ```
+            ${{ steps.audit.outputs.summary }}
+            ```
+
+            What to do: look for Dependabot's pull request into `develop` and merge it if its checks are green; otherwise, in `frontend/`, `npm audit` names the fixed versions and `npm install <package>@<version>` takes one. Then the four gates (AGENTS.md §2) and a release as usual.
+
+            This issue closes itself the next time the audit is clean.
+          resolved: '`npm audit --audit-level=high` is clean again.'
+
+      - name: Fail the run when it is not clean
+        if: steps.audit.outputs.state == 'wrong'
+        run: exit 1

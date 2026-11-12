@@ -40,6 +40,15 @@ Keep this file current in the same pull request that changes what it says.
   apply, **then** open the PR — and say in it that the migration is
   already live.
 - A merged pull request is finished. Follow-up work is a new PR.
+- **Dependabot's pull requests are the one kind not from `develop`**
+  (`.github/dependabot.yml`: npm, pip and the workflows' actions, weekly,
+  into `develop`). Nothing merges them by itself. Read what moved, see
+  the checks green, merge into `develop`, and the update reaches the
+  congregation with the next release through §2's gates like anything
+  else. A *security* update, if the Owner has turned those on, is opened
+  against `main` whatever that file says; auto-merge refuses any pull
+  request into `main` that is not from `develop`, so it waits to be read
+  as well — retarget it to `develop`, or take the same version by hand.
 
 ## 2. Commands
 
@@ -54,11 +63,23 @@ npm run build                            # catches what tsc alone misses
 
 CI (`.github/workflows/ci.yml`) runs the same checks, split for speed:
 `frontend` (lint + build), `frontend tests (1/4)`…`(4/4)` (vitest
-`--shard`), `migrations`, and `backend` / `docker` only when their own
-files (or CI itself) change — `changes` works that out, and a skipped job
-counts as green for auto-merge. Keep the job names: auto-merge and any
-required check read them. A newer push cancels the older run of the same
-event and ref.
+`--shard`), `migrations` (every migration on Postgres 17, what production
+runs), and four only when their own files (or CI itself) change —
+`backend`, `docker`, `dependencies` (`npm audit --audit-level=high`, when
+`package.json` or the lockfile moves) and `functions` (`deno check` on
+every edge function, when one changes). `changes` works that out, and a
+skipped job counts as green for auto-merge. Keep the job names:
+auto-merge and any required check read them. A newer push cancels the
+older run of the same event and ref.
+
+The audit is on a change to the packages, not on every pull request, on
+purpose: an advisory published overnight must not turn an unrelated fix
+red. Advisories published *after* a package came in are found by
+`.github/workflows/dependency-audit.yml`, weekly, on `main`; when it is
+not clean it opens one issue assigned to the Owner
+(`.github/actions/tell-owner`: one issue per problem, opened when it
+starts, closed by itself when it ends — use it for anything else a
+workflow has to tell somebody).
 
 `npm run lint` (oxlint) exits 0 with **46** standing warnings (count them:
 `npm run lint 2>&1 | grep -c ': warning '`). Do not add to them; do not fix
@@ -364,6 +385,12 @@ supabase/functions/          edge functions (push-notify, invite, clock-in-addre
                              — Resend's webhook, the only one with verify_jwt
                              off; its news.ts is run by the app's tests)
 build/swBuildId.ts           stamps the commit into sw.js at build time
+.github/workflows/           ci.yml (§2), auto-merge.yml (develop into main
+                             on green, and nothing else into main),
+                             dependency-audit.yml (weekly, opens an issue);
+                             .github/dependabot.yml proposes updates into
+                             develop; .github/actions/tell-owner is how a
+                             workflow tells the Owner (one issue a problem)
 DESIGN.md                    the design system's rules — read before UI work
 docs/configuration.md        every setting: what it is, where it lives, what enforces it
 docs/registrations.md        how Registrations work end to end, with a flow diagram;
@@ -484,10 +511,15 @@ and produce a working-looking app that fails at the moment of use if
 skipped. How each is done safely:
 
 - **A migration** goes through three gates, in this order:
-  1. *The local CI database* — a throwaway Postgres 16 with every
-     migration in order and the schema check, exactly what CI runs:
+  1. *The local CI database* — a throwaway Postgres 17 (what production
+     and CI run; `supabase/config.toml` says the same) with every
+     migration in order and the schema check, exactly what CI runs. A
+     container that only has 16 gets 17 from PostgreSQL's own apt
+     repository first (`apt.postgresql.org`, `noble-pgdg`, then
+     `apt-get update && apt-get install -y postgresql-17`); a pass on 16
+     alone is not the last word, CI's `migrations` job is:
      ```bash
-     B=/usr/lib/postgresql/16/bin; D=/var/lib/postgresql/pgci
+     B=/usr/lib/postgresql/17/bin; D=/var/lib/postgresql/pgci
      su postgres -c "rm -rf $D && $B/initdb -D $D -A trust -U postgres >/dev/null && $B/pg_ctl -D $D -o '-p 55432 -k /var/lib/postgresql' -l $D.log start"
      export PGHOST=/var/lib/postgresql PGPORT=55432 PGUSER=postgres
      psql -c 'create database church_ci'
@@ -511,6 +543,16 @@ skipped. How each is done safely:
   SQL reaches production through the Management API
   (`POST /v1/projects/{ref}/database/query` with `SUPABASE_ACCESS_TOKEN`);
   never print the token.
+- **An edge function's imports name exact versions**
+  (`jsr:@supabase/supabase-js@2.119.0`, `npm:web-push@3.6.7`), the same
+  one in every function. A function is bundled when it is deployed, so
+  `@2` meant "whatever is newest that day": the same committed file
+  became a different program at each deploy. `functionImports.test.ts`
+  refuses a range or a stray version; Dependabot does not read Deno
+  imports, so they move by hand, all five at once, and CI's `functions`
+  job (`deno check`) says whether the new version still fits. **Changing
+  the pin changes nothing on production** until each function is next
+  deployed.
 - **An edge function** (after the Owner's yes) is deployed from the
   committed file, byte for byte — `POST
   /v1/projects/{ref}/functions/deploy?slug=<name>` as multipart

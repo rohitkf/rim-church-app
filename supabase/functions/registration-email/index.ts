@@ -42,7 +42,7 @@
  * those two secrets it says so and sends nothing; the ticket page is the
  * ticket either way, the email only carries its link.
  */
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2.119.0'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -282,7 +282,7 @@ function ticketEmail(asked: Kind, orders: Order[], siteUrl: string, tz: string):
   return { subject, text, html }
 }
 
-type Admin = ReturnType<typeof createClient>
+type Admin = SupabaseClient
 
 /** Why Resend would not take an email, in a line the office can read. */
 function refusal(status: number, body: string): string {
