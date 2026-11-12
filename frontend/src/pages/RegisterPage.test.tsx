@@ -201,6 +201,27 @@ describe('the public register page', () => {
     expect(screen.getByText('Step 1 of 3: register. Next you pay £20.00, and then it is your ticket.')).toBeInTheDocument()
   })
 
+  it('does not call an order with nothing in it free', async () => {
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    // As the page opens: no tickets picked, so no price — "Free" here read
+    // as what a ticket costs.
+    const order = screen.getByLabelText('Your order')
+    expect(order).toHaveTextContent('No tickets chosen yet')
+    expect(order).not.toHaveTextContent('Free')
+    expect(order).not.toHaveTextContent('0 tickets')
+
+    // Free is said of a free ticket once somebody has picked one…
+    await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+    expect(order).toHaveTextContent('1 ticket')
+    expect(order).toHaveTextContent('TotalFree')
+
+    // …and a paid one says its price.
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    expect(order).toHaveTextContent('2 tickets')
+    expect(order).toHaveTextContent('Total£20.00')
+  })
+
   it('prices the order, with a promo code, before anything is sent', async () => {
     state.promo = { ok: true, code: 'EARLY', kind: 'percent', value: 10, ticket_type_ids: [] }
     const user = show()

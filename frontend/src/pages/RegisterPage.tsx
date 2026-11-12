@@ -601,10 +601,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
           <div className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline" aria-label="Your order">
             <div className="flex items-center justify-between text-body-md text-on-surface">
-              <span>
-                {totals.quantity} {totals.quantity === 1 ? 'ticket' : 'tickets'}
-              </span>
-              <span className="font-mono tabular">{priceWords(totals.subtotal)}</span>
+              {/* Nothing chosen yet is not "Free": a page that opened on
+                  "0 tickets · Free / Total · Free" read as the price of the
+                  ticket. Free is said only of tickets somebody has picked. */}
+              <span>{totals.quantity === 0 ? 'No tickets chosen yet' : `${totals.quantity} ${totals.quantity === 1 ? 'ticket' : 'tickets'}`}</span>
+              <span className="font-mono tabular">{totals.quantity === 0 ? '—' : priceWords(totals.subtotal)}</span>
             </div>
             {totals.discount > 0 && (
               <div className="mt-1 flex items-center justify-between text-body-sm text-accent-green-soft">
@@ -614,7 +615,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             )}
             <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-2 text-headline-sm text-on-surface">
               <span>Total</span>
-              <span className="font-mono tabular">{priceWords(totals.total)}</span>
+              <span className="font-mono tabular">{totals.quantity === 0 ? '—' : priceWords(totals.total)}</span>
             </div>
             {totals.total > 0 && (
               <p className="mt-2 text-label-md text-on-surface-variant">
