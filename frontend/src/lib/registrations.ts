@@ -3,6 +3,7 @@ import type { ExportSheet } from './volunteerExport'
 import { invokeEdgeFunction } from './edgeFunction'
 import { supabase } from './supabaseClient'
 import { registerUrl } from './registrationLinks'
+import { deliveryWord, emailWantsDoing } from './emailDelivery'
 
 /*
  * Registration events (0244): events anybody can sign up for from a link.
@@ -916,6 +917,14 @@ export const orderViewSchema = z.object({
   refund_details_sent: z.boolean().nullish().transform((v) => v === true),
   /** The way in to an online event, once the order has nothing left to pay (0249). */
   join: z.object({ url: z.string().nullable(), details: z.string().nullable() }).nullable().optional(),
+  /**
+   * What became of the email to the address above (0283): nothing to say,
+   * on its way, arrived, or bounced. A word this build does not know reads
+   * as nothing to say, and so does a database from before the migration.
+   */
+  email_state: z.enum(['none', 'waiting', 'delivered', 'bounced']).catch('none').default('none'),
+  /** It bounced, and this page may put the address right (three times at most). */
+  email_can_fix: z.boolean().nullish().transform((v) => v === true),
   tickets: z.array(orderTicketSchema),
   date: publicDateSchema.nullable(),
   event: z.object({
@@ -992,6 +1001,16 @@ export async function cancelOrder(code: string): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * The attendee puts their own address right, from the ticket page (0283).
+ * The database takes it only once the email to the address on the order
+ * has bounced, and three times at most; the ticket is then sent to it.
+ */
+export async function fixOrderEmail(code: string, email: string): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_fix_email', { p_code: code, p_email: email.trim().toLowerCase() })
+  if (error) throw error
+}
+
 /** What a payment status says to the attendee and to reception. */
 /** Nothing owed on it: free, or the money is in (or waived). */
 export const isPaid = (o: { payment_status: PaymentStatus }) => o.payment_status === 'not_needed' || o.payment_status === 'received' || o.payment_status === 'waived'
@@ -1039,6 +1058,15 @@ export const orderRowSchema = z.object({
   checked_in_at: z.string().nullable(),
   notes: z.string().nullable(),
   email_sent_at: z.string().nullable().optional(),
+  /** What became of the latest email (0283); lib/emailDelivery reads it. Null: none, or sent before it was kept. */
+  email_status: z.string().nullable().optional(),
+  email_status_at: z.string().nullable().optional(),
+  /** Why it did not arrive, in the receiving server's words. */
+  email_status_detail: z.string().nullable().optional(),
+  /** The address was changed (0283): when, by whom (nobody: the attendee, from the ticket page), and from what. */
+  email_changed_at: z.string().nullable().optional(),
+  changer: z.object({ first_name: z.string().nullable(), last_name: z.string().nullable() }).nullable().optional(),
+  email_before: z.object({ email: z.string().nullable().optional() }).nullable().optional(),
   source: z.enum(['online', 'walk_in']).optional(),
   proof_path: z.string().nullable().optional(),
   proof_reference: z.string().nullable().optional(),
@@ -1061,7 +1089,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, email_status, email_status_at, email_status_detail, email_changed_at, changer:profiles!registration_orders_email_changed_by_fkey(first_name, last_name), email_before, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1115,13 +1143,25 @@ export function wantsVerifying(o: Pick<OrderRow, 'status' | 'total_pence' | 'pay
   return canBeVerified(o) && !o.payment_verified_at && (o.payment_status === 'reported' || o.payment_status === 'received')
 }
 
+/**
+ * The church puts an attendee's address right (0283). Its own right,
+ * reg.email. Answers whether it changed: the same address again changes
+ * nothing. The email itself is `sendTicketAgain`, which the page holds
+ * back while Undo is on offer.
+ */
+export async function setOrderEmail(id: string, email: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('registration_order_set_email', { p_id: id, p_email: email.trim().toLowerCase() })
+  if (error) throw error
+  return data === true
+}
+
 /** The church's own note on an order; blank clears it. */
 export async function setOrderNotes(id: string, notes: string): Promise<void> {
   const { error } = await supabase.rpc('registration_order_note', { p_id: id, p_notes: notes })
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds'
+export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds' | 'email'
 
 export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -1132,6 +1172,7 @@ export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'checked_in', label: 'Checked in' },
   { key: 'cancelled', label: 'Cancelled' },
   { key: 'refunds', label: 'Refunds' },
+  { key: 'email', label: 'Undelivered' },
 ]
 
 /** Whether an order is one of the filter's, and says the words typed. */
@@ -1152,7 +1193,9 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
             ? live && !!o.checked_in_at
             : filter === 'refunds'
               ? !!o.refund_status
-              : o.status === 'cancelled'
+              : filter === 'email'
+                ? emailWantsDoing(o)
+                : o.status === 'cancelled'
   if (!kept) return false
   const q = query.trim().toLowerCase()
   if (!q) return true
@@ -1185,6 +1228,7 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       { label: 'Code', width: 14 },
       { label: 'Name', width: 24 },
       { label: 'Email', width: 28 },
+      { label: 'Email status', width: 20 },
       { label: 'Phone', width: 16 },
       { label: 'Date', width: 30 },
       { label: 'Tickets', width: 8 },
@@ -1212,6 +1256,7 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       o.code,
       o.name,
       o.email ?? '',
+      deliveryWord(o),
       o.phone ?? '',
       dateWords(o.date_id),
       o.quantity,
@@ -1359,6 +1404,16 @@ export function verifierName(o: Pick<OrderRow, 'verifier'>): string {
 
 export function notifyPayment(kind: 'paid' | 'unmatched', code: string): Promise<TicketMailResult> {
   return invokeEdgeFunction<TicketMailResult>('registration-email', { kind, code }).catch(() => ({ ok: false, reason: 'failed' }))
+}
+
+/**
+ * The ticket as it stands, once more, from the church (0283): after an
+ * address is put right, or because the first never arrived. The function
+ * checks the caller may correct addresses, and does not hold it to the
+ * quiet ten minutes.
+ */
+export function sendTicketAgain(code: string): Promise<TicketMailResult> {
+  return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'again', code }).catch(() => ({ ok: false, reason: 'failed' }))
 }
 
 /** The events the door can work today: published or closed, with a date today or still to come, nearest first. */

@@ -260,6 +260,8 @@ svg text { font-family: var(--body); }
         <li>Choose in person, online or both. For in person, type the address and drop the map pin; directions go to the pin. For online, add the join link.</li>
         <li>Publish to get the share link and a QR code. Close and reopen sales; a countdown shows when sales close. Once published, the link cannot change.</li>
         <li>Watch orders come in, open receipts over the page, mark payments, add notes, export to Excel.</li>
+        <li>See what became of each registration's email: delivered, on its way, delayed, bounced (with the mail server's reason) or not sent. The Undelivered filter shows the ones that did not arrive.</li>
+        <li>Put a wrong address right from the row: their email goes to the new one ten seconds later, time to press Undo. Left as it is, the same dialog sends the email again.</li>
         <li>Cancel the event and settle refunds. Delete only once every paid order is refunded.</li>
       </ul>
     </section>
@@ -268,8 +270,10 @@ svg text { font-family: var(--body); }
       <p class="where">/register/… and /ticket/… (no account)</p>
       <ul>
         <li>Opens the shared link, picks tickets and a date, adds names, applies a promo code.</li>
+        <li>Is shown the email address they typed, on its own, and asked whether it is right before anything is saved.</li>
         <li>Pays by bank transfer, the PayPal link, or at Reception, and uploads a receipt.</li>
         <li>Gets an email with an Open ticket button. The ticket page shows the QR code, payment state and a countdown to the start.</li>
+        <li>If that email bounces, the ticket page says so within a minute or so, without being reloaded, and takes the right address (three corrections at most).</li>
         <li>For an online event, the join link appears once the ticket is confirmed and paid.</li>
         <li>Can cancel their own ticket until they are checked in.</li>
         <li>If the event is cancelled: bank and PayPal payers are refunded the way they paid, usually within 5–7 working days, and can send bank details if it has not come back or they want another account. Cash payers must fill in that form.</li>
@@ -291,6 +295,7 @@ svg text { font-family: var(--body); }
       <p class="where">database rules + emails</p>
       <ul>
         <li>Creates the order and its ticket code, and sends the confirmation email.</li>
+        <li>Keeps what became of every email it sends: the email service reports back (delivered, delayed, bounced, held back, not sent) and the registration shows it.</li>
         <li>Puts the event on the church diary.</li>
         <li>Notifies the organisers when a ticket type sells out.</li>
         <li>Sends the "paid" email when payment is marked, and the "cancelled" email to everyone if the event is called off.</li>
@@ -338,6 +343,7 @@ svg text { font-family: var(--body); }
         <tr><td>Check people in</td><td>Use Reception and the scanner</td></tr>
         <tr><td>Take payments at the door</td><td>"Paid now, check in" at Reception</td></tr>
         <tr><td>Register walk-ins</td><td>The Walk-in tab at Reception</td></tr>
+        <tr><td>Correct email addresses</td><td>Put an attendee's address right, which sends their email again. Opens the Registrations page to read. Admins have this one out of the box</td></tr>
       </tbody>
     </table>
   </div>
@@ -349,7 +355,8 @@ svg text { font-family: var(--body); }
       <div class="guard"><b>Join link</b><p>An online event's link is never on the public page. It appears only on a ticket that is confirmed and paid, and goes away if the event is cancelled.</p></div>
       <div class="guard"><b>No lost money</b><p>A paid event can't be deleted while anyone is still owed a refund. Cancelling keeps every order and who paid.</p></div>
       <div class="guard"><b>Privacy</b><p>Personal details are blanked after the event. Receipts and refund details are visible only to people with the right to see them.</p></div>
-      <div class="guard"><b>Undo</b><p>Anything pressed on a registration (a payment, a check-in, a cancellation, a refund, a note, a walk-in) says what it did with Undo beside it for ten seconds, and the registration's own row keeps Undo for ten minutes. It puts the registration back exactly as it was: only for the person who pressed, and not once somebody else has changed it since. An email to the attendee waits for the ten seconds, so a slip taken back in time never reaches them.</p></div>
+      <div class="guard"><b>A wrong address</b><p>Caught three times: the register page shows the address back before registering; if the email still bounces the ticket page tells the attendee and takes the right one (only after a bounce, so a link passed on cannot redirect a ticket); and the office sees every bounce, with the reason, and can correct it. Only the email service can report a bounce: every report is checked for its signature.</p></div>
+      <div class="guard"><b>Undo</b><p>Anything pressed on a registration (a payment, a check-in, a cancellation, a refund, a note, a walk-in, an email address changed) says what it did with Undo beside it for ten seconds, and the registration's own row keeps Undo for ten minutes. It puts the registration back exactly as it was: only for the person who pressed, and not once somebody else has changed it since. An email to the attendee waits for the ten seconds, so a slip taken back in time never reaches them.</p></div>
     </div>
   </div>
 </div>

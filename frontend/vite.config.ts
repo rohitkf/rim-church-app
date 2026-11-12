@@ -12,18 +12,23 @@ const buildId = resolveBuildId()
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId), manifestFromFunction()],
   define: { __RIM_BUILD_ID__: JSON.stringify(buildId) },
-  // The project root and the push sender, and nothing more of the repo:
-  // a test reads push-notify's copy of the notification map to hold it to
-  // the app's (src/lib/notificationLink.test.ts), and another reads the
-  // page-access rules out of migration 0123 to hold them to
-  // lib/pageAccess. The dev server serves what this allows, so it names
-  // those two folders rather than the parent (a single file is not
-  // accepted, or the migrations would be one file).
+  // The project root, three of the edge functions, the migrations, and
+  // nothing more of the repo: a test reads push-notify's copy of the
+  // notification map to hold it to the app's
+  // (src/lib/notificationLink.test.ts), another reads the page-access
+  // rules out of migration 0123 to hold them to lib/pageAccess, and a
+  // third runs the code that checks Resend's signature and holds the two
+  // registration-email functions to one tag
+  // (src/lib/registrationEmailNews.test.ts). The dev server serves what
+  // this allows, so it names those folders rather than the parent (a
+  // single file is not accepted, or the migrations would be one file).
   server: {
     fs: {
       allow: [
         '.',
         '../supabase/functions/push-notify',
+        '../supabase/functions/registration-email',
+        '../supabase/functions/registration-email-status',
         '../supabase/migrations',
       ],
     },

@@ -971,6 +971,13 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Puts the “Verified payment” tag on a registration, for the office and Reception to go by. Its own right: “Run registrations” does not include it. The Owner always may, and a Pastor out of the box, because the Pastor is who can see the accounts. Opens the Registrations page.',
       },
       {
+        action: 'Correct an email address, and send the email again',
+        key: 'reg.email',
+        short: 'Correct email addresses',
+        can: granted('reg.email'),
+        note: 'For a ticket that bounced or never arrived: put the right address on the registration and its email goes again. Opens the Registrations page to read, because the list has to be seen to be corrected. The one registrations right an Admin has out of the box; “Run registrations” includes it.',
+      },
+      {
         action: 'Refunds: see where to send one, and mark it refunded',
         key: 'reg.refund',
         short: 'Refunds',

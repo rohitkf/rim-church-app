@@ -29,6 +29,12 @@ const state = vi.hoisted(() => ({
   toasts: [] as { text: string; tone?: string; action?: { label: string; run: () => void } }[],
   undone: [] as string[],
   undoRefused: null as null | { message: string },
+  // An address put right (0283): what was asked, what the database answered, and the email that follows.
+  emails: [] as unknown[],
+  emailChanged: true,
+  emailRefused: false,
+  again: [] as string[],
+  againAnswer: { ok: true, sent: true } as { ok: boolean; sent?: boolean },
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuperAdmin: true, session: { user: { id: 'me' } } }) }))
@@ -105,6 +111,14 @@ vi.mock('../lib/registrations', async (original) => ({
     return Promise.resolve({ ok: true, sent: true })
   },
   proofUrl: (path: string) => Promise.resolve(`https://signed/${path}`),
+  setOrderEmail: (id: string, email: string) => {
+    state.emails.push([id, email])
+    return state.emailRefused ? Promise.reject(new Error('refused')) : Promise.resolve(state.emailChanged)
+  },
+  sendTicketAgain: (code: string) => {
+    state.again.push(code)
+    return Promise.resolve(state.againAnswer)
+  },
 }))
 
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString()
@@ -215,6 +229,11 @@ beforeEach(() => {
   state.toasts = []
   state.undone = []
   state.undoRefused = null
+  state.emails = []
+  state.emailChanged = true
+  state.emailRefused = false
+  state.again = []
+  state.againAnswer = { ok: true, sent: true }
   // Nothing remembered from the test before, and no ten seconds to wait for an email.
   resetUndoForTests(0)
 })
@@ -738,5 +757,230 @@ describe('taking a press back', () => {
     await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
     // An event's status is not a registration: the database's undo is not asked.
     expect(state.undone).toEqual([])
+  })
+})
+
+describe('what became of each registration’s email (0283)', () => {
+  const lastOffer = () => state.toasts.filter((t) => t.action).at(-1)!
+  const withEmail = () => ({ ...rights.now, email: true })
+  const told = () => [
+    // Typed with a slip: it bounced, and the mail server said why.
+    order({ id: 'o-jerry', code: 'JERRYJERRY12', name: 'Jerry Typo', email: 'jerry4chrost@example.org', email_sent_at: at(2026, 11, 11, 11, 7), email_status: 'bounced', email_status_at: at(2026, 11, 11, 11, 8), email_status_detail: '550 5.1.1 The email account that you tried to reach does not exist.' }),
+    order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', email_sent_at: at(2026, 11, 10, 18, 44), email_status: 'delivered' }),
+    order({ id: 'o-old', code: 'CDEFGHJKMNPQ', name: 'Olive Old', email: 'olive@example.org', email_sent_at: at(2026, 11, 3, 10, 0) }),
+    order({ id: 'o-new', code: 'DEFGHJKMNPQR', name: 'Nia New', email: 'nia@example.org', email_status: 'sent' }),
+    order({ id: 'o-walk', code: 'EFGHJKMNPQRS', name: 'Walk In', email: null, source: 'walk_in' }),
+    order({ id: 'o-gone', code: 'FGHJKMNPQRST', name: 'Cal Cancelled', email: 'cal@example.org', status: 'cancelled', email_status: 'bounced' }),
+  ]
+
+  it('says on each row whether its email arrived, and makes a bounce plain with the reason', async () => {
+    state.orders = told()
+    show()
+    const jerry = await screen.findByRole('listitem', { name: 'Jerry Typo' })
+    expect(within(jerry).getByText('Email bounced')).toBeInTheDocument()
+    expect(within(jerry).getByText(/It could not be delivered\. The address is probably wrong\./)).toBeInTheDocument()
+    expect(within(jerry).getByText(/550 5\.1\.1 The email account that you tried to reach does not exist\./)).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).getByText('Email delivered')).toBeInTheDocument()
+    // Sent before delivery was kept: emailed, and that is all that is known.
+    expect(within(screen.getByRole('listitem', { name: 'Olive Old' })).getByText('Emailed')).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'Nia New' })).getByText('Email sent')).toBeInTheDocument()
+    // Nobody to email, nothing to say.
+    expect(within(screen.getByRole('listitem', { name: 'Walk In' })).queryByText(/Email|Emailed/)).toBeNull()
+    // A cancelled registration's bounce is not something to chase: said at the foot, with no reason and no button.
+    const cal = within(screen.getByRole('listitem', { name: 'Cal Cancelled' }))
+    expect(cal.getByText('Email bounced')).toHaveAttribute('title', 'It could not be delivered. The address is probably wrong.')
+    expect(cal.queryByText(/It could not be delivered/)).toBeNull()
+  })
+
+  it('counts the emails that did not arrive, and a tap shows those registrations', async () => {
+    state.orders = told()
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Jerry Typo' })
+    const doing = within(screen.getByRole('group', { name: 'What wants doing' }))
+    await user.click(doing.getByRole('button', { name: /1\s*email not delivered/ }))
+    expect(screen.getAllByRole('listitem').filter((li) => li.getAttribute('aria-label')).map((li) => li.getAttribute('aria-label'))).toEqual(['Jerry Typo'])
+    expect(screen.getByText('1 of 6')).toBeInTheDocument()
+  })
+
+  it('shows the status to everybody on the page, and the correcting only to whoever may', async () => {
+    state.orders = told()
+    const user = show()
+    const jerry = await screen.findByRole('listitem', { name: 'Jerry Typo' })
+    expect(within(jerry).getByText('Email bounced')).toBeInTheDocument()
+    expect(within(jerry).queryByRole('button', { name: 'Correct email address' })).toBeNull()
+    expect(within(await openMenu(user, 'Jerry Typo')).queryByRole('menuitem', { name: /email address/ })).toBeNull()
+  })
+
+  it('puts an address right from the row: the dialog says why it bounced, saves, and their email follows', async () => {
+    rights.now = withEmail()
+    state.orders = told()
+    const user = show()
+    const jerry = await screen.findByRole('listitem', { name: 'Jerry Typo' })
+    await user.click(within(jerry).getByRole('button', { name: 'Correct email address' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Jerry Typo’s email address' })
+    expect(within(dialog).getByText('Email bounced')).toBeInTheDocument()
+    expect(within(dialog).getByText(/The mail server said: “550 5\.1\.1/)).toBeInTheDocument()
+    const field = within(dialog).getByRole('textbox', { name: 'Email address' })
+    expect(field).toHaveValue('jerry4chrost@example.org')
+    // The same address: nothing to save, only to send again.
+    expect(within(dialog).getByRole('button', { name: 'Send it again' })).toBeEnabled()
+
+    await user.clear(field)
+    await user.type(field, 'jerry4christ@example.org')
+    await user.click(within(dialog).getByRole('button', { name: 'Save and send' }))
+    await waitFor(() => expect(state.emails).toEqual([['o-jerry', 'jerry4christ@example.org']]))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(lastOffer()).toMatchObject({ text: 'Email address changed — their email goes to jerry4christ@example.org', action: { label: 'Undo' } })
+    // Once the offer of an undo has passed, their email goes — by the kind the church may send.
+    await waitFor(() => expect(state.again).toEqual(['JERRYJERRY12']))
+  })
+
+  it('holds the email while Undo is offered: an address typed with a slip, taken back, never gets their ticket', async () => {
+    resetUndoForTests(60_000)
+    rights.now = withEmail()
+    state.orders = told()
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    await user.click(within(await openMenu(user, 'Ben Joseph')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ben Joseph’s email address' })
+    const field = within(dialog).getByRole('textbox', { name: 'Email address' })
+    await user.clear(field)
+    await user.type(field, 'somebody.else@example.org')
+    await user.click(within(dialog).getByRole('button', { name: 'Save and send' }))
+    await waitFor(() => expect(state.toasts.filter((t) => t.action)).toHaveLength(1))
+    expect(state.again).toEqual([])
+
+    lastOffer().action!.run()
+    await waitFor(() => expect(state.undone).toEqual(['o-ben']))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' }))
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.again).toEqual([])
+  })
+
+  it('sends the email again, at once and with nothing to undo, when the address is left as it is', async () => {
+    resetUndoForTests(60_000)
+    rights.now = withEmail()
+    state.orders = told()
+    state.emailChanged = false
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    await user.click(within(await openMenu(user, 'Ben Joseph')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ben Joseph’s email address' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send it again' }))
+    await waitFor(() => expect(state.again).toEqual(['BCDEFGHJKMNP']))
+    expect(state.toasts).toEqual([{ text: 'Sending their email again to ben@example.org', tone: undefined, action: undefined }])
+  })
+
+  it('says so when the email could not be sent', async () => {
+    rights.now = withEmail()
+    state.orders = told()
+    state.emailChanged = false
+    state.againAnswer = { ok: false }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    await user.click(within(await openMenu(user, 'Ben Joseph')).getByRole('menuitem', { name: /Change email address/ }))
+    await user.click(within(await screen.findByRole('dialog', { name: 'Ben Joseph’s email address' })).getByRole('button', { name: 'Send it again' }))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ tone: 'error', text: expect.stringContaining('The email to Ben Joseph could not be sent') }))
+  })
+
+  it('keeps the dialog open, with the reason, when the database refuses the address', async () => {
+    rights.now = withEmail()
+    state.orders = told()
+    state.emailRefused = true
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    await user.click(within(await openMenu(user, 'Ben Joseph')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ben Joseph’s email address' })
+    const field = within(dialog).getByRole('textbox', { name: 'Email address' })
+    await user.clear(field)
+    await user.type(field, 'ben2@example.org')
+    await user.click(within(dialog).getByRole('button', { name: 'Save and send' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not change the address.')
+    expect(state.again).toEqual([])
+    expect(state.toasts).toEqual([])
+  })
+
+  it('will not save something that is not an address, and offers a provider’s right spelling', async () => {
+    rights.now = withEmail()
+    state.orders = told()
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    await user.click(within(await openMenu(user, 'Ben Joseph')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Ben Joseph’s email address' })
+    const field = within(dialog).getByRole('textbox', { name: 'Email address' })
+    await user.clear(field)
+    await user.type(field, 'ben@')
+    expect(within(dialog).getByRole('button', { name: 'Save and send' })).toBeDisabled()
+    await user.type(field, 'gmial.com')
+    await user.click(within(dialog).getByRole('button', { name: 'ben@gmail.com' }))
+    expect(field).toHaveValue('ben@gmail.com')
+    expect(within(dialog).getByRole('button', { name: 'Save and send' })).toBeEnabled()
+  })
+
+  it('gives a walk-in with no address one, and keeps a cancelled registration’s for later without emailing', async () => {
+    rights.now = withEmail()
+    state.orders = told()
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Walk In' })
+    expect(within(await openMenu(user, 'Walk In')).getByRole('menuitem', { name: /Add an email address/ })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    await user.click(within(await openMenu(user, 'Cal Cancelled')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Cal Cancelled’s email address' })
+    expect(within(dialog).getByText(/This registration is cancelled, so nothing is emailed now/)).toBeInTheDocument()
+    const field = within(dialog).getByRole('textbox', { name: 'Email address' })
+    // The same address on a cancelled registration: nothing to save and nothing to send.
+    expect(within(dialog).getByRole('button', { name: 'Send it again' })).toBeDisabled()
+    await user.clear(field)
+    await user.type(field, 'cal2@example.org')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(state.emails).toEqual([['o-gone', 'cal2@example.org']]))
+    await waitFor(() => expect(lastOffer()).toMatchObject({ text: 'Email address changed' }))
+    window.dispatchEvent(new Event('pagehide'))
+    expect(state.again).toEqual([])
+  })
+
+  it('tells an email the service never sent from one a mail server turned away', async () => {
+    rights.now = withEmail()
+    state.orders = [order({ id: 'o-f', name: 'Not Sent', email_status: 'failed', email_status_detail: 'Resend refused it (429): Too many requests' })]
+    const user = show()
+    const row = await screen.findByRole('listitem', { name: 'Not Sent' })
+    expect(within(row).getByText('Email not sent')).toBeInTheDocument()
+    await user.click(within(row).getByRole('button', { name: 'Correct email address' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Not Sent’s email address' })
+    expect(within(dialog).getByText(/The email service said: “Resend refused it \(429\)/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Send it again' })).toBeEnabled()
+  })
+
+  it('says who changed an address and what it was, and offers nothing once the details are blanked', async () => {
+    rights.now = withEmail()
+    state.orders = [
+      order({ id: 'o-a', name: 'By The Office', email_changed_at: at(2026, 11, 12, 10, 2), changer: { first_name: 'Rohit', last_name: 'F' }, email_before: { email: 'old@example.org' } }),
+      order({ id: 'o-b', code: 'BCDEFGHJKMNP', name: 'By Themselves', email_changed_at: at(2026, 11, 12, 10, 5), changer: null, email_before: { email: 'slip@example.org' } }),
+      order({ id: 'o-c', code: 'CDEFGHJKMNPQ', name: 'Anonymised', email: 'anonymised@removed.invalid', anonymised_at: at(2027, 3, 1, 3, 0), email_status: 'bounced' }),
+    ]
+    const user = show()
+    expect(within(await screen.findByRole('listitem', { name: 'By The Office' })).getByText(/Email address changed .* by Rohit F — was old@example\.org/)).toBeInTheDocument()
+    expect(within(screen.getByRole('listitem', { name: 'By Themselves' })).getByText(/Email address changed .* by the attendee — was slip@example\.org/)).toBeInTheDocument()
+    const gone = screen.getByRole('listitem', { name: 'Anonymised' })
+    expect(within(gone).queryByText('Email bounced')).toBeNull()
+    expect(within(await openMenu(user, 'Anonymised')).queryByRole('menuitem', { name: /email address/ })).toBeNull()
+  })
+
+  it('puts the status in the export', async () => {
+    state.orders = told()
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Jerry Typo' })
+    await user.click(screen.getByRole('button', { name: 'Export to Excel' }))
+    await waitFor(() => expect(state.exported).toHaveLength(1))
+    const rows = state.exported[0].sheets[0].rows
+    expect(rows.map((r) => [r[1], r[3]])).toEqual([
+      ['Jerry Typo', 'Bounced'],
+      ['Ben Joseph', 'Delivered'],
+      ['Olive Old', 'Emailed (not tracked)'],
+      ['Nia New', 'Sent'],
+      ['Walk In', ''],
+      ['Cal Cancelled', 'Bounced'],
+    ])
   })
 })

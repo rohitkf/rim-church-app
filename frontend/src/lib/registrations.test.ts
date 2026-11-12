@@ -475,6 +475,19 @@ describe('finding an order', () => {
     expect(names('cancelled')).toEqual(['Asha Mathew'])
   })
 
+  it('has a filter for emails that did not arrive, on registrations still live (0283)', () => {
+    const bounced = row({ id: 'o5', name: 'Jerry Typo', email_status: 'bounced' })
+    const held = row({ id: 'o6', name: 'Held Back', email_status: 'suppressed' })
+    const unsent = row({ id: 'o7', name: 'Not Sent', email_status: 'failed' })
+    const arrived = row({ id: 'o8', name: 'Arrived', email_status: 'delivered' })
+    const late = row({ id: 'o9', name: 'Delayed', email_status: 'delayed' })
+    const off = row({ id: 'o10', name: 'Cancelled Bounce', email_status: 'bounced', status: 'cancelled' })
+    const none = row({ id: 'o11', name: 'No Address', email: null, email_status: 'bounced' })
+    const list = [bounced, held, unsent, arrived, late, off, none, ...all]
+    expect(list.filter((o) => orderMatches(o, 'email', '')).map((o) => o.name)).toEqual(['Jerry Typo', 'Held Back', 'Not Sent'])
+    expect(list.filter((o) => orderMatches(o, 'email', 'held')).map((o) => o.name)).toEqual(['Held Back'])
+  })
+
   it('matches a walk-in with no address by name or code, and never by the address it has not got', () => {
     const walk = row({ email: null, phone: null, name: 'Walk In', code: 'WALKIN123456', source: 'walk_in' })
     expect(orderMatches(walk, 'all', 'walk')).toBe(true)
@@ -558,17 +571,17 @@ describe('the workbook for the accounts', () => {
     const [ordersSheet, ticketsSheet, summary] = buildRegistrationWorkbook(full(), orders)
     expect(ordersSheet.name).toBe('Orders')
     expect(ordersSheet.columns.map((c) => c.label)).toEqual([
-      'Code', 'Name', 'Email', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
+      'Code', 'Name', 'Email', 'Email status', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
       'How', 'Received at', 'Received by', 'Receipt reference', 'Verified at', 'Verified by', 'Refund', 'Refunded at', 'Refunded by', 'Notes',
     ])
-    expect(ordersSheet.rows[0].slice(0, 4)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', '07700 900123'])
-    expect(ordersSheet.rows[0].slice(5, 13)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
-    expect(ordersSheet.rows[0].slice(15, 25)).toEqual(['Online', '', '', '', '', '', '', '', '', 'Asked for a receipt'])
-    expect(ordersSheet.rows[2][12]).toBe('Cancelled')
-    // The walk-in: no address, how it came, who took the money and when.
-    expect(ordersSheet.rows[3].slice(0, 4)).toEqual(['DEFGHJKMNPQR', 'Walk In', '', ''])
-    expect(ordersSheet.rows[3].slice(10, 12)).toEqual(['Paid', 'At reception'])
-    expect(ordersSheet.rows[3].slice(15, 19)).toEqual(['At the door', expect.stringMatching(/21.*2026.*6:40|2026.*21.*6:40/), 'Rohit F', 'REF-99'])
+    expect(ordersSheet.rows[0].slice(0, 5)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', 'Not emailed', '07700 900123'])
+    expect(ordersSheet.rows[0].slice(6, 14)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
+    expect(ordersSheet.rows[0].slice(16, 26)).toEqual(['Online', '', '', '', '', '', '', '', '', 'Asked for a receipt'])
+    expect(ordersSheet.rows[2][13]).toBe('Cancelled')
+    // The walk-in: no address (so nothing to say about an email), how it came, who took the money and when.
+    expect(ordersSheet.rows[3].slice(0, 5)).toEqual(['DEFGHJKMNPQR', 'Walk In', '', '', ''])
+    expect(ordersSheet.rows[3].slice(11, 13)).toEqual(['Paid', 'At reception'])
+    expect(ordersSheet.rows[3].slice(16, 20)).toEqual(['At the door', expect.stringMatching(/21.*2026.*6:40|2026.*21.*6:40/), 'Rohit F', 'REF-99'])
 
     expect(ticketsSheet.rows).toEqual([
       ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Ama Owusu', 20, 'All dates', 'Registered'],
@@ -586,6 +599,18 @@ describe('the workbook for the accounts', () => {
     expect(summary.rows).toContainEqual(['Expected (£)', 56, '', '', ''])
     expect(summary.rows).toContainEqual(['Received or waived (£)', 20, '', '', ''])
     expect(summary.rows).toContainEqual(['Still to come (£)', 36, '', '', ''])
+  })
+
+  it('says what became of each order’s email (0283)', () => {
+    const sheet = (over: Parameters<typeof row>[0]) => buildRegistrationWorkbook(full(), [row(over)])[0].rows[0][3]
+    expect(sheet({ email_status: 'delivered', email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Delivered')
+    expect(sheet({ email_status: 'bounced', email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Bounced')
+    expect(sheet({ email_status: 'suppressed' })).toBe('Bounced')
+    expect(sheet({ email_status: 'failed' })).toBe('Not sent')
+    expect(sheet({ email_status: 'sent' })).toBe('Sent')
+    expect(sheet({ email_status: 'delayed' })).toBe('Delayed')
+    expect(sheet({ email_status: null, email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Emailed (not tracked)')
+    expect(sheet({ email: null, email_status: 'delivered' })).toBe('')
   })
 
   it('names the file after the event and the day', () => {

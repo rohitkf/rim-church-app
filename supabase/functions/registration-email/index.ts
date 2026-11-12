@@ -1,17 +1,20 @@
 /**
  * The ticket, by email (0247).
  *
- * Four things. Two are for people who never sign in:
+ * Six things. Two are for people who never sign in:
  *
  *   { kind: 'confirm', code }         the ticket just made, to its own address
  *   { kind: 'resend', slug, email }   every live ticket that address holds for
  *                                     that event — "I have lost my ticket"
  *
- * and three are for the church — the caller has to be signed in and hold
+ * and four are for the church — the caller has to be signed in and hold
  * the right for it (registration_can, 0251), or the answer is no:
  *
  *   { kind: 'paid', code }            the payment is in: "your ticket is confirmed"
  *   { kind: 'unmatched', code }       nothing matches: "we could not find your payment"
+ *   { kind: 'again', code }           the ticket as it stands, once more — after the
+ *                                     church corrects an address, or because the
+ *                                     first one never arrived (0283)
  *   { kind: 'event_cancelled', event_id }  the event is off: everyone on it, with their refund
  *
  * Nothing here takes an address from the caller and sends to it: a confirm
@@ -20,9 +23,16 @@
  * with the anon key is make somebody's own tickets reach them again — and
  * not more than once every ten minutes, which `email_sent_at` keeps. The
  * answer is the same whether or not an address has a registration, so the
- * list of who is coming cannot be read out of it. The church's two kinds
+ * list of who is coming cannot be read out of it. The church's kinds
  * are not held to the quiet period: a confirmation a minute after a
  * registration is the point of them.
+ *
+ * What becomes of each email is kept (0283). Every email gets a reference
+ * of its own, sent to Resend as the tag `rim_ref` and written on its orders
+ * *before* the email is sent (registration_email_begin), so that whatever
+ * Resend says about it — to the registration-email-status function, which
+ * reads the same tag — finds the order already holding it. Afterwards
+ * registration_email_end stamps the order, or says why Resend refused.
  *
  * One code, two meanings: until a paid order is paid the email calls it a
  * registration, to show at reception to pay; once it is paid, a ticket,
@@ -45,8 +55,10 @@ const json = (body: unknown, status = 200) =>
 
 const QUIET_MINUTES = 10
 const CHURCH = 'Rehoboth International Ministries'
+/** The tag an email's reference travels in; registration-email-status/news.ts reads the same one. */
+const REF_TAG = 'rim_ref'
 
-type Kind = 'confirm' | 'resend' | 'paid' | 'unmatched' | 'event_cancelled'
+type Kind = 'confirm' | 'resend' | 'paid' | 'unmatched' | 'again' | 'event_cancelled'
 
 interface Ticket {
   attendee_name: string | null
@@ -270,6 +282,61 @@ function ticketEmail(asked: Kind, orders: Order[], siteUrl: string, tz: string):
   return { subject, text, html }
 }
 
+type Admin = ReturnType<typeof createClient>
+
+/** Why Resend would not take an email, in a line the office can read. */
+function refusal(status: number, body: string): string {
+  let said = ''
+  try {
+    said = String((JSON.parse(body) as { message?: unknown }).message ?? '')
+  } catch {
+    said = body
+  }
+  return `Resend refused it (${status})${said ? `: ${said}` : ''}`.slice(0, 300)
+}
+
+/**
+ * One email, with its story kept (0283): the orders take the email's
+ * reference first, Resend carries it as a tag, and the orders are stamped
+ * or told why not. Answers whether Resend took it. Keeping the story never
+ * stops the email: if the database will not take a note, it still goes.
+ */
+async function sendTracked(
+  admin: Admin,
+  apiKey: string,
+  from: string,
+  to: string,
+  mail: { subject: string; text: string; html: string },
+  orderIds: string[],
+): Promise<boolean> {
+  const ref = crypto.randomUUID()
+  const begun = await admin.rpc('registration_email_begin', { p_orders: orderIds, p_ref: ref })
+  if (begun.error) console.error('could not note the email before sending', begun.error.message)
+  let error: string | null = null
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject: mail.subject, text: mail.text, html: mail.html, tags: [{ name: REF_TAG, value: ref }] }),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      console.error('resend refused', res.status, detail.slice(0, 300))
+      error = refusal(res.status, detail)
+    }
+  } catch (err) {
+    console.error('could not reach resend', err)
+    error = 'Could not reach the email service.'
+  }
+  const ended = await admin.rpc('registration_email_end', { p_ref: ref, p_error: error })
+  if (ended.error) {
+    console.error('could not note how the email went', ended.error.message)
+    // The quiet ten minutes go by this stamp; keep it even if the story is lost.
+    if (!error) await admin.from('registration_orders').update({ email_sent_at: new Date().toISOString() }).in('id', orderIds)
+  }
+  return error === null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
@@ -293,14 +360,16 @@ Deno.serve(async (req) => {
 
   const kind = payload.kind as Kind | undefined
   let orders: Order[] = []
-  if (kind === 'confirm' || kind === 'paid' || kind === 'unmatched') {
+  if (kind === 'confirm' || kind === 'paid' || kind === 'unmatched' || kind === 'again') {
     if (kind !== 'confirm') {
       // The church's word, from somebody allowed to give it.
       const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
       const { data: who } = token ? await admin.auth.getUser(token) : { data: { user: null } }
       if (!who?.user) return json({ error: 'Sign in first.' }, 401)
-      // "Your ticket is confirmed" follows taking the money; "we could not match it" follows approving (0251).
-      const { data: allowed, error: mayError } = await admin.rpc('registration_can', { uid: who.user.id, what: kind === 'paid' ? 'take_payment' : 'approve' })
+      // "Your ticket is confirmed" follows taking the money; "we could not match it" follows approving (0251);
+      // the ticket once more follows correcting an address (0283).
+      const what = kind === 'paid' ? 'take_payment' : kind === 'again' ? 'email' : 'approve'
+      const { data: allowed, error: mayError } = await admin.rpc('registration_can', { uid: who.user.id, what })
       if (mayError) return json({ error: 'Could not check who is asking.' }, 500)
       if (!allowed) return json({ error: 'Sending this is not one of your rights.' }, 403)
     }
@@ -333,13 +402,7 @@ Deno.serve(async (req) => {
     let sentCount = 0
     for (const group of byAddress.values()) {
       const mail = ticketEmail('event_cancelled', group, siteUrl, tz)
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [group[0].email], subject: mail.subject, text: mail.text, html: mail.html }),
-      })
-      if (res.ok) sentCount += 1
-      else console.error('resend refused', res.status, (await res.text().catch(() => '')).slice(0, 300))
+      if (await sendTracked(admin, apiKey, from, group[0].email!, mail, group.map((o) => o.id))) sentCount += 1
     }
     return json({ ok: true, sent: sentCount > 0, count: sentCount })
   } else if (kind === 'resend') {
@@ -373,20 +436,7 @@ Deno.serve(async (req) => {
 
   const to = orders[0].email!
   const mail = ticketEmail(kind, orders, siteUrl, tz)
-  const sent = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject: mail.subject, text: mail.text, html: mail.html }),
-  })
-  if (!sent.ok) {
-    const detail = await sent.text().catch(() => '')
-    console.error('resend refused', sent.status, detail.slice(0, 300))
-    return json({ ok: false, reason: 'not sent' })
-  }
-
-  await admin
-    .from('registration_orders')
-    .update({ email_sent_at: new Date().toISOString() })
-    .in('id', orders.map((o) => o.id))
+  const sent = await sendTracked(admin, apiKey, from, to, mail, orders.map((o) => o.id))
+  if (!sent) return json({ ok: false, reason: 'not sent' })
   return json({ ok: true, sent: true, count: orders.length })
 })

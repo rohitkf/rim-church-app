@@ -106,6 +106,7 @@ the thing most likely to waste your time:
 | `account_blocks` (0279) | a **block**: one person's account stopped without being removed. They can still sign in and meet `pages/BlockedPage` ("blocked by an administrator, contact a church Admin"); nothing of theirs is touched, and taking the row away puts everything back. Not a `permission_blocks` row, which refuses one person one capability. Written only by `block_account(target, why)` / `unblock_account(target)` — the table has a read policy and no write policy — for whoever holds `people.block` (Admins out of the box), with removal's rules: never yourself, never the Owner, an Admin only by the Owner. `reason` is a note for the people who may block; the person blocked is never shown it. Enforced in the database in three places: the hook (`account_blocked`), `may()` (a blocked account's every answer is no, so the edge functions that ask on a person's behalf refuse too) and one restrictive policy on `storage.objects`. `account_is_blocked(uid)` is the one definition (never true of the Owner; a trigger on `app_owner` clears a block from whoever becomes it), and push-notify asks it before buzzing a phone. `lib/accountBlocks.ts`, `BlockAccountDialog`, Block / Unblock on the People page |
 | `clock_ins.call_at` (0280) | the **call time a clock-in was for**: that person's first call that day (`clock_in_first_call`), stamped by a trigger when the row is made, so every way in is covered. Kept because the question cannot be asked later — services are deleted a couple of weeks after they are held, the rota with them. Restamped only while the day is live (a team's call time moved today or for a day to come); **a day that has passed is never restamped**, or clearing old call times would turn every on-time arrival late against the 07:00 default. Null is "not known" and is never late. *Late* is `app_settings.clock_in_late_minutes` (30) or more after it: red and first in the day's list. `clock_in_retention_days` (28, four weeks) is both what `delete_old_clock_ins` keeps and how far back the Clock In page's *Arrivals, person by person* goes. `lib/clockInPunctuality.ts` is the sums; `components/ArrivalChart.tsx` the chart (HTML, not a library: a bar a clock-in from the call-time line, a readout instead of a tooltip, a legend and a table so nothing is colour alone) |
 | `registration_order_undos` (0281) | **Undo** on a registration: the registration as it was before the last thing somebody working registrations did to it (payment, check-in, cancellation, refund and the bank details it deleted, verification, a note; a walk-in's memory is "it was not there"). One row a registration, written by a trigger on `registration_orders`, so every way of changing one is covered without being taught; no grants and no policy, so nothing reads it but `registration_order_undo(p_id)`, which puts exactly that back. **Only whoever did it, within ten minutes, and never over somebody else's change** — the function compares the registration with what the change left and refuses in words the page shows. One transaction is one undo, which is why "Paid now, check in" is one call (`registration_order_pay_and_check_in`). A change by somebody who is not working registrations (the attendee uploading a receipt) wipes the memory. `registration_undos_expire()` clears old ones every five minutes. The app's half is `lib/registrationUndo.ts`: `offerUndo` says what was done in a toast with **Undo** on it (`lib/toast.ts` takes one action), holds back any email to the attendee until the offer has passed (ten seconds; sent at once if the page is leaving, dropped if undone), and remembers it so the registration's own row offers Undo for the ten minutes — its menu on the event's page, a line under it at Reception. An event's status (Close registration, Reopen) is undone by writing the status it had, not by this |
+| `registration_orders.email_status` and beside it (0283) | **what became of a registration's email**: `email_ref` (the reference its latest email was sent with), `email_status` (`sent`, `delayed`, `delivered`, `complained`, `bounced`, `suppressed` — held back because the address bounced before — or `failed`; null is none sent, or sent before this was kept), `email_status_at`, `email_status_detail` (the mail server's own words for a bounce). `supabase/functions/registration-email` gives every email a reference, writes it on the email's orders **before** sending (`registration_email_begin`), sends it to Resend as the tag `rim_ref`, then stamps or says why not (`registration_email_end`); Resend calls `supabase/functions/registration-email-status` — a **webhook**, `verify_jwt` off, every call checked against `RESEND_WEBHOOK_SECRET` with Svix's HMAC (`news.ts`, which the app's tests run) — and `registration_email_event(ref, status, at, detail)` moves the orders forward only (a late `sent` never undoes `delivered`; a bounce is the last word). All three are `service_role`'s alone. An order keeps the story of its *latest* email for the address it *now* holds. The address is put right two ways, both through `registration_email_replace` (old address and its story into `email_before`, everything about the new one blank, `email_sent_at` cleared so the quiet ten minutes do not hold the ticket back): the church's `registration_order_set_email(order, address)` — its own right, **`reg.email`** ("Correct email addresses"), which `reg.manage` includes, **the one registrations right an Admin has out of the box**, and one that opens /registrations (`registration_can(uid, 'email')`, and in `'office'` and `'work'`) — and the attendee's `registration_order_fix_email(code, address)` from the ticket page, **only after a bounce** and three times at most (`email_fixes`). `registration_order_view` tells the ticket page `email_state` (`none`, `waiting`, `delivered`, `bounced`; `failed` reads as `none` — a quota is not their typing) and `email_can_fix`. The church's change is undone like any other press: `registration_order_state` lists `email`, and `registration_order_undo` puts the address back with its story. The edge function's `{kind:'again', code}` is the ticket as it stands once more, for a signed-in caller who may `email`, not held to the quiet period. `lib/emailDelivery.ts` (`deliveryOf`, `emailWantsDoing`, `suggestEmail`, `watchesEmail`), `OrderEmailDialog` on the event's page, `TicketEmailFix` on the ticket, `ConfirmEmailDialog` on the register page |
 | `department_role_permanents` (0282) | a **permanent person** on a role: this person holds this role as a matter of course, at every service or at one kind (`service_type`, null for every). Not a second way of reading the rota — the database puts them on it as an ordinary `rota_assignments` row (marked by `permanent_id`), so checklists, call times, clock-in and "my rota" need teaching nothing. They are put on when a service is made (a trigger on `services`, so the planner and the overnight series are both covered) and, on every service still to come, when they are made permanent. Never where they have said "can't serve", never over a role they already hold there (the older arrangement wins), never on a finished service or a past day. **It is a default and gives way**: taken off one service by hand they stay off it, and nothing puts them back. Ending it (removed, the role deleted, the person leaving the team) takes them off the services to come that it put them on and leaves the past as the record. Written only by `set_role_permanent(role, person, service_type)` and `remove_role_permanent(role, person)`, which answer how many services changed; whoever holds `rota.assign` for the team, and for the Team Coordinator's role an Admin, the Head or Assisting Head. On the team's page under each role (`components/RolePermanents.tsx`, `lib/rolePermanents.ts`), and as an optional person on the new-role form; a pin beside the role on the Team Rota |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
@@ -314,6 +315,14 @@ frontend/api/                Vercel functions. register-preview.js answers
                              panel is components/RolePermanents.tsx, inside
                              DepartmentRolesCard. What happens to the rota
                              is set_role_permanent()'s
+  lib/emailDelivery.ts       what became of a registration's email (0283):
+                             the status as a word, a tone and a sentence
+                             (deliveryOf), which registrations want doing,
+                             a provider's name spelt nearly right
+                             (suggestEmail), and how long an open ticket
+                             page keeps asking (watchesEmail). The statuses
+                             are the database's; a test holds the two to
+                             one list
   lib/registrationUndo.ts    Undo on the registration pages (0281): the offer
                              in a toast, the email held back until it has
                              passed, and what this browser did lately for the
@@ -344,7 +353,9 @@ frontend/api/                Vercel functions. register-preview.js answers
   public/sw.js               service worker (hand-written, not generated)
 supabase/migrations/         numbered, immutable once shipped
 supabase/functions/          edge functions (push-notify, invite, clock-in-address,
-                             registration-email)
+                             registration-email, and registration-email-status
+                             — Resend's webhook, the only one with verify_jwt
+                             off; its news.ts is run by the app's tests)
 build/swBuildId.ts           stamps the commit into sw.js at build time
 DESIGN.md                    the design system's rules — read before UI work
 docs/configuration.md        every setting: what it is, where it lives, what enforces it
@@ -500,7 +511,12 @@ skipped. How each is done safely:
   source), or `supabase functions deploy <name>`. Keep `verify_jwt` as
   `supabase/config.toml` says. Then smoke-test it: a call with the public
   key to a kind that needs a signed-in caller must answer 401, an unknown
-  kind 400.
+  kind 400. A function of more than one file (registration-email-status:
+  `index.ts` and `news.ts`) sends each as its own `file` part.
+  registration-email-status is called by Resend, not by the app: it needs
+  the secret `RESEND_WEBHOOK_SECRET` (the signing secret Resend shows for
+  the webhook pointing at it) and answers 503 without it; a call with no
+  signature, or a wrong one, must answer 401.
 - **The frontend is live** when the site's service worker carries main's
   commit: `curl -s https://rim-church-app.vercel.app/sw.js | grep BUILD_ID`
   equals `git rev-parse --short=12 origin/main` (main's squash-merge
@@ -767,6 +783,26 @@ Each of these has already cost real time. None of them show up in review.
   attendee before the ten seconds in which the press can be taken back,
   and "your ticket is confirmed" for a payment marked by a slip cannot be
   unsent.
+- **An email sent without `sendTracked` has no story** (0283).
+  `registration-email` writes the email's reference on its orders before
+  it sends and tags the email with it; a new kind that calls Resend
+  directly sends an email nobody will ever hear about — the row says
+  "Emailed" at best, and a bounce goes unseen, which is what this was
+  built to end. And the reference must be on the orders *before* the
+  send: written after, Resend's first word can arrive ahead of it, find
+  no order, and be answered 200 and lost.
+- **The webhook must answer 200 to what it has no use for.**
+  Password-reset and sign-up emails go through the same Resend account,
+  carry no `rim_ref`, and reach `registration-email-status` all the same.
+  Anything not answered 200 Resend sends again for hours, and enough
+  failures and it stops calling the endpoint. Only a failure to write
+  what an email of ours became is answered 500.
+- **The statuses of an email are one list in four places**: the check on
+  `registration_orders.email_status`, `registration_email_rank()`,
+  `news.ts`'s map from Resend's event names, and `EMAIL_STATUSES` in
+  `lib/emailDelivery.ts`. Two tests hold the last two to the first; the
+  rank is yours to remember — a status with no rank is refused by
+  `registration_email_event` rather than written.
 - **Anything that inserts a rota assignment for somebody else's team from
   a trigger meets the Coordinator's guard.** `rota_coordinator_label_guard`
   refuses a Coordinator named by anybody but an Admin or the team's Head —

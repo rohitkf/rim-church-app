@@ -7,6 +7,8 @@ import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { useConfirmAction } from '../components/ConfirmAction'
+import { OrderEmailDialog } from '../components/OrderEmailDialog'
+import { deliveryOf, emailWantsDoing } from '../lib/emailDelivery'
 import { useRegistrationRights, type RegistrationRights } from '../lib/registrationRights'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
@@ -40,6 +42,8 @@ import {
   canBeVerified,
   wantsVerifying,
   registrationExportFileName,
+  sendTicketAgain,
+  setOrderEmail,
   setOrderNotes,
   setRegistrationStatus,
   whenWords,
@@ -69,6 +73,12 @@ import {
  * to come, refunds owed, each a tap to the orders it means; and an order
  * that needs a decision carries its next step as a button, the rest of
  * what can be done to it behind its ⋯ menu.
+ *
+ * Each registration says what became of its email (0283): delivered, on
+ * its way, or bounced — with the mail server's reason — and whoever may
+ * correct addresses (reg.email) puts the right one in from the row, which
+ * sends the email again. Undelivered ones are counted in "What wants
+ * doing" and have a filter of their own.
  */
 export function RegistrationEventPage() {
   const { id = '' } = useParams()
@@ -91,6 +101,8 @@ export function RegistrationEventPage() {
   const [deleteTyped, setDeleteTyped] = useState('')
   const [cancelTyped, setCancelTyped] = useState('')
   const [refundFor, setRefundFor] = useState<OrderRow | null>(null)
+  const [emailFor, setEmailFor] = useState<OrderRow | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
@@ -210,6 +222,33 @@ export function RegistrationEventPage() {
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save the note.')),
   })
+  // Their email, once more (0283): after an address is put right, or because the first never arrived.
+  const emailAgain = (order: OrderRow) =>
+    void sendTicketAgain(order.code).then((result) => {
+      if (!result.ok) showToast(`The email to ${order.name} could not be sent. Try “Send it again” from their menu.`, 'error', 6000)
+      return refresh()
+    })
+  const changeEmail = useMutation({
+    mutationFn: ({ order, email }: { order: OrderRow; email: string }) => setOrderEmail(order.id, email),
+    onSuccess: (changed, { order, email }) => {
+      setError(null)
+      setEmailFor(null)
+      const live = order.status === 'confirmed'
+      if (changed) {
+        // The email waits for the offer of an undo: an address typed with a slip never gets somebody's ticket.
+        done(order, live ? `Email address changed — their email goes to ${email}` : 'Email address changed', live ? () => emailAgain(order) : undefined)
+      } else if (live) {
+        showToast(`Sending their email again to ${email}`)
+        emailAgain(order)
+      }
+      return refresh()
+    },
+    onError: (err: unknown) => setEmailError(errorText(err, 'Could not change the address.')),
+  })
+  const openEmail = (order: OrderRow) => {
+    setEmailError(null)
+    setEmailFor(order)
+  }
   const exportAll = useMutation({
     mutationFn: () => writeWorkbook(buildRegistrationWorkbook(full.data!, orders.data ?? []), registrationExportFileName(full.data!.event.slug)),
     onSuccess: () => {
@@ -248,6 +287,8 @@ export function RegistrationEventPage() {
   const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
   // Only whoever may verify is told what waits on them.
   const toVerify = rights.verify ? rows.filter(wantsVerifying).length : 0
+  // Emails that did not arrive (0283): everybody on the page sees which; whoever may correct them is told to.
+  const undelivered = rows.filter(emailWantsDoing).length
   // A tap on what wants doing shows those orders, and goes to them.
   const showOrders = (f: OrderFilter) => {
     setFilter(f)
@@ -421,7 +462,7 @@ export function RegistrationEventPage() {
         </Tile>
       </div>
 
-      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0) && (
+      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
             <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
@@ -453,6 +494,14 @@ export function RegistrationEventPage() {
                 {owed.length}
               </Pill>
               {owed.length === 1 ? 'refund owed' : 'refunds owed'}
+            </ActionButton>
+          )}
+          {undelivered > 0 && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('email')}>
+              <Pill tone="red" dot className="-ml-1">
+                {undelivered}
+              </Pill>
+              {undelivered === 1 ? 'email not delivered' : 'emails not delivered'}
             </ActionButton>
           )}
         </div>
@@ -561,9 +610,9 @@ export function RegistrationEventPage() {
                   actions={withUndo(
                     lastDone(o.id),
                     () => void runUndo({ orderId: o.id, refresh, words: errorText }),
-                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified })),
+                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o)),
                   )}
-                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }))}
+                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))}
                 />
               ))}
             </ul>
@@ -641,6 +690,15 @@ export function RegistrationEventPage() {
         </Overlay>
       )}
       {refundFor && <RefundDetailsSheet order={refundFor} onClose={() => setRefundFor(null)} />}
+      {emailFor && (
+        <OrderEmailDialog
+          order={emailFor}
+          busy={changeEmail.isPending}
+          error={emailError}
+          onSave={(email) => changeEmail.mutate({ order: emailFor, email })}
+          onClose={() => setEmailFor(null)}
+        />
+      )}
       {noteFor && (
         <Overlay label={`A note on ${noteFor.name}’s registration`} onDismiss={() => setNoteFor(null)}>
           <form
@@ -741,15 +799,28 @@ function orderActions(
   refundDetails: () => void,
   r: RegistrationRights,
   verify: (verified: boolean) => void,
+  email: () => void,
 ): MenuAction[] {
   const actions: MenuAction[] = []
+  // Their address (0283): put right, or their email sent once more. Not once the retention job has blanked it.
+  const emailAction: MenuAction[] =
+    r.email && !o.anonymised_at
+      ? [
+          {
+            label: o.email ? 'Change email address' : 'Add an email address',
+            onSelect: email,
+            tone: emailWantsDoing(o) ? 'accent' : 'plain',
+            hint: emailWantsDoing(o) ? 'Their email did not arrive: put the address right, or send it again' : o.email ? 'Or send their email again' : 'Their ticket is emailed to it',
+          },
+        ]
+      : []
   // A refund owed comes first: it is what this order needs.
   if (o.refund_status === 'owed' && r.refund) {
     actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: refundWhere(o) })
     actions.push({ label: 'Mark as refunded', tone: 'accent', onSelect: () => act('refunded'), hint: refundHow(o) })
   }
   if (eventCancelled) {
-    actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
+    actions.push(...emailAction, { label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
     return actions
   }
   if (o.status === 'confirmed') {
@@ -789,7 +860,7 @@ function orderActions(
   } else if (o.refund_status !== 'refunded' && r.cancel) {
     actions.push({ label: 'Put back', onSelect: () => act('restore'), hint: 'If its tickets still fit' })
   }
-  actions.push({ label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
+  actions.push(...emailAction, { label: o.notes ? 'Edit the note' : 'Add a note', onSelect: note })
   if (o.status === 'confirmed' && r.cancel) actions.push({ label: 'Cancel registration', onSelect: cancel, tone: 'danger' })
   return actions
 }
@@ -802,6 +873,7 @@ function nextSteps(
   refundDetails: () => void,
   r: RegistrationRights,
   verify?: () => void,
+  email?: () => void,
 ): NextStep[] {
   if (o.refund_status === 'owed' && r.refund) {
     return [
@@ -816,6 +888,8 @@ function nextSteps(
     steps.push({ label: 'Mark as received', onClick: () => act('received'), tone: steps.length > 0 ? 'quiet' : 'primary' })
     if (r.approve) steps.push({ label: 'Not received', onClick: notReceived, tone: 'quiet' })
   }
+  // Their email did not arrive (0283): the address wants putting right.
+  if (email && r.email && emailWantsDoing(o)) steps.push({ label: 'Correct email address', onClick: email, tone: steps.length > 0 ? 'quiet' : 'primary' })
   return steps
 }
 type NextStep = { label: string; onClick: () => void; tone: 'primary' | 'quiet' }
@@ -902,6 +976,11 @@ function OrderLine({
   const [viewing, setViewing] = useState(false)
   const live = order.status === 'confirmed'
   const names = order.tickets.map((t) => t.attendee_name).filter(Boolean)
+  // What became of their email (0283). A tag only when it wants something; the rest is a word at the foot.
+  const delivery = deliveryOf(order)
+  const undelivered = live && !!delivery?.wants
+  const tagged = undelivered || (live && order.email_status === 'delayed')
+  const changer = [order.changer?.first_name, order.changer?.last_name].filter(Boolean).join(' ')
   return (
     <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline sm:p-4 ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-2">
@@ -944,7 +1023,26 @@ function OrderLine({
             {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
             {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
+            {delivery && tagged && (
+              <Pill tone={delivery.tone} dot={undelivered}>
+                {delivery.label}
+              </Pill>
+            )}
           </div>
+
+          {/* The email that did not arrive: what the mail server said about it. */}
+          {delivery && undelivered && (
+            <p className="mt-1.5 text-label-md text-on-surface-variant [overflow-wrap:anywhere]">
+              {delivery.says}
+              {order.email_status_detail && <span className="text-on-surface-faint"> “{order.email_status_detail}”</span>}
+            </p>
+          )}
+          {order.email_changed_at && (
+            <p className="mt-1 text-label-md text-on-surface-faint [overflow-wrap:anywhere]">
+              Email address changed {stamp(order.email_changed_at)} by {changer || 'the attendee'}
+              {order.email_before?.email ? ` — was ${order.email_before.email}` : ''}
+            </p>
+          )}
 
           {/* How it got there: the receipt, who took the money, the refund. */}
           {(order.proof_path || order.proof_reference) && live && (
@@ -1004,7 +1102,11 @@ function OrderLine({
         <a href={ticketUrl(order.code)} target="_blank" rel="noopener noreferrer" className="tap text-accent-blue-soft hover:underline">
           Ticket <span aria-hidden="true">↗</span>
         </a>
-        {order.email_sent_at && <span>Emailed</span>}
+        {delivery && !tagged && delivery.kind !== 'none' && (
+          <span className={delivery.kind === 'delivered' ? 'text-accent-green-soft' : undefined} title={delivery.says}>
+            {delivery.label}
+          </span>
+        )}
       </div>
     </li>
   )

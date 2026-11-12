@@ -207,8 +207,8 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'admins',
     choices: ['admins'],
     enforcement: 'permission',
-    by: ['reg.manage', 'reg.view', 'reg.edit', 'reg.approve', 'reg.refund', 'reg.cancel', 'reg.verify'],
-    note: 'The Owner, and whoever the grid gives “Run registrations” (Access & Privileges) — an Admin only with that cell. The public pages, /register/… and /ticket/…, need no sign-in.',
+    by: ['reg.manage', 'reg.view', 'reg.edit', 'reg.approve', 'reg.refund', 'reg.cancel', 'reg.verify', 'reg.email'],
+    note: 'The Owner, and whoever the grid gives one of the registrations rights (Access & Privileges). An Admin opens it out of the box through “Correct email addresses” alone, to read and to put an address right; anything more needs its own cell. The public pages, /register/… and /ticket/…, need no sign-in.',
   },
   '/door': {
     default: 'admins',
