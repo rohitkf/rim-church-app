@@ -361,6 +361,8 @@ describe('the ticket page', () => {
     // The reference is the code, so the transfer can be matched to the ticket.
     expect(screen.getByRole('button', { name: 'Copy Reference' })).toBeInTheDocument()
     expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThanOrEqual(2)
+    // One way to send the screenshot at a time: with the bank details open it is the button under them.
+    expect(screen.queryByRole('button', { name: 'I’ve paid — send my screenshot' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'I’ve sent the transfer — send my screenshot' }))
     const proof = await screen.findByRole('dialog', { name: 'Your receipt' })
     await user.upload(within(proof).getByLabelText('Screenshot of the payment — quickest'), new File(['png'], 'transfer.png', { type: 'image/png' }))

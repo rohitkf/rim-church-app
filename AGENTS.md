@@ -42,10 +42,30 @@ Keep this file current in the same pull request that changes what it says.
 - A merged pull request is finished. Follow-up work is a new PR.
 - **Dependabot's pull requests are the one kind not from `develop`**
   (`.github/dependabot.yml`: npm, pip and the workflows' actions, weekly,
-  into `develop`). Nothing merges them by itself. Read what moved, see
-  the checks green, merge into `develop`, and the update reaches the
-  congregation with the next release through §2's gates like anything
-  else. A *security* update, if the Owner has turned those on, is opened
+  into `develop`). Nothing merges them by itself, **so they sit open with
+  green checks until somebody reads them — that is the design, not a
+  fault.** Read what moved, see the checks green, merge into `develop`,
+  and the update reaches the congregation with the next release through
+  §2's gates like anything else. What reading them has meant in practice
+  (the first batch, November 2026):
+  - *Merge the branches into `develop` locally* (`git fetch origin
+    <branch> && git merge FETCH_HEAD`), run the gates on the lot, push;
+    GitHub then shows each pull request as merged. Two npm updates
+    conflict in `package-lock.json`: take `develop`'s two files, make the
+    one change in `package.json`, and let npm rewrite the lock (`npm
+    install --package-lock-only`, with the npm CI has — a lock written by
+    a newer npm can be refused by `npm ci` there).
+  - *A green check is not the whole reading.* The workflow that merges
+    releases (`auto-merge.yml`) and the timed ones are not run by a pull
+    request, so an update to an action they use is read in its release
+    notes and then run by hand on `main`. The Docker image is built in CI
+    only when its own files or the frontend's packages change.
+  - *A major version is tried, not assumed*: TypeScript 7 and vitest 5
+    were each installed in a throwaway copy and put through the gates —
+    and TypeScript through a deliberate type error, to see it still
+    refuses one — before they were taken.
+  - *`@types/node` follows the Node the project runs* (22), so its major
+    updates are ignored in `dependabot.yml` and moved by hand with Node. A *security* update, if the Owner has turned those on, is opened
   against `main` whatever that file says; auto-merge refuses any pull
   request into `main` that is not from `develop`, so it waits to be read
   as well — retarget it to `develop`, or take the same version by hand.
@@ -57,7 +77,7 @@ Run from `frontend/`. All four must be clean before you push:
 ```bash
 npx tsc --noEmit -p tsconfig.app.json    # the app
 npx tsc --noEmit -p tsconfig.node.json   # vite.config.ts and build/
-npx vitest run                           # ~2700 tests, all must pass
+npx vitest run                           # ~3700 tests, all must pass
 npm run build                            # catches what tsc alone misses
 ```
 
@@ -65,9 +85,10 @@ CI (`.github/workflows/ci.yml`) runs the same checks, split for speed:
 `frontend` (lint + build), `frontend tests (1/4)`…`(4/4)` (vitest
 `--shard`), `migrations` (every migration on Postgres 17, what production
 runs), and four only when their own files (or CI itself) change —
-`backend`, `docker`, `dependencies` (`npm audit --audit-level=high`, when
-`package.json` or the lockfile moves) and `functions` (`deno check` on
-every edge function, when one changes). `changes` works that out, and a
+`backend`, `docker` (also when the frontend's packages move: the image
+installs and builds them), `dependencies` (`npm audit --audit-level=high`,
+when `package.json` or the lockfile moves) and `functions` (`deno check`
+on every edge function, when one changes). `changes` works that out, and a
 skipped job counts as green for auto-merge. On a pull request into `main`
 only, `database` asks production which migration it has reached
 (`/api/health`) and **fails when the release needs a later one**
@@ -86,9 +107,14 @@ not clean it opens one issue assigned to the Owner
 starts, closed by itself when it ends — use it for anything else a
 workflow has to tell somebody).
 
-`npm run lint` (oxlint) exits 0 with **46** standing warnings (count them:
+`npm run lint` (oxlint) exits 0 with **66** standing warnings (count them:
 `npm run lint 2>&1 | grep -c ': warning '`). Do not add to them; do not fix
-unrelated ones in a PR about something else. The two that new code trips
+unrelated ones in a PR about something else. (It was 46 until November
+2026. The twenty more came with oxlint 1.91, which sees more of the same
+two things in code that was already there — `purity` and `immutability`,
+ten each — not with anything written since. A newer linter can move the
+number again; when it does, compare the count by rule before and after,
+as was done then, and write the new number here.) The two that new code trips
 most: exporting a helper from a component file (`only-export-components` —
 put it in `lib/`), and `Date.now()` during render (`purity` — use a clock
 hook such as `useNow` in `lib/timeLeft.ts`).

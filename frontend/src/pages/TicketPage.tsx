@@ -346,8 +346,12 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
                 </div>
               )}
               {/* Step 3, always in reach: the come-back prompt only appears
-                  if the payment page was opened from here, in this tab. */}
-              {payOnline && (
+                  if the payment page was opened from here, in this tab.
+                  Not while the bank details are open, though: the button
+                  under them does exactly this, and two green buttons saying
+                  nearly the same thing, one above the other, read as two
+                  different things to do. */}
+              {payOnline && !showBank && (
                 <ActionButton tone="success" onClick={() => setProofFor(showBank || order.payment.links.length === 0 ? 'bank' : 'paypal')} disabled={report.isPending}>
                   I’ve paid — send my screenshot
                 </ActionButton>
