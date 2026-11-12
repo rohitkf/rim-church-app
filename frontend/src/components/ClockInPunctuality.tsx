@@ -15,6 +15,8 @@ import { todayIso } from '../lib/monthGrid'
 import { ArrivalChart, ArrivalStrip } from './ArrivalChart'
 import { Chevron } from './Collapsible'
 import { QueryState } from './QueryState'
+import { TableScroll } from './Surface'
+import { HEAD_IN_BOX, ON_CARD } from '../lib/stickyHead'
 
 /** How many people are listed before "Show everybody". */
 const FIRST = 12
@@ -130,14 +132,17 @@ function Person({
             <summary className="cursor-pointer text-label-md font-medium text-on-surface-variant">
               Every clock-in ({person.count})
             </summary>
-            <div className="mt-2 overflow-x-auto">
+            {/* Four weeks of somebody who serves most days is longer than a
+                phone: it scrolls inside itself with Day, Call, Clocked in
+                and Against call staying above it (lib/stickyHead.ts). */}
+            <TableScroll className="mt-2">
               <table className="w-full min-w-[18rem] text-left text-body-sm">
                 <thead className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
                   <tr>
-                    <th scope="col" className="py-1 pr-3 font-normal">Day</th>
-                    <th scope="col" className="py-1 pr-3 font-normal">Call</th>
-                    <th scope="col" className="py-1 pr-3 font-normal">Clocked in</th>
-                    <th scope="col" className="py-1 font-normal">Against call</th>
+                    <th scope="col" className={`py-1 pr-3 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Day</th>
+                    <th scope="col" className={`py-1 pr-3 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Call</th>
+                    <th scope="col" className={`py-1 pr-3 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Clocked in</th>
+                    <th scope="col" className={`py-1 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Against call</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
@@ -163,7 +168,7 @@ function Person({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </details>
         </div>
       )}

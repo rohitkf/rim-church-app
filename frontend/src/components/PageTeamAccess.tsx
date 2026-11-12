@@ -17,6 +17,8 @@ import { Chevron } from './Collapsible'
 import { Select, reachPickerClasses } from './Select'
 import { FixedCell, roleLabel } from './PermissionsCard'
 import { TeamMark } from './TeamMark'
+import { TableScroll } from './Surface'
+import { HEAD_IN_BOX, ON_RAISED } from '../lib/stickyHead'
 import { ROLE_SHORT } from '../lib/roleNames'
 
 /**
@@ -152,18 +154,20 @@ export function PageTeamAccess({
               </button>
               {isOpen && (
                 <div className="px-3.5 pb-3">
-                  <div className="relative -mx-2 overflow-x-auto px-2">
+                  {/* Scrolls inside itself, both ways, so the roles stay
+                      above the rules however many there are (lib/stickyHead.ts). */}
+                  <TableScroll className="-mx-2 px-2">
                     <table className="w-full min-w-[30rem] border-collapse text-body-sm">
                       <thead>
                         <tr>
-                          <th className="w-[40%] px-2 pb-2 text-left font-normal">
+                          <th className={`w-[40%] px-2 pb-2 pt-1 text-left font-normal ${HEAD_IN_BOX} ${ON_RAISED}`}>
                             <span className="sr-only">Rule</span>
                           </th>
                           {roles.map((role) => (
                             <th
                               key={role}
                               scope="col"
-                              className="px-2 pb-2 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                              className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}
                             >
                               {roleLabel(role)}
                             </th>
@@ -209,7 +213,7 @@ export function PageTeamAccess({
                         })}
                       </tbody>
                     </table>
-                  </div>
+                  </TableScroll>
                 </div>
               )}
             </li>

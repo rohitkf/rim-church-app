@@ -16,6 +16,7 @@ import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { usePermissions } from '../lib/usePermissions'
+import { HEAD_ON_PAGE, ON_CARD } from '../lib/stickyHead'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
@@ -665,16 +666,21 @@ export function DepartmentDetailPage() {
                 ))}
               </ul>
 
-              <div className="mt-4 hidden overflow-x-auto @3xl:block">
+              {/* No sideways scroll of its own: the table is only drawn once
+                  the section is wide enough for it, and a box that scrolls
+                  sideways is a box the headings would stick to instead of
+                  the page (lib/stickyHead.ts). On a team of forty, "Contact"
+                  and "Compliance" stay in sight under the app's top strip. */}
+              <div className="mt-4 hidden @3xl:block">
                 <table className="w-full text-left text-body-sm">
                   <thead>
-                    <tr className="border-b border-border-subtle font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
-                      <th className="py-2 pr-4">Member</th>
-                      {seesAges && <th className="whitespace-nowrap py-2 pr-4">Age</th>}
-                      <th className="whitespace-nowrap py-2 pr-4">On this team</th>
-                      {seesContacts && <th className="py-2 pr-4">Contact</th>}
-                      {seesCompliance && <th className="py-2 pr-4">Compliance</th>}
-                      {canManage && <th className="py-2" />}
+                    <tr className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                      <th className={`py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Member</th>
+                      {seesAges && <th className={`whitespace-nowrap py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Age</th>}
+                      <th className={`whitespace-nowrap py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>On this team</th>
+                      {seesContacts && <th className={`py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Contact</th>}
+                      {seesCompliance && <th className={`py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Compliance</th>}
+                      {canManage && <th className={`py-2 ${HEAD_ON_PAGE} ${ON_CARD}`} />}
                     </tr>
                   </thead>
                   <tbody>

@@ -299,6 +299,10 @@ frontend/api/                Vercel functions. register-preview.js answers
                              pages/ClosedPage.tsx is what a closed app shows
                              and pages/BlockedPage.tsx what a blocked
                              account meets
+  lib/stickyHead.ts          the classes that keep a table's column headings
+                             in sight, and when a table scrolls with the
+                             page and when in a box of its own
+                             (`TableScroll`, Surface.tsx)
   lib/rolePermanents.ts      permanent people on a team's role (0282): the
                              reading, the two calls and the words; the
                              panel is components/RolePermanents.tsx, inside
@@ -370,6 +374,16 @@ are separate and neither is automatic — is [SETUP.md](./SETUP.md).
   which the app cannot style — on a dark card it arrives as a white Windows
   list. Use `Select.tsx`.
 - **Every button is a pill, and one primary per screen.**
+- **A table's column headings stay in sight** (`lib/stickyHead.ts`). A
+  heading can only stay put inside the box that scrolls, so a table is one
+  of two things. Never wider than its place on the page (the inventory, a
+  team's members): no `overflow` between it and the page, `HEAD_ON_PAGE`
+  on each `<th>`, and the headings stop under the app's top strip. Might
+  scroll sideways (a grid of roles on a phone): `<TableScroll>` around it
+  and `HEAD_IN_BOX` on each `<th>` — it scrolls inside itself both ways.
+  Either way each `<th>` carries the colour of what the table stands on
+  (`ON_CARD`, `ON_RAISED`), or the rows show through it.
+  `stickyHead.test.tsx` fails on a table with neither.
 - **A standing is called what `lib/roleNames.ts` calls it** — Team Head
   (never "Department Head"), Assisting Head, Team Coordinator, Team
   Member, Church Member. Read `ROLE_NAME` / `ROLE_SHORT`; do not type the
@@ -761,6 +775,15 @@ Each of these has already cost real time. None of them show up in review.
   the name was pushed out past the card (found with a fixture that had
   real names — the sweep's one short assignment fitted). Anything added
   to that row is tested with a long name in the narrow column.
+- **`overflow-x-auto` around a table unpins its headings from the page.**
+  Any `overflow` but `visible` makes a box of its own, and `position:
+  sticky` holds to the nearest such box — which, scrolling only sideways,
+  never moves, so the headings scroll away with the page and nothing
+  fails. And a pinned heading inside a scrolling box needs the box to be
+  its own stack (`isolate`, which `TableScroll` has): without it the
+  headings share the page's stack with the app's top strip and are drawn
+  across the search field as the box passes under it. The onboarding
+  table did that until this was found.
 - **A `SegmentedControl` inside a parent that scrolls sideways must say
   `scrolls`.** Five or more segments share a phone's width and truncate
   (right for "By person"); that rule quietly squeezed the registrations

@@ -482,6 +482,30 @@ export function SegmentedControl<T extends string>({
 }
 
 /* ------------------------------------------------------------------ *
+ * Tables
+ * ------------------------------------------------------------------ */
+
+/**
+ * The box a table scrolls in when it is wider than its card, or might be:
+ * sideways for the columns a phone cannot hold, and up and down inside a
+ * height of its own, so that its column headings can stay at the top
+ * (`HEAD_IN_BOX`, lib/stickyHead.ts — which says when to use this and when
+ * the page itself should scroll the table).
+ *
+ * A table shorter than the box is not changed by it. A sideways drag that
+ * runs out stays in the box (it would otherwise go back a page); an up or
+ * down one carries on into the page, so the box never traps a thumb.
+ *
+ * `isolate`: the pinned headings stand above the rows *inside the box*.
+ * Without it their place in the stack is the page's, level with the app's
+ * top strip, and as the page carried the box up under that strip the
+ * headings were drawn across the search field.
+ */
+export function TableScroll({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`relative isolate max-h-[70svh] overflow-auto overscroll-x-contain ${className}`}>{children}</div>
+}
+
+/* ------------------------------------------------------------------ *
  * Icon badges
  * ------------------------------------------------------------------ */
 

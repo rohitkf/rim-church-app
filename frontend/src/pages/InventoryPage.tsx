@@ -10,6 +10,7 @@ import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
 import { isNoSuchRow } from '../lib/pageErrors'
 import { ActionButton, Card, Eyebrow, Field, PageHeader, Panel, SegmentedControl, inputClasses } from '../components/Surface'
+import { HEAD_ON_PAGE, ON_CARD } from '../lib/stickyHead'
 import { StatusChip } from '../components/SectionPanel'
 import { InventoryHistory } from '../components/InventoryHistory'
 import { ItemQrDialog } from '../components/ItemQrDialog'
@@ -536,12 +537,16 @@ export function InventoryPage() {
             })}
           </ul>
 
-          <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[820px] border-collapse text-left">
+          {/* No sideways scroll of its own: from `lg` the six columns fit,
+              and a box that scrolls sideways is a box the headings would
+              stick to instead of the page (lib/stickyHead.ts). They stay
+              under the app's top strip as the register is scrolled. */}
+          <div className="hidden lg:block">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-black/5 dark:border-white/8">
+                <tr>
                   {picking && canManage && (
-                    <th className="w-10 px-4 py-3">
+                    <th className={`w-10 rounded-tl-[var(--radius-tile)] px-4 py-3 ${HEAD_ON_PAGE} ${ON_CARD}`}>
                       <input
                         type="checkbox"
                         checked={allShownPicked}
@@ -554,7 +559,7 @@ export function InventoryPage() {
                     </th>
                   )}
                   {['Tag', 'Item', 'Status', 'Where / who', 'Value', 'Last checked', ...(canManage || canStock ? [''] : [])].map((h) => (
-                    <th key={h} className="px-4 py-3">
+                    <th key={h} className={`px-4 py-3 first:rounded-tl-[var(--radius-tile)] last:rounded-tr-[var(--radius-tile)] ${HEAD_ON_PAGE} ${ON_CARD}`}>
                       <Eyebrow>{h}</Eyebrow>
                     </th>
                   ))}
