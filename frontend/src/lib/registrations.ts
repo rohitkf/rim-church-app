@@ -715,12 +715,148 @@ export async function syncRegistrationDiary(event: Pick<RegistrationEvent, 'id' 
  * and the event's own cascade reaches those tables before it reaches the
  * orders (0246 made the two links wait until commit, but the order of
  * work here is right whatever the database does).
+ *
+ * Then its files (0287). The rows go by themselves — the messages people
+ * sent with them — but a payment screenshot and the event's picture are
+ * files in storage, which the database cannot remove; left to itself a
+ * deleted event kept every receipt it was ever sent. Which files were
+ * its is read before the rows go, and they are removed after, so an
+ * event that refuses to be deleted keeps its files. Removing them is
+ * best effort here: the event is gone either way, and whatever this
+ * misses `sweepRegistrationFiles` finds later.
  */
 export async function deleteRegistrationEvent(id: string): Promise<void> {
+  const [proofs, event] = await Promise.all([
+    supabase.from('registration_orders').select('proof_path').eq('event_id', id).not('proof_path', 'is', null),
+    supabase.from('registration_events').select('image_path').eq('id', id).maybeSingle(),
+  ])
   const orders = await supabase.from('registration_orders').delete().eq('event_id', id)
   if (orders.error) throw orders.error
   const { error } = await supabase.from('registration_events').delete().eq('id', id)
   if (error) throw error
+  const receipts = (proofs.data ?? []).flatMap((r) => (r.proof_path ? [r.proof_path as string] : []))
+  const picture = event.data?.image_path as string | null | undefined
+  await removeRegistrationFiles([
+    ...receipts.map((name) => ({ bucket: REGISTRATION_PROOFS_BUCKET, name })),
+    ...(picture ? [{ bucket: REGISTRATION_IMAGES_BUCKET, name: picture }] : []),
+  ])
+}
+
+type StoredFile = { bucket: string; name: string }
+
+/** Remove files through the Storage API, a bucket at a time. Never throws: returns how many went. */
+async function removeRegistrationFiles(files: readonly StoredFile[]): Promise<number> {
+  let gone = 0
+  for (const bucket of new Set(files.map((f) => f.bucket))) {
+    const names = files.filter((f) => f.bucket === bucket).map((f) => f.name)
+    try {
+      const { data, error } = await supabase.storage.from(bucket).remove(names)
+      if (!error) gone += data?.length ?? 0
+    } catch {
+      // Left for the sweep.
+    }
+  }
+  return gone
+}
+
+/**
+ * Remove the receipts and pictures that nothing points at any more (0287):
+ * a deleted event's, an anonymised order's, a picture or receipt that was
+ * replaced. The database names them (`registration_orphan_files`, which
+ * answers nothing for somebody who could not remove them, and leaves a
+ * file alone for its first day); this takes them away. Quiet by design —
+ * it is housekeeping run when the Registrations page opens, and a failure
+ * is tried again the next time.
+ */
+export async function sweepRegistrationFiles(): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc('registration_orphan_files')
+    if (error || !Array.isArray(data)) return 0
+    const files = data.flatMap((row: unknown) => {
+      const r = (row ?? {}) as { bucket?: unknown; name?: unknown }
+      return typeof r.bucket === 'string' && typeof r.name === 'string' ? [{ bucket: r.bucket, name: r.name }] : []
+    })
+    return files.length === 0 ? 0 : await removeRegistrationFiles(files)
+  } catch {
+    return 0
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Messages to the organisers (0287)                                    */
+/* ------------------------------------------------------------------ */
+
+export const messageSchema = z.object({
+  id: z.string(),
+  event_id: z.string(),
+  order_id: z.string().nullable(),
+  name: z.string(),
+  email: z.string(),
+  message: z.string(),
+  created_at: z.string(),
+  handled_at: z.string().nullable(),
+  handled_by: z.string().nullable(),
+})
+export type RegistrationMessage = z.infer<typeof messageSchema>
+
+export const MESSAGE_MAX = 2000
+
+/** Why a message was not taken, as the person who wrote it should hear it. */
+export const CONTACT_REFUSALS: Record<string, string> = {
+  not_found: 'This event is no longer taking messages.',
+  name: 'Please give your name.',
+  email: 'That email address doesn’t look right. It should be like name@example.com.',
+  message: `Please write your message, in ${MESSAGE_MAX.toLocaleString('en-GB')} characters or fewer.`,
+  too_many: 'Several messages have just been sent. Please wait a few minutes before sending another.',
+}
+
+/** A refusal the person who wrote the message should read as it is. */
+export class ContactRefused extends Error {}
+
+/**
+ * Send a message to the people running an event, from its public page or
+ * from a ticket. Anybody may; the database checks everything again.
+ * Throws with words for the person when it is refused.
+ */
+export async function sendRegistrationMessage(
+  slug: string,
+  message: { name: string; email: string; message: string; code?: string | null },
+): Promise<void> {
+  const { data, error } = await supabase.rpc('registration_contact', {
+    p_slug: slug,
+    p_name: message.name,
+    p_email: message.email,
+    p_message: message.message,
+    p_code: message.code ?? null,
+  })
+  if (error) throw error
+  const answer = data as { ok?: boolean; reason?: string } | null
+  if (!answer?.ok) throw new ContactRefused(CONTACT_REFUSALS[answer?.reason ?? ''] ?? 'That could not be sent. Please try again.')
+}
+
+/** An event's messages, newest first. */
+export async function fetchRegistrationMessages(eventId: string): Promise<RegistrationMessage[]> {
+  const { data, error } = await supabase
+    .from('registration_messages')
+    .select('id, event_id, order_id, name, email, message, created_at, handled_at, handled_by')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(500)
+  if (error) throw error
+  return z.array(messageSchema).parse(data ?? [])
+}
+
+/** Put a message away as dealt with, or back as waiting. */
+export async function markRegistrationMessage(id: string, handled: boolean): Promise<void> {
+  const { error } = await supabase.rpc('registration_message_mark', { p_message: id, p_handled: handled })
+  if (error) throw error
+}
+
+/** Waiting first, then dealt with; newest first within each. */
+export function sortMessages(messages: readonly RegistrationMessage[]): RegistrationMessage[] {
+  return [...messages].sort(
+    (a, b) => Number(a.handled_at !== null) - Number(b.handled_at !== null) || b.created_at.localeCompare(a.created_at),
+  )
 }
 
 /** The picture's address, for an <img>: the bucket is public. */

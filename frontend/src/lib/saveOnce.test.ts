@@ -477,7 +477,10 @@ describe('the lists', () => {
   it('name the functions the migration made repeat-safe, and no others', () => {
     const ledger = Object.entries(migrations).find(([path]) => path.includes('0286_'))?.[1] ?? ''
     const listed = /p\.proname = any \(array\[([\s\S]*?)\]\)/.exec(ledger)?.[1].match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
-    expect([...listed].sort()).toEqual([...SAVE_ONCE_FUNCTIONS].sort())
+    // A function made since is made repeat-safe by its own migration, by name.
+    const since = [...sql.matchAll(/select public\.make_repeat_safe\('public\.(\w+)\(/g)].map((m) => m[1])
+    expect(since).toContain('registration_contact')
+    expect([...listed, ...since].sort()).toEqual([...SAVE_ONCE_FUNCTIONS].sort())
     expect(ledger).toContain(`(${REQUEST_KEY} uuid%s)`)
   })
 

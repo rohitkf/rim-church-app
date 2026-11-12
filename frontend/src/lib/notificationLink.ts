@@ -48,6 +48,7 @@ export const NOTIFICATION_TYPES = [
   'location_prompt',
   'setup_prompt',
   'registration_sold_out',
+  'registration_message',
   'health_note',
 ] as const
 
@@ -120,6 +121,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // The card itself opens over whichever page they land on (components/SetupPrompt).
   setup_prompt: { label: 'A few things are left to set up in the app', href: '/' },
   registration_sold_out: { label: 'A ticket type has sold out', href: '/registrations' },
+  // One unread line an event, however many wrote (0287); the event's page lists them.
+  registration_message: { label: 'Somebody asked for help with an event', href: '/registrations' },
   // Once a day at most, and only when something new has failed (0284); the line says what.
   health_note: { label: 'Something in the app has failed', href: '/settings/health' },
 }
@@ -158,5 +161,6 @@ export function notificationHref(type: string, referenceId?: string | null): str
   if ((t === 'feedback_received' || t === 'feedback_answered') && referenceId)
     return `/feedback?feedback=${referenceId}`
   if (t === 'registration_sold_out' && referenceId) return `/registrations/${referenceId}`
+  if (t === 'registration_message' && referenceId) return `/registrations/${referenceId}#messages`
   return NOTIFICATIONS[t].href
 }

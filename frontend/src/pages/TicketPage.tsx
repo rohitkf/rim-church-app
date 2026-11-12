@@ -12,6 +12,7 @@ import { EMAIL_WATCH_EVERY_MS, watchesEmail } from '../lib/emailDelivery'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
+import { ContactOrganisers } from '../components/ContactOrganisers'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
 import { paysOnline, registrationSteps, stepNumber } from '../lib/registrationSteps'
@@ -525,6 +526,9 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
           {error}
         </p>
       )}
+
+      {/* Something wrong with this registration? Who it is from goes with the message (0287). */}
+      <ContactOrganisers slug={event.slug} eventTitle={event.title} code={order.code} name={order.name ?? ''} email={order.email ?? ''} className="mt-6" />
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <Link to={`${REGISTER_PATH}/${event.slug}`} className="tap text-label-md text-accent-blue-soft hover:underline">
