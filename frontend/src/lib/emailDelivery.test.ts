@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EMAIL_STATUSES, EMAIL_WATCH_MS, deliveryOf, deliveryWord, emailWantsDoing, looksLikeEmail, suggestEmail, watchesEmail } from './emailDelivery'
+import { EMAIL_STATUSES, EMAIL_WATCH_MS, deliveryOf, deliveryWord, emailWantsDoing, looksLikeEmail, sameEmail, suggestEmail, watchesEmail } from './emailDelivery'
 import migration from '../../../supabase/migrations/0283_an_email_that_bounced_says_so.sql?raw'
 
 /*
@@ -134,5 +134,20 @@ describe('a ticket page waiting to hear about its email', () => {
     expect(watchesEmail(view('waiting', 5_000, null), page(), now)).toBe(false)
     expect(watchesEmail(null, page(), now)).toBe(false)
     expect(watchesEmail(undefined, page(), now)).toBe(false)
+  })
+})
+
+describe('the same address typed twice', () => {
+  it('is the same whatever the capitals, and whatever a keyboard left at the ends', () => {
+    expect(sameEmail('ama@example.org', 'ama@example.org')).toBe(true)
+    expect(sameEmail('Ama@Example.org', 'ama@example.org')).toBe(true)
+    expect(sameEmail(' ama@example.org', 'ama@example.org  ')).toBe(true)
+  })
+
+  it('is not the same for a single letter out, which is the slip it is there to catch', () => {
+    expect(sameEmail('ama@example.org', 'ama@exmaple.org')).toBe(false)
+    expect(sameEmail('ama@example.org', 'ama@example.con')).toBe(false)
+    expect(sameEmail('ama@example.org', 'amaa@example.org')).toBe(false)
+    expect(sameEmail('ama@example.org', '')).toBe(false)
   })
 })

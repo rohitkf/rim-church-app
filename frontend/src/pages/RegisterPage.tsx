@@ -9,7 +9,8 @@ import { PlaceMap } from '../components/PlaceMap'
 import { Countdown } from '../components/Countdown'
 import { PhoneField } from '../components/PhoneField'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
-import { looksLikeEmail } from '../lib/emailDelivery'
+import { looksLikeEmail, sameEmail } from '../lib/emailDelivery'
+import { WarningIcon } from '../components/icons'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
@@ -47,7 +48,27 @@ import {
  * this your email address?", with the address on its own
  * (components/ConfirmEmailDialog). The ticket goes there and nowhere
  * else, and a slip in it was the one mistake the form could not see.
+ *
+ * The address is typed twice (November 2026), and the two have to be the
+ * same before the form will go on: a slip is rarely made the same way
+ * twice. And the button is never greyed out for something missing. It
+ * used to be, with a faint line beneath saying what was needed, which is
+ * a button that does nothing and does not say why. Pressed with something
+ * wrong, it now says what — a list in red by the button, each line a way
+ * to its field, the field itself ringed with the reason under it — and
+ * goes to the first.
  */
+
+/** Where on the form a problem is, so "take me there" can find it. */
+type Spot = 'date' | 'tickets' | 'name' | 'email' | 'emailAgain' | 'phone'
+const spotId = (spot: Spot) => `register-${spot}`
+
+interface Problem {
+  /** One a place, except an amount, which is one a ticket type. */
+  key: string
+  spot: Spot
+  text: string
+}
 
 /** How many of each type is wanted, and any names and donation amounts. */
 interface Wanted {
@@ -81,6 +102,12 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const [wanted, setWanted] = useState<Record<string, Wanted>>({})
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  /** The address a second time. */
+  const [emailAgain, setEmailAgain] = useState('')
+  /** They have been in the second box and left it: from then a difference is said at once. */
+  const [againTouched, setAgainTouched] = useState(false)
+  /** Register was pressed with something wrong: from then every problem is said where it is. */
+  const [tried, setTried] = useState(false)
   /** E.164, once it is a real number; the field keeps the rest to itself. */
   const [phone, setPhone] = useState('')
   const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('empty')
@@ -175,26 +202,81 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
     },
   })
 
-  const problems: string[] = []
-  if (event.date_mode === 'choose' && !dateId) problems.push('Choose a date.')
-  if (totals.quantity === 0) problems.push('Choose at least one ticket.')
-  else if (totals.quantity < event.min_per_order) problems.push(`At least ${event.min_per_order} tickets per order.`)
-  else if (totals.quantity > event.max_per_order) problems.push(`At most ${event.max_per_order} tickets per order.`)
+  // Everything standing between them and registering, in the order it
+  // sits on the page — so the list by the button reads top to bottom and
+  // "the first" is the one highest up.
+  const problems: Problem[] = []
+  if (event.date_mode === 'choose' && !dateId) problems.push({ key: 'date', spot: 'date', text: 'Choose a date.' })
+  if (totals.quantity === 0) problems.push({ key: 'tickets', spot: 'tickets', text: 'Choose at least one ticket.' })
+  else if (totals.quantity < event.min_per_order)
+    problems.push({ key: 'tickets', spot: 'tickets', text: `Choose at least ${event.min_per_order} tickets: an order here takes no fewer.` })
+  else if (totals.quantity > event.max_per_order)
+    problems.push({ key: 'tickets', spot: 'tickets', text: `Choose no more than ${event.max_per_order} tickets: an order here takes no more.` })
   for (const t of event.ticket_types) {
     const w = wanted[t.id]
     if (t.kind === 'donation' && w && w.quantity > 0) {
       const pence = parsePounds(w.donation)
-      if (pence === null) problems.push(`How much for “${t.name}”?`)
-      else if (pence < (t.min_donation_pence ?? 0)) problems.push(`The least for “${t.name}” is ${pounds(t.min_donation_pence ?? 0)}.`)
+      if (pence === null) problems.push({ key: `amount-${t.id}`, spot: 'tickets', text: `Say how much for “${t.name}”.` })
+      else if (pence < (t.min_donation_pence ?? 0))
+        problems.push({ key: `amount-${t.id}`, spot: 'tickets', text: `The least for “${t.name}” is ${pounds(t.min_donation_pence ?? 0)}.` })
     }
   }
-  if (!name.trim()) problems.push('Your name.')
-  if (!looksLikeEmail(email)) problems.push('An email address that looks right.')
-  if (phoneStatus !== 'valid' || !phone) problems.push('A phone number that looks right.')
+  if (!name.trim()) problems.push({ key: 'name', spot: 'name', text: 'Enter your name.' })
+  if (!email.trim()) problems.push({ key: 'email', spot: 'email', text: 'Enter your email address.' })
+  else if (!looksLikeEmail(email))
+    problems.push({ key: 'email', spot: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
+  if (!emailAgain.trim()) problems.push({ key: 'emailAgain', spot: 'emailAgain', text: 'Enter your email address a second time.' })
+  else if (!sameEmail(email, emailAgain))
+    problems.push({ key: 'emailAgain', spot: 'emailAgain', text: 'The two email addresses are different. They have to be the same.' })
+  if (phoneStatus !== 'valid' || !phone)
+    problems.push({ key: 'phone', spot: 'phone', text: phoneStatus === 'invalid' ? 'That phone number doesn’t look right.' : 'Enter your phone number.' })
+
+  // Two addresses that differ are said as soon as the second box is left:
+  // that one is a slip being made now, not a blank they have yet to reach.
+  const differNow = againTouched && !!email.trim() && !!emailAgain.trim() && !sameEmail(email, emailAgain)
+  /** The problem at a place, once it is time to say it. */
+  const shown = (key: string): Problem | null => {
+    const problem = problems.find((p) => p.key === key)
+    if (!problem) return null
+    return tried || (key === 'emailAgain' && differNow) ? problem : null
+  }
+  const errorId = (key: string) => `register-${key}-error`
+  const say = (key: string) => {
+    const problem = shown(key)
+    return problem ? (
+      <p id={errorId(key)} className="text-body-sm font-medium text-error">
+        {problem.text}
+      </p>
+    ) : null
+  }
+  /** For the control itself: ringed, marked wrong, and pointing at the words. */
+  const ring = (key: string) => (shown(key) ? 'field-error' : '')
+  const marked = (key: string) => (shown(key) ? { 'aria-invalid': true as const, 'aria-describedby': errorId(key) } : {})
+  const emailsAgree = !!emailAgain.trim() && looksLikeEmail(email) && sameEmail(email, emailAgain)
+
+  /** Bring a part of the form into view and put the cursor in it. */
+  const goTo = (spot: Spot) => {
+    const place = document.getElementById(spotId(spot))
+    if (!place) return
+    // Guarded: jsdom has no scrollIntoView.
+    if (typeof place.scrollIntoView === 'function') place.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    // A box to type in before anything else there (the phone's country, a ticket's minus).
+    const control =
+      place.querySelector<HTMLElement>('input:not([type="radio"])') ??
+      place.querySelector<HTMLElement>('input, button:not(:disabled)')
+    control?.focus({ preventScroll: true })
+  }
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (problems.length > 0 || !event.open) return
+    if (!event.open || soldOut) return
+    if (problems.length > 0) {
+      // On a phone the thing that is wrong is nearly always off the screen,
+      // and a button that does nothing visible is what leaves people stuck.
+      setTried(true)
+      goTo(problems[0].spot)
+      return
+    }
     // Not yet: first the address, shown back on its own (0283).
     setError(null)
     setConfirming(true)
@@ -298,7 +380,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
           {event.date_mode === 'choose' && (
             <FieldGroup label="Which date">
-              <div role="radiogroup" aria-label="Which date" className="flex flex-col gap-1.5">
+              {say('date')}
+              <div id={spotId('date')} role="radiogroup" aria-label="Which date" className="flex flex-col gap-1.5" {...marked('date')}>
                 {event.dates.map((d) => (
                   <label key={d.id} className={`flex items-center gap-2 text-body-sm ${d.open ? 'text-on-surface' : 'text-on-surface-faint'}`}>
                     <input
@@ -319,7 +402,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           )}
 
           <FieldGroup label="Tickets">
-            <ul className="flex flex-col gap-3">
+            {say('tickets')}
+            <ul id={spotId('tickets')} className="flex flex-col gap-3">
               {event.ticket_types.map((t) => {
                 const left = remaining(t)
                 const w = wanted[t.id] ?? { quantity: 0, names: [], donation: '' }
@@ -363,15 +447,19 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                       </div>
                     </div>
                     {w.quantity > 0 && t.kind === 'donation' && (
-                      <Field label={`How much for ${t.name}, each`} className="mt-3">
-                        <input
-                          value={w.donation}
-                          onChange={(e) => setWanted((all) => ({ ...all, [t.id]: { ...w, donation: e.target.value } }))}
-                          inputMode="decimal"
-                          placeholder={t.min_donation_pence ? (t.min_donation_pence / 100).toFixed(2) : '10.00'}
-                          className={inputClasses}
-                        />
-                      </Field>
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        <Field label={`How much for ${t.name}, each`}>
+                          <input
+                            value={w.donation}
+                            onChange={(e) => setWanted((all) => ({ ...all, [t.id]: { ...w, donation: e.target.value } }))}
+                            inputMode="decimal"
+                            placeholder={t.min_donation_pence ? (t.min_donation_pence / 100).toFixed(2) : '10.00'}
+                            className={`${inputClasses} ${ring(`amount-${t.id}`)}`}
+                            {...marked(`amount-${t.id}`)}
+                          />
+                        </Field>
+                        {say(`amount-${t.id}`)}
+                      </div>
                     )}
                     {w.quantity > 1 && (
                       <div className="mt-3 flex flex-col gap-2">
@@ -408,13 +496,76 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           </FieldGroup>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Your name" className="sm:col-span-2">
-              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={120} className={inputClasses} />
-            </Field>
-            <Field label="Email">
-              <input ref={emailField} value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
-            </Field>
-            <PhoneField value={phone} onChange={setPhone} onStatus={setPhoneStatus} label="Phone" eyebrow />
+            {/* Each reason sits outside its field's <label>: inside, it would become part of the field's name. */}
+            <div id={spotId('name')} className="flex flex-col gap-1.5 sm:col-span-2">
+              <Field label="Your name">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  maxLength={120}
+                  className={`${inputClasses} ${ring('name')}`}
+                  {...marked('name')}
+                />
+              </Field>
+              {say('name')}
+            </div>
+            <div id={spotId('email')} className="flex flex-col gap-1.5">
+              <Field label="Email">
+                <input
+                  ref={emailField}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="off"
+                  maxLength={254}
+                  className={`${inputClasses} ${ring('email')}`}
+                  {...marked('email')}
+                />
+              </Field>
+              {say('email') ?? <p className="text-label-md text-on-surface-faint">Your ticket is sent here.</p>}
+            </div>
+            <div id={spotId('emailAgain')} className="flex flex-col gap-1.5">
+              <Field label="Confirm email">
+                {/* Typed, not filled in for them: the point is a second go at it. Pasting is left alone —
+                    stopping it only annoys, and the address is shown back once more before anything is sent. */}
+                <input
+                  value={emailAgain}
+                  onChange={(e) => setEmailAgain(e.target.value)}
+                  onBlur={() => setAgainTouched(true)}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  maxLength={254}
+                  className={`${inputClasses} ${ring('emailAgain')}`}
+                  {...marked('emailAgain')}
+                />
+              </Field>
+              {say('emailAgain') ??
+                (emailsAgree ? (
+                  <p className="text-label-md text-accent-green-soft">The same as the one above.</p>
+                ) : (
+                  <p className="text-label-md text-on-surface-faint">Type it again, so a slip in either shows.</p>
+                ))}
+            </div>
+            <div id={spotId('phone')} className="flex flex-col gap-1.5 sm:col-span-2">
+              <PhoneField
+                value={phone}
+                onChange={setPhone}
+                onStatus={setPhoneStatus}
+                label="Phone"
+                eyebrow
+                showError={tried}
+                inputClassName={ring('phone')}
+              />
+              {/* A number typed wrong is said by the field itself; a blank one is said here. */}
+              {phoneStatus !== 'invalid' && say('phone')}
+            </div>
           </div>
 
           {/* Nobody sees this box; a bot that fills it in registers nothing. */}
@@ -490,14 +641,39 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             return <Steps steps={view.steps} caption={view.caption} label="What happens next" />
           })()}
 
-          <div className="flex flex-col gap-2">
-            <ActionButton type="submit" disabled={register.isPending || problems.length > 0 || !event.open || soldOut}>
-              {register.isPending ? 'Registering…' : registerLabel}
-            </ActionButton>
-            {problems.length > 0 && totals.quantity > 0 && (
-              <p className="text-label-md text-on-surface-faint">Still needed: {problems.join(' ')}</p>
-            )}
-          </div>
+          {/* What is wrong, by name, each a way back to it. It is here, by
+              the button, because that is where they are looking when they
+              press it; the page has also gone to the first. */}
+          {tried && problems.length > 0 && (
+            <div
+              role="alert"
+              aria-label="What to put right"
+              className="flex gap-3 rounded-[var(--radius-card)] bg-error-container p-4 text-on-error-container"
+            >
+              <WarningIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-body-md font-semibold">
+                  {problems.length === 1
+                    ? 'One thing to put right before you can register'
+                    : `${problems.length} things to put right before you can register`}
+                </p>
+                <ul className="mt-2 flex flex-col gap-1.5 text-body-sm">
+                  {problems.map((p) => (
+                    <li key={p.key}>
+                      <button type="button" onClick={() => goTo(p.spot)} className="text-left font-medium underline underline-offset-2">
+                        {p.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Never greyed out for something missing: pressed, it says what. */}
+          <ActionButton type="submit" disabled={register.isPending || !event.open || soldOut}>
+            {register.isPending ? 'Registering…' : registerLabel}
+          </ActionButton>
         </form>
       )}
 
@@ -508,7 +684,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           busy={register.isPending}
           onConfirm={() => register.mutate()}
           onChange={changeEmail}
-          onUse={setEmail}
+          // The spelling offered is taken for both boxes: it is one address.
+          onUse={(next) => {
+            setEmail(next)
+            setEmailAgain(next)
+          }}
         />
       )}
 
@@ -523,6 +703,8 @@ function TicketAgain({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [said, setSaid] = useState<string | null>(null)
+  /** Send was pressed with an address that cannot be one. */
+  const [wrong, setWrong] = useState(false)
   const send = useMutation({
     mutationFn: () => resendTickets(slug, email),
     onSuccess: (result) =>
@@ -547,7 +729,13 @@ function TicketAgain({ slug }: { slug: string }) {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        if (looksLikeEmail(email)) send.mutate()
+        // Said, not swallowed: the button used to do nothing at all for an address with a slip in it.
+        if (!looksLikeEmail(email)) {
+          setWrong(true)
+          setSaid(null)
+          return
+        }
+        send.mutate()
       }}
       aria-label="Get your ticket again"
       className="mt-8 rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline"
@@ -556,12 +744,30 @@ function TicketAgain({ slug }: { slug: string }) {
       <p className="mt-1 text-body-sm text-on-surface-variant">The email address you registered with. Your ticket link goes there and nowhere else.</p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <Field label="Email" className="min-w-0 flex-1">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" autoCapitalize="off" maxLength={254} className={inputClasses} />
+          <input
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              setWrong(false)
+            }}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="off"
+            maxLength={254}
+            className={`${inputClasses} ${wrong ? 'field-error' : ''}`}
+            {...(wrong ? { 'aria-invalid': true as const, 'aria-describedby': 'ticket-again-error' } : {})}
+          />
         </Field>
         <ActionButton type="submit" tone="quiet" disabled={send.isPending || !email.trim()}>
           {send.isPending ? 'Sending…' : 'Send my ticket'}
         </ActionButton>
       </div>
+      {wrong && (
+        <p id="ticket-again-error" role="alert" className="mt-3 text-body-sm font-medium text-error">
+          That email address doesn’t look right. It should be like name@example.com.
+        </p>
+      )}
       {said && (
         <p role="status" className="mt-3 text-body-sm text-on-surface-variant">
           {said}
