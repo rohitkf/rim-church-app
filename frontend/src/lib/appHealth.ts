@@ -71,8 +71,30 @@ export const healthOverviewSchema = z.object({
   pushes: z.object({ asked: z.number(), answered: z.number(), failed: z.number(), hours: z.number() }),
   database: z.object({ bytes: z.number(), connections: z.number(), connections_max: z.number() }),
   errors: z.object({ day: z.number(), kept: z.number() }),
+  // Which migration the database has reached, by its own ledger (0285). A
+  // database from before that has no ledger to read, and says nothing.
+  schema: z
+    .object({ version: z.number(), recorded: z.number(), latest: z.string().nullable(), latest_at: z.string().nullable() })
+    .nullable()
+    .catch(null)
+    .default(null),
 })
 export type HealthOverview = z.infer<typeof healthOverviewSchema>
+
+/**
+ * What the ledger says, in a sentence, against the migration this build
+ * needs. Behind is the one that matters; ahead is the ordinary state
+ * between releases, because the database always goes first.
+ */
+export function ledgerWords(schema: HealthOverview['schema'], needs: number): { tone: 'green' | 'orange'; words: string } | null {
+  if (!schema) return null
+  const gaps = schema.recorded > schema.version ? ` ${schema.recorded - schema.version} recorded after a gap do not count.` : ''
+  if (schema.version < needs) {
+    return { tone: 'orange', words: `The database is at migration ${schema.version}; this version of the app needs ${needs}. Anything new will not work until the rest are applied.${gaps}` }
+  }
+  const ahead = schema.version > needs ? `, ${schema.version - needs} ahead of what this version of the app needs` : ', which is what this version of the app needs'
+  return { tone: gaps ? 'orange' : 'green', words: `The database is at migration ${schema.version}${ahead}.${gaps}` }
+}
 
 const ERROR_COLUMNS =
   'id, created_at, last_at, times, user_id, source, message, stack, page, build, device, installed, reporter:profiles!client_errors_user_id_fkey(first_name, last_name)'

@@ -16,7 +16,9 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
 import { STANDING_KEY, isTurnedAway } from './lib/standing'
-import { reportError } from './lib/clientErrors'
+import { isDatabaseFault, reportError } from './lib/clientErrors'
+import { DATABASE_VERSION_KEY } from './lib/databaseVersion'
+import { DatabaseGate } from './components/DatabaseGate'
 import { ConfigErrorPage } from './pages/ConfigErrorPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -51,6 +53,16 @@ function askStandingAgain() {
   void queryClient.invalidateQueries({ queryKey: STANDING_KEY })
 }
 
+/**
+ * The database said something the app asked for does not exist. That is
+ * what a release half out looks like, so ask which migration the database
+ * has reached (lib/databaseVersion, 0285): if it is behind this build,
+ * the page that says "being updated" takes over from the red line.
+ */
+function askDatabaseVersionAgain(error: unknown) {
+  if (isDatabaseFault(error)) void queryClient.invalidateQueries({ queryKey: DATABASE_VERSION_KEY })
+}
+
 const queryClient: QueryClient = new QueryClient({
   // Every read in the app comes through here, which makes it the one place
   // that sees a session the database has stopped accepting. Somebody
@@ -68,6 +80,7 @@ const queryClient: QueryClient = new QueryClient({
       // the church (0284). No signal and "not found" are not: the page
       // already says those, and reportError judges which is which.
       void reportError('query', error)
+      askDatabaseVersionAgain(error)
     },
   }),
   // A write refused for the same reason: somebody pressing Save a minute
@@ -78,6 +91,7 @@ const queryClient: QueryClient = new QueryClient({
       // A save the database rightly refused is its job done; one that
       // failed because the two disagree about what exists is reported.
       void reportError('save', error)
+      askDatabaseVersionAgain(error)
     },
   }),
   defaultOptions: {
@@ -239,7 +253,12 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RouterProvider router={router} />
+          {/* While the database is behind this build, the page that says
+              the app is being updated stands in for all of it — the
+              sign-in and registration pages included (DatabaseGate). */}
+          <DatabaseGate>
+            <RouterProvider router={router} />
+          </DatabaseGate>
           {/* Above the router rather than inside the shell: a build that
               has gone stale is stale on the sign-in page too, and this is
               the one thing in the app that outranks whatever route you

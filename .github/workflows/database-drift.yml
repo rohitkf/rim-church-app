@@ -1,0 +1,108 @@
+# Does production have the migrations the repository says it has?
+#
+# Migrations here are applied to production by hand, after a local run and
+# a dry run. That is careful, and until November 2026 it left nothing that
+# said which were applied but the objects themselves. Since 0285 the
+# database keeps its own ledger — number, name, checksum of the file that
+# was applied — and every migration writes its own row.
+#
+# Once a week this holds that ledger against the files on main
+# (scripts/migration-ledger.mjs check) and against the number the app on
+# main needs. It tells the Owner, in one issue that closes itself, when:
+#   a migration on main is not in production's ledger (a release ahead of
+#     its database — CI's `database` job should have stopped it);
+#   production has one that main does not (applied from a branch that was
+#     never released, or by hand);
+#   a file is not the one that was applied (a shipped migration edited).
+#
+# What it cannot see: a change made to production outside any migration —
+# a column added in the dashboard. That needs the schema itself read from
+# the database, which needs the database's password; this uses only what
+# anybody may read.
+
+name: Database drift
+
+on:
+  schedule:
+    # Tuesday morning: after Monday's dependency round, before the midweek.
+    - cron: '41 5 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: database-drift
+  cancel-in-progress: true
+
+env:
+  SITE: https://rim-church-app.vercel.app
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Hold production's ledger against the repository
+        id: compare
+        run: |
+          # Could not look is not "differs": say so, and leave last week's answer standing.
+          code=$(curl -sS --max-time 30 -o ledger.json -w '%{http_code}' "$SITE/api/ledger" 2>/dev/null || true)
+          if [ "$code" != 200 ]; then
+            echo "state=unknown" >> "$GITHUB_OUTPUT"
+            echo "::warning::Production's ledger could not be read ($SITE/api/ledger answered ${code:-nothing}); nothing is concluded this week."
+            exit 0
+          fi
+          set +e
+          node scripts/migration-ledger.mjs check ledger.json > said.txt 2>&1
+          differs=$?
+          set -e
+          cat said.txt
+          needs=$(sed -n 's/^export const SCHEMA_NEEDS = \([0-9][0-9]*\)$/\1/p' frontend/src/lib/schemaNeeds.ts)
+          has=$(curl -sS --max-time 25 "$SITE/api/health" 2>/dev/null | sed -n 's/.*"schema":\([0-9][0-9]*\)[,}].*/\1/p')
+          if [ -n "$has" ] && [ -n "$needs" ] && [ "$has" -lt "$needs" ]; then
+            echo "Production is at migration $has; the app on main needs $needs." >> said.txt
+            differs=1
+          fi
+          if [ "$differs" = 0 ]; then
+            echo "state=right" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=wrong" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo 'said<<RIM_END'
+            head -n 40 said.txt
+            echo 'RIM_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tell the Owner
+        if: steps.compare.outputs.state == 'wrong' || steps.compare.outputs.state == 'right'
+        uses: ./.github/actions/tell-owner
+        with:
+          key: database-drift
+          state: ${{ steps.compare.outputs.state }}
+          title: Production's database and the repository disagree about migrations
+          body: |
+            The weekly comparison of production's ledger (`schema_migrations`, 0285) with the migration files on `main` found:
+
+            ```
+            ${{ steps.compare.outputs.said }}
+            ```
+
+            **What each means**
+            - *in the repository, not in the database's ledger*: a migration on `main` has not been applied to production. Apply it (AGENTS.md §7) — the app may already need it.
+            - *in the database's ledger, not in the repository*: production has a migration `main` does not. It was applied from work that was never released; release it, or write the migration that undoes it.
+            - *the file is not the one that was applied*: a migration was edited after it shipped. Put the file back as it was and make the change in a new migration.
+
+            This issue closes itself the next time they agree.
+          resolved: Production's ledger and the migrations on main agree again.
+
+      - name: Fail the run when they differ
+        if: steps.compare.outputs.state == 'wrong'
+        run: exit 1

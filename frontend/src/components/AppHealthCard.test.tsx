@@ -42,6 +42,7 @@ const well: HealthOverview = {
   pushes: { asked: 12, answered: 12, failed: 0, hours: 6 },
   database: { bytes: 37 * 1024 ** 2, connections: 28, connections_max: 60 },
   errors: { day: 0, kept: 0 },
+  schema: { version: 285, recorded: 285, latest: '0285_the_database_says_which_migrations_it_has', latest_at: null },
 }
 
 const report = (over: Partial<ClientError>): ClientError => ({
@@ -117,6 +118,27 @@ describe('when nothing has gone wrong', () => {
     await userEvent.click(screen.getByRole('button', { name: /Timed jobs/ }))
     expect(await screen.findByText('clock-in-reminders')).toBeInTheDocument()
     expect(screen.getByText(`${(1440).toLocaleString()} runs, none failed`)).toBeInTheDocument()
+  })
+})
+
+describe('the database’s own record of its migrations (0285)', () => {
+  it('says where the database is against what this version of the app needs', async () => {
+    show()
+    expect(await screen.findByText(/The database is at migration 285/)).toBeInTheDocument()
+    expect(screen.getByText('0285_the_database_says_which_migrations_it_has')).toBeInTheDocument()
+  })
+
+  it('warns when the database is behind the app', async () => {
+    overview.mockResolvedValue({ ...well, schema: { version: 200, recorded: 200, latest: '0200_x', latest_at: null } })
+    show()
+    expect(await screen.findByText(/The database is at migration 200; this version of the app needs \d+\. Anything new will not work/)).toBeInTheDocument()
+  })
+
+  it('says nothing about it for a database that keeps no such record', async () => {
+    overview.mockResolvedValue({ ...well, schema: null })
+    show()
+    await screen.findByText('37 MB')
+    expect(screen.queryByText(/The database is at migration/)).not.toBeInTheDocument()
   })
 })
 

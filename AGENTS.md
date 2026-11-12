@@ -68,7 +68,12 @@ runs), and four only when their own files (or CI itself) change —
 `backend`, `docker`, `dependencies` (`npm audit --audit-level=high`, when
 `package.json` or the lockfile moves) and `functions` (`deno check` on
 every edge function, when one changes). `changes` works that out, and a
-skipped job counts as green for auto-merge. Keep the job names:
+skipped job counts as green for auto-merge. On a pull request into `main`
+only, `database` asks production which migration it has reached
+(`/api/health`) and **fails when the release needs a later one**
+(`SCHEMA_NEEDS`): apply the migration, then re-run that job, and the
+pull request merges. It passes with a warning when production cannot be
+asked — a production that is down must not hold up its own fix. Keep the job names:
 auto-merge and any required check read them. A newer push cancels the
 older run of the same event and ref.
 
@@ -129,6 +134,7 @@ the thing most likely to waste your time:
 | `registration_order_undos` (0281) | **Undo** on a registration: the registration as it was before the last thing somebody working registrations did to it (payment, check-in, cancellation, refund and the bank details it deleted, verification, a note; a walk-in's memory is "it was not there"). One row a registration, written by a trigger on `registration_orders`, so every way of changing one is covered without being taught; no grants and no policy, so nothing reads it but `registration_order_undo(p_id)`, which puts exactly that back. **Only whoever did it, within ten minutes, and never over somebody else's change** — the function compares the registration with what the change left and refuses in words the page shows. One transaction is one undo, which is why "Paid now, check in" is one call (`registration_order_pay_and_check_in`). A change by somebody who is not working registrations (the attendee uploading a receipt) wipes the memory. `registration_undos_expire()` clears old ones every five minutes. The app's half is `lib/registrationUndo.ts`: `offerUndo` says what was done in a toast with **Undo** on it (`lib/toast.ts` takes one action), holds back any email to the attendee until the offer has passed (ten seconds; sent at once if the page is leaving, dropped if undone), and remembers it so the registration's own row offers Undo for the ten minutes — its menu on the event's page, a line under it at Reception. An event's status (Close registration, Reopen) is undone by writing the status it had, not by this |
 | `registration_orders.email_status` and beside it (0283) | **what became of a registration's email**: `email_ref` (the reference its latest email was sent with), `email_status` (`sent`, `delayed`, `delivered`, `complained`, `bounced`, `suppressed` — held back because the address bounced before — or `failed`; null is none sent, or sent before this was kept), `email_status_at`, `email_status_detail` (the mail server's own words for a bounce). `supabase/functions/registration-email` gives every email a reference, writes it on the email's orders **before** sending (`registration_email_begin`), sends it to Resend as the tag `rim_ref`, then stamps or says why not (`registration_email_end`); Resend calls `supabase/functions/registration-email-status` — a **webhook**, `verify_jwt` off, every call checked against `RESEND_WEBHOOK_SECRET` with Svix's HMAC (`news.ts`, which the app's tests run) — and `registration_email_event(ref, status, at, detail)` moves the orders forward only (a late `sent` never undoes `delivered`; a bounce is the last word). All three are `service_role`'s alone. An order keeps the story of its *latest* email for the address it *now* holds. The address is put right two ways, both through `registration_email_replace` (old address and its story into `email_before`, everything about the new one blank, `email_sent_at` cleared so the quiet ten minutes do not hold the ticket back): the church's `registration_order_set_email(order, address)` — its own right, **`reg.email`** ("Correct email addresses"), which `reg.manage` includes, **the one registrations right an Admin has out of the box**, and one that opens /registrations (`registration_can(uid, 'email')`, and in `'office'` and `'work'`) — and the attendee's `registration_order_fix_email(code, address)` from the ticket page, **only after a bounce** and three times at most (`email_fixes`). `registration_order_view` tells the ticket page `email_state` (`none`, `waiting`, `delivered`, `bounced`; `failed` reads as `none` — a quota is not their typing) and `email_can_fix`. The church's change is undone like any other press: `registration_order_state` lists `email`, and `registration_order_undo` puts the address back with its story. The edge function's `{kind:'again', code}` is the ticket as it stands once more, for a signed-in caller who may `email`, not held to the quiet period. `lib/emailDelivery.ts` (`deliveryOf`, `emailWantsDoing`, `suggestEmail`, `watchesEmail`), `OrderEmailDialog` on the event's page, `TicketEmailFix` on the ticket, `ConfirmEmailDialog` on the register page |
 | `client_errors`, `health_events`, `health_overview()`, `health()` (0284) | **what has gone wrong, and telling somebody.** `client_errors` is what broke on a person's device: message, stack, page, build, device, person. Written only by `report_client_error(source, message, stack, page, build, device, installed)` — no insert policy, and `anon` may call it, because a registration page can break too — which answers a short reference (the first eight of the row's id) that the broken page shows, or null when the report was not kept. Four limits stand between a loop and a full disk: a person 20 new rows an hour, the visitors together 30, a day 500, the table 5,000; the same thing again from the same person on the same page and build within the hour is counted on its row (`times`), not written again. The page is cut to its path and a ticket's code blanked, in the app (`scrubPage`) and again in the function. The app's half is `lib/clientErrors.ts`: `reportError(source, error)` **never throws and judges first** (`worthReporting`) — no signal, a tab a release behind, an account turned away, a missing row and a save the database rightly refused are not news; a page that threw, a read the database could not answer because the app asked for what does not exist (`isDatabaseFault`: PGRST2xx, 42883, 42703, 42P01, a timeout, no connections), an answer a schema refused (ZodError) and a refused *read* are. Called from the two error nets (`RouteErrorPage`, `ErrorBoundary`), the window's `error` and `unhandledrejection` (`installErrorReporting`, first thing in `main.tsx`) and both query caches in `App.tsx`. `health_events` is a timed job that failed or a push (or other call) the database could not make: the platform keeps its own record a day (`cron.job_run_details`) or six hours (`net._http_response`), so `health_collect()` copies the failures hourly. `health_daily_note()` (07:05 UTC) puts **one line in the bell** — type `health_note`, so it buzzes the phone — of everybody `health_watchers()` names, only when something new has failed: errors count as their *kinds* and only ones not told about before. Read in Settings › App Health by whoever holds **`settings.health`** (the Owner alone out of the box), who may also put rows away; both tables clear after thirty days. `health()` is one cheap question `anon` may ask, for the check outside: `frontend/api/health.js` answers `/api/health` 200 only when the database said yes, and `.github/workflows/uptime.yml` asks it and the site on a timer and opens an issue when either is a no. `lib/appHealth.ts` (the reads, `groupErrors`), `components/AppHealthCard.tsx` |
+| `schema_migrations`, `migration_done()`, `schema_version()`, `schema_ledger()` (0285) | **which migrations this database has.** The app's own ledger, not the platform's (`supabase_migrations.schema_migrations` had 163 rows for 284 files, in two numberings, because migrations go through the Management API and not the tool that keeps it). One row a migration: number, name, the checksum of the file that was applied, and when (blank for the 284 recorded after the fact by 0285 itself). Written only by `migration_done(version, name, checksum)`, the last line of every migration from 0285 on; no grants on the table and none on that function. `schema_version()` is the one number — the highest N for which 1..N are all recorded, so a gap stops the count — and `health()` carries it as `schema`; both, and `schema_ledger()` (the rows), are open to `anon`, because every word is already public in the repository. Three things read the number against **`SCHEMA_NEEDS`** (`frontend/src/lib/schemaNeeds.ts`, held to the newest migration by a test): the app, which puts `pages/UpdatingPage` in place of everything while the database is clearly behind (`lib/databaseVersion`, `components/DatabaseGate` around the router — never on a question that could not be asked, and with "Open the app anyway" after 45 seconds, because it is a courtesy, not a lock); CI's `database` job, which will not let a release merge ahead of production; and Settings › App Health. `.github/workflows/database-drift.yml` holds production's ledger (`/api/ledger`) against the files on `main` weekly, with `scripts/migration-ledger.mjs check` |
 | `department_role_permanents` (0282) | a **permanent person** on a role: this person holds this role as a matter of course, at every service or at one kind (`service_type`, null for every). Not a second way of reading the rota — the database puts them on it as an ordinary `rota_assignments` row (marked by `permanent_id`), so checklists, call times, clock-in and "my rota" need teaching nothing. They are put on when a service is made (a trigger on `services`, so the planner and the overnight series are both covered) and, on every service still to come, when they are made permanent. Never where they have said "can't serve", never over a role they already hold there (the older arrangement wins), never on a finished service or a past day. **It is a default and gives way**: taken off one service by hand they stay off it, and nothing puts them back. Ending it (removed, the role deleted, the person leaving the team) takes them off the services to come that it put them on and leaves the past as the record. Written only by `set_role_permanent(role, person, service_type)` and `remove_role_permanent(role, person)`, which answer how many services changed; whoever holds `rota.assign` for the team, and for the Team Coordinator's role an Admin, the Head or Assisting Head. On the team's page under each role (`components/RolePermanents.tsx`, `lib/rolePermanents.ts`), and as an optional person on the new-role form; a pin beside the role on the Team Rota |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
@@ -304,7 +310,11 @@ frontend/api/                Vercel functions. register-preview.js answers
                              health.js answers /api/health: 200 when the
                              database's public API said yes to health()
                              (0284), 503 when it did not — what the uptime
-                             workflow and any outside monitor ask.
+                             workflow and any outside monitor ask — and
+                             which migration the database has reached
+                             (0285), which CI reads before a release.
+                             ledger.js answers /api/ledger: the database's
+                             record of its migrations, for the weekly check.
                              manifest.js answers /manifest.webmanifest and
                              app-icon.js answers /app-icon/<set>/<file>.png:
                              the installed app's icon is the App Logo (see
@@ -373,6 +383,11 @@ frontend/api/                Vercel functions. register-preview.js answers
                              router. components/QueryState.tsx is every
                              read's loading / failed / empty, and a detail
                              page's "not found" (`missing`)
+  lib/schemaNeeds.ts         the migration this build needs (SCHEMA_NEEDS) — a
+                             new migration moves it; lib/databaseVersion.ts
+                             asks the database which it has reached, and
+                             components/DatabaseGate.tsx shows
+                             pages/UpdatingPage.tsx while it is behind (0285)
   lib/clientErrors.ts        telling the church something broke on a device
                              (0284): which failures are news, what is said
                              of one, what never leaves the device, and the
@@ -397,11 +412,17 @@ supabase/functions/          edge functions (push-notify, invite, clock-in-addre
                              — Resend's webhook, the only one with verify_jwt
                              off; its news.ts is run by the app's tests)
 build/swBuildId.ts           stamps the commit into sw.js at build time
+scripts/migration-ledger.mjs the migrations as the database's ledger knows
+                             them (0285): `line <file>` prints the last line
+                             a new migration ends with, `check <json>` holds
+                             a ledger read from a database against the files
 .github/workflows/           ci.yml (§2), auto-merge.yml (develop into main
                              on green, and nothing else into main),
                              dependency-audit.yml (weekly, opens an issue),
                              uptime.yml (asks the site and /api/health on a
-                             timer, opens an issue when either stops);
+                             timer, opens an issue when either stops),
+                             database-drift.yml (weekly: production's ledger
+                             against the migrations on main);
                              .github/dependabot.yml proposes updates into
                              develop; .github/actions/tell-owner is how a
                              workflow tells the Owner (one issue a problem)
@@ -486,7 +507,24 @@ them to be the church's to give, and they are rows now. Only handing over
 ownership is not: it is the Owner's own to give.
 
 - Add `supabase/migrations/00NN_a_sentence_about_it.sql`. **Never edit a
-  migration that has shipped.**
+  migration that has shipped.** Since 0285 both halves of that are held by
+  a test (`migrationLedger.test.ts`), because the database keeps its own
+  ledger (`schema_migrations`) and every migration writes its own row:
+  - **Its last line records it**: `select public.migration_done(286,
+    '0286_its_name', '<checksum>');` — the checksum is of everything above
+    that line. Write the migration, then
+    `node scripts/migration-ledger.mjs line supabase/migrations/0286_….sql >> `
+    the same file; change the file afterwards and the line is wrong, so
+    delete it and run that again. Nothing else to remember: wherever the
+    file is run, the ledger gets its row in the same transaction.
+  - **Move `SCHEMA_NEEDS`** in `frontend/src/lib/schemaNeeds.ts` to the new
+    number. The app is built knowing the migration it needs, and says
+    "being updated" while the database is behind it.
+  - A migration that must wait until the release is live (§7, trap 3) is
+    named in `SCHEMA_WAITS` instead, and `SCHEMA_NEEDS` stays one below it.
+  - **Keep each migration compatible with the app already in production**:
+    add first, take away a release later. The database always goes first,
+    so for a while the old app runs on the new database.
 - **A right for one person, or for a team's people, is a grant** in
   `permission_grants` (0208), which `may()` already reads — not a new list
   of teams and people kept in a room. Four rooms grew such lists before
@@ -553,7 +591,10 @@ skipped. How each is done safely:
   3. *Apply*, then check the result with a query (the new columns,
      functions, grants), then `notify pgrst, 'reload schema';` — a new
      table answers *"Could not find the table … in the schema cache"*
-     until the API reloads.
+     until the API reloads. `select public.schema_version()` should now
+     say the migration's number: the file recorded itself (0285). If it
+     says less, a migration before it is missing — the count stops at a
+     gap — and CI's `database` job will hold the release until it is not.
   SQL reaches production through the Management API
   (`POST /v1/projects/{ref}/database/query` with `SUPABASE_ACCESS_TOKEN`);
   never print the token.
@@ -800,6 +841,21 @@ Each of these has already cost real time. None of them show up in review.
   file's text (`…?raw`) or find it by pattern (`import.meta.glob`), both
   only strings to the type check; `outsideFrontend.test.ts` refuses the
   other kind.
+- **The page that says "being updated" must only ever be shown on a clear
+  answer** (0285). `databaseIsBehind` is true for a whole number below
+  `SCHEMA_NEEDS` and for nothing else; a database that cannot be asked, an
+  answer with no number, an old database — each opens the app. Loosen
+  that and a flaky connection locks a church out of its own app. For the
+  same reason the page offers "Open the app anyway" after 45 seconds: if
+  the number were ever wrong (a migration applied over a gap does not
+  count, by design), people are not kept out by it. And **`SCHEMA_NEEDS`
+  set ahead of what is applied closes the app for everybody** the moment
+  the release is live — CI's `database` job is what stops that; do not
+  merge past it by hand.
+- **A migration's last line is its checksum, and the file must not change
+  after it is written.** `migrationLedger.test.ts` fails with the command
+  to run. If the migration has not shipped, regenerate the line; if it
+  has, the test is telling you the truth — put the file back.
 - **Reporting an error must never be the error** (0284).
   `reportError` swallows everything, is awaited by nothing, and holds its
   tongue after twelve different things in one page load; keep it so. A
