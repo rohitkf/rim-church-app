@@ -13,7 +13,10 @@
 #
 # It merges only when every one of these is true, and says which one stopped
 # it otherwise:
-#   - the pull request is open, not a draft, and targets main
+#   - the pull request is open, not a draft, targets main and comes from
+#     develop (nothing else moves main: a Dependabot security update is
+#     opened against the default branch whatever dependabot.yml says, and
+#     it waits to be read like any other change to the packages)
 #   - GitHub says it is mergeable with no conflict
 #   - every check run on the head commit has finished and none failed
 #     (asked again every 20 seconds, for up to 5 minutes, while any still
@@ -97,6 +100,7 @@ jobs:
               if (pr.state !== 'open' || pr.merged) { say('already closed'); continue }
               if (pr.draft) { say('still a draft'); continue }
               if (pr.base.ref !== 'main') { say(`targets ${pr.base.ref}, not main`); continue }
+              if (pr.head.ref !== 'develop') { say(`comes from ${pr.head.ref}, not develop`); continue }
               if (pr.labels.some((l) => l.name === 'do-not-merge')) { say('held by do-not-merge'); continue }
               if (pr.mergeable === false) { say('has a merge conflict'); continue }
               // Same repository only, whatever the run payload names.

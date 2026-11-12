@@ -20,7 +20,7 @@
  * Resend sends again whatever is not answered 200, for hours. Only a
  * failure to write is answered 500, because that one is worth sending again.
  */
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.119.0'
 import { emailNews, verifySignature } from './news.ts'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })

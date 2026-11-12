@@ -582,10 +582,14 @@ the timeline runs on the plan exactly as before.
 
 `.github/workflows/ci.yml` runs on every push/PR: frontend lint +
 typecheck + Vitest + build, backend pytest, a migrations job that applies
-every file in `supabase/migrations/` against a throwaway Postgres 16
-service container — so a broken migration or RLS policy fails CI before
-it reaches Supabase — and a docker job that builds both images and
-validates `docker-compose.yml`.
+every file in `supabase/migrations/` against a throwaway Postgres 17
+service container (the version production runs) — so a broken migration
+or RLS policy fails CI before it reaches Supabase — a docker job that
+builds both images and validates `docker-compose.yml`, and, when their
+own files change, `npm audit` on the packages and `deno check` on the
+edge functions. Dependabot proposes updates into `develop` weekly, and a
+weekly audit opens an issue when a package already in use turns out to
+have a known vulnerability.
 
 ## Milestones
 
