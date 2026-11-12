@@ -106,6 +106,7 @@ the thing most likely to waste your time:
 | `account_blocks` (0279) | a **block**: one person's account stopped without being removed. They can still sign in and meet `pages/BlockedPage` ("blocked by an administrator, contact a church Admin"); nothing of theirs is touched, and taking the row away puts everything back. Not a `permission_blocks` row, which refuses one person one capability. Written only by `block_account(target, why)` / `unblock_account(target)` — the table has a read policy and no write policy — for whoever holds `people.block` (Admins out of the box), with removal's rules: never yourself, never the Owner, an Admin only by the Owner. `reason` is a note for the people who may block; the person blocked is never shown it. Enforced in the database in three places: the hook (`account_blocked`), `may()` (a blocked account's every answer is no, so the edge functions that ask on a person's behalf refuse too) and one restrictive policy on `storage.objects`. `account_is_blocked(uid)` is the one definition (never true of the Owner; a trigger on `app_owner` clears a block from whoever becomes it), and push-notify asks it before buzzing a phone. `lib/accountBlocks.ts`, `BlockAccountDialog`, Block / Unblock on the People page |
 | `clock_ins.call_at` (0280) | the **call time a clock-in was for**: that person's first call that day (`clock_in_first_call`), stamped by a trigger when the row is made, so every way in is covered. Kept because the question cannot be asked later — services are deleted a couple of weeks after they are held, the rota with them. Restamped only while the day is live (a team's call time moved today or for a day to come); **a day that has passed is never restamped**, or clearing old call times would turn every on-time arrival late against the 07:00 default. Null is "not known" and is never late. *Late* is `app_settings.clock_in_late_minutes` (30) or more after it: red and first in the day's list. `clock_in_retention_days` (28, four weeks) is both what `delete_old_clock_ins` keeps and how far back the Clock In page's *Arrivals, person by person* goes. `lib/clockInPunctuality.ts` is the sums; `components/ArrivalChart.tsx` the chart (HTML, not a library: a bar a clock-in from the call-time line, a readout instead of a tooltip, a legend and a table so nothing is colour alone) |
 | `registration_order_undos` (0281) | **Undo** on a registration: the registration as it was before the last thing somebody working registrations did to it (payment, check-in, cancellation, refund and the bank details it deleted, verification, a note; a walk-in's memory is "it was not there"). One row a registration, written by a trigger on `registration_orders`, so every way of changing one is covered without being taught; no grants and no policy, so nothing reads it but `registration_order_undo(p_id)`, which puts exactly that back. **Only whoever did it, within ten minutes, and never over somebody else's change** — the function compares the registration with what the change left and refuses in words the page shows. One transaction is one undo, which is why "Paid now, check in" is one call (`registration_order_pay_and_check_in`). A change by somebody who is not working registrations (the attendee uploading a receipt) wipes the memory. `registration_undos_expire()` clears old ones every five minutes. The app's half is `lib/registrationUndo.ts`: `offerUndo` says what was done in a toast with **Undo** on it (`lib/toast.ts` takes one action), holds back any email to the attendee until the offer has passed (ten seconds; sent at once if the page is leaving, dropped if undone), and remembers it so the registration's own row offers Undo for the ten minutes — its menu on the event's page, a line under it at Reception. An event's status (Close registration, Reopen) is undone by writing the status it had, not by this |
+| `department_role_permanents` (0282) | a **permanent person** on a role: this person holds this role as a matter of course, at every service or at one kind (`service_type`, null for every). Not a second way of reading the rota — the database puts them on it as an ordinary `rota_assignments` row (marked by `permanent_id`), so checklists, call times, clock-in and "my rota" need teaching nothing. They are put on when a service is made (a trigger on `services`, so the planner and the overnight series are both covered) and, on every service still to come, when they are made permanent. Never where they have said "can't serve", never over a role they already hold there (the older arrangement wins), never on a finished service or a past day. **It is a default and gives way**: taken off one service by hand they stay off it, and nothing puts them back. Ending it (removed, the role deleted, the person leaving the team) takes them off the services to come that it put them on and leaves the past as the record. Written only by `set_role_permanent(role, person, service_type)` and `remove_role_permanent(role, person)`, which answer how many services changed; whoever holds `rota.assign` for the team, and for the Team Coordinator's role an Admin, the Head or Assisting Head. On the team's page under each role (`components/RolePermanents.tsx`, `lib/rolePermanents.ts`), and as an optional person on the new-role form; a pin beside the role on the Team Rota |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
 | `rota_tags`, `rota_assignment_tags` | the rota's tags — Shadow and the church's own |
@@ -298,6 +299,11 @@ frontend/api/                Vercel functions. register-preview.js answers
                              pages/ClosedPage.tsx is what a closed app shows
                              and pages/BlockedPage.tsx what a blocked
                              account meets
+  lib/rolePermanents.ts      permanent people on a team's role (0282): the
+                             reading, the two calls and the words; the
+                             panel is components/RolePermanents.tsx, inside
+                             DepartmentRolesCard. What happens to the rota
+                             is set_role_permanent()'s
   lib/registrationUndo.ts    Undo on the registration pages (0281): the offer
                              in a toast, the email held back until it has
                              passed, and what this browser did lately for the
@@ -741,6 +747,20 @@ Each of these has already cost real time. None of them show up in review.
   attendee before the ten seconds in which the press can be taken back,
   and "your ticket is confirmed" for a payment marked by a slip cannot be
   unsent.
+- **Anything that inserts a rota assignment for somebody else's team from
+  a trigger meets the Coordinator's guard.** `rota_coordinator_label_guard`
+  refuses a Coordinator named by anybody but an Admin or the team's Head —
+  and the person making a service is the planner. 0282 fills permanent
+  people under `rim.rota_permanent = 'on'`, which the guard lets through
+  (who may name a permanent Coordinator is checked when the arrangement is
+  made). A new trigger that writes rota rows needs the same thought, or
+  making a service fails for every planner who is not that team's Head.
+- **A row on the Team Rota must be able to wrap.** Two or three teams sit
+  side by side from tablet width up, which leaves a row about 450px; a
+  role, its three checklist parts and a full name are wider than that, and
+  the name was pushed out past the card (found with a fixture that had
+  real names — the sweep's one short assignment fitted). Anything added
+  to that row is tested with a long name in the narrow column.
 - **A `SegmentedControl` inside a parent that scrolls sideways must say
   `scrolls`.** Five or more segments share a phone's width and truncate
   (right for "By person"); that rule quietly squeezed the registrations

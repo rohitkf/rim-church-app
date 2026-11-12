@@ -234,6 +234,16 @@ export function LockIcon(props: IconProps) {
   )
 }
 
+/** A pushpin: fixed in place. Somebody permanent on a role (0282). */
+export function PinIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 3.5h6l-.9 5.2 3.4 3.3v1.9h-11v-1.9l3.4-3.3L9 3.5Z" />
+      <path d="M12 13.9v6.6" />
+    </svg>
+  )
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

@@ -16,6 +16,7 @@ import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { usePermissions } from '../lib/usePermissions'
+import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import { HandbookUploadModal } from '../components/HandbookUploadModal'
@@ -164,6 +165,9 @@ export function DepartmentDetailPage() {
   // & privileges): who is on it, its name and handbook, its roles, their
   // groups and checklists, and inviting somebody new.
   const { can } = usePermissions()
+  // Whether this is the team's Head or Assisting Head: naming its permanent
+  // Coordinator is theirs and an Admin's (0282).
+  const { isAdmin, ledDepartmentIds = [] } = useAuth()
   // Who sees how old people are is the church's to say (people.ages,
   // 0258) — out of the box the Owner and Admins. A preview follows it.
   const seesAges = can('people.ages')
@@ -957,6 +961,12 @@ export function DepartmentDetailPage() {
               canManage={can('team.roles', here)}
               canGroups={can('team.groups', here)}
               canChecklists={can('team.checklists', here)}
+              permanents={{
+                // Rota assignments come of it, so it is whoever arranges this team's rota.
+                canEdit: can('rota.assign', here),
+                // The Coordinator verifies the team's checklist: naming one is a Head's (0052, 0282).
+                canEditCoordinator: can('rota.assign', here) && (isAdmin || ledDepartmentIds.includes(id)),
+              }}
             />
           </div>
         )}

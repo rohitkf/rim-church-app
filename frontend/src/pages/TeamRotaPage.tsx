@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { ActionButton, Eyebrow, LiveDot, Overlay, PageHeader, Tile } from '../components/Surface'
+import { PinIcon } from '../components/icons'
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
@@ -73,7 +74,7 @@ async function fetchRota(serviceIds: string[]): Promise<RotaAssignment[]> {
   const { data, error } = await supabase
     .from('rota_assignments')
     .select(
-      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_during, include_post, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
+      'id, service_id, department_id, user_id, role_label, role_id, include_pre, include_during, include_post, permanent_id, assignment_tags:rota_assignment_tags(tag:rota_tags(id, name, color, sort_order, shown)), profile:profiles!rota_assignments_user_id_fkey(id, first_name, last_name), department:departments(id, name, color)',
     )
     .in('service_id', serviceIds)
     .order('role_label')
@@ -796,7 +797,12 @@ export function TeamRotaPage() {
                                            were sharing one line and running into
                                            each other. One line again from `sm`. */
                                         style={sky ? skyStyle(settings.coordinator_color) : undefined}
-                                        className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:items-center sm:gap-3 ${
+                                        /* And wrapping from `sm`: two or three teams side
+                                           by side leave a row about 450px, and a role, its
+                                           three checklist parts and a full name are wider
+                                           than that — the name was pushed out past the
+                                           card's edge. It drops to a second line instead. */
+                                        className={`group/assignment flex flex-col items-start gap-0.5 rounded-[var(--radius-chip)] px-3.5 py-2.5 text-body-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1 ${
                                           sky
                                             ? `galaxy glisten ${
                                                 pending
@@ -838,6 +844,22 @@ export function TeamRotaPage() {
                                               {tag.name}
                                             </span>
                                           ))}
+                                          {/* Nobody chose them for this service: they are
+                                              permanent on the role (0282), and here by the
+                                              arrangement. A pin and not the word: the word
+                                              was ninety pixels on a row that has none to
+                                              spare beside its three checklist parts, and
+                                              pushed the name out of the card. */}
+                                          {a.permanent_id && (
+                                            <span
+                                              role="img"
+                                              aria-label="Permanent on this role"
+                                              title="Permanent on this role: on the rota of every service without being chosen. Set on the team's page."
+                                              className={`ml-1.5 inline-flex align-middle ${sky ? 'text-white/60' : 'text-on-surface-faint'}`}
+                                            >
+                                              <PinIcon width={14} height={14} aria-hidden="true" />
+                                            </span>
+                                          )}
                                         </span>
                                         {/* The checklist parts this person carries. Shown
                                             to everyone when not all are, so the
@@ -900,13 +922,13 @@ export function TeamRotaPage() {
                                             })}
                                           </span>
                                         )}
-                                        <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
+                                        <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto sm:max-w-full">
                                           {pending ? (
                                             <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
                                               Release requested
                                             </span>
                                           ) : (
-                                            <span className={`break-words ${sky ? 'text-white' : 'text-on-surface'}`}>
+                                            <span className={`min-w-0 [overflow-wrap:anywhere] ${sky ? 'text-white' : 'text-on-surface'}`}>
                                               {mine
                                                 ? 'You'
                                                 : a.profile

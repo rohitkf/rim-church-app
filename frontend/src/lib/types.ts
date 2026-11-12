@@ -313,6 +313,8 @@ export const rotaAssignmentSchema = z.preprocess(flattenTags, z.object({
   include_pre: z.boolean().default(true),
   include_during: z.boolean().default(true),
   include_post: z.boolean().default(true),
+  /** The standing arrangement that put them on (0282): a permanent person on this role. Null when made by hand. */
+  permanent_id: z.string().nullable().optional(),
   /** "Shadow", "First time"… — the church's own words (0107). */
   tags: z.array(rotaTagRowSchema).default([]),
   profile: personSummarySchema.nullable(),
