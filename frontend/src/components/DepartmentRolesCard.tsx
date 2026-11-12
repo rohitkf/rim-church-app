@@ -21,6 +21,10 @@ import { Chevron } from './Collapsible'
 import { ActionButton, Field, Overlay, Pill, inputClasses } from './Surface'
 import { Select } from './Select'
 import { useConfirmAction } from './ConfirmAction'
+import { RolePermanentsLine, RolePermanentsPanel } from './RolePermanents'
+import { useRolePermanents } from '../lib/useRolePermanents'
+import { ROLE_PERMANENTS_KEY, fetchTeamPeople, madeWords, setRolePermanent } from '../lib/rolePermanents'
+import { showToast } from '../lib/toast'
 
 /**
  * The roles this team fills at a service. These are the options the Team
@@ -693,9 +697,21 @@ function CopyChecklistFrom({
   )
 }
 
+/**
+ * Permanent people on a role (0282): who may choose them. Left out, the
+ * card neither shows nor fetches them.
+ */
+export interface RolePermanentsRights {
+  /** Whoever arranges this team's rota (rota.assign). */
+  canEdit: boolean
+  /** The Team Coordinator's, which is a Head's to name: an Admin, the team's Head or Assisting Head. */
+  canEditCoordinator: boolean
+}
+
 interface RoleRowProps {
   role: DepartmentRole
   departmentId: string
+  permanents?: RolePermanentsRights
   /** Add, rename, delete and reorder roles (team.roles). */
   canManage: boolean
   /** Write a role's standing checklist (team.checklists). */
@@ -758,9 +774,20 @@ function RoleRow({
   renaming,
   deleting,
   dragHandle,
+  permanents,
 }: RoleRowProps) {
   const isCoordinator = isCoordinatorRole(role.name)
   const [showChecklist, setShowChecklist] = useState(false)
+
+  // Who holds this role as a matter of course (0282): one read for the
+  // team, shared by every row.
+  const [showPermanents, setShowPermanents] = useState(false)
+  const permanentsQuery = useRolePermanents(departmentId, !!permanents)
+  const permanentPeople = useMemo(
+    () => (permanentsQuery.data ?? []).filter((p) => p.role_id === role.id),
+    [permanentsQuery.data, role.id],
+  )
+  const canPermanents = !!permanents && (isCoordinator ? permanents.canEditCoordinator : permanents.canEdit)
 
   // How long this role's checklist is, said on the toggle and again on
   // each phase. The same query key the editors use, so this is the cache
@@ -836,12 +863,36 @@ function RoleRow({
       <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="flex min-w-0 items-center gap-1.5">
           {dragHandle}
-          <span className="min-w-0 break-words text-body-sm font-medium text-on-surface">
-            {role.name}
+          <span className="min-w-0">
+            <span className="block min-w-0 break-words text-body-sm font-medium text-on-surface">
+              {role.name}
+            </span>
+            {permanents && <RolePermanentsLine people={permanentPeople} />}
           </span>
         </span>
 
-        <span className="flex shrink-0 items-center gap-1.5">
+        {/* Wraps: with Permanent beside Checklist, Edit and Delete, the four
+            are wider than a phone, and a row that will not shrink pushed
+            them out past the card's edge. */}
+        <span className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
+          {/* Who is always on it. Offered to whoever may choose them, and
+              to anybody once somebody is — to read, not to change. */}
+          {permanents && (canPermanents || permanentPeople.length > 0) && (
+            <ActionButton
+              size="sm"
+              tone="ghost"
+              onClick={() => setShowPermanents((was) => !was)}
+              aria-expanded={showPermanents}
+              glyph={<Chevron open={showPermanents} />}
+            >
+              Permanent
+              {permanentPeople.length > 0 && (
+                <span className="ml-1.5 font-mono text-label-sm text-on-surface-faint">
+                  {permanentPeople.length}
+                </span>
+              )}
+            </ActionButton>
+          )}
           <ActionButton
             size="sm"
             tone="ghost"
@@ -895,6 +946,16 @@ function RoleRow({
           )}
         </span>
       </div>
+
+      {showPermanents && permanents && (
+        <RolePermanentsPanel
+          roleId={role.id}
+          roleName={role.name}
+          departmentId={departmentId}
+          people={permanentPeople}
+          canEdit={canPermanents}
+        />
+      )}
 
       {showChecklist && (
         /*
@@ -1105,6 +1166,7 @@ export function DepartmentRolesCard({
   canManage,
   canGroups = canManage,
   canChecklists = canManage,
+  permanents,
 }: {
   departmentId: string
   /** Roles themselves (team.roles). */
@@ -1113,10 +1175,20 @@ export function DepartmentRolesCard({
   canGroups?: boolean
   /** Their standing checklists (team.checklists). */
   canChecklists?: boolean
+  /** Permanent people on a role (0282): who may choose them. Left out, they are not shown. */
+  permanents?: RolePermanentsRights
 }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
+  // Who the new role's permanent person is, if it is being given one as it is made (0282).
+  const [newPermanent, setNewPermanent] = useState('')
+  const teamQuery = useQuery({
+    queryKey: ['team-people', departmentId],
+    queryFn: () => fetchTeamPeople(departmentId),
+    enabled: !!permanents?.canEdit && canManage,
+  })
+  const team = teamQuery.data ?? []
   // The group a new role is filed under; kept after Add, so several roles
   // for one group go in one after another.
   const [newGroupId, setNewGroupId] = useState('')
@@ -1202,15 +1274,35 @@ export function DepartmentRolesCard({
   })
 
   const addRole = useMutation({
-    mutationFn: async ({ name, groupId }: { name: string; groupId: string | null }) => {
-      const { error } = await supabase
-        .from('department_roles')
-        .insert({ department_id: departmentId, name, group_id: groupId })
+    mutationFn: async ({ name, groupId, permanent }: { name: string; groupId: string | null; permanent: { id: string; name: string } | null }) => {
+      const row = { department_id: departmentId, name, group_id: groupId }
+      if (!permanent) {
+        const { error } = await supabase.from('department_roles').insert(row)
+        if (error) throw error
+        return null
+      }
+      // The role and who is always on it, in one go (0282): the role first,
+      // because the arrangement is about a role that exists.
+      const { data, error } = await supabase.from('department_roles').insert(row).select('id').single()
       if (error) throw error
+      try {
+        const added = await setRolePermanent((data as { id: string }).id, permanent.id, null)
+        return { added, failed: null as unknown }
+      } catch (failed) {
+        // The role is made; only the second half was refused. Say so, and leave the role.
+        return { added: 0, failed }
+      }
     },
-    onSuccess: () => {
+    onSuccess: (made, { name, permanent }) => {
       setNewName('')
+      setNewPermanent('')
       setError(null)
+      if (made && permanent) {
+        if (made.failed) setError(errorText(made.failed, `${name} was added, but ${permanent.name} could not be made permanent on it.`))
+        else showToast(madeWords(permanent.name, name, made.added), 'success', 5000)
+        queryClient.invalidateQueries({ queryKey: ROLE_PERMANENTS_KEY })
+        queryClient.invalidateQueries({ queryKey: ['rota'] })
+      }
       invalidate()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not add that role.')),
@@ -1267,7 +1359,8 @@ export function DepartmentRolesCard({
   function handleAdd(e: FormEvent) {
     e.preventDefault()
     if (!newName.trim()) return
-    addRole.mutate({ name: newName.trim(), groupId: chosenGroup || null })
+    const permanent = team.find((m) => m.id === newPermanent) ?? null
+    addRole.mutate({ name: newName.trim(), groupId: chosenGroup || null, permanent })
   }
 
   return (
@@ -1276,6 +1369,7 @@ export function DepartmentRolesCard({
       <p className="mt-1 text-body-sm text-on-surface-variant">
         The jobs this team fills at a service. These are the options offered when building the Team
         Rota.
+        {permanents && ' A role can have permanent people, who are on the rota of every service without being chosen each time.'}
       </p>
 
       <QueryState
@@ -1308,6 +1402,7 @@ export function DepartmentRolesCard({
               onMoveToGroup={(id, groupId) => setRoleGroup.mutate({ id, groupId })}
               renaming={renameRole.isPending}
               deleting={deleteRole.isPending}
+              permanents={permanents}
             />
           </div>
         )}
@@ -1345,6 +1440,7 @@ export function DepartmentRolesCard({
               onDeleteGroup={(id) => deleteGroup.mutate(id)}
               renaming={renameRole.isPending}
               deleting={deleteRole.isPending}
+              permanents={permanents}
             />
           ))}
         </div>
@@ -1378,6 +1474,19 @@ export function DepartmentRolesCard({
                     { value: '', label: UNGROUPED_LABEL },
                     ...groups.map((g) => ({ value: g.id, label: g.name })),
                   ]}
+                />
+              </Field>
+            )}
+            {/* Who is always on it, chosen as the role is made — the two
+                things the Owner asked to be one (0282). Left empty, it is
+                a role like any other; more people go on from its row. */}
+            {permanents?.canEdit && team.length > 0 && (
+              <Field label="Permanent person (optional)" className="min-w-48 flex-1 sm:flex-none sm:basis-64">
+                <Select
+                  aria-label="Permanent person for the new role"
+                  value={newPermanent}
+                  onChange={setNewPermanent}
+                  options={[{ value: '', label: 'Nobody yet' }, ...team.map((m) => ({ value: m.id, label: m.name }))]}
                 />
               </Field>
             )}

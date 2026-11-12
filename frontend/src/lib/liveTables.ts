@@ -42,6 +42,8 @@ export const LIVE_TABLES: LiveTable[] = [
     table: 'services',
     keys: [
       'services',
+      // The kinds of service somebody can be permanent at (0282).
+      'service-kinds',
       'my-requests',
       'service',
       'my-rota-services',
@@ -124,6 +126,8 @@ export const LIVE_TABLES: LiveTable[] = [
     table: 'department_members',
     keys: [
       'department-members',
+      // Who can be made permanent on a role (0282).
+      'team-people',
       'my-requests',
       'department-members-sensitive',
       'department-core-members',
@@ -139,6 +143,8 @@ export const LIVE_TABLES: LiveTable[] = [
   },
   { table: 'departments', keys: ['departments', 'department', 'own-memberships', 'global-search', 'my-requests'] },
   { table: 'department_roles', keys: ['department-roles', 'team-coordinator'] },
+  // Who is permanent on a role (0282); the rota follows by its own table.
+  { table: 'department_role_permanents', keys: ['role-permanents'] },
   { table: 'department_role_checklist_items', keys: ['role-checklist-items'] },
   { table: 'department_role_groups', keys: ['role-groups'] },
   { table: 'team_join_requests', keys: ['join-requests'] },
