@@ -12,6 +12,9 @@ import { pickTime } from '../test/pickers'
  */
 
 const state = vi.hoisted(() => ({
+  /** The day's clock-ins, when a test wants its own. */
+  rows: null as unknown[] | null,
+  teams: null as { user_id: string; department_id: string }[] | null,
   admin: false,
   changed: [] as unknown[],
   removed: [] as unknown[],
@@ -22,7 +25,9 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: state.admin, isSuperAdmin: false }),
 }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
-vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ timezone: 'Europe/London', clock_in_radius_m: 100 }) }))
+vi.mock('../lib/appSettings', () => ({
+  useAppSettings: () => ({ timezone: 'Europe/London', clock_in_radius_m: 100, clock_in_late_minutes: 30, clock_in_retention_days: 28 }),
+}))
 vi.mock('../components/ClockInPlaceCard', () => ({ ClockInPlaceCard: () => <p>Where the church is</p> }))
 vi.mock('../lib/plannerControls', async (original) => ({
   ...(await original<typeof import('../lib/plannerControls')>()),
@@ -41,9 +46,15 @@ vi.mock('../lib/clockIn', async (original) => ({
   fetchStillOut: () =>
     Promise.resolve([{ user_id: 'p2', department_id: 'd-media', call_at: '2026-11-01T09:30:00Z', asked: false }]),
   fetchClockInRequestsToAnswer: () => Promise.resolve([]),
-  fetchClockInTeams: () => Promise.resolve([{ user_id: 'p1', department_id: 'd-welcome' }, { user_id: 'p3', department_id: 'd-media' }]),
-  fetchClockIns: () =>
+  fetchClockInTeams: () =>
+    Promise.resolve(state.teams ?? [{ user_id: 'p1', department_id: 'd-welcome' }, { user_id: 'p3', department_id: 'd-media' }]),
+  fetchArrivals: () =>
     Promise.resolve([
+      { user_id: 'p3', on_date: '2026-11-01', clocked_at: '2026-11-01T09:50:00Z', call_at: '2026-11-01T09:00:00Z', person: { first_name: 'Grace', last_name: 'Mensah' } },
+      { user_id: 'p1', on_date: '2026-11-01', clocked_at: '2026-11-01T09:41:00Z', call_at: '2026-11-01T09:45:00Z', person: { first_name: 'Joel', last_name: 'Skaria' } },
+    ]),
+  fetchClockIns: () =>
+    Promise.resolve(state.rows ?? [
       {
         id: 'c1',
         user_id: 'p1',
@@ -120,6 +131,8 @@ async function open(user: ReturnType<typeof userEvent.setup>, ...names: RegExp[]
 }
 
 beforeEach(() => {
+  state.rows = null
+  state.teams = null
   state.admin = false
   state.changed = []
   state.removed = []
@@ -227,5 +240,100 @@ describe('the Clock In page', () => {
     expect(line).toHaveTextContent('Joel Skaria time fixed by hand')
     expect(line).toHaveTextContent('09:58 → 09:41')
     expect(line).toHaveTextContent('by Rohit K')
+  })
+})
+
+/*
+ * 0280: a clock-in is held against the call time it was for. Late is red
+ * and first; who is still to come is above the list, not under it; and
+ * each person's weeks are a section of their own.
+ */
+describe('the Clock In page, with call times', () => {
+  const clockIn = (id: string, user_id: string, first: string, last: string, clocked: string, call: string | null) => ({
+    id,
+    user_id,
+    on_date: '2026-11-01',
+    clocked_at: `2026-11-01T${clocked}:00Z`,
+    call_at: call ? `2026-11-01T${call}:00Z` : null,
+    method: 'location',
+    latitude: null,
+    longitude: null,
+    accuracy_m: null,
+    distance_m: null,
+    address: '12 High Street, Reading',
+    address_tries: 1,
+    person: { first_name: first, last_name: last },
+  })
+
+  beforeEach(() => {
+    state.rows = [
+      clockIn('c1', 'p1', 'Joel', 'Skaria', '08:55', '09:00'),
+      clockIn('c2', 'p3', 'Grace', 'Mensah', '09:35', '09:00'),
+      clockIn('c3', 'p4', 'Ben', 'Adu', '09:10', '09:00'),
+      clockIn('c4', 'p5', 'Cara', 'Nti', '10:15', '09:00'),
+      clockIn('c5', 'p6', 'Dan', 'Osei', '11:00', null),
+    ]
+    state.teams = ['p1', 'p3', 'p4', 'p5', 'p6'].map((user_id) => ({ user_id, department_id: 'd-media' }))
+  })
+
+  it('counts who is late in the section’s heading and on the team’s card', async () => {
+    const user = show()
+    const heading = await screen.findByRole('button', { name: /^Clock-ins/ })
+    await waitFor(() => expect(heading).toHaveTextContent('5 clocked in · 2 late · 1 still to arrive'))
+    await open(user, /^Clock-ins/)
+    const media = await screen.findByRole('listitem', { name: 'Media' })
+    expect(within(media).getByText('5 in · 2 late · 1 to come')).toBeInTheDocument()
+  })
+
+  it('puts whoever is late first, the latest at the top, then the rest as they arrived', async () => {
+    const user = show()
+    await open(user, /^Clock-ins/)
+    const list = await screen.findByRole('list', { name: 'Media: clocked in' })
+    const names = within(list)
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('p')?.textContent)
+    expect(names).toEqual(['Cara Nti', 'Grace Mensah', 'Joel Skaria', 'Ben Adu', 'Dan Osei'])
+  })
+
+  it('shows a late time in red and says how late in words, and leaves the others as they were', async () => {
+    const user = show()
+    await open(user, /^Clock-ins/)
+    const list = await screen.findByRole('list', { name: 'Media: clocked in' })
+    const late = within(list).getByText('10:15')
+    expect(late).toHaveClass('text-error')
+    expect(within(list).getByText('1 h 15 min late')).toHaveClass('text-error')
+    expect(within(list).getByText('35 min late')).toBeInTheDocument()
+    // Ten minutes after the call is not late, and neither is somebody with no call time.
+    expect(within(list).getByText('09:10')).not.toHaveClass('text-error')
+    expect(within(list).getByText('11:00')).not.toHaveClass('text-error')
+    expect(within(list).getAllByText(/ late$/)).toHaveLength(2)
+  })
+
+  it('says each person’s call time on their line, where it is known', async () => {
+    const user = show()
+    await open(user, /^Clock-ins/)
+    const list = await screen.findByRole('list', { name: 'Media: clocked in' })
+    expect(within(list).getAllByText(/^Call 09:00 · Phone at church/)).toHaveLength(4)
+    expect(within(list).getAllByText(/^Phone at church/)).toHaveLength(1)
+  })
+
+  it('lists who is still to arrive above who has clocked in, not under it', async () => {
+    const user = show()
+    await open(user, /^Clock-ins/)
+    const waiting = await screen.findByRole('list', { name: 'Media: still to arrive' })
+    const arrived = screen.getByRole('list', { name: 'Media: clocked in' })
+    expect(waiting.compareDocumentPosition(arrived) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('has a section for each person’s arrivals over the weeks kept, shut until opened', async () => {
+    const user = show()
+    const section = await screen.findByRole('button', { name: /^Arrivals, person by person/ })
+    expect(section).toHaveAttribute('aria-expanded', 'false')
+    expect(section).toHaveTextContent('over the last 4 weeks')
+    expect(screen.queryByRole('list', { name: 'Arrivals, person by person' })).toBeNull()
+    await user.click(section)
+    const people = await screen.findByRole('list', { name: 'Arrivals, person by person' })
+    expect(within(people).getByRole('button', { name: /^Grace Mensah/ })).toHaveTextContent('1 late of 1')
+    expect(within(people).getByRole('button', { name: /^Joel Skaria/ })).toHaveTextContent('On time, 1 clock-in')
   })
 })

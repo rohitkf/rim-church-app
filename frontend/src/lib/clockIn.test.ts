@@ -6,6 +6,7 @@ import {
   distanceMetres,
   findPlaces,
   formatDistance,
+  clockInSchema,
   groupClockIns,
   maySeeClockIns,
   normalisePostcode,
@@ -176,6 +177,33 @@ describe('the day’s clock-ins, team by team', () => {
       ['Welcome', ['c1', 'c2']],
       ['Not on the rota', ['c3']],
     ])
+  })
+})
+
+describe('the day’s clock-ins, late first (0280)', () => {
+  const row = (id: string, user_id: string, clocked: string, call: string | null) =>
+    ({ id, user_id, on_date: '2026-11-08', clocked_at: `2026-11-08T${clocked}:00Z`, call_at: call ? `2026-11-08T${call}:00Z` : null, method: 'location', latitude: null, longitude: null, accuracy_m: null, distance_m: null, address: null, person: null }) as const
+  const rows = [row('fine', 'a', '08:05', '08:00'), row('late-40', 'b', '08:40', '08:00'), row('early', 'c', '07:50', '08:00'), row('late-70', 'd', '09:10', '08:00'), row('loose', 'e', '09:30', '08:00')]
+  const teams = ['a', 'b', 'c', 'd'].map((user_id) => ({ user_id, department_id: 'm' }))
+  const name = (id: string) => ({ m: 'Media' })[id] ?? null
+
+  it('puts whoever is late at the top of their team, the latest first, then the rest as they came', () => {
+    const groups = groupClockIns(rows, teams, name, [], 30)
+    expect(groups.map((g) => [g.name, g.rows.map((r) => r.id)])).toEqual([
+      ['Media', ['late-70', 'late-40', 'early', 'fine']],
+      ['Not on the rota', ['loose']],
+    ])
+  })
+
+  it('is as they came when no number is given: an older caller is not reordered', () => {
+    expect(groupClockIns(rows, teams, name)[0].rows.map((r) => r.id)).toEqual(['early', 'fine', 'late-40', 'late-70'])
+  })
+
+  it('reads a clock-in with its call time, without one, and from a database that does not keep it yet', () => {
+    const base = { id: 'c', user_id: 'u', on_date: '2026-11-08', clocked_at: '2026-11-08T08:40:00Z', method: 'location', latitude: null, longitude: null, accuracy_m: null, distance_m: null, address: null, person: null }
+    expect(clockInSchema.parse({ ...base, call_at: '2026-11-08T08:00:00Z' }).call_at).toBe('2026-11-08T08:00:00Z')
+    expect(clockInSchema.parse({ ...base, call_at: null }).call_at).toBeNull()
+    expect(clockInSchema.parse(base).call_at).toBeUndefined()
   })
 })
 
