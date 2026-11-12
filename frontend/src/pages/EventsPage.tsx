@@ -38,6 +38,8 @@ import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
 import { Lifespan } from '../components/Lifespan'
+import { ShowMore } from '../components/ShowMore'
+import { FIRST_PAGE, NEXT_PAGE, firstDays, moreWords } from '../lib/showMore'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -477,7 +479,11 @@ export function EventsPage() {
   const fromParam = (p: string | null): Category | null =>
     p === 'meetings' ? 'repeating' : p && p in CATEGORY_LABEL && p !== 'repeating' ? (p as Category) : null
   const show = fromParam(showParam)
-  const choose = (kind: Category | null) =>
+  // How much more than its first screen each list has been asked for, and for which kind (lib/showMore.ts).
+  const [asked, setAsked] = useState<{ show: Category | null; upcoming: number; past: number }>({ show: null, upcoming: 0, past: 0 })
+  const choose = (kind: Category | null) => {
+    // Another kind is another list: it starts from its top, and so does this one when it is come back to.
+    setAsked({ show: kind, upcoming: 0, past: 0 })
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -487,6 +493,7 @@ export function EventsPage() {
       },
       { replace: true },
     )
+  }
   const shown = useMemo(() => (show ? diary.filter((entry) => categoryOf(entry) === show) : diary), [diary, show])
 
   // Opened from somewhere else for one event (?event=<id>, the Dashboard's
@@ -534,6 +541,20 @@ export function EventsPage() {
           ).reverse(),
     [eventsQuery.data, today, keepPastDays, show],
   )
+
+  /*
+   * A screen at a time (lib/showMore.ts). "Coming up" is a year of
+   * birthdays, services and events — some hundred and ninety rows — and
+   * the page ran to the length of all of them. Each list draws its first
+   * few and the rest when asked.
+   *
+   * Kept with the kind it was asked for, so choosing another kind starts
+   * that list from its top: "show more birthdays" is not an answer to
+   * "show me the meetings".
+   */
+  const extra = asked.show === show ? asked : { show, upcoming: 0, past: 0 }
+  const upcoming = useMemo(() => firstDays(days, FIRST_PAGE + extra.upcoming), [days, extra.upcoming])
+  const past = useMemo(() => firstDays(pastDays, FIRST_PAGE + extra.past), [pastDays, extra.past])
 
   const saveEvent = useMutation({
     mutationFn: async () => {
@@ -1028,9 +1049,24 @@ export function EventsPage() {
         ) : (
           <>
             {days.length > 0 && (
-              <section className="mt-8">
-                <h2 className="text-headline-md">Coming up</h2>
-                <DiaryDays days={days} today={today} {...rowActions} />
+              <section className="mt-8" aria-labelledby="coming-up">
+                <h2 id="coming-up" className="scroll-mt-24 text-headline-md">Coming up</h2>
+                <DiaryDays days={upcoming.shown} today={today} {...rowActions} />
+                <ShowMore
+                  left={upcoming.left}
+                  expanded={extra.upcoming > 0}
+                  onMore={() => setAsked({ ...extra, upcoming: extra.upcoming + NEXT_PAGE })}
+                  onFewer={() => {
+                    setAsked({ ...extra, upcoming: 0 })
+                    // Back to the top of the list: the foot it was pressed at has just moved a long way up.
+                    document.getElementById('coming-up')?.scrollIntoView?.({ block: 'start' })
+                  }}
+                  label={show ? `${PLURAL[show].toLowerCase()} coming up` : 'of what is coming up'}
+                >
+                  {upcoming.left > 0
+                    ? `${moreWords(upcoming.left)} after ${formatServiceDay(upcoming.lastDay!)}`
+                    : 'That is everything coming up.'}
+                </ShowMore>
               </section>
             )}
 
@@ -1055,7 +1091,21 @@ export function EventsPage() {
                   </span>
                 }
               >
-                <DiaryDays days={pastDays} today={today} past {...rowActions} />
+                <DiaryDays days={past.shown} today={today} past {...rowActions} />
+                <ShowMore
+                  left={past.left}
+                  expanded={extra.past > 0}
+                  onMore={() => setAsked({ ...extra, past: extra.past + NEXT_PAGE })}
+                  onFewer={() => {
+                    setAsked({ ...extra, past: 0 })
+                    document.getElementById('past-events')?.scrollIntoView?.({ block: 'start' })
+                  }}
+                  label="past events"
+                >
+                  {past.left > 0
+                    ? `${moreWords(past.left)} before ${formatServiceDay(past.lastDay!)}`
+                    : 'That is every past event kept.'}
+                </ShowMore>
               </FinishedServices>
             )}
           </>
