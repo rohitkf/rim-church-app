@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { reportError } from '../lib/clientErrors'
 import { errorSummary, isChunkLoadError, mayReloadOnce } from '../lib/pageErrors'
 import { reloadApp } from '../lib/reloadApp'
 import { BrokenPageScreen, StalePageScreen } from './ErrorScreen'
@@ -9,6 +10,8 @@ interface Props {
 
 interface State {
   error: Error | null
+  /** What the report of it was filed under, once the database has said (lib/clientErrors). */
+  reference: string | null
 }
 
 /**
@@ -22,9 +25,9 @@ interface State {
  * offered the way back.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null }
+  state: State = { error: null, reference: null }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error }
   }
 
@@ -32,13 +35,17 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('Unhandled UI error:', error, info.componentStack)
     // A release behind: reload for them, once.
     if (isChunkLoadError(error) && mayReloadOnce()) reloadApp()
+    // Tell the church (0284); the screen shows the reference when it comes.
+    void reportError('boundary', error, { componentStack: info.componentStack }).then((reference) => {
+      if (reference) this.setState({ reference })
+    })
   }
 
   render() {
-    const { error } = this.state
+    const { error, reference } = this.state
     if (!error) return this.props.children
     const path = typeof window === 'undefined' ? '/' : window.location.pathname
     if (isChunkLoadError(error)) return <StalePageScreen onDashboard={path === '/'} />
-    return <BrokenPageScreen path={path} summary={errorSummary(error)} />
+    return <BrokenPageScreen path={path} summary={errorSummary(error)} reference={reference} />
   }
 }

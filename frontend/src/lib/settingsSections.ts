@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import type { BadgeTone } from '../components/Surface'
 import type { CapabilityKey } from './permissions'
 import { QuestionIcon,
+  ActivityIcon,
   FeedbackIcon,
   SettingsIcon,
   BellIcon,
@@ -295,6 +296,16 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         needs: 'owner',
         capability: 'settings.feedback',
         keywords: 'feedback bug suggestion retention kept settled done',
+      },
+      {
+        to: '/settings/health',
+        label: 'App Health',
+        blurb: 'What has gone wrong: errors on people’s devices, timed jobs and notifications that failed.',
+        icon: ActivityIcon,
+        tone: 'green',
+        needs: 'owner',
+        capability: 'settings.health',
+        keywords: 'health errors error log crash broken bug failed failure jobs cron push uptime status monitoring reference',
       },
       {
         to: '/settings/data',

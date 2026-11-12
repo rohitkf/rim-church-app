@@ -180,6 +180,10 @@ export const CATALOG = {
   // is its own row: every Admin, as shipped.
   'settings.notices': given('none'),
   'app.open_when_closed': given('all'),
+  // What has gone wrong — errors from people's devices, jobs and pushes
+  // that failed (0284) — and the daily line in the bell about it: the
+  // Owner's alone out of the box.
+  'settings.health': given('none'),
   // Feedback (0277): sending it was anybody's on a team; reading and
   // answering everybody's was the Owner's.
   'feedback.send': given('all', { head: 'all', assistant: 'all', member: 'all' }),

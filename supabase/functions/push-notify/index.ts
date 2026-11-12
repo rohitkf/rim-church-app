@@ -78,6 +78,7 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   setup_prompt: { label: 'A few things are left to set up in the app', href: '/' },
   registration_sold_out: { label: 'A ticket type has sold out', href: '/registrations' },
   call_time: { label: 'When your team is due in', href: '/rota' },
+  health_note: { label: 'Something in the app has failed', href: '/settings/health' },
 }
 
 /**

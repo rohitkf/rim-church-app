@@ -1243,6 +1243,13 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Everybody else sees a page that says the app is closed and when it opens. The Owner is never shut out.',
       },
       {
+        action: 'See what has gone wrong in the app, and be told — App Health',
+        key: 'settings.health',
+        short: 'App health',
+        can: granted('settings.health'),
+        note: 'The Owner alone out of the box. Whoever holds it gets one line in the bell on a day something new has failed.',
+      },
+      {
         action: 'Set the Video tutorial link — Video Tutorial',
         key: 'settings.video',
         short: 'Video link',

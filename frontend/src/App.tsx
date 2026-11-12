@@ -16,6 +16,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
 import { STANDING_KEY, isTurnedAway } from './lib/standing'
+import { reportError } from './lib/clientErrors'
 import { ConfigErrorPage } from './pages/ConfigErrorPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -62,6 +63,11 @@ const queryClient: QueryClient = new QueryClient({
       // account was blocked (0279): ask where this person stands, and the
       // page that says so takes over from there.
       if (isTurnedAway(error)) askStandingAgain()
+      // A read that failed because the app asked for something the
+      // database has not got, or could not read the answer, is told to
+      // the church (0284). No signal and "not found" are not: the page
+      // already says those, and reportError judges which is which.
+      void reportError('query', error)
     },
   }),
   // A write refused for the same reason: somebody pressing Save a minute
@@ -69,6 +75,9 @@ const queryClient: QueryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error) => {
       if (isTurnedAway(error)) askStandingAgain()
+      // A save the database rightly refused is its job done; one that
+      // failed because the two disagree about what exists is reported.
+      void reportError('save', error)
     },
   }),
   defaultOptions: {
@@ -145,6 +154,7 @@ const router = createBrowserRouter(
             <Route path="access" lazy={page(() => import('./pages/SettingsPage'), 'AccessSettingsPane')} />
             <Route path="alerts" lazy={page(() => import('./pages/SettingsPage'), 'SendAlertPane')} />
             <Route path="notices" lazy={page(() => import('./pages/SettingsPage'), 'AppNoticesPane')} />
+            <Route path="health" lazy={page(() => import('./pages/SettingsPage'), 'AppHealthPane')} />
             <Route path="onboarding" lazy={page(() => import('./pages/SettingsPage'), 'OnboardingPane')} />
             <Route path="stage" lazy={page(() => import('./pages/SettingsPage'), 'StageSettingsPane')} />
             <Route path="overwatch" lazy={page(() => import('./pages/SettingsPage'), 'OverwatchSettingsPane')} />

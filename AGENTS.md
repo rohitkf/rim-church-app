@@ -128,6 +128,7 @@ the thing most likely to waste your time:
 | `clock_ins.call_at` (0280) | the **call time a clock-in was for**: that person's first call that day (`clock_in_first_call`), stamped by a trigger when the row is made, so every way in is covered. Kept because the question cannot be asked later — services are deleted a couple of weeks after they are held, the rota with them. Restamped only while the day is live (a team's call time moved today or for a day to come); **a day that has passed is never restamped**, or clearing old call times would turn every on-time arrival late against the 07:00 default. Null is "not known" and is never late. *Late* is `app_settings.clock_in_late_minutes` (30) or more after it: red and first in the day's list. `clock_in_retention_days` (28, four weeks) is both what `delete_old_clock_ins` keeps and how far back the Clock In page's *Arrivals, person by person* goes. `lib/clockInPunctuality.ts` is the sums; `components/ArrivalChart.tsx` the chart (HTML, not a library: a bar a clock-in from the call-time line, a readout instead of a tooltip, a legend and a table so nothing is colour alone) |
 | `registration_order_undos` (0281) | **Undo** on a registration: the registration as it was before the last thing somebody working registrations did to it (payment, check-in, cancellation, refund and the bank details it deleted, verification, a note; a walk-in's memory is "it was not there"). One row a registration, written by a trigger on `registration_orders`, so every way of changing one is covered without being taught; no grants and no policy, so nothing reads it but `registration_order_undo(p_id)`, which puts exactly that back. **Only whoever did it, within ten minutes, and never over somebody else's change** — the function compares the registration with what the change left and refuses in words the page shows. One transaction is one undo, which is why "Paid now, check in" is one call (`registration_order_pay_and_check_in`). A change by somebody who is not working registrations (the attendee uploading a receipt) wipes the memory. `registration_undos_expire()` clears old ones every five minutes. The app's half is `lib/registrationUndo.ts`: `offerUndo` says what was done in a toast with **Undo** on it (`lib/toast.ts` takes one action), holds back any email to the attendee until the offer has passed (ten seconds; sent at once if the page is leaving, dropped if undone), and remembers it so the registration's own row offers Undo for the ten minutes — its menu on the event's page, a line under it at Reception. An event's status (Close registration, Reopen) is undone by writing the status it had, not by this |
 | `registration_orders.email_status` and beside it (0283) | **what became of a registration's email**: `email_ref` (the reference its latest email was sent with), `email_status` (`sent`, `delayed`, `delivered`, `complained`, `bounced`, `suppressed` — held back because the address bounced before — or `failed`; null is none sent, or sent before this was kept), `email_status_at`, `email_status_detail` (the mail server's own words for a bounce). `supabase/functions/registration-email` gives every email a reference, writes it on the email's orders **before** sending (`registration_email_begin`), sends it to Resend as the tag `rim_ref`, then stamps or says why not (`registration_email_end`); Resend calls `supabase/functions/registration-email-status` — a **webhook**, `verify_jwt` off, every call checked against `RESEND_WEBHOOK_SECRET` with Svix's HMAC (`news.ts`, which the app's tests run) — and `registration_email_event(ref, status, at, detail)` moves the orders forward only (a late `sent` never undoes `delivered`; a bounce is the last word). All three are `service_role`'s alone. An order keeps the story of its *latest* email for the address it *now* holds. The address is put right two ways, both through `registration_email_replace` (old address and its story into `email_before`, everything about the new one blank, `email_sent_at` cleared so the quiet ten minutes do not hold the ticket back): the church's `registration_order_set_email(order, address)` — its own right, **`reg.email`** ("Correct email addresses"), which `reg.manage` includes, **the one registrations right an Admin has out of the box**, and one that opens /registrations (`registration_can(uid, 'email')`, and in `'office'` and `'work'`) — and the attendee's `registration_order_fix_email(code, address)` from the ticket page, **only after a bounce** and three times at most (`email_fixes`). `registration_order_view` tells the ticket page `email_state` (`none`, `waiting`, `delivered`, `bounced`; `failed` reads as `none` — a quota is not their typing) and `email_can_fix`. The church's change is undone like any other press: `registration_order_state` lists `email`, and `registration_order_undo` puts the address back with its story. The edge function's `{kind:'again', code}` is the ticket as it stands once more, for a signed-in caller who may `email`, not held to the quiet period. `lib/emailDelivery.ts` (`deliveryOf`, `emailWantsDoing`, `suggestEmail`, `watchesEmail`), `OrderEmailDialog` on the event's page, `TicketEmailFix` on the ticket, `ConfirmEmailDialog` on the register page |
+| `client_errors`, `health_events`, `health_overview()`, `health()` (0284) | **what has gone wrong, and telling somebody.** `client_errors` is what broke on a person's device: message, stack, page, build, device, person. Written only by `report_client_error(source, message, stack, page, build, device, installed)` — no insert policy, and `anon` may call it, because a registration page can break too — which answers a short reference (the first eight of the row's id) that the broken page shows, or null when the report was not kept. Four limits stand between a loop and a full disk: a person 20 new rows an hour, the visitors together 30, a day 500, the table 5,000; the same thing again from the same person on the same page and build within the hour is counted on its row (`times`), not written again. The page is cut to its path and a ticket's code blanked, in the app (`scrubPage`) and again in the function. The app's half is `lib/clientErrors.ts`: `reportError(source, error)` **never throws and judges first** (`worthReporting`) — no signal, a tab a release behind, an account turned away, a missing row and a save the database rightly refused are not news; a page that threw, a read the database could not answer because the app asked for what does not exist (`isDatabaseFault`: PGRST2xx, 42883, 42703, 42P01, a timeout, no connections), an answer a schema refused (ZodError) and a refused *read* are. Called from the two error nets (`RouteErrorPage`, `ErrorBoundary`), the window's `error` and `unhandledrejection` (`installErrorReporting`, first thing in `main.tsx`) and both query caches in `App.tsx`. `health_events` is a timed job that failed or a push (or other call) the database could not make: the platform keeps its own record a day (`cron.job_run_details`) or six hours (`net._http_response`), so `health_collect()` copies the failures hourly. `health_daily_note()` (07:05 UTC) puts **one line in the bell** — type `health_note`, so it buzzes the phone — of everybody `health_watchers()` names, only when something new has failed: errors count as their *kinds* and only ones not told about before. Read in Settings › App Health by whoever holds **`settings.health`** (the Owner alone out of the box), who may also put rows away; both tables clear after thirty days. `health()` is one cheap question `anon` may ask, for the check outside: `frontend/api/health.js` answers `/api/health` 200 only when the database said yes, and `.github/workflows/uptime.yml` asks it and the site on a timer and opens an issue when either is a no. `lib/appHealth.ts` (the reads, `groupErrors`), `components/AppHealthCard.tsx` |
 | `department_role_permanents` (0282) | a **permanent person** on a role: this person holds this role as a matter of course, at every service or at one kind (`service_type`, null for every). Not a second way of reading the rota — the database puts them on it as an ordinary `rota_assignments` row (marked by `permanent_id`), so checklists, call times, clock-in and "my rota" need teaching nothing. They are put on when a service is made (a trigger on `services`, so the planner and the overnight series are both covered) and, on every service still to come, when they are made permanent. Never where they have said "can't serve", never over a role they already hold there (the older arrangement wins), never on a finished service or a past day. **It is a default and gives way**: taken off one service by hand they stay off it, and nothing puts them back. Ending it (removed, the role deleted, the person leaving the team) takes them off the services to come that it put them on and leaves the past as the record. Written only by `set_role_permanent(role, person, service_type)` and `remove_role_permanent(role, person)`, which answer how many services changed; whoever holds `rota.assign` for the team, and for the Team Coordinator's role an Admin, the Head or Assisting Head. On the team's page under each role (`components/RolePermanents.tsx`, `lib/rolePermanents.ts`), and as an optional person on the new-role form; a pin beside the role on the Team Rota |
 | `team_messages` (`kind='alert'`) | a team alert |
 | signed in, on no team (`is_on_a_team` false) | a **Church Member** |
@@ -300,6 +301,10 @@ frontend/api/                Vercel functions. register-preview.js answers
                              and the event's picture as og:/twitter: tags, read
                              through registration_public_event. Plain JS, no
                              build step; a person always gets the app.
+                             health.js answers /api/health: 200 when the
+                             database's public API said yes to health()
+                             (0284), 503 when it did not — what the uptime
+                             workflow and any outside monitor ask.
                              manifest.js answers /manifest.webmanifest and
                              app-icon.js answers /app-icon/<set>/<file>.png:
                              the installed app's icon is the App Logo (see
@@ -368,6 +373,13 @@ frontend/api/                Vercel functions. register-preview.js answers
                              router. components/QueryState.tsx is every
                              read's loading / failed / empty, and a detail
                              page's "not found" (`missing`)
+  lib/clientErrors.ts        telling the church something broke on a device
+                             (0284): which failures are news, what is said
+                             of one, what never leaves the device, and the
+                             listeners for what nothing else catches. It
+                             never throws. lib/appHealth.ts is the reading
+                             back, for Settings › App Health
+                             (components/AppHealthCard.tsx)
   lib/serviceClock.ts        the running order's countdown: what it counts to
                              now. The planner's rail and the Countdown page
                              (/countdown, 0261) both read it — never a copy
@@ -387,7 +399,9 @@ supabase/functions/          edge functions (push-notify, invite, clock-in-addre
 build/swBuildId.ts           stamps the commit into sw.js at build time
 .github/workflows/           ci.yml (§2), auto-merge.yml (develop into main
                              on green, and nothing else into main),
-                             dependency-audit.yml (weekly, opens an issue);
+                             dependency-audit.yml (weekly, opens an issue),
+                             uptime.yml (asks the site and /api/health on a
+                             timer, opens an issue when either stops);
                              .github/dependabot.yml proposes updates into
                              develop; .github/actions/tell-owner is how a
                              workflow tells the Owner (one issue a problem)
@@ -786,6 +800,38 @@ Each of these has already cost real time. None of them show up in review.
   file's text (`…?raw`) or find it by pattern (`import.meta.glob`), both
   only strings to the type check; `outsideFrontend.test.ts` refuses the
   other kind.
+- **Reporting an error must never be the error** (0284).
+  `reportError` swallows everything, is awaited by nothing, and holds its
+  tongue after twelve different things in one page load; keep it so. A
+  report that throws inside the error boundary turns one broken page into
+  a white screen, and one that loops fills the table to its ceiling and
+  hides the error that started it.
+- **Most failures are not news, and a new kind of failure is reported by
+  default only where something threw.** A read or a save that fails is
+  reported only if `worthReporting` knows it (`isDatabaseFault`, an
+  unreadable answer, a programming error). Widen that list on purpose: a
+  log that fills with "Failed to fetch" from phones in a car park is a
+  log nobody opens. And a new *reason the database refuses* that the page
+  already words (a raised message, a check) needs nothing here.
+- **What an error says can carry what somebody typed.** A database
+  error's `details` writes out the refused row ("Key (email)=(…)"), a
+  ticket's address carries its code, and a reset link its token.
+  `describeError` sends the code and the message only; `scrubPage` the
+  path only, the ticket's code blanked; the function cuts both again.
+  Anything added to a report is read with that in mind — `client_errors`
+  is read by whoever is given the room.
+- **A timed job or a push that fails is only known if the hourly copy
+  sees it.** `health_collect()` reads Supabase's own tables
+  (`cron.job_run_details`, `net._http_response`, `supabase_functions.hooks`)
+  behind `to_regclass`, in dynamic SQL, so it creates and runs on a
+  database without them; if Supabase renames one, it finds nothing and
+  says nothing — Settings › App Health's *Timed jobs* list going empty is
+  the sign. And it cannot see a push the sender took and one phone's push
+  service refused: push-notify answers 200 whatever its devices said.
+- **The uptime check only runs from `main`, and GitHub switches the
+  schedules of a quiet public repository off after sixty days.** Nothing
+  says so when it does. If no "Uptime" run shows under Actions for a day,
+  re-enable the workflow there.
 - **jsdom has no `scrollIntoView`.** Guard calls to it.
 - **`window.open('', '_blank', 'noopener')` returns `null`.** The browser
   opens the tab but does not hand it back, so code that opens a blank tab

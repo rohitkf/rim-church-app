@@ -125,6 +125,7 @@ on Tuesdays at 03:30.
 | Registrations: the name, email, phone, attendee names and notes on every order of an event | blanked N days after the event's last date (`registration_anonymise()`, nightly at 03:35); null never. The order, its code and its sums stay until the event is deleted | `registration_retention_days` (90) |
 | Stage layouts of services already held, with their comments and log | weekly, on a day and hour in church time (`clear_stage_layouts_if_due()`, hourly at :10); null day never. Templates stay. | `stage_clear_dow` (Tuesday), `stage_clear_hour` (03:00) |
 | Supabase's own logs (`supabase_functions.hooks`, `cron.job_run_details`) | a week | fixed |
+| Errors people's devices reported (`client_errors`), and timed jobs and pushes that failed (`health_events`) — Settings › App Health | thirty days after each was last seen (`delete_old_health_records()`, nightly at 03:40) | fixed |
 
 An update past its end and a poll past its clear time are hidden by their
 select policies at once; the hourly job frees the rows. `alert_retention_days`
@@ -198,6 +199,7 @@ nobody but the Owner — who always may, whatever the grid says.
 | App Logo | `settings.logo` | the Owner | `logo_url`, the `branding` bucket |
 | Video Tutorial | `settings.video` | the Owner | `video_tutorial_url` |
 | Feedback | `settings.feedback` | the Owner | `feedback_retention_days` |
+| App Health | `settings.health` | the Owner | reads `client_errors`, `health_events` and `health_overview()`; may put rows away; is who `health_daily_note()` tells |
 | Erase Data | `settings.erase` | the Owner | `admin_reset_data()` — which never removes the Owner's account |
 
 `app_setting_rooms(column)` is the column-to-room map; the
