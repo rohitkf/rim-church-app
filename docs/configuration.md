@@ -126,6 +126,7 @@ on Tuesdays at 03:30.
 | Stage layouts of services already held, with their comments and log | weekly, on a day and hour in church time (`clear_stage_layouts_if_due()`, hourly at :10); null day never. Templates stay. | `stage_clear_dow` (Tuesday), `stage_clear_hour` (03:00) |
 | Supabase's own logs (`supabase_functions.hooks`, `cron.job_run_details`) | a week | fixed |
 | Errors people's devices reported (`client_errors`), and timed jobs and pushes that failed (`health_events`) — Settings › App Health | thirty days after each was last seen (`delete_old_health_records()`, nightly at 03:40) | fixed |
+| The keys of saves already carried out, with their answers (`request_keys`), so the same save sent again is answered and not repeated | an hour (`delete_old_request_keys()`, hourly at :47) | fixed |
 
 An update past its end and a poll past its clear time are hidden by their
 select policies at once; the hourly job frees the rows. `alert_retention_days`

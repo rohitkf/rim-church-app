@@ -52,9 +52,23 @@ describe('QueryState', () => {
 })
 
 describe('a read that failed', () => {
+  it('says it could not reach the server when that is what happened, and never the browser’s stack', () => {
+    render(
+      <QueryState
+        isLoading={false}
+        error={{ message: 'TypeError: Failed to fetch', details: 'TypeError: Failed to fetch\n    at https://app.example/assets/index.js:11:61517', hint: '', code: '' }}
+      >
+        <p>the list</p>
+      </QueryState>,
+    )
+    expect(screen.getByText('Could not reach the server. Check your connection and try again.')).toBeInTheDocument()
+    expect(screen.queryByText(/assets\/index\.js/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
   it('says so in plain words and offers trying again and the Dashboard', () => {
     render(
-      <QueryState isLoading={false} error={{ message: 'TypeError: Failed to fetch' }}>
+      <QueryState isLoading={false} error={{ code: 'XX000', message: 'cache lookup failed for type 0' }}>
         <p>the list</p>
       </QueryState>,
     )

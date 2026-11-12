@@ -1,5 +1,6 @@
 import { errorMessage } from './errorMessage'
 import { EdgeFunctionRefusal } from './edgeFunctionRefusal'
+import { noAnswerText } from './networkFailure'
 
 /**
  * Turn a database rejection into something a volunteer can act on.
@@ -95,8 +96,16 @@ export function isRotaClash(err: unknown): boolean {
  * a constraint name is the fastest route to the cause. Everyone else gets
  * the explanation, or a plain fallback when we have nothing better; showing
  * them Postgres's own words only teaches them the app is broken.
+ *
+ * One case is the same for all: a request that got no answer. There is no
+ * database message to show, only the browser's stack for the failed
+ * fetch, and what anybody needs is to be told to try again.
  */
 export function humanError(err: unknown, fallback: string, isAdmin: boolean): string {
+  // No answer at all is the same for everybody, and worth more than the
+  // fallback: "could not save" does not say that trying again will work.
+  const noAnswer = noAnswerText(err)
+  if (noAnswer) return noAnswer
   const friendly = translate(err)
   if (isAdmin) {
     const raw = errorMessage(err, fallback)
