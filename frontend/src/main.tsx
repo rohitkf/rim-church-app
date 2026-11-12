@@ -4,11 +4,17 @@ import { initPwa, isStandalone } from './lib/pwa'
 import { noteAtStart } from './lib/installedIdentity'
 import { stopPageZoom } from './lib/noPageZoom'
 import { pointPageAtPublishedIcons } from './lib/appIcon'
+import { installErrorReporting } from './lib/clientErrors'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
 applyTheme(readThemePreference())
+
+// What nothing else catches — an error in a timer or a handler, a promise
+// nobody awaited — is told to the church (lib/clientErrors, 0284). First,
+// so that a failure in anything below is heard too.
+installErrorReporting()
 
 // Registers the service worker and starts watching for install offers,
 // updates and the network dropping. Safe to call before React mounts —

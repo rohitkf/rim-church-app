@@ -11,9 +11,14 @@ import appSource from '../App.tsx?raw'
 
 const reloadApp = vi.hoisted(() => vi.fn())
 vi.mock('../lib/reloadApp', () => ({ reloadApp }))
+// Telling the church (lib/clientErrors, 0284): what it would be filed under, or nothing.
+const reportError = vi.hoisted(() => vi.fn<(source: string, error: unknown) => Promise<string | null>>())
+vi.mock('../lib/clientErrors', () => ({ reportError }))
 
 beforeEach(() => {
   reloadApp.mockClear()
+  reportError.mockReset()
+  reportError.mockResolvedValue(null)
   window.sessionStorage.clear()
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -81,6 +86,29 @@ describe('a page whose code would not download', () => {
     expect(screen.getByRole('button', { name: 'Reload the app' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to the Dashboard' })).toHaveAttribute('href', '/')
     expect(screen.queryByText(/dynamically imported module/)).toBeNull()
+  })
+})
+
+describe('telling the church', () => {
+  it('reports a page that threw, and shows the reference when it comes', async () => {
+    reportError.mockResolvedValue('7F3K2Q9A')
+    open('/giving', { path: '/giving', error: new Error('kaboom') })
+    expect(await screen.findByText('7F3K2Q9A')).toBeInTheDocument()
+    expect(screen.getByText(/It has been reported\. Reference/)).toBeInTheDocument()
+    expect(reportError).toHaveBeenCalledWith('page', expect.objectContaining({ message: 'kaboom' }))
+  })
+
+  it('shows the page without one when nothing was kept', async () => {
+    open('/giving', { path: '/giving', error: new Error('kaboom') })
+    await screen.findByRole('heading', { name: 'This page ran into a problem' })
+    await Promise.resolve()
+    expect(screen.queryByText(/It has been reported/)).toBeNull()
+  })
+
+  it('has nothing to report for an address with no page, or code that would not download', async () => {
+    open('/no-such-page', { path: '/giving', error: new Error('unused') })
+    await screen.findByRole('heading', { name: 'Page not found' })
+    expect(reportError).not.toHaveBeenCalled()
   })
 })
 

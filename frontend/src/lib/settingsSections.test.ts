@@ -52,8 +52,8 @@ describe('every room of Settings is a row in the grid (0277)', () => {
   })
 
   it('opens exactly what was open before, while nothing is changed', () => {
-    // The four that were the Owner's before 0277, and App Notices, which arrived as the Owner's (0278).
-    const owners = ['/settings/notices', '/settings/logo', '/settings/video', '/settings/feedback', '/settings/data']
+    // The four that were the Owner's before 0277, and the two that arrived as the Owner's: App Notices (0278) and App Health (0284).
+    const owners = ['/settings/notices', '/settings/logo', '/settings/video', '/settings/feedback', '/settings/health', '/settings/data']
     expect(rooms(standing({}))).toEqual(mine)
     expect(rooms(standing({ ledTeams: ['media'], memberTeams: ['media'] }))).toEqual(mine)
     const admin = rooms(standing({ admin: true }))

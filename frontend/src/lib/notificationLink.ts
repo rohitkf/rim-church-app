@@ -48,6 +48,7 @@ export const NOTIFICATION_TYPES = [
   'location_prompt',
   'setup_prompt',
   'registration_sold_out',
+  'health_note',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -119,6 +120,8 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
   // The card itself opens over whichever page they land on (components/SetupPrompt).
   setup_prompt: { label: 'A few things are left to set up in the app', href: '/' },
   registration_sold_out: { label: 'A ticket type has sold out', href: '/registrations' },
+  // Once a day at most, and only when something new has failed (0284); the line says what.
+  health_note: { label: 'Something in the app has failed', href: '/settings/health' },
 }
 
 function known(type: string): NotificationType | null {

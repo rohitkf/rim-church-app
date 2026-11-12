@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useRouteError } from 'react-router-dom'
 import { BrokenPageScreen, NotFoundScreen, StalePageScreen } from '../components/ErrorScreen'
+import { reportError } from '../lib/clientErrors'
 import { errorSummary, mayReloadOnce, pageErrorKind } from '../lib/pageErrors'
 import { reloadApp } from '../lib/reloadApp'
 
@@ -27,11 +28,23 @@ export function RouteErrorPage() {
     if (kind === 'stale' && mayReloadOnce()) reloadApp()
   }, [kind])
 
+  // What the report of it was filed under (lib/clientErrors, 0284), for
+  // somebody to read out. It arrives a moment after the page does.
+  const [reference, setReference] = useState<string | null>(null)
+
   useEffect(() => {
-    if (kind === 'broken') console.error('A page failed to render:', error)
+    if (kind !== 'broken') return
+    console.error('A page failed to render:', error)
+    let here = true
+    void reportError('page', error).then((ref) => {
+      if (here && ref) setReference(ref)
+    })
+    return () => {
+      here = false
+    }
   }, [kind, error])
 
   if (kind === 'not-found') return <NotFoundScreen path={pathname} onBack={() => navigate(-1)} />
   if (kind === 'stale') return <StalePageScreen onDashboard={pathname === '/'} />
-  return <BrokenPageScreen path={pathname} summary={errorSummary(error)} />
+  return <BrokenPageScreen path={pathname} summary={errorSummary(error)} reference={reference} />
 }

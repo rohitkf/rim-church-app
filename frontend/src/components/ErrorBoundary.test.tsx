@@ -9,6 +9,9 @@ import { ErrorBoundary } from './ErrorBoundary'
 
 const reloadApp = vi.hoisted(() => vi.fn())
 vi.mock('../lib/reloadApp', () => ({ reloadApp }))
+// Telling the church (lib/clientErrors, 0284): what it would be filed under, or nothing.
+const reportError = vi.hoisted(() => vi.fn<(source: string, error: unknown, extra?: { componentStack?: string | null }) => Promise<string | null>>())
+vi.mock('../lib/clientErrors', () => ({ reportError }))
 
 function Bomb({ error }: { error: Error }): never {
   throw error
@@ -16,6 +19,8 @@ function Bomb({ error }: { error: Error }): never {
 
 beforeEach(() => {
   reloadApp.mockClear()
+  reportError.mockReset()
+  reportError.mockResolvedValue(null)
   window.sessionStorage.clear()
   // React logs the caught error to console.error; that noise is not this test's.
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -63,5 +68,42 @@ describe('ErrorBoundary', () => {
     )
     expect(screen.getByRole('heading', { name: 'This page couldn’t be loaded' })).toBeInTheDocument()
     expect(reloadApp).not.toHaveBeenCalled()
+  })
+})
+
+describe('telling the church', () => {
+  it('reports what it caught, with which part of the page it was in', () => {
+    render(
+      <ErrorBoundary>
+        <Bomb error={new Error('kaboom')} />
+      </ErrorBoundary>,
+    )
+    expect(reportError).toHaveBeenCalledTimes(1)
+    const [source, error, extra] = reportError.mock.calls[0]
+    expect(source).toBe('boundary')
+    expect((error as Error).message).toBe('kaboom')
+    expect(extra?.componentStack).toContain('Bomb')
+  })
+
+  it('shows the reference once the report has one, for somebody to read out', async () => {
+    reportError.mockResolvedValue('7F3K2Q9A')
+    render(
+      <ErrorBoundary>
+        <Bomb error={new Error('kaboom')} />
+      </ErrorBoundary>,
+    )
+    expect(await screen.findByText('7F3K2Q9A')).toBeInTheDocument()
+    expect(screen.getByText(/It has been reported\. Reference/)).toBeInTheDocument()
+  })
+
+  it('shows the page just the same when nothing was kept', async () => {
+    render(
+      <ErrorBoundary>
+        <Bomb error={new Error('kaboom')} />
+      </ErrorBoundary>,
+    )
+    expect(screen.getByRole('heading', { name: 'This page ran into a problem' })).toBeInTheDocument()
+    await Promise.resolve()
+    expect(screen.queryByText(/It has been reported/)).not.toBeInTheDocument()
   })
 })

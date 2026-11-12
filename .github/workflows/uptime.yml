@@ -1,0 +1,133 @@
+# Is the app up? Asked from outside, on a timer.
+#
+# "The first sign of an outage is a volunteer saying so on a Sunday
+# morning" (the system-design review, November 2026). Nothing inside the
+# app can change that: a site that is down serves no page to say so, and a
+# database that is down cannot write a notification. So the asking is done
+# from here.
+#
+# Two questions, each asked up to three times before the answer counts:
+#   the site      https://rim-church-app.vercel.app/sw.js — the file every
+#                 phone asks for first; it must come back carrying a build
+#   the database  /api/health on the same site (frontend/api/health.js),
+#                 which asks the database's public API one cheap thing and
+#                 answers 200 only if it said yes
+#
+# When either is a no, one issue is opened and assigned to the Owner —
+# GitHub emails that and the phone app buzzes for it — and when both are a
+# yes again it is closed by itself (.github/actions/tell-owner). While it
+# stays down the issue is only brought up to date, silently.
+#
+# When it runs: every ten minutes on a Sunday morning, when the church is
+# using it; every half hour the rest of the week. GitHub runs schedules
+# when it has room, so "every ten minutes" can be twenty at a busy hour —
+# this is a second pair of eyes, not a pager. A proper uptime service can
+# be pointed at /api/health as well, any time.
+#
+# Two things switch a schedule off without a word: GitHub disables the
+# schedules of a public repository that has had no activity for sixty
+# days (re-enable it under Actions), and a schedule only ever runs the
+# copy of this file on the default branch.
+
+name: Uptime
+
+on:
+  schedule:
+    # Sunday, 05:00 to 14:59 UTC: before the first team is in until after the last service.
+    - cron: '*/10 5-14 * * 0'
+    # Otherwise twice an hour, off the hour.
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# One at a time; a run that starts while another is going waits for it,
+# so two cannot both open the issue.
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+env:
+  SITE: https://rim-church-app.vercel.app
+
+jobs:
+  ask:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask the site and the database
+        id: ask
+        run: |
+          # Three tries each, twenty seconds apart: one dropped request is not an outage.
+          try() { # try <name> <command…>: runs it up to three times, says how it ended
+            local name=$1; shift
+            for attempt in 1 2 3; do
+              if "$@"; then echo "$name: yes (try $attempt)"; return 0; fi
+              [ "$attempt" = 3 ] || sleep 20
+            done
+            echo "$name: no"; return 1
+          }
+
+          site() {
+            curl -sS --max-time 20 -o sw.js -w '%{http_code}' "$SITE/sw.js" > site.code 2> site.err || true
+            [ "$(cat site.code)" = 200 ] && grep -q "BUILD_ID = '[0-9a-f]\{7,\}'" sw.js
+          }
+          database() {
+            curl -sS --max-time 25 -o health.json -w '%{http_code}' "$SITE/api/health" > db.code 2> db.err || true
+            [ "$(cat db.code)" = 200 ] && grep -q '"ok":true' health.json
+          }
+
+          site_ok=yes; db_ok=yes
+          try site site || site_ok=no
+          try database database || db_ok=no
+
+          said=""
+          if [ "$site_ok" = no ]; then
+            said="- **The site did not answer.** \`$SITE/sw.js\` came back $(cat site.code 2>/dev/null || echo nothing) $(head -c 200 site.err 2>/dev/null)"$'\n'
+          fi
+          if [ "$db_ok" = no ]; then
+            # What the function itself said, if it said anything: cut short, one line, nothing but text.
+            heard=$(head -c 300 health.json 2>/dev/null | tr -d '\r\n`' || true)
+            # A page instead of an answer (the function is missing, or a proxy's error page) is not worth quoting.
+            case "$heard" in '{'*) ;; '') ;; *) heard="a page, not the health check's answer" ;; esac
+            said="${said}- **The database did not answer.** \`$SITE/api/health\` came back $(cat db.code 2>/dev/null || echo nothing)${heard:+: $heard} $(head -c 200 db.err 2>/dev/null)"$'\n'
+          fi
+
+          if [ "$site_ok" = yes ] && [ "$db_ok" = yes ]; then
+            echo "state=right" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=wrong" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo 'said<<RIM_END'
+            printf '%s' "$said"
+            echo
+            echo 'RIM_END'
+          } >> "$GITHUB_OUTPUT"
+          echo "when=$(date -u '+%A %-d %B %Y, %H:%M UTC')" >> "$GITHUB_OUTPUT"
+
+      - name: Tell the Owner
+        uses: ./.github/actions/tell-owner
+        with:
+          key: app-down
+          state: ${{ steps.ask.outputs.state }}
+          title: The app is not answering
+          body: |
+            Checked from outside at ${{ steps.ask.outputs.when }}, three times over a minute:
+
+            ${{ steps.ask.outputs.said }}
+
+            **What to look at first**
+            - The site: [Vercel's status](https://www.vercel-status.com) and the project's latest deployment.
+            - The database: [Supabase's status](https://status.supabase.com), and whether the project is paused (the free plan pauses a project nobody has used for a week) or out of connections.
+
+            This is checked again every ten minutes on a Sunday morning and every half hour otherwise, and this issue closes itself as soon as both answer.
+          resolved: The site and the database are both answering again (${{ steps.ask.outputs.when }}).
+
+      - name: Fail the run while it is down
+        if: steps.ask.outputs.state == 'wrong'
+        run: exit 1

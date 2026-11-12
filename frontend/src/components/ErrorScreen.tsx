@@ -138,8 +138,14 @@ export function StalePageScreen({ onDashboard }: { onDashboard: boolean }) {
  * needs it to get out, and whoever is told "it broke" needs exactly it.
  * The address and the build go with it, because "which page, on which
  * version" is the first thing asked.
+ *
+ * `reference` is what the church's own record of it is filed under
+ * (lib/clientErrors, 0284): eight characters somebody can read out, which
+ * find the page, the build, the device and the error in Settings › App
+ * Health. It arrives a moment after the screen, or not at all — with no
+ * connection there is nobody to tell — so the screen never waits for it.
  */
-export function BrokenPageScreen({ path, summary }: { path: string; summary: string }) {
+export function BrokenPageScreen({ path, summary, reference }: { path: string; summary: string; reference?: string | null }) {
   const onDashboard = path === '/'
   const build = ownBuildId()
   return (
@@ -166,6 +172,12 @@ export function BrokenPageScreen({ path, summary }: { path: string; summary: str
           : 'Going back to the Dashboard usually clears it.'}{' '}
         If it keeps happening, please tell an Admin which page it was.
       </p>
+      {reference && (
+        <p className="mt-3 text-body-sm text-on-surface-variant" aria-live="polite">
+          It has been reported. Reference{' '}
+          <span className="font-mono font-semibold tracking-wider text-on-surface">{reference}</span>
+        </p>
+      )}
       <details className="mt-4 rounded-[var(--radius-row)] bg-raised px-4 py-2.5 text-left">
         <summary className="cursor-pointer text-label-md font-medium text-on-surface-variant">Technical details</summary>
         <p className="mt-2 font-mono text-label-md text-on-surface [overflow-wrap:anywhere]">{summary}</p>
