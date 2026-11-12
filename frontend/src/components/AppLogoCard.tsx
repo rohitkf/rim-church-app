@@ -320,9 +320,11 @@ function InstalledIcon({ logoPath }: { logoPath: string | null }) {
         </div>
       </div>
       <p className="mt-3 text-label-sm text-on-surface-faint">
-        A device that already has the app keeps the icon it was installed with for a while. An Android phone changes
-        it by itself within a few days of the app being opened. On an iPhone or iPad, remove the app from the Home
-        Screen and add it again.
+        A device that already has the app keeps the icon it was installed with until the device changes it; nothing
+        the app can do hurries that. An Android phone changes it by itself within a day or two of the app being
+        opened, and asks first. A computer offers it in the app window’s ⋮ menu. An iPhone or iPad never does: the
+        app has to be removed from the Home Screen and added again. Everybody with the app installed is told, in
+        their own device’s terms, the next time they open it.
       </p>
     </div>
   )

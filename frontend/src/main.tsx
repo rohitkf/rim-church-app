@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { applyTheme, readThemePreference } from './lib/theme'
-import { initPwa } from './lib/pwa'
+import { initPwa, isStandalone } from './lib/pwa'
+import { noteAtStart } from './lib/installedIdentity'
 import { stopPageZoom } from './lib/noPageZoom'
 import { pointPageAtPublishedIcons } from './lib/appIcon'
 import { createRoot } from 'react-dom/client'
@@ -13,6 +14,11 @@ applyTheme(readThemePreference())
 // updates and the network dropping. Safe to call before React mounts —
 // nothing it does touches the DOM.
 initPwa()
+
+// Before anybody signs in: is this a copy that has just been installed, or
+// one that was in use already? Only the second can be wearing an old icon
+// (lib/installedIdentity), and only now can the two be told apart.
+noteAtStart(isStandalone())
 
 // No pinch-zooming the page on an iPhone (lib/noPageZoom).
 stopPageZoom()

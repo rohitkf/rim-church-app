@@ -290,6 +290,13 @@ frontend/api/                Vercel functions. register-preview.js answers
                              arithmetic, the canvas, the bucket; and
                              lib/useAppIconSync.ts, which keeps it current
                              from the app shell for whoever may change the logo
+  lib/installedIdentity.ts   a new logo or name on a device that already has
+                             the app: what the device remembers being told
+                             (localStorage `rim.installed-identity`), when to
+                             speak, and the words for each kind of device.
+                             components/AppIdentityNotice.tsx says it, in the
+                             app shell; main.tsx's noteAtStart() tells a copy
+                             just installed from one already in use
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
   lib/pwa.ts                 install, offline, and the update banner
@@ -688,6 +695,30 @@ Each of these has already cost real time. None of them show up in review.
   page's `apple-touch-icon` link, not the manifest, so `main.tsx` points
   that link at the set on opening. With no logo, or the database out of
   reach, everything answers with the app's own icons: never an error.
+- **Nothing the app can call changes an icon or a name that is already
+  installed; all it can do is not get in the way, and say so.** What a
+  device does is its maker's (Chrome's write-up of January 2026, and
+  `lib/installedIdentity.ts`): Android Chrome reads the manifest when the
+  app is opened, at most daily, rebuilds the installed app while it is
+  closed and on charge, and asks first; desktop Chrome (144 on) offers
+  "Review app update" in the window's menu; an iPhone never changes a
+  Home Screen icon — remove and add again, which costs a sign-in and the
+  notification permission. Three things keep the first two working, and
+  each fails without a sound: (1) **a new icon needs a new address** —
+  Chrome no longer looks inside a picture whose URL has not changed, so a
+  set must never be overwritten in place (a new logo is a new set; keep
+  it so); (2) the manifest's own address and its `id` (`/`) must not
+  move, or the device stops finding updates for the app it has; (3) the
+  service worker must not answer the manifest from its cache. The rest is
+  telling people: `AppIdentityNotice` speaks once per change on an
+  installed copy, in that device's terms. It cannot see the Home Screen,
+  so it goes by what the device remembers being told; a copy with no
+  memory that already holds a session was in use before and is told if
+  the icon was made in the last thirty days, and one with no session is
+  new and only noted (`noteAtStart`, before sign-in — moved after it, a
+  new iPhone install is told to add the app again on its first day). The
+  app's name is the manifest's `name` and `short_name`, in the two copies
+  above; changing them is a code change, and the same notice follows it.
 - **`public/sw.js` must keep `const BUILD_ID = '__RIM_BUILD_ID__'`.** A
   browser installs a new service worker only when `sw.js` differs byte for
   byte; without the placeholder it is identical every deploy and the "a new
