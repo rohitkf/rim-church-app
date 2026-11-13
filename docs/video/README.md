@@ -22,8 +22,9 @@ Sascha Ende (ende.app), licensed CC BY 4.0: wherever the video is posted, the li
 with it. The sound effects are Kenney's (CC0).
 
 **What is on screen.** Five screens of the built app at phone size, run on test data. The only
-name shown, "Grace Mensah", is made up; nothing from the church's own records appears. The blue
-"RIM" tile is the mark the app's header carries, not the uploaded App Logo.
+name shown, "Grace Mensah", is made up; nothing from the church's own records appears. The logo on
+the title cards and in the app's header is the church's own App Logo, taken from the icon the live app
+serves to a phone that installs it.
 
 The story, in order: "Sunday doesn't run itself" · who is serving (Can you serve? → Give
 availability → the Availability Tracker) · when they are in (the Team Rota's 07:00 call time) ·
