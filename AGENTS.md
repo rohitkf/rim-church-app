@@ -1401,9 +1401,11 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   folder). Caveman starts off; a mode shapes chat replies only, never
   anything that is kept.
 - **`brag` makes a short video about the app** (`brag:brag`, with
-  Hyperframes; `brag:brag-slim` without). It writes outside the
+  Hyperframes; `brag:brag-slim` without). It works outside the
   repository — the session's scratch directory, never `brag-output/` here
-  (ignored all the same) — and is made from the built app in Chromium on
+  (ignored all the same) — and only a finished video the Owner asks to
+  keep is copied in, to `docs/video/` with its poster and the caption in
+  that folder's README. It is made from the built app in Chromium on
   `/verify`'s fixtures, so **every name on screen is made up**; nothing
   from the live church goes into a video. Hyperframes is not installed
   by this repo: `.claude/skills/brag/SOURCE.md` says how to run it with
