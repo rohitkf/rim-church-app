@@ -98,6 +98,7 @@ export const PAGE_ROOMS: Record<string, { to: string; label: string; blurb: stri
     { to: '/settings/pages#messages', label: 'Page by Page › Message Board', blurb: 'When the board clears, which the dashboard’s panel follows.' },
   ],
   '/giving': [{ to: '/settings/giving', label: 'Giving', blurb: 'Links, a QR code and bank details.' }],
+  '/door': [{ to: '/settings/reception', label: 'Reception', blurb: 'Lock and unlock it, who works the door and what each may press.' }],
   '/stage': [{ to: '/settings/stage', label: 'Stage Layout', blurb: 'Which teams may draw, the areas, and the template library.' }],
   '/volunteers': [{ to: '/settings/onboarding', label: 'Onboarding', blurb: 'Who has set up what — details, tour, location, notifications — and asking the rest.' }],
   [BELL]: [{ to: GENERAL_ROOM, label: 'General', blurb: 'How many notifications each person’s bell keeps, and for how long.' }],

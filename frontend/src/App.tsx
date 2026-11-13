@@ -171,6 +171,7 @@ const router = createBrowserRouter(
             <Route path="health" lazy={page(() => import('./pages/SettingsPage'), 'AppHealthPane')} />
             <Route path="onboarding" lazy={page(() => import('./pages/SettingsPage'), 'OnboardingPane')} />
             <Route path="stage" lazy={page(() => import('./pages/SettingsPage'), 'StageSettingsPane')} />
+            <Route path="reception" lazy={page(() => import('./pages/SettingsPage'), 'ReceptionSettingsPane')} />
             <Route path="overwatch" lazy={page(() => import('./pages/SettingsPage'), 'OverwatchSettingsPane')} />
             <Route path="clock-in" lazy={page(() => import('./pages/SettingsPage'), 'ClockInSettingsPane')} />
             <Route path="prayer" lazy={page(() => import('./pages/SettingsPage'), 'PrayerSettingsPane')} />

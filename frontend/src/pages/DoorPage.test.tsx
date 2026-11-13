@@ -48,6 +48,8 @@ vi.mock('../lib/toast', () => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     rpc: (fn: string, args: { p_id: string }) => {
+      // The page asks whether Reception is locked before it draws anything (0288): here it never is.
+      if (fn === 'reception_lock_state') return Promise.resolve({ data: { locked: false, note: null, changed_at: null, changed_by: null }, error: null })
       if (fn !== 'registration_order_undo') throw new Error(`unexpected rpc ${fn}`)
       state.undone.push(args.p_id)
       return Promise.resolve(state.undoRefused ? { data: null, error: state.undoRefused } : { data: 'change', error: null })
