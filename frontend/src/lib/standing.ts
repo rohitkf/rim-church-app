@@ -44,6 +44,15 @@ export const OPEN: Standing = { closed: null, may_enter: true, blocked: null }
 export const STANDING_KEY = ['my-standing']
 
 export async function fetchStanding(): Promise<Standing> {
+  // Nobody signed in has no standing to ask about, and the database will
+  // not answer a visitor: it refuses with "permission denied for function
+  // my_standing". That happened for real (November 2026) — a browser whose
+  // session had just gone still had a page open, the question went out
+  // without it, and the refusal was reported to App Health as an error on
+  // somebody's device. It was not one. Signed out, the answer is "nothing
+  // in the way", and the sign-in page is what they meet next.
+  const { data: auth } = await supabase.auth.getSession()
+  if (!auth.session) return OPEN
   const { data, error } = await supabase.rpc('my_standing')
   if (error) throw error
   return standingSchema.parse(data)

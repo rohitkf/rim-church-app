@@ -10,7 +10,10 @@ import { useStanding } from './useStanding'
  */
 
 const answer = vi.hoisted(() => vi.fn<() => Promise<{ data: unknown; error: unknown }>>())
-vi.mock('./supabaseClient', () => ({ supabase: { rpc: () => answer() } }))
+// Somebody is signed in throughout: nobody signed in is not asked about (standingAsk.test.ts).
+vi.mock('./supabaseClient', () => ({
+  supabase: { rpc: () => answer(), auth: { getSession: () => Promise.resolve({ data: { session: { user: { id: 'u1' } } } }) } },
+}))
 
 const closed = { title: 'App maintenance', body: '', from: '2026-11-15T09:00:00Z', until: '2026-11-16T09:00:00Z' }
 
