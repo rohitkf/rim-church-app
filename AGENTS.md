@@ -1376,10 +1376,10 @@ So a session that starts from nothing works the way the last one did:
 
 ## 12. The skills installed in this repo
 
-`.claude/skills/` holds eight skill sets copied in at a pinned commit, each
+`.claude/skills/` holds nine skill sets copied in at a pinned commit, each
 with a `SOURCE.md` saying where it came from, its licence and what was
 left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
-`impeccable`, `hallmark`, `i-have-adhd` and `graphify` (beside
+`impeccable`, `hallmark`, `i-have-adhd`, `brag` and `graphify` (beside
 `security-audit`, and `frontend/.claude/skills/verify`). All but
 `graphify` and `security-audit` are plugin folders: they load as
 `<set>@skills-dir` and their skills are called `<set>:<skill>`.
@@ -1400,6 +1400,16 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   in `tests/`: `claude plugin validate` and `claude plugin test` on that
   folder). Caveman starts off; a mode shapes chat replies only, never
   anything that is kept.
+- **`brag` makes a short video about the app** (`brag:brag`, with
+  Hyperframes; `brag:brag-slim` without). It writes outside the
+  repository — the session's scratch directory, never `brag-output/` here
+  (ignored all the same) — and is made from the built app in Chromium on
+  `/verify`'s fixtures, so **every name on screen is made up**; nothing
+  from the live church goes into a video. Hyperframes is not installed
+  by this repo: `.claude/skills/brag/SOURCE.md` says how to run it with
+  its telemetry off, and which of its commands send things off the
+  machine and are never run. The bundled music is CC BY 4.0 and wants
+  its credit wherever the video is posted.
 - **The code graph is not committed.** `graphify extract . --code-only`
   then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in
   about twenty seconds with no model calls (`pip install

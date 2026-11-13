@@ -12,3 +12,6 @@ supabase/.branches/
 
 # The code graph graphify builds (rebuild: graphify extract . --code-only). Generated, large, and stale by the next commit.
 graphify-out/
+
+# /brag writes here when run from the repo; its videos are not the app's
+brag-output*/

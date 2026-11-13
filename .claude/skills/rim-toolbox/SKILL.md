@@ -47,6 +47,7 @@ messages, PR bodies, migrations, `AGENTS.md`.
 | Before saying it is done | `superpowers:verification-before-completion`, which here means AGENTS §2's four commands, `frontend:verify`, and for a migration the local run and the dry run |
 | Review before pushing | `ponytail:ponytail-review` (is every line needed, is the risky part tested), then `/code-review`. `superpowers:receiving-code-review` when a reviewer answers |
 | Whole-repo health | `ponytail:ponytail-audit`; `security-audit` for a security pass; `mattpocock-skills:improve-codebase-architecture` when the Owner wants the structure looked at |
+| A short video about the app | `brag:brag` (AGENTS §12): screens from the built app on `/verify`'s fixtures, in the theme asked for; output to the scratch directory, never the repo |
 | Editing `AGENTS.md`, `CLAUDE.md` or a skill | `mattpocock-skills:writing-for-agents`, `superpowers:writing-skills` |
 | The conversation is getting long | `mattpocock-skills:handoff` |
 | The Owner did not follow a reply | `mattpocock-skills:wait-what`; offer `i-have-adhd:i-have-adhd` for the rest of the session |
@@ -94,6 +95,8 @@ Where a session has not loaded them, read the skill's file directly:
 - `impeccable`'s first step runs a launcher that downloads its engine. If the network refuses it,
   work from `skills/impeccable/reference/*.md` instead.
 - `hallmark`'s picture generation needs a Together AI key; do not use it here.
+- `brag` needs the Hyperframes npm package, which is not installed here: `brag/SOURCE.md` has the
+  commands, with telemetry off. Its `publish`, `share`, `cloud`, `auth` and `feedback` are never run.
 - `caveman:caveman-compress` rewrites a memory file in caveman style and sends its text to a model.
   Never run it on `AGENTS.md` or `CLAUDE.md` unless the Owner asks: those are the house rules, in
   the house's own prose.
