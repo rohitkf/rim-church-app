@@ -1407,7 +1407,10 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   keep is copied in, to `docs/video/` with its poster and the caption in
   that folder's README. It is made from the built app in Chromium on
   `/verify`'s fixtures, so **every name on screen is made up**; nothing
-  from the live church goes into a video. Hyperframes is not installed
+  from the live church goes into a video but its App Logo, which the
+  live site hands to anybody (`/manifest.webmanifest` names the icon;
+  the fixtures' `app_settings` row and a stubbed signed link put it in
+  the header). Hyperframes is not installed
   by this repo: `.claude/skills/brag/SOURCE.md` says how to run it with
   its telemetry off, and which of its commands send things off the
   machine and are never run. The bundled music is CC BY 4.0 and wants
