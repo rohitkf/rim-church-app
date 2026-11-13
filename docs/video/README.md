@@ -11,6 +11,9 @@ A twenty-second video about the app in its dark theme, in two shapes, and a sixt
 | `rim-app-vertical.jpg` | its poster |
 | `rim-app-60s-landscape.mp4` | the long one: 60 seconds, 1920×1080 |
 | `rim-app-60s-landscape.jpg` | its poster |
+| `rim-app-60s-bold-landscape.mp4` | the bold cut: 60 seconds, 1920×1080 |
+| `rim-app-60s-bold-vertical.mp4` | the bold cut upright: 60 seconds, 1080×1920 |
+| `rim-app-60s-bold-*.jpg` | their posters |
 
 **A caption to post with it**
 
@@ -38,3 +41,9 @@ the running order (the Service Planner and the Countdown clock), events (the pub
 page and Reception), "the rest of church life" (Events, Message Board, Set Lists, Teams, Inventory)
 and Settings ("Every rule is yours to set"). Its screens are the same built app on test data: the
 event "Winter Retreat" and its prices are made up.
+
+**The bold cut** is the sixty-second story again in a louder style, in both shapes: each chapter
+floods the frame with one of the app's own accent colours (blue, orange, green, indigo, with the
+Countdown on black), the titles land a word at a time, the phones swing in on a spring and sit at
+a tilt, a band of outlined words runs behind each chapter, and every cut is a wipe or an iris in
+the colour of the scene arriving, on the music's beat. Same screens, same test data, same credit.
