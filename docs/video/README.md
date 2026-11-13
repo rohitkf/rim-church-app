@@ -1,6 +1,6 @@
 # The app's short video
 
-A twenty-second video about the app, in its dark theme and in two shapes, made with the `brag` skill
+A twenty-second video about the app in its dark theme, in two shapes, and a sixty-second one, made with the `brag` skill
 (`.claude/skills/brag/`, AGENTS §12) and rendered with Hyperframes.
 
 | File | What it is |
@@ -9,6 +9,8 @@ A twenty-second video about the app, in its dark theme and in two shapes, made w
 | `rim-app-landscape.jpg` | its poster (also the video's first frame, so it is the thumbnail) |
 | `rim-app-vertical.mp4` | 1080×1920, for WhatsApp, Instagram and anything watched on a phone held upright |
 | `rim-app-vertical.jpg` | its poster |
+| `rim-app-60s-landscape.mp4` | the long one: 60 seconds, 1920×1080 |
+| `rim-app-60s-landscape.jpg` | its poster |
 
 **A caption to post with it**
 
@@ -30,3 +32,9 @@ The story, in order: "Sunday doesn't run itself" · who is serving (Can you serv
 availability → the Availability Tracker) · when they are in (the Team Rota's 07:00 call time) ·
 what has to be ready (Checklists and the Service Planner; Done → Head → Sign-off) · "Sunday, put
 together."
+
+**The sixty-second one** runs the length of the same music track and adds to the three highlights:
+the running order (the Service Planner and the Countdown clock), events (the public registration
+page and Reception), "the rest of church life" (Events, Message Board, Set Lists, Teams, Inventory)
+and Settings ("Every rule is yours to set"). Its screens are the same built app on test data: the
+event "Winter Retreat" and its prices are made up.
