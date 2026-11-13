@@ -1,12 +1,14 @@
 # The app's short video
 
-A twenty-second video about the app, in its dark theme, made with the `brag` skill
+A twenty-second video about the app, in its dark theme and in two shapes, made with the `brag` skill
 (`.claude/skills/brag/`, AGENTS §12) and rendered with Hyperframes.
 
 | File | What it is |
 |---|---|
 | `rim-app-landscape.mp4` | 1920×1080, for a screen, YouTube or a slide |
 | `rim-app-landscape.jpg` | its poster (also the video's first frame, so it is the thumbnail) |
+| `rim-app-vertical.mp4` | 1080×1920, for WhatsApp, Instagram and anything watched on a phone held upright |
+| `rim-app-vertical.jpg` | its poster |
 
 **A caption to post with it**
 
