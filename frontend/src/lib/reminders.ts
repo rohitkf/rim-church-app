@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
-import { formatServiceDay } from './sunday'
+import { shortServiceDay } from './sunday'
 import { untilText } from './expiry'
 import { notificationHref } from './notificationLink'
 
@@ -44,6 +44,10 @@ export interface Reminder {
   eyebrow: string
   title: string
   detail?: string
+  /** The day it is about, short ("Sun 25 Oct") — shown as a tag, not buried in the detail. */
+  day?: string
+  /** The teams it is asked for, each a tag of its own. */
+  teams?: string[]
   href?: string
   actionLabel?: string
   tone: 'accent' | 'warning'
@@ -58,19 +62,19 @@ type KindEntry = {
   action: string
   href: (r: OpenRequest) => string
   detail: (r: OpenRequest, now: number) => string | undefined
+  day?: (r: OpenRequest) => string | undefined
+  teams?: (r: OpenRequest) => string[]
   readsOnOpen?: string
 }
 
 /**
- * The teams still waiting on an answer, said as such: somebody on two
- * teams who has answered for one is asked only for the other, and "Media"
- * on its own read as if the whole service were still unanswered.
+ * The teams still waiting on an answer. Somebody on two teams who has
+ * answered for one is asked only for the other, so the reminder names
+ * exactly the ones left — as tags, beside the day, because which day and
+ * which team is what tells one "Can you serve?" from the next.
  */
-function stillFor(teams: string | null): string | null {
-  const names = (teams ?? '').split(', ').filter(Boolean)
-  if (names.length === 0) return null
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-  return `Not yet answered for ${list}`
+function teamsLeft(teams: string | null): string[] {
+  return (teams ?? '').split(', ').filter(Boolean)
 }
 
 export const REMINDER_KINDS: Record<string, KindEntry> = {
@@ -84,10 +88,9 @@ export const REMINDER_KINDS: Record<string, KindEntry> = {
     eyebrow: 'Can you serve?',
     action: 'Give availability',
     href: () => '/availability',
-    detail: (r, now) =>
-      [r.on_date ? formatServiceDay(r.on_date) : null, stillFor(r.detail), r.due_at ? `answers close ${untilText(r.due_at, now)}` : null]
-        .filter(Boolean)
-        .join(' · '),
+    detail: (r, now) => (r.due_at ? `Answers close ${untilText(r.due_at, now)}` : undefined),
+    day: (r) => (r.on_date ? shortServiceDay(r.on_date) : undefined),
+    teams: (r) => teamsLeft(r.detail),
   },
   mention: {
     eyebrow: 'You were mentioned',
@@ -134,6 +137,8 @@ export function toReminders(rows: OpenRequest[], now: number): Reminder[] {
       refId: r.ref_id,
       title: r.title,
       detail: k.detail(r, now),
+      day: k.day?.(r),
+      teams: k.teams?.(r),
       href: k.href(r),
       actionLabel: k.action,
       // Due within a day is the one worth colouring.

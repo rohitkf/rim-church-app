@@ -696,8 +696,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
       <TicketAgain slug={event.slug} />
 
-      {/* A way to reach the church from here (0287): shown whatever state the event is in. */}
-      <ContactOrganisers slug={event.slug} eventTitle={event.title} className="mt-6" />
+      {/* A way to reach the church from here (0287): shown whatever state the event is in.
+          Centred, like the "lost your ticket?" line it sits under: the two are
+          the page's foot, and the button used to hang off the left edge below
+          a centred sentence. */}
+      <ContactOrganisers slug={event.slug} eventTitle={event.title} className="mt-4 flex flex-col items-center text-center" />
     </PublicShell>
   )
 }

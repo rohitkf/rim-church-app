@@ -85,6 +85,20 @@ describe('what is waiting on me, on the dashboard', () => {
     expect(screen.getByRole('link', { name: 'Give availability' })).toHaveAttribute('href', '/availability')
   })
 
+  it('says which day and which team an availability ask is for, each as a tag of its own', async () => {
+    state.rows = [
+      { kind: 'availability', ref_id: 's1', title: 'English Service', detail: 'Media, Worship', on_date: '2026-10-25', due_at: later, created_at: null },
+    ]
+    show()
+    const note = await screen.findByRole('note')
+    const tags = [...note.querySelectorAll('span.rounded-full')].map((t) => t.textContent)
+    expect(tags).toHaveLength(3)
+    expect(tags[0]).toMatch(/25/)
+    expect(tags.slice(1)).toEqual(['Media', 'Worship'])
+    // Read straight through, it is still a sentence.
+    expect(note).toHaveTextContent(/English Service.*25.*for\s*Media\s*Worship/)
+  })
+
   it('marks a mention read when it is opened from here', async () => {
     state.rows = [
       { kind: 'mention', ref_id: 'm1', title: 'Hello', detail: null, on_date: null, due_at: null, created_at: null },

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { Pill } from './Surface'
 import { REMINDERS_KEY, fetchOpenRequests, toReminders } from '../lib/reminders'
 
 export type ReminderTone = 'accent' | 'warning' | 'neutral'
@@ -26,6 +27,8 @@ export function ReminderBanner({
   eyebrow,
   title,
   detail,
+  day,
+  teams = [],
   href,
   actionLabel = 'Open',
   tone = 'accent',
@@ -34,6 +37,10 @@ export function ReminderBanner({
   eyebrow: string
   title: string
   detail?: string
+  /** The day it is about. Drawn as the strongest thing after the title: it is what tells two asks apart. */
+  day?: string
+  /** The teams it is asked for, each a tag in the banner's own colour. */
+  teams?: string[]
   /** Where the button goes; without one the banner only informs. */
   href?: string
   actionLabel?: string
@@ -49,7 +56,18 @@ export function ReminderBanner({
       <div className="min-w-0 flex-1">
         <p className="text-label-sm font-medium uppercase tracking-wide text-on-surface-variant">{eyebrow}</p>
         <p className="mt-0.5 line-clamp-2 break-words text-body-sm font-medium text-on-surface">{title}</p>
-        {detail && <p className="mt-0.5 text-label-sm text-on-surface-variant">{detail}</p>}
+        {(day || teams.length > 0) && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {day && <Pill tone="solid">{day}</Pill>}
+            {teams.length > 0 && <span className="text-label-sm text-on-surface-variant">for</span>}
+            {teams.map((t) => (
+              <Pill key={t} tone={tone === 'warning' ? 'orange' : tone === 'accent' ? 'blue' : 'neutral'}>
+                {t}
+              </Pill>
+            ))}
+          </p>
+        )}
+        {detail && <p className="mt-1.5 text-label-sm text-on-surface-variant">{detail}</p>}
       </div>
       {href && (
         <Link
@@ -107,6 +125,8 @@ export function DashboardReminders({ className = '' }: { className?: string }) {
               eyebrow={r.eyebrow}
               title={r.title}
               detail={r.detail}
+              day={r.day}
+              teams={r.teams}
               href={r.href}
               actionLabel={r.actionLabel}
               tone={r.tone}
