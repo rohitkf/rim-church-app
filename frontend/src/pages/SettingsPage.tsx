@@ -24,6 +24,7 @@ import { PersonAccessCard } from '../components/PersonAccessCard'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { VideoTutorialCard } from '../components/VideoTutorialCard'
 import { StageSettingsCard } from '../components/StageSettingsCard'
+import { ReceptionSettingsCard } from '../components/ReceptionSettingsCard'
 import { OverwatchCard } from '../components/OverwatchCard'
 import { ClockInCard } from '../components/ClockInCard'
 import { PrayerSettingsCard } from '../components/PrayerSettingsCard'
@@ -379,6 +380,11 @@ export function SendAlertPane() {
 /** Who has set up what, asking the rest, and sending the tour of the app. */
 export function OnboardingPane() {
   return <OnboardingCard />
+}
+
+/** When Reception is locked, who works it and with which buttons, and what Undo does there (0288). */
+export function ReceptionSettingsPane() {
+  return <ReceptionSettingsCard />
 }
 
 /** Which teams may draw the stage, the template asks, and when layouts clear. */

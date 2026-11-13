@@ -7,6 +7,8 @@ import { Select } from '../components/Select'
 import { PhoneField } from '../components/PhoneField'
 import { ScannerPanel } from '../components/TicketScanner'
 import { QueryState } from '../components/QueryState'
+import { ReceptionLockCard, ReceptionLocked } from '../components/ReceptionLockCard'
+import { useReceptionLock } from '../lib/receptionLock'
 import { useErrorText } from '../lib/useErrorText'
 import { usePageAccess } from '../lib/usePageAccess'
 import { offerUndo, orderIdOfCode, runUndo, useRecentUndo } from '../lib/registrationUndo'
@@ -53,6 +55,41 @@ import {
 type Tab = 'scan' | 'find' | 'walk_in'
 
 export function DoorPage() {
+  const rights = useRegistrationRights()
+  // Asked again every so often: a page left open at the door notices the key being turned (0288).
+  const lock = useReceptionLock({ watch: true })
+  const header = <PageHeader eyebrow="Church life" title="Reception" description="Scan tickets, check people in, take payments at the door, register a walk-in." />
+  // Locked, and this person's way in is a door right: told why, and nothing is asked of the database.
+  if (lock.locked && !rights.door) {
+    return (
+      <div>
+        {header}
+        <ReceptionLocked note={lock.note} />
+      </div>
+    )
+  }
+  // Not known yet: nothing is drawn or asked on a guess, so a locked door never flashes open.
+  if (!lock.settled) {
+    return (
+      <div>
+        {header}
+        <QueryState isLoading error={null}>
+          {null}
+        </QueryState>
+      </div>
+    )
+  }
+  return (
+    <div>
+      {header}
+      {/* The key, for whoever runs registrations; nothing at all for anybody else while it is open. */}
+      <ReceptionLockCard className="mb-4" />
+      <DoorEvents />
+    </div>
+  )
+}
+
+function DoorEvents() {
   const [params, setParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { canOpen } = usePageAccess()
@@ -67,22 +104,19 @@ export function DoorPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: REGISTRATIONS_KEY })
 
   return (
-    <div>
-      <PageHeader eyebrow="Church life" title="Reception" description="Scan tickets, check people in, take payments at the door, register a walk-in." />
-      <QueryState isLoading={events.isLoading} error={events.error} isEmpty={open.length === 0} emptyMessage="No event today, and none coming up. Events are made on the Registrations page.">
-        {open.length > 1 && (
-          <Field label="Event" className="mb-4 max-w-md">
-            <Select
-              value={eventId ?? ''}
-              onChange={choose}
-              aria-label="Event"
-              options={open.map((e) => ({ value: e.id, label: `${e.title}${e.first_starts_at ? ` · ${whenWords(e.first_starts_at, null)}` : ''}` }))}
-            />
-          </Field>
-        )}
-        {eventId && <Door key={eventId} eventId={eventId} refresh={refresh} manager={canOpen('/registrations')} />}
-      </QueryState>
-    </div>
+    <QueryState isLoading={events.isLoading} error={events.error} isEmpty={open.length === 0} emptyMessage="No event today, and none coming up. Events are made on the Registrations page.">
+      {open.length > 1 && (
+        <Field label="Event" className="mb-4 max-w-md">
+          <Select
+            value={eventId ?? ''}
+            onChange={choose}
+            aria-label="Event"
+            options={open.map((e) => ({ value: e.id, label: `${e.title}${e.first_starts_at ? ` · ${whenWords(e.first_starts_at, null)}` : ''}` }))}
+          />
+        </Field>
+      )}
+      {eventId && <Door key={eventId} eventId={eventId} refresh={refresh} manager={canOpen('/registrations')} />}
+    </QueryState>
   )
 }
 
