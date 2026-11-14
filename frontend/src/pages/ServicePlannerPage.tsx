@@ -608,6 +608,8 @@ export function ServicePlannerPage() {
           ? `Doors at ${formatTime(sessions[0].start_time)}, closing around ${endsAt}.`
           : null,
       printedOn: `exported ${new Date().toLocaleDateString()}`,
+      startsAt: sessions.find((s) => !s.skipped_at) ? formatTime(sessions.find((s) => !s.skipped_at)!.start_time) : null,
+      endsAt,
     }),
     [serviceQuery.data, sessions, totalMinutes, endsAt],
   )

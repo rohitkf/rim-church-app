@@ -37,6 +37,9 @@ export interface ServiceSheet {
   totalLabel: string
   windowLabel: string | null
   printedOn: string
+  /** When the doors open and when it closes, as clocks: "10:00 AM". Either may be unknown. */
+  startsAt?: string | null
+  endsAt?: string | null
 }
 
 /**
@@ -86,6 +89,8 @@ interface Palette {
   subPill: string
   subDisc: string
   subLabel: string
+  /** The small tag under each time that says how long the session runs. */
+  chip: string
 }
 
 const PALETTES: Record<SheetTheme, Palette> = {
@@ -96,7 +101,7 @@ const PALETTES: Record<SheetTheme, Palette> = {
     pill: '#26262e',
     pillEmpty: '#2a2118',
     ink: '#f5f5f7',
-    muted: '#a5a5ab',
+    muted: '#b9b9c0',
     faint: '#9a9aa0',
     rail: '#38383f',
     avatarDisc: '#4a4a52',
@@ -109,6 +114,7 @@ const PALETTES: Record<SheetTheme, Palette> = {
     subPill: '#33261a',
     subDisc: '#6b4a1c',
     subLabel: '#ff9f0a',
+    chip: '#2e2e37',
   },
   light: {
     backdrop: '#ffffff',
@@ -132,13 +138,14 @@ const PALETTES: Record<SheetTheme, Palette> = {
     subPill: '#fbe9cf',
     subDisc: '#f0c98f',
     subLabel: '#8a5200',
+    chip: '#e3e3ea',
   },
 }
 
 const PAGE_PAD = 34
 const CARD_PAD = 22
 /** The left column: when it starts, and how long it runs. */
-const TIME_COL = 104
+const TIME_COL = 122
 const RAIL_X = PAGE_PAD + CARD_PAD + TIME_COL
 const ROW_X = RAIL_X + 24
 /**
@@ -152,7 +159,7 @@ const ROW_X = RAIL_X + 24
  * three quarters of a session's name is not information, it is a hint.
  * Everything wraps now, and the row grows to hold it.
  */
-const ROW_MIN_H = 76
+const ROW_MIN_H = 86
 const ROW_GAP = 10
 const ROW_PAD_X = 20
 const ROW_PAD_Y = 16
@@ -169,14 +176,33 @@ const ROW_PAD_Y = 16
  */
 const TITLE_SIZE = 34
 const TITLE_LINE = 40
-const DATE_SIZE = 12.5
-const EYEBROW_SIZE = 10.5
-const NAME_SIZE = 19
-const NAME_LINE = 24
-const LEAD_SIZE = 13
+const DATE_SIZE = 15
+const EYEBROW_SIZE = 10
+const NAME_SIZE = 21
+const NAME_LINE = 26
+const LEAD_SIZE = 13.5
 const LEAD_LINE = 17
-const TIME_SIZE = 16
-const MINUTES_SIZE = 11
+/*
+ * The clock is the largest thing in a row, and nothing on the sheet is in
+ * the typewriter face any more.
+ *
+ * The times, the durations and the date were all set in Courier, because
+ * the screen sets them in a monospace. On screen that face is a sturdy
+ * one; in a PDF it is Courier, the thinnest face there is, and at sixteen
+ * points the column a stage manager reads from across a room was the
+ * faintest thing on the page — the Owner had to lean in to read a start
+ * time. Helvetica's figures are all one width anyway, so the column still
+ * lines up; it is now bold, at the size of a clock, with the am/pm set
+ * small beside it and the length in a tag of its own underneath.
+ */
+const TIME_SIZE = 26
+const AMPM_SIZE = 12
+const MINUTES_SIZE = 10.5
+const CHIP_H = 20
+/** The three figures under the title: starts, ends, runs for. */
+const STAT_H = 74
+const STAT_GAP = 10
+const STAT_VALUE = 24
 const FOOTER_SIZE = 9.5
 const PILL_PAD = 12
 const PILL_GAP = 9
@@ -242,8 +268,8 @@ interface Pill {
 function measurePill(lead: string | null, innerW: number): Pill {
   const padLeft = lead ? AVATAR_INSET : PILL_PAD
   const discW = lead ? AVATAR * 2 + PILL_GAP : 0
-  const lines = wrapText(lead ?? 'Nobody assigned', LEAD_SIZE, Math.max(innerW - padLeft - PILL_PAD - discW, 60))
-  const textW = Math.max(...lines.map((line) => textWidth(line, LEAD_SIZE, false)))
+  const lines = wrapText(lead ?? 'Nobody assigned', LEAD_SIZE, Math.max(innerW - padLeft - PILL_PAD - discW, 60), true)
+  const textW = Math.max(...lines.map((line) => textWidth(line, LEAD_SIZE, true)))
   return {
     lead,
     lines,
@@ -267,6 +293,25 @@ function initialsOf(name: string): string {
   if (parts.length === 0) return '··'
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
+/**
+ * "2026-11-15" as somebody says it: "Sunday 15 November 2026". Anything
+ * that is not a date is left exactly as it came.
+ */
+export function sheetDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!m) return iso
+  const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  if (Number.isNaN(day.getTime())) return iso
+  const part = (options: Intl.DateTimeFormatOptions) => day.toLocaleDateString('en-GB', { ...options, timeZone: 'UTC' })
+  return `${part({ weekday: 'long' })} ${part({ day: 'numeric' })} ${part({ month: 'long' })} ${part({ year: 'numeric' })}`
+}
+
+/** "10:00 AM" as the figures and what follows them, so each can be its own size. */
+function clockParts(time: string): { figures: string; suffix: string } {
+  const at = time.trim().indexOf(' ')
+  return at < 0 ? { figures: time.trim(), suffix: '' } : { figures: time.trim().slice(0, at), suffix: time.trim().slice(at + 1) }
 }
 
 export function serviceSheetPage(
@@ -294,6 +339,7 @@ export function serviceSheetPage(
     subPill: SUB_PILL,
     subDisc: SUB_DISC,
     subLabel: SUB_LABEL,
+    chip: CHIP,
   } = PALETTES[theme]
 
   const texts: PdfText[] = []
@@ -314,10 +360,46 @@ export function serviceSheetPage(
     titleY += TITLE_LINE
   }
   const dateY = titleY - TITLE_LINE + 26
-  texts.push({ x: PAGE_PAD, y: dateY, size: DATE_SIZE, text: sheet.date, mono: true, color: MUTED })
+  texts.push({ x: PAGE_PAD, y: dateY, size: DATE_SIZE, text: sheetDate(sheet.date), bold: true, color: PRIMARY })
+
+  /*
+   * The three things asked of a running order before anybody reads a row
+   * of it: when does it start, when is it over, how long is that. They
+   * were a tile at the foot of the sheet, under every session; they are
+   * the first thing under the title now, each in its own box at the size
+   * of a heading. A box is left out when its figure is not known rather
+   * than drawn empty.
+   */
+  const startsAt = sheet.startsAt ?? sheet.sessions[0]?.time ?? null
+  const stats = [
+    startsAt ? { label: 'STARTS', value: startsAt } : null,
+    sheet.endsAt ? { label: 'ENDS', value: sheet.endsAt } : null,
+    { label: 'RUNS FOR', value: sheet.totalLabel },
+  ].filter((stat): stat is { label: string; value: string } => stat !== null)
+  const statTop = dateY + 22
+  const statW = (cardW - STAT_GAP * (stats.length - 1)) / stats.length
+  stats.forEach((stat, i) => {
+    const x = PAGE_PAD + i * (statW + STAT_GAP)
+    rects.push({ x, y: statTop, w: statW, h: STAT_H, color: WINDOW_TILE, radius: 18 })
+    texts.push({ x: x + 18, y: statTop + 26, size: EYEBROW_SIZE, text: stat.label, bold: true, color: MUTED })
+    const { figures, suffix } = clockParts(stat.value)
+    // A duration ("1h 25m") is all figures; a clock keeps its am/pm small.
+    const whole = /\d[hm]/.test(stat.value)
+    texts.push({ x: x + 18, y: statTop + 56, size: STAT_VALUE, text: whole ? stat.value : figures, bold: true, color: INK })
+    if (!whole && suffix) {
+      texts.push({
+        x: x + 18 + textWidth(figures, STAT_VALUE, true) + 5,
+        y: statTop + 56,
+        size: AMPM_SIZE,
+        text: suffix,
+        bold: true,
+        color: MUTED,
+      })
+    }
+  })
 
   // The running-order card.
-  const cardTop = dateY + 26
+  const cardTop = statTop + STAT_H + 16
   let y = cardTop + 34
 
   texts.push({
@@ -325,16 +407,16 @@ export function serviceSheetPage(
     y,
     size: EYEBROW_SIZE,
     text: 'RUNNING ORDER',
-    mono: true,
+    bold: true,
     color: MUTED,
   })
-  const count = `${sheet.sessions.length} ${sheet.sessions.length === 1 ? 'session' : 'sessions'} · ${sheet.totalLabel}`
+  const count = `${sheet.sessions.length} ${sheet.sessions.length === 1 ? 'SESSION' : 'SESSIONS'}`
   texts.push({
-    x: W - PAGE_PAD - CARD_PAD - textWidth(count, EYEBROW_SIZE, false, true),
+    x: W - PAGE_PAD - CARD_PAD - textWidth(count, EYEBROW_SIZE, true),
     y,
     size: EYEBROW_SIZE,
     text: count,
-    mono: true,
+    bold: true,
     color: MUTED,
   })
 
@@ -359,7 +441,7 @@ export function serviceSheetPage(
      * reads them in.
      */
     const innerW = rowW - ROW_PAD_X * 2
-    const nameLines = wrapText(session.name, NAME_SIZE, innerW)
+    const nameLines = wrapText(session.name, NAME_SIZE, innerW, true)
 
     /*
      * One pill per person, and one saying nobody when there is nobody.
@@ -389,33 +471,48 @@ export function serviceSheetPage(
     const anchor = top + ROW_PAD_Y + NAME_SIZE * 0.72
     const pillTop = anchor + (nameLines.length - 1) * NAME_LINE + 10
     const rowH = Math.max(ROW_MIN_H, pillTop - top + pillsH + ROW_PAD_Y)
-    if (railTop === null) railTop = anchor
-    railBottom = anchor
+    if (railTop === null) railTop = anchor - 8
+    railBottom = anchor - 8
 
-    // Time and duration in the left column, right-aligned to the rail.
-    const time = session.time
+    // The clock in the left column, right-aligned to the rail: the
+    // figures large, the am/pm small beside them on the same baseline.
+    const { figures, suffix } = clockParts(session.time)
+    const suffixW = suffix ? textWidth(suffix, AMPM_SIZE, true) + 4 : 0
+    const clockRight = RAIL_X - 18
     texts.push({
-      x: RAIL_X - 16 - textWidth(time, TIME_SIZE, true, true),
+      x: clockRight - suffixW - textWidth(figures, TIME_SIZE, true),
       y: anchor,
       size: TIME_SIZE,
-      text: time,
-      mono: true,
+      text: figures,
       bold: true,
       color: TIME_INK,
     })
-    const mins = `${session.minutes} min`
+    if (suffix) {
+      texts.push({
+        x: clockRight - suffixW + 4,
+        y: anchor,
+        size: AMPM_SIZE,
+        text: suffix,
+        bold: true,
+        color: MINUTES_INK,
+      })
+    }
+    // How long it runs, in a tag of its own under the clock.
+    const mins = `${session.minutes} MIN`
+    const chipW = textWidth(mins, MINUTES_SIZE, true) + 18
+    rects.push({ x: clockRight - chipW, y: anchor + 9, w: chipW, h: CHIP_H, color: CHIP, radius: CHIP_H / 2 })
     texts.push({
-      x: RAIL_X - 16 - textWidth(mins, MINUTES_SIZE, false, true),
-      y: anchor + 18,
+      x: clockRight - chipW + 9,
+      y: anchor + 9 + CHIP_H / 2 + MINUTES_SIZE * 0.36,
       size: MINUTES_SIZE,
       text: mins,
-      mono: true,
+      bold: true,
       color: MINUTES_INK,
     })
 
     // The dot on the rail. The first is lit, as the page lights the one
     // the service opens with.
-    circles.push({ cx: RAIL_X, cy: anchor - 5, r: i === 0 ? 5 : 3.5, color: i === 0 ? PRIMARY : RAIL })
+    circles.push({ cx: RAIL_X, cy: anchor - 8, r: i === 0 ? 6 : 4.5, color: i === 0 ? PRIMARY : RAIL })
 
     // The session's own card.
     rects.push({ x: ROW_X, y: top, w: rowW, h: rowH, color: CARD, radius: 16 })
@@ -453,11 +550,11 @@ export function serviceSheetPage(
           })
           const ini = initialsOf(pill.lead)
           texts.push({
-            x: pillX + pill.padLeft + AVATAR - textWidth(ini, 9, false, true) / 2,
+            x: pillX + pill.padLeft + AVATAR - textWidth(ini, 9.5, true) / 2,
             y: pillMid + 3.5,
-            size: 9,
+            size: 9.5,
             text: ini,
-            mono: true,
+            bold: true,
             color: AVATAR_INK,
           })
         }
@@ -468,6 +565,7 @@ export function serviceSheetPage(
             y: leadY,
             size: LEAD_SIZE,
             text: textLine,
+            bold: true,
             color: pill.lead ? INK : WARN,
           })
           leadY += LEAD_LINE
@@ -485,7 +583,6 @@ export function serviceSheetPage(
         y: pillY + EYEBROW_SIZE,
         size: EYEBROW_SIZE,
         text: 'SUBSTITUTE',
-        mono: true,
         bold: true,
         color: SUB_LABEL,
       })
@@ -513,7 +610,7 @@ export function serviceSheetPage(
       x2: RAIL_X,
       y2: railBottom,
       color: RAIL,
-      width: 1,
+      width: 2,
     })
   }
 
@@ -521,43 +618,6 @@ export function serviceSheetPage(
   // Drawn first so everything above sits on it — rects paint in order.
   rects.unshift({ x: PAGE_PAD, y: cardTop, w: cardW, h: cardH, color: SURFACE, radius: 20 })
   rects.unshift({ x: 0, y: 0, w: W, h: fit === 'page' ? A4.height : 0, color: BACKDROP })
-
-  // The service-window tile, as the page ends.
-  const tileTop = cardTop + cardH + 16
-  const windowLines = sheet.windowLabel
-    ? wrapText(sheet.windowLabel, LEAD_SIZE, cardW - CARD_PAD * 2)
-    : []
-  const tileH = windowLines.length > 0 ? 92 + 8 + windowLines.length * 18 : 92
-  rects.push({ x: PAGE_PAD, y: tileTop, w: cardW, h: tileH, color: WINDOW_TILE, radius: 20 })
-  texts.push({
-    x: PAGE_PAD + CARD_PAD,
-    y: tileTop + 30,
-    size: EYEBROW_SIZE,
-    text: 'SERVICE WINDOW',
-    mono: true,
-    color: MUTED,
-  })
-  texts.push({
-    x: PAGE_PAD + CARD_PAD,
-    y: tileTop + 70,
-    size: 28,
-    text: sheet.totalLabel,
-    bold: true,
-    mono: true,
-    color: INK,
-  })
-  texts.push({
-    x: PAGE_PAD + CARD_PAD + textWidth(sheet.totalLabel, 28, true, true) + 12,
-    y: tileTop + 70,
-    size: LEAD_SIZE,
-    text: 'end to end',
-    color: MUTED,
-  })
-  let windowY = tileTop + 96
-  for (const line of windowLines) {
-    texts.push({ x: PAGE_PAD + CARD_PAD, y: windowY, size: LEAD_SIZE, text: line, color: MUTED })
-    windowY += 18
-  }
 
   /*
    * A4 is a floor, not a ceiling.
@@ -569,7 +629,7 @@ export function serviceSheetPage(
    * shorten the service: it loses the end of it, silently, which is the
    * worst way to lose anything.
    */
-  const footerY = tileTop + tileH + 26
+  const footerY = cardTop + cardH + 30
   const footerBaseline = fit === 'page' ? Math.max(A4.height - 30, footerY) : footerY
   texts.push({
     x: PAGE_PAD,
