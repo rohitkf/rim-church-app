@@ -55,6 +55,22 @@ describe('a service’s link in the Service Planner', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('names the link with one press of a usual name, and lets go on a second', async () => {
+    const user = userEvent.setup()
+    const onSave = control()
+    await user.click(screen.getByRole('button', { name: '+ Add a link' }))
+    await user.type(screen.getByLabelText('Web address'), 'https://example.org/live')
+    const zoom = screen.getByRole('button', { name: 'Zoom' })
+    await user.click(zoom)
+    expect(screen.getByLabelText(/What to call it/)).toHaveValue('Zoom')
+    expect(zoom).toHaveAttribute('aria-pressed', 'true')
+    await user.click(zoom)
+    expect(screen.getByLabelText(/What to call it/)).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Slides' }))
+    await user.click(screen.getByRole('button', { name: 'Save link' }))
+    expect(onSave).toHaveBeenCalledWith({ link: 'https://example.org/live', link_label: 'Slides' }, expect.any(Function))
+  })
+
   it('says what is wrong with an address that is not one, and saves nothing', async () => {
     const user = userEvent.setup()
     const onSave = control()

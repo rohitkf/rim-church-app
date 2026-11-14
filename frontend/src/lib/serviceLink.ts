@@ -12,6 +12,12 @@ export interface ServiceLink {
 /** The longest name the database keeps for a service's link. */
 export const LINK_LABEL_MAX = 40
 
+/**
+ * The names a service's link usually has, offered as buttons so nobody
+ * types "Livestream" every Sunday. Any other name can still be typed.
+ */
+export const LINK_LABEL_PRESETS = ['Livestream', 'Zoom', 'Slides', 'Song words', 'Sermon notes', 'Shared folder'] as const
+
 /** What the link is called where nobody named it. */
 export const UNNAMED_LINK = 'Open link'
 
