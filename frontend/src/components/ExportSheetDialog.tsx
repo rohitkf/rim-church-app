@@ -58,7 +58,7 @@ export function ExportSheetDialog({
       } else {
         // Twice the page's own size, so the text is still crisp when
         // someone opens it full screen on a phone.
-        const blob = await renderPageToJpeg(build(theme, 'content'), 2)
+        const blob = await renderPageToJpeg(build(theme, 'content'), 3)
         downloadFile(new Uint8Array(await blob.arrayBuffer()), `${name}.jpg`, 'image/jpeg')
       }
       onClose()

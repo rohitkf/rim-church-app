@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { serviceSheetPage, type ServiceSheet } from './serviceSheet'
+import { serviceSheetPage, sheetDate, type ServiceSheet } from './serviceSheet'
 import { A4 } from './pdfDoc'
 import { textWidth } from './helveticaMetrics'
 import { contrastFloor, contrastRatio } from './contrast'
@@ -24,11 +24,71 @@ describe('serviceSheetPage', () => {
     const page = serviceSheetPage(sheet())
     const said = words(page)
     expect(said).toContain('Sunday Morning Celebration')
-    expect(said).toContain('2026-08-30')
+    expect(said).toContain('Sunday 30 August 2026')
     expect(said).toContain('Welcome & Notices')
     expect(said).toContain('Worship Set')
-    expect(said).toContain('09:30 AM')
+    // A clock is its figures and, smaller beside them, its am/pm.
+    expect(said).toContain('09:30')
+    expect(said).toContain('AM')
+    expect(said).toContain('5 MIN')
     expect(said).toContain('1h 20m end to end')
+  })
+
+  it('says the date the way somebody would, and leaves anything else alone', () => {
+    expect(sheetDate('2026-11-15')).toBe('Sunday 15 November 2026')
+    expect(sheetDate('next week')).toBe('next week')
+    expect(sheetDate('')).toBe('')
+  })
+
+  describe('what somebody reads from across the room', () => {
+    // The Owner had to lean in to read a start time: the times, the
+    // durations and the date were in the PDF's typewriter face, the
+    // thinnest there is.
+    it('sets nothing on the sheet in the typewriter face', () => {
+      for (const theme of ['dark', 'light'] as const) {
+        const page = serviceSheetPage(sheet({ endsAt: '10:50 AM' }), 'content', theme)
+        expect(page.texts.filter((t) => t.mono).map((t) => t.text)).toEqual([])
+      }
+    })
+
+    it('makes the clock the largest thing in a row, and bold', () => {
+      const page = serviceSheetPage(sheet(), 'content')
+      const clock = page.texts.filter((t) => t.text === '09:35')
+      const name = page.texts.find((t) => t.text === 'Worship Set')!
+      const row = clock.find((t) => Math.abs(t.y - name.y) < 0.01)!
+      expect(row.bold).toBe(true)
+      expect(row.size).toBeGreaterThan(name.size)
+      expect(row.size).toBeGreaterThanOrEqual(24)
+    })
+
+    it('writes the length, the names and the labels in bold too', () => {
+      const page = serviceSheetPage(sheet(), 'content')
+      for (const text of ['5 MIN', 'Ama Serwaa', 'Nobody assigned', 'RUNNING ORDER', 'Sunday 30 August 2026']) {
+        expect(page.texts.find((t) => t.text === text)?.bold, text).toBe(true)
+      }
+    })
+
+    it('opens with when it starts, when it ends and how long it runs', () => {
+      const page = serviceSheetPage(sheet({ startsAt: '09:30 AM', endsAt: '10:50 AM' }), 'content')
+      const labels = ['STARTS', 'ENDS', 'RUNS FOR'].map((label) => page.texts.find((t) => t.text === label)!)
+      expect(labels.every(Boolean)).toBe(true)
+      // Above the running order, not under it.
+      const order = page.texts.find((t) => t.text === 'RUNNING ORDER')!
+      for (const label of labels) expect(label.y).toBeLessThan(order.y)
+      expect(words(page)).toContain('10:50')
+    })
+
+    it('leaves out the end when nobody knows it, rather than drawing an empty box', () => {
+      const said = words(serviceSheetPage(sheet({ endsAt: null }), 'content'))
+      expect(said).toContain('STARTS')
+      expect(said).not.toContain('ENDS')
+    })
+
+    it('still has something to say for a service with nothing planned', () => {
+      const said = words(serviceSheetPage(sheet({ sessions: [] }), 'content'))
+      expect(said).not.toContain('STARTS')
+      expect(said).toContain('RUNS FOR')
+    })
   })
 
   // The gap is the thing a planner is scanning for, so a blank cell would
@@ -276,15 +336,15 @@ describe('serviceSheetPage', () => {
       // nearly invisible on white.
       const light = serviceSheetPage(sheet(), 'content', 'light')
       const inkOf = (text: string) => light.texts.find((t) => t.text === text)!.color
-      expect(inkOf('09:30 AM')).toBe('#1c1c1e')
-      expect(inkOf('5 min')).toBe('#3a3a3c')
+      expect(inkOf('09:35')).toBe('#1c1c1e')
+      expect(inkOf('5 MIN')).toBe('#3a3a3c')
     })
 
     it('keeps the same pair legible the other way up', () => {
       const dark = serviceSheetPage(sheet(), 'content', 'dark')
       const inkOf = (text: string) => dark.texts.find((t) => t.text === text)!.color
-      expect(inkOf('09:30 AM')).toBe('#f5f5f7')
-      expect(inkOf('5 min')).toBe('#c7c7cc')
+      expect(inkOf('09:35')).toBe('#f5f5f7')
+      expect(inkOf('5 MIN')).toBe('#c7c7cc')
     })
 
     it('keeps the unassigned pill readable on paper', () => {
