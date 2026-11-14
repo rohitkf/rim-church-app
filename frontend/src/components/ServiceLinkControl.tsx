@@ -1,6 +1,6 @@
 import { type FormEvent, useId, useState } from 'react'
 import { ActionButton, Overlay, inputClasses } from './Surface'
-import { LINK_LABEL_MAX, serviceLink, serviceLinkPatch } from '../lib/serviceLink'
+import { LINK_LABEL_MAX, LINK_LABEL_PRESETS, serviceLink, serviceLinkPatch } from '../lib/serviceLink'
 
 /** The link itself: a pill that opens it in a new tab. */
 export function ServiceLinkPill({
@@ -139,6 +139,27 @@ export function ServiceLinkControl({
                 className={`${inputClasses} mt-1.5`}
               />
             </label>
+            {/* The usual names, one press each. Outside the label, so the
+                buttons' words do not become part of the field's name. */}
+            <div role="group" aria-label="Usual names" className="mt-2.5 flex flex-wrap gap-2">
+              {LINK_LABEL_PRESETS.map((name) => {
+                const chosen = label.trim() === name
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={chosen}
+                    // Pressed again, it lets go: the way back to no name.
+                    onClick={() => setLabel(chosen ? '' : name)}
+                    className={`tap rounded-full px-3.5 py-1.5 text-label-md font-medium transition-[background-color,color] duration-200 ease-[var(--ease-glide)] ${
+                      chosen ? 'bg-primary text-on-primary' : 'hairline text-on-surface'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                )
+              })}
+            </div>
 
             {error && (
               <p role="alert" className="mt-4 text-body-sm text-error">
