@@ -54,6 +54,7 @@ import {
 import { eventsOnDay, fetchEvents } from '../lib/churchEvents'
 import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
+import { ServiceLinkPill } from '../components/ServiceLinkControl'
 import { ClockInPanel } from '../components/ClockInPanel'
 import { WhereAmIDot } from '../components/WhereAmIDot'
 import { ClockInRequests } from '../components/ClockInRequests'
@@ -744,6 +745,7 @@ export function DashboardPage() {
                           Open running order
                           <span aria-hidden="true">&rarr;</span>
                         </Link>
+                        <ServiceLinkPill service={service} tone="strong" />
                         {overallAvailability.noAnswer > 0 && (
                           <Link
                             to="/availability"
