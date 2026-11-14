@@ -14,6 +14,9 @@ A twenty-second video about the app in its dark theme, in two shapes, and a sixt
 | `rim-app-60s-bold-landscape.mp4` | the bold cut: 60 seconds, 1920×1080 |
 | `rim-app-60s-bold-vertical.mp4` | the bold cut upright: 60 seconds, 1080×1920 |
 | `rim-app-60s-bold-*.jpg` | their posters |
+| `rim-app-90s-landscape.mp4` | the advert: 90 seconds, 1920×1080, filmed from the app being used |
+| `rim-app-90s-vertical.mp4` | the advert upright: 90 seconds, 1080×1920 |
+| `rim-app-90s-*.jpg` | their posters |
 
 **A caption to post with it**
 
@@ -22,8 +25,8 @@ A twenty-second video about the app in its dark theme, in two shapes, and a sixt
 >
 > Music: Sascha Ende, ende.app (CC BY 4.0)
 
-**The music credit is not optional.** The track is "Happy Beats / Business Moves Vol. 10" by
-Sascha Ende (ende.app), licensed CC BY 4.0: wherever the video is posted, the line above goes
+**The music credit is not optional.** The track is "Happy Beats / Business Moves Vol. 10" (Vol. 1
+on the ninety-second advert) by Sascha Ende (ende.app), licensed CC BY 4.0: wherever the video is posted, the line above goes
 with it. The sound effects are Kenney's (CC0).
 
 **What is on screen.** Five screens of the built app at phone size, run on test data. The only
@@ -47,3 +50,23 @@ floods the frame with one of the app's own accent colours (blue, orange, green, 
 Countdown on black), the titles land a word at a time, the phones swing in on a spring and sit at
 a tilt, a band of outlined words runs behind each chapter, and every cut is a wipe or an iris in
 the colour of the scene arriving, on the music's beat. Same screens, same test data, same credit.
+
+**The ninety-second advert** is a different kind of film from the ones above: nothing in it is a
+still. Every phone is a recording of the built app being used, on test data, with a hand that
+presses a real button and the app answering. Twenty-three recordings were filmed that way and cut
+so each press lands on the music's beat (120 to the minute).
+
+- Five moments get room: answering "Can you serve?", a checklist going Done → Head → Sign-off →
+  Check all, a session started in the Service Planner and the Countdown following it, a
+  registration from the public link to a ticket and then checked in at Reception, and the app
+  flipping between light and dark.
+- Sixteen pages get a beat and a half each, one press apiece: Team Rota, Set Lists, Song Library,
+  Stage Layout, the Church Diary, Birthdays, Clock In, Teams, Message Board, Team Chat, Send an
+  Alert, Prayer, Giving, Volunteers, Inventory and Settings.
+- Around them: a ring and rays wherever the finger lands, the scene's colour pouring out of the
+  place that was pressed, a sticker and confetti on the result, bars crossing the frame at each
+  change of chapter, and a wall of every screen at the close.
+
+Everybody named in it is made up (Grace Mensah, Maya Fernandes, Priya Nair and the rest), as are
+"Harvest Supper", the giving details ("Test Church", sort code 00-00-00) and every message typed.
+Only the App Logo is the church's own.
