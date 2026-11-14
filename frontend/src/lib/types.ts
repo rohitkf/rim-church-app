@@ -91,6 +91,9 @@ export const serviceSchema = z.object({
   /** The repeat it was made by, if any. Where it came from and nothing
    *  more — see 0105. Optional for the same reason as `ended_at`. */
   series_id: z.string().nullable().optional(),
+  /** The link that goes with it and what to call it (0289); see lib/serviceLink. */
+  link: z.string().nullable().optional(),
+  link_label: z.string().nullable().optional(),
 })
 export type Service = z.infer<typeof serviceSchema>
 

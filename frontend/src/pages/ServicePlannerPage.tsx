@@ -51,6 +51,7 @@ import {
   type RunWrite,
 } from '../lib/sessionRunPlan'
 import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog'
+import { ServiceLinkControl } from '../components/ServiceLinkControl'
 import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -614,7 +615,7 @@ export function ServicePlannerPage() {
   const [serviceError, setServiceError] = useState<string | null>(null)
 
   const updateService = useMutation({
-    mutationFn: async (patch: { service_type?: string; date?: string }) => {
+    mutationFn: async (patch: { service_type?: string; date?: string; link?: string | null; link_label?: string | null }) => {
       const { error } = await supabase.from('services').update(patch).eq('id', serviceId)
       if (error) throw error
       // Moving the service to another day: re-anchor the first session to
@@ -876,6 +877,13 @@ export function ServicePlannerPage() {
                 </p>
               </>
             )}
+            <ServiceLinkControl
+              service={serviceQuery.data}
+              canEdit={canEdit}
+              busy={updateService.isPending}
+              error={serviceError}
+              onSave={(patch, done) => updateService.mutate(patch, { onSuccess: done })}
+            />
             {/* Where it came from, said quietly. Stopped repeats say so,
                 rather than looking like one still running. */}
             {series && (
