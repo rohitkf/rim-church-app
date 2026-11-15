@@ -233,23 +233,21 @@ supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... \
 
 Put the **public** half in `frontend/.env` as `VITE_VAPID_PUBLIC_KEY`.
 
-Then the piece no migration can do for you — **Integrations → Webhooks →
-Create a new hook**:
+Then the piece no migration can do for you: tell the database where the
+function is and what key to show it. Two secrets in Vault, run once in the
+SQL editor (there is no webhook to make in the dashboard — migration 0291
+calls the function itself, once for each transaction that wrote
+notifications):
 
-| Field | Value |
-|---|---|
-| Table | `public.notifications` |
-| Events | **Insert** only |
-| Type | Supabase Edge Function |
-| Function | `push-notify` |
-| Headers | *Add auth header with service key* |
-
-(Webhooks moved out of the Database section; parts of Supabase's own docs
-still link the old path.)
+```sql
+select vault.create_secret('https://<your-project-ref>.supabase.co/functions/v1/push-notify', 'push_notify_url');
+select vault.create_secret('<the service-role key>', 'push_notify_key');
+```
 
 **Check it worked**: on a phone, install the app, allow notifications, then
 have somebody send you an alert from Settings. Nothing arriving usually
-means the webhook header is missing.
+means one of the two secrets is missing — Settings › App Health says so
+("Push is not set up on this database").
 
 ## 9. The AI assistant (optional)
 
@@ -338,8 +336,8 @@ match your account. Check the email in that statement against `auth.users`.
 
 **The invite button fails** — the `invite` function is not deployed (step 7).
 
-**No push on a phone, but the bell works** — the webhook is missing or has
-no service-key header (step 8). The in-app half never needed it, which is
+**No push on a phone, but the bell works** — Vault has no `push_notify_url`
+or no `push_notify_key` (step 8; Settings › App Health says so). The in-app half never needed it, which is
 why this looks like a partial failure.
 
 **Emails arrive but the link will not sign you in** — the domain is not in
