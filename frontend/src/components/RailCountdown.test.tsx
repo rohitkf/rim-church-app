@@ -19,6 +19,20 @@ describe('RailCountdown', () => {
     expect(screen.getByText('3m 05s')).toBeInTheDocument()
   })
 
+  it('counts the seconds with more than an hour to go, too', () => {
+    render(<RailCountdown startsAt={inSeconds(89 * 60 + 14)} />)
+    expect(screen.getByText('1:29:14')).toBeInTheDocument()
+    act(() => void vi.advanceTimersByTime(3000))
+    expect(screen.getByText('1:29:11')).toBeInTheDocument()
+    expect(screen.getByLabelText('Next session in 1:29:11')).toBeInTheDocument()
+  })
+
+  it('shows a long overrun to the second as well', () => {
+    render(<RailCountdown startsAt={inSeconds(-(61 * 60 + 5))} holding />)
+    expect(screen.getByText('+1:01:05')).toBeInTheDocument()
+    expect(screen.getByLabelText('Running 1:01:05 over')).toBeInTheDocument()
+  })
+
   it('turns over to bare seconds at the last minute', () => {
     render(<RailCountdown startsAt={inSeconds(61)} />)
     act(() => void vi.advanceTimersByTime(2000))

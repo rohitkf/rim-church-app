@@ -90,6 +90,18 @@ describe('the glimpse of a running service', () => {
     expect(screen.queryByRole('timer')).toBeNull()
   })
 
+  it('names who is on the session on that row too, and says nothing where nobody is', () => {
+    vi.setSystemTime(at('10:12'))
+    const worship = render(<SessionGlimpse variant="line" sessions={plan()} />)
+    expect(screen.getByText('Rohit Kochikkat')).toBeInTheDocument()
+    worship.unmount()
+    // The Message has nobody on it: the row stays short.
+    vi.setSystemTime(at('10:40'))
+    render(<SessionGlimpse variant="line" sessions={plan()} />)
+    expect(screen.getByText('Message')).toBeInTheDocument()
+    expect(screen.queryByText('Nobody on it yet')).toBeNull()
+  })
+
   it('draws nothing before the service starts or once the end is called', () => {
     vi.setSystemTime(at('09:00'))
     const before = render(<SessionGlimpse sessions={plan()} />)

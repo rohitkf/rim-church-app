@@ -47,8 +47,13 @@ export function SessionGlimpse({
 
   if (variant === 'line') {
     return (
-      <span className={className}>
-        <span className="text-on-surface">{what}</span>{' '}
+      // The row is shut, so this is all there is: the session, who is on
+      // it, and its clock. Nobody on it is said in the open card, not here.
+      <span className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${className}`}>
+        <span className="text-on-surface">{what}</span>
+        {glimpse.current && glimpse.current.people.length > 0 && (
+          <span className="text-on-surface-variant">{peopleLine(glimpse.current.people)}</span>
+        )}
         <span className={`tabular ${TONE_CLASS[glimpse.tone]}`} aria-label={spoken}>
           {time}
         </span>

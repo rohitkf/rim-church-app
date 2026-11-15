@@ -71,6 +71,7 @@ import type { RoleType } from '../auth/types'
 import { READINESS_KEY, fetchTeamReadiness } from '../lib/teamReadiness'
 import { TeamReadinessPanel } from '../components/TeamReadinessPanel'
 import { SessionGlimpse } from '../components/SessionGlimpse'
+import { dashboardSections } from '../lib/dashboardSections'
 import { sessionAssigneeSchema } from '../lib/types'
 import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 import { checklistWindow } from '../lib/checklistWindow'
@@ -537,9 +538,10 @@ export function DashboardPage() {
           </p>
         ) : (
           <div className="mt-7 flex flex-col gap-5">
-            <Eyebrow className="block">
-              {adminDate ? 'Services that day' : 'Upcoming services'}
-            </Eyebrow>
+            {/* One heading for a day an Admin has stepped to. Otherwise
+                the headings are said per section, below: a service that is
+                on now is not "upcoming". */}
+            {adminDate && <Eyebrow className="block">Services that day</Eyebrow>}
             {(() => {
               /*
                * Still to come first, most imminent at the top; whatever has
@@ -1135,7 +1137,14 @@ export function DashboardPage() {
                 .flatMap((date) => done.filter((s) => s.date === date))
               return (
                 <>
-                  {live.map(renderService)}
+                  {adminDate
+                    ? live.map(renderService)
+                    : dashboardSections(live, (s) => standingOf(s.id).state === 'running', today).map((section) => (
+                        <section key={section.key} aria-label={section.label} className="flex flex-col gap-5">
+                          <Eyebrow className="block">{section.label}</Eyebrow>
+                          {section.services.map(renderService)}
+                        </section>
+                      ))}
                   {live.length === 0 && (
                     <p className="text-body-sm text-on-surface-variant">
                       Nothing still to come in this window. What has finished is below.

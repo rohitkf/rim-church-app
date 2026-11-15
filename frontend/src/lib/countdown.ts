@@ -38,13 +38,17 @@ export function countdownIsClockworthy(ms: number): boolean {
 
 /**
  * A countdown short enough for the timeline rail, where the column is 56px
- * on a phone.
+ * on a phone — and always to the second.
  *
- * "01:29:14" is eight glyphs of precision nobody standing at the back of a
- * room needs. The unit that matters changes as the gap closes — hours and
- * minutes while there is time to plan, minutes and seconds once it is
- * close, and bare seconds at the end, which is when a second is worth
- * showing at all.
+ * Under an hour it reads as minutes and seconds ("4m 12s"), and in the
+ * last minute as bare seconds. With an hour or more to go it used to drop
+ * the seconds ("1h 29m"), on the reasoning that nobody at the back of a
+ * room needs them yet. But the planner is where the service is run from,
+ * and a number that stands still for a minute at a time reads as a clock
+ * that has stopped: a ninety-minute session showed no seconds for its
+ * first half hour. So an hour or more is a clock face, "1:29:14" — the
+ * same as the Countdown page shows, and the only way hours, minutes and
+ * seconds fit the rail.
  */
 export function formatCountdown(ms: number): string {
   const total = Math.floor(ms / 1000)
@@ -52,8 +56,9 @@ export function formatCountdown(ms: number): string {
   const hrs = Math.floor(total / 3600)
   const mins = Math.floor((total % 3600) / 60)
   const secs = total % 60
-  if (hrs > 0) return `${hrs}h ${mins}m`
-  if (mins > 0) return `${mins}m ${String(secs).padStart(2, '0')}s`
+  const two = (n: number) => String(n).padStart(2, '0')
+  if (hrs > 0) return `${hrs}:${two(mins)}:${two(secs)}`
+  if (mins > 0) return `${mins}m ${two(secs)}s`
   return `${secs}s`
 }
 
