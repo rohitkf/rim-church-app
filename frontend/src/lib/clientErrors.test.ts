@@ -375,6 +375,18 @@ describe('a read refused because the session ran out under the page', () => {
     expect(worthReporting('query', refused)).toBe(true)
   })
 
+  it('is not news either when the app opened on a sign-in that had already died', () => {
+    // The device was holding a session when the page loaded; the library found it dead.
+    localStorage.setItem('sb-example-auth-token', '{"access_token":"x"}')
+    try {
+      forgetSession()
+      noteSession(false)
+      expect(worthReporting('query', refused)).toBe(false)
+    } finally {
+      localStorage.removeItem('sb-example-auth-token')
+    }
+  })
+
   it('is news again once they have signed back in', () => {
     noteSession(true)
     noteSession(false)
