@@ -145,7 +145,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/events',
         target: 'page-title',
-        title: 'Events',
+        title: 'Calendar',
         body: 'Birthdays, anniversaries, services and church events, in one diary.',
       },
       {

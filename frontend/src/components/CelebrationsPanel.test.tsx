@@ -127,11 +127,11 @@ describe('birthdays and anniversaries on the Dashboard', () => {
     expect(screen.getByText('Today', { selector: 'span.font-mono.text-label-sm.text-on-surface-variant' })).toBeInTheDocument()
   })
 
-  it('stops at its limit and points to Events for the rest', async () => {
+  it('stops at its limit and points to the Calendar for the rest', async () => {
     show({ limit: 2 })
     const list = await screen.findByRole('list', { name: 'Birthdays & anniversaries' })
     expect(within(list).getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.getByRole('link', { name: '+2 more on Events' })).toHaveAttribute('href', '/events')
+    expect(screen.getByRole('link', { name: '+2 more on the Calendar' })).toHaveAttribute('href', '/events')
   })
 
   it('counts the rest without a link for somebody Events is closed to', async () => {

@@ -266,7 +266,7 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
         <SectionTile title="Church diary">
           <label className="flex items-center gap-2 text-body-sm text-on-surface">
             <input type="checkbox" checked={draft.addToDiary} onChange={(e) => set({ addToDiary: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
-            Put it in the church diary (Events) while it is published, one entry a date, with a Register link
+            Put it in the church diary (Calendar) while it is published, one entry a date, with a Register link
           </label>
         </SectionTile>
       </div>

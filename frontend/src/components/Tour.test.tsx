@@ -158,7 +158,7 @@ describe('walking it', () => {
     expect(dialog().textContent).toContain('What’s on · Part 1 of 1')
 
     await user.click(screen.getByRole('button', { name: /Next/ }))
-    expect(await screen.findByText('Events')).toBeInTheDocument()
+    expect(await screen.findByText('Calendar')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/events')
 
     // Back goes back.

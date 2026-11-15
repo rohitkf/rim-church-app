@@ -299,7 +299,7 @@ describe('AppShell dock', () => {
       'Church Updates',
       'Polls',
       'Feedback',
-      'Events',
+      'Calendar',
       'Giving',
       'Prayer Requests',
       'Teams',

@@ -198,7 +198,7 @@ export function CelebrationsPanel({ settings, className = '' }: { settings: Cele
       {more > 0 &&
         (canOpen('/events') ? (
           <Link to="/events" className="mt-2 inline-block px-1 text-label-md text-accent-blue-soft hover:underline">
-            +{more} more on Events
+            +{more} more on the Calendar
           </Link>
         ) : (
           <p className="mt-2 px-1 font-mono text-label-sm text-on-surface-variant">+{more} more</p>
