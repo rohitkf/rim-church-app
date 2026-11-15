@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'not-ended',
+    date: '2026-11-15',
+    title: 'Not ended',
+    lead: 'When the last session runs over, say so, and the clock counts how far.',
+    points: [
+      '“Not ended” sits beside End service at the foot of the running order, and in the last session’s menu.',
+      'With it on, the last session stays on past its time and its overrun counts, on the planner and on Countdown.',
+      'End service then says how far over the last session ran.',
+      'Countdown’s clock is green with plenty of time, amber as the end comes close, and red for the last of it.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'countdown',
     date: '2026-11-08',
     title: 'Countdown',

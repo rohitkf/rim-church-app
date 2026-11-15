@@ -288,7 +288,9 @@ export function ServicePlannerPage() {
     mutationFn: async (at: string | null) => {
       const { error } = await supabase
         .from('services')
-        .update({ ended_at: at })
+        // The end has been called, so nothing is being held any more; a
+        // service reopened later starts without the hold.
+        .update(at ? { ended_at: at, end_held_at: null } : { ended_at: null })
         .eq('id', serviceId!)
       if (error) throw error
     },
@@ -301,6 +303,31 @@ export function ServicePlannerPage() {
       setClock(Date.now())
       queryClient.invalidateQueries({ queryKey: ['service', serviceId] })
       return invalidate()
+    },
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not change the service.')),
+  })
+
+  /**
+   * "Not ended": the last session is still going.
+   *
+   * Every other session is held on by the one after it not starting. The
+   * last has nothing after it, so the hold is the service's own
+   * (services.end_held_at, 0292): while it is set the closing session
+   * stays on past its time and its overrun counts, here and on the
+   * Countdown page, until End service — which is what records how far
+   * over it ran. Pressing it again takes it back.
+   */
+  const holdEnd = useMutation({
+    mutationFn: async (hold: boolean) => {
+      const { error } = await supabase
+        .from('services')
+        .update({ end_held_at: hold ? new Date().toISOString() : null })
+        .eq('id', serviceId!)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setServiceError(null)
+      return queryClient.invalidateQueries({ queryKey: ['service', serviceId] })
     },
     onError: (err: unknown) => setServiceError(errorText(err, 'Could not change the service.')),
   })
@@ -457,6 +484,8 @@ export function ServicePlannerPage() {
   }, [])
   const progress = useMemo(() => serviceProgress(sessions, now), [sessions, now])
   const endedAt = serviceQuery.data?.ended_at ?? null
+  /** "Not ended" is on: the last session is still going, until the end is called. */
+  const endHeld = !!serviceQuery.data?.end_held_at && !endedAt
   const variance = useMemo(() => runVariance(sessions, endedAt), [sessions, endedAt])
   const startable = useMemo(() => startableSession(sessions, now), [sessions, now])
   // What the running order adds up to, and what has nobody on it — the two
@@ -479,7 +508,9 @@ export function ServicePlannerPage() {
     return () => window.clearInterval(id)
   }, [])
   const standing = serviceStanding(sessions, clock, endedAt).state
-  const finished = standing === 'done'
+  // Somebody has said it has not ended, so it has not: the planned end
+  // passing does not make it a record yet.
+  const finished = standing === 'done' && !endHeld
   /*
    * Once the service has started, the running order is something people
    * read off a phone, not a list being arranged: a drag handle beside every
@@ -575,7 +606,16 @@ export function ServicePlannerPage() {
   /** When the last session that runs is due to finish: the End of service node. */
   const plannedEnd = bounds?.to ?? null
   /** What the countdown on the rail is counting to, if anything is on. */
-  const railClock = useMemo(() => serviceClock(drawn, now, endedAt), [drawn, now, endedAt])
+  const railClock = useMemo(() => serviceClock(drawn, now, endedAt, { endHeld }), [drawn, now, endedAt, endHeld])
+  /** The last session that runs: the one "Not ended" keeps on. */
+  const lastLiveId = useMemo(() => [...drawn].reverse().find((s) => !s.skipped_at)?.id ?? null, [drawn])
+  /** Past the planned end with "Not ended" on: the last session is running over. */
+  const overrunning = endHeld && plannedEnd !== null && now >= plannedEnd
+  /** How the last session ran against its time, once the end has been called. */
+  const lastDrift = endedAt && lastLiveId ? variance.get(lastLiveId) : undefined
+  const lastName = lastLiveId ? (sessionById.get(lastLiveId)?.session_name ?? 'The last session') : 'The last session'
+  /** Ending, and holding the end, stay open while it is held — however long it overruns. */
+  const endOpen = mayEnd && (!locked || endHeld)
   /** How long it actually ran, once somebody has called the end. Null until then. */
   const ranMinutes =
     endedAt && bounds ? Math.round((new Date(endedAt).getTime() - bounds.from) / 60_000) : null
@@ -1060,7 +1100,7 @@ export function ServicePlannerPage() {
         )
       })()}
 
-      {endingService && mayEnd && !locked && (
+      {endingService && endOpen && (
         <Overlay label="End this service" align="sheet" onDismiss={() => setEndingService(false)}>
           <div className="w-full rounded-t-[var(--radius-card)] bg-surface-lowest p-6 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:max-w-md sm:rounded-[var(--radius-card)]">
             <h2 className="text-headline-md">End the service?</h2>
@@ -1221,7 +1261,10 @@ export function ServicePlannerPage() {
                     // Somebody has said the next one has not begun, so this
                     // one is still going whatever its planned end says.
                     const heldBack = heldBackBy(drawn, idx)
-                    const onNow = running || !!heldBack
+                    // Or the service has been marked not ended, and this is
+                    // its last session, past its time.
+                    const runningOver = overrunning && session.id === lastLiveId
+                    const onNow = running || !!heldBack || runningOver
                     const held = !!session.held_at
                     // Every session gets the controls, not just the one the
                     // clock is on: a session that finishes early is started
@@ -1375,6 +1418,18 @@ export function ServicePlannerPage() {
                       // the church gave them (0184), until the lock.
                       .filter(([control]) => mayControl(control))
                       .map(([, action]) => action)
+                    // The last session has no next one to mark "Not
+                    // started", so its hold is the service's: Not ended.
+                    if (!skipped && session.id === lastLiveId && endOpen && !endedAt) {
+                      sessionActions.splice(Math.min(2, sessionActions.length), 0, {
+                        label: endHeld ? 'Clear “Not ended”' : 'Not ended',
+                        hint: endHeld
+                          ? 'Stops holding: the service ends at its planned time'
+                          : 'Keeps this session on past its time and counts the overrun until End service',
+                        disabled: holdEnd.isPending,
+                        onSelect: () => holdEnd.mutate(!endHeld),
+                      })
+                    }
 
                     return (
                       <TimelineRow
@@ -1385,7 +1440,7 @@ export function ServicePlannerPage() {
                         rowRef={dragRowProps(session.id).ref}
                         style={dragRowProps(session.id).style}
                         fill={timing?.fill}
-                        running={running}
+                        running={running || runningOver}
                         tone={unassigned ? 'warning' : isFirst && !skipped ? 'now' : 'plain'}
                         time={
                           isFirst && canEdit ? (
@@ -1675,7 +1730,7 @@ export function ServicePlannerPage() {
                   {plannedEnd !== null && (
                     <TimelineRow
                       last
-                      fill={endedAt || now >= plannedEnd ? 1 : 0}
+                      fill={endedAt || (now >= plannedEnd && !endHeld) ? 1 : 0}
                       time={formatTime(endedAt ?? new Date(plannedEnd).toISOString())}
                       meta={endedAt ? 'ended' : 'planned'}
                     >
@@ -1687,8 +1742,22 @@ export function ServicePlannerPage() {
                               {endedAt ? (
                                 <>
                                   Ended at <span className="font-mono text-on-surface">{formatTime(endedAt)}</span>.
+                                  {/* How the closing session ran, said here as well as
+                                      on its own row: this is where End was pressed. */}
+                                  {lastDrift !== undefined && lastDrift !== 0 && (
+                                    <span className={lastDrift > 0 ? 'text-error' : 'text-accent-green-soft'}>
+                                      {' '}
+                                      {lastName} {lastDrift > 0 ? `ran ${formatDuration(lastDrift)} over` : `finished ${formatDuration(-lastDrift)} early`}.
+                                    </span>
+                                  )}
                                 </>
-                              ) : mayEnd && !locked ? (
+                              ) : endHeld ? (
+                                <span className="text-error">
+                                  {overrunning
+                                    ? `Not ended yet — ${lastName} is still running, and its overrun is counting.`
+                                    : `Marked not ended — ${lastName} will stay on past its time until you end the service.`}
+                                </span>
+                              ) : endOpen ? (
                                 'Closes the running order and records when it really finished.'
                               ) : (
                                 <>
@@ -1712,16 +1781,32 @@ export function ServicePlannerPage() {
                                   {endService.isPending ? 'Reopening…' : 'Reopen service'}
                                 </button>
                               )
-                            : mayEnd &&
-                              !locked && (
-                                <button
-                                  type="button"
-                                  onClick={() => setEndingService(true)}
-                                  disabled={endService.isPending}
-                                  className="tap rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline disabled:opacity-50"
-                                >
-                                  End service
-                                </button>
+                            : endOpen && (
+                                <span className="flex flex-wrap items-center gap-2">
+                                  {/* The last session's "Not started": it has no next
+                                      session to put that on, so it lives here. */}
+                                  <button
+                                    type="button"
+                                    aria-pressed={endHeld}
+                                    onClick={() => holdEnd.mutate(!endHeld)}
+                                    disabled={holdEnd.isPending}
+                                    className={`tap rounded-full px-4 py-2 text-body-sm font-medium disabled:opacity-50 ${
+                                      endHeld
+                                        ? 'bg-error-container text-error shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-error)_45%,transparent)]'
+                                        : 'text-on-surface hairline'
+                                    }`}
+                                  >
+                                    Not ended
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEndingService(true)}
+                                    disabled={endService.isPending}
+                                    className="tap rounded-full bg-raised-strong px-4 py-2 text-body-sm font-medium text-on-surface hairline disabled:opacity-50"
+                                  >
+                                    End service
+                                  </button>
+                                </span>
                               )}
                         </div>
                       </TimelineCard>

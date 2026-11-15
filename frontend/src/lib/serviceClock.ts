@@ -11,6 +11,11 @@
  * the next session holds the one before it on, and a session that started
  * early ends the one before it — each changes this answer, on both pages,
  * the moment the running order changes.
+ *
+ * The last session has nothing after it to hold it on, so the service has
+ * a hold of its own: "Not ended" (services.end_held_at, 0292). With it the
+ * closing session stays on past its time and the clock counts its overrun,
+ * here and on the rail, until End service is pressed.
  */
 import { heldBackBy } from './sessionRunPlan'
 import { serviceBounds, serviceProgress } from './serviceProgress'
@@ -34,8 +39,9 @@ export interface ServiceClock<S extends ClockSession = ClockSession> {
   /** When that is, epoch ms. */
   target: number
   /**
-   * The next session has been marked not started, so the current one is
-   * still going past its time: the overrun is real, not a clock being slow.
+   * The next session has been marked not started — or, for the last one,
+   * the service marked not ended — so the current one is still going past
+   * its time: the overrun is real, not a clock being slow.
    */
   holding: boolean
 }
@@ -53,12 +59,15 @@ export interface ServiceClock<S extends ClockSession = ClockSession> {
  * planned gap between two sessions (to the next one) and past the planned
  * end of the last (as overrun) until End service is pressed. The rail draws
  * neither, because the rail has a dot for each and says so itself.
+ *
+ * `endHeld` is "Not ended": the rail then counts past the planned end too,
+ * against the last session, for as long as nobody has called the end.
  */
 export function serviceClock<S extends ClockSession>(
   sessions: S[],
   now: number,
   endedAt: string | null | undefined,
-  { gaps = false }: { gaps?: boolean } = {},
+  { gaps = false, endHeld = false }: { gaps?: boolean; endHeld?: boolean } = {},
 ): ServiceClock<S> | null {
   if (endedAt && now >= new Date(endedAt).getTime()) return null
   const progress = serviceProgress(sessions, now)
@@ -74,8 +83,13 @@ export function serviceClock<S extends ClockSession>(
       return { current: session, next, to: 'session', target: new Date(next.start_time).getTime(), holding: !!heldBack }
     }
     if (session.id === lastLive?.id && bounds) {
-      return { current: session, next: null, to: 'end', target: bounds.to, holding: false }
+      return { current: session, next: null, to: 'end', target: bounds.to, holding: endHeld }
     }
+  }
+
+  // Not ended: the closing session is still on, however far past its time.
+  if (endHeld && bounds && lastLive && now >= bounds.to) {
+    return { current: lastLive, next: null, to: 'end', target: bounds.to, holding: true }
   }
 
   if (!gaps || !bounds || now < bounds.from) return null
@@ -85,6 +99,29 @@ export function serviceClock<S extends ClockSession>(
   // Past the last session's end with nobody having called it: overrunning.
   if (lastLive) return { current: lastLive, next: null, to: 'end', target: bounds.to, holding: false }
   return null
+}
+
+/**
+ * How pressing the time is, for the colour of the big clock: plenty left
+ * (green), getting close (amber), nearly out or over (red).
+ *
+ * A share of the session rather than a fixed number of minutes, because a
+ * two-minute notice and a forty-minute message do not get close at the
+ * same moment — but capped, so a long session does not sit amber for ten
+ * minutes: amber for the last quarter or five minutes, whichever is
+ * shorter; red for the last tenth or the last minute, and past zero.
+ *
+ * `spanMs` is how long the thing being counted runs in all. Without one (a
+ * gap between two sessions) the caps alone decide.
+ */
+export type ClockTone = 'plenty' | 'close' | 'out'
+
+export function clockTone(remainingMs: number, spanMs?: number | null): ClockTone {
+  if (remainingMs <= 0) return 'out'
+  const span = spanMs && spanMs > 0 ? spanMs : Infinity
+  if (remainingMs <= Math.min(60_000, span * 0.1)) return 'out'
+  if (remainingMs <= Math.min(5 * 60_000, span * 0.25)) return 'close'
+  return 'plenty'
 }
 
 /**
