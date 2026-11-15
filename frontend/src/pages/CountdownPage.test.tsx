@@ -51,7 +51,7 @@ function session(id: string, name: string, start: string, minutes: number, order
 
 function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <CountdownPage />
@@ -129,5 +129,40 @@ describe('the Countdown page', () => {
     show()
     expect(await screen.findByText('--:--:--')).toBeInTheDocument()
     expect(screen.queryByRole('timer')).toBeNull()
+  })
+
+  it('is green with plenty of time, amber as the end comes close, red for the last of it and past zero', async () => {
+    // Worship runs 10:00–10:30: amber for its last five minutes, red for its last one.
+    vi.setSystemTime(at('10:05'))
+    const first = show()
+    expect(await screen.findByRole('timer')).toHaveAttribute('data-tone', 'plenty')
+    expect(screen.getByRole('timer')).toHaveClass('text-accent-green-soft')
+    first.unmount()
+
+    vi.setSystemTime(at('10:26'))
+    const second = show()
+    expect(await screen.findByRole('timer')).toHaveClass('text-accent-orange-soft')
+    expect(screen.getByText('Coming to the end.')).toBeInTheDocument()
+    second.unmount()
+
+    vi.setSystemTime(new Date(at('10:29').getTime() + 30_000))
+    const third = show()
+    expect(await screen.findByRole('timer')).toHaveClass('text-error')
+    expect(screen.getByText('Time is nearly up.')).toBeInTheDocument()
+    third.unmount()
+
+    vi.setSystemTime(at('11:25'))
+    show()
+    expect(await screen.findByRole('timer')).toHaveClass('text-error')
+  })
+
+  it('says the service has not ended when somebody has marked it so', async () => {
+    db.rows.services = [
+      { id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: null, end_held_at: at('11:19').toISOString() },
+    ]
+    vi.setSystemTime(at('11:27'))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('+7:00')
+    expect(screen.getByText('The service has not ended yet — Sermon is still running.')).toBeInTheDocument()
   })
 })

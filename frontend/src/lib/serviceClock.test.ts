@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clockFace, serviceClock, type ClockSession } from './serviceClock'
+import { clockFace, clockTone, serviceClock, type ClockSession } from './serviceClock'
 import { addTimePlan, holdPlan, type RunWrite } from './sessionRunPlan'
 
 const at = (hhmm: string) => new Date(`2026-09-06T${hhmm}:00`).getTime()
@@ -90,5 +90,66 @@ describe('the clock face', () => {
   it('carries on past zero with a plus, so the overrun shows', () => {
     expect(clockFace(-137_000)).toBe('+2:17')
     expect(clockFace(-500)).toBe('+0:00')
+  })
+})
+
+describe('a service marked not ended', () => {
+  it('keeps the last session on past its time, counting to the end it missed', () => {
+    const clock = serviceClock(plan(), at('11:27'), null, { endHeld: true })
+    expect(clock).toMatchObject({ to: 'end', target: at('11:20'), holding: true })
+    expect(clock?.current?.id).toBe('sermon')
+    expect(clockFace(clock!.target - at('11:27'))).toBe('+7:00')
+  })
+
+  it('is the rail’s nothing without it: past the planned end the service reads as over', () => {
+    expect(serviceClock(plan(), at('11:27'), null)).toBeNull()
+  })
+
+  it('says it is holding before the end too, so the clock counts on through zero', () => {
+    expect(serviceClock(plan(), at('11:10'), null, { endHeld: true })).toMatchObject({ to: 'end', holding: true })
+    expect(serviceClock(plan(), at('11:10'), null)).toMatchObject({ to: 'end', holding: false })
+  })
+
+  it('changes nothing for a session that is not the last', () => {
+    expect(serviceClock(plan(), at('10:12'), null, { endHeld: true })).toMatchObject({ to: 'session', holding: false })
+  })
+
+  it('stops the moment the end is called', () => {
+    expect(serviceClock(plan(), at('11:27'), iso('11:26'), { endHeld: true })).toBeNull()
+  })
+
+  it('counts against the last session that runs, not one that was dropped', () => {
+    const sessions = [...plan(), session('extra', '11:20', 10, { skipped_at: iso('10:00') })]
+    const clock = serviceClock(sessions, at('11:25'), null, { endHeld: true })
+    expect(clock?.current?.id).toBe('sermon')
+    expect(clock?.target).toBe(at('11:20'))
+  })
+})
+
+describe('the colour of the clock', () => {
+  const min = 60_000
+
+  it('is green with plenty left, amber when close, red at the end and past it', () => {
+    // A forty-minute message: amber for the last five minutes, red for the last one.
+    expect(clockTone(20 * min, 40 * min)).toBe('plenty')
+    expect(clockTone(5 * min + 1000, 40 * min)).toBe('plenty')
+    expect(clockTone(5 * min, 40 * min)).toBe('close')
+    expect(clockTone(min + 1000, 40 * min)).toBe('close')
+    expect(clockTone(min, 40 * min)).toBe('out')
+    expect(clockTone(0, 40 * min)).toBe('out')
+    expect(clockTone(-3 * min, 40 * min)).toBe('out')
+  })
+
+  it('goes by a share of a short session, so a two-minute notice is not amber from its start', () => {
+    expect(clockTone(2 * min, 2 * min)).toBe('plenty')
+    expect(clockTone(31_000, 2 * min)).toBe('plenty')
+    expect(clockTone(30_000, 2 * min)).toBe('close')
+    expect(clockTone(12_000, 2 * min)).toBe('out')
+  })
+
+  it('falls back on five minutes and one minute when there is no length to take a share of', () => {
+    expect(clockTone(6 * min)).toBe('plenty')
+    expect(clockTone(4 * min, null)).toBe('close')
+    expect(clockTone(50_000, 0)).toBe('out')
   })
 })

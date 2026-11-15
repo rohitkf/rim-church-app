@@ -9,7 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
-import { clockFace, serviceClock, type ServiceClock } from '../lib/serviceClock'
+import { clockFace, clockTone, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -22,13 +22,27 @@ import { clockFace, serviceClock, type ServiceClock } from '../lib/serviceClock'
  *
  * Past zero it keeps counting, with a plus: the number somebody watching
  * wants then is how far over the service is running.
+ *
+ * The number is green while there is plenty of time, amber as the end
+ * comes close and red for the last of it and past zero (clockTone). The
+ * line under it says the same in words, so the colour is never the only
+ * thing telling anybody.
  */
+
+/** The big number's colour for each state of the clock: the app's green, amber and red. */
+const TONE_CLASS: Record<ClockTone, string> = {
+  plenty: 'text-accent-green-soft',
+  close: 'text-accent-orange-soft',
+  out: 'text-error',
+}
 
 const serviceRowSchema = z.object({
   id: z.string(),
   date: z.string(),
   service_type: z.string(),
   ended_at: z.string().nullable().optional(),
+  /** "Not ended" (0292): the last session is still on past its time. */
+  end_held_at: z.string().nullable().optional(),
 })
 type ServiceRow = z.infer<typeof serviceRowSchema>
 
@@ -48,7 +62,7 @@ type SessionRow = z.infer<typeof sessionRowSchema>
 async function fetchTodaysServices(today: string): Promise<ServiceRow[]> {
   const { data, error } = await supabase
     .from('services')
-    .select('id, date, service_type, ended_at')
+    .select('id, date, service_type, ended_at, end_held_at')
     .eq('date', today)
   if (error) throw error
   return z.array(serviceRowSchema).parse(data)
@@ -91,7 +105,7 @@ export function CountdownPage() {
         service,
         sessions: own,
         standing: serviceStanding(own, now, service.ended_at),
-        clock: serviceClock(own, now, service.ended_at, { gaps: true }),
+        clock: serviceClock(own, now, service.ended_at, { gaps: true, endHeld: !!service.end_held_at }),
       }
     })
     // Only a service that is on: its clock is running. Earliest first.
@@ -138,6 +152,11 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
   const over = remaining < 0
   const due = formatTime(new Date(clock.target).toISOString())
   const what = clock.to === 'end' ? 'The end of the service' : clock.next ? clock.next.session_name : 'The next session'
+  // How long the thing being counted runs in all: the session that is on,
+  // from its start to the moment the clock is counting to. In a gap there
+  // is no session, and the colour goes by minutes alone.
+  const span = clock.current ? clock.target - new Date(clock.current.start_time).getTime() : null
+  const tone = clockTone(remaining, span)
 
   return (
     <Tile as="section" className="text-center" tone={over ? 'danger' : 'plain'}>
@@ -164,9 +183,8 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         role="timer"
         aria-live="off"
         aria-label={over ? `Running ${clockFace(remaining).slice(1)} over` : `${clockFace(remaining)} until ${what}`}
-        className={`mt-2 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(4.5rem,22vw,13rem)] ${
-          over ? 'text-error' : remaining <= 60_000 ? 'text-accent-orange-soft' : 'text-on-surface'
-        }`}
+        data-tone={tone}
+        className={`mt-2 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(4.5rem,22vw,13rem)] ${TONE_CLASS[tone]}`}
       >
         {clockFace(remaining)}
       </p>
@@ -177,6 +195,14 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
       </p>
       {clock.holding && clock.next && (
         <p className="mt-2 text-body-sm text-error">{clock.next.session_name} has not started yet.</p>
+      )}
+      {clock.holding && clock.to === 'end' && over && (
+        <p className="mt-2 text-body-sm text-error">
+          The service has not ended yet{clock.current ? ` — ${clock.current.session_name} is still running` : ''}.
+        </p>
+      )}
+      {!over && tone !== 'plenty' && (
+        <p className="mt-2 text-body-sm text-on-surface-variant">{tone === 'out' ? 'Time is nearly up.' : 'Coming to the end.'}</p>
       )}
     </Tile>
   )
