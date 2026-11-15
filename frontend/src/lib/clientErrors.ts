@@ -100,11 +100,31 @@ function isNotOurs(error: unknown, filename?: string | null): boolean {
  * Health as an error on a device, with nobody's name on it, and read as
  * the app asking for something it should not (15 November 2026).
  *
- * That is only true of somebody who was signed in on this page load and
- * no longer is. A signed-in person refused a function, or a visitor on a
- * public page refused one, is still the app's mistake and still news.
+ * That is only true of somebody who was signed in — on this page load, or
+ * on this device when the page loaded — and no longer is. A signed-in
+ * person refused a function, or a visitor on a public page refused one,
+ * is still the app's mistake and still news.
  */
-let hadSession = false
+/**
+ * Whether this device was holding a sign-in when the page loaded. The
+ * sign-in library keeps it under `sb-<project>-auth-token` and removes it
+ * when it finds the session dead, so it is read once, here, before that
+ * can happen: an app opened on a session that died overnight was signed
+ * in as far as anybody using it knows.
+ */
+function heldASignInAtLoad(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false
+    for (let i = 0; i < localStorage.length; i += 1) {
+      if (/^sb-.+-auth-token$/.test(localStorage.key(i) ?? '')) return true
+    }
+  } catch {
+    // Storage refused (a private window): nothing was held that we can know of.
+  }
+  return false
+}
+
+let hadSession = heldASignInAtLoad()
 let hasSession = false
 
 /** Told by AuthContext whenever the session is read or changes. */
@@ -113,9 +133,9 @@ export function noteSession(signedIn: boolean): void {
   if (signedIn) hadSession = true
 }
 
-/** For the tests: as a page that has just loaded. */
+/** For the tests: as a page that has just loaded, holding whatever sign-in the device has. */
 export function forgetSession(): void {
-  hadSession = false
+  hadSession = heldASignInAtLoad()
   hasSession = false
 }
 
