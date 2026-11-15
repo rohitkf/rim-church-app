@@ -10,7 +10,8 @@ import { usePermissions } from '../lib/usePermissions'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
-import { serviceBounds } from '../lib/serviceProgress'
+import { serviceBounds, type SessionTiming } from '../lib/serviceProgress'
+import { serviceStanding } from '../lib/serviceState'
 import { lastWeeklyClear, lastWeeklyClearDate } from '../lib/plannerWeek'
 import { ServiceSections } from '../components/ServiceSections'
 import { useAppSettings, WEEKDAY_NAMES } from '../lib/appSettings'
@@ -219,7 +220,7 @@ export function ServicePlannerIndexPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('service_sessions')
-        .select('service_id, start_time, duration_minutes')
+        .select('service_id, start_time, duration_minutes, added_minutes, skipped_at, held_at')
         .in('service_id', upcomingIds)
       if (error) throw error
       return z
@@ -228,6 +229,9 @@ export function ServicePlannerIndexPage() {
             service_id: z.string(),
             start_time: z.string(),
             duration_minutes: z.number().nullable(),
+            added_minutes: z.number().nullable().optional(),
+            skipped_at: z.string().nullable().optional(),
+            held_at: z.string().nullable().optional(),
           }),
         )
         .parse(data)
@@ -235,21 +239,24 @@ export function ServicePlannerIndexPage() {
     enabled: upcomingIds.length > 0,
   })
 
-  const windowFor = useMemo(() => {
-    const byService = new Map<string, { id: string; start_time: string; duration_minutes: number | null }[]>()
+  const sessionsByService = useMemo(() => {
+    const byService = new Map<string, SessionTiming[]>()
     for (const row of sessionsQuery.data ?? []) {
       byService.set(row.service_id, [
         ...(byService.get(row.service_id) ?? []),
         { id: `${row.service_id}-${row.start_time}`, ...row },
       ])
     }
+    return byService
+  }, [sessionsQuery.data])
+  const windowFor = useMemo(() => {
     const windows = new Map<string, { from: number; to: number }>()
-    for (const [serviceId, rows] of byService) {
+    for (const [serviceId, rows] of sessionsByService) {
       const bounds = serviceBounds(rows)
       if (bounds) windows.set(serviceId, bounds)
     }
     return windows
-  }, [sessionsQuery.data])
+  }, [sessionsByService])
 
   // A service is finished when its last session's end has passed — the
   // running order already says so, and nothing has to be marked or
@@ -257,16 +264,19 @@ export function ServicePlannerIndexPage() {
   //
   // Or when End service was pressed: that is the moment the service page and
   // the database treat it as over, so this list must not keep it upcoming.
+  //
+  // And not while somebody is holding it open — a session marked not
+  // started, the service marked not ended. All of it is the one rule
+  // (serviceStanding); this list used to work the end out for itself, and
+  // filed a service under Finished with a session still waiting to start.
   const finishedIds = useMemo(() => {
     const done = new Set<string>()
-    for (const [serviceId, window] of windowFor) {
-      if (clock >= window.to) done.add(serviceId)
-    }
     for (const service of visibleServices) {
-      if (service.ended_at && clock >= Date.parse(service.ended_at)) done.add(service.id)
+      const standing = serviceStanding(sessionsByService.get(service.id) ?? [], clock, service.ended_at, service.end_held_at)
+      if (standing.state === 'done') done.add(service.id)
     }
     return done
-  }, [windowFor, clock, visibleServices])
+  }, [sessionsByService, clock, visibleServices])
 
   /*
    * Everything still to come in the next year.

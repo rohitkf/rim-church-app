@@ -105,7 +105,7 @@ export function CountdownPage() {
       return {
         service,
         sessions: own,
-        standing: serviceStanding(own, now, service.ended_at),
+        standing: serviceStanding(own, now, service.ended_at, service.end_held_at),
         clock: serviceClock(own, now, service.ended_at, { gaps: true, endHeld: !!service.end_held_at }),
       }
     })

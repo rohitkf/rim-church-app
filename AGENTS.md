@@ -285,7 +285,16 @@ Other things that are true and not guessable:
 - **Whether a service is over is one rule** — `useFinishedServices` (and
   `serviceStanding` with `ended_at`): the planned end of its last session,
   or End service if pressed earlier. Never re-derive it from sessions alone
-  on a page; that is how pages disagreed with the planner.
+  on a page; that is how pages disagreed with the planner. **A service
+  somebody is holding open is not over** (0294): a session that runs is
+  marked "Not started" (`held_at`), or the service is marked "Not ended"
+  (`end_held_at`) — for six hours past the planned end and no longer
+  (`HOLD_BELIEVED_MS`, `heldOpen`), so a forgotten hold does not keep a
+  Sunday open. So anything that asks the rule must hand it the sessions'
+  `held_at` and `skipped_at` and the service's `end_held_at`, not only
+  starts and lengths. The database's edit lock (`service_has_finished()`)
+  goes by the same rule and the same six hours; `service_ended_at()`, which
+  the checklist, issue and debrief windows read, still does not.
 - **What clears, and when, is said on the page** by `<Lifespan page=…>`,
   worded once in `lib/lifespan.ts` from App settings. A new clock (a cron
   job, a lock, a retention period) needs its sentence there too.

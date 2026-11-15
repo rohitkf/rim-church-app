@@ -292,11 +292,9 @@ export function DashboardPage() {
       // the planner.
       const row = (servicesQuery.data ?? []).find((s) => s.id === serviceId)
       const endedAt = row?.ended_at
-      const byPlan = serviceStanding(sessionsByService.get(serviceId) ?? [], clock, endedAt)
-      // Marked not ended (0292): past its planned end it is still on, as
-      // the planner and the Countdown say, until the end is called.
-      const standing: ServiceStanding =
-        byPlan.state === 'done' && row?.end_held_at && !endedAt ? { ...byPlan, state: 'running' } : byPlan
+      // A session marked not started, or the service marked not ended
+      // (0292), holds it open past its planned end: the one rule.
+      const standing = serviceStanding(sessionsByService.get(serviceId) ?? [], clock, endedAt, row?.end_held_at)
       cache.set(serviceId, standing)
       return standing
     }
