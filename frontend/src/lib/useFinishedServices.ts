@@ -35,12 +35,17 @@ export function useFinishedServices(serviceIds: string[]) {
       const [sessions, ended] = await Promise.all([
         supabase
           .from('service_sessions')
-          .select('id, service_id, start_time, duration_minutes')
+          // held_at and skipped_at too: a session marked not started
+          // holds the service open past its planned end (serviceStanding).
+          .select('id, service_id, start_time, duration_minutes, added_minutes, skipped_at, held_at')
           .in('service_id', ids),
-        supabase.from('services').select('id, ended_at').in('id', ids),
+        supabase.from('services').select('id, ended_at, end_held_at').in('id', ids),
       ])
       if (sessions.error) throw sessions.error
       if (ended.error) throw ended.error
+      const serviceRows = z
+        .array(z.object({ id: z.string(), ended_at: z.string().nullable().optional(), end_held_at: z.string().nullable().optional() }))
+        .parse(ended.data ?? [])
       return {
         sessions: z
           .array(
@@ -49,15 +54,15 @@ export function useFinishedServices(serviceIds: string[]) {
               service_id: z.string(),
               start_time: z.string(),
               duration_minutes: z.number().nullable(),
+              added_minutes: z.number().nullable().optional(),
+              skipped_at: z.string().nullable().optional(),
+              held_at: z.string().nullable().optional(),
             }),
           )
           .parse(sessions.data),
-        endedAt: new Map(
-          z
-            .array(z.object({ id: z.string(), ended_at: z.string().nullable().optional() }))
-            .parse(ended.data ?? [])
-            .map((s) => [s.id, s.ended_at ?? null] as const),
-        ),
+        endedAt: new Map(serviceRows.map((s) => [s.id, s.ended_at ?? null] as const)),
+        /** "Not ended" (0292), by service: it holds the service open too. */
+        endHeldAt: new Map(serviceRows.map((s) => [s.id, s.end_held_at ?? null] as const)),
       }
     },
     enabled: ids.length > 0,
@@ -74,7 +79,7 @@ export function useFinishedServices(serviceIds: string[]) {
   return useMemo(() => {
     const byService = new Map<
       string,
-      { id: string; start_time: string; duration_minutes: number | null }[]
+      NonNullable<typeof sessionsQuery.data>['sessions']
     >()
     for (const row of sessionsQuery.data?.sessions ?? []) {
       byService.set(row.service_id, [...(byService.get(row.service_id) ?? []), row])
@@ -88,7 +93,12 @@ export function useFinishedServices(serviceIds: string[]) {
     // ended by hand without a running order is still over.
     for (const serviceId of ids) {
       const sessions = byService.get(serviceId) ?? []
-      const standing = serviceStanding(sessions, clock, sessionsQuery.data?.endedAt.get(serviceId))
+      const standing = serviceStanding(
+        sessions,
+        clock,
+        sessionsQuery.data?.endedAt.get(serviceId),
+        sessionsQuery.data?.endHeldAt.get(serviceId),
+      )
       if (standing.state === 'done') {
         finished.add(serviceId)
         if (standing.to !== null) endedAt.set(serviceId, standing.to)

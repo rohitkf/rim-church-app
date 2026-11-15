@@ -17,6 +17,17 @@
  * closes fifteen minutes early is over at the moment it is called, not at the
  * moment its plan said it would be, and no amount of arithmetic over the plan
  * can know that. So `endedAt`, when it is set, wins.
+ *
+ * And the other way round: a service whose plan has run out is not over
+ * while somebody is saying it is not. A session marked "Not started"
+ * (held_at) means the one before it is still going; the service marked
+ * "Not ended" (services.end_held_at, 0292) means the last one is. Either
+ * holds the service open past its planned end — it was filed under
+ * Finished with a session still waiting to start, twenty minutes into an
+ * overrun (15 November 2026). The hold is believed for six hours past the
+ * planned end and no longer, so one that was never cleared does not keep a
+ * Sunday open until Tuesday. The database's lock goes by the same rule
+ * (service_has_finished, 0294).
  */
 import { serviceBounds, type SessionTiming } from './serviceProgress'
 
@@ -38,11 +49,33 @@ export interface ServiceStanding {
   to: number | null
 }
 
+/** How long past the planned end a hold is believed: "Not started" on a session, "Not ended" on the service. */
+export const HOLD_BELIEVED_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Whether somebody is holding the service open past its plan: a session
+ * that runs is marked not started, or the service is marked not ended —
+ * and the planned end is less than six hours gone. Nothing to do with a
+ * service the end has been called on; `serviceStanding` asks that first.
+ */
+export function heldOpen(
+  sessions: SessionTiming[],
+  now: number = Date.now(),
+  /** services.end_held_at: when "Not ended" was pressed, if it is on. */
+  endHeldAt?: string | null,
+): boolean {
+  const bounds = serviceBounds(sessions)
+  if (!bounds || now >= bounds.to + HOLD_BELIEVED_MS) return false
+  return !!endHeldAt || sessions.some((s) => !s.skipped_at && !!s.held_at)
+}
+
 export function serviceStanding(
   sessions: SessionTiming[],
   now: number = Date.now(),
   /** When the end was called, if it was. */
   endedAt?: string | null,
+  /** services.end_held_at: "Not ended" is on. */
+  endHeldAt?: string | null,
 ): ServiceStanding {
   const bounds = serviceBounds(sessions)
   const called = endedAt ? new Date(endedAt).getTime() : NaN
@@ -50,7 +83,10 @@ export function serviceStanding(
     return { state: 'done', from: bounds?.from ?? called, to: called }
   }
   if (!bounds) return { state: 'unplanned', from: null, to: null }
-  if (now >= bounds.to) return { state: 'done', from: bounds.from, to: bounds.to }
+  if (now >= bounds.to) {
+    // The plan has run out. It is over unless somebody says it is not.
+    return { state: heldOpen(sessions, now, endHeldAt) ? 'running' : 'done', from: bounds.from, to: bounds.to }
+  }
   if (now >= bounds.from) return { state: 'running', from: bounds.from, to: bounds.to }
   return { state: 'upcoming', from: bounds.from, to: bounds.to }
 }
@@ -77,11 +113,17 @@ export function editingLocksAt(
   sessions: SessionTiming[],
   endedAt?: string | null,
   graceMs: number = EDIT_GRACE_MS,
+  /** services.end_held_at: "Not ended" is on. */
+  endHeldAt?: string | null,
 ): number | null {
   const called = endedAt ? new Date(endedAt).getTime() : NaN
   if (!Number.isNaN(called)) return called + graceMs
   const bounds = serviceBounds(sessions)
-  return bounds ? bounds.to + graceMs : null
+  if (!bounds) return null
+  // Held open, the plan's end is not the end: nothing locks until the
+  // hold is no longer believed (and the grace has long gone by then).
+  const held = !!endHeldAt || sessions.some((s) => !s.skipped_at && !!s.held_at)
+  return held ? bounds.to + Math.max(graceMs, HOLD_BELIEVED_MS) : bounds.to + graceMs
 }
 
 /** Whether the running order has settled into a record that cannot change. */
@@ -90,7 +132,8 @@ export function editingLocked(
   now: number = Date.now(),
   endedAt?: string | null,
   graceMs: number = EDIT_GRACE_MS,
+  endHeldAt?: string | null,
 ): boolean {
-  const at = editingLocksAt(sessions, endedAt, graceMs)
+  const at = editingLocksAt(sessions, endedAt, graceMs, endHeldAt)
   return at !== null && now >= at
 }

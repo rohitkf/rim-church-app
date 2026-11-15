@@ -507,10 +507,10 @@ export function ServicePlannerPage() {
     const id = window.setInterval(() => setClock(Date.now()), 30_000)
     return () => window.clearInterval(id)
   }, [])
-  const standing = serviceStanding(sessions, clock, endedAt).state
-  // Somebody has said it has not ended, so it has not: the planned end
-  // passing does not make it a record yet.
-  const finished = standing === 'done' && !endHeld
+  const standing = serviceStanding(sessions, clock, endedAt, serviceQuery.data?.end_held_at).state
+  // "Not ended", or a session still marked not started, holds it open:
+  // serviceStanding has already said so.
+  const finished = standing === 'done'
   /*
    * Once the service has started, the running order is something people
    * read off a phone, not a list being arranged: a drag handle beside every
@@ -540,8 +540,8 @@ export function ServicePlannerPage() {
    * button that should not have been there.
    */
   const graceMs = settings.edit_grace_minutes * 60_000
-  const locksAt = editingLocksAt(sessions, endedAt, graceMs)
-  const locked = editingLocked(sessions, clock, endedAt, graceMs)
+  const locksAt = editingLocksAt(sessions, endedAt, graceMs, serviceQuery.data?.end_held_at)
+  const locked = editingLocked(sessions, clock, endedAt, graceMs, serviceQuery.data?.end_held_at)
   const canEdit = mayPlan && !locked
   /** Whether the drag handles are drawn: always before the start, on request after. */
   const canDrag = canEdit && (!started || reordering)

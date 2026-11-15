@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import lockMigration from '../../../supabase/migrations/0294_a_service_held_open_is_not_finished.sql?raw'
 import {
   EDIT_GRACE_MS,
+  HOLD_BELIEVED_MS,
+  heldOpen,
   editingLocked,
   editingLocksAt,
   serviceStanding,
@@ -109,3 +112,71 @@ describe('an editing window the church chose', () => {
     expect(editingLocksAt(sessions, ended)).toBe(at('2026-09-06T10:00:00Z') + EDIT_GRACE_MS)
   })
 })
+
+describe('a service somebody is holding open past its plan', () => {
+  // 09:00 → 11:00, and the last session has been marked not started.
+  const held = [at('09:00'), at('09:30'), { ...at('10:00', 60), held_at: '2026-08-30T10:00:00.000Z' }]
+  const plain = [at('09:00'), at('09:30'), at('10:00', 60)]
+  const NOT_ENDED = '2026-08-30T10:58:00.000Z'
+
+  it('is not finished while a session is still marked not started, however far past the planned end', () => {
+    expect(serviceStanding(plain, clock('11:20')).state).toBe('done')
+    expect(serviceStanding(held, clock('11:20')).state).toBe('running')
+    expect(serviceStanding(held, clock('13:00')).state).toBe('running')
+  })
+
+  it('is not finished while the service is marked not ended', () => {
+    expect(serviceStanding(plain, clock('11:20'), null, NOT_ENDED).state).toBe('running')
+  })
+
+  it('is finished the moment the end is called, whatever is held', () => {
+    expect(serviceStanding(held, clock('11:21'), '2026-08-30T11:20:00.000Z', NOT_ENDED)).toMatchObject({
+      state: 'done',
+      to: clock('11:20'),
+    })
+  })
+
+  it('takes no notice of a hold on a session that was dropped', () => {
+    const dropped = [at('09:00'), { ...at('09:30'), held_at: '2026-08-30T09:30:00.000Z', skipped_at: '2026-08-30T09:31:00.000Z' }]
+    expect(serviceStanding(dropped, clock('10:30')).state).toBe('done')
+  })
+
+  it('stops believing a hold six hours after the planned end, so a forgotten one does not keep the day open', () => {
+    const lastBelieved = clock('11:00') + HOLD_BELIEVED_MS - 1
+    expect(heldOpen(held, lastBelieved)).toBe(true)
+    expect(serviceStanding(held, lastBelieved).state).toBe('running')
+    expect(heldOpen(held, lastBelieved + 1)).toBe(false)
+    expect(serviceStanding(held, lastBelieved + 1).state).toBe('done')
+    expect(serviceStanding(plain, lastBelieved + 1, null, NOT_ENDED).state).toBe('done')
+  })
+
+  it('changes nothing before the planned end', () => {
+    expect(serviceStanding(held, clock('08:00')).state).toBe('upcoming')
+    expect(serviceStanding(held, clock('10:30')).state).toBe('running')
+  })
+
+  it('does not lock the running order while it is held open', () => {
+    // An hour after the planned end the plain service locks; the held one does not.
+    expect(editingLocked(plain, clock('12:01'))).toBe(true)
+    expect(editingLocked(held, clock('12:01'))).toBe(false)
+    expect(editingLocked(plain, clock('12:01'), null, EDIT_GRACE_MS, NOT_ENDED)).toBe(false)
+    // Once the hold is no longer believed, it is locked like any other.
+    expect(editingLocked(held, clock('11:00') + HOLD_BELIEVED_MS)).toBe(true)
+    expect(editingLocksAt(held)).toBe(clock('11:00') + HOLD_BELIEVED_MS)
+  })
+
+  it('locks an hour after the end that was called, held or not', () => {
+    expect(editingLocksAt(held, '2026-08-30T11:20:00.000Z', EDIT_GRACE_MS, NOT_ENDED)).toBe(clock('12:20'))
+  })
+})
+
+describe('the database’s lock and the app’s rule', () => {
+  it('believe a hold for the same length of time', () => {
+    const hours = HOLD_BELIEVED_MS / 3_600_000
+    expect(lockMigration).toContain(`interval '${hours} hours'`)
+    // And it reads both holds: a session not started, the service not ended.
+    expect(lockMigration).toContain('held_at is not null and skipped_at is null')
+    expect(lockMigration).toContain('end_held_at')
+  })
+})
+
