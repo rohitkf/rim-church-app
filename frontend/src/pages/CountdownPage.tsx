@@ -26,7 +26,8 @@ import { clockFace, clockTone, serviceClock, type ClockTone, type ServiceClock }
  * The number is green while there is plenty of time, amber as the end
  * comes close and red for the last of it and past zero (clockTone). The
  * line under it says the same in words, so the colour is never the only
- * thing telling anybody.
+ * thing telling anybody. Past zero the number also blinks (`blink-over`,
+ * index.css), steady for anybody who has asked for less motion.
  */
 
 /** The big number's colour for each state of the clock: the app's green, amber and red. */
@@ -184,7 +185,9 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         aria-live="off"
         aria-label={over ? `Running ${clockFace(remaining).slice(1)} over` : `${clockFace(remaining)} until ${what}`}
         data-tone={tone}
-        className={`mt-2 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(4.5rem,22vw,13rem)] ${TONE_CLASS[tone]}`}
+        // Past zero it fades out and back, about once a second: an overrun
+        // has to be seen from the stage without anybody reading it.
+        className={`mt-2 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(4.5rem,22vw,13rem)] ${TONE_CLASS[tone]} ${over ? 'blink-over' : ''}`}
       >
         {clockFace(remaining)}
       </p>

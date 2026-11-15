@@ -482,6 +482,28 @@ body::before {
   animation: rim-pulse 2.4s ease-in-out infinite;
 }
 
+/*
+ * Running over: the Countdown's number once it is past zero, fading out
+ * and back about once a second, so an overrun catches the eye from across
+ * a room in a way a steady red number does not. Slow enough to be far
+ * under the three flashes a second that are unsafe, and never fully gone,
+ * so the time can still be read at any moment. Reduced motion (below)
+ * leaves it steady: the red and the plus already say it.
+ */
+@keyframes rim-blink-over {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+@utility blink-over {
+  animation: rim-blink-over 1.2s ease-in-out infinite;
+}
+
 /* Confetti: a fleck's own fall, drifting and spinning as it goes. */
 @keyframes rim-confetti-fall {
   0% {

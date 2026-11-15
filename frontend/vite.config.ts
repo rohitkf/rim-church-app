@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolveBuildId, serviceWorkerBuildId } from './build/swBuildId.ts'
 import { manifestFromFunction } from './build/manifestFromFunction.ts'
+import { releasesFile } from './build/releasesFile.ts'
 
 // One id, spent in two places: stamped into the service worker so the file
 // differs between deploys, and handed to the app so a page can tell whether
@@ -10,7 +11,7 @@ import { manifestFromFunction } from './build/manifestFromFunction.ts'
 const buildId = resolveBuildId()
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId), manifestFromFunction()],
+  plugins: [react(), tailwindcss(), serviceWorkerBuildId(buildId), manifestFromFunction(), releasesFile()],
   define: { __RIM_BUILD_ID__: JSON.stringify(buildId) },
   // The project root, the edge functions, the migrations, and nothing
   // more of the repo: a test reads push-notify's copy of the notification

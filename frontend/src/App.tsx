@@ -27,7 +27,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RouteErrorPage } from './pages/RouteErrorPage'
-import { UpdateRequiredDialog } from './components/UpdateRequiredDialog'
+import { UpdateNotice } from './components/UpdateNotice'
 import { ChurchSettingsRedirect } from './pages/ChurchSettingsRedirect'
 
 /*
@@ -261,10 +261,9 @@ function App() {
             <RouterProvider router={router} />
           </DatabaseGate>
           {/* Above the router rather than inside the shell: a build that
-              has gone stale is stale on the sign-in page too, and this is
-              the one thing in the app that outranks whatever route you
-              are on. */}
-          <UpdateRequiredDialog />
+              has gone stale is stale on the sign-in page too. A line at
+              the top with Reload on it; it holds nothing up. */}
+          <UpdateNotice />
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

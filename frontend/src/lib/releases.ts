@@ -29,6 +29,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'quiet-updates',
+    date: '2026-11-15',
+    title: 'Updates no longer interrupt you',
+    lead: 'A new version, and what is in it, are a small line at the top of the screen now — never a box in the way.',
+    points: [
+      'When a new version is ready: Reload when it suits you, or Later. Nothing is held up.',
+      'Show details says what the update brings, before you reload — only if you want to know.',
+      'On Countdown, a clock that has run over now blinks, so it is seen from the stage.',
+    ],
+  },
+  {
     key: 'dashboard-glimpse',
     date: '2026-11-15',
     title: 'What is on, at a glance',
@@ -166,3 +177,16 @@ export function nextUnseenRelease(
 ): Release | null {
   return releases.find((r) => !(r.key in seen) && (!r.page || canOpen(r.page))) ?? null
 }
+
+/** Every release this person has not been told about and may open, newest first. */
+export function unseenReleases(
+  seen: Record<string, string>,
+  canOpen: (page: string) => boolean,
+  releases: Release[] = RELEASES,
+): Release[] {
+  return releases.filter((r) => !(r.key in seen) && (!r.page || canOpen(r.page)))
+}
+
+/** How many releases the details list names; anything older is counted, not listed. */
+export const DETAILS_SHOWN = 5
+
