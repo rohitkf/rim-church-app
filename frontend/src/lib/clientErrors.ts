@@ -88,12 +88,53 @@ function isNotOurs(error: unknown, filename?: string | null): boolean {
   return /(?:chrome|moz|safari-web)-extension:\/\/|webkit-masked-url:\/\//i.test(where)
 }
 
+/*
+ * A session that has lapsed.
+ *
+ * The database keeps its rule helpers (is_admin, may, can_open_page, …)
+ * from callers who are not signed in — on purpose: the Data API refuses
+ * them by name. So when somebody's session runs out with the app still
+ * open, the reads the page goes on making are answered "permission denied
+ * for function is_admin" rather than with no rows. Nothing is exposed and
+ * nothing is broken: they sign in again. But each one arrived in App
+ * Health as an error on a device, with nobody's name on it, and read as
+ * the app asking for something it should not (15 November 2026).
+ *
+ * That is only true of somebody who was signed in on this page load and
+ * no longer is. A signed-in person refused a function, or a visitor on a
+ * public page refused one, is still the app's mistake and still news.
+ */
+let hadSession = false
+let hasSession = false
+
+/** Told by AuthContext whenever the session is read or changes. */
+export function noteSession(signedIn: boolean): void {
+  hasSession = signedIn
+  if (signedIn) hadSession = true
+}
+
+/** For the tests: as a page that has just loaded. */
+export function forgetSession(): void {
+  hadSession = false
+  hasSession = false
+}
+
+/** "permission denied for function …": a rule helper kept from whoever asked. */
+const isRefusedFunction = (error: unknown) =>
+  codeOf(error) === '42501' && /^permission denied for function\b/i.test(saidBy(error).trim())
+
+/** A read refused only because the person's session ran out under the page. */
+export function isLapsedSessionRefusal(source: ErrorSource, error: unknown): boolean {
+  return source === 'query' && hadSession && !hasSession && isRefusedFunction(error)
+}
+
 /**
  * Whether a failure is worth telling the church about.
  *
  * Never: no connection, a page a release behind (it reloads itself), an
  * account removed or turned away at the door, a row that is not there,
- * something that is not this app's.
+ * something that is not this app's, a read refused because the session
+ * ran out under the page.
  *
  * A page, the boundary, the window, a promise: anything else. They threw.
  *
@@ -111,6 +152,7 @@ export function worthReporting(source: ErrorSource, error: unknown, filename?: s
   if (isNetworkFailure(error) || isChunkLoadError(error)) return false
   if (isAccountRemoved(error) || isTurnedAway(error) || isNoSuchRow(error)) return false
   if (isNotOurs(error, filename)) return false
+  if (isLapsedSessionRefusal(source, error)) return false
   if (source === 'query') return isDatabaseFault(error) || isUnreadAnswer(error) || isProgrammingError(error) || codeOf(error) === '42501'
   if (source === 'save') return isDatabaseFault(error) || isUnreadAnswer(error) || isProgrammingError(error)
   return true

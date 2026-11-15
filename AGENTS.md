@@ -1038,6 +1038,16 @@ Each of these has already cost real time. None of them show up in review.
   `errorMessage` and `humanError` now ask `noAnswerText` first and say one
   sentence, the same for everybody. A new place that shows an error
   without going through one of the two will show the stack.
+- **A session that lapses with the app open is answered "permission
+  denied for function is_admin"** (or `may`, `can_open_page`, …) on the
+  reads the page goes on making: the database keeps its rule helpers from
+  callers who are not signed in, on purpose, on dozens of tables. Nothing
+  is exposed and nothing is broken, so it is not reported
+  (`isLapsedSessionRefusal` in `lib/clientErrors.ts`: a refused *function*,
+  on a *read*, for somebody who was signed in on this page load and no
+  longer is — `AuthContext` tells it through `noteSession`). The same
+  refusal for somebody who is signed in is still the app's mistake and is
+  still reported. Do not "fix" it by opening the helpers to `anon`.
 - **A timed job or a push that fails is only known if the hourly copy
   sees it.** `health_collect()` reads Supabase's own tables
   (`cron.job_run_details`, `net._http_response`, `supabase_functions.hooks`)
