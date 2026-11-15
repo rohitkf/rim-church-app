@@ -68,8 +68,12 @@ import { formatTime } from '../lib/time'
 import { greeting } from '../lib/greeting'
 import { memberStanding, memberStandingLabel } from '../lib/memberStanding'
 import type { RoleType } from '../auth/types'
-import { READINESS_KEY, fetchTeamReadiness, servingTeams, teamLights } from '../lib/teamReadiness'
-import { ReadyForService, ReadyLight } from '../components/ReadyLight'
+import { READINESS_KEY, fetchTeamReadiness } from '../lib/teamReadiness'
+import { TeamReadinessPanel } from '../components/TeamReadinessPanel'
+import { SessionGlimpse } from '../components/SessionGlimpse'
+import { sessionAssigneeSchema } from '../lib/types'
+import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
+import { checklistWindow } from '../lib/checklistWindow'
 import { ROLE_NAME } from '../lib/roleNames'
 
 
@@ -81,6 +85,21 @@ const roleChipTone: Record<RoleType, 'solid' | 'blue' | 'green' | 'indigo'> = {
   overwatch: 'solid',
   pastor: 'indigo',
 }
+
+/** A session as the Dashboard reads it: enough for the service's clock, and who is on it. */
+const dashboardSessionSchema = z.object({
+  id: z.string(),
+  service_id: z.string(),
+  order_index: z.number().nullable().optional(),
+  session_name: z.string(),
+  start_time: z.string(),
+  duration_minutes: z.number().nullable(),
+  added_minutes: z.number().nullable().optional(),
+  skipped_at: z.string().nullable().optional(),
+  held_at: z.string().nullable().optional(),
+  assignees: z.array(sessionAssigneeSchema).optional(),
+})
+type DashboardSession = z.infer<typeof dashboardSessionSchema>
 
 /** How far off a service is, in the words a person would use. */
 function untilLabel(date: string, from = new Date()): string {
@@ -225,27 +244,23 @@ export function DashboardPage() {
   const startsQuery = useQuery({
     queryKey: ['dashboard-service-starts', listedIds],
     queryFn: async () => {
+      // The whole of what the running order's clock reads (lib/serviceClock),
+      // and who is on each session: the card's glimpse of what is on now
+      // says the same as the Service Planner and the Countdown page.
       const { data, error } = await supabase
         .from('service_sessions')
-        .select('id, service_id, start_time, duration_minutes')
+        .select(
+          'id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
+        )
         .in('service_id', listedIds)
         .order('start_time')
       if (error) throw error
-      return z
-        .array(
-          z.object({
-            id: z.string(),
-            service_id: z.string(),
-            start_time: z.string(),
-            duration_minutes: z.number().nullable(),
-          }),
-        )
-        .parse(data)
+      return z.array(dashboardSessionSchema).parse(data)
     },
     enabled: listedIds.length > 0,
   })
   const sessionsByService = useMemo(() => {
-    const map = new Map<string, { id: string; start_time: string; duration_minutes: number | null }[]>()
+    const map = new Map<string, DashboardSession[]>()
     for (const row of startsQuery.data ?? []) {
       map.set(row.service_id, [...(map.get(row.service_id) ?? []), row])
     }
@@ -274,8 +289,13 @@ export function DashboardPage() {
       if (hit) return hit
       // End service, when it was pressed, ends it here too — not only on
       // the planner.
-      const endedAt = (servicesQuery.data ?? []).find((s) => s.id === serviceId)?.ended_at
-      const standing = serviceStanding(sessionsByService.get(serviceId) ?? [], clock, endedAt)
+      const row = (servicesQuery.data ?? []).find((s) => s.id === serviceId)
+      const endedAt = row?.ended_at
+      const byPlan = serviceStanding(sessionsByService.get(serviceId) ?? [], clock, endedAt)
+      // Marked not ended (0292): past its planned end it is still on, as
+      // the planner and the Countdown say, until the end is called.
+      const standing: ServiceStanding =
+        byPlan.state === 'done' && row?.end_held_at && !endedAt ? { ...byPlan, state: 'running' } : byPlan
       cache.set(serviceId, standing)
       return standing
     }
@@ -332,6 +352,26 @@ export function DashboardPage() {
     queryKey: [...READINESS_KEY, openIds],
     queryFn: () => fetchTeamReadiness(openIds),
     enabled: openIds.length > 0,
+  })
+
+  // Each team's call time on the days of the open services: a team's light
+  // may be turned from its call time on (0122), the same window as its
+  // checklist. The Checklists page's query, by the same key.
+  const openDates = useMemo(
+    () => [...new Set(services.filter((s) => openIds.includes(s.id)).map((s) => s.date))].sort(),
+    [services, openIds],
+  )
+  const callTimesQuery = useQuery({
+    queryKey: ['call-times', openDates],
+    queryFn: async (): Promise<CallTimeRow[]> => {
+      const { data, error: err } = await supabase
+        .from('department_call_times')
+        .select('department_id, on_date, call_time')
+        .in('on_date', openDates)
+      if (err) throw err
+      return callTimeRowSchema.array().parse(data)
+    },
+    enabled: openDates.length > 0,
   })
 
   const rotaDeptIds = useMemo(() => [...new Set(rota.map((a) => a.department_id))], [rota])
@@ -530,6 +570,10 @@ export function DashboardPage() {
                     (standing.from === null || other.from > standing.from),
                 )
                 .sort((a, b) => (a.from ?? 0) - (b.from ?? 0))[0]
+              // The running order as it is drawn, for the glimpse of what is on.
+              const runningOrder = [...(sessionsByService.get(service.id) ?? [])].sort(
+                (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0),
+              )
               const { overall: readiness, byDepartment: readinessByDept } = serviceReadiness({
                 assignments: rota.filter((a) => a.service_id === service.id),
                 roleItems: roleItemsQuery.data ?? [],
@@ -623,6 +667,14 @@ export function DashboardPage() {
                           {/* Opened, the hero below carries the clock, and
                               the same countdown twice on one card reads as
                               two different numbers until you check. */}
+                          {!open && standing.state === 'running' && (
+                            <SessionGlimpse
+                              variant="line"
+                              sessions={runningOrder}
+                              endedAt={service.ended_at}
+                              endHeld={!!service.end_held_at}
+                            />
+                          )}
                           {!open && !done && standing.state !== 'running' && (
                             <ServiceCountdown
                               startsAt={startTime}
@@ -737,6 +789,16 @@ export function DashboardPage() {
                           }
                         />
                       )}
+                      {/* What is on this minute: the session, who is taking
+                          it, and its time left or its overrun. */}
+                      {standing.state === 'running' && (
+                        <SessionGlimpse
+                          className="mt-5"
+                          sessions={runningOrder}
+                          endedAt={service.ended_at}
+                          endHeld={!!service.end_held_at}
+                        />
+                      )}
                       <div className="mt-5 flex flex-wrap gap-2.5">
                         <Link
                           to={`/service-planner/${service.id}`}
@@ -756,6 +818,41 @@ export function DashboardPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Is every team ready to start? The Checklists page's
+                        own panel, here where the day is watched from: a
+                        light for each team the rota has put on, the switch
+                        for whoever may turn it, and how far the team is
+                        through its checklist. Somebody not on a team yet
+                        gets the countdown and the way in, and this arrives
+                        with their first team. */}
+                    {onATeam && show.teamsReady && (
+                      <div className="mt-6 border-t border-outline-variant pt-5 empty:hidden">
+                        <TeamReadinessPanel
+                          embedded
+                          serviceId={service.id}
+                          finished={standing.state === 'done'}
+                          assignments={rota}
+                          departments={departmentsQuery.data ?? []}
+                          rows={teamReadinessQuery.data ?? []}
+                          progress={readinessByDept}
+                          windowFor={(departmentId) =>
+                            checklistWindow({
+                              serviceDate: service.date,
+                              departmentId,
+                              callTimes: callTimesQuery.data ?? [],
+                              now: clock,
+                              alwaysOpen: isAdmin,
+                            })
+                          }
+                          action={
+                            <Link to="/checklists" className="text-label-md text-accent-blue-soft">
+                              Checklists <span aria-hidden="true">&rarr;</span>
+                            </Link>
+                          }
+                        />
+                      </div>
+                    )}
                   </Tile>
 
                   {/*
@@ -768,42 +865,6 @@ export function DashboardPage() {
                   */}
                   {onATeam && (
                     <>
-                  {/* Is every team ready to start? One light per team the
-                      rota has put on this service: green and blinking once
-                      its Coordinator, Head or an Admin says so, red until
-                      then — and the words once they all are. */}
-                  {(() => {
-                    if (!show.teamsReady) return null
-                    const teams = servingTeams(service.id, rota)
-                    if (teams.length === 0) return null
-                    const { lights, allReady } = teamLights(service.id, teams, teamReadinessQuery.data ?? [])
-                    const names = new Map((departmentsQuery.data ?? []).map((d) => [d.id, d.name]))
-                    return (
-                      <Tile className="lg:col-span-12" >
-                        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                          <Eyebrow>Teams ready</Eyebrow>
-                          <Link to="/checklists" className="text-label-md text-accent-blue-soft">
-                            Checklists <span aria-hidden="true">&rarr;</span>
-                          </Link>
-                        </div>
-                        {allReady && (
-                          <div className="mt-3">
-                            <ReadyForService />
-                          </div>
-                        )}
-                        <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-3" aria-label="Team readiness">
-                          {lights.map((light) => (
-                            <li key={light.departmentId} className="flex items-center gap-2.5">
-                              <ReadyLight ready={light.ready} size={14} />
-                              <span className="text-body-sm text-on-surface">
-                                {names.get(light.departmentId) ?? 'A team'}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </Tile>
-                    )
-                  })()}
                   {show.readiness && (
                   <>
                   {/* Readiness, as the one big ring the screen is allowed. */}

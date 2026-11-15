@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { useErrorText } from '../lib/useErrorText'
@@ -29,6 +29,11 @@ function clock(iso: string): string {
  * until somebody who runs that team today turns it green — its Team
  * Coordinator, its Head or Assisting Head, or an Admin. The switch is only
  * offered to them, and the database refuses anybody else (0110).
+ *
+ * The Dashboard shows it too, inside a service's own card (`embedded`),
+ * with how far each team has got through its checklist beside its light
+ * (`progress`): the light is somebody's word that the team is ready, the
+ * bar is the work behind the word.
  */
 export function TeamReadinessPanel({
   serviceId,
@@ -37,6 +42,9 @@ export function TeamReadinessPanel({
   departments,
   rows,
   windowFor,
+  progress,
+  embedded = false,
+  action,
 }: {
   serviceId: string
   finished: boolean
@@ -48,6 +56,16 @@ export function TeamReadinessPanel({
    * the same window as its checklist. Left out, the switch is never held.
    */
   windowFor?: (departmentId: string) => { open: boolean; clock: string }
+  /**
+   * How far each team is through its checklist, 0–100 (lib/readiness), by
+   * team id. Given, every team gets a bar and the number; a team with no
+   * checklist to do says so. Left out, there are no bars.
+   */
+  progress?: Map<string, { pct: number | null }>
+  /** Inside another card: no card of its own. */
+  embedded?: boolean
+  /** Something for the heading's end — a way to the Checklists page. */
+  action?: ReactNode
 }) {
   const { session, previewCoordinates } = useAuth()
   const { can } = usePermissions()
@@ -72,19 +90,17 @@ export function TeamReadinessPanel({
   const deptById = new Map(departments.map((d) => [d.id, d]))
   const readyCount = lights.filter((l) => l.ready).length
 
-  return (
-    <div
-      aria-label="Ready for service"
-      role="region"
-      data-tour="ready-light"
-      className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline"
-    >
+  const body = (
+    <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
           Ready for service?
         </span>
-        <span className="font-mono text-label-sm text-on-surface-faint">
-          {readyCount}/{lights.length} teams ready
+        <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="font-mono text-label-sm text-on-surface-faint">
+            {readyCount}/{lights.length} teams ready
+          </span>
+          {action}
         </span>
       </div>
       {allReady && (
@@ -129,6 +145,7 @@ export function TeamReadinessPanel({
                         ? `Opens at ${gate!.clock}, the team’s call time`
                         : 'Not ready yet'}
                 </span>
+                {progress && <ChecklistProgress name={name} pct={progress.get(light.departmentId)?.pct ?? null} />}
               </span>
               {may && (
                 <button
@@ -160,6 +177,59 @@ export function TeamReadinessPanel({
           {error}
         </p>
       )}
+    </>
+  )
+
+  // Inside another card it has no card of its own, and is not where the
+  // tour points: that is the one on the Checklists page.
+  if (embedded) {
+    return (
+      <div aria-label="Ready for service" role="region">
+        {body}
+      </div>
+    )
+  }
+  return (
+    <div
+      aria-label="Ready for service"
+      role="region"
+      data-tour="ready-light"
+      className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline"
+    >
+      {body}
     </div>
+  )
+}
+
+/**
+ * How far a team is through its checklist: a bar and the number.
+ *
+ * The number is lib/readiness's: a tick is a third of an item, the Head's
+ * check another, the sign-off the last — so 100% is every line signed
+ * off, not every line ticked. Green only then.
+ */
+function ChecklistProgress({ name, pct }: { name: string; pct: number | null }) {
+  if (pct === null) {
+    return <span className="mt-1.5 block text-label-md text-on-surface-faint">No checklist for this service</span>
+  }
+  const shown = Math.max(0, Math.min(100, Math.round(pct)))
+  return (
+    <span className="mt-2 flex items-center gap-2.5">
+      <span
+        role="progressbar"
+        aria-label={`${name} checklist`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={shown}
+        aria-valuetext={`${shown}% of the checklist done`}
+        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-raised-strong"
+      >
+        <span
+          className={`block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-glide)] ${shown === 100 ? 'bg-accent-green' : 'bg-accent-blue'}`}
+          style={{ width: `${shown}%` }}
+        />
+      </span>
+      <span className="w-10 shrink-0 text-right font-mono text-label-sm tabular text-on-surface-variant">{shown}%</span>
+    </span>
   )
 }
