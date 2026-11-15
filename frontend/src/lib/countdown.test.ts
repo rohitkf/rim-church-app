@@ -48,10 +48,16 @@ describe('countdownIsClockworthy', () => {
 describe('formatCountdown', () => {
   const m = (n: number) => n * 60_000
 
-  it('drops to the unit that matters as the gap closes', () => {
-    expect(formatCountdown(m(89) + 14_000)).toBe('1h 29m')
+  it('always says the seconds, however far off it is', () => {
+    expect(formatCountdown(m(89) + 14_000)).toBe('1:29:14')
+    expect(formatCountdown(m(60))).toBe('1:00:00')
+    expect(formatCountdown(m(125) + 5_000)).toBe('2:05:05')
     expect(formatCountdown(m(4) + 12_000)).toBe('4m 12s')
     expect(formatCountdown(42_000)).toBe('42s')
+  })
+
+  it('moves every second with more than an hour to go, as it does with less', () => {
+    expect(formatCountdown(m(89) + 14_000)).not.toBe(formatCountdown(m(89) + 13_000))
   })
 
   it('pads the seconds so the text stops jittering as it counts', () => {
