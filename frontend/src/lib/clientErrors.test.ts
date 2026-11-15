@@ -10,6 +10,9 @@ import {
   isDatabaseFault,
   isNetworkFailure,
   reportError,
+  noteSession,
+  forgetSession,
+  isLapsedSessionRefusal,
   scrubPage,
   worthReporting,
 } from './clientErrors'
@@ -32,6 +35,7 @@ beforeEach(() => {
   rpc.mockReset()
   rpc.mockResolvedValue({ data: '7F3K2Q9A', error: null })
   forgetReports()
+  forgetSession()
   window.history.replaceState(null, '', '/rota')
   Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
 })
@@ -345,3 +349,48 @@ describe('the app and the database agree', () => {
     expect(migration).toContain('length(page) <= 200')
   })
 })
+
+describe('a read refused because the session ran out under the page', () => {
+  const refused = api('42501', 'permission denied for function is_admin')
+
+  it('is not news: the database keeps its rule helpers from whoever is not signed in', async () => {
+    noteSession(true)
+    noteSession(false)
+    expect(isLapsedSessionRefusal('query', refused)).toBe(true)
+    expect(worthReporting('query', refused)).toBe(false)
+    await expect(reportError('query', refused)).resolves.toBeNull()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('is still news for somebody who is signed in: the app asked for what it should not', async () => {
+    noteSession(true)
+    expect(worthReporting('query', refused)).toBe(true)
+    await expect(reportError('query', refused)).resolves.toBe('7F3K2Q9A')
+  })
+
+  it('is still news on a page nobody was ever signed in on', () => {
+    // A registration page calling a function a visitor may not: ours to mend.
+    expect(worthReporting('query', refused)).toBe(true)
+    noteSession(false)
+    expect(worthReporting('query', refused)).toBe(true)
+  })
+
+  it('is news again once they have signed back in', () => {
+    noteSession(true)
+    noteSession(false)
+    noteSession(true)
+    expect(worthReporting('query', refused)).toBe(true)
+  })
+
+  it('excuses only a refused function, and only a read', () => {
+    noteSession(true)
+    noteSession(false)
+    // A refused column or table is the app asking for something that is not there for anybody.
+    expect(worthReporting('query', api('42501', 'permission denied for table profiles'))).toBe(true)
+    // A database fault is a fault whoever asked.
+    expect(worthReporting('query', api('42883', 'function public.nope() does not exist'))).toBe(true)
+    // A page that threw is a page that threw.
+    expect(worthReporting('page', new Error('boom'))).toBe(true)
+  })
+})
+

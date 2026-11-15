@@ -6,6 +6,7 @@ import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRo
 import { z } from 'zod'
 import { isTeamPreview } from '../lib/viewAs'
 import { fetchMyProfileGaps } from '../lib/gettingSetUp'
+import { noteSession } from '../lib/clientErrors'
 
 /**
  * Who an Admin is previewing the app as. The pages, the dock and the
@@ -161,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .getSession()
       .then(({ data: { session } }) => {
         setSession(session)
+        noteSession(!!session)
         if (session?.user) return loadProfileAndRoles(session.user.id)
       })
       .catch((err: unknown) => {
@@ -177,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
+      // A read refused after this is the session's doing, not the app's (lib/clientErrors).
+      noteSession(!!nextSession)
       if (nextSession?.user) {
         const userId = nextSession.user.id
         // This callback runs while supabase-js holds the lock for the

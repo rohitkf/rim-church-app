@@ -8,7 +8,7 @@ import { DashboardReminders } from '../components/ReminderBanner'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
-import { Chevron } from '../components/Collapsible'
+import { Chevron, Fold } from '../components/Collapsible'
 import { SegmentedProgressBar } from '../components/ChecklistStatus'
 import {
   fetchAvailabilityFor,
@@ -870,7 +870,7 @@ export function DashboardPage() {
                   {show.readiness && (
                   <>
                   {/* Readiness, as the one big ring the screen is allowed. */}
-                  <Tile className="lg:col-span-5">
+                  <Tile className="lg:col-span-6">
                     <div className="flex items-baseline justify-between gap-4">
                       <Eyebrow>Service readiness</Eyebrow>
                       <span className="font-mono text-label-sm text-on-surface-faint">
@@ -934,50 +934,50 @@ export function DashboardPage() {
                         </div>
                       </>
                     )}
-                  </Tile>
 
-                  {/* Per-team checklist rings, for the head who needs to know
-                      which one to chase rather than the total. Directly
-                      after the overall ring, because they are the same
-                      question at two zoom levels: one says how ready the
-                      service is, the other says which team is holding it
-                      up, and reading either without the other means
-                      scrolling to guess. */}
-                  {readinessByDept.size > 0 && (
-                    <Tile className="lg:col-span-7">
-                      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                        <Eyebrow>Checklist readiness by team</Eyebrow>
+                    {/* Per-team checklist rings, for the head who needs to
+                        know which one to chase rather than the total: the
+                        same question as the ring above, closer up. Folded
+                        under it, shut, so an opened service is its
+                        headlines first (the Owner, November 2026). */}
+                    {readinessByDept.size > 0 && (
+                      <Fold
+                        className="mt-6"
+                        label="Checklist readiness by team"
+                        summary={`${readinessByDept.size} ${readinessByDept.size === 1 ? 'team' : 'teams'}`}
+                      >
                         {/* Two teams can both be 67% ready in different ways;
                             the ring says which, and this says how to read it. */}
                         <ReadinessLegend />
-                      </div>
-                      <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
-                        {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
-                          <li key={deptId}>
-                            <Link
-                              to="/checklists"
-                              className="block rounded-[var(--radius-chip)] transition-opacity hover:opacity-80"
-                              title={`${departmentName(deptId)} checklist`}
-                            >
-                              <ReadinessDonut
-                                readiness={deptReadiness}
-                                label={departmentName(deptId)}
-                                size={96}
-                              />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </Tile>
-                  )}
+                        <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-5">
+                          {[...readinessByDept.entries()].map(([deptId, deptReadiness]) => (
+                            <li key={deptId}>
+                              <Link
+                                to="/checklists"
+                                className="block rounded-[var(--radius-chip)] transition-opacity hover:opacity-80"
+                                title={`${departmentName(deptId)} checklist`}
+                              >
+                                <ReadinessDonut
+                                  readiness={deptReadiness}
+                                  label={departmentName(deptId)}
+                                  size={96}
+                                />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </Fold>
+                    )}
+                  </Tile>
+
                   </>
                   )}
-                  {show.availability && (
+                  {(show.availability || show.turnout) && (
                   <>
                   {/* Estimate and outcome, side by side, same denominator. */}
-                  <Tile className="lg:col-span-5">
+                  <Tile className="lg:col-span-6">
                     <Eyebrow>People</Eyebrow>
-                    {availabilityTeams.length === 0 ? (
+                    {!show.availability ? null : availabilityTeams.length === 0 ? (
                       <p className="mt-5 text-body-sm text-on-surface-variant">
                         No teams to report on.
                       </p>
@@ -1039,56 +1039,60 @@ export function DashboardPage() {
                         </p>
                       </>
                     )}
+
+                    {/* Every team at a glance, worst first — what you scan
+                        when you only have ten seconds before the doors. The
+                        two numbers above are all of them together; this is
+                        the same, team by team, folded under them and shut
+                        (the Owner, November 2026). Open when it is the
+                        only thing the church has asked this card to show.
+
+                        Deliberately no team wash: the colour here belongs
+                        to the ring — red for unanswered, green for ready —
+                        and two colour systems on one small row means
+                        neither of them gets read. */}
+                    {show.turnout && availabilityTeams.length > 0 && (
+                      <Fold
+                        className="mt-6"
+                        label="Teams on duty"
+                        summary={`${availabilityTeams.length} ${availabilityTeams.length === 1 ? 'team' : 'teams'}`}
+                        defaultOpen={!show.availability}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                          {/* Grey rings are predictions and coloured ones are
+                              facts, which is not a thing a ring can say for
+                              itself. */}
+                          <TurnoutLegend />
+                          <Link to="/departments" className="tap inline-flex items-center text-label-md text-accent-blue-soft">
+                            All teams
+                          </Link>
+                        </div>
+                        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          {availabilityTeams.map(({ dept, summary, turnout }) => (
+                            <TeamTurnoutRow
+                              key={dept.id}
+                              name={dept.name}
+                              ring={turnoutRing(summary, turnout)}
+                              to={availabilityLink(service.id, dept.id)}
+                            />
+                          ))}
+                        </div>
+                        {teamsNeedingAnswers.length > 0 && (
+                          <p className="mt-4 text-label-md text-on-surface-faint">
+                            {teamsNeedingAnswers.length}{' '}
+                            {teamsNeedingAnswers.length === 1 ? 'team is' : 'teams are'} still waiting on
+                            answers.
+                          </p>
+                        )}
+                      </Fold>
+                    )}
+                    {show.turnout && !show.availability && availabilityTeams.length === 0 && (
+                      <p className="mt-5 text-body-sm text-on-surface-variant">No teams to report on.</p>
+                    )}
                   </Tile>
                   </>
                   )}
 
-                  {show.turnout && (
-                  <>
-                  {/* Every team at a glance, worst first — the tile you scan
-                      when you only have ten seconds before the doors.
-
-                      Deliberately no team wash: this tile's colour belongs to
-                      the readiness ring — red for unanswered, green for ready
-                      — and two colour systems on one small row means neither
-                      of them gets read. */}
-                  <Tile className="lg:col-span-7">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <Eyebrow>Teams on duty</Eyebrow>
-                      <Link to="/departments" className="tap inline-flex items-center text-label-md text-accent-blue-soft">
-                        All teams
-                      </Link>
-                    </div>
-                    {/* Grey rings are predictions and coloured ones are
-                        facts, which is not a thing a ring can say for
-                        itself. */}
-                    <TurnoutLegend className="mt-3" />
-                    {availabilityTeams.length === 0 ? (
-                      <p className="mt-5 text-body-sm text-on-surface-variant">
-                        No teams to report on.
-                      </p>
-                    ) : (
-                      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {availabilityTeams.map(({ dept, summary, turnout }) => (
-                          <TeamTurnoutRow
-                            key={dept.id}
-                            name={dept.name}
-                            ring={turnoutRing(summary, turnout)}
-                            to={availabilityLink(service.id, dept.id)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {teamsNeedingAnswers.length > 0 && (
-                      <p className="mt-4 text-label-md text-on-surface-faint">
-                        {teamsNeedingAnswers.length}{' '}
-                        {teamsNeedingAnswers.length === 1 ? 'team is' : 'teams are'} still waiting on
-                        answers.
-                      </p>
-                    )}
-                  </Tile>
-                  </>
-                  )}
 
                   {show.activity && <ActivityFeed serviceId={service.id} className="lg:col-span-12" />}
                     </>
