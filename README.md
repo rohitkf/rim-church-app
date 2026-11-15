@@ -57,7 +57,7 @@ docker-compose.yml   Runs both containers together for local/self-hosted deploym
 **Setting this up from a fork? Follow [SETUP.md](./SETUP.md)** — it is the
 whole thing in order, including the four steps that are easy to miss
 because the app still starts without them (no Owner, undeployed invite
-function, the push webhook, and a `vercel.json` that points at somebody
+function, the two push secrets, and a `vercel.json` that points at somebody
 else's database).
 
 The short version:
@@ -408,7 +408,7 @@ up once:
 2. **Generate a VAPID key pair** — `npx web-push generate-vapid-keys`. The
    public half becomes `VITE_VAPID_PUBLIC_KEY` in the frontend's
    environment; the private half stays server-side.
-3. **Deploy the sender and point a webhook at it:**
+3. **Deploy the sender and tell the database where it is:**
 
    ```sh
    supabase functions deploy push-notify
@@ -416,16 +416,19 @@ up once:
      VAPID_SUBJECT=mailto:you@example.org
    ```
 
-   Then add a Database Webhook on `public.notifications`, event
-   **INSERT**, calling the `push-notify` function, with *Add new header →
-   Add auth header with service key*. In the dashboard these live under
-   **Integrations → Webhooks**, not under Database — they moved, and parts
-   of Supabase's own docs still link the old path.
+   Then give the database the function's address and the service-role
+   key, as two secrets in Vault (`push_notify_url`, `push_notify_key` —
+   SETUP.md step 8 has the two lines). The database calls the function
+   itself, once for each transaction that wrote notifications, with the
+   ids of everything it wrote (0291); there is no webhook to make in the
+   dashboard. Until both secrets are there, Settings › App Health says
+   push is not set up.
 
 Until step 2 is done the app simply doesn't offer the closed-app half — no
 broken button, no error. `supabase/functions/push-notify/index.ts` sends to
 every one of a person's devices and deletes any endpoint the push service
-reports as gone (404/410), so uninstalled apps clean themselves up.
+reports as gone (404/410), so uninstalled apps clean themselves up. Any
+other refusal is written to Settings › App Health.
 
 **Only the database may ask for a push.** `verify_jwt` is not a door on its
 own: it accepts any JWT the project signed, and the anon key is one of
@@ -434,7 +437,7 @@ with devtools open could put their own sentence on any member's lock screen
 wearing the church's name. The sender therefore requires the service role —
 either the secret key verbatim, or a JWT claiming `service_role`, on
 `Authorization` or `apikey`. It reads both because a project can hold two
-service-role credentials at once: the legacy JWT the webhook button pastes,
+service-role credentials at once: the legacy JWT (what a dashboard webhook's button pasted, and what Vault holds on production),
 and the newer `sb_secret_…` key the edge runtime returns for the same
 variable. Comparing one against the other is how the first live webhook
 earned a 403.

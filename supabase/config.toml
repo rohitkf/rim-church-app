@@ -26,7 +26,7 @@ enable_signup = true
 enable_confirmations = false
 
 # Both functions are called with a signed-in user's token (invite) or the
-# service key the database webhook adds (push-notify), so both check it.
+# service key the database sends with each batch (push-notify, 0291), so both check it.
 [functions.invite]
 verify_jwt = true
 

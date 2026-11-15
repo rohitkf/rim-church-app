@@ -475,7 +475,8 @@ supabase/migrations/         numbered, immutable once shipped
 supabase/functions/          edge functions (push-notify, invite, clock-in-address,
                              registration-email, and registration-email-status
                              — Resend's webhook, the only one with verify_jwt
-                             off; its news.ts is run by the app's tests)
+                             off; its news.ts is run by the app's tests, and
+                             so is push-notify's batch.ts)
 build/swBuildId.ts           stamps the commit into sw.js at build time
 scripts/migration-ledger.mjs the migrations as the database's ledger knows
                              them (0285): `line <file>` prints the last line
@@ -632,8 +633,15 @@ ownership is not: it is the Owner's own to give.
   too (one unread line per board and per team's room: each post replaces
   it, so each post pushes and the bell does not pile up). A person can turn
   those two off for themselves (`push_preferences`, Settings › Appearance),
-  which push-notify reads; the bell keeps them. A new notification type is
-  a new thing that buzzes pockets — decide it on purpose.
+  which `push_batch()` applies for push-notify (0290); the bell keeps them.
+  A new notification type is a new thing that buzzes pockets — decide it on
+  purpose. **The database calls the sender once for each transaction**, not
+  for each row (0291): every statement that writes notifications adds their
+  ids to a transaction-local list (`rim.push_ids`), and at commit
+  `push_send()` posts them to push-notify, a hundred to a call, with the
+  address and key Vault holds (`push_notify_url`, `push_notify_key`). So
+  write notifications however is natural — one statement or a loop — and
+  never call the sender yourself. There is no webhook in the dashboard.
 
 ---
 
@@ -697,7 +705,9 @@ skipped. How each is done safely:
   `supabase/config.toml` says. Then smoke-test it: a call with the public
   key to a kind that needs a signed-in caller must answer 401, an unknown
   kind 400. A function of more than one file (registration-email-status:
-  `index.ts` and `news.ts`) sends each as its own `file` part.
+  `index.ts` and `news.ts`; push-notify: `index.ts` and `batch.ts`) sends
+  each as its own `file` part. push-notify has no kinds and no signed-in
+  callers: its smoke test is a call with the public key answering 403.
   registration-email-status is called by Resend, not by the app: it needs
   the secret `RESEND_WEBHOOK_SECRET` (the signing secret Resend shows for
   the webhook pointing at it) and answers 503 without it; a call with no
@@ -714,6 +724,10 @@ The traps:
    Then run `notify pgrst, 'reload schema';` so the change is visible at
    once instead of whenever the cache turns over.
 2. **Deploy changed edge functions**: `supabase functions deploy push-notify`.
+   push-notify asks `push_batch()` (0290), so deploy it only once 0290 is
+   applied; and 0291, which stops sending it one row at a time, only once
+   that push-notify is deployed — the function before it answers a batch
+   "ignored" and no phone buzzes.
    `invite` asks `may_invite()` (0144), so deploy it only once 0144 is
    applied — the other way round, every invitation fails.
 3. **Some migrations wait for the release.** A migration that takes
@@ -1005,8 +1019,17 @@ Each of these has already cost real time. None of them show up in review.
   behind `to_regclass`, in dynamic SQL, so it creates and runs on a
   database without them; if Supabase renames one, it finds nothing and
   says nothing — Settings › App Health's *Timed jobs* list going empty is
-  the sign. And it cannot see a push the sender took and one phone's push
-  service refused: push-notify answers 200 whatever its devices said.
+  the sign. A push the sender took and a phone's push service refused is
+  the sender's own to report, and since 0290 it does
+  (`push_note_failures`: one line a batch, "3 of 41 pushes did not reach a
+  phone: 403 ×2, no answer ×1", twenty an hour at most) — though only a
+  sender that ran to its end can say anything.
+- **A new database pushes to no phone until Vault is told where the
+  sender is** (`push_notify_url`, `push_notify_key`; 0291's header has the
+  two lines). The bell works, which is why it looks like nothing is wrong;
+  App Health says "Push is not set up on this database" each hour a
+  notification had nowhere to go. A push that cannot be queued never undoes
+  the save that caused it.
 - **The timed workflows do not run on their timers, and why is not
   known.** As of 12 November 2026 GitHub has never started one run in
   this repository whose event is `schedule`. `uptime.yml` (every half
