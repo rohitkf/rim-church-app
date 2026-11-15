@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WhatsNew } from './WhatsNew'
+import { RELEASES } from '../lib/releases'
 import { endTour, startTour } from '../lib/tour'
 import { TOUR_CHAPTERS } from '../lib/tour'
 
 /*
- * The release card: once per account, after the tour, never while
- * previewing as somebody else.
+ * What is new: a line at the top of the screen, once per account, with
+ * the details behind a button. It opens nothing by itself.
  */
 
 const auth = vi.hoisted(() => ({
@@ -29,6 +30,7 @@ vi.mock('../lib/onboarding', async () => {
     fetchMyOnboarding: () => Promise.resolve({ user_id: 'me', seen: {}, pushed_at: null, releases_seen: db.seen }),
     markReleaseSeen: (key: string) => {
       db.marked.push(key)
+      db.seen = { ...db.seen, [key]: '2026-11-15T15:00:00Z' }
       return Promise.resolve()
     },
   }
@@ -39,191 +41,165 @@ function Where() {
 }
 
 function show() {
-  render(
+  return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route path="*" element={<Where />} />
         </Routes>
+        <button type="button">Tick the checklist</button>
         <WhatsNew />
       </MemoryRouter>
     </QueryClientProvider>,
   )
 }
 
+/** Everything seen but these. */
+const seenAllBut = (...keys: string[]) =>
+  Object.fromEntries(RELEASES.filter((r) => !keys.includes(r.key)).map((r) => [r.key, '2026-11-01T10:00:00Z']))
+const notice = () => screen.findByRole('status', { name: 'The app was updated' })
+const quiet = async () => {
+  await new Promise((r) => setTimeout(r, 50))
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(screen.queryByRole('dialog')).toBeNull()
+}
+
 beforeEach(() => {
   endTour()
   auth.profile = { id: 'me', onboarded_at: '2026-10-01T10:00:00Z' }
   auth.viewAs = null
-  // The newer cards (phones, 0185; clock in, 0194) have their own tests below; these follow Stage Layout's.
-  db.seen = { ...NEWER }
+  pwa.updateReady = false
+  db.seen = seenAllBut('not-ended')
   db.marked = []
   db.canOpen = true
 })
 
-const NEWER = { 'dashboard-glimpse': '2026-11-15T14:00:00Z', 'not-ended': '2026-11-15T13:00:00Z', countdown: '2026-11-08T13:00:00Z', 'during-the-service-checklist': '2026-11-08T11:00:00Z', 'optional-checklist-lines': '2026-11-08T10:00:00Z', reception: '2026-11-04T10:00:00Z', registrations: '2026-11-03T10:00:00Z', 'clock-in': '2026-10-27T10:00:00Z', 'talk-on-your-phone': '2026-10-25T10:00:00Z' }
-
 describe('what is new', () => {
-  it('tells everybody about the glimpse of what is on, on the Dashboard', async () => {
-    db.seen = {}
-    const user = userEvent.setup()
+  it('says the app was updated in a line at the top, and opens nothing by itself', async () => {
     show()
-    expect(await screen.findByRole('dialog', { name: 'New: What is on, at a glance' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open the Dashboard' }))
-    await waitFor(() => expect(db.marked).toEqual(['dashboard-glimpse']))
+    expect(await notice()).toHaveTextContent('The app was updated')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // What they were doing is still theirs to do.
+    expect(screen.getByRole('button', { name: 'Tick the checklist' })).toBeEnabled()
+    expect(db.marked).toEqual([])
   })
 
-  it('tells whoever can open the Countdown about Not ended and the clock’s colours (0292)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'] }
+  it('shows the details when asked, and remembers on the account that they were told', async () => {
     const user = userEvent.setup()
     show()
-    expect(await screen.findByRole('dialog', { name: 'New: Not ended' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Countdown' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/countdown')
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
+    expect(within(sheet).getByRole('heading', { name: 'Not ended' })).toBeInTheDocument()
+    expect(within(sheet).getByText(/stays on past its time/)).toBeInTheDocument()
     await waitFor(() => expect(db.marked).toEqual(['not-ended']))
+    // The sheet stays until they close it, though the account now says seen.
+    expect(screen.getByRole('dialog', { name: 'What’s new' })).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }))
+    await quiet()
   })
 
-  it('tells whoever can open the Countdown about it (0261)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'], 'not-ended': NEWER['not-ended'] }
+  it('goes away on Dismiss, without showing anything, and is not offered again', async () => {
     const user = userEvent.setup()
     show()
-    expect(await screen.findByRole('dialog', { name: 'New: Countdown' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Countdown' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/countdown')
-    await waitFor(() => expect(db.marked).toEqual(['countdown']))
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(db.marked).toEqual(['not-ended']))
+    await quiet()
   })
 
-  it('tells whoever can open Checklists about the during-the-service part (0260)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'], 'not-ended': NEWER['not-ended'], countdown: NEWER.countdown }
+  it('lists every release they have not been told about, newest first, in the one sheet', async () => {
+    db.seen = seenAllBut('dashboard-glimpse', 'not-ended', 'countdown')
     const user = userEvent.setup()
     show()
-    expect(await screen.findByRole('dialog', { name: 'New: During the service' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Checklists' }))
-    await waitFor(() => expect(db.marked).toEqual(['during-the-service-checklist']))
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
+    expect(within(sheet).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'What is on, at a glance',
+      'Not ended',
+      'Countdown',
+    ])
+    await waitFor(() => expect([...db.marked].sort()).toEqual(['countdown', 'dashboard-glimpse', 'not-ended']))
   })
 
-  it('tells whoever can open Checklists about optional lines (0259)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'], 'not-ended': NEWER['not-ended'], countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'] }
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Optional checklist lines' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Checklists' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/checklists')
-    await waitFor(() => expect(db.marked).toEqual(['optional-checklist-lines']))
-  })
-
-  it('tells whoever can open Reception about it (0247)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'], 'not-ended': NEWER['not-ended'], countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'] }
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Reception' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Reception' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/door')
-    await waitFor(() => expect(db.marked).toEqual(['reception']))
-  })
-
-  it('tells whoever can open Registrations about it (0244)', async () => {
-    db.seen = { 'dashboard-glimpse': NEWER['dashboard-glimpse'], 'not-ended': NEWER['not-ended'], countdown: NEWER.countdown, 'during-the-service-checklist': NEWER['during-the-service-checklist'], 'optional-checklist-lines': NEWER['optional-checklist-lines'], reception: NEWER.reception }
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Registrations' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Open Registrations' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/registrations')
-    await waitFor(() => expect(db.marked).toEqual(['registrations']))
-  })
-
-  it('says nothing about Registrations or Reception to somebody who cannot open them', async () => {
+  it('names the newest five of a long list and counts the rest', async () => {
     db.seen = {}
+    const user = userEvent.setup()
+    show()
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
+    expect(within(sheet).getAllByRole('heading', { level: 3 })).toHaveLength(5)
+    expect(within(sheet).getByText(`And ${RELEASES.length - 5} earlier changes.`)).toBeInTheDocument()
+    // All of them are remembered as told, not only the five named.
+    await waitFor(() => expect(db.marked).toHaveLength(RELEASES.length))
+  })
+
+  it('takes them to a release’s page from the sheet', async () => {
+    const user = userEvent.setup()
+    show()
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    await user.click(await screen.findByRole('button', { name: 'Open Countdown' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/countdown')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('says nothing about a page this person cannot open', async () => {
+    // Registrations and Reception have pages; clocking in is for everybody.
+    db.seen = seenAllBut('registrations', 'reception', 'clock-in')
+    db.canOpen = false
+    const user = userEvent.setup()
+    show()
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
+    expect(within(sheet).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Clock in when you arrive'])
+    await waitFor(() => expect(db.marked).toEqual(['clock-in']))
+  })
+
+  it('is not there at all when the only news is a page they cannot open', async () => {
+    db.seen = seenAllBut('registrations')
     db.canOpen = false
     show()
-    // The phones card has no page, so it is the one that shows instead.
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).not.toHaveAccessibleName('New: Registrations')
-    expect(dialog).not.toHaveAccessibleName('New: Reception')
+    await quiet()
   })
 
-  it('announces the newest release once, and remembers on the account when it is closed', async () => {
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Stage Layout' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Later' }))
-    await waitFor(() => expect(db.marked).toEqual(['stage-layout']))
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('takes them there on the button, and still marks it seen', async () => {
-    const user = userEvent.setup()
-    show()
-    await user.click(await screen.findByRole('button', { name: 'Open Stage Layout' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/stage')
-    await waitFor(() => expect(db.marked).toEqual(['stage-layout']))
-  })
-
-  it('stays quiet when it has been seen, during the tour, while previewing, and before joining is done', async () => {
-    db.seen = { ...NEWER, 'stage-layout': '2026-10-17T10:00:00Z' }
-    const a = render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter>
-          <WhatsNew />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    )
-    await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByRole('dialog')).toBeNull()
+  it('stays quiet when everything has been seen, during the tour, while previewing, and before joining is done', async () => {
+    db.seen = seenAllBut()
+    const a = show()
+    await quiet()
     a.unmount()
 
-    db.seen = { ...NEWER }
+    db.seen = seenAllBut('not-ended')
     startTour([TOUR_CHAPTERS[0]], 'manual')
-    show()
-    await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    const b = show()
+    await quiet()
     endTour()
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await notice()).toBeInTheDocument()
+    b.unmount()
+
+    auth.viewAs = { as: 'member' }
+    const c = show()
+    await quiet()
+    c.unmount()
+
+    auth.viewAs = null
+    auth.profile = { id: 'me', onboarded_at: null }
+    show()
+    await quiet()
+    expect(db.marked).toEqual([])
   })
 
   it('yields to a new version waiting to be reloaded into, and comes back after it', async () => {
     pwa.updateReady = true
-    const a = render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter>
-          <WhatsNew />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    )
-    await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    const a = show()
+    await quiet()
     expect(db.marked).toEqual([])
     a.unmount()
     pwa.updateReady = false
     show()
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
-  })
-
-  it('says nothing about a page this person cannot open', async () => {
-    db.canOpen = false
-    show()
-    await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('tells everybody about clocking in, newest first', async () => {
-    db.seen = {}
-    db.canOpen = false
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Clock in when you arrive' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Got it' }))
-    await waitFor(() => expect(db.marked).toEqual(['clock-in']))
-  })
-
-  it('tells everybody that board posts and team chat now reach the phone', async () => {
-    db.seen = { 'clock-in': '2026-10-27T10:00:00Z' }
-    db.canOpen = false
-    const user = userEvent.setup()
-    show()
-    expect(await screen.findByRole('dialog', { name: 'New: Board posts and team chat on your phone' })).toBeInTheDocument()
-    // Nowhere to send them but Settings, so it only closes.
-    await user.click(screen.getByRole('button', { name: 'Got it' }))
-    await waitFor(() => expect(db.marked).toEqual(['talk-on-your-phone']))
+    expect(await notice()).toBeInTheDocument()
   })
 })

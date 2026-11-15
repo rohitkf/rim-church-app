@@ -1,50 +1,63 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../auth/AuthContext'
-import { usePageAccess } from '../lib/usePageAccess'
+import { useNavigate } from 'react-router-dom'
 import { usePwa } from '../lib/usePwa'
-import { ONBOARDING_KEY, fetchMyOnboarding, markReleaseSeen } from '../lib/onboarding'
-import { nextUnseenRelease } from '../lib/releases'
+import { useUnseenReleases } from '../lib/useUnseenReleases'
+import type { Release } from '../lib/releases'
 import { subscribeTour } from '../lib/tour'
-import { ReleaseDialog } from './ReleaseDialog'
+import { ReleaseDetails } from './ReleaseDetails'
+import { NOTICE_PRIMARY, NOTICE_QUIET, TopNotice } from './TopNotice'
 
 /**
- * Says what is new, once per person.
+ * Says there is something new, once per person — and leaves it to them
+ * whether to read it.
+ *
+ * It was a card that opened over the page the first time the app was
+ * used after a release. Nobody had asked for it at that moment, and it
+ * had to be closed before anything else could be done. Now it is a line
+ * at the top of the screen (TopNotice): "Show details" opens what is new
+ * (ReleaseDetails — every release they have not been told about, in one
+ * sheet), "Dismiss" puts it away. Either way it is remembered on the
+ * account and not offered again.
  *
  * Waits its turn: not while the tour is running (a new account meets the
  * app before it meets the changelog), not for somebody still on the
  * joining form, not for an Admin previewing as somebody else, and not
- * while a new version is waiting to be reloaded into: that door has no
- * way round it, so the card would only sit behind or over it. It is not
- * marked seen until it is closed, so it comes back after the reload.
+ * while a new version is waiting to be reloaded into — that notice sits
+ * in the same place and offers the newer version's details itself.
  */
 export function WhatsNew() {
-  const { profile, viewAs } = useAuth()
-  const { canOpen, settled } = usePageAccess()
   const { updateReady } = usePwa()
-  const queryClient = useQueryClient()
+  const { ready, unseenOf, markSeen } = useUnseenReleases()
+  const navigate = useNavigate()
   const [touring, setTouring] = useState(false)
-  const [dismissed, setDismissed] = useState<string | null>(null)
+  // What the sheet is showing. Held apart from the account's answer, which
+  // changes under it the moment they are marked seen.
+  const [reading, setReading] = useState<Release[] | null>(null)
   useEffect(() => subscribeTour((run) => setTouring(run !== null)), [])
 
-  const myId = profile?.id
-  const query = useQuery({
-    queryKey: [...ONBOARDING_KEY, myId],
-    queryFn: () => fetchMyOnboarding(myId!),
-    enabled: !!myId,
-  })
-  const seen = useMutation({
-    mutationFn: markReleaseSeen,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ONBOARDING_KEY }),
-  })
-
-  if (!profile || !profile.onboarded_at || viewAs || touring || updateReady || !settled || !query.isSuccess) return null
-  const release = nextUnseenRelease(query.data?.releases_seen ?? {}, canOpen)
-  if (!release || release.key === dismissed) return null
-
-  const close = () => {
-    setDismissed(release.key)
-    seen.mutate(release.key)
+  if (reading) {
+    return <ReleaseDetails releases={reading} onClose={() => setReading(null)} onGo={(to) => navigate(to)} />
   }
-  return <ReleaseDialog release={release} onClose={close} />
+  if (!ready || touring || updateReady) return null
+  const unseen = unseenOf()
+  if (unseen.length === 0) return null
+  const told = () => markSeen(unseen.map((r) => r.key))
+
+  return (
+    <TopNotice label="The app was updated" text="The app was updated">
+      <button
+        type="button"
+        onClick={() => {
+          setReading(unseen)
+          told()
+        }}
+        className={NOTICE_PRIMARY}
+      >
+        Show details
+      </button>
+      <button type="button" onClick={told} className={NOTICE_QUIET}>
+        Dismiss
+      </button>
+    </TopNotice>
+  )
 }

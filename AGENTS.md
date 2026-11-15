@@ -398,7 +398,12 @@ frontend/api/                Vercel functions. register-preview.js answers
                              just installed from one already in use
   components/PublicShell.tsx the frame round a page opened from a link, signed
                              in or not — no menus, the church's name and mark
-  lib/pwa.ts                 install, offline, and the update banner
+  lib/pwa.ts                 install, offline, and the update notice
+                             (components/UpdateNotice.tsx: a line at the top
+                             with Reload and Later — a notice, never a dialog:
+                             the Owner asked that a new version interrupt
+                             nobody; Later brings it back when the app next
+                             comes to the front)
   lib/standing.ts            whether the app is open to this person right now
                              (0278, 0279): my_standing(), and recognising
                              the hook's app_closed and account_blocked among
@@ -929,6 +934,16 @@ Each of these has already cost real time. None of them show up in review.
 - **A release is announced once per account** (`lib/releases.ts`, `WhatsNew`,
   `onboarding.releases_seen`, 0156). A new page or a changed habit gets an
   entry there — key never reused — or people find it by accident.
+  **Nothing about an update opens by itself** (the Owner's instruction,
+  November 2026): a new version and what is new are both a line at the top
+  of the screen (`components/TopNotice.tsx`), never a dialog. Before a
+  reload, `UpdateNotice` offers Reload, Show details and Later; after one,
+  `WhatsNew` offers Show details and Dismiss. Show details opens
+  `ReleaseDetails`, every unseen release in one sheet. The notes of the
+  version *waiting* are not in the build still running, so every build
+  writes them to `/releases.json` (`build/releasesFile.ts`) and
+  `lib/latestReleases.ts` reads that fresh — the service worker must keep
+  leaving that file to the network. Do not bring back a modal for either.
 - **Two copies of the notification map** must agree:
   `lib/notificationLink.ts` and `functions/push-notify/index.ts`. One is
   browser, one is Deno. They have drifted once already.

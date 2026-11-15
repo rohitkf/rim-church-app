@@ -165,4 +165,24 @@ describe('the Countdown page', () => {
     expect(await screen.findByRole('timer')).toHaveTextContent('+7:00')
     expect(screen.getByText('The service has not ended yet — Sermon is still running.')).toBeInTheDocument()
   })
+
+  it('blinks the number once it is counting up, and holds it steady while it is counting down', async () => {
+    vi.setSystemTime(at('10:12'))
+    const before = show()
+    expect(await screen.findByRole('timer')).not.toHaveClass('blink-over')
+    before.unmount()
+
+    // The last minute is red but still counting down: steady.
+    vi.setSystemTime(new Date(at('10:29').getTime() + 30_000))
+    const close = show()
+    expect(await screen.findByRole('timer')).not.toHaveClass('blink-over')
+    close.unmount()
+
+    // Past the planned end: counting up.
+    vi.setSystemTime(at('11:25'))
+    show()
+    const timer = await screen.findByRole('timer')
+    expect(timer).toHaveTextContent('+5:00')
+    expect(timer).toHaveClass('blink-over')
+  })
 })

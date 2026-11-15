@@ -7,9 +7,8 @@ import { usePwa } from '../lib/usePwa'
  * It sits at the bottom on a phone, above the home bar, where a thumb can
  * reach it and where it doesn't cover the header.
  *
- * A new version used to be announced here too, as a pill with a Reload
- * button, and was ignored for as long as anybody liked. That is a door
- * rather than a notice — see UpdateRequiredDialog.
+ * A new version is announced at the top of the screen instead, with its
+ * Reload button — see UpdateNotice.
  */
 export function PwaBanners() {
   const { offline } = usePwa()
