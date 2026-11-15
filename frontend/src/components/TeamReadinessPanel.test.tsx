@@ -137,3 +137,50 @@ describe('the ready-for-service panel on the Checklists page', () => {
     expect(screen.queryByRole('switch')).toBeNull()
   })
 })
+
+describe('the same panel inside a service on the Dashboard', () => {
+  function onDashboard(progress: Map<string, { pct: number | null }>) {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <TeamReadinessPanel
+          embedded
+          serviceId="s1"
+          finished={false}
+          assignments={rota}
+          departments={departments}
+          rows={[green('media')]}
+          progress={progress}
+          action={<a href="/checklists">Checklists</a>}
+        />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('shows how far each team is through its checklist, as a bar and a number', () => {
+    onDashboard(new Map([['media', { pct: 61.7 }], ['audio', { pct: 100 }]]))
+    const media = screen.getByRole('progressbar', { name: 'Media checklist' })
+    expect(media).toHaveAttribute('aria-valuenow', '62')
+    expect(media).toHaveAttribute('aria-valuetext', '62% of the checklist done')
+    expect(screen.getByText('62%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Audio checklist' })).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    // The lights and the count are the Checklists page's own.
+    expect(screen.getByText('1/2 teams ready')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Checklists' })).toBeInTheDocument()
+  })
+
+  it('says so for a team with no checklist to do, rather than drawing an empty bar', () => {
+    onDashboard(new Map([['media', { pct: 40 }], ['audio', { pct: null }]]))
+    expect(screen.getByText('No checklist for this service')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar', { name: 'Audio checklist' })).toBeNull()
+    // A team the rota put on with no line counted at all is the same.
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1)
+  })
+
+  it('draws no bars where it is not asked for them', () => {
+    show()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.queryByText('No checklist for this service')).toBeNull()
+  })
+})
+

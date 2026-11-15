@@ -343,6 +343,16 @@ frontend/src/
                              anchors, Next / Back / Skip; starts itself when due
   lib/display.ts             the screens' preferences, each falling back on its own
   lib/notificationLink.ts    every notification type: its label and its link
+  lib/sessionGlimpse.ts      a running service at a glance, for its Dashboard
+                             card: the session that is on, who is taking it,
+                             its time left or its overrun, and what is next —
+                             lib/serviceClock with the names read off, so the
+                             Dashboard, the planner and Countdown agree.
+                             components/SessionGlimpse.tsx draws it (its own
+                             second hand). The same card carries the
+                             Checklists page's TeamReadinessPanel (`embedded`,
+                             and `progress`: each team's checklist as a bar
+                             and a percentage from lib/readiness)
   lib/registrations.ts       registration events (0244): the creator's draft,
                              the owner's reads, the public page's RPCs, and
                              the door's (0247): walk-ins, proofs, today's event

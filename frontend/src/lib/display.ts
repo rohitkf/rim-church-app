@@ -17,7 +17,7 @@ import { z } from 'zod'
 
 export const DASHBOARD_PANELS = [
   { key: 'todayEvents', label: 'Today’s events', hint: 'Anything in the diary for today, above the services.' },
-  { key: 'teamsReady', label: 'Teams ready', hint: 'A light for each team on the service.' },
+  { key: 'teamsReady', label: 'Teams ready', hint: 'A light for each team on the service, and how far it is through its checklist.' },
   { key: 'readiness', label: 'Checklist readiness', hint: 'The ring, and how far each stage has got.' },
   { key: 'availability', label: 'Who can serve', hint: 'Answers so far, and who is still to say.' },
   { key: 'turnout', label: 'Turnout by team', hint: 'Each team’s roster against its answers.' },

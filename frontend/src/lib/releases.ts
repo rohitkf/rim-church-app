@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'dashboard-glimpse',
+    date: '2026-11-15',
+    title: 'What is on, at a glance',
+    lead: 'A running service’s card on the Dashboard now says what is happening this minute.',
+    points: [
+      'The session that is on, who is taking it, and its time left — or how far over it is.',
+      '“Ready for service?” is inside the card too, with the switch for whoever may turn a team’s light.',
+      'Each team has a bar and a percentage: how far it is through its checklist.',
+    ],
+    link: { to: '/', label: 'Open the Dashboard' },
+    page: '/',
+  },
+  {
     key: 'not-ended',
     date: '2026-11-15',
     title: 'Not ended',
