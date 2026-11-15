@@ -102,7 +102,9 @@ export const NAV_ITEMS: NavItem[] = [
 
   // Looked up rather than lived in: the diary, the teams, the people who
   // fill them, and the cupboard they draw on.
-  { to: '/events', label: 'Events', icon: CakeIcon, group: 'Church life' },
+  // Called Calendar since November 2026: it holds services, birthdays and
+  // anniversaries as well, and "Events" was one of the five things on it.
+  { to: '/events', label: 'Calendar', icon: CakeIcon, group: 'Church life' },
   // Events anybody can sign up for from a link (0244): the Owner's, and
   // whoever the grid gives "Run registrations".
   { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church life' },

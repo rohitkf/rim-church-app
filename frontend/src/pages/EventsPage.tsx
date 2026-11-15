@@ -101,15 +101,20 @@ type Category = DiaryKind | 'repeating'
 
 const categoryOf = (entry: DiaryEntry): Category => (entry.kind === 'event' && entry.meeting ? 'repeating' : entry.kind)
 
-// Called Meetings, as people call them: a weekly prayer meeting, the monthly members' meeting.
-const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Meeting' }
+// The two kinds somebody adds, as the church uses them (November 2026): an
+// Event is a one-off — a conference, a workday, a leaders' meeting called
+// for one evening — and a Regular meeting is what happens every week or
+// month. They were "Event" and "Meeting", and every one-off with Meeting
+// in its name was filed, rightly, under Event: the words asked what the
+// thing was called when the question was how often it happens.
+const CATEGORY_LABEL: Record<Category, string> = { ...KIND_LABEL, repeating: 'Regular' }
 
 const PLURAL: Record<Category, string> = {
   service: 'Services',
   birthday: 'Birthdays',
   anniversary: 'Anniversaries',
   event: 'Events',
-  repeating: 'Meetings',
+  repeating: 'Regular meetings',
 }
 
 const KIND_TONE: Record<Category, { dot: string; chip: string }> = {
@@ -361,8 +366,14 @@ export function EventsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
-  /** Event or Meeting (0262): the person adding it says which; nothing is assumed. */
+  /**
+   * Event or Regular meeting (stored as 'event' | 'meeting', 0262): the
+   * person adding it says which, first, and the form is the one for it.
+   * Null while adding is the first step, where the two are offered.
+   */
   const [category, setCategory] = useState<'event' | 'meeting' | null>(null)
+  /** An Event that happens more than once: the repeat settings are shown. */
+  const [moreThanOnce, setMoreThanOnce] = useState(false)
   const [date, setDate] = useState('')
   /** The last day, when it runs on. Null is the single-day majority. */
   const [endDate, setEndDate] = useState<string | null>(null)
@@ -774,6 +785,7 @@ export function EventsPage() {
     setTitle(''); setCategory(null); setDate(''); setEndDate(null); setStartTime(''); setEndTime('')
     setLocation(''); setLinks([]); setDetails(''); setDepartmentIds([])
     setRepeat(''); setUntil(''); setScope('one'); setEditingDay(null); setNoEnd(false); setRangeAsUntil(false)
+    setMoreThanOnce(false)
   }
 
   // Opening the form with a day already chosen. Tapping the 14th is
@@ -786,6 +798,26 @@ export function EventsPage() {
     // team, not on "the whole church" they are not offered.
     if (!everywhere && myTeams[0]) setDepartmentIds([myTeams[0].id])
     setAdding(true)
+  }
+
+  /**
+   * The first step's answer. A regular meeting repeats — weekly, unless
+   * said otherwise — and goes on until somebody stops it, which is what a
+   * Bible study does; an event is one date, or a run of them.
+   */
+  function pickKind(kind: 'event' | 'meeting') {
+    setCategory(kind)
+    setMoreThanOnce(false)
+    setRangeAsUntil(false)
+    if (kind === 'meeting') {
+      setEndDate(null)
+      setRepeat('weekly')
+      setUntil(defaultUntil(date || today, 'weekly'))
+      setNoEnd(true)
+    } else {
+      setRepeat('')
+      setNoEnd(false)
+    }
   }
 
   /** The same form, holding what the event already says. */
@@ -913,12 +945,12 @@ export function EventsPage() {
           describing a version of itself that no longer exists. */}
       <PageHeader
         eyebrow="The church diary"
-        title="Events"
+        title="Calendar"
         description="Birthdays, anniversaries, services and everything else the church has a date for — in one diary."
         action={
           canAdd && (
             <ActionButton onClick={() => openAdd()} glyph={<span aria-hidden="true">+</span>}>
-              Add event
+              Add to calendar
             </ActionButton>
           )
         }
@@ -1112,19 +1144,87 @@ export function EventsPage() {
         )}
       </QueryState>
 
-      {adding && (
-        <Overlay onDismiss={closeForm} label={editing ? 'Edit this event' : 'Add an event'}>
+      {adding && !editing && category === null && (
+        /*
+         * First, which of the two it is. Asked before anything else and
+         * with examples, because the rest of the form depends on it: a
+         * regular meeting is asked which day and how often, an event its
+         * date. One form with every field for both was where people
+         * stopped to work out which word their thing was.
+         */
+        <Overlay onDismiss={closeForm} label="Add to the calendar">
+          <div className="w-full max-w-lg rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+            <h2 className="text-headline-md">Add to the calendar</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">What are you adding?</p>
+            <div className="mt-5 flex flex-col gap-3">
+              {(
+                [
+                  ['event', 'Event', 'A one-off, on a date or over a few days.', 'A conference, a baptism, a workday, a leaders’ meeting.'],
+                  ['meeting', 'Regular meeting', 'Happens every week or every month.', 'Bible study, choir practice, a prayer meeting.'],
+                ] as const
+              ).map(([kind, name, what, examples], i) => (
+                <button
+                  key={kind}
+                  type="button"
+                  autoFocus={i === 0}
+                  onClick={() => pickKind(kind)}
+                  className="tap flex items-start gap-3 rounded-[var(--radius-card)] bg-surface-container p-4 text-left hairline transition-colors hover:bg-raised-strong"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${KIND_TONE[kind === 'meeting' ? 'repeating' : 'event'].dot}`}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-headline-sm text-on-surface">{name}</span>
+                    <span className="mt-0.5 block text-body-sm text-on-surface-variant">{what}</span>
+                    <span className="mt-1 block text-label-md text-on-surface-faint">{examples}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-full px-4 py-2.5 text-body-sm font-medium text-on-surface ring-1 ring-black/8 hover:ring-black/20 dark:ring-white/10"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
+
+      {adding && (editing || category !== null) && (
+        <Overlay
+          onDismiss={closeForm}
+          label={editing ? 'Edit this event' : category === 'meeting' ? 'Add a regular meeting' : 'Add an event'}
+        >
           <form
             onSubmit={handleAdd}
             className="max-h-full w-full max-w-lg overflow-y-auto rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
           >
-            <h2 id="add-event-title" className="text-headline-md">
-              {editing ? 'Edit this event' : 'Add an event'}
-            </h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 id="add-event-title" className="text-headline-md">
+                {editing ? 'Edit this event' : category === 'meeting' ? 'Add a regular meeting' : 'Add an event'}
+              </h2>
+              {/* Back to the first step, keeping what has been typed. */}
+              {!editing && (
+                <button
+                  type="button"
+                  onClick={() => setCategory(null)}
+                  className="tap text-label-md text-accent-blue-soft hover:underline"
+                >
+                  Not {category === 'meeting' ? 'a regular meeting' : 'an event'}?
+                </button>
+              )}
+            </div>
             <p className="mt-1 text-body-sm text-on-surface-variant">
               {editing
                 ? 'Everyone sees the change, wherever it appears in the diary.'
-                : 'It appears in everyone’s diary, with your name on it.'}
+                : category === 'meeting'
+                  ? 'Every one of them appears in everyone’s diary, with your name on it.'
+                  : 'It appears in everyone’s diary, with your name on it.'}
             </p>
 
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1132,56 +1232,113 @@ export function EventsPage() {
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Members' meeting, baptism, workday…"
+                  placeholder={category === 'meeting' ? 'Bible study, choir practice, prayer meeting…' : 'Conference, baptism, workday…'}
                   autoFocus
                   className={inputClasses}
                 />
               </Field>
-              {/* Which list it is found under. Asked, not guessed from
-                  whether it repeats (0262): a one-off can be a meeting,
-                  and a weekly thing can be an event. */}
-              <FieldGroup label="Event or meeting" className="sm:col-span-2">
-                <SegmentedControl
-                  label="Event or meeting"
-                  value={category}
-                  onChange={setCategory}
-                  options={[
-                    { value: 'event', label: 'Event' },
-                    { value: 'meeting', label: 'Meeting' },
-                  ]}
-                />
-              </FieldGroup>
-              {/* The app's own calendar rather than the browser's wheel:
-                  a church diary is full of things that run over several
-                  days, and the native field cannot say so. */}
-              <Field label="When" className="sm:col-span-2">
-                <DateRangePicker
-                  from={date || today}
-                  to={endDate}
-                  today={today}
-                  label="When the event runs"
-                  onChange={({ from, to }) => {
-                    setDate(from)
-                    setEndDate(to)
-                    if (!editing) foldRange(from, to, repeat)
-                  }}
-                />
-              </Field>
-              {/* Repeats (0234): only when adding — an existing one-off
-                  stays one, and a series is changed one or onward. */}
-              {!editing && (
-                <Field label="Repeats" className="sm:col-span-2">
-                  <Select
-                    value={repeat}
-                    onChange={(v) => {
-                      setRepeat(v as RepeatRule | '')
-                      if (v) setUntil(defaultUntil(date || today, v as RepeatRule))
-                      foldRange(date || today, endDate, v as RepeatRule | '')
-                    }}
-                    options={repeatChoices(date || today)}
-                    aria-label="Repeats"
+              {/* Adding, the first step asked. Editing, it can be put
+                  right here: which list it is found under (0262). */}
+              {editing && (
+                <FieldGroup label="Event or regular meeting" className="sm:col-span-2">
+                  <SegmentedControl
+                    label="Event or regular meeting"
+                    value={category}
+                    onChange={setCategory}
+                    options={[
+                      { value: 'event', label: 'Event' },
+                      { value: 'meeting', label: 'Regular meeting' },
+                    ]}
                   />
-                </Field>
+                </FieldGroup>
+              )}
+              {!editing && category === 'meeting' ? (
+                <>
+                  {/* A regular meeting is one day at a time: when the
+                      first one is, and how often after it. */}
+                  <Field label="The first one is on" className="sm:col-span-2">
+                    <DateField
+                      value={date || today}
+                      onChange={(v) => {
+                        if (!v) return
+                        setDate(v)
+                        if (repeat) setUntil(defaultUntil(v, repeat))
+                      }}
+                      label="The first one is on"
+                    />
+                  </Field>
+                  <Field label="How often" className="sm:col-span-2">
+                    <Select
+                      value={repeat}
+                      onChange={(v) => {
+                        setRepeat(v as RepeatRule)
+                        setUntil(defaultUntil(date || today, v as RepeatRule))
+                      }}
+                      options={repeatChoices(date || today).filter((choice) => choice.value !== '')}
+                      aria-label="How often"
+                    />
+                  </Field>
+                </>
+              ) : (
+                <>
+                  {/* The app's own calendar rather than the browser's wheel:
+                      a church diary is full of things that run over several
+                      days, and the native field cannot say so. */}
+                  <Field label="When" className="sm:col-span-2">
+                    <DateRangePicker
+                      from={date || today}
+                      to={endDate}
+                      today={today}
+                      label="When the event runs"
+                      onChange={({ from, to }) => {
+                        setDate(from)
+                        setEndDate(to)
+                        if (!editing) foldRange(from, to, repeat)
+                      }}
+                    />
+                  </Field>
+                  {/* An event is a one-off, nearly always. The few that
+                      are not — a guest for three Sundays — say so here,
+                      and only then is how it repeats asked (0234). Only
+                      when adding: an existing one-off stays one. */}
+                  {!editing && (
+                    <label className="flex items-center gap-2 text-body-sm text-on-surface sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={moreThanOnce}
+                        onChange={(e) => {
+                          const on = e.target.checked
+                          setMoreThanOnce(on)
+                          setRangeAsUntil(false)
+                          if (on) {
+                            setRepeat('weekly')
+                            setUntil(defaultUntil(date || today, 'weekly'))
+                            foldRange(date || today, endDate, 'weekly')
+                          } else {
+                            setRepeat('')
+                            setNoEnd(false)
+                          }
+                        }}
+                        className="h-4 w-4 accent-[var(--color-primary)]"
+                      />
+                      It happens more than once
+                    </label>
+                  )}
+                  {!editing && moreThanOnce && (
+                    <Field label="Repeats" className="sm:col-span-2">
+                      <Select
+                        value={repeat}
+                        onChange={(v) => {
+                          setRepeat(v as RepeatRule)
+                          setUntil(defaultUntil(date || today, v as RepeatRule))
+                          foldRange(date || today, endDate, v as RepeatRule)
+                        }}
+                        options={repeatChoices(date || today).filter((choice) => choice.value !== '')}
+                        aria-label="Repeats"
+                      />
+                    </Field>
+                  )}
+                </>
               )}
               {!editing && repeat && (
                 <FieldGroup label="Until" className="sm:col-span-2">
@@ -1201,7 +1358,7 @@ export function EventsPage() {
                       <p className="mt-1 text-label-md text-on-surface-variant">
                         {(() => {
                           const n = occurrences(date || today, repeat, until || defaultUntil(date || today, repeat)).length
-                          return `${n} ${n === 1 ? 'event' : 'events'}, each its own in the diary.`
+                          return `${n} ${n === 1 ? 'time' : 'times'}, each its own in the diary.`
                         })()}
                       </p>
                     </>
@@ -1323,7 +1480,7 @@ export function EventsPage() {
                     : 'Adding'
                   : editing
                     ? 'Save changes'
-                    : 'Add event'}
+                    : 'Add to calendar'}
               </ActionButton>
             </div>
           </form>

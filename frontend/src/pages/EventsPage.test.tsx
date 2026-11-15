@@ -320,12 +320,12 @@ describe('editing an event', () => {
 
   it('still adds a new one when nothing is being edited', async () => {
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Workday')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Workday')
 
     const form = screen.getByRole('dialog')
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0]).toMatchObject({ op: 'insert' })
@@ -502,14 +502,15 @@ describe('events that repeat', () => {
 
   it('adds one row for each time it happens, all of one series', async () => {
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
-    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Regular meeting\s?Happens/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Prayer meeting')
     const form = screen.getByRole('dialog')
-    await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
-    expect(within(form).getByText(/14 events, each its own in the diary/)).toBeInTheDocument()
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    // Weekly is what a regular meeting starts as; given an end date, it is a row a time.
+    expect(within(form).getByRole('combobox', { name: 'How often' })).toHaveTextContent('Every week on Sunday')
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'No end date' }))
+    expect(within(form).getByText(/14 times, each its own in the diary/)).toBeInTheDocument()
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     const rows = state.written[0].row as { event_date: string; series_id: string; repeat_rule: string; title: string }[]
@@ -562,15 +563,14 @@ describe('events that repeat', () => {
   it('goes on with no end date: a series row, and the database makes the next six months', async () => {
     state.rpcs = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Prayer meeting')
-    await userEvent.click(screen.getByRole('radio', { name: 'Meeting' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Regular meeting\s?Happens/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Prayer meeting')
     const form = screen.getByRole('dialog')
-    await userEvent.click(within(form).getByRole('combobox', { name: 'Repeats' }))
-    await userEvent.click(screen.getByRole('option', { name: 'Every week on Sunday' }))
-    await userEvent.click(within(form).getByRole('checkbox', { name: 'No end date' }))
+    // Nothing to tick: a regular meeting goes on until it is stopped.
+    expect(within(form).getByRole('checkbox', { name: 'No end date' })).toBeChecked()
     expect(within(form).getByText(/goes on until you stop it/)).toBeInTheDocument()
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.rpcs).toHaveLength(1))
     expect(state.written).toHaveLength(1)
@@ -600,7 +600,7 @@ describe('events that repeat', () => {
     ]
     show()
     const row = (await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ }))[0]
-    expect(row).toHaveTextContent('Meeting')
+    expect(row).toHaveTextContent('Regular')
     expect(row).toHaveTextContent('Every week')
     expect(row).not.toHaveTextContent(/Day \d of/)
   })
@@ -612,7 +612,7 @@ describe('events that repeat', () => {
     ]
     show()
     await screen.findAllByRole('button', { name: /Prayer meeting — see the details/ })
-    await userEvent.click(screen.getByRole('button', { name: 'Meetings' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Regular meetings' }))
     expect(screen.getAllByRole('button', { name: /Prayer meeting — see the details/ }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /Workday — see the details/ })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Events' }))
@@ -643,9 +643,9 @@ describe('which teams an event is for', () => {
   it('starts on Whole church, and ticking teams makes it theirs', async () => {
     state.events = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Rehearsal')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Rehearsal')
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).toBeChecked()
@@ -653,7 +653,7 @@ describe('which teams an event is for', () => {
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Worship' }))
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
     expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).not.toBeChecked()
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0].row).toMatchObject({ department_id: 'd2', department_ids: ['d2', 'd1'] })
@@ -662,15 +662,15 @@ describe('which teams an event is for', () => {
   it('goes back to Whole church, and writes no team', async () => {
     state.events = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Picnic')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Picnic')
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Media' }))
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'Whole church' }))
     expect(within(teams).getByRole('checkbox', { name: 'Media' })).not.toBeChecked()
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0].row).toMatchObject({ department_id: null, department_ids: [] })
@@ -689,16 +689,16 @@ describe('which teams an event is for', () => {
   it('ticks every team with All teams, and clears them again', async () => {
     state.events = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Team night')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Team night')
     const form = screen.getByRole('dialog')
     const teams = within(form).getByRole('group', { name: 'Who is it for' })
     await userEvent.click(within(teams).getByRole('checkbox', { name: 'All teams' }))
     expect(within(teams).getByRole('checkbox', { name: 'Media' })).toBeChecked()
     expect(within(teams).getByRole('checkbox', { name: 'Worship' })).toBeChecked()
     expect(within(teams).getByRole('checkbox', { name: 'Whole church' })).not.toBeChecked()
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
 
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0].row).toMatchObject({ department_ids: ['d1', 'd2', 'd3'] })
@@ -729,9 +729,9 @@ describe('an event with links', () => {
   it('saves each link with the name to show', async () => {
     state.events = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Stand up')
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 name'), 'Join on Zoom')
@@ -740,7 +740,7 @@ describe('an event with links', () => {
     await userEvent.type(within(form).getByLabelText('Link 2 address'), 'www.example.org/form')
     // A third row left empty is dropped.
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
     await waitFor(() => expect(state.written).toHaveLength(1))
     expect(state.written[0].row).toMatchObject({
       links: [
@@ -753,14 +753,14 @@ describe('an event with links', () => {
   it('will not save something that is not a web address', async () => {
     state.events = []
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Stand up')
-    await userEvent.click(screen.getByRole('radio', { name: 'Event' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Stand up')
     const form = screen.getByRole('dialog')
     await userEvent.click(within(form).getByRole('button', { name: '+ Add a link' }))
     await userEvent.type(within(form).getByLabelText('Link 1 address'), 'javascript:alert(1)')
     expect(screen.getByRole('alert')).toHaveTextContent(/isn’t a web address/)
-    expect(within(form).getByRole('button', { name: /Add event/ })).toBeDisabled()
+    expect(within(form).getByRole('button', { name: /Add to calendar/ })).toBeDisabled()
   })
 
   it('puts each behind a button with its name, on the event and on its row', async () => {
@@ -819,23 +819,78 @@ describe('opening one event from elsewhere', () => {
 })
 
 /*
- * Event or Meeting is the maker's choice (0262), not whether it repeats.
+ * Event or Regular meeting is the maker's choice (0262), asked first.
  */
-describe('event or meeting', () => {
-  it('asks which it is, and adds nothing until it is said', async () => {
+describe('event or regular meeting', () => {
+  it('asks which it is before anything else, with what each one means', async () => {
     show()
-    await userEvent.click(await screen.findByRole('button', { name: /Add event/ }))
-    await userEvent.type(screen.getByPlaceholderText(/Members' meeting/), 'Members meeting')
-    const form = screen.getByRole('dialog')
-    expect(within(form).getByRole('radio', { name: 'Event' })).not.toBeChecked()
-    expect(within(form).getByRole('radio', { name: 'Meeting' })).not.toBeChecked()
-    expect(within(form).getByRole('button', { name: /Add event/ })).toBeDisabled()
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    const first = screen.getByRole('dialog', { name: 'Add to the calendar' })
+    expect(within(first).getByText('What are you adding?')).toBeInTheDocument()
+    expect(within(first).getByRole('button', { name: /^Event\s?A one-off/ })).toHaveTextContent(/conference, a baptism, a workday, a leaders’ meeting/)
+    expect(within(first).getByRole('button', { name: /^Regular meeting\s?Happens/ })).toHaveTextContent(/Bible study, choir practice, a prayer meeting/)
+    // Nothing to fill in yet, and nothing to save.
+    expect(within(first).queryByLabelText('What is it')).toBeNull()
+    expect(within(first).queryByRole('button', { name: /Add to calendar/ })).toBeNull()
+    expect(state.written).toHaveLength(0)
+  })
 
-    await userEvent.click(within(form).getByRole('radio', { name: 'Meeting' }))
-    await userEvent.click(within(form).getByRole('button', { name: /Add event/ }))
+  it('gives an event a date and nothing about repeating, unless it happens more than once', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    const form = screen.getByRole('dialog', { name: 'Add an event' })
+    expect(within(form).queryByRole('combobox', { name: 'Repeats' })).toBeNull()
+    expect(within(form).queryByRole('combobox', { name: 'How often' })).toBeNull()
+    expect(within(form).queryByRole('checkbox', { name: 'No end date' })).toBeNull()
+
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'It happens more than once' }))
+    expect(within(form).getByRole('combobox', { name: 'Repeats' })).toHaveTextContent('Every week on Sunday')
+    // A guest for a few Sundays ends; it is not open-ended unless somebody says so.
+    expect(within(form).getByRole('checkbox', { name: 'No end date' })).not.toBeChecked()
+
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'It happens more than once' }))
+    expect(within(form).queryByRole('combobox', { name: 'Repeats' })).toBeNull()
+    await userEvent.type(within(form).getByLabelText('What is it'), 'Workday')
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
     await waitFor(() => expect(state.written).toHaveLength(1))
-    // A one-off can be a meeting.
-    expect(state.written[0].row).toMatchObject({ title: 'Members meeting', category: 'meeting' })
+    expect(state.written[0].row).toMatchObject({ title: 'Workday', category: 'event' })
+    state.written = []
+  })
+
+  it('gives a regular meeting its first day and how often, going on until it is stopped', async () => {
+    state.rpcs = []
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Regular meeting\s?Happens/ }))
+    const form = screen.getByRole('dialog', { name: 'Add a regular meeting' })
+    expect(within(form).getByText('The first one is on')).toBeInTheDocument()
+    expect(within(form).getByRole('combobox', { name: 'How often' })).toHaveTextContent('Every week on Sunday')
+    expect(within(form).getByRole('checkbox', { name: 'No end date' })).toBeChecked()
+    // It always repeats: "does not repeat" is not one of the answers.
+    await userEvent.click(within(form).getByRole('combobox', { name: 'How often' }))
+    expect(screen.queryByRole('option', { name: 'Does not repeat' })).toBeNull()
+    await userEvent.click(screen.getByRole('option', { name: /^Every month on the \w+ Sunday$/ }))
+
+    await userEvent.type(within(form).getByLabelText('What is it'), 'Members meeting')
+    await userEvent.click(within(form).getByRole('button', { name: /Add to calendar/ }))
+    await waitFor(() => expect(state.written).toHaveLength(1))
+    expect(state.written[0]).toMatchObject({ table: 'church_event_series', op: 'insert' })
+    expect(state.written[0].row).toMatchObject({ title: 'Members meeting', category: 'meeting', rule: 'monthly_weekday' })
+    state.written = []
+  })
+
+  it('goes back to the first step and keeps what was typed', async () => {
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Regular meeting\s?Happens/ }))
+    await userEvent.type(screen.getByLabelText('What is it'), 'Leaders’ meeting')
+    await userEvent.click(screen.getByRole('button', { name: 'Not a regular meeting?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Event\s?A one-off/ }))
+    const form = screen.getByRole('dialog', { name: 'Add an event' })
+    expect(within(form).getByLabelText('What is it')).toHaveValue('Leaders’ meeting')
+    // And it is an event now: one date, no repeating.
+    expect(within(form).queryByRole('combobox', { name: 'How often' })).toBeNull()
   })
 
   it('shows what was chosen, not whether it repeats', async () => {
@@ -852,7 +907,7 @@ describe('event or meeting', () => {
     state.events = [meeting({ id: 'm1', title: 'Members meeting', category: 'meeting' })]
     show()
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
-    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: 'Meeting' })).toBeChecked()
+    expect(within(screen.getByRole('dialog')).getByRole('radio', { name: 'Regular meeting' })).toBeChecked()
   })
 })
 
@@ -1017,10 +1072,10 @@ describe('a long diary, a screen at a time', () => {
     await screen.findByText('Coming 1')
     await userEvent.click(within(comingUp()).getByRole('button', { name: 'Show more of what is coming up' }))
     expect(titles(comingUp(), 'Coming')).toHaveLength(30)
-    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Meetings' }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Regular meetings' }))
     expect(titles(comingUp(), 'Weekly')).toHaveLength(10)
     // Named for the kind it is showing.
-    expect(within(comingUp()).getByRole('button', { name: 'Show more meetings coming up' })).toBeInTheDocument()
+    expect(within(comingUp()).getByRole('button', { name: 'Show more regular meetings coming up' })).toBeInTheDocument()
     // And back to everything: from its top again.
     await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Everything' }))
     expect(titles(comingUp(), 'Coming')).toHaveLength(10)

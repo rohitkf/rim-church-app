@@ -29,6 +29,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'calendar-add',
+    date: '2026-11-15',
+    title: 'Adding to the Calendar is simpler',
+    lead: 'The page is called Calendar now, and adding to it starts with one question.',
+    points: [
+      'Event: a one-off, on a date or over a few days — a conference, a workday, a leaders’ meeting.',
+      'Regular meeting: what happens every week or month — Bible study, choir practice. It goes on until you stop it.',
+      'Each has its own short form. What was filed as a Meeting is now under Regular meetings.',
+    ],
+    link: { to: '/events', label: 'Open the Calendar' },
+    page: '/events',
+  },
+  {
     key: 'quiet-updates',
     date: '2026-11-15',
     title: 'Updates no longer interrupt you',

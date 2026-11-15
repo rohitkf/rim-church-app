@@ -170,7 +170,7 @@ const PAGE_ROW: Record<string, string> = {
   '/messages': 'Open the message board',
   '/updates': 'Open Church Updates',
   '/polls': 'Open Polls',
-  '/events': 'Open Events, the church diary',
+  '/events': 'Open the Calendar, the church diary',
   '/giving': 'Open Giving',
   '/departments': 'Open the Teams page',
   '/prayer': 'Open Prayer Requests',
