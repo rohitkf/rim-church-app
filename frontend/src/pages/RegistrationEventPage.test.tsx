@@ -17,6 +17,8 @@ import { resetUndoForTests } from '../lib/registrationUndo'
 const state = vi.hoisted(() => ({
   full: null as unknown,
   orders: [] as unknown[],
+  // The event's invitation links (0295).
+  invites: [] as unknown[],
   marked: [] as unknown[],
   notes: [] as unknown[],
   statuses: [] as unknown[],
@@ -62,6 +64,10 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
+vi.mock('../lib/registrationInvites', async (original) => ({
+  ...(await original<typeof import('../lib/registrationInvites')>()),
+  fetchInvites: () => Promise.resolve(state.invites),
+}))
 vi.mock('../lib/qrPng', () => ({
   qrPngBlob: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
   downloadBlob: (_blob: Blob, name: string) => state.downloaded.push(name),
@@ -218,6 +224,7 @@ beforeEach(() => {
   rights.now = { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true }
   state.full = full()
   state.orders = orders()
+  state.invites = []
   state.marked = []
   state.notes = []
   state.statuses = []
@@ -982,5 +989,91 @@ describe('what became of each registration’s email (0283)', () => {
       ['Walk In', ''],
       ['Cal Cancelled', 'Bounced'],
     ])
+  })
+})
+
+/*
+ * Invitation links (0295) on the event's page: the list (its own tests are
+ * RegistrationInvites.test.tsx), and each registration saying which link
+ * it came by.
+ */
+describe('invite links on the event’s page', () => {
+  const link = (over: object = {}) => ({
+    id: 'i-youth',
+    event_id: 'e1',
+    token: 'W3HN8TQ2CEV6',
+    label: 'Rim Youth WhatsApp',
+    kind: 'group',
+    locked_email: null,
+    discount_kind: 'percent',
+    discount_value: 100,
+    ticket_type_ids: [],
+    tickets_covered: 1,
+    max_uses: 20,
+    expires_at: null,
+    active: true,
+    anonymised_at: null,
+    created_at: '2026-11-16T10:00:00Z',
+    ...over,
+  })
+  const invited = () =>
+    order({ id: 'o-inv', code: 'GHJKMNPQRSTU', name: 'Sarah Lee', email: 'sarah@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 2000, total_pence: 0, promo_code: null, invite_id: 'i-youth', payment_status: 'not_needed', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }] })
+
+  it('lists the event’s links, with a way to make one, for whoever may edit events', async () => {
+    state.invites = [link()]
+    state.orders = [...orders(), invited()]
+    show()
+    const section = await screen.findByRole('region', { name: 'Invite links' })
+    expect(within(section).getByRole('button', { name: 'New invite link' })).toBeInTheDocument()
+    const row = await within(section).findByRole('listitem', { name: 'Rim Youth WhatsApp' })
+    expect(row).toHaveTextContent('1 of 20 used')
+    expect(row).toHaveTextContent('Registered: Sarah Lee')
+    expect(within(row).getByLabelText('The link for Rim Youth WhatsApp')).toHaveTextContent('/register/plc-2026?invite=W3HN8TQ2CEV6')
+  })
+
+  it('says on a registration which link it came by, and that it is free by invitation — never a code', async () => {
+    state.invites = [link()]
+    state.orders = [...orders(), invited()]
+    show()
+    const row = await screen.findByRole('listitem', { name: 'Sarah Lee' })
+    expect(await within(row).findByText('Invited: Rim Youth WhatsApp')).toBeInTheDocument()
+    expect(within(row).getByText('Free by invitation')).toBeInTheDocument()
+    // A registration with a code still says its code, and one with neither says neither.
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByText(/Invited/)).toBeNull()
+  })
+
+  it('names the link in the export', async () => {
+    state.invites = [link()]
+    state.orders = [invited()]
+    const user = show()
+    await screen.findByText('Invited: Rim Youth WhatsApp')
+    await user.click(screen.getByRole('button', { name: 'Export to Excel' }))
+    await waitFor(() => expect(state.exported).toHaveLength(1))
+    expect(state.exported[0].sheets[0].rows[0][10]).toBe('Rim Youth WhatsApp')
+  })
+
+  it('offers no way to make one on a cancelled event, or to somebody who may not edit', async () => {
+    state.invites = [link()]
+    state.full = full({ cancelled_at: '2026-11-10T10:00:00Z', status: 'closed' })
+    show()
+    const section = await screen.findByRole('region', { name: 'Invite links' })
+    await within(section).findByRole('listitem', { name: 'Rim Youth WhatsApp' })
+    expect(within(section).queryByRole('button', { name: 'New invite link' })).toBeNull()
+    cleanup()
+
+    state.full = full()
+    rights.now = { office: true, door: false, edit: false, approve: false, takePayment: false, refund: false, cancel: false, delete: false, checkIn: false, walkIn: false }
+    show()
+    const again = await screen.findByRole('region', { name: 'Invite links' })
+    await within(again).findByRole('listitem', { name: 'Rim Youth WhatsApp' })
+    expect(within(again).queryByRole('button', { name: 'New invite link' })).toBeNull()
+    expect(within(again).queryByRole('button', { name: /Turn off/ })).toBeNull()
+  })
+
+  it('draws no section for somebody who may not edit while there are no links', async () => {
+    rights.now = { office: true, door: false, edit: false, approve: false, takePayment: false, refund: false, cancel: false, delete: false, checkIn: false, walkIn: false }
+    show()
+    await screen.findByRole('heading', { name: /Who has registered/ })
+    expect(screen.queryByRole('region', { name: 'Invite links' })).toBeNull()
   })
 })

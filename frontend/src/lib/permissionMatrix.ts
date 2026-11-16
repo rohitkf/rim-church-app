@@ -950,7 +950,7 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Opens the Registrations page to read and export; changes nothing.',
       },
       {
-        action: 'Make and edit events: details, dates, tickets, promo codes, the picture; publish and close',
+        action: 'Make and edit events: details, dates, tickets, promo codes, invite links, the picture; publish and close',
         key: 'reg.edit',
         short: 'Make & edit events',
         can: granted('reg.edit'),

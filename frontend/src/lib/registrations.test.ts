@@ -571,17 +571,17 @@ describe('the workbook for the accounts', () => {
     const [ordersSheet, ticketsSheet, summary] = buildRegistrationWorkbook(full(), orders)
     expect(ordersSheet.name).toBe('Orders')
     expect(ordersSheet.columns.map((c) => c.label)).toEqual([
-      'Code', 'Name', 'Email', 'Email status', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
+      'Code', 'Name', 'Email', 'Email status', 'Phone', 'Date', 'Tickets', 'Subtotal (£)', 'Discount (£)', 'Promo code', 'Invitation', 'Total (£)', 'Payment', 'Paid by', 'Status', 'Checked in', 'Registered',
       'How', 'Received at', 'Received by', 'Receipt reference', 'Verified at', 'Verified by', 'Refund', 'Refunded at', 'Refunded by', 'Notes',
     ])
     expect(ordersSheet.rows[0].slice(0, 5)).toEqual(['ABCDEFGHJKMN', 'Ama Owusu', 'ama@example.org', 'Not emailed', '07700 900123'])
-    expect(ordersSheet.rows[0].slice(6, 14)).toEqual([2, 40, 4, 'EARLY', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
-    expect(ordersSheet.rows[0].slice(16, 26)).toEqual(['Online', '', '', '', '', '', '', '', '', 'Asked for a receipt'])
-    expect(ordersSheet.rows[2][13]).toBe('Cancelled')
+    expect(ordersSheet.rows[0].slice(6, 15)).toEqual([2, 40, 4, 'EARLY', '', 36, 'Awaiting payment', 'Bank transfer', 'Registered'])
+    expect(ordersSheet.rows[0].slice(17, 27)).toEqual(['Online', '', '', '', '', '', '', '', '', 'Asked for a receipt'])
+    expect(ordersSheet.rows[2][14]).toBe('Cancelled')
     // The walk-in: no address (so nothing to say about an email), how it came, who took the money and when.
     expect(ordersSheet.rows[3].slice(0, 5)).toEqual(['DEFGHJKMNPQR', 'Walk In', '', '', ''])
-    expect(ordersSheet.rows[3].slice(11, 13)).toEqual(['Paid', 'At reception'])
-    expect(ordersSheet.rows[3].slice(16, 20)).toEqual(['At the door', expect.stringMatching(/21.*2026.*6:40|2026.*21.*6:40/), 'Rohit F', 'REF-99'])
+    expect(ordersSheet.rows[3].slice(12, 14)).toEqual(['Paid', 'At reception'])
+    expect(ordersSheet.rows[3].slice(17, 21)).toEqual(['At the door', expect.stringMatching(/21.*2026.*6:40|2026.*21.*6:40/), 'Rohit F', 'REF-99'])
 
     expect(ticketsSheet.rows).toEqual([
       ['ABCDEFGHJKMN', 'Ama Owusu', 'With lunch', 'Ama Owusu', 20, 'All dates', 'Registered'],
@@ -611,6 +611,15 @@ describe('the workbook for the accounts', () => {
     expect(sheet({ email_status: 'delayed' })).toBe('Delayed')
     expect(sheet({ email_status: null, email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Emailed (not tracked)')
     expect(sheet({ email: null, email_status: 'delivered' })).toBe('')
+  })
+
+  it('names the invitation link an order came by (0295), and leaves the rest blank', () => {
+    const cell = (over: Parameters<typeof row>[0], names?: Record<string, string>) => buildRegistrationWorkbook(full(), [row(over)], names)[0].rows[0][10]
+    expect(cell({ invite_id: 'i1' }, { i1: 'Rim Youth WhatsApp' })).toBe('Rim Youth WhatsApp')
+    // A link the page could not name (its list had not loaded, or it was deleted since) is still an invitation.
+    expect(cell({ invite_id: 'i9' }, { i1: 'Rim Youth WhatsApp' })).toBe('Invitation')
+    expect(cell({ invite_id: null })).toBe('')
+    expect(cell({})).toBe('')
   })
 
   it('names the file after the event and the day', () => {

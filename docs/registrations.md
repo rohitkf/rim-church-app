@@ -62,6 +62,16 @@ personal details are tidied away after the event.
 - Build the event: one or several dates; ticket types (free, paid,
   donation) with limits; promo codes that apply to every paid ticket or
   only chosen ones.
+- Make **invite links** on the event's page (0295), for a discount nobody
+  has to be told: the link takes it off by itself when it is opened, and
+  no code is shown anywhere. A **personal** link is for one email address
+  and works once; a **group** link works a set number of times (twenty at
+  most when it makes tickets free). A link covers a number of tickets —
+  one unless changed, the dearest first — can end on a date, and can be
+  turned off on its own. Each row says how much of it is used and who
+  registered through it; a registration says which link it came by, and
+  so does the export. A link with no discount just records who brought
+  whom.
 - Upload a picture and set its focus point, so the important part of it
   stays in view.
 - Choose in person, online or both. For in person, type the address and
@@ -92,6 +102,12 @@ personal details are tidied away after the event.
 
 - Opens the shared link, picks tickets and a date, adds names, and applies
   a promo code.
+- Or opens an **invite link**: the form says *You're invited* and what
+  the invitation gives, the total already has it taken off, and there is
+  no code box. A personal invitation asks them to register with the
+  address it was sent to (the page never shows that address). A link
+  that has been used, has ended or was cut short says so, and the form
+  works at the usual price.
 - Before anything is saved, is shown the email address they typed, on its
   own, and asked **Is this your email address?** A well-known provider
   spelt nearly right (gmial.com) is offered spelt right.
@@ -145,7 +161,7 @@ move on.
 | Order | States |
 |---|---|
 | A paid ticket | Awaiting payment → Receipt sent — being checked → **Paid**, or **Paid (waived)** |
-| A free ticket, or 100% off with a promo code | **Nothing to pay** (Reception shows "Free with code …") |
+| A free ticket, or 100% off with a promo code or an invite link | **Nothing to pay** (Reception shows "Free with code …" or "Free by invitation") |
 | The event is cancelled | **Refund owed** → **Refunded** |
 
 Bank details from the refund form can be seen only by people with the
@@ -163,8 +179,8 @@ protection.
 | Right | Capability | What it lets someone do |
 |---|---|---|
 | Run registrations (all of it) | `reg.manage` | Everything below, except deleting an event |
-| View & export | `reg.view` | See events, orders and promo codes; export to Excel; add notes |
-| Make & edit events | `reg.edit` | Create and edit events, dates, tickets, promo codes and the picture |
+| View & export | `reg.view` | See events, orders, promo codes and invite links; export to Excel; add notes |
+| Make & edit events | `reg.edit` | Create and edit events, dates, tickets, promo codes and the picture; make, turn off and delete invite links |
 | Approve payments | `reg.approve` | Mark Paid, waive, or set back to awaiting |
 | Refunds | `reg.refund` | See refund details and mark orders Refunded |
 | Cancel & delete | `reg.cancel` | Cancel or restore orders, cancel the event, delete it once refunds are done |
@@ -183,6 +199,16 @@ protection.
   the event is cancelled.
 - **No lost money.** A paid event can't be deleted while anyone is still
   owed a refund. Cancelling keeps every order and who paid.
+- **A discount that cannot be passed on.** An invite link carries no
+  code: there is nothing to read off the form or the ticket and tell
+  somebody else. A personal link forwarded to another person is refused
+  at their address; a group link stops at its limit; and one link can be
+  turned off without touching the others. The database checks all of it
+  again when the order is made, under a lock, so two people cannot both
+  take a link's last use. A cancelled registration gives its use back. A
+  promo code, by contrast, takes money off every ticket in the order and
+  works for whoever is told it — keep those for discounts that are meant
+  to travel.
 - **Privacy.** Personal details are blanked after the event. Receipts and
   refund details are visible only to people with the right to see them.
 - **A wrong address is caught three times.** The register page shows the
@@ -215,5 +241,8 @@ protection.
 - `frontend/src/lib/registrations.ts` and `lib/registrationRights.ts`.
 - Undo: migration `0281` (`registration_order_undos`,
   `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
+- Invite links: migration `0295` (`registration_invites`,
+  `registration_invite_check()`), `frontend/src/lib/registrationInvites.ts`
+  and `components/RegistrationInvites.tsx`.
 - Pages: `RegistrationsPage`, `RegistrationEditorPage`,
   `RegistrationEventPage`, `RegisterPage`, `TicketPage` and `DoorPage`.

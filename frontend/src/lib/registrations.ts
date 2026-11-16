@@ -971,9 +971,26 @@ export interface OrderRequest {
   phone: string
   date_id: string | null
   promo_code: string
+  /**
+   * The token of the invitation link the page was opened with (0295), when
+   * it still works. Left out — not sent empty — when there is none.
+   */
+  invite?: string
   lines: OrderLine[]
   /** The trap for bots: a person never sees it, so it stays empty. */
   website: string
+}
+
+/**
+ * What an invitation link takes off (0295): like a code, but worked out on
+ * only as many of the order's tickets as it covers, the dearest first.
+ */
+export interface InviteDiscount {
+  kind: 'amount' | 'percent'
+  value: number
+  /** Empty: every paid ticket type. */
+  ticket_type_ids: string[]
+  tickets_covered: number
 }
 
 export async function registerForEvent(slug: string, order: OrderRequest): Promise<string | null> {
@@ -983,24 +1000,46 @@ export async function registerForEvent(slug: string, order: OrderRequest): Promi
   return code ?? null
 }
 
-/** The tickets wanted, priced as the database will price them. */
+/**
+ * The tickets wanted, priced as the database will price them.
+ *
+ * An invitation, when there is one, takes the place of the code — the two
+ * are never both taken (registration_register drops the code) — and its
+ * discount is worked out on its `tickets_covered` dearest tickets, where a
+ * code's is worked out on every ticket it applies to.
+ */
 export function orderTotals(
   types: PublicTicketType[],
   lines: OrderLine[],
   promo: PromoCheck | null,
+  invite: InviteDiscount | null = null,
 ): { quantity: number; subtotal: number; discount: number; total: number } {
   let quantity = 0
   let subtotal = 0
   let discountable = 0
+  /** The price of each ticket the invitation could take money off, one a ticket. */
+  const eligible: number[] = []
   for (const line of lines) {
     const t = types.find((x) => x.id === line.ticket_type_id)
     if (!t || line.quantity <= 0) continue
     const unit = t.kind === 'free' ? 0 : t.kind === 'paid' ? t.price_pence : (line.donation_pence ?? 0)
     quantity += line.quantity
     subtotal += unit * line.quantity
-    if (t.kind === 'paid' && promo?.ok && (promo.ticket_type_ids.length === 0 || promo.ticket_type_ids.includes(t.id))) {
+    if (t.kind !== 'paid') continue
+    if (invite) {
+      if (invite.ticket_type_ids.length === 0 || invite.ticket_type_ids.includes(t.id)) {
+        for (let i = 0; i < line.quantity; i++) eligible.push(unit)
+      }
+    } else if (promo?.ok && (promo.ticket_type_ids.length === 0 || promo.ticket_type_ids.includes(t.id))) {
       discountable += unit * line.quantity
     }
+  }
+  if (invite) {
+    const covered = eligible.sort((a, b) => b - a).slice(0, Math.max(0, invite.tickets_covered))
+    discountable = covered.reduce((sum, price) => sum + price, 0)
+    // The same sum and the same rounding as a code's, below.
+    const discount = invite.kind === 'amount' ? Math.min(invite.value, discountable) : Math.round((discountable * invite.value) / 100)
+    return { quantity, subtotal, discount, total: subtotal - discount }
   }
   // Rounded, not truncated: registration_register() does `(… / 100.0)::int`,
   // which rounds, and a page that says £2.99 for a ticket the database
@@ -1034,6 +1073,8 @@ export const orderViewSchema = z.object({
   discount_pence: z.number(),
   total_pence: z.number(),
   promo_code: z.string().nullable(),
+  /** The order came by an invitation link (0295): its discount is the invitation's, and there is no code to show. */
+  invited: z.boolean().nullish().transform((v) => v === true),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   payment_method: z.enum(['paypal', 'bank', 'reception']).nullable(),
   proof_at: z.string().nullable().optional(),
@@ -1188,6 +1229,8 @@ export const orderRowSchema = z.object({
   discount_pence: z.number(),
   total_pence: z.number(),
   promo_code: z.string().nullable(),
+  /** The invitation link it came by (0295), if any; lib/registrationInvites has its name. */
+  invite_id: z.string().nullable().optional(),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   payment_method: z.enum(['paypal', 'bank', 'reception']).nullable(),
   status: z.enum(['confirmed', 'cancelled']),
@@ -1225,7 +1268,7 @@ export const orderRowSchema = z.object({
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, email_status, email_status_at, email_status_detail, email_changed_at, changer:profiles!registration_orders_email_changed_by_fkey(first_name, last_name), email_before, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, invite_id, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, email_status, email_status_at, email_status_detail, email_changed_at, changer:profiles!registration_orders_email_changed_by_fkey(first_name, last_name), email_before, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1346,7 +1389,12 @@ const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { 
  * ticket, and the sums — so an event can be deleted once the books have
  * what they need. Money in pounds, as numbers.
  */
-export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: OrderRow[]): ExportSheet[] {
+export function buildRegistrationWorkbook(
+  full: RegistrationEventFull,
+  orders: OrderRow[],
+  /** Each invitation link's name by its id (0295), for the orders that came by one. */
+  inviteNames: Record<string, string> = {},
+): ExportSheet[] {
   const { event, dates, ticketTypes } = full
   const money = (pence: number) => Math.round(pence) / 100
   const stamp = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '')
@@ -1371,6 +1419,7 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       { label: 'Subtotal (£)', width: 12 },
       { label: 'Discount (£)', width: 12 },
       { label: 'Promo code', width: 12 },
+      { label: 'Invitation', width: 22 },
       { label: 'Total (£)', width: 10 },
       { label: 'Payment', width: 30 },
       { label: 'Paid by', width: 14 },
@@ -1399,6 +1448,7 @@ export function buildRegistrationWorkbook(full: RegistrationEventFull, orders: O
       money(o.subtotal_pence),
       money(o.discount_pence),
       o.promo_code ?? '',
+      o.invite_id ? (inviteNames[o.invite_id] ?? 'Invitation') : '',
       money(o.total_pence),
       PAYMENT_WORDS[o.payment_status],
       o.payment_method ? METHOD_WORDS[o.payment_method] : '',

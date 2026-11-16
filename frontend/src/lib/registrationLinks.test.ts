@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { REGISTER_PATH, TICKET_PATH, codeFromScan, registerUrl, ticketUrl } from './registrationLinks'
+import { REGISTER_PATH, TICKET_PATH, codeFromScan, inviteUrl, registerUrl, ticketUrl } from './registrationLinks'
+import { INVITE_PARAM, inviteTokenFrom } from './registrationInvites'
 import App from '../App?raw'
 
 /*
@@ -20,6 +21,14 @@ describe('the registration links', () => {
   it('are built on the lasting address', () => {
     expect(registerUrl('pastors-2026', 'https://rim-church-app.vercel.app/')).toBe('https://rim-church-app.vercel.app/register/pastors-2026')
     expect(ticketUrl('ABCDEFGHJKMN', 'https://example.org')).toBe('https://example.org/ticket/ABCDEFGHJKMN')
+  })
+
+  it('builds an invitation link the page can read back, under the name links already sent use', () => {
+    // Sent links say ?invite=: renaming it turns every one into a plain link, silently.
+    expect(INVITE_PARAM).toBe('invite')
+    const link = inviteUrl('harvest-supper', 'K7QM2XPA9R4T', 'https://rim-church-app.vercel.app')
+    expect(link).toBe('https://rim-church-app.vercel.app/register/harvest-supper?invite=K7QM2XPA9R4T')
+    expect(inviteTokenFrom(new URL(link).search)).toBe('K7QM2XPA9R4T')
   })
 
   it('finds the code in whatever was scanned or typed', () => {

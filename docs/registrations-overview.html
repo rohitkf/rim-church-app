@@ -256,6 +256,7 @@ svg text { font-family: var(--body); }
       <p class="where">Registrations → an event</p>
       <ul>
         <li>Build the event: one or several dates, ticket types (free, paid, donation), limits, promo codes for all paid tickets or chosen ones.</li>
+        <li>Make invite links for a discount nobody has to be told: the link takes it off by itself and shows no code. Personal (one email address, once) or group (a set number of uses); each covers a number of tickets, can end on a date and can be turned off on its own. The page says who registered through each.</li>
         <li>Upload a picture and set its focus point, so the important part stays in view.</li>
         <li>Choose in person, online or both. For in person, type the address and drop the map pin; directions go to the pin. For online, add the join link.</li>
         <li>Publish to get the share link and a QR code. Close and reopen sales; a countdown shows when sales close. Once published, the link cannot change.</li>
@@ -270,6 +271,7 @@ svg text { font-family: var(--body); }
       <p class="where">/register/… and /ticket/… (no account)</p>
       <ul>
         <li>Opens the shared link, picks tickets and a date, adds names, applies a promo code.</li>
+        <li>Or opens an invite link: the form says they are invited, the discount is already taken off, and there is no code to type. A link that is used up or has ended says so and the form works at the usual price.</li>
         <li>Is shown the email address they typed, on its own, and asked whether it is right before anything is saved.</li>
         <li>Pays by bank transfer, the PayPal link, or at Reception, and uploads a receipt.</li>
         <li>Gets an email with an Open ticket button. The ticket page shows the QR code, payment state and a countdown to the start.</li>
@@ -316,9 +318,10 @@ svg text { font-family: var(--body); }
       <span class="chip ok">Paid (waived)</span>
     </div>
     <div class="states">
-      <span class="row-label">A free ticket, or 100% off with a promo code</span>
+      <span class="row-label">A free ticket, or 100% off with a promo code or an invite link</span>
       <span class="chip ok">Nothing to pay</span>
       <span class="chip">Free with code REHOBOTH26</span>
+      <span class="chip">Free by invitation</span>
     </div>
     <div class="states">
       <span class="row-label">If the event is cancelled</span>
@@ -335,8 +338,8 @@ svg text { font-family: var(--body); }
       <thead><tr><th>Right</th><th>What it lets someone do</th></tr></thead>
       <tbody>
         <tr><td>Run registrations (all of it)</td><td>Everything below, except deleting an event</td></tr>
-        <tr><td>View &amp; export</td><td>See events, orders and promo codes; export to Excel; add notes</td></tr>
-        <tr><td>Make &amp; edit events</td><td>Create and edit events, dates, tickets, promo codes and the picture</td></tr>
+        <tr><td>View &amp; export</td><td>See events, orders, promo codes and invite links; export to Excel; add notes</td></tr>
+        <tr><td>Make &amp; edit events</td><td>Create and edit events, dates, tickets, promo codes and the picture; make, turn off and delete invite links</td></tr>
         <tr><td>Approve payments</td><td>Mark Paid, waive, or set back to awaiting</td></tr>
         <tr><td>Refunds</td><td>See refund details and mark orders Refunded</td></tr>
         <tr><td>Cancel &amp; delete</td><td>Cancel or restore orders, cancel the event, delete it once refunds are done</td></tr>
@@ -354,6 +357,7 @@ svg text { font-family: var(--body); }
       <div class="guard"><b>No back door</b><p>The register and ticket pages need no account, but they open nothing else. They can't sign anyone in or reach the app. A ticket page shows only that one order, found by its long random code.</p></div>
       <div class="guard"><b>Join link</b><p>An online event's link is never on the public page. It appears only on a ticket that is confirmed and paid, and goes away if the event is cancelled.</p></div>
       <div class="guard"><b>No lost money</b><p>A paid event can't be deleted while anyone is still owed a refund. Cancelling keeps every order and who paid.</p></div>
+      <div class="guard"><b>A discount that cannot be passed on</b><p>An invite link carries no code, so there is nothing to read off the form or the ticket and tell somebody else. A personal link forwarded on is refused at any other address; a group link stops at its limit; one link can be turned off without touching the others. The database checks it all again as the order is made, and a cancelled registration gives its use back.</p></div>
       <div class="guard"><b>Privacy</b><p>Personal details are blanked after the event. Receipts and refund details are visible only to people with the right to see them.</p></div>
       <div class="guard"><b>A wrong address</b><p>Caught three times: the register page shows the address back before registering; if the email still bounces the ticket page tells the attendee and takes the right one (only after a bounce, so a link passed on cannot redirect a ticket); and the office sees every bounce, with the reason, and can correct it. Only the email service can report a bounce: every report is checked for its signature.</p></div>
       <div class="guard"><b>Undo</b><p>Anything pressed on a registration (a payment, a check-in, a cancellation, a refund, a note, a walk-in, an email address changed) says what it did with Undo beside it for ten seconds, and the registration's own row keeps Undo for ten minutes. It puts the registration back exactly as it was: only for the person who pressed, and not once somebody else has changed it since. An email to the attendee waits for the ten seconds, so a slip taken back in time never reaches them.</p></div>

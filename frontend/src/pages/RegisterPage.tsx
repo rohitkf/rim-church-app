@@ -1,8 +1,8 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
-import { ActionButton, Field, FieldGroup, Pill, Steps, inputClasses } from '../components/Surface'
+import { ActionButton, Field, FieldGroup, Pill, Steps, Tile, inputClasses } from '../components/Surface'
 import { registerFormSteps } from '../lib/registrationSteps'
 import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
@@ -17,6 +17,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, parsePounds, priceWords } from '../lib/money'
 import { TICKET_PATH } from '../lib/registrationLinks'
+import { INVITE_GONE, INVITE_PARAM, checkInvite, inviteOffer, inviteTokenFrom } from '../lib/registrationInvites'
 import {
   checkPromoCode,
   fetchPublicEvent,
@@ -39,6 +40,15 @@ import {
  * where, the tickets with how many are left, and the form — which ticket
  * types and how many, a name for each if they like, who is booking, a
  * promo code — and then their ticket.
+ *
+ * Opened from an invitation link (0295) — ?invite=<token> — it asks what
+ * the link is worth and takes that off: a line at the top of the form
+ * says so, the promo box goes (the two are never both taken), and the
+ * token is sent with the order for the database to check again. Nothing
+ * is typed and no code is shown, because there is none. A link that has
+ * been used, has ended or was never one says so and leaves the form at
+ * its usual price; a personal link asks for the address it was sent to
+ * without ever showing it.
  *
  * Nobody signs in here. The page reads through registration_public_event
  * and writes through registration_register, which does every check again
@@ -119,6 +129,27 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const [error, setError] = useState<string | null>(null)
   /** Register was pressed: the address is being shown back before anything is sent. */
   const [confirming, setConfirming] = useState(false)
+  // The invitation the link carries, if it carries one (0295).
+  const { search } = useLocation()
+  const inviteToken = inviteTokenFrom(search)
+  /** The link says ?invite=, whether or not what follows is a token. */
+  const inviteAsked = new URLSearchParams(search).has(INVITE_PARAM)
+  /** "Register without it": the form goes on as if the link were plain. */
+  const [inviteDropped, setInviteDropped] = useState(false)
+  const inviteCheck = useQuery({
+    queryKey: ['public-invite', event.slug, inviteToken],
+    queryFn: () => checkInvite(event.slug, inviteToken!),
+    enabled: inviteToken !== null && !inviteDropped,
+    staleTime: 60_000,
+    retry: 1,
+  })
+  /** The invitation, while it still works and has not been set aside. */
+  const invite = !inviteDropped && inviteCheck.data?.ok ? inviteCheck.data : null
+  /** Why the link's invitation is no use, when it is none. */
+  const inviteGone =
+    !inviteAsked || inviteDropped ? null : inviteToken === null ? 'not_found' : inviteCheck.data && !inviteCheck.data.ok ? inviteCheck.data.reason : null
+  const inviteChecking = inviteToken !== null && !inviteDropped && inviteCheck.isLoading
+  const inviteUnchecked = inviteToken !== null && !inviteDropped && inviteCheck.isError
   const emailField = useRef<HTMLInputElement>(null)
   /** "No, change it" was pressed: once the dialog has gone, the email field is the one to be in. */
   const backToEmail = useRef(false)
@@ -145,7 +176,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         })),
     [event.ticket_types, wanted],
   )
-  const totals = orderTotals(event.ticket_types, lines, promo)
+  // An invitation takes the place of a code: the database takes one or the other, never both.
+  const totals = orderTotals(event.ticket_types, lines, invite ? null : promo, invite?.discount ?? null)
 
   const remaining = (t: PublicTicketType) => remainingOf(t, event.date_mode, dateId)
   // A type with no limit means there is no number to show, and no selling out.
@@ -182,7 +214,9 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         email: email.trim(),
         phone,
         date_id: event.date_mode === 'choose' ? dateId : null,
-        promo_code: promo?.ok ? promo.code : '',
+        promo_code: !invite && promo?.ok ? promo.code : '',
+        // Only when there is one: an order with no invitation is sent exactly as it always was.
+        ...(invite && inviteToken ? { invite: inviteToken } : {}),
         lines,
         website,
       }),
@@ -200,6 +234,9 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
       // Back to the form, where the reason is said and can be put right.
       setConfirming(false)
       setError(errorText(err, 'Could not register. Try again.'))
+      // If it was the invitation that was refused — used a moment ago, turned
+      // off — asking again puts the truth, and the usual price, on the form.
+      if (invite) void inviteCheck.refetch()
     },
   })
 
@@ -379,6 +416,50 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         <form onSubmit={submit} className="mt-8 flex flex-col gap-6" aria-label="Register">
           <h2 className="text-headline-md text-on-surface">Register</h2>
 
+          {/* The invitation the link carries (0295): what it gives, or why it gives nothing. */}
+          {inviteChecking && (
+            <p role="status" className="text-body-sm text-on-surface-variant">
+              Checking your invitation…
+            </p>
+          )}
+          {invite && (
+            <Tile tone="success" as="section" padded={false} className="p-4 sm:p-5">
+              <div role="status" aria-label="Your invitation">
+                <p className="text-body-md font-semibold text-on-surface">You’re invited</p>
+                <p className="mt-0.5 text-body-sm text-on-surface-variant">{inviteOffer(invite)}</p>
+                {invite.email_locked && (
+                  <p className="mt-2 text-body-sm text-on-surface-variant">
+                    This invitation is for one person: register with the email address it was sent to.{' '}
+                    <button type="button" onClick={() => setInviteDropped(true)} className="tap font-medium text-accent-blue-soft hover:underline">
+                      Register without it
+                    </button>
+                  </p>
+                )}
+              </div>
+            </Tile>
+          )}
+          {inviteGone && (
+            <Tile tone="warning" as="section" padded={false} className="p-4 sm:p-5">
+              <div role="status" aria-label="Your invitation">
+                <p className="text-body-md font-semibold text-on-surface">{INVITE_GONE[inviteGone].title}</p>
+                <p className="mt-0.5 text-body-sm text-on-surface-variant">{INVITE_GONE[inviteGone].body}</p>
+              </div>
+            </Tile>
+          )}
+          {inviteUnchecked && (
+            <Tile tone="warning" as="section" padded={false} className="p-4 sm:p-5">
+              <div role="alert" aria-label="Your invitation">
+                <p className="text-body-md font-semibold text-on-surface">Your invitation could not be checked.</p>
+                <p className="mt-0.5 text-body-sm text-on-surface-variant">
+                  Registering now would be at the usual price.{' '}
+                  <button type="button" onClick={() => void inviteCheck.refetch()} className="tap font-medium text-accent-blue-soft hover:underline">
+                    Check it again
+                  </button>
+                </p>
+              </div>
+            </Tile>
+          )}
+
           {event.date_mode === 'choose' && (
             <FieldGroup label="Which date">
               {say('date')}
@@ -526,7 +607,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                   {...marked('email')}
                 />
               </Field>
-              {say('email') ?? <p className="text-label-md text-on-surface-faint">Your ticket is sent here.</p>}
+              {say('email') ?? (
+                <p className="text-label-md text-on-surface-faint">
+                  {invite?.email_locked ? 'The address your invitation was sent to. Your ticket is sent here.' : 'Your ticket is sent here.'}
+                </p>
+              )}
             </div>
             <div id={spotId('emailAgain')} className="flex flex-col gap-1.5">
               <Field label="Confirm email">
@@ -577,7 +662,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             </label>
           </div>
 
-          {anyPaid && (
+          {/* Not beside an invitation: the two are never both taken. */}
+          {anyPaid && !invite && (
             <Field label="Promo code (optional)">
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -610,7 +696,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             </div>
             {totals.discount > 0 && (
               <div className="mt-1 flex items-center justify-between text-body-sm text-accent-green-soft">
-                <span>Promo code</span>
+                <span>{invite ? 'Invitation' : 'Promo code'}</span>
                 <span className="font-mono tabular">−{pounds(totals.discount)}</span>
               </div>
             )}
@@ -673,7 +759,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
           )}
 
           {/* Never greyed out for something missing: pressed, it says what. */}
-          <ActionButton type="submit" disabled={register.isPending || !event.open || soldOut}>
+          {/* …nor for long: while the invitation is being asked about, the total is not yet the one they will pay. */}
+          <ActionButton type="submit" disabled={register.isPending || !event.open || soldOut || inviteChecking}>
             {register.isPending ? 'Registering…' : registerLabel}
           </ActionButton>
         </form>
