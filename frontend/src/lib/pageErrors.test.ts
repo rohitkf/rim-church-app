@@ -19,6 +19,11 @@ describe('a page whose code would not download', () => {
     expect(isChunkLoadError(new TypeError('error loading dynamically imported module: https://rim.example/assets/EventsPage-Ckox16Ed.js'))).toBe(true)
     expect(isChunkLoadError(new TypeError('Importing a module script failed.'))).toBe(true)
     expect(isChunkLoadError(new Error("Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of \"text/html\"."))).toBe(true)
+    // Safari, as App Health recorded it from two iPhones (15 November 2026): once bare, once naming the file.
+    expect(isChunkLoadError(new TypeError("'text/html' is not a valid JavaScript MIME type."))).toBe(true)
+    expect(
+      isChunkLoadError(new TypeError("'text/html' is not a valid JavaScript MIME type for module script 'https://rim.example/assets/MessageBoardPage-kBJcOM1e.js'.")),
+    ).toBe(true)
     expect(isChunkLoadError(new Error('Unable to preload CSS for /assets/EventsPage-B1x.css'))).toBe(true)
   })
 
