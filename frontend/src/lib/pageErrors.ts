@@ -33,6 +33,7 @@ export function isChunkLoadError(error: unknown): boolean {
     /dynamically imported module/i.test(message) || // Chromium, Firefox
     /Importing a module script failed/i.test(message) || // Safari
     /module script.*MIME type/i.test(message) || // a missing file answered with the app's own page
+    /not a valid JavaScript MIME type/i.test(message) || // the same, as Safari words it — with or without the file's name
     /Unable to preload CSS/i.test(message) // Vite, for the page's stylesheet
   )
 }
