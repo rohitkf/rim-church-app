@@ -11,6 +11,7 @@ import { TicketEmailFix } from '../components/TicketEmailFix'
 import { EMAIL_WATCH_EVERY_MS, watchesEmail } from '../lib/emailDelivery'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
+import { TicketPromoCode } from '../components/TicketPromoCode'
 import { directionsUrl } from '../lib/directions'
 import { ContactOrganisers } from '../components/ContactOrganisers'
 import { pounds, priceWords } from '../lib/money'
@@ -97,6 +98,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
   /** The address they have just put right, after a bounce: where the ticket is going now. */
   const [fixedTo, setFixedTo] = useState<string | null>(null)
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['ticket', order.code] })
+  /** They put a promo code on this registration just now (0298): said once, above. */
+  const [promoApplied, setPromoApplied] = useState(false)
   const paid = order.payment_status === 'not_needed' || order.payment_status === 'received' || order.payment_status === 'waived'
   const noun = paid ? 'ticket' : 'registration'
   const mail = useMutation({
@@ -232,6 +235,12 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
           Thank you. Your {noun} is on its way to <strong className="break-all font-semibold">{fixedTo}</strong>. Check your inbox, and the junk folder.
         </p>
       )}
+      {promoApplied && order.promo && (
+        <p role="status" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 text-body-md text-on-surface hairline">
+          Your promo code has been applied.{' '}
+          {order.total_pence > 0 ? `There is ${pounds(order.total_pence)} left to pay.` : 'There is nothing left to pay: this is your ticket.'}
+        </p>
+      )}
       {order.refund_status && <RefundSection order={order} onSent={() => void refresh()} />}
       {needsPayment && (
         <section
@@ -249,6 +258,17 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
             <p className="mt-1 text-body-md font-medium text-on-surface">
               You are registered, but you do not have a ticket yet. Your place is held; it becomes a ticket once the payment is in.
             </p>
+          )}
+          {/* A code they were given and did not use when registering (0298): here, before they pay — not a second registration. */}
+          {order.can_use_promo && (
+            <TicketPromoCode
+              ticketCode={order.code}
+              onApplied={() => {
+                setPromoApplied(true)
+                void refresh()
+              }}
+              onRefused={() => void refresh()}
+            />
           )}
           {order.payment_status === 'reported' ? (
             <p className="mt-1 text-body-sm text-on-surface-variant">

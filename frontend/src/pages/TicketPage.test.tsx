@@ -16,6 +16,10 @@ import type { OrderView } from '../lib/registrations'
 
 const state = vi.hoisted(() => ({
   order: null as unknown,
+  // A promo code put on from the ticket page (0298): what was asked, and what the registration becomes.
+  promoAsked: [] as unknown[],
+  promoRefused: false,
+  promoLeaves: null as unknown,
   reported: [] as unknown[],
   uploaded: [] as unknown[],
   refundRequests: [] as unknown[],
@@ -74,6 +78,17 @@ vi.mock('../lib/registrations', async (original) => ({
   },
 }))
 
+vi.mock('../lib/promoLater', async (original) => ({
+  ...(await original<typeof import('../lib/promoLater')>()),
+  applyPromoToTicket: (ticket: string, promo: string) => {
+    state.promoAsked.push([ticket, promo])
+    if (state.promoRefused) return Promise.reject(new Error('refused'))
+    // As the database leaves it.
+    state.order = state.promoLeaves
+    return Promise.resolve()
+  },
+}))
+
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString()
 
 const order = (over: Partial<OrderView> = {}): OrderView => ({
@@ -81,6 +96,7 @@ const order = (over: Partial<OrderView> = {}): OrderView => ({
   status: 'confirmed',
   invited: false,
   promo: false,
+  can_use_promo: false,
   refund_details_wanted: false,
   refund_details_sent: false,
   email_state: 'none',
@@ -167,6 +183,9 @@ window.addEventListener('click', (e) => {
 
 beforeEach(() => {
   state.order = order()
+  state.promoAsked = []
+  state.promoRefused = false
+  state.promoLeaves = null
   state.reported = []
   state.uploaded = []
   state.refundRequests = []
@@ -708,5 +727,83 @@ describe('an email that bounced, on the ticket page (0283)', () => {
     show()
     await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByRole('region', { name: 'Your email address' })).toBeNull()
+  })
+})
+
+/*
+ * "Have a promo code?" on a registration still to be paid (0298): the
+ * code goes on the registration they already have, instead of a second
+ * registration under the same address.
+ */
+describe('a promo code put on from the ticket page', () => {
+  // Registered without a code: the whole price still owed.
+  const owing = (over: Partial<OrderView> = {}) => order({ promo_code: null, discount_pence: 0, subtotal_pence: 4000, total_pence: 4000, payment_status: 'awaiting', can_use_promo: true, ...over })
+
+  it('is offered, folded, on a registration that can still take one', async () => {
+    state.order = owing()
+    show()
+    const paying = await screen.findByRole('region', { name: 'Paying' })
+    expect(within(paying).getByText(/Have a promo code\?/)).toBeInTheDocument()
+    // Folded until asked for: the box is not in the way of how to pay.
+    expect(within(paying).queryByRole('textbox', { name: 'Promo code' })).toBeNull()
+  })
+
+  it('takes the code, and the registration becomes their ticket when nothing is left to pay', async () => {
+    state.order = owing()
+    state.promoLeaves = owing({ discount_pence: 4000, total_pence: 0, payment_status: 'not_needed', promo: true, can_use_promo: false })
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Use it on this registration' }))
+    await user.type(screen.getByRole('textbox', { name: 'Promo code' }), 'rehoboth26')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(state.promoAsked).toEqual([['ABCDEFGHJKMN', 'REHOBOTH26']]))
+    expect(await screen.findByText('Your promo code has been applied. There is nothing left to pay: this is your ticket.')).toBeInTheDocument()
+    // No longer a registration waiting for money, and no second code offered.
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Paying' })).toBeNull())
+    expect(screen.queryByText(/Have a promo code\?/)).toBeNull()
+  })
+
+  it('says what is still to pay when the code took only some of it off', async () => {
+    state.order = owing()
+    state.promoLeaves = owing({ discount_pence: 2000, total_pence: 2000, promo: true, can_use_promo: false })
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Use it on this registration' }))
+    await user.type(screen.getByRole('textbox', { name: 'Promo code' }), 'HALF')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByText('Your promo code has been applied. There is £20.00 left to pay.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Pay £20.00 to get your ticket' })).toBeInTheDocument()
+  })
+
+  it('pressed empty, says so and asks nothing of the database', async () => {
+    state.order = owing()
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Use it on this registration' }))
+    const apply = screen.getByRole('button', { name: 'Apply' })
+    // Never greyed out for something missing.
+    expect(apply).toBeEnabled()
+    await user.click(apply)
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter your promo code.')
+    expect(screen.getByRole('textbox', { name: 'Promo code' })).toHaveAttribute('aria-invalid', 'true')
+    expect(state.promoAsked).toEqual([])
+  })
+
+  it('says so when the code is refused, and lets them try another', async () => {
+    state.order = owing()
+    state.promoRefused = true
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Use it on this registration' }))
+    await user.type(screen.getByRole('textbox', { name: 'Promo code' }), 'NOPE')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('That code could not be applied. Check it and try again.')
+    // Typing again clears what was said about the last one.
+    await user.type(screen.getByRole('textbox', { name: 'Promo code' }), 'X')
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('is not offered where the database would not take one', async () => {
+    state.order = owing({ can_use_promo: false })
+    show()
+    await screen.findByRole('region', { name: 'Paying' })
+    expect(screen.queryByText(/Have a promo code\?/)).toBeNull()
   })
 })

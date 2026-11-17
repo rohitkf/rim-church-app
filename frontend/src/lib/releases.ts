@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'promo-later',
+    date: '2026-11-17',
+    title: 'A promo code can be added after registering',
+    lead: 'Somebody who registered without their code no longer has to register again.',
+    points: [
+      'On a registration awaiting payment: ⋯ › Apply a promo code. The price comes down, or it becomes their ticket.',
+      'They can do it themselves too: an unpaid ticket page now asks “Have a promo code?”.',
+      'Registrations under the same email are tagged, with a filter, so a double registration is easy to find and cancel.',
+      'Waived payments are shown apart from money received, on the page and in the export.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'promo-tickets-covered',
     date: '2026-11-17',
     title: 'A promo code can cover just one ticket',

@@ -8,6 +8,8 @@ import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
+import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
+import { applyPromoToOrder, canTakePromo, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
 import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
@@ -23,6 +25,10 @@ import { writeWorkbook } from '../lib/writeWorkbook'
 import {
   ORDER_FILTERS,
   PAYMENT_WORDS,
+  duplicateEmails,
+  orderMoney,
+  sharesAnEmail,
+  type PromoCode,
   REGISTRATIONS_KEY,
   STATUS_TONE,
   STATUS_WORDS,
@@ -106,6 +112,9 @@ export function RegistrationEventPage() {
   const [refundFor, setRefundFor] = useState<OrderRow | null>(null)
   const [emailFor, setEmailFor] = useState<OrderRow | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
+  // A promo code being put on somebody's registration for them (0298).
+  const [promoFor, setPromoFor] = useState<OrderRow | null>(null)
+  const [promoError, setPromoError] = useState<string | null>(null)
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
@@ -175,6 +184,24 @@ export function RegistrationEventPage() {
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
+  })
+  // A code put on a registration made without it (0298): the price comes down, or it becomes a ticket.
+  const applyPromo = useMutation({
+    mutationFn: ({ order, code }: { order: OrderRow; code: PromoCode }) => applyPromoToOrder(order.id, code.code),
+    onSuccess: (_r, { order, code }) => {
+      setPromoFor(null)
+      setPromoError(null)
+      // Their ticket as it now stands, by email, once the press can no longer
+      // be taken back — by whichever way whoever pressed is allowed (lib/promoLater).
+      const slug = full.data?.event.slug
+      done(order, `Promo code ${code.code} applied`, order.email && slug ? () => void sendTicketAfterPromo(order, slug) : undefined)
+      return refresh()
+    },
+    onError: (err: unknown) => {
+      setPromoError(errorText(err, 'The code could not be put on that registration.'))
+      // Refused because it had changed under them: show it as it now is.
+      void refresh()
+    },
   })
   // Reception took the money and let them in: two marks, one tap, and one thing to undo.
   const payAndCheckIn = useMutation({
@@ -282,13 +309,18 @@ export function RegistrationEventPage() {
   const rows = orders.data ?? []
   const confirmed = rows.filter((o) => o.status === 'confirmed')
   const tickets = confirmed.reduce((n, o) => n + o.quantity, 0)
-  const expected = confirmed.reduce((n, o) => n + o.total_pence, 0)
-  const received = confirmed.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0)
+  // Money that came in, money the church let go, and money still to come: three sums, never added together.
+  const money = orderMoney(rows)
+  // Addresses more than one live registration is under: usually one person who registered twice.
+  const dupes = duplicateEmails(rows)
+  const sharing = rows.filter((o) => sharesAnEmail(o, dupes)).length
+  // The event's codes that could go on a registration made without one (0298).
+  const codes = usablePromos(full.data.promoCodes)
   const checkedIn = confirmed.filter((o) => o.checked_in_at).length
   const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
   const canPublish = dates.length > 0 && ticketTypes.length > 0
-  const shown = rows.filter((o) => orderMatches(o, filter, query))
-  const countOf = (f: OrderFilter) => rows.filter((o) => orderMatches(o, f, '')).length
+  const shown = rows.filter((o) => orderMatches(o, filter, query, dupes))
+  const countOf = (f: OrderFilter) => rows.filter((o) => orderMatches(o, f, '', dupes)).length
   const reported = confirmed.filter((o) => o.payment_status === 'reported').length
   const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
   // Only whoever may verify is told what waits on them.
@@ -305,6 +337,10 @@ export function RegistrationEventPage() {
   const openNote = (order: OrderRow) => {
     setNoteText(order.notes ?? '')
     setNoteFor(order)
+  }
+  const openPromo = (order: OrderRow) => {
+    setPromoError(null)
+    setPromoFor(order)
   }
   const cancelOrder = (order: OrderRow) =>
     ask({
@@ -461,14 +497,16 @@ export function RegistrationEventPage() {
           <Statistic value={tickets} unit="tickets" />
         </Tile>
         <Tile>
-          <Statistic value={<Money>{pounds(received)}</Money>} unit="received" />
+          <Statistic value={<Money>{pounds(money.received)}</Money>} unit="received" />
+          {/* What was let go is said, and never counted as money in. */}
+          {money.waived > 0 && <p className="mt-1 font-mono text-label-sm text-on-surface-faint">plus {pounds(money.waived)} waived</p>}
         </Tile>
         <Tile tone={owed.length > 0 ? 'warning' : 'plain'}>
-          {owed.length > 0 ? <Statistic value={<Money>{pounds(owedPence)}</Money>} unit="refunds owed" /> : <Statistic value={<Money>{pounds(expected - received)}</Money>} unit="still to come" />}
+          {owed.length > 0 ? <Statistic value={<Money>{pounds(owedPence)}</Money>} unit="refunds owed" /> : <Statistic value={<Money>{pounds(money.toCome)}</Money>} unit="still to come" />}
         </Tile>
       </div>
 
-      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0) && (
+      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || (sharing > 0 && !cancelled)) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
             <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
@@ -508,6 +546,15 @@ export function RegistrationEventPage() {
                 {undelivered}
               </Pill>
               {undelivered === 1 ? 'email not delivered' : 'emails not delivered'}
+            </ActionButton>
+          )}
+          {/* One person registered twice, most often: once without the code and once with it. */}
+          {sharing > 0 && !cancelled && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('duplicates')}>
+              <Pill tone="orange" className="-ml-1">
+                {sharing}
+              </Pill>
+              registrations share an email
             </ActionButton>
           )}
         </div>
@@ -629,12 +676,13 @@ export function RegistrationEventPage() {
                   key={o.id}
                   order={o}
                   invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
+                  sharesEmail={sharesAnEmail(o, dupes)}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
                   busy={mark.isPending || verify.isPending}
                   actions={withUndo(
                     lastDone(o.id),
                     () => void runUndo({ orderId: o.id, refresh, words: errorText }),
-                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o)),
+                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined),
                   )}
                   next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))}
                 />
@@ -721,6 +769,17 @@ export function RegistrationEventPage() {
           error={emailError}
           onSave={(email) => changeEmail.mutate({ order: emailFor, email })}
           onClose={() => setEmailFor(null)}
+        />
+      )}
+      {promoFor && (
+        <ApplyPromoDialog
+          order={promoFor}
+          ticketTypes={ticketTypes}
+          codes={codes}
+          busy={applyPromo.isPending}
+          error={promoError}
+          onApply={(code) => applyPromo.mutate({ order: promoFor, code })}
+          onClose={() => setPromoFor(null)}
         />
       )}
       {noteFor && (
@@ -824,6 +883,8 @@ function orderActions(
   r: RegistrationRights,
   verify: (verified: boolean) => void,
   email: () => void,
+  /** Put a promo code on it for them (0298); absent when the event has no code that could be used. */
+  promo?: () => void,
 ): MenuAction[] {
   const actions: MenuAction[] = []
   // Their address (0283): put right, or their email sent once more. Not once the retention job has blanked it.
@@ -866,6 +927,8 @@ function orderActions(
         })
       }
       if (r.approve) {
+        // Registered without the code they were meant to use (0298): give this registration the code, rather than a second one.
+        if (promo && canTakePromo(o)) actions.push({ label: 'Apply a promo code', onSelect: promo, hint: 'They were meant to use one: the price comes down on this registration' })
         if (o.payment_status === 'reported') actions.push({ label: 'Not received, ask again', onSelect: notReceived, hint: 'Nothing matches; an email asks them to check' })
         if (o.payment_status !== 'waived') actions.push({ label: 'Waive the payment', onSelect: () => act('waived') })
         if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
@@ -984,6 +1047,7 @@ function ReceiptViewer({ order, onClose }: { order: OrderRow; onClose: () => voi
 function OrderLine({
   order,
   invitedBy,
+  sharesEmail,
   dateLabel,
   actions,
   next,
@@ -992,6 +1056,8 @@ function OrderLine({
   order: OrderRow
   /** The name of the invitation link it came by (0295), if it came by one. */
   invitedBy?: string | null
+  /** Another live registration is under the same address: usually the same person, twice. */
+  sharesEmail?: boolean
   dateLabel?: { starts_at: string; ends_at: string | null }
   actions: MenuAction[]
   next: NextStep[]
@@ -1051,6 +1117,7 @@ function OrderLine({
             {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
             {invitedBy && <Pill tone="indigo">Invited: {invitedBy}</Pill>}
+            {sharesEmail && <Pill tone="orange">Same email as another</Pill>}
             {delivery && tagged && (
               <Pill tone={delivery.tone} dot={undelivered}>
                 {delivery.label}

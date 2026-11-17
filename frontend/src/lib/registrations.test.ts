@@ -456,6 +456,7 @@ describe('what the door works (0247)', () => {
     tickets: 0,
     expected_pence: 0,
     received_pence: 0,
+    waived_pence: 0,
     awaiting: 0,
     reported: 0,
     owed: 0,
@@ -631,7 +632,8 @@ describe('the workbook for the accounts', () => {
     expect(summary.rows).toContainEqual(['Tickets', 4, '', '', ''])
     expect(summary.rows).toContainEqual(['Cancelled orders', 1, '', '', ''])
     expect(summary.rows).toContainEqual(['Expected (£)', 56, '', '', ''])
-    expect(summary.rows).toContainEqual(['Received or waived (£)', 20, '', '', ''])
+    expect(summary.rows).toContainEqual(['Received (£)', 20, '', '', ''])
+    expect(summary.rows).toContainEqual(['Waived (£)', 0, '', '', ''])
     expect(summary.rows).toContainEqual(['Still to come (£)', 36, '', '', ''])
   })
 
@@ -645,6 +647,23 @@ describe('the workbook for the accounts', () => {
     expect(sheet({ email_status: 'delayed' })).toBe('Delayed')
     expect(sheet({ email_status: null, email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Emailed (not tracked)')
     expect(sheet({ email: null, email_status: 'delivered' })).toBe('')
+  })
+
+  it('keeps a waived payment out of the money received, and out of what is expected', () => {
+    // £20 let go is not £20 in the bank: it used to be added to "Received or waived".
+    const sheets = buildRegistrationWorkbook(full(), [
+      row({ id: 'a', total_pence: 2000, payment_status: 'received' }),
+      row({ id: 'b', total_pence: 3000, payment_status: 'waived' }),
+      row({ id: 'c', total_pence: 2500, payment_status: 'awaiting' }),
+      row({ id: 'd', total_pence: 1500, payment_status: 'reported' }),
+      row({ id: 'e', total_pence: 9900, payment_status: 'received', status: 'cancelled' }),
+    ])
+    const summary = sheets[2].rows
+    expect(summary).toContainEqual(['Received (£)', 20, '', '', ''])
+    expect(summary).toContainEqual(['Waived (£)', 30, '', '', ''])
+    expect(summary).toContainEqual(['Still to come (£)', 40, '', '', ''])
+    expect(summary).toContainEqual(['Expected (£)', 60, '', '', ''])
+    expect(summary.map((r) => r[0])).not.toContain('Received or waived (£)')
   })
 
   it('names the invitation link an order came by (0295), and leaves the rest blank', () => {
