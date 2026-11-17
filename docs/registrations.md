@@ -63,7 +63,11 @@ personal details are tidied away after the event.
   donation) with limits; promo codes that apply to every paid ticket or
   only chosen ones, and to every ticket in an order or only so many
   (**Tickets covered**: put 1 and a free code gives one free ticket an
-  order; blank is every ticket).
+  order; blank is every ticket). A code's **Uses** limit counts the
+  registrations that hold it now: cancel one and its use is free for
+  somebody else; put it back and it takes the use again — unless the last
+  one has gone since, when it says so and the registration stays
+  cancelled.
 - Make **invite links** on the event's page (0295), for a discount nobody
   has to be told: the link takes it off by itself when it is opened, and
   no code is shown anywhere. A **personal** link is for one email address
@@ -282,6 +286,11 @@ protection.
 - `frontend/src/lib/registrations.ts` and `lib/registrationRights.ts`.
 - Undo: migration `0281` (`registration_order_undos`,
   `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
+- A promo code's count: migration `0300` — `registration_promo_codes.uses`
+  is held by triggers to the confirmed registrations that carry the code
+  (`registration_promo_uses()`), and the limit with it; no function adds
+  to it by hand (`frontend/src/lib/promoUses.test.ts` holds later
+  migrations to that).
 - A promo code afterwards: migration `0298` (`registration_apply_promo()`,
   `registration_order_apply_promo()`, `registration_order_promo()`),
   `frontend/src/lib/promoLater.ts`, `components/ApplyPromoDialog.tsx` and
