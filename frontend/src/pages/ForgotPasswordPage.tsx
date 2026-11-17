@@ -1,11 +1,13 @@
 import { type FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
 
 export function ForgotPasswordPage() {
-  const [email, setEmail] = useState('')
+  // The address they were trying to sign in or sign up with, when they came from there.
+  const from = (useLocation().state as { email?: unknown } | null)?.email
+  const [email, setEmail] = useState(typeof from === 'string' ? from : '')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)

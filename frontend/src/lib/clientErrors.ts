@@ -95,14 +95,14 @@ function isNotOurs(error: unknown, filename?: string | null): boolean {
  * from callers who are not signed in — on purpose: the Data API refuses
  * them by name. So when somebody's session runs out with the app still
  * open, the reads the page goes on making are answered "permission denied
- * for function is_admin" rather than with no rows. Nothing is exposed and
+ * for function is_admin" (or "for table profiles") rather than with no rows. Nothing is exposed and
  * nothing is broken: they sign in again. But each one arrived in App
  * Health as an error on a device, with nobody's name on it, and read as
  * the app asking for something it should not (15 November 2026).
  *
  * That is only true of somebody who was signed in — on this page load, or
  * on this device when the page loaded — and no longer is. A signed-in
- * person refused a function, or a visitor on a public page refused one,
+ * person refused a function or a table, or a visitor on a public page refused one,
  * is still the app's mistake and still news.
  */
 /**
@@ -139,13 +139,19 @@ export function forgetSession(): void {
   hasSession = false
 }
 
-/** "permission denied for function …": a rule helper kept from whoever asked. */
-const isRefusedFunction = (error: unknown) =>
-  codeOf(error) === '42501' && /^permission denied for function\b/i.test(saidBy(error).trim())
+/**
+ * "permission denied for function …" or "… for table …": a rule helper or
+ * a table kept from whoever is not signed in. Tables as well as functions:
+ * the eight a dead session left in App Health on 16 November 2026 were
+ * five functions and three tables (profiles, role_permissions,
+ * app_notices), all from the one page load.
+ */
+const isRefusedByName = (error: unknown) =>
+  codeOf(error) === '42501' && /^permission denied for (?:function|table|view)\b/i.test(saidBy(error).trim())
 
 /** A read refused only because the person's session ran out under the page. */
 export function isLapsedSessionRefusal(source: ErrorSource, error: unknown): boolean {
-  return source === 'query' && hadSession && !hasSession && isRefusedFunction(error)
+  return source === 'query' && hadSession && !hasSession && isRefusedByName(error)
 }
 
 /**

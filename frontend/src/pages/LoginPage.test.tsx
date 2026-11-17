@@ -30,7 +30,10 @@ describe('LoginPage', () => {
   it('reports a refused sign-in and frees the button', async () => {
     signIn.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } })
     await submit()
-    expect(await screen.findByText(/invalid login credentials/i)).toBeInTheDocument()
+    // In words about what to do, not the service's own: and the way out is one press.
+    expect(await screen.findByText(/email and password don’t match/i)).toBeInTheDocument()
+    expect(screen.queryByText(/invalid login credentials/i)).toBeNull()
+    expect(screen.getByRole('link', { name: 'Reset my password' })).toHaveAttribute('href', '/forgot-password')
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^sign in$/i })).not.toBeDisabled(),
     )

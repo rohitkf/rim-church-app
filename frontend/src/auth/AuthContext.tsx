@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { SIGN_OUT_SCOPE } from '../lib/signOutScope'
 import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import { profileSchema, userRoleSchema, type Profile, type RoleType, type UserRole } from './types'
@@ -280,8 +281,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfileAndRoles(session.user.id)
   }
 
+  /*
+   * This device only. The library's default ends every session the person
+   * has, so signing out of a browser tab also signed them out of the app
+   * on their phone — which reads as "it logged me out by itself", and for
+   * somebody who has not typed their password since they joined is a
+   * locked door (November 2026).
+   */
   async function signOut() {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: SIGN_OUT_SCOPE })
   }
 
   return (

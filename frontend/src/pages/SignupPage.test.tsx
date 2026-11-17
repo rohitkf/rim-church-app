@@ -7,6 +7,8 @@ import { SignupPage } from './SignupPage'
 const auth = vi.hoisted(() => ({
   calls: [] as { email: string; data: unknown }[],
   error: null as { message: string } | null,
+  // What the service hands back: a new account has an identity, an existing one has none.
+  user: { identities: [{}] } as { identities: unknown[] } | null,
 }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: null }) }))
 vi.mock('../lib/supabaseClient', () => ({
@@ -14,7 +16,7 @@ vi.mock('../lib/supabaseClient', () => ({
     auth: {
       signUp: (a: { email: string; options: { data: unknown } }) => {
         auth.calls.push({ email: a.email, data: a.options.data })
-        return Promise.resolve({ error: auth.error })
+        return Promise.resolve({ data: { user: auth.error ? null : auth.user }, error: auth.error })
       },
       resend: () => Promise.resolve({ error: null }),
     },
@@ -24,6 +26,7 @@ vi.mock('../lib/supabaseClient', () => ({
 beforeEach(() => {
   auth.calls = []
   auth.error = null
+  auth.user = { identities: [{}] }
 })
 
 async function fillIn(email = '  ada@gmail.com ') {
@@ -68,5 +71,14 @@ describe('signing up', () => {
     await fillIn()
     expect(await screen.findByText('Password is too weak')).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
+  })
+
+  it('says so when the address already has an account, instead of "check your email"', async () => {
+    // The service answers as if it had made the account, and sends nothing.
+    auth.user = { identities: [] }
+    await fillIn()
+    expect(await screen.findByRole('alert')).toHaveTextContent('already an account for ada@gmail.com')
+    expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Reset my password' })).toHaveAttribute('href', '/forgot-password')
   })
 })

@@ -30,6 +30,7 @@ const control = vi.hoisted(() => ({
   // test can fire it the way supabase-js does — from inside its auth lock.
   authCallback: null as null | ((event: string, session: unknown) => void),
   queriedTables: [] as string[],
+  signOuts: [] as unknown[],
   ownerId: null as string | null,
 }))
 
@@ -53,7 +54,10 @@ vi.mock('../lib/supabaseClient', () => {
           control.authCallback = cb
           return { data: { subscription: { unsubscribe: () => {} } } }
         },
-        signOut: () => Promise.resolve(),
+        signOut: (options?: unknown) => {
+          control.signOuts.push(options)
+          return Promise.resolve({ error: null })
+        },
       },
       rpc: (fn: string) => {
         control.queriedTables.push(fn === 'my_profile' ? 'profiles' : fn)
@@ -89,6 +93,7 @@ beforeEach(() => {
   control.getSession = () => Promise.resolve({ data: { session: mockSession } })
   control.authCallback = null
   control.queriedTables = []
+  control.signOuts = []
 })
 
 describe('AuthContext role checks', () => {
@@ -395,5 +400,26 @@ describe('somebody who is not an Admin', () => {
     )
     await waitFor(() => expect(screen.getByTestId('out')).toHaveTextContent('false|none|2'))
     sessionStorage.clear()
+  })
+})
+
+describe('signing out', () => {
+  it('ends the session on this device only, never the person’s other devices', async () => {
+    function SignOutProbe() {
+      const { loading, signOut } = useAuth()
+      return loading ? <div>loading</div> : <button onClick={() => void signOut()}>out</button>
+    }
+    render(
+      <AuthProvider>
+        <SignOutProbe />
+      </AuthProvider>,
+    )
+    const button = await screen.findByRole('button', { name: 'out' })
+    await act(async () => {
+      button.click()
+    })
+    // The library's default is every session the person has: signing out of
+    // a browser tab then signs them out of the app on their phone as well.
+    expect(control.signOuts).toEqual([{ scope: 'local' }])
   })
 })
