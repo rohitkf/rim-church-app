@@ -19,7 +19,16 @@ describe('Take the tour, from the account menu', () => {
   it('starts the whole tour for your standing as it is now', () => {
     renderHook(() => useStartTour()).result.current()
     expect(currentTour()?.mode).toBe('manual')
-    expect(currentTour()?.chapters.map((c) => c.key)).toEqual(['welcome', 'around', 'church', 'serving', 'team', 'talk'])
+    expect(currentTour()?.chapters.map((c) => c.key)).toEqual([
+      'welcome',
+      'around',
+      'church',
+      'serving',
+      'team',
+      'talk',
+      // Every door is open in this test, Registrations and Reception with them.
+      'events',
+    ])
   })
 
   it('gives the Owner the Owner’s chapter', () => {

@@ -42,12 +42,19 @@ Keep this file current in the same pull request that changes what it says.
 - A merged pull request is finished. Follow-up work is a new PR.
 - **Dependabot's pull requests are the one kind not from `develop`**
   (`.github/dependabot.yml`: npm, pip and the workflows' actions, weekly,
-  into `develop`). Nothing merges them by itself, **so they sit open with
-  green checks until somebody reads them — that is the design, not a
-  fault.** Read what moved, see the checks green, merge into `develop`,
-  and the update reaches the congregation with the next release through
-  §2's gates like anything else. What reading them has meant in practice
-  (the first batch, November 2026):
+  into `develop`). Nothing merges them by itself, so they wait to be
+  read — **and every session reads them: list the open pull requests
+  before starting on what was asked, and take any of Dependabot's that
+  are open as part of that session's work** (the Owner's standing
+  instruction, November 2026; merging them into `develop` is
+  pre-approved, like opening the release). None open is the usual
+  answer and takes one call; say which it was in the report. Read what
+  moved, see the checks green, merge into `develop`, and the update
+  reaches the congregation with the next release through §2's gates like
+  anything else. One that cannot be taken — a major version that fails
+  its trial, an update that breaks a gate — is not left silently open:
+  say what it is and why it is still there. What reading them has meant
+  in practice (the first batch, November 2026):
   - *Merge the branches into `develop` locally* (`git fetch origin
     <branch> && git merge FETCH_HEAD`), run the gates on the lot, push;
     GitHub then shows each pull request as merged. Two npm updates
@@ -82,7 +89,7 @@ Run from `frontend/`. All four must be clean before you push:
 ```bash
 npx tsc --noEmit -p tsconfig.app.json    # the app
 npx tsc --noEmit -p tsconfig.node.json   # vite.config.ts and build/
-npx vitest run                           # ~3700 tests, all must pass
+npx vitest run                           # ~4000 tests, all must pass
 npm run build                            # catches what tsc alone misses
 ```
 
@@ -271,10 +278,14 @@ Other things that are true and not guessable:
 - **No payment passes through the app.** Giving links open the provider's
   page; links must be `https://` in the database as well as the form.
 - **"View as" is a preview of the screens, not of the data.** An Admin can
-  preview the app as a Church Member, Team Member or Team Head from the
-  account menu (`viewAs` in `AuthContext`); it narrows `isAdmin`, `roles`
-  and `useMyTeams`, but every query still runs with the Admin's own
-  access. Never treat it as a permission test — dry-run a policy instead.
+  preview the app from the account menu as every other standing there is:
+  a Church Member; a Team Member, Team Coordinator, Assisting Head or
+  Team Head of a team they pick; Overwatch; a Pastor — and the Owner as
+  an Admin as well (`ViewAs` and `viewAs` in `AuthContext`, the words in
+  `lib/viewAs.ts`, the chips in `AccountMenu`). It narrows `isAdmin`,
+  `isSuperAdmin`, `roles`, `can()` and `useMyTeams`, but every query
+  still runs with the Admin's own access. Never treat it as a permission
+  test — dry-run a policy instead.
   Which teams a person is on comes from `useOwnMemberships` (or
   `useMyTeams`), never a page's own `department_members` query by the
   signed-in id: that one ignores the preview, and is how a Church Member
@@ -289,6 +300,13 @@ Other things that are true and not guessable:
   something from a role must hide it in the drawing too, not only rely on
   the database refusing it. Check each previewed role in `/verify` before
   the pull request, and say in it which previews were checked.
+  **A new standing gets a preview in the change that makes it** — a
+  member of the `ViewAs` union, its narrowing in `AuthContext`, its words
+  in `viewAsLabel`, its chip in `AccountMenu`, and its name in the tour's
+  View as step, which `lib/tour.test.ts` holds to the union: a preview
+  the tour does not name does not compile. A standing that is really a
+  team's (Service Flow's signer is that team's Team Coordinator) is
+  previewed as that team's, and needs none of its own.
 - **Whether a service is over is one rule** — `useFinishedServices` (and
   `serviceStanding` with `ended_at`): the planned end of its last session,
   or End service if pressed earlier. Never re-derive it from sessions alone
@@ -351,7 +369,9 @@ frontend/src/
   lib/personAccess.ts        one person's answers, with the profile behind
                              each — Access & Privileges › By person. It asks
                              grantedBy() and pageOpening(), never its own copy
-  lib/tour.ts                the tour: chapters by standing, as data; what is due
+  lib/tour.ts                the tour: chapters by standing (one, `events`, by a
+                             right), as data; what is due. Kept current (§5)
+  lib/viewAs.ts              an Admin's preview, in words: who it is of
   lib/onboarding.ts          what the account remembers of it (0153): seen, sent
   lib/gettingSetUp.ts        who has set up what (0276): the table's ticks, asking
                              somebody to finish, whether their card is due
@@ -580,6 +600,24 @@ are separate and neither is automatic — is [SETUP.md](./SETUP.md).
   Either way each `<th>` carries the colour of what the table stands on
   (`ON_CARD`, `ON_RAISED`), or the rows show through it.
   `stickyHead.test.tsx` fails on a table with neither.
+- **The tour is kept up to date — always** (the Owner's standing
+  instruction, November 2026). A step in `lib/tour.ts` is a sentence
+  about what is on the screen now, so a change to what a page does, what
+  a button is called or who a page is for changes its step **in the same
+  commit**, the way this file is kept. Three things cannot be forgotten,
+  because `lib/tour.test.ts` fails on them: a page in `PAGE_RULES` with
+  no step, a room of Settings with neither a step nor a line in the
+  test's `ROOMS_LEFT_OUT` (with the reason there), and a preview in View
+  as that its step does not name. The rest is reading: before the pull
+  request, read the steps on every page the change touched and ask
+  whether each is still true. Two things about who is shown a change. A
+  step added to a chapter is met by new accounts and by everybody the
+  tour is next sent to (Settings › Onboarding), not by people who have
+  seen that chapter — so something everybody must hear is a release
+  (`lib/releases.ts`), not only a step. And a **new chapter starts by
+  itself, once, for everybody who has a step in it**: right for a new
+  part of the app, wrong for a reshuffle, and a chapter's key is what
+  the account remembers, so it is never renamed.
 - **A standing is called what `lib/roleNames.ts` calls it** — Team Head
   (never "Department Head"), Assisting Head, Team Coordinator, Team
   Member, Church Member. Read `ROLE_NAME` / `ROLE_SHORT`; do not type the
@@ -901,12 +939,28 @@ Each of these has already cost real time. None of them show up in review.
   — is the not-found panel instead of a red line.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
-  `bell`, `account`, `serving-tabs`, `join-team`, `rota-assign`,
-  `ready-light`, `board-composer`, `people-invite`, `people-export`, and
-  `settings:<room>` on the Settings hall's tiles). A step whose anchor
+  `bell`, `account`, `at-church`, `notices`, `clock-in`, `serving-tabs`,
+  `join-team`, `rota-assign`, `ready-light`, `board-composer`,
+  `people-invite`, `people-export`, and `settings:<room>` on the Settings
+  hall's tiles). Some are only drawn some of the time — `notices` while
+  the church has a notice up, `clock-in` on a service day — and their
+  steps are written to make sense at the header too. A step whose anchor
   never turns up falls back to the page's header, then to a card in the
   middle — so a renamed anchor is a quieter tour, not a broken one, which
   is why `lib/tour.test.ts` checks every anchor is still written somewhere.
+- **A tour step is shown by its page, not by its chapter's standing.**
+  `stepsOf` drops a step on a page the person cannot open or in a room
+  they cannot enter, and a chapter with no steps left is neither shown
+  nor marked seen. That is what lets `events` (Registrations, Reception,
+  Reception's room) sit at the bottom of the ladder and still reach only
+  whoever the grid gives those pages — and reach them later, when the
+  right is given. It also means a test that answers `canOpen: () => true`
+  for a Church Member is describing nobody: pages opened by a right
+  (`/registrations`, `/door`, `/clock-in`) are shut in a fixture unless
+  the test is about somebody who holds one. `/verify`'s sweep names
+  every chapter as seen for the same reason — a new chapter's key goes
+  into `sweep.mjs`'s `onboarding` fixture, or the tour starts itself over
+  every page the sweep opens.
 - **A guard on DELETE is not a guard on UPDATE.** A FOR ALL policy lets
   the same change through as an edit. `user_roles` has both triggers now
   (0033 delete, 0151 update); a new "only X may remove Y" rule needs both.
@@ -1311,7 +1365,9 @@ never seen lands in its default group, or at the top. It can also rename a page
 `PageHeader` say the new name — the heading at the page's own address only, never on
 the dashboard (a greeting) or a page further in →
 a step in `lib/tour.ts` for whoever should be shown it (the test holds
-every step to a page and an anchor that exist) →
+every step to a page and an anchor that exist, and every page to a step;
+a page opened by a right goes in the `events` chapter's way, at the
+bottom of the ladder, §8) →
 a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
 every other page.
 
@@ -1439,7 +1495,17 @@ it writes a table, that table's write policies ask
 person, map their prefix in `permission_room()`. The pane decides with
 `can()`, never `isAdmin` or `isSuperAdmin`. The
 shell draws its title and blurb, so the room itself starts with content,
-not a heading.
+not a heading. Then the tour: a step pointing at its tile
+(`target: 'settings:/settings/<room>'`, in the chapter of whoever it is
+out of the box — it is shown only to people the room opens to), or its
+address in `ROOMS_LEFT_OUT` in `lib/tour.test.ts` with why it needs
+none.
+
+**A new standing** (a role somebody can hold, church-wide or on a team):
+its name in `lib/roleNames.ts`, its column or cells in the grid (above),
+**and its preview** — `ViewAs` in `AuthContext` with the narrowing that
+makes the pages treat the Admin as one, `viewAsLabel`, a chip in
+`AccountMenu`'s View as, the tour's View as step (§3, §5).
 
 ---
 
@@ -1459,6 +1525,10 @@ change deserves. Read the recent history for the tone.
 
 So a session that starts from nothing works the way the last one did:
 
+0. **Start with the open pull requests.** One call lists them. Any of
+   Dependabot's that are open are this session's too (§1): read, tried,
+   merged into `develop` with the gates run on the lot. None is the
+   usual answer.
 1. **Look before building.** Read the code a request touches, and the
    live data when the question is about something that happened (a test
    order, an event's address) — the answer is often there, as with the
@@ -1468,7 +1538,10 @@ So a session that starts from nothing works the way the last one did:
    defaults and name them, and stop only for decisions that are the
    Owner's: what a person may see, money, anything sent to people.
 3. **Build it whole**: migration (through §7's three gates), the lib, the
-   pages, tests for each behaviour and for each right, the docs here.
+   pages, tests for each behaviour and for each right, the docs here —
+   and the two things that are about the change rather than in it: **the
+   tour's steps** on every page it touched (§5), and **every preview** in
+   View as, read role by role (§3).
 4. **Gates** (§2), then a **stub browser** run of anything a person sees
    (`frontend/.claude/skills/verify/`, or a Playwright script against
    `vite preview` of a build with `VITE_SUPABASE_URL=http://supabase.test`)
@@ -1482,7 +1555,9 @@ So a session that starts from nothing works the way the last one did:
    checked here.
 7. **Keep this file current** in the same commit as the change it
    describes; the vocabulary table (§3) carries what each table and
-   function is for, §8 every trap that cost a real bug.
+   function is for, §8 every trap that cost a real bug. The tour is kept
+   the same way, and for the same reason: the people it is for cannot
+   tell that it has fallen behind.
 
 ## 12. The skills installed in this repo
 
