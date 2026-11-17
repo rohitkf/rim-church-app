@@ -21,7 +21,9 @@
  * goes to the address on the order, and a resend goes to the address asked
  * about, with the tickets *it* holds, or nothing. So the most anybody can do
  * with the anon key is make somebody's own tickets reach them again — and
- * not more than once every ten minutes, which `email_sent_at` keeps. The
+ * not more than once every ten minutes, which `email_sent_at` keeps (a
+ * ticket that has never been emailed is not held back by another that
+ * has: quiet.ts). The
  * answer is the same whether or not an address has a registration, so the
  * list of who is coming cannot be read out of it. The church's kinds
  * are not held to the quiet period: a confirmation a minute after a
@@ -43,6 +45,7 @@
  * ticket either way, the email only carries its link.
  */
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2.119.0'
+import { heldByQuiet } from './quiet.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +56,6 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-const QUIET_MINUTES = 10
 const CHURCH = 'Rehoboth International Ministries'
 /** The tag an email's reference travels in; registration-email-status/news.ts reads the same one. */
 const REF_TAG = 'rim_ref'
@@ -430,8 +432,9 @@ Deno.serve(async (req) => {
   orders = orders.filter((o) => o.status === 'confirmed' && o.event && o.email)
   if (orders.length === 0) return json({ ok: true, sent: false })
   if (kind === 'confirm' || kind === 'resend') {
-    const quietUntil = Date.now() - QUIET_MINUTES * 60_000
-    if (orders.some((o) => o.email_sent_at && new Date(o.email_sent_at).getTime() > quietUntil)) return json({ ok: true, sent: false })
+    // Held only when every ticket here was emailed in the last ten minutes:
+    // one that never has been is sent, whatever went to the address before (quiet.ts).
+    if (heldByQuiet(orders, Date.now())) return json({ ok: true, sent: false })
   }
 
   const to = orders[0].email!
