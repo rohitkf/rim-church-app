@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
   resent: [] as unknown[],
   resendAnswer: { ok: true, sent: true } as unknown,
   refuse: null as string | null,
+  /** What registering answers: the order's code, or — for a personal invitation (0297) — that the ticket went by email. */
+  answer: { code: 'ABCDEFGHJKMN', byEmail: false } as { code: string | null; byEmail: boolean },
   /** What the database says of the invitation link (0295); an Error is a check that could not be made. */
   invite: { ok: false, reason: 'not_found' } as unknown,
   inviteChecks: [] as string[],
@@ -45,7 +47,7 @@ vi.mock('../lib/registrations', async (original) => ({
   checkPromoCode: () => Promise.resolve(state.promo),
   registerForEvent: (slug: string, order: unknown) => {
     state.registered.push({ slug, order })
-    return state.refuse ? Promise.reject(new Error(state.refuse)) : Promise.resolve('ABCDEFGHJKMN')
+    return state.refuse ? Promise.reject(new Error(state.refuse)) : Promise.resolve(state.answer)
   },
   sendTicketEmail: (code: string) => {
     state.mailed.push(code)
@@ -53,7 +55,7 @@ vi.mock('../lib/registrations', async (original) => ({
   },
   resendTickets: (slug: string, email: string) => {
     state.resent.push([slug, email])
-    return Promise.resolve(state.resendAnswer)
+    return state.resendAnswer instanceof Error ? Promise.reject(state.resendAnswer) : Promise.resolve(state.resendAnswer)
   },
 }))
 
@@ -61,6 +63,7 @@ vi.mock('../lib/registrationInvites', async (original) => ({
   ...(await original<typeof import('../lib/registrationInvites')>()),
   checkInvite: (_slug: string, token: string) => {
     state.inviteChecks.push(token)
+    // An Error is a check that could not be made; a promise is one still on its way.
     return state.invite instanceof Error ? Promise.reject(state.invite) : Promise.resolve(state.invite)
   },
 }))
@@ -130,6 +133,7 @@ beforeEach(() => {
   state.resent = []
   state.resendAnswer = { ok: true, sent: true }
   state.refuse = null
+  state.answer = { code: 'ABCDEFGHJKMN', byEmail: false }
   state.invite = { ok: false, reason: 'not_found' }
   state.inviteChecks = []
 })
@@ -253,6 +257,21 @@ describe('the public register page', () => {
     await confirmEmail(user, 'Register, then pay £18.00')
     await waitFor(() => expect(state.registered).toHaveLength(1))
     expect(state.registered[0]).toMatchObject({ order: { promo_code: 'EARLY', lines: [{ ticket_type_id: 't-lunch', quantity: 1 }] } })
+  })
+
+  it('says so when a code covers only so many tickets, and prices the rest in full (0296)', async () => {
+    state.promo = { ok: true, code: 'ONE', kind: 'percent', value: 100, ticket_type_ids: [], tickets_covered: 1 }
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    const more = screen.getByRole('button', { name: 'One more With lunch' })
+    await user.click(more)
+    await user.click(more)
+    await user.type(screen.getByRole('textbox', { name: /Promo code/ }), 'one')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByText('100% off, on one ticket of your order')).toBeInTheDocument()
+    // Two tickets at £20: one free, one to pay.
+    expect(screen.getByLabelText('Your order')).toHaveTextContent('Promo code−£20.00')
+    expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeInTheDocument()
   })
 
   it('keeps an order within what is left and what one order may hold', async () => {
@@ -811,10 +830,116 @@ describe('the register page opened from an invitation link', () => {
     expect(await screen.findByRole('button', { name: 'Register, then pay £20.00' })).toBeInTheDocument()
   })
 
+  it('holds the button while the invitation is being checked again after a failure', async () => {
+    state.invite = new Error('no answer')
+    const user = show(LINK)
+    const alert = await screen.findByRole('alert', { name: 'Your invitation' })
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    // Not checked: the form can go on at the usual price, and says that it would.
+    expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeEnabled()
+
+    // Checking again, and slow to answer: registering now would send no invitation.
+    let answer: (value: unknown) => void = () => undefined
+    state.invite = new Promise((resolve) => (answer = resolve))
+    await user.click(within(alert).getByRole('button', { name: 'Check it again' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeDisabled())
+    expect(screen.queryByRole('alert', { name: 'Your invitation' })).toBeNull()
+
+    answer(free())
+    expect(await screen.findByRole('status', { name: 'Your invitation' })).toHaveTextContent('You’re invited')
+    expect(screen.getByRole('button', { name: 'Register' })).toBeEnabled()
+  })
+
+  it('never says “invited” and “could not be checked” at once: an answer in hand stands when a later ask fails', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    await screen.findByRole('status', { name: 'Your invitation' })
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+
+    // Registering is refused for something else, and asking about the invitation again gets no answer.
+    state.refuse = 'Only 0 of "With lunch" left.'
+    state.invite = new Error('no answer')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
+    expect(await screen.findByText('Could not register. Try again.')).toBeInTheDocument()
+    await waitFor(() => expect(state.inviteChecks.length).toBeGreaterThan(1))
+    expect(screen.getByRole('status', { name: 'Your invitation' })).toHaveTextContent('You’re invited')
+    expect(screen.queryByRole('alert', { name: 'Your invitation' })).toBeNull()
+    // And the order still carries it: the database has the last word.
+    expect(screen.getByRole('button', { name: 'Register' })).toBeEnabled()
+  })
+
   it('says nothing about invitations on a plain link, and asks nothing', async () => {
     show()
     await screen.findByRole('heading', { level: 1 })
     expect(screen.queryByLabelText('Your invitation')).toBeNull()
     expect(state.inviteChecks).toEqual([])
+  })
+
+  /*
+   * A personal invitation's ticket goes to its address and nowhere else
+   * (0297): the database answers with no code, and the page says where
+   * the ticket went instead of going to it.
+   */
+  const registerByEmail = async (user: ReturnType<typeof userEvent.setup>, tickets = 1) => {
+    await screen.findByRole('status', { name: 'Your invitation' })
+    for (let i = 0; i < tickets; i++) await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+    const label = tickets > 1 ? `Register, then pay £${(20 * (tickets - 1)).toFixed(2)}` : 'Register'
+    await user.click(screen.getByRole('button', { name: label }))
+    await confirmEmail(user, label)
+  }
+
+  it('ends a personal invitation on “check your email”, sends the ticket there, and goes to no ticket page', async () => {
+    state.invite = free({ email_locked: true })
+    state.answer = { code: null, byEmail: true }
+    const user = show(LINK)
+    expect(await screen.findByRole('status', { name: 'Your invitation' })).toHaveTextContent('Your ticket is emailed there.')
+    await registerByEmail(user)
+
+    const done = await screen.findByRole('status', { name: 'You’re registered' })
+    await waitFor(() => expect(done).toHaveTextContent('Your ticket has been sent to ama@example.org.'))
+    expect(done).toHaveTextContent('Open that email and press Open ticket: that page is your ticket.')
+    expect(done).toHaveTextContent('This invitation is for one person, so the ticket goes to their email address rather than onto this screen.')
+    // Asked for through the kind that only ever writes to the address an order is under.
+    expect(state.resent).toEqual([['pastors-2026', 'ama@example.org']])
+    expect(state.mailed).toEqual([])
+    expect(screen.queryByText(/ticket page/)).toBeNull()
+    // The form has gone; "Get your ticket again" is still there.
+    expect(screen.queryByRole('form', { name: 'Register' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Get your ticket again' })).toBeInTheDocument()
+  })
+
+  it('says where to pay when the invitation did not cover everything', async () => {
+    state.invite = free({ email_locked: true })
+    state.answer = { code: null, byEmail: true }
+    const user = show(LINK)
+    await registerByEmail(user, 2)
+    const done = await screen.findByRole('status', { name: 'You’re registered' })
+    await waitFor(() => expect(done).toHaveTextContent('that page shows how to pay £20.00, and is your ticket once it is paid.'))
+  })
+
+  it.each([
+    ['was not sent', { ok: true, sent: false }],
+    ['could not be asked for', new Error('no answer')],
+  ])('says so when the email %s, with the way to get it', async (_how, answer) => {
+    state.invite = free({ email_locked: true })
+    state.answer = { code: null, byEmail: true }
+    state.resendAnswer = answer
+    const user = show(LINK)
+    await registerByEmail(user)
+    const done = await screen.findByRole('status', { name: 'You’re registered' })
+    await waitFor(() => expect(done).toHaveTextContent('Your ticket goes to ama@example.org, but the email could not be sent just now.'))
+    expect(done).toHaveTextContent('In about ten minutes, use “Get your ticket again” below with that address; the church office can send it too.')
+  })
+
+  it('still goes straight to the ticket for a group invitation', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    await registerByEmail(user)
+    expect(await screen.findByText('ticket page ABCDEFGHJKMN')).toBeInTheDocument()
+    expect(state.mailed).toEqual(['ABCDEFGHJKMN'])
+    expect(state.resent).toEqual([])
   })
 })

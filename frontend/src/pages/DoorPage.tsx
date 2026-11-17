@@ -366,7 +366,7 @@ function Find({
                     </Pill>
                   )}
                   {o.status === 'confirmed' && o.total_pence === 0 && o.promo_code && <Pill tone="neutral">Free with code {o.promo_code}</Pill>}
-                  {o.status === 'confirmed' && o.total_pence === 0 && !o.promo_code && o.invite_id && <Pill tone="neutral">Free by invitation</Pill>}
+                  {o.status === 'confirmed' && o.total_pence === 0 && !o.promo_code && o.invite_id && o.discount_pence > 0 && <Pill tone="neutral">Free by invitation</Pill>}
                 </div>
                 {o.tickets.some((t) => t.attendee_name) && (
                   <p className="text-label-md text-on-surface-faint">For {o.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>

@@ -16,8 +16,8 @@ import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, parsePounds, priceWords } from '../lib/money'
-import { TICKET_PATH } from '../lib/registrationLinks'
-import { INVITE_GONE, INVITE_PARAM, checkInvite, inviteOffer, inviteTokenFrom } from '../lib/registrationInvites'
+import { INVITE_PARAM, TICKET_PATH } from '../lib/registrationLinks'
+import { INVITE_GONE, checkInvite, inviteOffer, inviteTokenFrom } from '../lib/registrationInvites'
 import {
   checkPromoCode,
   fetchPublicEvent,
@@ -48,7 +48,9 @@ import {
  * is typed and no code is shown, because there is none. A link that has
  * been used, has ended or was never one says so and leaves the form at
  * its usual price; a personal link asks for the address it was sent to
- * without ever showing it.
+ * without ever showing it — and its ticket goes to that address and is
+ * not shown here (0297): registering ends on "check your email", because
+ * somebody who only knows the address must not be handed the ticket.
  *
  * Nobody signs in here. The page reads through registration_public_event
  * and writes through registration_register, which does every check again
@@ -148,8 +150,28 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   /** Why the link's invitation is no use, when it is none. */
   const inviteGone =
     !inviteAsked || inviteDropped ? null : inviteToken === null ? 'not_found' : inviteCheck.data && !inviteCheck.data.ok ? inviteCheck.data.reason : null
-  const inviteChecking = inviteToken !== null && !inviteDropped && inviteCheck.isLoading
-  const inviteUnchecked = inviteToken !== null && !inviteDropped && inviteCheck.isError
+  // Asking, with no answer yet to go by — the first time, or again after a
+  // failure. The button waits for it: registering meanwhile would be at the
+  // usual price with no invitation sent.
+  const inviteChecking = inviteToken !== null && !inviteDropped && inviteCheck.isFetching && !invite
+  // Never answered. An answer in hand stands when a later ask fails — the
+  // database has the last word when the order is sent — so the page never
+  // says "invited" and "could not be checked" at once.
+  const inviteUnchecked = inviteToken !== null && !inviteDropped && inviteCheck.isError && inviteCheck.data === undefined && !inviteCheck.isFetching
+  /**
+   * Registered by a personal invitation (0297): the ticket was sent to this
+   * address rather than shown. `sent` is null while the email is being
+   * asked for, then whether it went.
+   */
+  const [emailed, setEmailed] = useState<{ to: string; total: number; sent: boolean | null } | null>(null)
+  const emailedPanel = useRef<HTMLDivElement>(null)
+  const registeredByEmail = emailed !== null
+  useEffect(() => {
+    if (!registeredByEmail) return
+    // The form has gone from under them: bring what replaced it into view, and say it.
+    emailedPanel.current?.focus({ preventScroll: true })
+    if (typeof emailedPanel.current?.scrollIntoView === 'function') emailedPanel.current.scrollIntoView({ block: 'start' })
+  }, [registeredByEmail])
   const emailField = useRef<HTMLInputElement>(null)
   /** "No, change it" was pressed: once the dialog has gone, the email field is the one to be in. */
   const backToEmail = useRef(false)
@@ -198,9 +220,12 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
       setPromo(result.ok ? result : null)
       setPromoNote(
         result.ok
-          ? result.kind === 'percent'
-            ? `${result.value}% off${result.ticket_type_ids.length ? ' the tickets it covers' : ''}`
-            : `${pounds(result.value)} off`
+          ? `${
+              result.kind === 'percent' ? `${result.value}% off${result.ticket_type_ids.length ? ' the tickets it covers' : ''}` : `${pounds(result.value)} off`
+            }${
+              // A code that covers only so many tickets says so (0296), or the total below looks wrong.
+              result.tickets_covered ? `, on ${result.tickets_covered === 1 ? 'one ticket' : `up to ${result.tickets_covered} tickets`} of your order` : ''
+            }`
           : 'That code isn’t valid.',
       )
     },
@@ -220,9 +245,19 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         lines,
         website,
       }),
-    onSuccess: (code) => {
+    onSuccess: ({ code, byEmail }) => {
       setError(null)
-      if (code) {
+      if (byEmail) {
+        // A personal invitation (0297): the ticket goes to its address and
+        // is not shown here, so knowing the address is not enough to take
+        // it. There is no code to go to; ask for the email, and say so.
+        const to = email.trim()
+        setConfirming(false)
+        setEmailed({ to, total: totals.total, sent: null })
+        resendTickets(event.slug, to)
+          .then((result) => setEmailed((was) => was && { ...was, sent: result.ok && result.sent === true }))
+          .catch(() => setEmailed((was) => was && { ...was, sent: false }))
+      } else if (code) {
         // The ticket by email, for keeping; nothing waits on it (0247).
         void sendTicketEmail(code)
         navigate(`${TICKET_PATH}/${code}`, { replace: true })
@@ -410,7 +445,29 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         )}
       </section>
 
-      {closedWords ? (
+      {emailed ? (
+        <Tile tone="success" as="section" padded={false} className="mt-8 scroll-mt-4 p-5 sm:p-6">
+          <div ref={emailedPanel} tabIndex={-1} role="status" aria-label="You’re registered" className="flex flex-col gap-2 outline-none">
+            <h2 className="text-headline-md text-on-surface">You’re registered</h2>
+            {emailed.sent === false ? (
+              <p className="text-body-md text-on-surface">
+                Your ticket goes to <span className="font-semibold [overflow-wrap:anywhere]">{emailed.to}</span>, but the email could not be sent just now. In about
+                ten minutes, use “Get your ticket again” below with that address; the church office can send it too.
+              </p>
+            ) : (
+              <p className="text-body-md text-on-surface">
+                {emailed.sent === null ? 'Your ticket is being sent to ' : 'Your ticket has been sent to '}
+                <span className="font-semibold [overflow-wrap:anywhere]">{emailed.to}</span>. Open that email and press <span className="font-semibold">Open ticket</span>
+                {emailed.total > 0 ? `: that page shows how to pay ${pounds(emailed.total)}, and is your ticket once it is paid.` : ': that page is your ticket.'}
+              </p>
+            )}
+            <p className="text-body-sm text-on-surface-variant">
+              This invitation is for one person, so the ticket goes to their email address rather than onto this screen. It can take a minute; if it is not there, look
+              in your spam folder, or use “Get your ticket again” below.
+            </p>
+          </div>
+        </Tile>
+      ) : closedWords ? (
         <p className="mt-8 rounded-[var(--radius-card)] bg-surface-lowest p-5 text-center text-body-md text-on-surface hairline">{closedWords}</p>
       ) : (
         <form onSubmit={submit} className="mt-8 flex flex-col gap-6" aria-label="Register">
@@ -429,7 +486,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                 <p className="mt-0.5 text-body-sm text-on-surface-variant">{inviteOffer(invite)}</p>
                 {invite.email_locked && (
                   <p className="mt-2 text-body-sm text-on-surface-variant">
-                    This invitation is for one person: register with the email address it was sent to.{' '}
+                    This invitation is for one person: register with the email address it was sent to. Your ticket is emailed there.{' '}
                     <button type="button" onClick={() => setInviteDropped(true)} className="tap font-medium text-accent-blue-soft hover:underline">
                       Register without it
                     </button>

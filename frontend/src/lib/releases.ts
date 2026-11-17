@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'promo-tickets-covered',
+    date: '2026-11-17',
+    title: 'A promo code can cover just one ticket',
+    lead: 'A code used to take its discount off every ticket in an order. Now you can say how many.',
+    points: [
+      'In an event’s promo codes: Tickets covered. Put 1 and a free code gives one free ticket an order, not ten.',
+      'Left blank, a code covers every ticket, as before. Codes you already have are unchanged.',
+      'A ticket no longer prints the code that was used, so a forwarded ticket does not hand it on.',
+      'A personal invite link’s ticket now goes to that person’s email only, not onto the screen.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'invite-links',
     date: '2026-11-16',
     title: 'Invite links for registrations',

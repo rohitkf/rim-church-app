@@ -107,7 +107,7 @@ function show(props: Partial<Parameters<typeof RegistrationInvites>[0]> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <RegistrationInvites eventId="e1" slug="harvest-supper" eventTitle="Harvest Supper" published ticketTypes={types} orders={[]} canEdit {...props} />
+      <RegistrationInvites eventId="e1" slug="harvest-supper" eventTitle="Harvest Supper" published ticketTypes={types} orders={[]} ordersReady canEdit {...props} />
     </QueryClientProvider>,
   )
   const user = userEvent.setup()
@@ -159,7 +159,7 @@ describe('an event’s invite links', () => {
     const user = show()
     await user.click(await screen.findByRole('button', { name: 'Copy the link for John Smith' }))
     expect(state.copied).toEqual(['https://rim-church-app.vercel.app/register/harvest-supper?invite=K7QM2XPA9R4T'])
-    expect(screen.getByRole('button', { name: 'Copy the link for John Smith' })).toHaveTextContent('Copied')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Copy the link for John Smith' })).toHaveTextContent('Copied'))
 
     await user.click(screen.getByRole('button', { name: 'Download a QR code for Rim Youth WhatsApp' }))
     await waitFor(() => expect(state.qr).toEqual(['https://rim-church-app.vercel.app/register/harvest-supper?invite=W3HN8TQ2CEV6']))
@@ -199,6 +199,34 @@ describe('an event’s invite links', () => {
     await waitFor(() => expect(state.deleted).toEqual(['i-john']))
   })
 
+  it('says so when the browser would not copy the link, rather than “Copied”', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'John Smith' })
+    // After setup, again: a clipboard that refuses, as a webview's or an insecure page's does.
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } })
+    await user.click(screen.getByRole('button', { name: 'Copy the link for John Smith' }))
+    const row = screen.getByRole('listitem', { name: 'John Smith' })
+    expect(await within(row).findByText('This browser would not copy it. Select the link above and copy it by hand.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy the link for John Smith' })).toHaveTextContent('Not copied')
+  })
+
+  it('offers Delete for no link while the registrations have not been read: an empty list is not “nobody”', async () => {
+    show({ orders: [], ordersReady: false })
+    await screen.findByRole('listitem', { name: 'John Smith' })
+    expect(screen.queryByRole('button', { name: /^Delete the link/ })).toBeNull()
+    // Everything else about the row is there.
+    expect(screen.getByRole('button', { name: 'Turn off the link for John Smith' })).toBeInTheDocument()
+  })
+
+  it('does not offer Delete for a link whose only registration was cancelled: it may yet be put back', async () => {
+    show({ orders: [order({ invite_id: 'i-john', status: 'cancelled' })] })
+    const row = await screen.findByRole('listitem', { name: 'John Smith' })
+    // Its use came back…
+    expect(row).toHaveTextContent('Not used yet')
+    // …but the cancelled registration still names it.
+    expect(screen.queryByRole('button', { name: 'Delete the link for John Smith' })).toBeNull()
+  })
+
   it('shows a link whose details were removed with its event’s, with nothing left to copy', async () => {
     state.invites = [invite({ label: 'Anonymised', locked_email: null, active: false, anonymised_at: '2027-03-01T03:35:00Z' })]
     show({ orders: [order({ invite_id: 'i-john', name: 'Anonymised' })] })
@@ -222,7 +250,7 @@ describe('an event’s invite links', () => {
     state.invites = []
     const { container } = render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <RegistrationInvites eventId="e1" slug="harvest-supper" eventTitle="Harvest Supper" published ticketTypes={types} orders={[]} canEdit={false} />
+        <RegistrationInvites eventId="e1" slug="harvest-supper" eventTitle="Harvest Supper" published ticketTypes={types} orders={[]} ordersReady canEdit={false} />
       </QueryClientProvider>,
     )
     await waitFor(() => expect(container).toBeEmptyDOMElement())

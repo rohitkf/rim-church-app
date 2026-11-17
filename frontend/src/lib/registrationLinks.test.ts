@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { REGISTER_PATH, TICKET_PATH, codeFromScan, inviteUrl, registerUrl, ticketUrl } from './registrationLinks'
-import { INVITE_PARAM, inviteTokenFrom } from './registrationInvites'
+import { INVITE_PARAM, REGISTER_PATH, TICKET_PATH, codeFromScan, inviteUrl, registerUrl, ticketUrl } from './registrationLinks'
+import { inviteTokenFrom } from './registrationInvites'
 import App from '../App?raw'
 
 /*

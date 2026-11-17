@@ -17,7 +17,7 @@
  * there are no migrations to count. `migrationLedger.test.ts` holds it to
  * the files, so adding a migration and forgetting this fails the build.
  */
-export const SCHEMA_NEEDS = 295
+export const SCHEMA_NEEDS = 296
 
 /**
  * The first migration that must wait until this release is live, or null
@@ -27,4 +27,7 @@ export const SCHEMA_NEEDS = 295
  * here and SCHEMA_NEEDS stays one below it; set it back to null in the
  * release after.
  */
-export const SCHEMA_WAITS: number | null = null
+// 0297 stops handing a personal invitation's ticket to the screen. The app before
+// this release reads that answer as nothing having happened, so it is applied only
+// once this release is live.
+export const SCHEMA_WAITS: number | null = 297

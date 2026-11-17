@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, Overlay, Pill, SegmentedControl, inputClasses, type PillTone } from './Surface'
 import { DateField } from './DateTimeFields'
+import { todayIso } from '../lib/monthGrid'
 import { useConfirmAction } from './ConfirmAction'
 import { WarningIcon } from './icons'
 import { REGISTRATIONS_KEY, type OrderRow, type TicketType } from '../lib/registrations'
@@ -18,7 +19,6 @@ import {
   invitesKey,
   newInviteDraft,
   setInviteActive,
-  todayText,
   usesWords,
   type Invite,
   type InviteDraft,
@@ -51,6 +51,7 @@ export function RegistrationInvites({
   published,
   ticketTypes,
   orders,
+  ordersReady,
   canEdit,
 }: {
   eventId: string
@@ -61,6 +62,12 @@ export function RegistrationInvites({
   ticketTypes: TicketType[]
   /** The event's registrations: a link's uses are counted from them. */
   orders: OrderRow[]
+  /**
+   * The registrations have been read. Until they have, no link can be said
+   * to be unused — an empty list is "not known yet" — so none is offered
+   * for deleting.
+   */
+  ordersReady: boolean
   canEdit: boolean
 }) {
   const queryClient = useQueryClient()
@@ -100,6 +107,8 @@ export function RegistrationInvites({
 
   const uses = inviteUses(orders)
   const cameBy = (id: string) => orders.filter((o) => o.invite_id === id && o.status === 'confirmed').map((o) => o.name)
+  // Any registration at all, cancelled ones too: one of those may yet be put back, and should still name its link.
+  const untouched = (id: string) => ordersReady && !orders.some((o) => o.invite_id === id)
 
   return (
     <section id="invites" aria-labelledby="invites-heading" className="mt-8 scroll-mt-4">
@@ -134,6 +143,7 @@ export function RegistrationInvites({
               link={inviteUrl(slug, invite.token)}
               uses={uses[invite.id] ?? 0}
               names={cameBy(invite.id)}
+              deletable={untouched(invite.id)}
               canEdit={canEdit}
               busy={(turn.isPending && turn.variables?.invite.id === invite.id) || (remove.isPending && remove.variables?.id === invite.id)}
               onTurn={(active) => turn.mutate({ invite, active })}
@@ -175,6 +185,7 @@ function InviteRow({
   link,
   uses,
   names,
+  deletable,
   canEdit,
   busy,
   onTurn,
@@ -185,21 +196,34 @@ function InviteRow({
   link: string
   uses: number
   names: string[]
+  /** Nobody has ever registered with it, and that is known. */
+  deletable: boolean
   canEdit: boolean
   busy: boolean
   onTurn: (active: boolean) => void
   onQr: () => void
   onDelete: () => void
 }) {
-  const [copied, setCopied] = useState(false)
+  /** What became of the last press on Copy link, for a moment. */
+  const [copied, setCopied] = useState<'yes' | 'no' | null>(null)
   const state = inviteState(invite, uses)
   const removed = state === 'removed'
   // A personal link that has been used needs no second word for it.
   const pill = state === 'live' || (state === 'used' && invite.kind === 'personal') ? null : STATE_PILL[state]
-  const copy = () => {
-    void navigator.clipboard?.writeText(link)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1500)
+  // Said as it went: "Copied" over a clipboard that refused would have the
+  // organiser paste whatever was there before — another person's link.
+  const copy = async () => {
+    let ok = false
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(link)
+        ok = true
+      }
+    } catch {
+      // Refused: the link is on the row, to be selected by hand.
+    }
+    setCopied(ok ? 'yes' : 'no')
+    window.setTimeout(() => setCopied(null), ok ? 1500 : 4000)
   }
   return (
     <li aria-label={invite.label} className={`rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline ${state === 'live' ? '' : 'opacity-80'}`}>
@@ -210,8 +234,8 @@ function InviteRow({
         </div>
         {!removed && (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <ActionButton size="sm" tone="quiet" onClick={copy} aria-label={`Copy the link for ${invite.label}`}>
-              {copied ? 'Copied' : 'Copy link'}
+            <ActionButton size="sm" tone="quiet" onClick={() => void copy()} aria-label={`Copy the link for ${invite.label}`}>
+              {copied === 'yes' ? 'Copied' : copied === 'no' ? 'Not copied' : 'Copy link'}
             </ActionButton>
             <ActionButton size="sm" tone="quiet" onClick={onQr} aria-label={`Download a QR code for ${invite.label}`}>
               QR code
@@ -222,7 +246,7 @@ function InviteRow({
               </ActionButton>
             )}
             {/* Only one nobody has come by: a link people registered with is turned off, so the list still says who. */}
-            {canEdit && names.length === 0 && (
+            {canEdit && deletable && (
               <ActionButton size="sm" tone="danger-quiet" onClick={onDelete} disabled={busy} aria-label={`Delete the link for ${invite.label}`}>
                 Delete
               </ActionButton>
@@ -237,8 +261,13 @@ function InviteRow({
         {pill && <Pill tone={pill.tone}>{pill.label}</Pill>}
       </div>
       {!removed && (
-        <p className="mt-2 break-all font-mono text-label-sm text-on-surface-faint" aria-label={`The link for ${invite.label}`}>
+        <p className="mt-2 select-all break-all font-mono text-label-sm text-on-surface-faint" aria-label={`The link for ${invite.label}`}>
           {link}
+        </p>
+      )}
+      {copied === 'no' && (
+        <p role="status" className="mt-1 text-label-md text-accent-orange-soft">
+          This browser would not copy it. Select the link above and copy it by hand.
         </p>
       )}
       {(invite.expires_at || names.length > 0) && (
@@ -346,7 +375,7 @@ function InviteForm({
           />
           <p className="text-label-md text-on-surface-faint">
             {personal
-              ? 'Only their email address can use it, once. Forwarded, it is no use to anybody else.'
+              ? 'Only their email address can use it, once, and the ticket goes to that address. Forwarded, it is no use to anybody else.'
               : 'Whoever has the link can use it, up to the number of times you set.'}
           </p>
         </div>
@@ -381,7 +410,7 @@ function InviteForm({
                 {...marked('email')}
               />
             </Field>
-            {say('email') ?? <p className="text-label-sm text-on-surface-faint">They must register with this address. The link does not show it to anybody.</p>}
+            {say('email') ?? <p className="text-label-sm text-on-surface-faint">They must register with this address, and their ticket is emailed there rather than shown on screen. The link does not show the address to anybody.</p>}
           </div>
         )}
 
@@ -490,7 +519,7 @@ function InviteForm({
 
         <div id="invite-until" className="flex flex-col gap-1.5">
           <FieldGroup label="Last day it works (optional)">
-            <DateField value={draft.until} onChange={(until) => set({ until })} label="Last day it works" placeholder="No end" min={todayText()} clearable aria-label="Last day it works" />
+            <DateField value={draft.until} onChange={(until) => set({ until })} label="Last day it works" placeholder="No end" min={todayIso()} clearable aria-label="Last day it works" />
           </FieldGroup>
           {say('until')}
         </div>

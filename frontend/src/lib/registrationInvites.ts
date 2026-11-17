@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { looksLikeEmail } from './emailDelivery'
 import { parsePounds, pounds } from './money'
+import { toIso } from './monthGrid'
+import { INVITE_PARAM } from './registrationLinks'
 import { REGISTRATIONS_KEY, localIso, type InviteDiscount, type OrderRow } from './registrations'
 
 /*
@@ -21,9 +23,6 @@ import { REGISTRATIONS_KEY, localIso, type InviteDiscount, type OrderRow } from 
  * from the orders — the database does the same — so a cancelled order
  * gives its use back without anybody keeping a number right.
  */
-
-/** The name of the token in the link: /register/<slug>?invite=<token>. Links already sent say it. */
-export const INVITE_PARAM = 'invite'
 
 /** A group link that makes tickets free can be used this many times at most (the database's rule too). */
 export const FREE_GROUP_MAX = 20
@@ -229,12 +228,6 @@ export interface InviteProblem {
 
 const wholeNumber = (text: string): number | null => (/^\d+$/.test(text.trim()) ? Number(text.trim()) : null)
 
-/** Today as yyyy-mm-dd, in this device's own day. */
-export function todayText(now: Date = new Date()): string {
-  const two = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`
-}
-
 /**
  * Everything standing between a draft and a link, in the order the form
  * asks — the database refuses the same things, in its own words; these are
@@ -276,7 +269,7 @@ export function inviteProblems(draft: InviteDraft, now: Date = new Date()): Invi
       problems.push({ field: 'uses', text: `A link that makes tickets free can be used ${FREE_GROUP_MAX} times at most. For more people, make each a personal link.` })
   }
 
-  if (draft.until && draft.until < todayText(now)) problems.push({ field: 'until', text: 'Choose today or a later day, or leave it with no end.' })
+  if (draft.until && draft.until < toIso(now)) problems.push({ field: 'until', text: 'Choose today or a later day, or leave it with no end.' })
   return problems
 }
 
