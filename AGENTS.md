@@ -112,14 +112,16 @@ not clean it opens one issue assigned to the Owner
 starts, closed by itself when it ends — use it for anything else a
 workflow has to tell somebody).
 
-`npm run lint` (oxlint) exits 0 with **66** standing warnings (count them:
+`npm run lint` (oxlint) exits 0 with **57** standing warnings (count them:
 `npm run lint 2>&1 | grep -c ': warning '`). Do not add to them; do not fix
 unrelated ones in a PR about something else. (It was 46 until November
-2026. The twenty more came with oxlint 1.91, which sees more of the same
+2026. Twenty more came with oxlint 1.91, which saw more of the same
 two things in code that was already there — `purity` and `immutability`,
-ten each — not with anything written since. A newer linter can move the
-number again; when it does, compare the count by rule before and after,
-as was done then, and write the new number here.) The two that new code trips
+ten each — not with anything written since; oxlint 1.92 then took nine
+of the `immutability` ones back, 14 to 5, every other rule unmoved and
+nothing new. A newer linter can move the number again; when it does,
+compare the count by rule before and after, as was done both times, and
+write the new number here.) The two that new code trips
 most: exporting a helper from a component file (`only-export-components` —
 put it in `lib/`), and `Date.now()` during render (`purity` — use a clock
 hook such as `useNow` in `lib/timeLeft.ts`).
