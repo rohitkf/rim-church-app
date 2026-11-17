@@ -299,6 +299,24 @@ describe('making a registration event', () => {
     expect(state.saved[0].draft.promoCodes[0]).toMatchObject({ limited: true, ticketTypeIds: ['t1'] })
   })
 
+  it('lets a promo code say how many tickets it covers, and warns about a free one that does not (0296)', async () => {
+    const existing = full()
+    existing.promoCodes = [{ ...existing.promoCodes[0], value: 100 }]
+    state.existing = existing
+    const user = show('/registrations/e1/edit')
+    const code = within(await screen.findByRole('group', { name: 'Promo code 1' }))
+    // 100% off and no number: every ticket in the order would be free.
+    expect(code.getByRole('note')).toHaveTextContent('With no number here, this code makes every ticket in an order free. Put 1 for one free ticket an order.')
+    const covered = code.getByRole('textbox', { name: 'Tickets covered (optional)' })
+    expect(covered).toHaveValue('')
+    await user.type(covered, '1')
+    expect(code.queryByRole('note')).toBeNull()
+    expect(code.getByText('The discount is on one ticket of each order, the dearest first. Any more are at full price.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft.promoCodes[0]).toMatchObject({ code: 'EARLY', covered: '1' })
+  })
+
   it('opens a saved event with everything on it, and keeps the diary in step when saved', async () => {
     state.existing = full()
     const user = show('/registrations/e1/edit')

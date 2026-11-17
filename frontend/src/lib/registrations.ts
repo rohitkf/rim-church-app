@@ -127,6 +127,8 @@ export const promoCodeSchema = z.object({
   max_uses: z.number().nullable(),
   uses: z.number(),
   active: z.boolean(),
+  /** How many of an order's tickets the discount is worked out on, the dearest first (0296). Null: every ticket. */
+  tickets_covered: z.number().nullable().optional(),
 })
 export type PromoCode = z.infer<typeof promoCodeSchema>
 
@@ -233,7 +235,7 @@ export async function fetchRegistrationEvent(id: string): Promise<RegistrationEv
       .select('id, event_id, name, description, kind, price_pence, min_donation_pence, quantity, sort_order')
       .eq('event_id', id)
       .order('sort_order'),
-    supabase.from('registration_promo_codes').select('id, event_id, code, kind, value, ticket_type_ids, max_uses, uses, active').eq('event_id', id).order('code'),
+    supabase.from('registration_promo_codes').select('id, event_id, code, kind, value, ticket_type_ids, max_uses, uses, active, tickets_covered').eq('event_id', id).order('code'),
   ])
   if (event.error) throw event.error
   if (!event.data) return null
@@ -287,6 +289,8 @@ export interface PromoDraft {
   /** Only the tickets ticked, rather than every paid ticket. */
   limited: boolean
   maxUses: string
+  /** How many tickets of an order it covers, as typed; blank is every ticket (0296). */
+  covered: string
   active: boolean
 }
 
@@ -328,7 +332,7 @@ export interface EventDraft {
 
 export const newDateDraft = (): DateDraft => ({ id: null, date: '', start: '', endDate: '', end: '', label: '' })
 export const newTicketTypeDraft = (): TicketTypeDraft => ({ id: crypto.randomUUID(), isNew: true, name: '', description: '', kind: 'free', price: '', minDonation: '', quantity: '' })
-export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], limited: false, maxUses: '', active: true })
+export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], limited: false, maxUses: '', covered: '', active: true })
 
 export function emptyDraft(): EventDraft {
   return {
@@ -444,6 +448,7 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
       ticketTypeIds: p.ticket_type_ids,
       limited: p.ticket_type_ids.length > 0,
       maxUses: p.max_uses === null ? '' : String(p.max_uses),
+      covered: p.tickets_covered == null ? '' : String(p.tickets_covered),
       active: p.active,
     })),
     locationName: event.location_name ?? '',
@@ -519,6 +524,8 @@ export function draftProblems(draft: EventDraft): string[] {
     const value = p.kind === 'amount' ? parsePence(p.value) : /^\d+$/.test(p.value) ? Number(p.value) : null
     if (!value || value <= 0 || (p.kind === 'percent' && value > 100)) problems.push(`Promo code ${n} needs ${p.kind === 'amount' ? 'an amount off' : 'a percentage from 1 to 100'}.`)
     if (p.maxUses && !/^\d+$/.test(p.maxUses)) problems.push(`Promo code ${n}: the number of uses is not a number.`)
+    if (p.covered.trim() && !(/^\d+$/.test(p.covered.trim()) && Number(p.covered) >= 1 && Number(p.covered) <= 100))
+      problems.push(`Promo code ${n}: tickets covered is a number from 1 to 100, or blank for every ticket.`)
     if (p.limited) {
       const paidIds = new Set(draft.ticketTypes.filter((t) => t.kind === 'paid').map((t) => t.id))
       if (!p.ticketTypeIds.some((id) => paidIds.has(id))) problems.push(`Promo code ${n}: tick the tickets it is for, or choose every paid ticket.`)
@@ -686,6 +693,7 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
       value: p.kind === 'amount' ? (parsePence(p.value) ?? 0) : Number(p.value),
       ticket_type_ids: p.limited ? p.ticketTypeIds.filter((id) => knownTypes.has(id)) : [],
       max_uses: p.maxUses.trim() === '' ? null : Number(p.maxUses),
+      tickets_covered: p.covered.trim() === '' ? null : Number(p.covered),
       active: p.active,
     }
     const { error } = p.id
@@ -948,6 +956,8 @@ export const promoCheckSchema = z.union([
     kind: z.enum(['amount', 'percent']),
     value: z.number(),
     ticket_type_ids: z.array(z.string()),
+    /** How many of the order's tickets it covers, the dearest first (0296). Null, or not said: every ticket. */
+    tickets_covered: z.number().nullable().optional(),
   }),
 ])
 export type PromoCheck = z.infer<typeof promoCheckSchema>
@@ -993,20 +1003,33 @@ export interface InviteDiscount {
   tickets_covered: number
 }
 
-export async function registerForEvent(slug: string, order: OrderRequest): Promise<string | null> {
+/**
+ * What registering answers. Usually the order's code, and the page goes to
+ * its ticket. For an order made by an invitation kept to one address
+ * (0297) there is no code: `byEmail` says the ticket has gone to that
+ * address instead, which is the one place only the invitee can open.
+ * Neither: the trap for bots, which says yes and does nothing.
+ */
+export interface RegisterAnswer {
+  code: string | null
+  byEmail: boolean
+}
+
+export async function registerForEvent(slug: string, order: OrderRequest): Promise<RegisterAnswer> {
   const { data, error } = await supabase.rpc('registration_register', { p_slug: slug, p_order: order })
   if (error) throw error
-  const code = (data as { code?: string | null } | null)?.code
-  return code ?? null
+  const answer = data as { code?: string | null; by_email?: boolean | null } | null
+  return { code: answer?.code ?? null, byEmail: answer?.by_email === true }
 }
 
 /**
  * The tickets wanted, priced as the database will price them.
  *
  * An invitation, when there is one, takes the place of the code — the two
- * are never both taken (registration_register drops the code) — and its
- * discount is worked out on its `tickets_covered` dearest tickets, where a
- * code's is worked out on every ticket it applies to.
+ * are never both taken (registration_register drops the code). Either is
+ * worked out on its `tickets_covered` dearest tickets when it says a
+ * number (an invitation always does; a code may, 0296), and on every
+ * ticket it applies to when it does not.
  */
 export function orderTotals(
   types: PublicTicketType[],
@@ -1014,10 +1037,11 @@ export function orderTotals(
   promo: PromoCheck | null,
   invite: InviteDiscount | null = null,
 ): { quantity: number; subtotal: number; discount: number; total: number } {
+  // What takes money off, if anything: the invitation, or else the code.
+  const off = invite ?? (promo?.ok ? { kind: promo.kind, value: promo.value, ticket_type_ids: promo.ticket_type_ids, tickets_covered: promo.tickets_covered ?? null } : null)
   let quantity = 0
   let subtotal = 0
-  let discountable = 0
-  /** The price of each ticket the invitation could take money off, one a ticket. */
+  /** The price of each ticket it could take money off, one a ticket. */
   const eligible: number[] = []
   for (const line of lines) {
     const t = types.find((x) => x.id === line.ticket_type_id)
@@ -1025,26 +1049,17 @@ export function orderTotals(
     const unit = t.kind === 'free' ? 0 : t.kind === 'paid' ? t.price_pence : (line.donation_pence ?? 0)
     quantity += line.quantity
     subtotal += unit * line.quantity
-    if (t.kind !== 'paid') continue
-    if (invite) {
-      if (invite.ticket_type_ids.length === 0 || invite.ticket_type_ids.includes(t.id)) {
-        for (let i = 0; i < line.quantity; i++) eligible.push(unit)
-      }
-    } else if (promo?.ok && (promo.ticket_type_ids.length === 0 || promo.ticket_type_ids.includes(t.id))) {
-      discountable += unit * line.quantity
+    if (t.kind === 'paid' && off && (off.ticket_type_ids.length === 0 || off.ticket_type_ids.includes(t.id))) {
+      for (let i = 0; i < line.quantity; i++) eligible.push(unit)
     }
   }
-  if (invite) {
-    const covered = eligible.sort((a, b) => b - a).slice(0, Math.max(0, invite.tickets_covered))
-    discountable = covered.reduce((sum, price) => sum + price, 0)
-    // The same sum and the same rounding as a code's, below.
-    const discount = invite.kind === 'amount' ? Math.min(invite.value, discountable) : Math.round((discountable * invite.value) / 100)
-    return { quantity, subtotal, discount, total: subtotal - discount }
-  }
+  if (!off) return { quantity, subtotal, discount: 0, total: subtotal }
+  const covered = off.tickets_covered === null ? eligible : eligible.sort((a, b) => b - a).slice(0, Math.max(0, off.tickets_covered))
+  const discountable = covered.reduce((sum, price) => sum + price, 0)
   // Rounded, not truncated: registration_register() does `(… / 100.0)::int`,
   // which rounds, and a page that says £2.99 for a ticket the database
   // charges £3.00 for is a page nobody trusts.
-  const discount = !promo?.ok ? 0 : promo.kind === 'amount' ? Math.min(promo.value, discountable) : Math.round((discountable * promo.value) / 100)
+  const discount = off.kind === 'amount' ? Math.min(off.value, discountable) : Math.round((discountable * off.value) / 100)
   return { quantity, subtotal, discount, total: subtotal - discount }
 }
 
@@ -1075,6 +1090,8 @@ export const orderViewSchema = z.object({
   promo_code: z.string().nullable(),
   /** The order came by an invitation link (0295): its discount is the invitation's, and there is no code to show. */
   invited: z.boolean().nullish().transform((v) => v === true),
+  /** A promo code was used (0296). Which one is not said: `promo_code` is null now, a ticket being a page people pass on. */
+  promo: z.boolean().nullish().transform((v) => v === true),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   payment_method: z.enum(['paypal', 'bank', 'reception']).nullable(),
   proof_at: z.string().nullable().optional(),

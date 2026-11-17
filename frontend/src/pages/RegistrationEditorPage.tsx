@@ -534,7 +534,20 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
               <Field label="Uses (optional)">
                 <input value={p.maxUses} onChange={(e) => setPromo(i, { maxUses: e.target.value })} inputMode="numeric" placeholder="No limit" className={`${inputClasses} w-32`} />
               </Field>
+              <Field label="Tickets covered (optional)">
+                <input value={p.covered} onChange={(e) => setPromo(i, { covered: e.target.value })} inputMode="numeric" placeholder="Every ticket" className={`${inputClasses} w-36`} />
+              </Field>
             </div>
+            {/* What the number means, and — for a code that makes tickets free with no number — what leaving it blank costs. */}
+            {p.covered.trim() ? (
+              <p className="text-label-md text-on-surface-faint">
+                The discount is on {p.covered.trim() === '1' ? 'one ticket' : `${p.covered.trim()} tickets`} of each order, the dearest first. Any more are at full price.
+              </p>
+            ) : p.kind === 'percent' && p.value.trim() === '100' ? (
+              <p role="note" className="text-label-md text-accent-orange-soft">
+                With no number here, this code makes every ticket in an order free. Put 1 for one free ticket an order.
+              </p>
+            ) : null}
             <SegmentedControl
               label={`Promo code ${i + 1} kind`}
               value={p.kind}

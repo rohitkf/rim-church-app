@@ -346,7 +346,7 @@ function InviteForm({
           />
           <p className="text-label-md text-on-surface-faint">
             {personal
-              ? 'Only their email address can use it, once. Forwarded, it is no use to anybody else.'
+              ? 'Only their email address can use it, once, and the ticket goes to that address. Forwarded, it is no use to anybody else.'
               : 'Whoever has the link can use it, up to the number of times you set.'}
           </p>
         </div>
@@ -381,7 +381,7 @@ function InviteForm({
                 {...marked('email')}
               />
             </Field>
-            {say('email') ?? <p className="text-label-sm text-on-surface-faint">They must register with this address. The link does not show it to anybody.</p>}
+            {say('email') ?? <p className="text-label-sm text-on-surface-faint">They must register with this address, and their ticket is emailed there rather than shown on screen. The link does not show the address to anybody.</p>}
           </div>
         )}
 

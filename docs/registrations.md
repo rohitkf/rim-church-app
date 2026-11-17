@@ -61,11 +61,14 @@ personal details are tidied away after the event.
 
 - Build the event: one or several dates; ticket types (free, paid,
   donation) with limits; promo codes that apply to every paid ticket or
-  only chosen ones.
+  only chosen ones, and to every ticket in an order or only so many
+  (**Tickets covered**: put 1 and a free code gives one free ticket an
+  order; blank is every ticket).
 - Make **invite links** on the event's page (0295), for a discount nobody
   has to be told: the link takes it off by itself when it is opened, and
   no code is shown anywhere. A **personal** link is for one email address
-  and works once; a **group** link works a set number of times (twenty at
+  and works once, and its ticket is emailed to that address rather than
+  shown on screen; a **group** link works a set number of times (twenty at
   most when it makes tickets free). A link covers a number of tickets —
   one unless changed, the dearest first — can end on a date, and can be
   turned off on its own. Each row says how much of it is used and who
@@ -105,7 +108,9 @@ personal details are tidied away after the event.
 - Or opens an **invite link**: the form says *You're invited* and what
   the invitation gives, the total already has it taken off, and there is
   no code box. A personal invitation asks them to register with the
-  address it was sent to (the page never shows that address). A link
+  address it was sent to (the page never shows that address), and ends
+  on *You're registered — check your email*: the ticket goes to that
+  address and nowhere else. A link
   that has been used, has ended or was cut short says so, and the form
   works at the usual price.
 - Before anything is saved, is shown the email address they typed, on its
@@ -208,7 +213,13 @@ protection.
   take a link's last use. A cancelled registration gives its use back. A
   promo code, by contrast, takes money off every ticket in the order and
   works for whoever is told it — keep those for discounts that are meant
-  to travel.
+  to travel. A code can at least be kept to so many tickets an order
+  (**Tickets covered**), and the ticket page no longer prints which code
+  was used.
+- **Knowing an address is not having it.** A personal invite link's
+  ticket is never handed to the screen that registered: it is emailed to
+  the invitee's address, so somebody who holds the link and knows the
+  address still gets nothing.
 - **Privacy.** Personal details are blanked after the event. Receipts and
   refund details are visible only to people with the right to see them.
 - **A wrong address is caught three times.** The register page shows the
@@ -243,6 +254,8 @@ protection.
   `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
 - Invite links: migration `0295` (`registration_invites`,
   `registration_invite_check()`), `frontend/src/lib/registrationInvites.ts`
-  and `components/RegistrationInvites.tsx`.
+  and `components/RegistrationInvites.tsx`. Migration `0296`: a promo
+  code's tickets covered, and the code kept off the ticket. Migration
+  `0297`: a personal invitation's ticket by email only.
 - Pages: `RegistrationsPage`, `RegistrationEditorPage`,
   `RegistrationEventPage`, `RegisterPage`, `TicketPage` and `DoorPage`.

@@ -80,6 +80,7 @@ const order = (over: Partial<OrderView> = {}): OrderView => ({
   code: 'ABCDEFGHJKMN',
   status: 'confirmed',
   invited: false,
+  promo: false,
   refund_details_wanted: false,
   refund_details_sent: false,
   email_state: 'none',
@@ -290,10 +291,19 @@ describe('the ticket page', () => {
     expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Ticket — done'])
   })
 
-  it('names a code where there was one, and says Invitation — never a code — where the order came by a link (0295)', async () => {
-    state.order = order({})
+  it('says a promo code was used without printing which (0296): a ticket is a page people pass on', async () => {
+    // As the database answers now: the code kept back, and `promo` saying there was one.
+    state.order = order({ promo_code: null, promo: true })
     show()
-    expect(await screen.findByText('Promo code EARLY')).toBeInTheDocument()
+    expect(await screen.findByText('Promo code')).toBeInTheDocument()
+    expect(screen.queryByText(/EARLY/)).toBeNull()
+  })
+
+  it('does not print the code even from a database that still hands it over', async () => {
+    state.order = order({ promo_code: 'EARLY', promo: false })
+    show()
+    expect(await screen.findByText('Promo code')).toBeInTheDocument()
+    expect(screen.queryByText(/EARLY/)).toBeNull()
   })
 
   it('says Invitation for an order that came by an invitation link', async () => {

@@ -155,6 +155,8 @@ describe('what stops a draft being saved', () => {
         { ...newPromoDraft(), code: 'EARLY', value: '10' },
         { ...newPromoDraft(), code: 'early', value: '120' },
         { ...newPromoDraft(), code: 'X', kind: 'amount' as const, value: '5.00', maxUses: 'many' },
+        { ...newPromoDraft(), code: 'COVER', value: '100', covered: '0' },
+        { ...newPromoDraft(), code: 'COVERS', value: '100', covered: '2' },
       ],
     }
     expect(draftProblems(draft)).toEqual([
@@ -162,6 +164,7 @@ describe('what stops a draft being saved', () => {
       'Promo code 2 needs a percentage from 1 to 100.',
       'Promo code 3 needs 2 to 30 letters, digits or dashes.',
       'Promo code 3: the number of uses is not a number.',
+      'Promo code 4: tickets covered is a number from 1 to 100, or blank for every ticket.',
     ])
   })
 
@@ -243,7 +246,7 @@ describe('a saved event back as a draft', () => {
       { id: 't1', isNew: false, name: 'With lunch', description: '', kind: 'paid', price: '20.50', minDonation: '', quantity: '40' },
       { id: 't2', isNew: false, name: 'Give', description: 'What you can', kind: 'donation', price: '', minDonation: '5.00', quantity: '' },
     ])
-    expect(draft.promoCodes).toEqual([{ id: 'p1', code: 'EARLY', kind: 'amount', value: '5.00', ticketTypeIds: ['t1'], limited: true, maxUses: '', active: true }])
+    expect(draft.promoCodes).toEqual([{ id: 'p1', code: 'EARLY', kind: 'amount', value: '5.00', ticketTypeIds: ['t1'], limited: true, maxUses: '', covered: '', active: true }])
     expect(draftProblems(draft)).toEqual([])
   })
 
@@ -319,6 +322,37 @@ describe('what an order comes to', () => {
     // A code for other tickets takes nothing off these.
     expect(orderTotals(types, lines, { ok: true, code: 'VIP', kind: 'amount', value: 500, ticket_type_ids: ['vip'] })).toMatchObject({ discount: 0, total: 2000 })
     expect(orderTotals(types, lines, { ok: false })).toMatchObject({ discount: 0 })
+  })
+
+  // The same numbers as the 0296 behaviour script, which asks the database.
+  describe('a code that says how many tickets it covers (0296)', () => {
+    const priced = [
+      { ...types.find((t) => t.kind === 'paid')!, id: 'adult', price_pence: 2500 },
+      { ...types.find((t) => t.kind === 'paid')!, id: 'child', price_pence: 1000 },
+      { ...types.find((t) => t.kind === 'paid')!, id: 'odd', price_pence: 1999 },
+    ]
+    const code = (over: object) => ({ ok: true as const, code: 'X', kind: 'percent' as const, value: 100, ticket_type_ids: [] as string[], ...over })
+    const line = (id: string, quantity: number) => ({ ticket_type_id: id, quantity, attendee_names: [] })
+
+    it('takes it off that many tickets, the dearest first, and charges the rest in full', () => {
+      expect(orderTotals(priced, [line('child', 1), line('adult', 3)], code({ tickets_covered: 1 }))).toEqual({ quantity: 4, subtotal: 8500, discount: 2500, total: 6000 })
+      expect(orderTotals(priced, [line('adult', 1)], code({ tickets_covered: 1 }))).toMatchObject({ total: 0 })
+    })
+
+    it('covers every ticket when it says no number, or the database did not say', () => {
+      const half = { value: 50 }
+      expect(orderTotals(priced, [line('adult', 2), line('child', 1)], code({ ...half, tickets_covered: null }))).toMatchObject({ discount: 3000 })
+      expect(orderTotals(priced, [line('adult', 2), line('child', 1)], code(half))).toMatchObject({ discount: 3000 })
+    })
+
+    it('rounds as ever, and never takes more than the covered tickets cost', () => {
+      expect(orderTotals(priced, [line('odd', 3)], code({ value: 15, tickets_covered: 2 }))).toMatchObject({ discount: 600 })
+      expect(orderTotals(priced, [line('child', 2)], code({ kind: 'amount', value: 5000, tickets_covered: 1 }))).toMatchObject({ discount: 1000, total: 1000 })
+    })
+
+    it('counts only the ticket types it is for', () => {
+      expect(orderTotals(priced, [line('child', 2), line('adult', 2)], code({ value: 50, tickets_covered: 1, ticket_type_ids: ['adult'] }))).toMatchObject({ discount: 1250 })
+    })
   })
 
   it('knows how many are left, per date when people pick one', () => {
