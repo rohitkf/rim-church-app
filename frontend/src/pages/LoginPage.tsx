@@ -6,6 +6,7 @@ import { signInViaProxy } from '../lib/signInFallback'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { whereTheyWereHeaded } from '../lib/afterSignIn'
+import { isWrongPassword } from '../lib/signInWords'
 import { PasswordInput } from '../components/PasswordInput'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 
@@ -151,7 +152,7 @@ export function LoginPage() {
         <label className="flex flex-col gap-2">
           <span className="flex items-baseline justify-between gap-2">
             <AuthLabel>Password</AuthLabel>
-            <Link to="/forgot-password" className="text-label-sm font-medium text-accent-blue-soft">
+            <Link to="/forgot-password" state={{ email: email.trim() }} className="text-label-sm font-medium text-accent-blue-soft">
               Forgot?
             </Link>
           </span>
@@ -165,7 +166,24 @@ export function LoginPage() {
 
         {error && (
           <div className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
-            <p>{error}</p>
+            {isWrongPassword(error) ? (
+              <>
+                <p className="font-medium">That email and password don&rsquo;t match.</p>
+                <p className="mt-1">
+                  Check the email address first. If the password is the part you&rsquo;re not sure of,
+                  trying it again won&rsquo;t help &mdash; set a new one instead.
+                </p>
+                <Link
+                  to="/forgot-password"
+                  state={{ email: email.trim() }}
+                  className="mt-2 inline-block font-semibold underline"
+                >
+                  Reset my password
+                </Link>
+              </>
+            ) : (
+              <p>{error}</p>
+            )}
             {advice && <p className="mt-2 opacity-90">{advice}</p>}
           </div>
         )}

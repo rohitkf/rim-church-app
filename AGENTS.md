@@ -1059,11 +1059,27 @@ Each of these has already cost real time. None of them show up in review.
   reads the page goes on making: the database keeps its rule helpers from
   callers who are not signed in, on purpose, on dozens of tables. Nothing
   is exposed and nothing is broken, so it is not reported
-  (`isLapsedSessionRefusal` in `lib/clientErrors.ts`: a refused *function*,
-  on a *read*, for somebody who was signed in on this page load and no
+  (`isLapsedSessionRefusal` in `lib/clientErrors.ts`: a refused *function*
+  or *table* — a dead session is refused `profiles`, `role_permissions`
+  and `app_notices` by name too — on a *read*, for somebody who was signed in on this page load and no
   longer is — `AuthContext` tells it through `noteSession`). The same
   refusal for somebody who is signed in is still the app's mistake and is
   still reported. Do not "fix" it by opening the helpers to `anon`.
+- **Signing out is this device's, and the sign-in service's own words
+  are not shown.** `supabase.auth.signOut()` with nothing said ends every
+  session the person has, so signing out of a browser tab signed them out
+  of the app on their phone: "it logged me out by itself", and for somebody
+  who has not typed a password since joining, a locked door (November
+  2026: sixty-seven refused sign-ins from one phone in twenty minutes, two
+  sign-ups for the account they already had, no reset asked for).
+  `AuthContext.signOut` passes `SIGN_OUT_SCOPE` (`local`,
+  `lib/signOutScope.ts`); a new sign-out goes through it. Two answers of
+  the service's are read before they reach the page (`lib/signInWords.ts`):
+  "Invalid login credentials" becomes what to do next, with *Reset my
+  password* carrying the address to the reset page, and a sign-up it
+  answers 200 for an address that already has an account — it makes
+  nothing and sends nothing; the person handed back has no identities —
+  says so instead of "check your email".
 - **A timed job or a push that fails is only known if the hourly copy
   sees it.** `health_collect()` reads Supabase's own tables
   (`cron.job_run_details`, `net._http_response`, `supabase_functions.hooks`)

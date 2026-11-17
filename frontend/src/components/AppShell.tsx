@@ -232,7 +232,7 @@ export function AppShell() {
               Sign out?
             </h2>
             <p className="mt-2 text-body-sm text-on-surface-variant">
-              You&rsquo;ll need your email and password to get back in.
+              You&rsquo;ll need your email and password to get back in. Anywhere else you&rsquo;re signed in stays signed in.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
               <ActionButton tone="quiet" onClick={() => setConfirmSignOut(false)}>

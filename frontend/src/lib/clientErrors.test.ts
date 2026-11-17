@@ -394,11 +394,24 @@ describe('a read refused because the session ran out under the page', () => {
     expect(worthReporting('query', refused)).toBe(true)
   })
 
-  it('excuses only a refused function, and only a read', () => {
+  it('excuses a refused table as it does a function: a dead session is refused both', () => {
+    // App Health, 16 November 2026: one page load on a dead session left five
+    // refused functions and these three refused tables.
     noteSession(true)
     noteSession(false)
-    // A refused column or table is the app asking for something that is not there for anybody.
+    for (const table of ['profiles', 'role_permissions', 'app_notices']) {
+      expect(worthReporting('query', api('42501', `permission denied for table ${table}`))).toBe(false)
+    }
+    // …and it is still news for somebody signed in, or never signed in.
+    noteSession(true)
     expect(worthReporting('query', api('42501', 'permission denied for table profiles'))).toBe(true)
+  })
+
+  it('excuses only a refusal by name, and only a read', () => {
+    noteSession(true)
+    noteSession(false)
+    // Any other refusal is not the session's doing.
+    expect(worthReporting('query', api('42501', 'new row violates row-level security policy for table "profiles"'))).toBe(true)
     // A database fault is a fault whoever asked.
     expect(worthReporting('query', api('42883', 'function public.nope() does not exist'))).toBe(true)
     // A page that threw is a page that threw.

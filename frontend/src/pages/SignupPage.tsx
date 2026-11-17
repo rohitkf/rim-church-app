@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
 import { CheckEmailDialog } from '../components/CheckEmailDialog'
+import { alreadyHasAccount } from '../lib/signInWords'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -28,6 +29,8 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
   // The address the confirmation went to, while the dialog about it is open.
   const [sentTo, setSentTo] = useState<string | null>(null)
+  // The address that turned out to have an account already.
+  const [taken, setTaken] = useState<string | null>(null)
 
   const checks = passwordChecks(password)
   const score = passwordScore(password)
@@ -40,15 +43,21 @@ export function SignupPage() {
     e.preventDefault()
     if (!canSubmit) return
     setError(null)
+    setTaken(null)
     setSubmitting(true)
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: { data: { first_name: firstName, last_name: lastName } },
       })
       if (error) {
         setError(error.message)
+        return
+      }
+      // No account was made and no email sent: say so, rather than "check your email".
+      if (alreadyHasAccount(data?.user)) {
+        setTaken(email.trim())
         return
       }
       setSentTo(email.trim())
@@ -140,6 +149,20 @@ export function SignupPage() {
           )}
 
           {error && <p className="rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{error}</p>}
+          {taken && (
+            <div role="alert" className="rounded-[var(--radius-chip)] bg-error-container px-4 py-3 text-body-sm text-on-error-container">
+              <p className="font-medium">There&rsquo;s already an account for {taken}.</p>
+              <p className="mt-1">Nothing new was made and no email was sent. Sign in with it, or set a new password if you&rsquo;ve forgotten yours.</p>
+              <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                <Link to="/login" className="font-semibold underline">
+                  Sign in
+                </Link>
+                <Link to="/forgot-password" state={{ email: taken }} className="font-semibold underline">
+                  Reset my password
+                </Link>
+              </p>
+            </div>
+          )}
           <button
             type="submit"
             disabled={submitting || !canSubmit}
