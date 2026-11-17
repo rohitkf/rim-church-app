@@ -168,6 +168,26 @@ describe('the children question and the address, saved as they change', () => {
     )
     expect(screen.queryByRole('button', { name: 'Save address' })).toBeNull()
   })
+
+  /*
+   * An address is asked of everybody (0301). A part of it rubbed out is
+   * not saved over the whole address: it waits, and says for what.
+   */
+  it('does not save an address with its town rubbed out, and says what is still needed', async () => {
+    const user = userEvent.setup()
+    show(<FamilyCard />)
+    await user.clear(await screen.findByDisplayValue('Leeds'))
+    expect(screen.getByRole('status')).toHaveTextContent('Still needed: the town or city. Not saved yet.')
+    await new Promise((r) => setTimeout(r, 1400))
+    expect(state.rpc.filter((c) => c.fn === 'save_household_address')).toHaveLength(0)
+  })
+
+  it('never waits on the second line', async () => {
+    show(<FamilyCard />)
+    await screen.findByDisplayValue('Leeds')
+    expect(screen.queryByText(/Still needed/)).toBeNull()
+    expect(screen.getByLabelText(/Address line 2/)).toHaveValue('')
+  })
 })
 
 describe('a family request waiting on me', () => {

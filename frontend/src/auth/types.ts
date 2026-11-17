@@ -37,5 +37,11 @@ export const profileSchema = z.object({
    */
   onboarded_at: z.string().nullable().optional(),
   marital_status: z.string().nullable().optional(),
+  /**
+   * Who to ring if something happens to them (0301). Your own only: closed
+   * on `profiles` like phone, so they arrive through my_profile().
+   */
+  emergency_contact_name: z.string().nullable().optional(),
+  emergency_contact_phone: z.string().nullable().optional(),
 })
 export type Profile = z.infer<typeof profileSchema>

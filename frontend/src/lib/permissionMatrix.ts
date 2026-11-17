@@ -812,7 +812,7 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'people.contacts',
         short: 'Contact details',
         can: granted('people.contacts'),
-        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box — closed in the database itself (0127), not just hidden on the page, and left out of an export by anybody without it. Marital status is closed the same way.',
+        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box — closed in the database itself (0127), not just hidden on the page, and left out of an export by anybody without it. Marital status is closed the same way. Who to ring about somebody in an emergency, which everybody gives (0301), is kept with these and seen by the same people.',
       },
       {
         action: 'Edit your own profile',

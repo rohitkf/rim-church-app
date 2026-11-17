@@ -80,7 +80,27 @@ export interface JoiningAnswers {
   hasDbs: boolean | null
   /** Optional: what a date cannot say about the visa. */
   visaNote: string
+  /** Where they live: their household's address (0149), asked of everybody since 0301. */
+  addressLine1: string
+  /** Optional. */
+  addressLine2: string
+  town: string
+  postcode: string
+  /** Who to ring if something happens to them, and on what number (0301). */
+  emergencyName: string
+  emergencyPhone: string
 }
+
+/**
+ * Which form this app puts to people, by number (0301).
+ *
+ * The database holds an app to the questions it can ask: the door asks
+ * `my_profile_gaps_for(JOINING_FORM)`, and an app from before a question
+ * existed is never told about it — told, it would show a form with no box
+ * for the answer and no way past. Add a question here and in
+ * `profile_gaps()`, and this number goes up with it.
+ */
+export const JOINING_FORM = 2
 
 /**
  * What is still missing, in the order the form asks for it.
@@ -108,6 +128,11 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
     if (answers.visaHasExpiry === true && !answers.visaExpiry) missing.push('visaExpiry')
   }
   if (answers.hasDbs === null) missing.push('hasDbs')
+  if (!answers.addressLine1.trim()) missing.push('addressLine1')
+  if (!answers.town.trim()) missing.push('town')
+  if (!answers.postcode.trim()) missing.push('postcode')
+  if (!answers.emergencyName.trim()) missing.push('emergencyName')
+  if (!answers.emergencyPhone.trim()) missing.push('emergencyPhone')
   return missing
 }
 
@@ -132,6 +157,12 @@ export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message
   visaExpiry: { label: 'Expiry date', message: 'Choose the expiry date.' },
   hasDbs: { label: 'DBS check', message: 'Answer yes or no.' },
   visaNote: { label: 'Comment', message: '' },
+  addressLine1: { label: 'Address line 1', message: 'Enter the first line of your address.' },
+  addressLine2: { label: 'Address line 2', message: '' },
+  town: { label: 'Town or city', message: 'Enter your town or city.' },
+  postcode: { label: 'Postcode', message: 'Enter your postcode.' },
+  emergencyName: { label: 'Emergency contact’s name', message: 'Enter the name of somebody we can ring in an emergency.' },
+  emergencyPhone: { label: 'Emergency contact’s number', message: 'Enter their phone number.' },
 }
 
 /** The id of the place on the form a question lives, for "take me there". */
@@ -183,7 +214,37 @@ export function invalidAnswers(
     const y = year(answers.visaExpiry)
     if (y < 2000 || y > today.getFullYear() + 20) bad.visaExpiry = 'That date doesn’t look right.'
   }
+  const ring = emergencyProblems(answers.emergencyName, answers.emergencyPhone, answers.phone)
+  if (ring.name) bad.emergencyName = ring.name
+  if (ring.phone) bad.emergencyPhone = ring.phone
   return bad
+}
+
+/** The household's address, as the database keeps it (0149): the lengths its columns allow. */
+export const ADDRESS_LIMITS = { line: 120, town: 80, postcode: 12 } as const
+/** How long an emergency contact's name may be (0301's check). */
+export const EMERGENCY_NAME_LIMIT = 100
+
+/**
+ * What is wrong with an emergency contact that has been typed, by part.
+ *
+ * Shared by the joining form and the profile, so the two cannot hold the
+ * same person to different rules. The number has to be somebody else's:
+ * a person's own number is the one that will not be answered when it is
+ * needed. Whether the number is a number at all is its field's to say.
+ */
+export function emergencyProblems(
+  name: string,
+  phone: string,
+  ownPhone: string | null | undefined,
+): { name?: string; phone?: string } {
+  const problems: { name?: string; phone?: string } = {}
+  if (name.trim().length > EMERGENCY_NAME_LIMIT) problems.name = `Keep it to ${EMERGENCY_NAME_LIMIT} letters or fewer.`
+  const digits = (value: string | null | undefined) => (value ?? '').replace(/[^\d+]/g, '')
+  if (phone.trim() && digits(phone) === digits(ownPhone)) {
+    problems.phone = 'That is your own number. Give somebody else’s, who can be rung about you.'
+  }
+  return problems
 }
 
 export function isComplete(answers: JoiningAnswers): boolean {
@@ -201,6 +262,8 @@ export function isComplete(answers: JoiningAnswers): boolean {
 export function toProfileRows(answers: JoiningAnswers): {
   profile: Record<string, unknown>
   sensitive: Record<string, unknown>
+  /** For save_household_address(): the household's, shared by a linked couple. */
+  address: { line1: string; line2: string; town: string; postcode: string }
 } {
   const settled = isSettledStatus(answers.visaType)
   return {
@@ -211,6 +274,8 @@ export function toProfileRows(answers: JoiningAnswers): {
       dob: answers.dob || null,
       marital_status: answers.maritalStatus || null,
       anniversary: answers.maritalStatus === 'married' ? answers.anniversary || null : null,
+      emergency_contact_name: answers.emergencyName.trim() || null,
+      emergency_contact_phone: answers.emergencyPhone.trim() || null,
     },
     sensitive: {
       visa_type: answers.visaType || null,
@@ -218,6 +283,12 @@ export function toProfileRows(answers: JoiningAnswers): {
       visa_expiry: settled || answers.visaHasExpiry !== true ? null : answers.visaExpiry || null,
       has_dbs: answers.hasDbs === true,
       visa_note: answers.visaNote.trim() || null,
+    },
+    address: {
+      line1: answers.addressLine1.trim(),
+      line2: answers.addressLine2.trim(),
+      town: answers.town.trim(),
+      postcode: answers.postcode.trim().toUpperCase(),
     },
   }
 }

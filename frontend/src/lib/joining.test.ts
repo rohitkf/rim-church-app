@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  JOINING_FORM,
+  emergencyProblems,
   invalidAnswers,
   isSettledStatus,
   isComplete,
@@ -22,6 +24,12 @@ const answers = (over: Partial<JoiningAnswers> = {}): JoiningAnswers => ({
   visaExpiry: '',
   hasDbs: false,
   visaNote: '',
+  addressLine1: '1 High Street',
+  addressLine2: '',
+  town: 'Leeds',
+  postcode: 'LS1 1AA',
+  emergencyName: 'Ama Mensah',
+  emergencyPhone: '+447812345678',
   ...over,
 })
 
@@ -167,5 +175,44 @@ describe('what is filled in and wrong', () => {
     expect(invalidAnswers(answers({ ...base, visaExpiry: '2026-01-01' }), today)).toEqual({})
     expect(invalidAnswers(answers({ ...base, visaExpiry: '1990-01-01' }), today).visaExpiry).toBeDefined()
     expect(invalidAnswers(answers({ ...base, visaExpiry: '2099-01-01' }), today).visaExpiry).toBeDefined()
+  })
+})
+
+/*
+ * Where they live and who to ring (0301): asked of everybody, and the door
+ * goes by them.
+ */
+describe('an address and somebody to ring', () => {
+  it('are asked of everybody: line 1, the town, the postcode, a name and a number', () => {
+    expect(
+      missingAnswers(answers({ addressLine1: ' ', town: '', postcode: '', emergencyName: '', emergencyPhone: '' })),
+    ).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone'])
+  })
+
+  it('never ask for a second line of the address', () => {
+    expect(missingAnswers(answers({ addressLine2: '' }))).toEqual([])
+  })
+
+  it('refuse somebody’s own number as the one to ring, however it is written', () => {
+    expect(invalidAnswers(answers({ phone: '+447911123456', emergencyPhone: '+447911123456' })).emergencyPhone).toMatch(/your own number/)
+    expect(emergencyProblems('Ama', '+44 7911 123456', '+447911123456').phone).toMatch(/your own number/)
+    expect(invalidAnswers(answers()).emergencyPhone).toBeUndefined()
+    // Nothing typed is "still to answer", not "wrong".
+    expect(emergencyProblems('', '', '').phone).toBeUndefined()
+  })
+
+  it('keep the name to what the column holds', () => {
+    expect(emergencyProblems('x'.repeat(101), '+447812345678', null).name).toMatch(/100/)
+    expect(emergencyProblems('x'.repeat(100), '+447812345678', null).name).toBeUndefined()
+  })
+
+  it('go to the two places that keep them: the profile, and the household’s address', () => {
+    const rows = toProfileRows(answers({ addressLine2: ' Flat 3 ', postcode: ' ls1 1aa ' }))
+    expect(rows.profile).toMatchObject({ emergency_contact_name: 'Ama Mensah', emergency_contact_phone: '+447812345678' })
+    expect(rows.address).toEqual({ line1: '1 High Street', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 1AA' })
+  })
+
+  it('make this the second form', () => {
+    expect(JOINING_FORM).toBe(2)
   })
 })

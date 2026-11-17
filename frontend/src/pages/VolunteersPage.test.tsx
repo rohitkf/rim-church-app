@@ -61,7 +61,14 @@ vi.mock('../lib/supabaseClient', () => ({
     rpc: (fn: string) => {
       who.rpcs.push(fn)
       return Promise.resolve({
-        data: ['joel', 'rose', 'newbie'].map((id) => ({ id, email: `${id}@example.com`, phone: '07000 000000' })),
+        data: ['joel', 'rose', 'newbie'].map((id) => ({
+          id,
+          email: `${id}@example.com`,
+          phone: '07000 000000',
+          // Who to ring about them (0301). Rose has given nobody yet.
+          emergency_contact_name: id === 'rose' ? null : `Parent of ${id}`,
+          emergency_contact_phone: id === 'rose' ? null : '+447812345678',
+        })),
         error: null,
       })
     },
@@ -202,8 +209,9 @@ describe('contact details on the volunteers page', () => {
     show()
     expect(await screen.findByText('Nimmy Thomas')).toBeInTheDocument()
     expect(screen.queryByText('newbie@example.com')).toBeNull()
+    expect(screen.queryByText(/In an emergency/)).toBeNull()
     expect(who.rpcs).not.toContain('people_contacts')
-    expect(who.selected.every((c) => !/\b(email|phone)\b/.test(c))).toBe(true)
+    expect(who.selected.every((c) => !/\b(email|phone|emergency_contact\w*)\b/.test(c))).toBe(true)
   })
 
   it('are shown to the Owner, from the Owner-only function', async () => {
@@ -212,5 +220,25 @@ describe('contact details on the volunteers page', () => {
     expect(await screen.findByText('newbie@example.com')).toBeInTheDocument()
     expect(who.rpcs).toContain('people_contacts')
     expect(who.selected.every((c) => !/\b(email|phone)\b/.test(c))).toBe(true)
+  })
+
+  /*
+   * Who to ring about somebody (0301): the same people's to see, on the
+   * person's row, as a number that dials — it is wanted in a hurry.
+   */
+  it('show the Owner who to ring about somebody, as a link that dials', async () => {
+    who.owner = true
+    show()
+    const line = (await screen.findByText(/In an emergency: Parent of newbie/)).closest('span')!
+    const number = within(line).getByRole('link', { name: '+44 7812 345678' })
+    expect(number).toHaveAttribute('href', 'tel:+447812345678')
+  })
+
+  it('say nothing about an emergency for somebody who has given nobody', async () => {
+    who.owner = true
+    show()
+    await screen.findByText('newbie@example.com')
+    // Joel and Nimmy have; Rose has not. Joel's team is shut, so one line shows.
+    expect(screen.queryByText(/Parent of rose/)).toBeNull()
   })
 })

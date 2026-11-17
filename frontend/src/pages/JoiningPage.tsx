@@ -10,7 +10,10 @@ import { AgeNote } from '../components/AgeNote'
 import { VisaNoteField } from '../components/VisaNoteField'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
+import { fetchHouseholds, myFamily, saveAddress, type Household } from '../lib/family'
 import {
+  ADDRESS_LIMITS,
+  EMERGENCY_NAME_LIMIT,
   MARITAL_STATUSES,
   VISA_TYPES,
   MISSING_TEXT,
@@ -43,6 +46,10 @@ import {
  * status runs out — and then only if they say theirs has one, because "no
  * expiry" and "nobody has asked" are different facts and the app stores
  * them differently.
+ *
+ * Since 0301 it also asks where they live and who to ring if something
+ * happens to them. The address is their household's (0149), so somebody
+ * whose spouse has already given it finds it filled in.
  */
 
 const inputClasses =
@@ -145,8 +152,31 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
       cancelled = true
     }
   }, [completing, profileId])
+  /*
+   * Their household's address as saved, read once: theirs from the profile,
+   * or their spouse's from a household they were linked into. Until it has
+   * been read the address boxes are not drawn, so a saved address is never
+   * shown as a blank to be typed again.
+   */
+  const [home, setHome] = useState<Household | null | undefined>(undefined)
+  useEffect(() => {
+    if (!profileId) return
+    let cancelled = false
+    void fetchHouseholds()
+      .then((data) => {
+        if (!cancelled) setHome(myFamily(data, profileId).home)
+      })
+      .catch(() => {
+        // Could not be read: the boxes are shown empty rather than not at all.
+        if (!cancelled) setHome(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profileId])
   /** Whether what is in the phone box is a number; the box itself knows. */
   const [phoneStatus, setPhoneStatus] = useState<PhoneStatus>('empty')
+  const [emergencyPhoneStatus, setEmergencyPhoneStatus] = useState<PhoneStatus>('empty')
 
   /*
    * What they have typed, over what signing up already knew.
@@ -176,6 +206,12 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
     // Asked afresh of a newcomer; somebody completing has answered it before.
     hasDbs: edits.hasDbs ?? (completing && stored ? stored.has_dbs === true : null),
     visaNote: edits.visaNote ?? stored?.visa_note ?? '',
+    addressLine1: edits.addressLine1 ?? home?.address_line1 ?? '',
+    addressLine2: edits.addressLine2 ?? home?.address_line2 ?? '',
+    town: edits.town ?? home?.town ?? '',
+    postcode: edits.postcode ?? home?.postcode ?? '',
+    emergencyName: edits.emergencyName ?? profile?.emergency_contact_name ?? '',
+    emergencyPhone: edits.emergencyPhone ?? profile?.emergency_contact_phone ?? '',
   }
 
   const set = <K extends keyof JoiningAnswers>(key: K, value: JoiningAnswers[K]) =>
@@ -185,7 +221,8 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const bad = invalidAnswers(answers)
   // A number that is typed but not valid is a problem, not a missing answer.
   const phoneBad = phoneStatus === 'invalid'
-  const blocked = missing.length > 0 || phoneBad || Object.keys(bad).length > 0
+  const emergencyPhoneBad = emergencyPhoneStatus === 'invalid'
+  const blocked = missing.length > 0 || phoneBad || emergencyPhoneBad || Object.keys(bad).length > 0
   // Red when it is blank after a try to go on, or filled in and wrong.
   const wants = (field: keyof JoiningAnswers) => (tried && missing.includes(field)) || !!bad[field]
   const redRing = (field: keyof JoiningAnswers) => (wants(field) ? 'field-error' : '')
@@ -214,13 +251,19 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const ORDER: (keyof JoiningAnswers)[] = [
     'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary',
     'visaType', 'visaHasExpiry', 'visaExpiry', 'hasDbs',
+    'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone',
   ]
   // Only questions on the screen: the expiry ones appear once a status is
   // chosen, and naming a question nobody can see is its own confusion.
   const onScreen = (f: keyof JoiningAnswers) =>
     (f !== 'visaHasExpiry' && f !== 'visaExpiry') || !!answers.visaType
   const toFix = ORDER.filter(
-    (f) => onScreen(f) && (missing.includes(f) || !!bad[f] || (f === 'phone' && phoneBad)),
+    (f) =>
+      onScreen(f) &&
+      (missing.includes(f) ||
+        !!bad[f] ||
+        (f === 'phone' && phoneBad) ||
+        (f === 'emergencyPhone' && emergencyPhoneBad)),
   )
 
   /** Bring a question into view and put the cursor in it. */
@@ -261,6 +304,20 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
       return
     }
     const rows = toProfileRows(answers)
+    // The address first, and by itself: it is the household's, through its
+    // own function, and a refusal there must not leave the rest half saved
+    // with the door still shut and nothing said.
+    try {
+      await saveAddress(rows.address)
+    } catch (err) {
+      setSaving(false)
+      if ((err as { code?: string } | null)?.code === '42501' && !(await supabase.auth.getSession()).data.session) {
+        setSignedOut(true)
+        return
+      }
+      setError(errorText(err, 'Could not save your address.'))
+      return
+    }
     const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
       supabase
         .from('profiles')
@@ -301,7 +358,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
       </h1>
       <p className="mt-2 text-body-md text-on-surface-variant">
         {completing
-          ? 'The church now asks everybody for these. What you gave before is filled in — add what is marked below and you are straight back in.'
+          ? 'The church now asks everybody for these, your address and somebody to ring in an emergency among them. What you gave before is filled in — add what is marked below and you are straight back in.'
           : 'A few things before you start — they go straight onto your profile, and you can change any of them later.'}
       </p>
       <p className="mt-2 text-body-sm text-on-surface-variant">
@@ -474,6 +531,107 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
               <span className="text-label-sm text-on-surface-faint">
                 Some teams need one. If you are not sure, answer no — a head will tell you.
               </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
+          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+            Where you live
+          </h2>
+          <p className="mt-1 text-label-md text-on-surface-faint">
+            Only you, your family on the app and the Owner can see this. A linked spouse shares it.
+          </p>
+          {home === undefined ? (
+            <p className="mt-4 text-body-sm text-on-surface-variant">Loading your address…</p>
+          ) : (
+            <div className="mt-4 flex flex-col gap-4">
+              <label id={joiningFieldId('addressLine1')} className={labelClasses}>
+                Address line 1
+                <input
+                  value={answers.addressLine1}
+                  onChange={(e) => set('addressLine1', e.target.value)}
+                  maxLength={ADDRESS_LIMITS.line}
+                  autoComplete="address-line1"
+                  {...described('addressLine1')}
+                  className={`${inputClasses} ${redRing('addressLine1')}`}
+                />
+                {problem('addressLine1')}
+              </label>
+              <label id={joiningFieldId('addressLine2')} className={labelClasses}>
+                <span>
+                  Address line 2 <span className="text-on-surface-faint">(optional)</span>
+                </span>
+                <input
+                  value={answers.addressLine2}
+                  onChange={(e) => set('addressLine2', e.target.value)}
+                  maxLength={ADDRESS_LIMITS.line}
+                  autoComplete="address-line2"
+                  className={inputClasses}
+                />
+              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_10rem] sm:gap-3">
+                <label id={joiningFieldId('town')} className={`min-w-0 ${labelClasses}`}>
+                  Town or city
+                  <input
+                    value={answers.town}
+                    onChange={(e) => set('town', e.target.value)}
+                    maxLength={ADDRESS_LIMITS.town}
+                    autoComplete="address-level2"
+                    {...described('town')}
+                    className={`${inputClasses} ${redRing('town')}`}
+                  />
+                  {problem('town')}
+                </label>
+                <label id={joiningFieldId('postcode')} className={`min-w-0 ${labelClasses}`}>
+                  Postcode
+                  <input
+                    value={answers.postcode}
+                    onChange={(e) => set('postcode', e.target.value)}
+                    maxLength={ADDRESS_LIMITS.postcode}
+                    autoComplete="postal-code"
+                    {...described('postcode')}
+                    className={`${inputClasses} uppercase ${redRing('postcode')}`}
+                  />
+                  {problem('postcode')}
+                </label>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
+          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+            In an emergency
+          </h2>
+          <p className="mt-1 text-label-md text-on-surface-faint">
+            Somebody we can ring if something happens to you at church. Only you and the Owner can see this.
+          </p>
+          <div className="mt-4 flex flex-col gap-4">
+            <label id={joiningFieldId('emergencyName')} className={labelClasses}>
+              Their name
+              <input
+                value={answers.emergencyName}
+                onChange={(e) => set('emergencyName', e.target.value)}
+                maxLength={EMERGENCY_NAME_LIMIT}
+                autoComplete="off"
+                {...described('emergencyName')}
+                className={`${inputClasses} ${redRing('emergencyName')}`}
+              />
+              {problem('emergencyName')}
+            </label>
+            <div id={joiningFieldId('emergencyPhone')} className="flex flex-col gap-1.5">
+              <PhoneField
+                label="Their phone number"
+                countryLabel="Country code of their number"
+                autoComplete="off"
+                value={answers.emergencyPhone}
+                onChange={(v) => set('emergencyPhone', v)}
+                onStatus={setEmergencyPhoneStatus}
+                showError={tried}
+                inputClassName={wants('emergencyPhone') ? 'field-error' : ''}
+              />
+              {problem('emergencyPhone')}
             </div>
           </div>
         </section>

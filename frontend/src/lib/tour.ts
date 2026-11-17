@@ -209,7 +209,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings/profile',
         target: 'page-title',
         title: 'Your profile',
-        body: 'Your name, birthday and anniversary, your DBS and visa, your family. Changes save on their own.',
+        body: 'Your name, birthday and anniversary, your DBS and visa, your address and family, and who to ring for you in an emergency. Everybody is asked for these, and changes save on their own.',
       },
       {
         path: '/departments',

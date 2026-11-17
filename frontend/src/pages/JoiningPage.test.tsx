@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   /** Whether the phone is still signed in when they press finish. */
   signedIn: true,
   signedOut: 0,
+  /** What save_household_address() was handed. */
+  addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -44,6 +46,16 @@ vi.mock('../auth/AuthContext', () => ({
 
 vi.mock('../components/AppMark', () => ({ AppMark: () => null }))
 
+// The household's address (0149) is read and written through lib/family.
+vi.mock('../lib/family', () => ({
+  fetchHouseholds: () => Promise.resolve({ households: [], members: [] }),
+  myFamily: () => ({ home: null, spouse: null, children: [], parents: [] }),
+  saveAddress: (a: { line1: string; line2: string; town: string; postcode: string }) => {
+    state.addresses.push(a)
+    return Promise.resolve()
+  },
+}))
+
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -67,6 +79,7 @@ beforeEach(() => {
   state.refreshed = 0
   state.signedIn = true
   state.signedOut = 0
+  state.addresses = []
 })
 
 const finish = () => userEvent.click(screen.getByRole('button', { name: /Finish and go in/ }))
@@ -81,6 +94,16 @@ async function fillTheBasics() {
   await userEvent.type(screen.getByLabelText('Phone'), '07912345678')
   await pickDate(userEvent.setup(), screen.getByLabelText('Date of birth'), '1990-04-02')
   await choose('Marital status', 'Single')
+  await fillWhereAndWho()
+}
+
+/** Where they live and who to ring: asked of everybody since 0301. */
+async function fillWhereAndWho() {
+  await userEvent.type(await screen.findByLabelText('Address line 1'), '1 High Street')
+  await userEvent.type(screen.getByLabelText('Town or city'), 'Leeds')
+  await userEvent.type(screen.getByLabelText('Postcode'), 'ls1 1aa')
+  await userEvent.type(screen.getByLabelText('Their name'), 'Ama Mensah')
+  await userEvent.type(screen.getByLabelText('Their phone number'), '07812345678')
 }
 
 describe('joining', () => {
@@ -163,7 +186,11 @@ describe('joining', () => {
       phone: '+447912345678',
       dob: '1990-04-02',
       marital_status: 'single',
+      emergency_contact_name: 'Ama Mensah',
+      emergency_contact_phone: '+447812345678',
     })
+    // The address is the household's: through its own function, postcode in capitals.
+    expect(state.addresses).toEqual([{ line1: '1 High Street', line2: '', town: 'Leeds', postcode: 'LS1 1AA' }])
     expect(profile.onboarded_at).toEqual(expect.any(String))
     expect(sensitive).toMatchObject({
       visa_type: 'dependant',
@@ -194,8 +221,62 @@ describe('joining', () => {
     expect(await screen.findByText(/signed out on this phone/)).toBeInTheDocument()
     expect(screen.queryByText(/permission/)).toBeNull()
     expect(state.written).toHaveLength(0)
+    expect(state.addresses).toHaveLength(0)
     await userEvent.click(screen.getByRole('button', { name: 'Sign in again' }))
     expect(state.signedOut).toBe(1)
+  })
+
+  /*
+   * Where they live and who to ring (0301): asked of everybody, and no way
+   * past without them.
+   */
+  it('will not be finished without an address and somebody to ring', async () => {
+    render(<JoiningPage />)
+    await userEvent.type(screen.getByLabelText('Phone'), '07912345678')
+    await pickDate(userEvent.setup(), screen.getByLabelText('Date of birth'), '1990-04-02')
+    await choose('Marital status', 'Single')
+    await choose('Your status in the UK', 'British citizen')
+    await userEvent.click(within(screen.getByRole('group', { name: /DBS/i })).getByRole('button', { name: 'No' }))
+
+    await finish()
+
+    const list = screen.getByRole('alert')
+    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Address line 1',
+      'Town or city',
+      'Postcode',
+      'Emergency contact’s name',
+      'Emergency contact’s number',
+    ])
+    expect(screen.getByText('Enter the first line of your address.')).toBeInTheDocument()
+    expect(screen.getByText('Enter their phone number.')).toBeInTheDocument()
+    expect(state.written).toHaveLength(0)
+    expect(state.addresses).toHaveLength(0)
+  })
+
+  it('does not ask for a second line of the address', async () => {
+    render(<JoiningPage />)
+    await finish()
+    expect(within(screen.getByRole('alert')).queryByRole('button', { name: 'Address line 2' })).toBeNull()
+  })
+
+  it('will not take their own number as the one to ring', async () => {
+    render(<JoiningPage />)
+    await userEvent.type(screen.getByLabelText('Phone'), '07912345678')
+    await userEvent.type(screen.getByLabelText('Their phone number'), '07912345678')
+    expect(screen.getByText(/That is your own number/)).toBeInTheDocument()
+    await finish()
+    expect(
+      within(screen.getByRole('alert')).getByRole('button', { name: /Emergency contact’s number — check what you entered/ }),
+    ).toBeInTheDocument()
+    expect(state.written).toHaveLength(0)
+  })
+
+  it('offers the browser nothing to fill the contact’s number with', () => {
+    render(<JoiningPage />)
+    // Left alone, a phone offers its owner's own number for it.
+    expect(screen.getByLabelText('Their phone number')).toHaveAttribute('autocomplete', 'off')
+    expect(screen.getByLabelText('Phone')).toHaveAttribute('autocomplete', 'tel-national')
   })
 
   it('says what it will save, and shows the age beside a date of birth', async () => {

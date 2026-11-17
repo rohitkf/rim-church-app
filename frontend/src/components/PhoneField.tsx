@@ -31,6 +31,8 @@ export function PhoneField({
   label = 'Phone',
   inputClassName,
   eyebrow = false,
+  autoComplete = 'tel-national',
+  countryLabel = 'Country code',
 }: {
   value: string
   onChange: (e164: string) => void
@@ -43,6 +45,13 @@ export function PhoneField({
   inputClassName?: string
   /** The label in the small capitals the other fields on a form use (Field's Eyebrow). */
   eyebrow?: boolean
+  /**
+   * What the browser may offer to fill in. Somebody else's number says
+   * `off`: left alone, a phone offers its owner's own number for it.
+   */
+  autoComplete?: string
+  /** What the country picker is called, where a form has two numbers. */
+  countryLabel?: string
 }) {
   const id = useId()
   const [start] = useState(() => splitPhone(value))
@@ -108,14 +117,14 @@ export function PhoneField({
             value={country}
             onChange={pickCountry}
             options={countryOptions()}
-            aria-label="Country code"
+            aria-label={countryLabel}
           />
         </div>
         <input
           id={id}
           type="tel"
           inputMode="tel"
-          autoComplete="tel-national"
+          autoComplete={autoComplete}
           value={national}
           onChange={(e) => typed(e.target.value)}
           onBlur={() => setTouched(true)}

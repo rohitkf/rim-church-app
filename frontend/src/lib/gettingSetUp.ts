@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { ONBOARDING_KEY, tourStatusOf, type OnboardingRow } from './onboarding'
 import type { LocationAccess } from './locationAccess'
-import type { JoiningAnswers } from './joining'
+import { JOINING_FORM, type JoiningAnswers } from './joining'
 
 /*
  * Getting set up: what each person has done, in one place (0276).
@@ -57,10 +57,15 @@ export async function closeSetupPrompt(): Promise<void> {
   if (error) throw error
 }
 
-/** My own unanswered questions, for the door. Null when it could not be asked. */
+/**
+ * My own unanswered questions, for the door. Null when it could not be asked.
+ *
+ * Asked by form number (0301): the database answers for the questions this
+ * app's form has, so an app is never shut behind a question it cannot put.
+ */
 export async function fetchMyProfileGaps(): Promise<string[] | null> {
   try {
-    const { data, error } = await supabase.rpc('my_profile_gaps')
+    const { data, error } = await supabase.rpc('my_profile_gaps_for', { p_form: JOINING_FORM })
     if (error) return null
     const parsed = z.array(z.string()).safeParse(data)
     return parsed.success ? parsed.data : null
@@ -77,6 +82,8 @@ export const SETUP_COLUMNS = [
   { key: 'dob', label: 'Date of birth', short: 'Birthday' },
   { key: 'marital', label: 'Marital status', short: 'Marital' },
   { key: 'status', label: 'Status in the UK', short: 'Status' },
+  { key: 'address', label: 'Home address', short: 'Address' },
+  { key: 'emergency', label: 'Emergency contact', short: 'Emergency' },
   { key: 'tour', label: 'Tour taken', short: 'Tour' },
   { key: 'location', label: 'Location allowed', short: 'Location' },
   { key: 'notifications', label: 'Notifications on', short: 'Alerts' },
@@ -87,19 +94,22 @@ export type SetupColumn = (typeof SETUP_COLUMNS)[number]['key']
 export type SetupTicks = Record<SetupColumn, boolean>
 
 /** Which of the form's questions each detail column stands for. */
-const DETAIL_FIELDS: Record<'phone' | 'dob' | 'marital' | 'status', (keyof JoiningAnswers)[]> = {
+const DETAIL_FIELDS: Record<'phone' | 'dob' | 'marital' | 'status' | 'address' | 'emergency', (keyof JoiningAnswers)[]> = {
   phone: ['phone'],
   dob: ['dob'],
   // An anniversary is asked only of somebody married, so it is the same question.
   marital: ['maritalStatus', 'anniversary'],
   status: ['visaType', 'visaHasExpiry', 'visaExpiry'],
+  // Line 2 is optional, so it is never a gap.
+  address: ['addressLine1', 'town', 'postcode'],
+  emergency: ['emergencyName', 'emergencyPhone'],
 }
 
 /**
  * One person's row of ticks.
  *
  * "Profile complete" is every question answered, the names included — so
- * it can be blank while the four detail columns are ticked, for somebody
+ * it can be blank while the detail columns are ticked, for somebody
  * whose name is missing or who has not been through the form at all.
  */
 export function setupTicksOf(
@@ -116,6 +126,8 @@ export function setupTicksOf(
     dob: answered('dob'),
     marital: answered('marital'),
     status: answered('status'),
+    address: answered('address'),
+    emergency: answered('emergency'),
     tour: tourStatusOf(tour).kind === 'taken',
     location: location?.state === 'granted',
     notifications: setup?.notifications === true,

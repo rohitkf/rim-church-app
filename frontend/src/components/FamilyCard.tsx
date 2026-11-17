@@ -231,6 +231,16 @@ function AddressBlock({
     town !== (home?.town ?? '') ||
     postcode !== (home?.postcode ?? '')
 
+  // An address is asked of everybody (0301): line 1, the town and the
+  // postcode. One of them blank is not saved over a whole address — it
+  // waits, and says what it is waiting for.
+  const needed = [
+    !line1.trim() && 'address line 1',
+    !town.trim() && 'the town or city',
+    !postcode.trim() && 'the postcode',
+  ].filter((part): part is string => !!part)
+  const waits = needed.length > 0
+
   // Saves itself a moment after the last keystroke, like the rest of the
   // profile. `onSave` is a new function every render, so it is held in a
   // ref rather than restarting the timer.
@@ -239,20 +249,24 @@ function AddressBlock({
     save.current = onSave
   })
   useEffect(() => {
-    if (!changed) return
+    if (!changed || waits) return
     const timer = window.setTimeout(() => save.current({ line1, line2, town, postcode }), 1000)
     return () => window.clearTimeout(timer)
-  }, [changed, line1, line2, town, postcode])
+  }, [changed, waits, line1, line2, town, postcode])
 
   return (
     <Group title="Address">
-      <p className="-mt-1 text-label-sm text-on-surface-faint">Shared with your spouse once you are linked.</p>
+      <p className="-mt-1 text-label-sm text-on-surface-faint">
+        Where you live now. Everybody gives one; it is shared with your spouse once you are linked.
+      </p>
       <label className={labelClasses}>
         Address line 1
         <input value={line1} onChange={(e) => setLine1(e.target.value)} maxLength={120} autoComplete="address-line1" className={inputClasses} />
       </label>
       <label className={labelClasses}>
-        Address line 2 <span className="sr-only">(optional)</span>
+        <span>
+          Address line 2 <span className="text-on-surface-faint">(optional)</span>
+        </span>
         <input value={line2} onChange={(e) => setLine2(e.target.value)} maxLength={120} autoComplete="address-line2" className={inputClasses} />
       </label>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_10rem]">
@@ -271,6 +285,11 @@ function AddressBlock({
           />
         </label>
       </div>
+      {waits && (
+        <p role="status" className="text-label-sm text-error">
+          Still needed: {needed.join(', ')}. Not saved yet.
+        </p>
+      )}
     </Group>
   )
 }
