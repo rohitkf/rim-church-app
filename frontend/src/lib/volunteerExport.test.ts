@@ -35,7 +35,15 @@ const grant = (userId: string, role_type: string, department_id: string | null =
 })
 
 const base = (over: Partial<ExportInput> = {}): ExportInput => ({
-  people: [person('u1', 'Grace', 'Mensah', { phone: '07000', dob: '1990-04-02' }), person('u2', 'Tunde', 'Alabi')],
+  people: [
+    person('u1', 'Grace', 'Mensah', {
+      phone: '07000',
+      dob: '1990-04-02',
+      emergency_contact_name: 'Ama Mensah',
+      emergency_contact_phone: '+447812345678',
+    }),
+    person('u2', 'Tunde', 'Alabi'),
+  ],
   teams: [
     { id: 'd1', name: 'Audio' },
     { id: 'd2', name: 'Media' },
@@ -62,6 +70,8 @@ describe('the volunteer workbook', () => {
       'Last name',
       'Email',
       'Phone',
+      'Emergency contact',
+      'Emergency number',
       'Date of birth',
       'Wedding anniversary',
       'Core teams',
@@ -75,6 +85,9 @@ describe('the volunteer workbook', () => {
       'Mensah',
       'grace@rim.org',
       '07000',
+      // Who to ring about her (0301), the number as it would be dialled.
+      'Ama Mensah',
+      '+44 7812 345678',
       '1990-04-02',
       '',
       'Audio',
@@ -85,14 +98,16 @@ describe('the volunteer workbook', () => {
 
   it('keeps core and guest teams apart in the same row', () => {
     const row = sheet(base(), 'Volunteers').rows[0]
-    expect(row[6]).toBe('Media') // core
-    expect(row[7]).toBe('Audio') // guest
+    expect(row[8]).toBe('Media') // core
+    expect(row[9]).toBe('Audio') // guest
   })
 
   it('writes a missing value as a blank rather than the word null', () => {
     const row = sheet(base(), 'Volunteers').rows[0]
     expect(row[3]).toBe('')
     expect(row[4]).toBe('')
+    expect(row[5]).toBe('')
+    expect(row[6]).toBe('')
   })
 
   it('only reports on the teams that were ticked', () => {
@@ -101,7 +116,7 @@ describe('the volunteer workbook', () => {
     // Media is not in the cut, so a Media-only membership doesn't appear…
     expect(sheet(only, 'Team members').rows.map((r) => r[0])).toEqual(['Audio', 'Audio'])
     // …and neither does Media in anyone's team list.
-    expect(sheet(only, 'Volunteers').rows.map((r) => r[6])).toEqual(['', 'Audio'])
+    expect(sheet(only, 'Volunteers').rows.map((r) => r[8])).toEqual(['', 'Audio'])
   })
 
   it('leaves out people on none of the chosen teams when asked to', () => {
@@ -158,7 +173,7 @@ describe('the volunteer workbook', () => {
   it('spells out the app-wide roles alongside the team ones', () => {
     const input = base({ adminIds: new Set(['u2']), ownerId: 'u2' })
     const alabi = sheet(input, 'Volunteers').rows[0]
-    expect(alabi[8]).toBe('Owner, Admin')
+    expect(alabi[10]).toBe('Owner, Admin')
   })
 
   it('leaves compliance out of the file unless it was asked for', () => {
@@ -196,6 +211,11 @@ describe('the file name', () => {
     }
     expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('@rim.org')
     expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('07000')
+    // Who to ring goes with them: the same people's to see (0301).
+    expect(sheet(input, 'Volunteers').columns.map((c) => c.label)).not.toContain('Emergency contact')
+    expect(sheet(input, 'Volunteers').columns.map((c) => c.label)).not.toContain('Emergency number')
+    expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('Ama Mensah')
+    expect(JSON.stringify(buildVolunteerWorkbook(input))).not.toContain('7812')
   })
 })
 

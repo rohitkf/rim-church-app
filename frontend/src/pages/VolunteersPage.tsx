@@ -23,6 +23,7 @@ import { Chevron, useExpanded } from '../components/Collapsible'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { Select, selectPillClasses } from '../components/Select'
 import { ROLE_NAME } from '../lib/roleNames'
+import { formatPhoneInternational } from '../lib/phone'
 import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
 import { BlockAccountDialog } from '../components/BlockAccountDialog'
 import { momentWords } from '../lib/appNotices'
@@ -48,6 +49,9 @@ const volunteerSchema = z.object({
    */
   email: z.string().optional(),
   phone: z.string().nullable().optional(),
+  /** Who to ring about them (0301): the same people's to see, by the same function. */
+  emergency_contact_name: z.string().nullable().optional(),
+  emergency_contact_phone: z.string().nullable().optional(),
   dob: z.string().nullable(),
   anniversary: z.string().nullable(),
 })
@@ -56,7 +60,14 @@ type Volunteer = z.infer<typeof volunteerSchema>
 const grantSchema = userRoleSchema.extend({ user_id: z.string() })
 type Grant = z.infer<typeof grantSchema>
 
-const contactSchema = z.object({ id: z.string(), email: z.string().nullable(), phone: z.string().nullable() })
+const contactSchema = z.object({
+  id: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  // Absent from a database that has not had 0301 yet.
+  emergency_contact_name: z.string().nullable().optional(),
+  emergency_contact_phone: z.string().nullable().optional(),
+})
 
 async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
   const { data, error } = await supabase
@@ -72,13 +83,25 @@ async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
     .parse(data)
     .map((p) => ({ ...p, dob: fullDate(dates.get(p.id)) }))
   // Never carried for anybody else, even if a row ever arrived with them.
-  if (!withContacts) return people.map(({ email: _email, phone: _phone, ...rest }) => rest)
+  if (!withContacts) {
+    return people.map(
+      ({ email: _email, phone: _phone, emergency_contact_name: _name, emergency_contact_phone: _ring, ...rest }) => rest,
+    )
+  }
   const contacts = await supabase.rpc('people_contacts', { p_ids: null })
   if (contacts.error) throw contacts.error
   const byId = new Map(z.array(contactSchema).parse(contacts.data ?? []).map((c) => [c.id, c]))
   return people.map((p) => {
     const c = byId.get(p.id)
-    return c ? { ...p, email: c.email ?? undefined, phone: c.phone } : p
+    return c
+      ? {
+          ...p,
+          email: c.email ?? undefined,
+          phone: c.phone,
+          emergency_contact_name: c.emergency_contact_name ?? null,
+          emergency_contact_phone: c.emergency_contact_phone ?? null,
+        }
+      : p
   })
 }
 
@@ -455,6 +478,18 @@ export function VolunteersPage() {
               {/* For whoever the grid gives contact details: nobody else is sent it. */}
               {seesContacts && v.email && (
                 <span className="min-w-0 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{v.email}</span>
+              )}
+              {/* Who to ring about them (0301): wanted on a phone, in a hurry, so the number is a link that dials. */}
+              {seesContacts && v.emergency_contact_phone && (
+                <span className="min-w-0 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
+                  In an emergency: {v.emergency_contact_name || 'their contact'},{' '}
+                  <a
+                    href={`tel:${v.emergency_contact_phone}`}
+                    className="whitespace-nowrap text-accent-blue-soft hover:text-on-surface"
+                  >
+                    {formatPhoneInternational(v.emergency_contact_phone)}
+                  </a>
+                </span>
               )}
               {/* Everything they can open and do, and why: Access & Privileges › By person. */}
               {can('app.permissions') && (

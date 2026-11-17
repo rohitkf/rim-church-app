@@ -7,7 +7,7 @@ import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
 import { SectionTile, inputClasses } from '../components/Surface'
-import { MARITAL_STATUSES, VISA_TYPES, isSettledStatus } from '../lib/joining'
+import { EMERGENCY_NAME_LIMIT, MARITAL_STATUSES, VISA_TYPES, emergencyProblems, isSettledStatus } from '../lib/joining'
 import { YesNoSwitch } from '../components/YesNoSwitch'
 import { FamilyCard } from '../components/FamilyCard'
 import { showToast } from '../lib/toast'
@@ -19,7 +19,15 @@ import { useErrorText } from '../lib/useErrorText'
 const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 
 /** What the profile row is saved as, in one order, so two can be compared. */
-function coreOf(first: string, last: string, phone: string, dob: string, marital: string, anniversary: string) {
+function coreOf(
+  first: string,
+  last: string,
+  phone: string,
+  dob: string,
+  marital: string,
+  anniversary: string,
+  emergency: { name: string; phone: string },
+) {
   return {
     first_name: first.trim(),
     last_name: last.trim(),
@@ -27,6 +35,8 @@ function coreOf(first: string, last: string, phone: string, dob: string, marital
     dob: dob || null,
     marital_status: marital || null,
     anniversary: anniversary || null,
+    emergency_contact_name: emergency.name.trim() || null,
+    emergency_contact_phone: emergency.phone.trim() || null,
   }
 }
 
@@ -53,6 +63,10 @@ export function ProfilePage() {
   const [dob, setDob] = useState('')
   const [anniversary, setAnniversary] = useState('')
   const [maritalStatus, setMaritalStatus] = useState('')
+  const [emergencyName, setEmergencyName] = useState('')
+  const [emergencyPhone, setEmergencyPhone] = useState('')
+  /** Who to ring as last saved: what is kept while the boxes hold something that cannot be. */
+  const savedEmergency = useRef({ name: '', phone: '' })
   const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
   const errorText = useErrorText()
 
@@ -74,8 +88,25 @@ export function ProfilePage() {
     setDob(profile.dob ?? '')
     setAnniversary(profile.anniversary ?? '')
     setMaritalStatus(profile.marital_status ?? '')
-    savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? ''))
+    const emergency = { name: profile.emergency_contact_name ?? '', phone: profile.emergency_contact_phone ?? '' }
+    setEmergencyName(emergency.name)
+    setEmergencyPhone(emergency.phone)
+    savedEmergency.current = emergency
+    savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? '', emergency))
   }, [profile])
+
+  /*
+   * Who to ring is asked of everybody (0301), so it is never saved blank
+   * or wrong over a good answer: a name with no number, a number with no
+   * name, or somebody's own number waits — and says what it is waiting
+   * for — while everything else on the page goes on saving.
+   */
+  const emergencyBad = emergencyProblems(emergencyName, emergencyPhone, phone)
+  const emergencyWaits = !emergencyName.trim()
+    ? 'Enter their name: everybody needs somebody we can ring.'
+    : !emergencyPhone.trim()
+      ? 'Enter their phone number: everybody needs somebody we can ring.'
+      : (emergencyBad.name ?? emergencyBad.phone ?? null)
 
   const profileId = profile?.id
   useEffect(() => {
@@ -104,7 +135,8 @@ export function ProfilePage() {
    */
   useEffect(() => {
     if (!profileId || savedCore.current === null) return
-    const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary)
+    const emergency = emergencyWaits ? savedEmergency.current : { name: emergencyName, phone: emergencyPhone }
+    const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary, emergency)
     const json = JSON.stringify(core)
     if (json === savedCore.current || !firstName.trim() || !lastName.trim()) return
     const timer = window.setTimeout(async () => {
@@ -118,11 +150,12 @@ export function ProfilePage() {
       }
       if (error) return showToast(errorText(error, 'Could not save your profile.'), 'error')
       savedCore.current = json
+      savedEmergency.current = emergency
       showToast('Profile saved')
       refreshProfile()
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, refreshProfile, errorText])
+  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyPhone, emergencyWaits, refreshProfile, errorText])
 
   useEffect(() => {
     if (!profileId || !sensitive || savedSensitive.current === null) return
@@ -171,6 +204,38 @@ export function ProfilePage() {
             <span className="text-label-sm text-on-surface-faint">The address you sign in with.</span>
           </label>
           <PhoneField value={profile.phone ?? ''} onChange={setPhone} />
+        </div>
+      </SectionTile>
+
+      <SectionTile
+        title="In an emergency"
+        hint="Somebody we can ring if something happens to you at church. Only you and the Owner can see these."
+      >
+        <div className="flex flex-col gap-4">
+          <label className={labelClasses}>
+            Their name
+            <input
+              value={emergencyName}
+              onChange={(e) => setEmergencyName(e.target.value)}
+              maxLength={EMERGENCY_NAME_LIMIT}
+              autoComplete="off"
+              aria-invalid={emergencyWaits ? true : undefined}
+              aria-describedby={emergencyWaits ? 'profile-emergency-waits' : undefined}
+              className={inputClasses}
+            />
+          </label>
+          <PhoneField
+            label="Their phone number"
+            countryLabel="Country code of their number"
+            autoComplete="off"
+            value={profile.emergency_contact_phone ?? ''}
+            onChange={setEmergencyPhone}
+          />
+          {emergencyWaits && (
+            <p id="profile-emergency-waits" role="status" className="text-label-sm text-error">
+              {emergencyWaits} Not saved yet.
+            </p>
+          )}
         </div>
       </SectionTile>
 

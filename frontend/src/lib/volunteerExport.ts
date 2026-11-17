@@ -27,6 +27,9 @@ export interface ExportPerson {
   /** Present only when the Owner is exporting (0126). */
   email?: string
   phone?: string | null
+  /** Who to ring about them (0301), with the contact details and never without. */
+  emergency_contact_name?: string | null
+  emergency_contact_phone?: string | null
   dob?: string | null
   anniversary?: string | null
 }
@@ -158,6 +161,8 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       { label: 'Last name', width: 18 },
       { label: 'Email', width: 30 },
       { label: 'Phone', width: 16 },
+      { label: 'Emergency contact', width: 24 },
+      { label: 'Emergency number', width: 18 },
       { label: 'Date of birth', width: 14 },
       { label: 'Wedding anniversary', width: 18 },
       { label: 'Core teams', width: 30 },
@@ -169,6 +174,8 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       p.last_name,
       blank(p.email),
       blank(formatPhoneInternational(p.phone)),
+      blank(p.emergency_contact_name),
+      blank(formatPhoneInternational(p.emergency_contact_phone)),
       blank(p.dob),
       blank(p.anniversary),
       teamsFor(p.id, 'core').join(', '),
@@ -396,7 +403,7 @@ function familySheets(
   return [families, children]
 }
 
-const CONTACT_COLUMNS = new Set(['Email', 'Phone'])
+const CONTACT_COLUMNS = new Set(['Email', 'Phone', 'Emergency contact', 'Emergency number'])
 
 /** The same sheet with its Email and Phone columns taken out. */
 function withoutContacts(sheet: ExportSheet): ExportSheet {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MISSING_TEXT, VISA_TYPES } from './joining'
+import { JOINING_FORM, MISSING_TEXT, VISA_TYPES, missingAnswers } from './joining'
 import { SETUP_COLUMNS, hasSomethingLeft, setupCardDue, setupTicksOf, type PersonSetup } from './gettingSetUp'
 
 const migrations = import.meta.glob('../../../supabase/migrations/*.sql', {
@@ -31,6 +31,20 @@ describe('a person’s row of ticks', () => {
     expect(ticks.profile).toBe(false)
     expect(ticks.phone).toBe(true)
     expect(hasSomethingLeft(ticks)).toBe(true)
+  })
+
+  it('counts any part of the address against the address, and either half of who to ring against that', () => {
+    for (const gap of ['addressLine1', 'town', 'postcode']) {
+      const ticks = setupTicksOf(person({ gaps: [gap] }), toured, phone)
+      expect(ticks.address, gap).toBe(false)
+      expect(ticks.emergency, gap).toBe(true)
+      expect(ticks.profile, gap).toBe(false)
+    }
+    for (const gap of ['emergencyName', 'emergencyPhone']) {
+      const ticks = setupTicksOf(person({ gaps: [gap] }), toured, phone)
+      expect(ticks.emergency, gap).toBe(false)
+      expect(ticks.address, gap).toBe(true)
+    }
   })
 
   it('counts a missing anniversary against marital status, and a missing expiry against UK status', () => {
@@ -101,10 +115,52 @@ describe('the database’s copy of the joining form’s rule', () => {
   })
 
   it('names each question as the form does', () => {
-    const names = [...body.matchAll(/then '([A-Za-z]+)' end/g)].map((m) => m[1])
+    const names = [...body.matchAll(/then '([A-Za-z0-9]+)' end/g)].map((m) => m[1])
     expect(names).toEqual([
       'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary', 'visaType', 'visaHasExpiry', 'visaExpiry',
+      'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone',
     ])
     for (const name of names) expect(MISSING_TEXT).toHaveProperty(name)
+  })
+
+  /*
+   * The other way round: everything the form refuses to go on without, the
+   * database knows to ask for — bar the DBS answer, which cannot be told
+   * from the column's default and so is never a gap (0276). A question the
+   * form asked and the database did not would let somebody back in with it
+   * blank, the first time the page was reloaded.
+   */
+  it('asks for everything the form asks for', () => {
+    const names = new Set([...body.matchAll(/then '([A-Za-z0-9]+)' end/g)].map((m) => m[1]))
+    const blank = missingAnswers({
+      firstName: '', lastName: '', phone: '', dob: '', maritalStatus: 'married', anniversary: '',
+      visaType: '', visaHasExpiry: null, visaExpiry: '', hasDbs: null, visaNote: '',
+      addressLine1: '', addressLine2: '', town: '', postcode: '', emergencyName: '', emergencyPhone: '',
+    })
+    for (const field of blank) {
+      if (field === 'hasDbs' || field === 'visaHasExpiry') continue // the second appears once a status is chosen
+      expect(names.has(field), field).toBe(true)
+    }
+  })
+
+  /*
+   * The forms are numbered (0301) so that an app is never shut behind a
+   * question it cannot put. Three numbers have to be the same one: the form
+   * this app has, the newest the database will answer for, and the one the
+   * table in Settings › Onboarding goes by.
+   */
+  it('numbers its forms, and this app’s is the newest it knows', () => {
+    const newestAnswered = Number(sql.match(/least\(coalesce\(p_form, 1\), (\d+)\)/)?.[1])
+    const newestForTable = Number(sql.match(/select public\.profile_gaps\(p_user, (\d+)\);/)?.[1])
+    expect(newestAnswered).toBe(JOINING_FORM)
+    expect(newestForTable).toBe(JOINING_FORM)
+    // Every question added after the first form is asked only of an app that has it.
+    const later = [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => m[2])
+    expect(later).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone'])
+  })
+
+  it('keeps the door of the app before it on the first form', () => {
+    const old = sql.slice(sql.indexOf('function public.my_profile_gaps()'))
+    expect(old.slice(0, old.indexOf('$function$;'))).toContain('public.profile_gaps(auth.uid(), 1)')
   })
 })

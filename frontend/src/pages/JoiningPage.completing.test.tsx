@@ -21,6 +21,17 @@ const state = vi.hoisted(() => ({
     has_dbs: true,
     visa_note: null as string | null,
   },
+  /** Their household's address as saved (0149); null is no household yet. */
+  home: {
+    id: 'h1',
+    address_line1: '1 High Street',
+    address_line2: null,
+    town: 'Leeds',
+    postcode: 'LS1 1AA',
+  } as { id: string; address_line1: string | null; address_line2: string | null; town: string | null; postcode: string | null } | null,
+  /** Who to ring, as on their profile (0301). */
+  emergency: { name: 'Ama Mensah' as string | null, phone: '+447812345678' as string | null },
+  addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -37,6 +48,8 @@ vi.mock('../auth/AuthContext', () => ({
       avatar_url: null,
       marital_status: 'single',
       onboarded_at: '2026-01-05T09:00:00Z',
+      emergency_contact_name: state.emergency.name,
+      emergency_contact_phone: state.emergency.phone,
     },
     refreshProfile: () => {
       state.refreshed += 1
@@ -47,6 +60,15 @@ vi.mock('../auth/AuthContext', () => ({
 }))
 
 vi.mock('../components/AppMark', () => ({ AppMark: () => null }))
+
+vi.mock('../lib/family', () => ({
+  fetchHouseholds: () => Promise.resolve({ households: state.home ? [state.home] : [], members: [] }),
+  myFamily: (data: { households: unknown[] }) => ({ home: data.households[0] ?? null, spouse: null, children: [], parents: [] }),
+  saveAddress: (a: { line1: string; line2: string; town: string; postcode: string }) => {
+    state.addresses.push(a)
+    return Promise.resolve()
+  },
+}))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -69,6 +91,9 @@ vi.mock('../lib/supabaseClient', () => ({
 beforeEach(() => {
   state.written = []
   state.refreshed = 0
+  state.addresses = []
+  state.home = { id: 'h1', address_line1: '1 High Street', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }
+  state.emergency = { name: 'Ama Mensah', phone: '+447812345678' }
 })
 
 describe('completing a profile that has a blank', () => {
@@ -111,6 +136,65 @@ describe('completing a profile that has a blank', () => {
       visa_has_expiry: true,
       visa_expiry: '2027-09-30',
       has_dbs: true,
+    })
+    // What they gave before goes back as it was: the address and who to ring.
+    expect(profile).toMatchObject({ emergency_contact_name: 'Ama Mensah', emergency_contact_phone: '+447812345678' })
+    expect(state.addresses).toEqual([{ line1: '1 High Street', line2: '', town: 'Leeds', postcode: 'LS1 1AA' }])
+  })
+
+  /*
+   * Everybody who was through the form before 0301: all they are missing
+   * is where they live and who to ring.
+   */
+  it('marks an address and somebody to ring for somebody who has given neither', async () => {
+    state.home = null
+    state.emergency = { name: null, phone: null }
+    render(<JoiningPage completing />)
+    const alert = await screen.findByRole('alert')
+    await waitFor(() =>
+      expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'Date of birth',
+        'Address line 1',
+        'Town or city',
+        'Postcode',
+        'Emergency contact’s name',
+        'Emergency contact’s number',
+      ]),
+    )
+    expect(screen.getByText(/your address and somebody to ring in an emergency/)).toBeInTheDocument()
+  })
+
+  it('has an address their spouse already gave filled in, and does not ask for it again', async () => {
+    state.emergency = { name: null, phone: null }
+    render(<JoiningPage completing />)
+    expect(await screen.findByDisplayValue('1 High Street')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('LS1 1AA')).toBeInTheDocument()
+    const alert = screen.getByRole('alert')
+    expect(within(alert).queryByRole('button', { name: 'Address line 1' })).toBeNull()
+    expect(within(alert).getByRole('button', { name: 'Emergency contact’s name' })).toBeInTheDocument()
+  })
+
+  it('saves the address and who to ring, and lets them back in', async () => {
+    const user = userEvent.setup()
+    state.home = null
+    state.emergency = { name: null, phone: null }
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Your status in the UK' })).toHaveTextContent('Student visa'))
+    await pickDate(user, screen.getByLabelText('Date of birth'), '1990-04-12')
+    // Marked from the start, so each label carries its message too.
+    await user.type(await screen.findByLabelText(/^Address line 1/), '22 Park Row')
+    await user.type(screen.getByLabelText(/^Address line 2/), 'Flat 3')
+    await user.type(screen.getByLabelText(/^Town or city/), 'Leeds')
+    await user.type(screen.getByLabelText(/^Postcode/), 'ls1 5hd')
+    await user.type(screen.getByLabelText(/^Their name/), 'Kofi Mensah')
+    await user.type(screen.getByLabelText('Their phone number'), '07898765432')
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.addresses).toEqual([{ line1: '22 Park Row', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 5HD' }])
+    expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({
+      emergency_contact_name: 'Kofi Mensah',
+      emergency_contact_phone: '+447898765432',
+      onboarded_at: '2026-01-05T09:00:00Z',
     })
   })
 })
