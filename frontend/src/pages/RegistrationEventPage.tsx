@@ -9,7 +9,7 @@ import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
-import { applyPromoToOrder, canTakePromo, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
+import { applyPromoToOrder, canTakePromo, carriesPromo, promoHeldBy, removePromoFromOrder, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
 import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
@@ -185,6 +185,17 @@ export function RegistrationEventPage() {
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
   })
+  // Their registration as it now stands, by email, after a code went on or came off
+  // (lib/promoLater). If it did not go — refused, or held because they were written to
+  // a moment ago — whoever pressed is told: the press said they would be.
+  const mailAfterPromo = (order: OrderRow) => {
+    const slug = full.data?.event.slug
+    if (!order.email || !slug) return undefined
+    return () =>
+      void sendTicketAfterPromo(order, slug).then((mail) => {
+        if (!mail.ok || mail.sent === false) showToast(`${order.name} was not emailed about this. Tell them, or send their email again in a few minutes.`, 'error', 8000)
+      })
+  }
   // A code put on a registration made without it (0298): the price comes down, or it becomes a ticket.
   const applyPromo = useMutation({
     mutationFn: ({ order, code }: { order: OrderRow; code: PromoCode }) => applyPromoToOrder(order.id, code.code),
@@ -193,12 +204,27 @@ export function RegistrationEventPage() {
       setPromoError(null)
       // Their ticket as it now stands, by email, once the press can no longer
       // be taken back — by whichever way whoever pressed is allowed (lib/promoLater).
-      const slug = full.data?.event.slug
-      done(order, `Promo code ${code.code} applied`, order.email && slug ? () => void sendTicketAfterPromo(order, slug) : undefined)
+      done(order, `Promo code ${code.code} applied`, mailAfterPromo(order))
       return refresh()
     },
     onError: (err: unknown) => {
       setPromoError(errorText(err, 'The code could not be put on that registration.'))
+      // Refused because it had changed under them: show it as it now is.
+      void refresh()
+    },
+  })
+  // A code taken off a registration again (0299): the full price, awaiting payment.
+  const takePromoOff = useMutation({
+    mutationFn: (order: OrderRow) => removePromoFromOrder(order.id),
+    onSuccess: (_r, order) => {
+      setError(null)
+      // "Payment needed", by email, once the press can no longer be taken back — unless
+      // the code had taken nothing off, when nothing has changed for them to be told.
+      done(order, order.promo_code ? `Promo code ${order.promo_code} removed` : 'Promo code removed', order.discount_pence > 0 ? mailAfterPromo(order) : undefined)
+      return refresh()
+    },
+    onError: (err: unknown) => {
+      setError(errorText(err, 'The code could not be taken off that registration.'))
       // Refused because it had changed under them: show it as it now is.
       void refresh()
     },
@@ -342,6 +368,20 @@ export function RegistrationEventPage() {
     setPromoError(null)
     setPromoFor(order)
   }
+  const removePromo = (order: OrderRow) =>
+    ask({
+      title: `Remove the promo code from ${order.name}’s registration?`,
+      body:
+        order.discount_pence > 0
+          ? `${order.promo_code ?? 'The code'} comes off and has its use back. The registration goes back to ${pounds(order.subtotal_pence)}, awaiting payment${
+              order.email ? `, and an email to ${order.email} asks for it.` : '. They gave no email address, so nobody is told.'
+            }`
+          : // Registered with a code that came to nothing (free tickets only): it still spent a use.
+            `${order.promo_code ?? 'The code'} comes off and has its use back. It took nothing off this registration, so the price stays as it is and nobody is told.`,
+      confirmLabel: 'Remove it',
+      cancelLabel: 'Keep it',
+      onConfirm: () => takePromoOff.mutate(order),
+    })
   const cancelOrder = (order: OrderRow) =>
     ask({
       title: `Cancel ${order.name}’s registration?`,
@@ -678,11 +718,11 @@ export function RegistrationEventPage() {
                   invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
                   sharesEmail={sharesAnEmail(o, dupes)}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
-                  busy={mark.isPending || verify.isPending}
+                  busy={mark.isPending || verify.isPending || takePromoOff.isPending}
                   actions={withUndo(
                     lastDone(o.id),
                     () => void runUndo({ orderId: o.id, refresh, words: errorText }),
-                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined),
+                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined, () => removePromo(o)),
                   )}
                   next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))}
                 />
@@ -885,6 +925,8 @@ function orderActions(
   email: () => void,
   /** Put a promo code on it for them (0298); absent when the event has no code that could be used. */
   promo?: () => void,
+  /** Take the promo code on it off again (0299). */
+  removePromo?: () => void,
 ): MenuAction[] {
   const actions: MenuAction[] = []
   // Their address (0283): put right, or their email sent once more. Not once the retention job has blanked it.
@@ -942,6 +984,16 @@ function orderActions(
             o.total_pence > 0 && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
             ? { label: 'Check in', onSelect: () => undefined, disabled: true, hint: 'Not until it is paid: mark it received or waive it first' }
             : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
+      )
+    }
+    // A code on it that should not be (0299): off it comes, and the price is as it was.
+    // What stands in the way is said rather than hidden: the database refuses the same.
+    if (r.approve && removePromo && carriesPromo(o)) {
+      const held = promoHeldBy(o)
+      actions.push(
+        held
+          ? { label: 'Remove promo code', onSelect: () => undefined, disabled: true, hint: held }
+          : { label: 'Remove promo code', onSelect: removePromo, hint: o.discount_pence > 0 ? `It goes back to ${pounds(o.subtotal_pence)}, awaiting payment` : 'It took nothing off: the code just has its use back' },
       )
     }
   } else if (o.refund_status !== 'refunded' && r.cancel) {

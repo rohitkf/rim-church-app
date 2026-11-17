@@ -36,6 +36,7 @@ export const RELEASES: Release[] = [
     points: [
       'On a registration awaiting payment: ⋯ › Apply a promo code. The price comes down, or it becomes their ticket.',
       'They can do it themselves too: an unpaid ticket page now asks “Have a promo code?”.',
+      'A code on the wrong registration comes off again: ⋯ › Remove promo code. The price goes back and the code has its use back.',
       'Registrations under the same email are tagged, with a filter, so a double registration is easy to find and cancel.',
       'Waived payments are shown apart from money received, on the page and in the export.',
     ],

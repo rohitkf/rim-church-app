@@ -22,6 +22,9 @@ const state = vi.hoisted(() => ({
   // Promo codes put on registrations afterwards (0298): [order id, code], and a refusal to give.
   promoApplied: [] as unknown[],
   promoRefused: null as string | null,
+  // Promo codes taken off again (0299): the order's id, and a refusal to give.
+  promoRemoved: [] as string[],
+  promoRemoveRefused: null as string | null,
   marked: [] as unknown[],
   notes: [] as unknown[],
   statuses: [] as unknown[],
@@ -72,6 +75,10 @@ vi.mock('../lib/promoLater', async (original) => ({
   applyPromoToOrder: (id: string, code: string) => {
     state.promoApplied.push([id, code])
     return state.promoRefused ? Promise.reject(new Error(state.promoRefused)) : Promise.resolve()
+  },
+  removePromoFromOrder: (id: string) => {
+    state.promoRemoved.push(id)
+    return state.promoRemoveRefused ? Promise.reject(new Error(state.promoRemoveRefused)) : Promise.resolve()
   },
 }))
 vi.mock('../lib/registrationInvites', async (original) => ({
@@ -237,6 +244,8 @@ beforeEach(() => {
   state.invites = []
   state.promoApplied = []
   state.promoRefused = null
+  state.promoRemoved = []
+  state.promoRemoveRefused = null
   state.marked = []
   state.notes = []
   state.statuses = []
@@ -310,6 +319,8 @@ describe('an event’s page', () => {
       expect.stringContaining('Mark as received'),
       'Waive the payment',
       expect.stringContaining('Check in'),
+      // She registered with a code (EARLY): it can be taken off again (0299).
+      expect.stringContaining('Remove promo code'),
       'Add a note',
       'Cancel registration',
     ])
@@ -1182,6 +1193,126 @@ describe('registrations made without the code, twice, or waived', () => {
     const again = show()
     await screen.findByRole('listitem', { name: 'Binitha John' })
     expect(within(await openMenu(again, 'Binitha John')).queryByRole('menuitem', { name: /Apply a promo code/ })).toBeNull()
+  })
+
+  // Free with a code that should not have been on it (0299).
+  const coded = (over: Partial<OrderRow> = {}) => unpaid({ promo_code: 'FREE', discount_pence: 2000, total_pence: 0, payment_status: 'not_needed', ...over })
+
+  it('takes a promo code off a registration again, only after asking', async () => {
+    state.orders = [coded()]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    const item = within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ })
+    expect(item).toHaveTextContent('It goes back to £20.00, awaiting payment')
+    await user.click(item)
+
+    // What it will do, said before it is done: the price, the code's use, and who is told.
+    const dialog = screen.getByRole('alertdialog', { name: 'Remove the promo code from Binitha John’s registration?' })
+    expect(dialog).toHaveTextContent('FREE comes off and has its use back.')
+    expect(dialog).toHaveTextContent('goes back to £20.00, awaiting payment, and an email to binitha@example.org asks for it.')
+    expect(state.promoRemoved).toEqual([])
+    await user.click(within(dialog).getByRole('button', { name: 'Remove it' }))
+
+    await waitFor(() => expect(state.promoRemoved).toEqual(['o-un']))
+    // Said, with Undo on it like every other press.
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Promo code FREE removed', action: { label: 'Undo' } }))
+    // …and, the offer of an undo over, they are emailed their registration as it now stands.
+    await waitFor(() => expect(state.again).toEqual(['JKMNPQRSTUVW']))
+  })
+
+  it('tells whoever pressed when the attendee’s email did not go', async () => {
+    state.orders = [coded()]
+    // Held back, or not set up: nothing was sent.
+    state.againAnswer = { ok: true, sent: false }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    await user.click(within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove it' }))
+    await waitFor(() => expect(state.toasts.some((t) => /Binitha John was not emailed about this/.test((t as { text: string }).text))).toBe(true))
+  })
+
+  it('keeps the code when asked to, and says nobody is told when there is no address', async () => {
+    state.orders = [coded({ email: null })]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    await user.click(within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ }))
+    const dialog = screen.getByRole('alertdialog', { name: /Remove the promo code/ })
+    expect(dialog).toHaveTextContent('They gave no email address, so nobody is told.')
+    await user.click(within(dialog).getByRole('button', { name: 'Keep it' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(state.promoRemoved).toEqual([])
+  })
+
+  it('says so when the code had taken nothing off: no price to go back to, and nobody to tell', async () => {
+    // Free tickets only, registered with a code typed in: it came to nothing, and still spent a use.
+    state.orders = [unpaid({ subtotal_pence: 0, total_pence: 0, discount_pence: 0, payment_status: 'not_needed', promo_code: 'FREE' })]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    const item = within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ })
+    expect(item).toHaveTextContent('It took nothing off: the code just has its use back')
+    await user.click(item)
+    const dialog = screen.getByRole('alertdialog', { name: /Remove the promo code/ })
+    expect(dialog).toHaveTextContent('It took nothing off this registration, so the price stays as it is and nobody is told.')
+    expect(dialog).not.toHaveTextContent('awaiting payment')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove it' }))
+    await waitFor(() => expect(state.promoRemoved).toEqual(['o-un']))
+    await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Promo code FREE removed' }))
+    // Nothing changed for them, so nothing is sent.
+    expect(state.again).toEqual([])
+  })
+
+  it('shows what the database refused when a code will not come off', async () => {
+    state.orders = [coded()]
+    state.promoRemoveRefused = 'This registration has been checked in. Undo the check-in first.'
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    await user.click(within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove it' }))
+    expect(await screen.findByText('The code could not be taken off that registration.')).toBeInTheDocument()
+  })
+
+  it('offers to take a code off only where there is one, and says what stands in the way', async () => {
+    state.orders = [
+      coded(),
+      unpaid({ id: 'o-part', name: 'Part Off', email: 'p@example.org', promo_code: 'EARLY', discount_pence: 200, total_pence: 1800 }),
+      unpaid({ id: 'o-none', name: 'No Code', email: 'n@example.org' }),
+      unpaid({ id: 'o-inv', name: 'By Invite', email: 'd@example.org', invite_id: 'i1', discount_pence: 2000, total_pence: 0, payment_status: 'not_needed' }),
+      coded({ id: 'o-gone', name: 'Was Cancelled', email: 'g@example.org', status: 'cancelled' }),
+      coded({ id: 'o-in', name: 'Checked In', email: 'i@example.org', checked_in_at: '2026-11-17T10:00:00Z' }),
+      unpaid({ id: 'o-paid', name: 'Has Paid', email: 'b@example.org', promo_code: 'EARLY', discount_pence: 200, total_pence: 1800, payment_status: 'received' }),
+      unpaid({ id: 'o-said', name: 'Says Paid', email: 's@example.org', promo_code: 'EARLY', discount_pence: 200, total_pence: 1800, payment_status: 'reported' }),
+    ]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    // null: not offered; otherwise whether it can be pressed, and its hint.
+    const offered = async (name: string) => {
+      const item = within(await openMenu(user, name)).queryByRole('menuitem', { name: /Remove promo code/ })
+      const found = item ? { pressable: item.getAttribute('aria-disabled') !== 'true' && !(item as HTMLButtonElement).disabled, words: item.textContent ?? '' } : null
+      await user.keyboard('{Escape}')
+      return found
+    }
+    expect(await offered('Binitha John')).toMatchObject({ pressable: true })
+    expect(await offered('Part Off')).toMatchObject({ pressable: true })
+    expect(await offered('No Code')).toBeNull()
+    expect(await offered('By Invite')).toBeNull()
+    expect(await offered('Was Cancelled')).toBeNull()
+    const checkedIn = await offered('Checked In')
+    expect(checkedIn?.pressable).toBe(false)
+    expect(checkedIn?.words).toContain('undo the check-in first')
+    const paid = await offered('Has Paid')
+    expect(paid?.pressable).toBe(false)
+    expect(paid?.words).toContain('put it back to awaiting payment first')
+    const said = await offered('Says Paid')
+    expect(said?.pressable).toBe(false)
+    expect(said?.words).toContain('settle that first')
+  })
+
+  it('does not offer to take a code off to somebody who may not approve payments', async () => {
+    state.orders = [coded()]
+    rights.now = { office: true, door: false, edit: true, approve: false, takePayment: false, refund: false, cancel: true, delete: false, checkIn: false, walkIn: false }
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    expect(within(await openMenu(user, 'Binitha John')).queryByRole('menuitem', { name: /Remove promo code/ })).toBeNull()
   })
 
   it('marks registrations that share an email, counts them, and shows only those when asked', async () => {
