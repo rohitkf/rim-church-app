@@ -10,8 +10,10 @@ import {
   tourStandingOf,
   type TourContext,
 } from './tour'
-import { ruleFor } from './pageAccess'
-import { sectionFor } from './settingsSections'
+import { PAGE_RULES, ruleFor } from './pageAccess'
+import { SETTINGS_SECTIONS, sectionFor } from './settingsSections'
+import { ROLE_NAME } from './roleNames'
+import type { ViewAs } from '../auth/AuthContext'
 
 /*
  * The tour's content is data, so it can be held to the app: every step
@@ -55,8 +57,16 @@ describe('the chapters', () => {
   })
 
   it('climb the ladder: each standing gets its own chapters and every one below', () => {
-    expect(chaptersFor('church').map((c) => c.key)).toEqual(['welcome', 'around', 'church'])
-    expect(chaptersFor('member').map((c) => c.key)).toEqual(['welcome', 'around', 'church', 'serving', 'team', 'talk'])
+    expect(chaptersFor('church').map((c) => c.key)).toEqual(['welcome', 'around', 'church', 'events'])
+    expect(chaptersFor('member').map((c) => c.key)).toEqual([
+      'welcome',
+      'around',
+      'church',
+      'serving',
+      'team',
+      'talk',
+      'events',
+    ])
     expect(chaptersFor('lead').map((c) => c.key)).toContain('leading')
     expect(chaptersFor('lead').map((c) => c.key)).not.toContain('running')
     expect(chaptersFor('admin').map((c) => c.key)).toContain('running')
@@ -68,6 +78,96 @@ describe('the chapters', () => {
     expect(tourStandingOf({ isOwner: true, standing: 'admin' })).toBe('owner')
     expect(tourStandingOf({ isOwner: false, standing: 'admin' })).toBe('admin')
     expect(tourStandingOf({ isOwner: false, standing: 'church' })).toBe('church')
+  })
+})
+
+/*
+ * Kept up to date by the tests, not by remembering (the Owner's standing
+ * instruction, November 2026): a page added to the app, a room added to
+ * Settings or a preview added to View as fails here until the tour says
+ * something about it — or until it is named below as left out on purpose.
+ */
+describe('the tour keeps up with the app', () => {
+  const steps = TOUR_CHAPTERS.flatMap((c) => c.steps)
+
+  it('has a step on every page the app has', () => {
+    const toured = new Set(steps.map((s) => s.path))
+    for (const path of Object.keys(PAGE_RULES)) {
+      expect(toured.has(path), `no step in lib/tour.ts is on ${path}`).toBe(true)
+    }
+  })
+
+  /*
+   * Rooms the tour walks past, and why: your own two are found from Your
+   * account's step and need no telling; the rest set one page's rules, and
+   * that page's own step or Page by Page's covers them. A new room is not
+   * in this list, so it needs a step or a line here.
+   */
+  const ROOMS_LEFT_OUT = [
+    '/settings/appearance',
+    '/settings/notifications',
+    '/settings/overwatch',
+    '/settings/rota',
+    '/settings/giving',
+    '/settings/stage',
+    '/settings/prayer',
+    '/settings/feedback',
+  ]
+
+  it('has a step for every room of Settings, bar the ones left out on purpose', () => {
+    const toured = new Set(
+      steps.map((s) => (s.target?.startsWith('settings:') ? s.target.slice('settings:'.length) : s.path)),
+    )
+    for (const room of SETTINGS_SECTIONS) {
+      const leftOut = ROOMS_LEFT_OUT.includes(room.to)
+      expect(toured.has(room.to) !== leftOut, `${room.to}: a step in lib/tour.ts, or a line in ROOMS_LEFT_OUT — one, not both`).toBe(true)
+    }
+    for (const room of ROOMS_LEFT_OUT) expect(sectionFor(room), room).toBeTruthy()
+  })
+
+  /*
+   * Every preview View as offers, in the words the tour must use for it.
+   * The record is exhaustive over the type, so a new preview is a compile
+   * error here before it is a preview the tour never mentions.
+   */
+  const PREVIEW_WORDS: Record<ViewAs['as'], string> = {
+    church: ROLE_NAME.newcomer,
+    member: ROLE_NAME.member,
+    coordinator: ROLE_NAME.coordinator,
+    assistant: ROLE_NAME.assistant,
+    head: 'Head',
+    overwatch: ROLE_NAME.overwatch,
+    pastor: ROLE_NAME.pastor,
+    admin: ROLE_NAME.admin,
+  }
+
+  it('names every preview View as offers: an Admin’s in Running the app, the Owner’s own in the Owner’s keys', () => {
+    const running = TOUR_CHAPTERS.find((c) => c.key === 'running')!.steps.find((s) => s.title === 'View as')!
+    const owners = TOUR_CHAPTERS.find((c) => c.key === 'owner')!.steps.find((s) => s.title === 'View as an Admin')!
+    for (const [as, word] of Object.entries(PREVIEW_WORDS)) {
+      // Previewing an Admin is the Owner's alone (AuthContext), so it is the Owner's step that says it.
+      const step = as === 'admin' ? owners : running
+      expect(step.body, `View as ${as}`).toContain(word)
+    }
+    expect(running.body).not.toContain(ROLE_NAME.admin)
+  })
+})
+
+describe('the chapter cut by a right', () => {
+  const events = TOUR_CHAPTERS.find((c) => c.key === 'events')!
+
+  it('is shown to nobody who cannot open Registrations or Reception', () => {
+    const noDoor = { ...everyone, canOpen: (p: string) => p !== '/registrations' && p !== '/door', roomOpen: () => false }
+    expect(stepsOf(events, noDoor)).toEqual([])
+  })
+
+  it('shows somebody given the door Reception, and not the office or its room in Settings', () => {
+    const door = { ...everyone, canOpen: (p: string) => p !== '/registrations', roomOpen: () => false }
+    expect(stepsOf(events, door).map((s) => s.title)).toEqual(['Reception'])
+  })
+
+  it('shows whoever runs registrations all of it', () => {
+    expect(stepsOf(events, everyone).map((s) => s.title)).toEqual(['Registrations', 'Reception', 'Who works the door'])
   })
 })
 
@@ -102,7 +202,8 @@ describe('what is due', () => {
 
   it('is only what has not been seen: the team chapters for a new Team Member', () => {
     const seen = { welcome: '2026-10-01T10:00:00Z', around: '2026-10-01T10:01:00Z', church: '2026-10-01T10:02:00Z' }
-    expect(dueChapters(chapters, seen, null).map((c) => c.key)).toEqual(['serving', 'team', 'talk'])
+    // 'events' is owed to everybody and shown only to whoever has a step in it (stepsOf).
+    expect(dueChapters(chapters, seen, null).map((c) => c.key)).toEqual(['serving', 'team', 'talk', 'events'])
   })
 
   it('is everything again once the tour was sent after it was seen', () => {
@@ -123,12 +224,13 @@ describe('the one tour running', () => {
     expect(currentTour()).toBeNull()
     startTour(chaptersFor('church'), 'manual')
     expect(currentTour()?.mode).toBe('manual')
-    expect(currentTour()?.chapters.map((c) => c.key)).toEqual(['welcome', 'around', 'church'])
+    expect(currentTour()?.chapters.map((c) => c.key)).toEqual(['welcome', 'around', 'church', 'events'])
     endTour()
     expect(currentTour()).toBeNull()
   })
 
   it('does not start on nothing', () => {
+    endTour()
     startTour([], 'manual')
     expect(currentTour()).toBeNull()
   })

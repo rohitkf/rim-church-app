@@ -14,12 +14,27 @@ import { ROLE_NAME } from './roleNames'
  * a team is shown the team's pages the next time they open the app, and
  * nothing they have already been walked through.
  *
+ * One chapter is cut by a right instead of a standing: Registrations and
+ * Reception open to whoever the grid names, a Church Member working the
+ * door as much as the Owner. It sits at the bottom of the ladder, so
+ * everybody is offered it, and its steps are on pages only its people may
+ * open — so nobody else is shown it, and somebody given the door next
+ * month is walked round it then.
+ *
  * What has been seen is on the account (0153), not in the browser. An
  * Admin can send the tour again, to everybody or to a few, and a chapter
  * seen before that send is due again.
  *
  * The content is here, as data, so adding a page to the app means adding
- * a step here — and the tests hold every step to a page that exists.
+ * a step here — and the tests hold every step to a page that exists, and
+ * every page in the menu and every room of Settings to a step. A step is
+ * a sentence about what is on the screen now: when a page changes what it
+ * does, its sentence changes in the same commit (AGENTS.md §5).
+ *
+ * A chapter's key is what the account remembers, so it never changes. A
+ * step added to a chapter people have seen is met by new accounts, and by
+ * everybody when the tour is next sent; a new chapter is shown to
+ * everybody who has steps in it, once, the next time they open the app.
  */
 
 export type TourStanding = Standing | 'owner'
@@ -121,13 +136,19 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/',
         target: 'page-title',
         title: 'The dashboard',
-        body: 'The next service and the countdown to it, what is coming up, this week’s birthdays and anniversaries, and whatever is waiting on you. It fills out as you do more here.',
+        body: 'The next service and the countdown to it, what is coming up, this week’s birthdays and anniversaries, and whatever is waiting on you. While a service is running, its card says what is on now, who is taking it and how long it has left.',
       },
       {
         path: '/',
         target: 'at-church',
         title: 'Am I at church?',
         body: 'Under the date: green when your phone is at church, red when it is not. Tap it to see how far. It needs location allowed — if it says Location blocked, tap it and press Allow location, and it shows the steps for your phone.',
+      },
+      {
+        path: '/',
+        target: 'notices',
+        title: 'A notice from the church',
+        body: 'When the church has something everybody should know, it is a line across the top of every page for as long as it is true. Nothing buzzes and nothing needs pressing. A notice about maintenance says when the app will be closed, before it is.',
       },
     ],
   },
@@ -140,13 +161,13 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/service-planner',
         target: 'page-title',
         title: 'Service Planner',
-        body: 'The running order of each service, session by session, and who is coordinating it.',
+        body: 'The running order of each service, session by session, who is taking each and who is coordinating it. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown.',
       },
       {
         path: '/events',
         target: 'page-title',
         title: 'Calendar',
-        body: 'Birthdays, anniversaries, services and church events, in one diary.',
+        body: 'Birthdays, anniversaries, services, church events and the meetings that happen every week or month, in one diary. It shows a screen at a time; Show more brings the rest.',
       },
       {
         path: '/updates',
@@ -158,7 +179,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/polls',
         target: 'page-title',
         title: 'Polls',
-        body: 'When the church asks a question, it lands here. One tap to answer.',
+        body: 'When the church asks a question, it lands here. One tap to answer, and Share hands somebody the link to that poll.',
       },
       {
         path: '/stage',
@@ -220,7 +241,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/rota',
         target: 'page-title',
         title: 'Team Rota',
-        body: 'Who is doing what, and when each team is due in. Your call time also comes to your phone on Saturday evening, and again whenever it changes.',
+        body: 'Who is doing what, and when each team is due in. Your call time also comes to your phone on Saturday evening, and again whenever it changes. If a role is yours permanently, you are on the rota for it without being asked, unless you say you cannot serve.',
       },
       {
         path: '/',
@@ -263,7 +284,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/countdown',
         target: 'page-title',
         title: 'Countdown',
-        body: 'The service’s clock, large: how long until the next session, and past zero how far over it is running. It follows the Service Planner as the running order changes.',
+        body: 'The service’s clock, large: how long the session has left, green, then amber, then red as the end comes, and past zero how far over it is running. It follows the Service Planner as the running order changes.',
       },
       {
         path: '/inventory',
@@ -305,6 +326,33 @@ export const TOUR_CHAPTERS: TourChapter[] = [
     ],
   },
   {
+    // Cut by a right, not a standing (see the top of the file): every step
+    // is on a page or in a room that opens only to whoever the grid names.
+    key: 'events',
+    standing: 'church',
+    title: 'Events and the door',
+    steps: [
+      {
+        path: '/registrations',
+        target: 'page-title',
+        title: 'Registrations',
+        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes and invite links, a map, and who has paid. A code can be put on a registration after it is made, a message to the organisers lands on the event’s page, and anything pressed by accident has Undo for ten minutes.',
+      },
+      {
+        path: '/door',
+        target: 'page-title',
+        title: 'Reception',
+        body: 'The door on the day. Scan a ticket’s QR code or find the name, check people in, take a payment, register a walk-in. You are shown the buttons that are yours to press.',
+      },
+      {
+        path: '/settings',
+        target: 'settings:/settings/reception',
+        title: 'Who works the door',
+        body: 'Who works the door, and what each of them may press. A door right is given once and holds every day, so whoever runs registrations can lock Reception between events: while it is locked the door’s rights give nothing, and nobody’s rights are changed.',
+      },
+    ],
+  },
+  {
     key: 'leading',
     standing: 'lead',
     title: 'Leading a team',
@@ -337,13 +385,13 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/clock-in',
         target: 'page-title',
         title: 'Who has arrived',
-        body: 'Each team’s card shows who is in, and who is still to come. Requests to be clocked in come to whoever answers them.',
+        body: 'Each team’s card shows who is in, and who is still to come. Anybody late for their call time is in red and first, and Arrivals, person by person, keeps each person’s last four weeks. Requests to be clocked in come to whoever answers them.',
       },
       {
         path: '/departments',
         target: 'page-title',
         title: 'Your team’s page',
-        body: 'Join requests land here for you to answer. Set the team’s roles and each role’s checklist, upload the handbook, and invite somebody straight onto the team.',
+        body: 'Join requests land here for you to answer. Set the team’s roles and each role’s checklist, upload the handbook, and invite somebody straight onto the team. Under a role, make somebody permanent and they are on the rota for it by default.',
       },
       {
         path: '/settings/alerts',
@@ -362,13 +410,19 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'page-title',
         title: 'Settings',
-        body: 'The church’s set-up lives here, room by room.',
+        body: 'The church’s set-up lives here, room by room, in six groups. You see the rooms that are yours to enter.',
       },
       {
         path: '/settings',
         target: 'settings:/settings/access',
         title: 'Access & Privileges',
-        body: 'Who can open each page, and who can do what. Every row is the church’s to change, and the database enforces what is chosen.',
+        body: 'Who can open each page, and who can do what: by role, by team, or one person at a time, down to keeping one person from one thing. Every row is the church’s to change, and the database enforces what is chosen.',
+      },
+      {
+        path: '/settings',
+        target: 'settings:/settings/general',
+        title: 'General',
+        body: 'The church’s time zone, and the bell: the settings that belong to no one page.',
       },
       {
         path: '/settings',
@@ -386,19 +440,19 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/onboarding',
         title: 'Onboarding',
-        body: 'Send this tour to anybody, everyone at once or a few. It opens for them the next time they open the app. Whose phone allows location, and a button to ask the rest, is in Clock In’s settings.',
+        body: 'One table of who has set up what: their details, this tour, location, the app installed, notifications. Ask whoever has something left to finish it, and send this tour to anybody, everyone at once or a few. It opens for them the next time they open the app.',
       },
       {
         path: '/settings',
         target: 'settings:/settings/clock-in',
         title: 'Clock in',
-        body: 'Where the church is, how close counts, when the reminder goes, and who answers requests to be clocked in. Fix or add anybody’s time on the Clock In page.',
+        body: 'Where the church is, how close counts, how long after a call time is late, when the reminder goes, and who answers requests to be clocked in. Fix or add anybody’s time on the Clock In page.',
       },
       {
         path: '/volunteers',
         target: 'people-invite',
         title: 'Volunteers',
-        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster.',
+        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster. Block stops an account without removing it, and Unblock puts everything back.',
       },
       {
         path: '/departments',
@@ -410,7 +464,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/',
         target: 'account',
         title: 'View as',
-        body: 'From your account menu, see the app as a Church Member, a Team Member or a Head would: the same pages, the same menu, nothing more.',
+        body: 'From your account menu, see the app as somebody else would: a Church Member; a Team Member, Team Coordinator, Assisting Head or Head of a team you pick; Overwatch; a Pastor. The pages, the menu and the buttons are theirs. The data is still read as you, and anything you save is saved for real.',
       },
     ],
   },
@@ -438,16 +492,28 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'What people tell the app lands with you, to answer or to mark done.',
       },
       {
-        path: '/registrations',
-        target: 'page-title',
-        title: 'Registrations',
-        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes, a map, and who has paid. Share the link; the ticket carries a QR code for the door.',
+        path: '/',
+        target: 'account',
+        title: 'View as an Admin',
+        body: 'View as has one more for you: an Admin, without the Owner’s keys.',
+      },
+      {
+        path: '/settings',
+        target: 'settings:/settings/notices',
+        title: 'App Notices',
+        body: 'Put a line at the top of every page for everybody: information, a warning, or maintenance. A maintenance notice can close the app for a time; out of the box, Admins keep working while it is closed.',
+      },
+      {
+        path: '/settings',
+        target: 'settings:/settings/health',
+        title: 'App Health',
+        body: 'What has gone wrong, so you hear it from the app and not from somebody on Sunday: errors on people’s devices, timed jobs and notifications that failed.',
       },
       {
         path: '/settings',
         target: 'settings:/settings/logo',
         title: 'The app’s mark',
-        body: 'The logo at the top of every page.',
+        body: 'The logo at the top of every page, and the icon of the app installed on people’s phones.',
       },
       {
         path: '/settings',

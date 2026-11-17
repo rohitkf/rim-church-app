@@ -20,7 +20,14 @@ const auth = vi.hoisted(() => ({
   isSuperAdmin: false,
   viewAs: null as unknown,
 }))
-const access = vi.hoisted(() => ({ standing: 'church', settled: true, open: null as Set<string> | null }))
+const access = vi.hoisted(() => ({
+  standing: 'church',
+  settled: true,
+  open: null as Set<string> | null,
+  /** Given the door: Reception opens, as it does to nobody without a right in the grid. */
+  door: false,
+}))
+
 const teams = vi.hoisted(() => ({ onATeam: false, settled: true }))
 const db = vi.hoisted(() => ({
   row: null as { user_id: string; seen: Record<string, string>; pushed_at: string | null } | null,
@@ -32,11 +39,17 @@ vi.mock('../lib/usePageAccess', () => ({
   usePageAccess: () => ({
     standing: access.standing,
     settled: access.settled,
-    canOpen: (path: string) => (access.open ? access.open.has(path) : true),
+    // Registrations and Reception open by a right, not a standing: shut
+    // to the people in these tests unless one is given the door.
+    canOpen: (path: string) =>
+      path === '/registrations' ? false : path === '/door' ? access.door : access.open ? access.open.has(path) : true,
   }),
 }))
 vi.mock('../lib/useMyTeams', () => ({ useMyTeams: () => teams }))
-vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => true }) }))
+vi.mock('../lib/usePermissions', () => ({
+  // Everything but what opens Settings › Reception: running registrations, or holding the grid.
+  usePermissions: () => ({ can: (cap: string) => !cap.startsWith('reg.') && cap !== 'app.permissions' }),
+}))
 vi.mock('../lib/onboarding', async () => {
   const actual = await vi.importActual<typeof import('../lib/onboarding')>('../lib/onboarding')
   return {
@@ -70,7 +83,7 @@ function show(at = '/') {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[at]}>
         <Routes>
-          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues', '/registrations'].map(
+          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues', '/registrations', '/door'].map(
             (p) => (
               <Route key={p} path={p} element={<Page name={p} />} />
             ),
@@ -92,6 +105,7 @@ beforeEach(() => {
   access.standing = 'church'
   access.settled = true
   access.open = null
+  access.door = false
   teams.onATeam = false
   teams.settled = true
   db.row = null
@@ -121,6 +135,15 @@ describe('starting itself', () => {
     expect(await screen.findByText('Serving, in three steps')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/availability')
     expect(dialog().textContent).toContain('Your Sunday · Part 1 of 3')
+  })
+
+  it('shows somebody given the door Reception, and nothing they have seen', async () => {
+    access.door = true
+    db.row = { user_id: 'me', seen: { welcome: 'x', around: 'x', church: 'x' }, pushed_at: null }
+    show()
+    expect(await screen.findByText('Reception')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/door')
+    expect(dialog().textContent).toContain('Events and the door · Part 1 of 1')
   })
 
   it('starts over from the welcome when the tour was sent after it was seen', async () => {
