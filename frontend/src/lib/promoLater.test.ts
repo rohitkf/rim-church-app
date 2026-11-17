@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { pounds } from './money'
 import { discountOn, duplicateEmails, orderMatches, orderMoney, sharesAnEmail, type OrderRow, type PromoCode } from './registrations'
-import { canTakePromo, promoWords, promoWorth, usablePromos } from './promoLater'
+import { canTakePromo, carriesPromo, promoHeldBy, promoWords, promoWorth, usablePromos } from './promoLater'
 import migration from '../../../supabase/migrations/0298_a_promo_code_can_be_put_on_a_registration_already_made.sql?raw'
+import removal from '../../../supabase/migrations/0299_a_promo_code_can_be_taken_off_a_registration.sql?raw'
 
 /*
  * A promo code put on a registration already made (0298), and the two
@@ -70,6 +71,27 @@ describe('which registrations can take a code afterwards', () => {
     for (const payment_status of ['reported', 'received', 'waived'] as const) expect(canTakePromo(order({ payment_status }))).toBe(false)
     expect(canTakePromo(order({ payment_status: 'not_needed', total_pence: 0, subtotal_pence: 0 }))).toBe(false)
     expect(canTakePromo(order({ status: 'cancelled' }))).toBe(false)
+  })
+})
+
+describe('which registrations a code can be taken off again (0299)', () => {
+  it('a live one with a promo code on it, whether it left something to pay or nothing', () => {
+    expect(carriesPromo(order({ promo_code: 'FREE', discount_pence: 2500, total_pence: 0, payment_status: 'not_needed' }))).toBe(true)
+    expect(carriesPromo(order({ promo_code: 'FIVER', discount_pence: 500, total_pence: 2000 }))).toBe(true)
+  })
+
+  it('not one without a code, one free by invitation, or a cancelled one', () => {
+    expect(carriesPromo(order())).toBe(false)
+    expect(carriesPromo(order({ invite_id: 'i1', discount_pence: 2500, total_pence: 0, payment_status: 'not_needed' }))).toBe(false)
+    expect(carriesPromo(order({ promo_code: 'FREE', status: 'cancelled' }))).toBe(false)
+  })
+
+  it('says what must be put right first: a check-in, or a payment recorded', () => {
+    expect(promoHeldBy(order({ payment_status: 'not_needed' }))).toBeNull()
+    expect(promoHeldBy(order({ payment_status: 'awaiting' }))).toBeNull()
+    expect(promoHeldBy(order({ payment_status: 'not_needed', checked_in_at: '2026-11-17T10:00:00Z' }))).toMatch(/undo the check-in first/)
+    expect(promoHeldBy(order({ payment_status: 'reported' }))).toMatch(/settle that first/)
+    for (const payment_status of ['received', 'waived'] as const) expect(promoHeldBy(order({ payment_status }))).toMatch(/back to awaiting payment first/)
   })
 })
 
@@ -195,6 +217,24 @@ describe('the migration and the app agree', () => {
   it('offers a code only where the database would take one: the same conditions as canTakePromo', () => {
     expect(migration).toContain("'can_use_promo', coalesce(")
     expect(migration).toMatch(/o\.payment_status = 'awaiting' and o\.total_pence > 0\s+and o\.promo_code is null and o\.promo_code_id is null and o\.invite_id is null and o\.discount_pence = 0/)
+  })
+
+  it('holds a code on a registration for the same two reasons the menu gives (0299)', () => {
+    expect(removal).toContain("if o.checked_in_at is not null then")
+    expect(removal).toContain("if o.payment_status not in ('not_needed', 'awaiting') then")
+    for (const words of ['This registration has been checked in. Undo the check-in first.', 'A payment has already been recorded on this registration.', 'The discount on this registration came with an invite link, not a promo code.'])
+      expect(removal).toContain(words)
+  })
+
+  it('takes a code off for whoever may approve payments, and never for a visitor (0299)', () => {
+    expect(removal).toContain("if not public.registration_can(auth.uid(), 'approve') then")
+    expect(removal).toContain('revoke all on function public.registration_order_remove_promo(uuid) from public, anon;')
+    expect(removal).toContain('grant execute on function public.registration_order_remove_promo(uuid) to authenticated;')
+  })
+
+  it('uses the code again when taking it off is undone, and refuses when it cannot (0299)', () => {
+    expect(removal).toContain('update public.registration_promo_codes set uses = uses + 1 where id = code_back;')
+    for (const words of ['That promo code has been deleted since.', 'That promo code has been used again since, and has no uses left.']) expect(removal).toContain(words)
   })
 
   it('lets Undo put the price back', () => {

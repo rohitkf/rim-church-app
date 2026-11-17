@@ -2,7 +2,8 @@ import { supabase } from './supabaseClient'
 import { discountOn, resendTickets, sendTicketAgain, type OrderRow, type PromoCode, type TicketMailResult, type TicketType } from './registrations'
 
 /*
- * A promo code put on a registration that is already made (0298).
+ * A promo code put on a registration that is already made (0298), and
+ * taken off one again (0299).
  *
  * People who were meant to use a code registered without it, were asked
  * for the money, and registered again with the code — two registrations
@@ -14,11 +15,23 @@ import { discountOn, resendTickets, sendTicketAgain, type OrderRow, type PromoCo
  * what is here is the two calls, which registrations and codes the office
  * is offered, and what a code would come to — the same sum as registering
  * with it, so the price said before the press is the price after it.
+ *
+ * Taking one off is the church's alone (registration_order_remove_promo):
+ * a code put on the wrong registration, or used by somebody it was never
+ * meant for, once the ten minutes of Undo have gone. The registration is
+ * then as if the code had never been used — the full price, awaiting
+ * payment — and the code has its use back.
  */
 
 /** The church, for somebody: the right to approve payments. */
 export async function applyPromoToOrder(orderId: string, code: string): Promise<void> {
   const { error } = await supabase.rpc('registration_order_apply_promo', { p_id: orderId, p_code: code })
+  if (error) throw error
+}
+
+/** The church takes the code off again (0299): the same right, to approve payments. */
+export async function removePromoFromOrder(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('registration_order_remove_promo', { p_id: orderId })
   if (error) throw error
 }
 
@@ -31,7 +44,8 @@ export async function applyPromoToTicket(ticketCode: string, promo: string): Pro
 /**
  * Their registration as it now stands, by email, after the church put a
  * code on it — so somebody who was asked for money learns they now hold a
- * ticket, or owe less.
+ * ticket, or owe less — or took one off, so somebody who held a ticket
+ * learns it is waiting on a payment after all ("Payment needed").
  *
  * The email that fits is "your ticket once more" (`again`), but that is
  * the right to correct addresses (reg.email), and whoever applies a code
@@ -56,6 +70,24 @@ export async function sendTicketAfterPromo(order: Pick<OrderRow, 'code' | 'email
  */
 export function canTakePromo(o: Pick<OrderRow, 'status' | 'payment_status' | 'total_pence' | 'discount_pence' | 'promo_code' | 'invite_id'>): boolean {
   return o.status === 'confirmed' && o.payment_status === 'awaiting' && o.total_pence > 0 && o.discount_pence === 0 && !o.promo_code && !o.invite_id
+}
+
+/** Whether a registration has a promo code on it that could be taken off (0299): live, and a code — not an invitation. */
+export function carriesPromo(o: Pick<OrderRow, 'status' | 'promo_code'>): boolean {
+  return o.status === 'confirmed' && !!o.promo_code
+}
+
+/**
+ * What must be put right before the code can come off, in a few words for
+ * the menu; null when nothing stands in the way. The database refuses the
+ * same two: somebody through the door must not be left owing (0266), and a
+ * payment recorded was said about the discounted price.
+ */
+export function promoHeldBy(o: Pick<OrderRow, 'checked_in_at' | 'payment_status'>): string | null {
+  if (o.checked_in_at) return 'They are checked in: undo the check-in first'
+  if (o.payment_status === 'reported') return 'They say they have paid: settle that first'
+  if (o.payment_status === 'received' || o.payment_status === 'waived') return 'A payment is recorded: put it back to awaiting payment first'
+  return null
 }
 
 /** The event's codes that could still be used: turned on, with a use left. */

@@ -159,6 +159,23 @@ export function suggestEmail(address: string): string | null {
 /* ------------------------------------------------------------------ */
 
 /** How long an open ticket page keeps asking whether its email arrived, and how often. */
+/**
+ * How long "Is this your email address?" holds its Yes back, in seconds.
+ *
+ * The dialog shows the address so that it is read. A button that can be
+ * pressed at once is pressed at once, by the same thumb that pressed
+ * Register a moment before, and the address goes unread. So Yes counts
+ * down first (the Owner, November 2026): five seconds with nothing to do
+ * but look. "No, change it" never waits.
+ */
+export const CONFIRM_EMAIL_WAIT_SECONDS = 5
+/** The same, as it is running: a test of the form cannot wait five seconds at every registration. */
+let confirmEmailWait = CONFIRM_EMAIL_WAIT_SECONDS
+export const confirmEmailWaitSeconds = (): number => confirmEmailWait
+export function setConfirmEmailWaitForTests(seconds: number = CONFIRM_EMAIL_WAIT_SECONDS): void {
+  confirmEmailWait = seconds
+}
+
 export const EMAIL_WATCH_MS = 3 * 60_000
 export const EMAIL_WATCH_EVERY_MS = 5_000
 /** A registration this new has an email still to be sent or just sent. */

@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RegisterPage } from './RegisterPage'
 import type { PublicEvent } from '../lib/registrations'
+import { setConfirmEmailWaitForTests } from '../lib/emailDelivery'
 
 /*
  * An event's public page (0244): what it is and when, the tickets with how
@@ -126,6 +127,9 @@ const fillWho = async (user: ReturnType<typeof userEvent.setup>) => {
 }
 
 beforeEach(() => {
+  // "Yes, it’s right" counts down five seconds before it can be pressed
+  // (ConfirmEmailDialog.test.tsx holds that); the form's tests do not wait for it.
+  setConfirmEmailWaitForTests(0)
   state.event = event()
   state.promo = { ok: false }
   state.registered = []

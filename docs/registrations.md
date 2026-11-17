@@ -103,6 +103,17 @@ personal details are tidied away after the event.
   price comes down, or nothing is left to pay and it becomes their
   ticket; Undo takes it back. A registration with a payment already
   recorded — waived included — is put back to awaiting payment first.
+- Take a promo code off a registration again: **Remove promo code** in
+  its ⋯ menu (the same right), for a code put on the wrong registration
+  or used by somebody it was not meant for, once the ten minutes of Undo
+  have gone. It asks first. The registration goes back to its full price,
+  awaiting payment, the code has its use back, and ten seconds later an
+  email tells them a payment is needed — time to press **Undo**. Not while
+  they are checked in or a payment is recorded: the menu says which to put
+  right first. An invite link's discount is not a promo code and stays.
+  If their email could not be sent, the page says so, so somebody can
+  tell them. A code that took nothing off (free tickets only) just gets
+  its use back: no price changes and nobody is emailed.
 - Find double registrations: registrations under the same email address
   are tagged **Same email as another**, counted under *What wants doing*,
   and have a **Same email** filter. Cancel the spare one — cancelling
@@ -129,7 +140,9 @@ personal details are tidied away after the event.
   works at the usual price.
 - Before anything is saved, is shown the email address they typed, on its
   own, and asked **Is this your email address?** A well-known provider
-  spelt nearly right (gmial.com) is offered spelt right.
+  spelt nearly right (gmial.com) is offered spelt right. **Yes** counts
+  down five seconds before it can be pressed, so the address is read and
+  not tapped past; **No, change it** never waits.
 - Pays by bank transfer, the PayPal link, or at Reception, and uploads a
   receipt.
 - Has a promo code they did not use when registering: an unpaid
@@ -272,7 +285,8 @@ protection.
 - A promo code afterwards: migration `0298` (`registration_apply_promo()`,
   `registration_order_apply_promo()`, `registration_order_promo()`),
   `frontend/src/lib/promoLater.ts`, `components/ApplyPromoDialog.tsx` and
-  `components/TicketPromoCode.tsx`.
+  `components/TicketPromoCode.tsx`. Taking one off again: migration `0299`
+  (`registration_order_remove_promo()`), the same `lib/promoLater.ts`.
 - Invite links: migration `0295` (`registration_invites`,
   `registration_invite_check()`), `frontend/src/lib/registrationInvites.ts`
   and `components/RegistrationInvites.tsx`. Migration `0296`: a promo
