@@ -267,6 +267,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
                 setPromoApplied(true)
                 void refresh()
               }}
+              onRefused={() => void refresh()}
             />
           )}
           {order.payment_status === 'reported' ? (

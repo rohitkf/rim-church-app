@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { discountOn, type OrderRow, type PromoCode, type TicketType } from './registrations'
+import { discountOn, resendTickets, sendTicketAgain, type OrderRow, type PromoCode, type TicketMailResult, type TicketType } from './registrations'
 
 /*
  * A promo code put on a registration that is already made (0298).
@@ -26,6 +26,26 @@ export async function applyPromoToOrder(orderId: string, code: string): Promise<
 export async function applyPromoToTicket(ticketCode: string, promo: string): Promise<void> {
   const { error } = await supabase.rpc('registration_order_promo', { p_code: ticketCode, p_promo: promo })
   if (error) throw error
+}
+
+/**
+ * Their registration as it now stands, by email, after the church put a
+ * code on it — so somebody who was asked for money learns they now hold a
+ * ticket, or owe less.
+ *
+ * The email that fits is "your ticket once more" (`again`), but that is
+ * the right to correct addresses (reg.email), and whoever applies a code
+ * needs only the right to approve payments. Refused that, it asks for the
+ * address's tickets the way the public page does (`resend`), which needs
+ * no right at all and only ever writes to the address an order is under —
+ * so the attendee is told whoever pressed. Nothing waits on either: the
+ * registration's own page already shows the new price.
+ */
+export async function sendTicketAfterPromo(order: Pick<OrderRow, 'code' | 'email'>, slug: string): Promise<TicketMailResult> {
+  if (!order.email) return { ok: true, sent: false }
+  const again = await sendTicketAgain(order.code)
+  if (again.ok) return again
+  return resendTickets(slug, order.email).catch(() => ({ ok: false, reason: 'failed' }))
 }
 
 /**

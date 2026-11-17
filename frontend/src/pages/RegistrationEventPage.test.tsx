@@ -1203,6 +1203,20 @@ describe('registrations made without the code, twice, or waived', () => {
     expect(screen.getByRole('radio', { name: /Same email\s*2/ })).toBeChecked()
   })
 
+  it('draws no empty "What wants doing" on a cancelled event whose only news is a shared email', async () => {
+    state.full = { ...full({ cancelled_at: '2026-11-10T10:00:00Z', status: 'closed' }) }
+    // Both free: nothing awaited, nothing owed back.
+    state.orders = [
+      unpaid({ id: 'a', subtotal_pence: 0, total_pence: 0, payment_status: 'not_needed' }),
+      unpaid({ id: 'b', code: 'KMNPQRSTUVWX', subtotal_pence: 0, total_pence: 0, payment_status: 'not_needed' }),
+    ]
+    show()
+    await screen.findByRole('list', { name: 'Orders' })
+    // Still tagged on the rows; just nothing to do about it up top.
+    expect(screen.getAllByText('Same email as another')).toHaveLength(2)
+    expect(screen.queryByRole('group', { name: 'What wants doing' })).toBeNull()
+  })
+
   it('says nothing about shared emails when every registration has its own', async () => {
     show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })

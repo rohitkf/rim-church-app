@@ -18,7 +18,16 @@ import { useErrorText } from '../lib/useErrorText'
  * refuses (not a code, used up, nothing off these tickets) is said in its
  * own words under the box.
  */
-export function TicketPromoCode({ ticketCode, onApplied }: { ticketCode: string; onApplied: () => void }) {
+export function TicketPromoCode({
+  ticketCode,
+  onApplied,
+  onRefused,
+}: {
+  ticketCode: string
+  onApplied: () => void
+  /** The database said no: the page reads the registration again, in case it had changed under them. */
+  onRefused?: () => void
+}) {
   const errorText = useErrorText()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
@@ -26,6 +35,7 @@ export function TicketPromoCode({ ticketCode, onApplied }: { ticketCode: string;
   const apply = useMutation({
     mutationFn: () => applyPromoToTicket(ticketCode, text.trim()),
     onSuccess: onApplied,
+    onError: () => onRefused?.(),
   })
   const problem = missing ? 'Enter your promo code.' : apply.error ? errorText(apply.error, 'That code could not be applied. Check it and try again.') : null
 

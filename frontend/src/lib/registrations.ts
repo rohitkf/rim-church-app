@@ -196,13 +196,14 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
     .parse(events.data ?? [])
     .map((event) => {
       const mine = stats.filter((o) => o.event_id === event.id && o.status === 'confirmed')
+      const sums = orderMoney(mine)
       return {
         ...event,
         orders: mine.length,
         tickets: mine.reduce((n, o) => n + o.quantity, 0),
-        expected_pence: orderMoney(mine).expected,
-        received_pence: orderMoney(mine).received,
-        waived_pence: orderMoney(mine).waived,
+        expected_pence: sums.expected,
+        received_pence: sums.received,
+        waived_pence: sums.waived,
         awaiting: mine.filter((o) => o.payment_status === 'awaiting' || o.payment_status === 'reported').length,
         reported: mine.filter((o) => o.payment_status === 'reported').length,
         owed: stats.filter((o) => o.event_id === event.id && o.refund_status === 'owed').length,

@@ -9,7 +9,7 @@ import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
-import { applyPromoToOrder, canTakePromo, usablePromos } from '../lib/promoLater'
+import { applyPromoToOrder, canTakePromo, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
 import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
@@ -191,13 +191,17 @@ export function RegistrationEventPage() {
     onSuccess: (_r, { order, code }) => {
       setPromoFor(null)
       setPromoError(null)
-      // Their ticket as it now stands, once the press can no longer be taken
-      // back. Sent only by somebody who may (reg.email); for anybody else the
-      // function says no and the registration's own page already shows it.
-      done(order, `Promo code ${code.code} applied`, order.email ? () => void sendTicketAgain(order.code) : undefined)
+      // Their ticket as it now stands, by email, once the press can no longer
+      // be taken back — by whichever way whoever pressed is allowed (lib/promoLater).
+      const slug = full.data?.event.slug
+      done(order, `Promo code ${code.code} applied`, order.email && slug ? () => void sendTicketAfterPromo(order, slug) : undefined)
       return refresh()
     },
-    onError: (err: unknown) => setPromoError(errorText(err, 'The code could not be put on that registration.')),
+    onError: (err: unknown) => {
+      setPromoError(errorText(err, 'The code could not be put on that registration.'))
+      // Refused because it had changed under them: show it as it now is.
+      void refresh()
+    },
   })
   // Reception took the money and let them in: two marks, one tap, and one thing to undo.
   const payAndCheckIn = useMutation({
@@ -502,7 +506,7 @@ export function RegistrationEventPage() {
         </Tile>
       </div>
 
-      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || sharing > 0) && (
+      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || (sharing > 0 && !cancelled)) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
             <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
