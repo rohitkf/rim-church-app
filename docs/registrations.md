@@ -140,7 +140,9 @@ personal details are tidied away after the event.
   works at the usual price.
 - Before anything is saved, is shown the email address they typed, on its
   own, and asked **Is this your email address?** A well-known provider
-  spelt nearly right (gmial.com) is offered spelt right.
+  spelt nearly right (gmial.com) is offered spelt right. **Yes** counts
+  down five seconds before it can be pressed, so the address is read and
+  not tapped past; **No, change it** never waits.
 - Pays by bank transfer, the PayPal link, or at Reception, and uploads a
   receipt.
 - Has a promo code they did not use when registering: an unpaid

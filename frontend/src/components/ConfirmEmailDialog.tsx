@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { ActionButton, Overlay } from './Surface'
-import { suggestEmail } from '../lib/emailDelivery'
+import { confirmEmailWaitSeconds, suggestEmail } from '../lib/emailDelivery'
 
 /**
  * "Is this your email address?" — asked once, between pressing Register
@@ -14,6 +15,11 @@ import { suggestEmail } from '../lib/emailDelivery'
  *
  * "No" goes back to the form with everything as it was. Nothing is saved
  * until "Yes".
+ *
+ * "Yes" cannot be pressed for the first five seconds: it counts down
+ * instead, so the address is looked at rather than tapped past
+ * (lib/emailDelivery, CONFIRM_EMAIL_WAIT_SECONDS). Taking the spelling
+ * offered shows a different address, so the count starts again for it.
  */
 export function ConfirmEmailDialog({
   email,
@@ -53,14 +59,37 @@ export function ConfirmEmailDialog({
           </div>
         )}
         <div className="mt-6 flex flex-col gap-2">
-          <ActionButton onClick={onConfirm} disabled={busy}>
-            {busy ? 'Registering…' : `Yes, it’s right — ${confirmLabel}`}
-          </ActionButton>
+          {/* Keyed by the address: a different one is a new thing to read, and a new count. */}
+          <ConfirmButton key={email} label={`Yes, it’s right — ${confirmLabel}`} busy={busy} onConfirm={onConfirm} />
           <ActionButton tone="quiet" onClick={onChange} disabled={busy}>
             No, change it
           </ActionButton>
         </div>
       </div>
     </Overlay>
+  )
+}
+
+/** "Yes", once the address has had its seconds: until then it counts down and cannot be pressed. */
+function ConfirmButton({ label, busy, onConfirm }: { label: string; busy: boolean; onConfirm: () => void }) {
+  const [left, setLeft] = useState(confirmEmailWaitSeconds)
+  const waiting = left > 0
+  useEffect(() => {
+    if (!waiting) return
+    const tick = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000)
+    return () => clearInterval(tick)
+  }, [waiting])
+  return (
+    <ActionButton onClick={onConfirm} disabled={busy || waiting}>
+      {busy ? (
+        'Registering…'
+      ) : waiting ? (
+        <>
+          Check the address… <span className="tabular-nums">{left}</span>
+        </>
+      ) : (
+        label
+      )}
+    </ActionButton>
   )
 }
