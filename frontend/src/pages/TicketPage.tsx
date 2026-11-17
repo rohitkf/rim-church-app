@@ -498,7 +498,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
             <div className="mt-2 border-t border-border-subtle pt-2 text-body-sm text-on-surface-variant">
               {order.discount_pence > 0 && (
                 <p className="flex justify-between">
-                  <span>Promo code {order.promo_code}</span>
+                  {/* An invitation has no code to show (0295); a discount with neither is one whose link was deleted. */}
+                  <span>{order.promo_code ? `Promo code ${order.promo_code}` : order.invited ? 'Invitation' : 'Discount'}</span>
                   <span className="font-mono tabular">−{pounds(order.discount_pence)}</span>
                 </p>
               )}

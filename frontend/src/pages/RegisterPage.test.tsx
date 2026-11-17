@@ -19,6 +19,9 @@ const state = vi.hoisted(() => ({
   resent: [] as unknown[],
   resendAnswer: { ok: true, sent: true } as unknown,
   refuse: null as string | null,
+  /** What the database says of the invitation link (0295); an Error is a check that could not be made. */
+  invite: { ok: false, reason: 'not_found' } as unknown,
+  inviteChecks: [] as string[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -51,6 +54,14 @@ vi.mock('../lib/registrations', async (original) => ({
   resendTickets: (slug: string, email: string) => {
     state.resent.push([slug, email])
     return Promise.resolve(state.resendAnswer)
+  },
+}))
+
+vi.mock('../lib/registrationInvites', async (original) => ({
+  ...(await original<typeof import('../lib/registrationInvites')>()),
+  checkInvite: (_slug: string, token: string) => {
+    state.inviteChecks.push(token)
+    return state.invite instanceof Error ? Promise.reject(state.invite) : Promise.resolve(state.invite)
   },
 }))
 
@@ -87,11 +98,11 @@ function TicketStub() {
   return <p>ticket page {code}</p>
 }
 
-function show() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function show(search = '') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/register/pastors-2026']}>
+      <MemoryRouter initialEntries={[`/register/pastors-2026${search}`]}>
         <Routes>
           <Route path="/register/:slug" element={<RegisterPage />} />
           <Route path="/ticket/:code" element={<TicketStub />} />
@@ -119,6 +130,8 @@ beforeEach(() => {
   state.resent = []
   state.resendAnswer = { ok: true, sent: true }
   state.refuse = null
+  state.invite = { ok: false, reason: 'not_found' }
+  state.inviteChecks = []
 })
 
 /** The address is shown back before anything is sent (0283): say it is right. */
@@ -665,5 +678,143 @@ describe('the public register page', () => {
     state.event = null
     show()
     expect(await screen.findByRole('heading', { name: 'No such event' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Opened from an invitation link (0295): /register/<slug>?invite=<token>.
+ * The discount is the link's; nothing is typed and no code is shown.
+ */
+describe('the register page opened from an invitation link', () => {
+  const LINK = '?invite=K7QM2XPA9R4T'
+  const free = (over: object = {}) => ({ ok: true, email_locked: false, discount: { kind: 'percent', value: 100, ticket_type_ids: [], tickets_covered: 1 }, ...over })
+
+  it('takes the invitation off without anything typed, and sends the token with the order', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    const invitation = await screen.findByRole('status', { name: 'Your invitation' })
+    expect(invitation).toHaveTextContent('You’re invited')
+    expect(invitation).toHaveTextContent('1 free ticket, taken off for you below. There is no code to type.')
+    expect(state.inviteChecks).toEqual(['K7QM2XPA9R4T'])
+    // No box for a code beside an invitation: the two are never both taken.
+    expect(screen.queryByRole('textbox', { name: /Promo code/ })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    const order = screen.getByLabelText('Your order')
+    expect(order).toHaveTextContent('Invitation−£20.00')
+    expect(order).toHaveTextContent('TotalFree')
+    expect(order).not.toHaveTextContent('Promo code')
+
+    await fillWho(user)
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
+    expect(await screen.findByText('ticket page ABCDEFGHJKMN')).toBeInTheDocument()
+    expect(state.registered[0]).toMatchObject({ order: { invite: 'K7QM2XPA9R4T', promo_code: '', lines: [{ ticket_type_id: 't-lunch', quantity: 1 }] } })
+  })
+
+  it('covers only as many tickets as the invitation says; the rest are at full price', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    await screen.findByRole('status', { name: 'Your invitation' })
+    const more = screen.getByRole('button', { name: 'One more With lunch' })
+    await user.click(more)
+    await user.click(more)
+    expect(screen.getByLabelText('Your order')).toHaveTextContent('Invitation−£20.00')
+    expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeInTheDocument()
+  })
+
+  it('reads the token in whatever case the link arrived', async () => {
+    state.invite = free()
+    show('?invite=k7qm2xpa9r4t')
+    await screen.findByRole('status', { name: 'Your invitation' })
+    expect(state.inviteChecks).toEqual(['K7QM2XPA9R4T'])
+  })
+
+  it('asks a personal invitation’s holder for the address it was sent to, without showing it', async () => {
+    state.invite = free({ email_locked: true })
+    show(LINK)
+    const invitation = await screen.findByRole('status', { name: 'Your invitation' })
+    expect(invitation).toHaveTextContent('This invitation is for one person: register with the email address it was sent to.')
+    expect(screen.getByText('The address your invitation was sent to. Your ticket is sent here.')).toBeInTheDocument()
+    // Nothing is filled in for them: a forwarded link must not hand over somebody's address.
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('')
+  })
+
+  it('lets somebody the invitation is not for register without it, at the usual price', async () => {
+    state.invite = free({ email_locked: true })
+    const user = show(LINK)
+    const invitation = await screen.findByRole('status', { name: 'Your invitation' })
+    await user.click(within(invitation).getByRole('button', { name: 'Register without it' }))
+    expect(screen.queryByRole('status', { name: 'Your invitation' })).toBeNull()
+    expect(screen.getByRole('textbox', { name: /Promo code/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+    await user.click(screen.getByRole('button', { name: 'Register, then pay £20.00' }))
+    await confirmEmail(user, 'Register, then pay £20.00')
+    await waitFor(() => expect(state.registered).toHaveLength(1))
+    expect((state.registered[0] as { order: object }).order).not.toHaveProperty('invite')
+  })
+
+  it.each([
+    ['used', 'This invitation has already been used.'],
+    ['ended', 'This invitation is no longer open.'],
+    ['not_found', 'This invitation link isn’t one we know.'],
+  ])('says a link that is %s is no use, and leaves the form at its usual price', async (reason, title) => {
+    state.invite = { ok: false, reason }
+    const user = show(LINK)
+    const invitation = await screen.findByRole('status', { name: 'Your invitation' })
+    expect(invitation).toHaveTextContent(title)
+    expect(invitation).toHaveTextContent(/still register here at the usual price/)
+    expect(screen.getByRole('textbox', { name: /Promo code/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+    await user.click(screen.getByRole('button', { name: 'Register, then pay £20.00' }))
+    await confirmEmail(user, 'Register, then pay £20.00')
+    await waitFor(() => expect(state.registered).toHaveLength(1))
+    expect((state.registered[0] as { order: object }).order).not.toHaveProperty('invite')
+  })
+
+  it('does not ask the database about something that is not a token', async () => {
+    state.invite = free()
+    show('?invite=nonsense')
+    expect(await screen.findByRole('status', { name: 'Your invitation' })).toHaveTextContent('This invitation link isn’t one we know.')
+    expect(state.inviteChecks).toEqual([])
+  })
+
+  it('says so when the invitation could not be checked, and checks again when asked', async () => {
+    state.invite = new Error('no answer')
+    const user = show(LINK)
+    const alert = await screen.findByRole('alert', { name: 'Your invitation' })
+    expect(alert).toHaveTextContent('Your invitation could not be checked.')
+    expect(alert).toHaveTextContent('Registering now would be at the usual price.')
+
+    state.invite = free()
+    await user.click(within(alert).getByRole('button', { name: 'Check it again' }))
+    expect(await screen.findByRole('status', { name: 'Your invitation' })).toHaveTextContent('You’re invited')
+  })
+
+  it('asks again when registering is refused, so an invitation used a moment ago stops being offered', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    await screen.findByRole('status', { name: 'Your invitation' })
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+
+    state.refuse = 'This invitation has already been used.'
+    state.invite = { ok: false, reason: 'used' }
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
+    expect(await screen.findByText('This invitation has already been used.')).toBeInTheDocument()
+    // The form is back at the usual price, and says so on its button.
+    expect(await screen.findByRole('button', { name: 'Register, then pay £20.00' })).toBeInTheDocument()
+  })
+
+  it('says nothing about invitations on a plain link, and asks nothing', async () => {
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByLabelText('Your invitation')).toBeNull()
+    expect(state.inviteChecks).toEqual([])
   })
 })

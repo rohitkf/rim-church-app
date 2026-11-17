@@ -162,7 +162,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'registrations':
       return s.registration_retention_days === null
         ? 'An event and everybody registered on it stay until the event is deleted; names, emails and phone numbers are never blanked.'
-        : `Names, emails, phone numbers and attendee names on an event’s registrations are blanked ${span(s.registration_retention_days)} after its last date. The orders, their codes and the sums stay until the event is deleted — export to Excel first if the accounts need the names.`
+        : `Names, emails, phone numbers and attendee names on an event’s registrations are blanked ${span(s.registration_retention_days)} after its last date, and who its invite links were for with them. The orders, their codes and the sums stay until the event is deleted — export to Excel first if the accounts need the names.`
     case 'feedback':
       return s.feedback_retention_days === null
         ? 'Feedback stays until it is taken back or an Admin clears it.'

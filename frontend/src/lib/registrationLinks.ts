@@ -19,6 +19,16 @@ export function registerUrl(slug: string, origin: string = LABEL_ORIGIN): string
   return `${origin.replace(/\/+$/, '')}${REGISTER_PATH}/${slug}`
 }
 
+/**
+ * An invitation link (0295): the event's page with the invitation's token.
+ * The token is the only thing it carries — what it is worth is the
+ * database's to say when the page opens — and links already sent say
+ * `?invite=`, so the name is pinned with the paths.
+ */
+export function inviteUrl(slug: string, token: string, origin: string = LABEL_ORIGIN): string {
+  return `${registerUrl(slug, origin)}?invite=${encodeURIComponent(token)}`
+}
+
 /** An order's ticket page: what its QR code says. */
 export function ticketUrl(code: string, origin: string = LABEL_ORIGIN): string {
   return `${origin.replace(/\/+$/, '')}${TICKET_PATH}/${code}`

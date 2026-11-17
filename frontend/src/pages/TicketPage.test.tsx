@@ -79,6 +79,7 @@ const at = (y: number, m: number, d: number, h: number, min: number) => new Date
 const order = (over: Partial<OrderView> = {}): OrderView => ({
   code: 'ABCDEFGHJKMN',
   status: 'confirmed',
+  invited: false,
   refund_details_wanted: false,
   refund_details_sent: false,
   email_state: 'none',
@@ -287,6 +288,25 @@ describe('the ticket page', () => {
     state.order = order({ payment_status: 'received', payment_method: 'reception' })
     show()
     expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Ticket — done'])
+  })
+
+  it('names a code where there was one, and says Invitation — never a code — where the order came by a link (0295)', async () => {
+    state.order = order({})
+    show()
+    expect(await screen.findByText('Promo code EARLY')).toBeInTheDocument()
+  })
+
+  it('says Invitation for an order that came by an invitation link', async () => {
+    state.order = order({ promo_code: null, invited: true })
+    show()
+    expect(await screen.findByText('Invitation')).toBeInTheDocument()
+    expect(screen.queryByText(/Promo code/)).toBeNull()
+  })
+
+  it('says only Discount when neither is left to name', async () => {
+    state.order = order({ promo_code: null, invited: false })
+    show()
+    expect(await screen.findByText('Discount')).toBeInTheDocument()
   })
 
   it('shows no bar on a free order: registering was all of it', async () => {

@@ -7,6 +7,8 @@ import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
+import { RegistrationInvites } from '../components/RegistrationInvites'
+import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
 import { deliveryOf, emailWantsDoing } from '../lib/emailDelivery'
@@ -107,6 +109,9 @@ export function RegistrationEventPage() {
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
+  // The event's invitation links (0295), for the name of the one each order came by. The list itself is RegistrationInvites'.
+  const invites = useQuery({ queryKey: invitesKey(id), queryFn: () => fetchInvites(id), enabled: rights.office })
+  const invitedBy = inviteNames(invites.data ?? [])
   const refresh = () => queryClient.invalidateQueries({ queryKey: REGISTRATIONS_KEY })
 
   const setStatus = useMutation({
@@ -251,7 +256,7 @@ export function RegistrationEventPage() {
     setEmailFor(order)
   }
   const exportAll = useMutation({
-    mutationFn: () => writeWorkbook(buildRegistrationWorkbook(full.data!, orders.data ?? []), registrationExportFileName(full.data!.event.slug)),
+    mutationFn: () => writeWorkbook(buildRegistrationWorkbook(full.data!, orders.data ?? [], invitedBy), registrationExportFileName(full.data!.event.slug)),
     onSuccess: () => {
       setError(null)
       showToast('Exported')
@@ -544,6 +549,19 @@ export function RegistrationEventPage() {
       {/* What people have written to the organisers (0287). Nothing is drawn while there are none. */}
       {rights.office && <RegistrationMessages eventId={id} eventTitle={event.title} codeOf={(orderId) => rows.find((o) => o.id === orderId)?.code ?? null} />}
 
+      {/* Links that take their discount off by themselves (0295). Drawn for whoever may make one, or once there are some. */}
+      {rights.office && (
+        <RegistrationInvites
+          eventId={id}
+          slug={event.slug}
+          eventTitle={event.title}
+          published={event.status === 'published'}
+          ticketTypes={ticketTypes}
+          orders={rows}
+          canEdit={rights.edit && !cancelled}
+        />
+      )}
+
       <section id="registered" className="mt-8 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h2 className="flex flex-wrap items-center gap-2 text-headline-md text-on-surface">
@@ -609,6 +627,7 @@ export function RegistrationEventPage() {
                 <OrderLine
                   key={o.id}
                   order={o}
+                  invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
                   busy={mark.isPending || verify.isPending}
                   actions={withUndo(
@@ -963,12 +982,15 @@ function ReceiptViewer({ order, onClose }: { order: OrderRow; onClose: () => voi
 
 function OrderLine({
   order,
+  invitedBy,
   dateLabel,
   actions,
   next,
   busy,
 }: {
   order: OrderRow
+  /** The name of the invitation link it came by (0295), if it came by one. */
+  invitedBy?: string | null
   dateLabel?: { starts_at: string; ends_at: string | null }
   actions: MenuAction[]
   next: NextStep[]
@@ -1017,7 +1039,7 @@ function OrderLine({
             ) : order.total_pence > 0 ? (
               <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
             ) : (
-              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : 'Free'}</Pill>
+              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy ? 'Free by invitation' : 'Free'}</Pill>
             )}
             {live && order.payment_verified_at && order.total_pence > 0 && (
               <Pill tone="green" dot>
@@ -1027,6 +1049,7 @@ function OrderLine({
             {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
             {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
+            {invitedBy && <Pill tone="indigo">Invited: {invitedBy}</Pill>}
             {delivery && tagged && (
               <Pill tone={delivery.tone} dot={undelivered}>
                 {delivery.label}

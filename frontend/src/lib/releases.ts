@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'invite-links',
+    date: '2026-11-16',
+    title: 'Invite links for registrations',
+    lead: 'A link that takes its discount off by itself. Nobody is told a code, so there is none to pass on.',
+    points: [
+      'On an event’s page: New invite link. Send it; whoever opens it sees the discount already taken off.',
+      'One person: kept to their email address, and it works once. A group: a set number of uses.',
+      'Each link covers a number of tickets, can end on a date, and can be turned off on its own.',
+      'The page says who registered through each link. Promo codes work as before.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'calendar-add',
     date: '2026-11-15',
     title: 'Adding to the Calendar is simpler',
