@@ -19,6 +19,9 @@ const state = vi.hoisted(() => ({
   orders: [] as unknown[],
   // The event's invitation links (0295).
   invites: [] as unknown[],
+  // Promo codes put on registrations afterwards (0298): [order id, code], and a refusal to give.
+  promoApplied: [] as unknown[],
+  promoRefused: null as string | null,
   marked: [] as unknown[],
   notes: [] as unknown[],
   statuses: [] as unknown[],
@@ -64,6 +67,13 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
+vi.mock('../lib/promoLater', async (original) => ({
+  ...(await original<typeof import('../lib/promoLater')>()),
+  applyPromoToOrder: (id: string, code: string) => {
+    state.promoApplied.push([id, code])
+    return state.promoRefused ? Promise.reject(new Error(state.promoRefused)) : Promise.resolve()
+  },
+}))
 vi.mock('../lib/registrationInvites', async (original) => ({
   ...(await original<typeof import('../lib/registrationInvites')>()),
   fetchInvites: () => Promise.resolve(state.invites),
@@ -225,6 +235,8 @@ beforeEach(() => {
   state.full = full()
   state.orders = orders()
   state.invites = []
+  state.promoApplied = []
+  state.promoRefused = null
   state.marked = []
   state.notes = []
   state.statuses = []
@@ -1086,5 +1098,136 @@ describe('invite links on the event’s page', () => {
     show()
     await screen.findByRole('heading', { name: /Who has registered/ })
     expect(screen.queryByRole('region', { name: 'Invite links' })).toBeNull()
+  })
+})
+
+/*
+ * A promo code put on a registration made without it (0298), the
+ * registrations that share an address, and money received kept apart from
+ * money waived.
+ */
+describe('registrations made without the code, twice, or waived', () => {
+  const FREE = { id: 'p-free', event_id: 'e1', code: 'FREE', kind: 'percent', value: 100, ticket_type_ids: [], max_uses: null, uses: 3, active: true, tickets_covered: null }
+  const withCodes = (codes: object[]) => ({ ...full(), promoCodes: codes })
+  // Registered without the code: one £20 ticket, awaiting payment.
+  const unpaid = (over: Partial<OrderRow> = {}) =>
+    order({ id: 'o-un', code: 'JKMNPQRSTUVW', name: 'Binitha John', email: 'binitha@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, payment_status: 'awaiting', tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }], ...over })
+
+  it('puts a code on somebody’s registration for them, from its menu', async () => {
+    state.full = withCodes([FREE])
+    state.orders = [unpaid()]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    const menu = await openMenu(user, 'Binitha John')
+    await user.click(within(menu).getByRole('menuitem', { name: /Apply a promo code/ }))
+
+    const dialog = await screen.findByRole('form', { name: 'A promo code for Binitha John’s registration' })
+    expect(dialog).toHaveTextContent('owe £20.00')
+    // The one usable code is already chosen, with what it leaves.
+    expect(within(dialog).getByRole('radio', { name: /FREE.*nothing left to pay/ })).toBeChecked()
+    await user.click(within(dialog).getByRole('button', { name: 'Apply FREE' }))
+
+    await waitFor(() => expect(state.promoApplied).toEqual([['o-un', 'FREE']]))
+    await waitFor(() => expect(screen.queryByRole('form', { name: /A promo code for/ })).toBeNull())
+    // Said, with Undo on it like every other press.
+    expect(state.toasts.at(-1)).toMatchObject({ text: 'Promo code FREE applied', action: { label: 'Undo' } })
+  })
+
+  it('shows what the database refused, and keeps the dialog', async () => {
+    state.full = withCodes([FREE])
+    state.orders = [unpaid()]
+    state.promoRefused = 'That promo code is not valid.'
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    await user.click(within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Apply a promo code/ }))
+    const dialog = await screen.findByRole('form', { name: /A promo code for/ })
+    await user.click(within(dialog).getByRole('button', { name: 'Apply FREE' }))
+    expect(await within(dialog).findByText('The code could not be put on that registration.')).toBeInTheDocument()
+  })
+
+  it('offers it only for a registration that can take one', async () => {
+    state.full = withCodes([FREE])
+    state.orders = [
+      unpaid(),
+      unpaid({ id: 'o-code', name: 'Has Code', email: 'a@example.org', promo_code: 'EARLY', discount_pence: 200, total_pence: 1800 }),
+      unpaid({ id: 'o-paid', name: 'Has Paid', email: 'b@example.org', payment_status: 'received' }),
+      unpaid({ id: 'o-waived', name: 'Was Waived', email: 'c@example.org', payment_status: 'waived' }),
+      unpaid({ id: 'o-inv', name: 'By Invite', email: 'd@example.org', invite_id: 'i1' }),
+    ]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    const offered = async (name: string) => {
+      const menu = await openMenu(user, name)
+      const there = within(menu).queryByRole('menuitem', { name: /Apply a promo code/ }) !== null
+      await user.keyboard('{Escape}')
+      return there
+    }
+    expect(await offered('Binitha John')).toBe(true)
+    expect(await offered('Has Code')).toBe(false)
+    expect(await offered('Has Paid')).toBe(false)
+    expect(await offered('Was Waived')).toBe(false)
+    expect(await offered('By Invite')).toBe(false)
+  })
+
+  it('does not offer it when the event has no usable code, or to somebody who may not approve payments', async () => {
+    state.full = withCodes([{ ...FREE, active: false }, { ...FREE, id: 'p-used', code: 'USEDUP', max_uses: 3, uses: 3 }])
+    state.orders = [unpaid()]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    expect(within(await openMenu(user, 'Binitha John')).queryByRole('menuitem', { name: /Apply a promo code/ })).toBeNull()
+    cleanup()
+
+    state.full = withCodes([FREE])
+    rights.now = { office: true, door: false, edit: true, approve: false, takePayment: false, refund: false, cancel: true, delete: false, checkIn: false, walkIn: false }
+    const again = show()
+    await screen.findByRole('listitem', { name: 'Binitha John' })
+    expect(within(await openMenu(again, 'Binitha John')).queryByRole('menuitem', { name: /Apply a promo code/ })).toBeNull()
+  })
+
+  it('marks registrations that share an email, counts them, and shows only those when asked', async () => {
+    // One person, twice: once without the code and waiting to be paid, once free with it.
+    state.orders = [
+      unpaid(),
+      unpaid({ id: 'o-free', code: 'KMNPQRSTUVWX', email: ' Binitha@Example.org ', promo_code: 'FREE', discount_pence: 2000, total_pence: 0, payment_status: 'not_needed' }),
+      unpaid({ id: 'o-other', code: 'MNPQRSTUVWXY', name: 'Somebody Else', email: 'else@example.org' }),
+    ]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Somebody Else' })
+    const rows = () => within(screen.getByRole('list', { name: 'Orders' })).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'))
+    expect(screen.getAllByText('Same email as another')).toHaveLength(2)
+    expect(within(screen.getByRole('listitem', { name: 'Somebody Else' })).queryByText('Same email as another')).toBeNull()
+
+    const wants = screen.getByRole('group', { name: 'What wants doing' })
+    await user.click(within(wants).getByRole('button', { name: /2\s*registrations share an email/ }))
+    expect(rows()).toEqual(['Binitha John', 'Binitha John'])
+    expect(screen.getByRole('radio', { name: /Same email\s*2/ })).toBeChecked()
+  })
+
+  it('says nothing about shared emails when every registration has its own', async () => {
+    show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(screen.queryByText('Same email as another')).toBeNull()
+    expect(screen.queryByRole('button', { name: /share an email/ })).toBeNull()
+  })
+
+  it('keeps a waived payment out of the money received, and says it beside it', async () => {
+    // £20 came in, £20 was waived, £20 is still to come.
+    state.orders = [
+      unpaid({ id: 'a', name: 'Paid Up', email: 'a@example.org', payment_status: 'received' }),
+      unpaid({ id: 'b', name: 'Let Off', email: 'b@example.org', payment_status: 'waived' }),
+      unpaid({ id: 'c', name: 'Still Owes', email: 'c@example.org' }),
+    ]
+    show()
+    await screen.findByRole('listitem', { name: 'Paid Up' })
+    const stat = (unit: string) => screen.getByText(unit).parentElement!.querySelector('.text-numeral')!.textContent
+    expect(stat('received')).toBe('£20.00')
+    expect(stat('still to come')).toBe('£20.00')
+    expect(screen.getByText('plus £20.00 waived')).toBeInTheDocument()
+  })
+
+  it('says nothing about waiving when nothing was waived', async () => {
+    show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(screen.queryByText(/waived$/)).toBeNull()
   })
 })

@@ -147,9 +147,14 @@ export interface EventSummary extends RegistrationEvent {
   /** Confirmed orders, and the tickets on them. */
   orders: number
   tickets: number
-  /** Pence: what confirmed orders come to, and what has been received or waived. */
+  /**
+   * Pence. `received` is money that came in, and only that; `waived` is
+   * what the church let go, which is not money and is never added to it;
+   * `expected` is what came in plus what is still to come.
+   */
   expected_pence: number
   received_pence: number
+  waived_pence: number
   /** Live orders still to pay (awaiting or reported), and of those, the ones that sent a receipt to check. */
   awaiting: number
   reported: number
@@ -195,8 +200,9 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
         ...event,
         orders: mine.length,
         tickets: mine.reduce((n, o) => n + o.quantity, 0),
-        expected_pence: mine.reduce((n, o) => n + o.total_pence, 0),
-        received_pence: mine.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0),
+        expected_pence: orderMoney(mine).expected,
+        received_pence: orderMoney(mine).received,
+        waived_pence: orderMoney(mine).waived,
         awaiting: mine.filter((o) => o.payment_status === 'awaiting' || o.payment_status === 'reported').length,
         reported: mine.filter((o) => o.payment_status === 'reported').length,
         owed: stats.filter((o) => o.event_id === event.id && o.refund_status === 'owed').length,
@@ -1023,6 +1029,42 @@ export async function registerForEvent(slug: string, order: OrderRequest): Promi
 }
 
 /**
+ * What a discount comes to on the tickets it applies to: `prices` is one
+ * price a ticket, already kept to the ticket types it is for. Worked out
+ * on as many as it covers, the dearest first (null: all of them), and
+ * rounded as the database rounds — `(… / 100.0)::int` — because a page
+ * that says £2.99 for what the database charges £3.00 is a page nobody
+ * trusts. The one sum, for registering (orderTotals) and for a code put
+ * on afterwards (lib/promoLater).
+ */
+export function discountOn(prices: readonly number[], off: { kind: 'amount' | 'percent'; value: number; tickets_covered: number | null }): number {
+  const covered = off.tickets_covered === null ? prices : [...prices].sort((a, b) => b - a).slice(0, Math.max(0, off.tickets_covered))
+  const discountable = covered.reduce((sum, price) => sum + price, 0)
+  return off.kind === 'amount' ? Math.min(off.value, discountable) : Math.round((discountable * off.value) / 100)
+}
+
+/**
+ * Money on an event's live registrations, told apart. Waiving a payment
+ * used to be added to "received", so £30 let go read as £30 in the bank.
+ */
+export interface OrderMoney {
+  /** Marked received: money that came in. */
+  received: number
+  /** Let go by the church. Not money. */
+  waived: number
+  /** Awaiting, or reported and not yet confirmed. */
+  toCome: number
+  /** What came in and what is still to come. */
+  expected: number
+}
+export function orderMoney(orders: readonly { status: string; total_pence: number; payment_status: string }[]): OrderMoney {
+  const sum = (statuses: string[]) => orders.filter((o) => o.status === 'confirmed' && statuses.includes(o.payment_status)).reduce((n, o) => n + o.total_pence, 0)
+  const received = sum(['received'])
+  const toCome = sum(['awaiting', 'reported'])
+  return { received, waived: sum(['waived']), toCome, expected: received + toCome }
+}
+
+/**
  * The tickets wanted, priced as the database will price them.
  *
  * An invitation, when there is one, takes the place of the code — the two
@@ -1054,12 +1096,7 @@ export function orderTotals(
     }
   }
   if (!off) return { quantity, subtotal, discount: 0, total: subtotal }
-  const covered = off.tickets_covered === null ? eligible : eligible.sort((a, b) => b - a).slice(0, Math.max(0, off.tickets_covered))
-  const discountable = covered.reduce((sum, price) => sum + price, 0)
-  // Rounded, not truncated: registration_register() does `(… / 100.0)::int`,
-  // which rounds, and a page that says £2.99 for a ticket the database
-  // charges £3.00 for is a page nobody trusts.
-  const discount = off.kind === 'amount' ? Math.min(off.value, discountable) : Math.round((discountable * off.value) / 100)
+  const discount = discountOn(eligible, off)
   return { quantity, subtotal, discount, total: subtotal - discount }
 }
 
@@ -1092,6 +1129,8 @@ export const orderViewSchema = z.object({
   invited: z.boolean().nullish().transform((v) => v === true),
   /** A promo code was used (0296). Which one is not said: `promo_code` is null now, a ticket being a page people pass on. */
   promo: z.boolean().nullish().transform((v) => v === true),
+  /** A promo code can still be put on this registration (0298): live, awaiting payment, no discount yet, and the event has one. */
+  can_use_promo: z.boolean().nullish().transform((v) => v === true),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   payment_method: z.enum(['paypal', 'bank', 'reception']).nullable(),
   proof_at: z.string().nullable().optional(),
@@ -1357,7 +1396,7 @@ export async function setOrderNotes(id: string, notes: string): Promise<void> {
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds' | 'email'
+export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds' | 'email' | 'duplicates'
 
 export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -1369,10 +1408,37 @@ export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'cancelled', label: 'Cancelled' },
   { key: 'refunds', label: 'Refunds' },
   { key: 'email', label: 'Undelivered' },
+  { key: 'duplicates', label: 'Same email' },
 ]
 
-/** Whether an order is one of the filter's, and says the words typed. */
-export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): boolean {
+/**
+ * The addresses more than one live registration is under, lower case. One
+ * person registering twice — once at full price, once with the code they
+ * were meant to use — is how an event comes to expect money that will
+ * never arrive. Registrations whose details have been blanked all share
+ * one address and are not counted.
+ */
+export function duplicateEmails(orders: readonly Pick<OrderRow, 'email' | 'status' | 'anonymised_at'>[]): Set<string> {
+  const seen = new Map<string, number>()
+  for (const o of orders) {
+    if (o.status !== 'confirmed' || !o.email || o.anonymised_at) continue
+    const key = o.email.trim().toLowerCase()
+    seen.set(key, (seen.get(key) ?? 0) + 1)
+  }
+  return new Set([...seen].filter(([, n]) => n > 1).map(([email]) => email))
+}
+
+/** A live registration under an address another live one is under too. */
+export function sharesAnEmail(o: Pick<OrderRow, 'email' | 'status' | 'anonymised_at'>, duplicates: ReadonlySet<string>): boolean {
+  return o.status === 'confirmed' && !o.anonymised_at && !!o.email && duplicates.has(o.email.trim().toLowerCase())
+}
+
+/**
+ * Whether an order is one of the filter's, and says the words typed.
+ * `duplicates` is duplicateEmails() of the whole list: an order cannot
+ * say by itself that another shares its address.
+ */
+export function orderMatches(o: OrderRow, filter: OrderFilter, query: string, duplicates: ReadonlySet<string> = new Set()): boolean {
   const live = o.status === 'confirmed'
   const kept =
     filter === 'all'
@@ -1391,7 +1457,9 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string): b
               ? !!o.refund_status
               : filter === 'email'
                 ? emailWantsDoing(o)
-                : o.status === 'cancelled'
+                : filter === 'duplicates'
+                  ? sharesAnEmail(o, duplicates)
+                  : o.status === 'cancelled'
   if (!kept) return false
   const q = query.trim().toLowerCase()
   if (!q) return true
@@ -1501,8 +1569,8 @@ export function buildRegistrationWorkbook(
 
   const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
   const takingsOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).reduce((m, t) => m + t.unit_price_pence, 0), 0)
-  const expected = confirmed.reduce((n, o) => n + o.total_pence, 0)
-  const received = confirmed.filter((o) => o.payment_status === 'received' || o.payment_status === 'waived').reduce((n, o) => n + o.total_pence, 0)
+  // Money that came in, money let go, and money still to come — never added together.
+  const sums = orderMoney(orders)
   const summarySheet: ExportSheet = {
     name: 'Summary',
     columns: [
@@ -1518,9 +1586,10 @@ export function buildRegistrationWorkbook(
       ['Registered orders', confirmed.length, '', '', ''],
       ['Tickets', confirmed.reduce((n, o) => n + o.quantity, 0), '', '', ''],
       ['Cancelled orders', orders.length - confirmed.length, '', '', ''],
-      ['Expected (£)', money(expected), '', '', ''],
-      ['Received or waived (£)', money(received), '', '', ''],
-      ['Still to come (£)', money(expected - received), '', '', ''],
+      ['Expected (£)', money(sums.expected), '', '', ''],
+      ['Received (£)', money(sums.received), '', '', ''],
+      ['Still to come (£)', money(sums.toCome), '', '', ''],
+      ['Waived (£)', money(sums.waived), '', '', ''],
       ['Refunds owed (£)', money(orders.filter((o) => o.refund_status === 'owed').reduce((n, o) => n + o.total_pence, 0)), '', '', ''],
       ['Refunded (£)', money(orders.filter((o) => o.refund_status === 'refunded').reduce((n, o) => n + o.total_pence, 0)), '', '', ''],
       ['Exported', stamp(new Date().toISOString()), '', '', ''],

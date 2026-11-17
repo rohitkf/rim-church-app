@@ -56,6 +56,7 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   tickets: 20,
   expected_pence: 40000,
   received_pence: 30000,
+  waived_pence: 0,
   awaiting: 3,
   reported: 0,
   owed: 0,
@@ -96,6 +97,15 @@ describe('the Registrations page', () => {
     const draft = screen.getByRole('listitem', { name: 'Youth Night' })
     expect(within(draft).getByText('Draft')).toBeInTheDocument()
     expect(within(draft).getByText(/No date yet/)).toBeInTheDocument()
+  })
+
+  it('says what was waived beside the money received, never inside it', async () => {
+    // £300 came in and £30 was let go: £300 received, not £330.
+    state.events = [summary({ waived_pence: 3000 })]
+    show()
+    const card = await screen.findByRole('listitem', { name: 'Pastors & Leaders 2026' })
+    expect(within(card).getByText('12 orders · £300.00 of £400.00 received · £30.00 waived')).toBeInTheDocument()
+    expect(within(card).getByRole('img', { name: '£300.00 of £400.00 received' })).toBeInTheDocument()
   })
 
   it('adds the events up, and leads to a new one', async () => {

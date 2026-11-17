@@ -159,6 +159,8 @@ function EventCard({ event, past }: { event: EventSummary; past: boolean }) {
         <p className="mt-1.5 font-mono text-label-sm text-on-surface-variant">
           {event.orders} {event.orders === 1 ? 'order' : 'orders'}
           {event.expected_pence > 0 && ` · ${pounds(event.received_pence)} of ${pounds(event.expected_pence)} received`}
+          {/* Let go, not received: said beside the money, never inside it. */}
+          {event.waived_pence > 0 && ` · ${pounds(event.waived_pence)} waived`}
         </p>
       </div>
 

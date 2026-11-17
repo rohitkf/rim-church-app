@@ -123,6 +123,7 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   tickets: 6,
   expected_pence: 5600,
   received_pence: 2000,
+  waived_pence: 0,
   awaiting: 1,
   reported: 0,
   owed: 0,

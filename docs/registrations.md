@@ -97,6 +97,20 @@ personal details are tidied away after the event.
   *Change email address* in its ⋯ menu) takes the right one and sends
   their email to it ten seconds later — time to press **Undo**. Left as
   it is, the same dialog just sends the email again.
+- Put a promo code on a registration that was made without it: **Apply
+  a promo code** in the registration's ⋯ menu (for whoever may approve
+  payments), while it is still awaiting payment and has no discount. The
+  price comes down, or nothing is left to pay and it becomes their
+  ticket; Undo takes it back. A registration with a payment already
+  recorded — waived included — is put back to awaiting payment first.
+- Find double registrations: registrations under the same email address
+  are tagged **Same email as another**, counted under *What wants doing*,
+  and have a **Same email** filter. Cancel the spare one — cancelling
+  touches only the registration cancelled.
+- Read the money as it is: **received** counts only money marked
+  received; a **waived** payment is shown beside it and never added in;
+  **still to come** is what is awaiting or being checked. The export has
+  *Received*, *Still to come* and *Waived* as separate lines.
 - Cancel the event and settle refunds. An event can be deleted only once
   every paid order is refunded. Cancelling or deleting it takes its diary
   entries with it.
@@ -118,6 +132,9 @@ personal details are tidied away after the event.
   spelt nearly right (gmial.com) is offered spelt right.
 - Pays by bank transfer, the PayPal link, or at Reception, and uploads a
   receipt.
+- Has a promo code they did not use when registering: an unpaid
+  registration's page asks **Have a promo code?**, and the code goes on
+  that registration — no second registration.
 - Gets an email with an **Open ticket** button. The ticket page shows the
   QR code, the payment state, and a countdown to the start.
 - If that email bounces, the ticket page says so — **We could not email
@@ -252,6 +269,10 @@ protection.
 - `frontend/src/lib/registrations.ts` and `lib/registrationRights.ts`.
 - Undo: migration `0281` (`registration_order_undos`,
   `registration_order_undo()`) and `frontend/src/lib/registrationUndo.ts`.
+- A promo code afterwards: migration `0298` (`registration_apply_promo()`,
+  `registration_order_apply_promo()`, `registration_order_promo()`),
+  `frontend/src/lib/promoLater.ts`, `components/ApplyPromoDialog.tsx` and
+  `components/TicketPromoCode.tsx`.
 - Invite links: migration `0295` (`registration_invites`,
   `registration_invite_check()`), `frontend/src/lib/registrationInvites.ts`
   and `components/RegistrationInvites.tsx`. Migration `0296`: a promo
