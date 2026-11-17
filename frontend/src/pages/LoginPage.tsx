@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { probeAuthServer, reachabilityAdvice } from '../lib/authProbe'
 import { signInViaProxy } from '../lib/signInFallback'
+import { hedge, watch } from '../lib/signInHedge'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { whereTheyWereHeaded } from '../lib/afterSignIn'
@@ -30,26 +31,6 @@ function deadline(ms: number): Promise<never> {
   })
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * The second attempt, over the same-origin route — but only ever as a
- * winner. If it fails it stays pending for ever, so it can be raced
- * against the direct attempt without a failure here cutting that one
- * short: whichever road actually works is the one that answers.
- */
-function hedgeViaProxy(email: string, password: string): Promise<'signed-in'> {
-  return new Promise((resolve) => {
-    void (async () => {
-      await wait(HEDGE_AFTER_MS)
-      const result = await signInViaProxy(email, password)
-      if (result.ok) resolve('signed-in')
-    })()
-  })
-}
-
 export function LoginPage() {
   const removed = new URLSearchParams(useLocation().search).get('removed') === '1'
   const { session } = useAuth()
@@ -74,9 +55,10 @@ export function LoginPage() {
     // rejects instead. Without a catch that left the button on
     // "Signing in…" for ever, which looks like progress and isn't.
     try {
-      const signIn = supabase.auth
-        .signInWithPassword({ email, password })
-        .then((result) => ({ kind: 'direct' as const, result }))
+      // Whether the direct road has still said nothing: the only time the
+      // other one is worth trying alongside it (lib/signInHedge).
+      const direct = watch(supabase.auth.signInWithPassword({ email, password }))
+      const signIn = direct.answer.then((result) => ({ kind: 'direct' as const, result }))
 
       // The client's own deadline is a minute, which is right for a large
       // upload and far too long to stand at a sign-in button. Twenty
@@ -85,7 +67,7 @@ export function LoginPage() {
       // tried alongside this one rather than after it.
       const outcome = await Promise.race([
         signIn,
-        hedgeViaProxy(email, password).then(() => ({ kind: 'proxy' as const })),
+        hedge(HEDGE_AFTER_MS, direct.silent, () => signInViaProxy(email, password)).then(() => ({ kind: 'proxy' as const })),
         deadline(SIGN_IN_TIMEOUT_MS),
       ])
 
