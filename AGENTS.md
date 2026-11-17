@@ -1081,6 +1081,14 @@ Each of these has already cost real time. None of them show up in review.
   answers 200 for an address that already has an account — it makes
   nothing and sends nothing; the person handed back has no identities —
   says so instead of "check your email".
+- **The second road to signing in is taken only while the first is
+  silent.** The login page tries the same-origin route alongside the
+  direct one after six seconds (`lib/signInHedge.ts`). It used to set off
+  after its wait whatever had happened meanwhile, so every sign-in reached
+  the service twice: a good one left a spare session and moved the visit
+  onto the proxy, a refused one was refused again. Anything raced against
+  a request on a timer asks whether that request has answered before it
+  acts.
 - **A timed job or a push that fails is only known if the hourly copy
   sees it.** `health_collect()` reads Supabase's own tables
   (`cron.job_run_details`, `net._http_response`, `supabase_functions.hooks`)

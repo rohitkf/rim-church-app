@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
@@ -10,6 +10,9 @@ const signIn = vi.fn()
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { auth: { signInWithPassword: (...a: unknown[]) => signIn(...(a as [])) } },
 }))
+// The same-origin road. It answers "no" here, as it does with no key to send.
+const viaProxy = vi.hoisted(() => vi.fn(() => Promise.resolve({ ok: false })))
+vi.mock('../lib/signInFallback', () => ({ signInViaProxy: viaProxy }))
 const who = vi.hoisted(() => ({ session: null as unknown }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => who }))
 
@@ -63,6 +66,59 @@ describe('LoginPage', () => {
  * Somebody sent to sign in from a link (ProtectedRoute says where they
  * were going) lands there once they are in, not on the Dashboard.
  */
+describe('the second road', () => {
+  async function submitOnFakeClock() {
+    vi.useFakeTimers()
+    viaProxy.mockClear()
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } })
+    fireEvent.change(document.querySelector('input[type=password]')!, { target: { value: 'hunter2hunter2' } })
+    fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
+    // Well past the six seconds after which it used to set off regardless.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
+  }
+
+  it('is not taken after a refused sign-in: one press is one attempt, not two', async () => {
+    try {
+      signIn.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } })
+      await submitOnFakeClock()
+      expect(signIn).toHaveBeenCalledTimes(1)
+      expect(viaProxy).not.toHaveBeenCalled()
+    } finally {
+      signIn.mockClear()
+      vi.useRealTimers()
+    }
+  })
+
+  it('is not taken after a sign-in that worked: no second session six seconds later', async () => {
+    try {
+      signIn.mockResolvedValueOnce({ error: null })
+      await submitOnFakeClock()
+      expect(viaProxy).not.toHaveBeenCalled()
+    } finally {
+      signIn.mockClear()
+      vi.useRealTimers()
+    }
+  })
+
+  it('is taken when the direct road is still silent after six seconds', async () => {
+    try {
+      signIn.mockReturnValueOnce(new Promise(() => {}))
+      await submitOnFakeClock()
+      expect(viaProxy).toHaveBeenCalledTimes(1)
+    } finally {
+      signIn.mockClear()
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('after signing in', () => {
   function Where() {
     const { pathname, search } = useLocation()
