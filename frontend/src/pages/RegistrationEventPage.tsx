@@ -558,6 +558,7 @@ export function RegistrationEventPage() {
           published={event.status === 'published'}
           ticketTypes={ticketTypes}
           orders={rows}
+          ordersReady={orders.isSuccess}
           canEdit={rights.edit && !cancelled}
         />
       )}
@@ -1039,7 +1040,7 @@ function OrderLine({
             ) : order.total_pence > 0 ? (
               <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
             ) : (
-              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy ? 'Free by invitation' : 'Free'}</Pill>
+              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy && order.discount_pence > 0 ? 'Free by invitation' : 'Free'}</Pill>
             )}
             {live && order.payment_verified_at && order.total_pence > 0 && (
               <Pill tone="green" dot>

@@ -4,7 +4,8 @@ export interface MonthCell {
   inMonth: boolean
 }
 
-function toIso(d: Date): string {
+/** A date as YYYY-MM-DD, in this device's own day. */
+export function toIso(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }

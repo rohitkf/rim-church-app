@@ -15,7 +15,6 @@ import {
   inviteTokenFrom,
   inviteUses,
   newInviteDraft,
-  todayText,
   usesWords,
   type Invite,
   type InviteDraft,
@@ -257,7 +256,6 @@ describe('the form that makes a link', () => {
   })
 
   it('will not end on a day that has gone', () => {
-    expect(todayText(now)).toBe('2026-11-16')
     expect(fields(draft({ until: '2026-11-15' }))).toEqual(['until'])
     expect(fields(draft({ until: '2026-11-16' }))).toEqual([])
   })

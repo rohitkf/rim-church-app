@@ -63,6 +63,7 @@ vi.mock('../lib/registrationInvites', async (original) => ({
   ...(await original<typeof import('../lib/registrationInvites')>()),
   checkInvite: (_slug: string, token: string) => {
     state.inviteChecks.push(token)
+    // An Error is a check that could not be made; a promise is one still on its way.
     return state.invite instanceof Error ? Promise.reject(state.invite) : Promise.resolve(state.invite)
   },
 }))
@@ -829,6 +830,46 @@ describe('the register page opened from an invitation link', () => {
     expect(await screen.findByRole('button', { name: 'Register, then pay £20.00' })).toBeInTheDocument()
   })
 
+  it('holds the button while the invitation is being checked again after a failure', async () => {
+    state.invite = new Error('no answer')
+    const user = show(LINK)
+    const alert = await screen.findByRole('alert', { name: 'Your invitation' })
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    // Not checked: the form can go on at the usual price, and says that it would.
+    expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeEnabled()
+
+    // Checking again, and slow to answer: registering now would send no invitation.
+    let answer: (value: unknown) => void = () => undefined
+    state.invite = new Promise((resolve) => (answer = resolve))
+    await user.click(within(alert).getByRole('button', { name: 'Check it again' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Register, then pay £20.00' })).toBeDisabled())
+    expect(screen.queryByRole('alert', { name: 'Your invitation' })).toBeNull()
+
+    answer(free())
+    expect(await screen.findByRole('status', { name: 'Your invitation' })).toHaveTextContent('You’re invited')
+    expect(screen.getByRole('button', { name: 'Register' })).toBeEnabled()
+  })
+
+  it('never says “invited” and “could not be checked” at once: an answer in hand stands when a later ask fails', async () => {
+    state.invite = free()
+    const user = show(LINK)
+    await screen.findByRole('status', { name: 'Your invitation' })
+    await user.click(screen.getByRole('button', { name: 'One more With lunch' }))
+    await fillWho(user)
+
+    // Registering is refused for something else, and asking about the invitation again gets no answer.
+    state.refuse = 'Only 0 of "With lunch" left.'
+    state.invite = new Error('no answer')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
+    expect(await screen.findByText('Could not register. Try again.')).toBeInTheDocument()
+    await waitFor(() => expect(state.inviteChecks.length).toBeGreaterThan(1))
+    expect(screen.getByRole('status', { name: 'Your invitation' })).toHaveTextContent('You’re invited')
+    expect(screen.queryByRole('alert', { name: 'Your invitation' })).toBeNull()
+    // And the order still carries it: the database has the last word.
+    expect(screen.getByRole('button', { name: 'Register' })).toBeEnabled()
+  })
+
   it('says nothing about invitations on a plain link, and asks nothing', async () => {
     show()
     await screen.findByRole('heading', { level: 1 })
@@ -890,7 +931,7 @@ describe('the register page opened from an invitation link', () => {
     await registerByEmail(user)
     const done = await screen.findByRole('status', { name: 'You’re registered' })
     await waitFor(() => expect(done).toHaveTextContent('Your ticket goes to ama@example.org, but the email could not be sent just now.'))
-    expect(done).toHaveTextContent('In a few minutes, use “Get your ticket again” below.')
+    expect(done).toHaveTextContent('In about ten minutes, use “Get your ticket again” below with that address; the church office can send it too.')
   })
 
   it('still goes straight to the ticket for a group invitation', async () => {

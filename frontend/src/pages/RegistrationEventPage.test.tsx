@@ -1042,6 +1042,17 @@ describe('invite links on the event’s page', () => {
     expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByText(/Invited/)).toBeNull()
   })
 
+  it('does not call a free registration “free by invitation” when the link took nothing off', async () => {
+    // A link with no discount on a free ticket: it records who came by it, and that is all it did.
+    state.invites = [link({ discount_kind: null, discount_value: null, max_uses: null })]
+    state.orders = [order({ id: 'o-free', code: 'HJKMNPQRSTUV', name: 'Free Guest', quantity: 1, subtotal_pence: 0, discount_pence: 0, total_pence: 0, promo_code: null, invite_id: 'i-youth', payment_status: 'not_needed', tickets: [{ ticket_type_id: 't2', attendee_name: null, unit_price_pence: 0 }] })]
+    show()
+    const row = await screen.findByRole('listitem', { name: 'Free Guest' })
+    expect(await within(row).findByText('Invited: Rim Youth WhatsApp')).toBeInTheDocument()
+    expect(within(row).getAllByText('Free').length).toBeGreaterThan(0)
+    expect(within(row).queryByText('Free by invitation')).toBeNull()
+  })
+
   it('names the link in the export', async () => {
     state.invites = [link()]
     state.orders = [invited()]

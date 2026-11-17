@@ -16,8 +16,8 @@ import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { directionsUrl } from '../lib/directions'
 import { pounds, parsePounds, priceWords } from '../lib/money'
-import { TICKET_PATH } from '../lib/registrationLinks'
-import { INVITE_GONE, INVITE_PARAM, checkInvite, inviteOffer, inviteTokenFrom } from '../lib/registrationInvites'
+import { INVITE_PARAM, TICKET_PATH } from '../lib/registrationLinks'
+import { INVITE_GONE, checkInvite, inviteOffer, inviteTokenFrom } from '../lib/registrationInvites'
 import {
   checkPromoCode,
   fetchPublicEvent,
@@ -150,8 +150,14 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   /** Why the link's invitation is no use, when it is none. */
   const inviteGone =
     !inviteAsked || inviteDropped ? null : inviteToken === null ? 'not_found' : inviteCheck.data && !inviteCheck.data.ok ? inviteCheck.data.reason : null
-  const inviteChecking = inviteToken !== null && !inviteDropped && inviteCheck.isLoading
-  const inviteUnchecked = inviteToken !== null && !inviteDropped && inviteCheck.isError
+  // Asking, with no answer yet to go by — the first time, or again after a
+  // failure. The button waits for it: registering meanwhile would be at the
+  // usual price with no invitation sent.
+  const inviteChecking = inviteToken !== null && !inviteDropped && inviteCheck.isFetching && !invite
+  // Never answered. An answer in hand stands when a later ask fails — the
+  // database has the last word when the order is sent — so the page never
+  // says "invited" and "could not be checked" at once.
+  const inviteUnchecked = inviteToken !== null && !inviteDropped && inviteCheck.isError && inviteCheck.data === undefined && !inviteCheck.isFetching
   /**
    * Registered by a personal invitation (0297): the ticket was sent to this
    * address rather than shown. `sent` is null while the email is being
@@ -445,8 +451,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             <h2 className="text-headline-md text-on-surface">You’re registered</h2>
             {emailed.sent === false ? (
               <p className="text-body-md text-on-surface">
-                Your ticket goes to <span className="font-semibold [overflow-wrap:anywhere]">{emailed.to}</span>, but the email could not be sent just now. In a few
-                minutes, use “Get your ticket again” below.
+                Your ticket goes to <span className="font-semibold [overflow-wrap:anywhere]">{emailed.to}</span>, but the email could not be sent just now. In about
+                ten minutes, use “Get your ticket again” below with that address; the church office can send it too.
               </p>
             ) : (
               <p className="text-body-md text-on-surface">
