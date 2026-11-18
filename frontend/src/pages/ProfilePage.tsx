@@ -7,7 +7,15 @@ import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
 import { SectionTile, inputClasses } from '../components/Surface'
-import { EMERGENCY_NAME_LIMIT, MARITAL_STATUSES, VISA_TYPES, emergencyProblems, isSettledStatus } from '../lib/joining'
+import {
+  EMERGENCY_NAME_LIMIT,
+  EMERGENCY_RELATIONS,
+  MARITAL_STATUSES,
+  VISA_TYPES,
+  emergencyProblems,
+  emergencyRelationOf,
+  isSettledStatus,
+} from '../lib/joining'
 import { YesNoSwitch } from '../components/YesNoSwitch'
 import { FamilyCard } from '../components/FamilyCard'
 import { showToast } from '../lib/toast'
@@ -26,7 +34,7 @@ function coreOf(
   dob: string,
   marital: string,
   anniversary: string,
-  emergency: { name: string; phone: string },
+  emergency: { name: string; relation: string; phone: string },
 ) {
   return {
     first_name: first.trim(),
@@ -36,6 +44,7 @@ function coreOf(
     marital_status: marital || null,
     anniversary: anniversary || null,
     emergency_contact_name: emergency.name.trim() || null,
+    emergency_contact_relation: emergency.relation || null,
     emergency_contact_phone: emergency.phone.trim() || null,
   }
 }
@@ -64,9 +73,10 @@ export function ProfilePage() {
   const [anniversary, setAnniversary] = useState('')
   const [maritalStatus, setMaritalStatus] = useState('')
   const [emergencyName, setEmergencyName] = useState('')
+  const [emergencyRelation, setEmergencyRelation] = useState('')
   const [emergencyPhone, setEmergencyPhone] = useState('')
   /** Who to ring as last saved: what is kept while the boxes hold something that cannot be. */
-  const savedEmergency = useRef({ name: '', phone: '' })
+  const savedEmergency = useRef({ name: '', relation: '', phone: '' })
   const [sensitive, setSensitive] = useState<SensitiveByUser | null>(null)
   const errorText = useErrorText()
 
@@ -88,8 +98,14 @@ export function ProfilePage() {
     setDob(profile.dob ?? '')
     setAnniversary(profile.anniversary ?? '')
     setMaritalStatus(profile.marital_status ?? '')
-    const emergency = { name: profile.emergency_contact_name ?? '', phone: profile.emergency_contact_phone ?? '' }
+    const emergency = {
+      name: profile.emergency_contact_name ?? '',
+      // A value this app has never heard of reads as not answered, and is asked for.
+      relation: emergencyRelationOf(profile.emergency_contact_relation),
+      phone: profile.emergency_contact_phone ?? '',
+    }
     setEmergencyName(emergency.name)
+    setEmergencyRelation(emergency.relation)
     setEmergencyPhone(emergency.phone)
     savedEmergency.current = emergency
     savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? '', emergency))
@@ -98,15 +114,17 @@ export function ProfilePage() {
   /*
    * Who to ring is asked of everybody (0301), so it is never saved blank
    * or wrong over a good answer: a name with no number, a number with no
-   * name, or somebody's own number waits — and says what it is waiting
+   * name, nobody said who they are (0302), or somebody's own number waits — and says what it is waiting
    * for — while everything else on the page goes on saving.
    */
   const emergencyBad = emergencyProblems(emergencyName, emergencyPhone, phone)
   const emergencyWaits = !emergencyName.trim()
     ? 'Enter their name: everybody needs somebody we can ring.'
-    : !emergencyPhone.trim()
-      ? 'Enter their phone number: everybody needs somebody we can ring.'
-      : (emergencyBad.name ?? emergencyBad.phone ?? null)
+    : !emergencyRelation
+      ? 'Choose who they are to you.'
+      : !emergencyPhone.trim()
+        ? 'Enter their phone number: everybody needs somebody we can ring.'
+        : (emergencyBad.name ?? emergencyBad.phone ?? null)
 
   const profileId = profile?.id
   useEffect(() => {
@@ -135,7 +153,9 @@ export function ProfilePage() {
    */
   useEffect(() => {
     if (!profileId || savedCore.current === null) return
-    const emergency = emergencyWaits ? savedEmergency.current : { name: emergencyName, phone: emergencyPhone }
+    const emergency = emergencyWaits
+      ? savedEmergency.current
+      : { name: emergencyName, relation: emergencyRelation, phone: emergencyPhone }
     const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary, emergency)
     const json = JSON.stringify(core)
     if (json === savedCore.current || !firstName.trim() || !lastName.trim()) return
@@ -155,7 +175,7 @@ export function ProfilePage() {
       refreshProfile()
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyPhone, emergencyWaits, refreshProfile, errorText])
+  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyRelation, emergencyPhone, emergencyWaits, refreshProfile, errorText])
 
   useEffect(() => {
     if (!profileId || !sensitive || savedSensitive.current === null) return
@@ -207,7 +227,11 @@ export function ProfilePage() {
         </div>
       </SectionTile>
 
+      {/* Red, as Erase Data is (the Owner's ask, November 2026): the one card
+          on the page that is about something going wrong, and the one to
+          find at a glance when it has. */}
       <SectionTile
+        tone="danger"
         title="In an emergency"
         hint="Somebody we can ring if something happens to you at church. Only you and the Owner can see these."
       >
@@ -222,6 +246,16 @@ export function ProfilePage() {
               aria-invalid={emergencyWaits ? true : undefined}
               aria-describedby={emergencyWaits ? 'profile-emergency-waits' : undefined}
               className={inputClasses}
+            />
+          </label>
+          <label className={labelClasses}>
+            Who they are to you
+            <Select
+              value={emergencyRelation}
+              onChange={setEmergencyRelation}
+              placeholder="Choose one"
+              aria-label="Who they are to you"
+              options={EMERGENCY_RELATIONS.map((r) => ({ value: r.value, label: r.label }))}
             />
           </label>
           <PhoneField

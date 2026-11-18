@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMERGENCY_RELATIONS,
   JOINING_FORM,
   emergencyProblems,
+  emergencyRelationLabel,
+  emergencyRelationOf,
   invalidAnswers,
   isSettledStatus,
   isComplete,
@@ -29,6 +32,7 @@ const answers = (over: Partial<JoiningAnswers> = {}): JoiningAnswers => ({
   town: 'Leeds',
   postcode: 'LS1 1AA',
   emergencyName: 'Ama Mensah',
+  emergencyRelation: 'sibling',
   emergencyPhone: '+447812345678',
   ...over,
 })
@@ -185,8 +189,10 @@ describe('what is filled in and wrong', () => {
 describe('an address and somebody to ring', () => {
   it('are asked of everybody: line 1, the town, the postcode, a name and a number', () => {
     expect(
-      missingAnswers(answers({ addressLine1: ' ', town: '', postcode: '', emergencyName: '', emergencyPhone: '' })),
-    ).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone'])
+      missingAnswers(
+        answers({ addressLine1: ' ', town: '', postcode: '', emergencyName: '', emergencyRelation: '', emergencyPhone: '' }),
+      ),
+    ).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone'])
   })
 
   it('never ask for a second line of the address', () => {
@@ -208,11 +214,59 @@ describe('an address and somebody to ring', () => {
 
   it('go to the two places that keep them: the profile, and the household’s address', () => {
     const rows = toProfileRows(answers({ addressLine2: ' Flat 3 ', postcode: ' ls1 1aa ' }))
-    expect(rows.profile).toMatchObject({ emergency_contact_name: 'Ama Mensah', emergency_contact_phone: '+447812345678' })
+    expect(rows.profile).toMatchObject({
+      emergency_contact_name: 'Ama Mensah',
+      emergency_contact_relation: 'sibling',
+      emergency_contact_phone: '+447812345678',
+    })
     expect(rows.address).toEqual({ line1: '1 High Street', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 1AA' })
   })
 
-  it('make this the second form', () => {
-    expect(JOINING_FORM).toBe(2)
+  it('make this the third form: who the person to ring is came after the rest (0302)', () => {
+    expect(JOINING_FORM).toBe(3)
+  })
+})
+
+/*
+ * Who the person to ring is to them (0302): one of a short list, the same
+ * list the database's check holds.
+ */
+describe('who the person to ring is', () => {
+  const migrations = import.meta.glob('../../../supabase/migrations/*.sql', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>
+  // The newest migration that sets the check is the one in force.
+  const sql = Object.entries(migrations)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, text]) => text)
+    .filter((text) => text.includes('profiles_emergency_contact_relation_known'))
+    .pop()!
+
+  it('is asked of everybody, by itself', () => {
+    expect(missingAnswers(answers({ emergencyRelation: '' }))).toEqual(['emergencyRelation'])
+  })
+
+  it('is one of the values the database will keep', () => {
+    const list = sql.match(/emergency_contact_relation in \(([^)]*)\)/)![1]
+    const kept = [...list.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+    expect(kept).toEqual(EMERGENCY_RELATIONS.map((r) => r.value))
+  })
+
+  it('reads as a word on a page, and a value nobody knows as itself', () => {
+    expect(emergencyRelationLabel('spouse')).toBe('Husband or wife')
+    expect(emergencyRelationLabel('godparent')).toBe('godparent')
+    expect(emergencyRelationLabel(null)).toBeNull()
+  })
+
+  it('treats a stored value this app has never heard of as not answered, so it is asked', () => {
+    expect(emergencyRelationOf('godparent')).toBe('')
+    expect(emergencyRelationOf('friend')).toBe('friend')
+    expect(emergencyRelationOf(null)).toBe('')
+  })
+
+  it('lets nobody be forced into a wrong answer', () => {
+    expect(EMERGENCY_RELATIONS.at(-1)).toEqual({ value: 'other', label: 'Other' })
   })
 })

@@ -103,6 +103,7 @@ async function fillWhereAndWho() {
   await userEvent.type(screen.getByLabelText('Town or city'), 'Leeds')
   await userEvent.type(screen.getByLabelText('Postcode'), 'ls1 1aa')
   await userEvent.type(screen.getByLabelText('Their name'), 'Ama Mensah')
+  await choose('Who they are to you', 'Brother or sister')
   await userEvent.type(screen.getByLabelText('Their phone number'), '07812345678')
 }
 
@@ -187,6 +188,7 @@ describe('joining', () => {
       dob: '1990-04-02',
       marital_status: 'single',
       emergency_contact_name: 'Ama Mensah',
+      emergency_contact_relation: 'sibling',
       emergency_contact_phone: '+447812345678',
     })
     // The address is the household's: through its own function, postcode in capitals.
@@ -246,8 +248,10 @@ describe('joining', () => {
       'Town or city',
       'Postcode',
       'Emergency contact’s name',
+      'Emergency contact’s relationship to you',
       'Emergency contact’s number',
     ])
+    expect(screen.getByText('Choose who they are to you.')).toBeInTheDocument()
     expect(screen.getByText('Enter the first line of your address.')).toBeInTheDocument()
     expect(screen.getByText('Enter their phone number.')).toBeInTheDocument()
     expect(state.written).toHaveLength(0)

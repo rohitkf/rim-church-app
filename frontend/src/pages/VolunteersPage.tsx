@@ -24,6 +24,7 @@ import { useConfirmAction } from '../components/ConfirmAction'
 import { Select, selectPillClasses } from '../components/Select'
 import { ROLE_NAME } from '../lib/roleNames'
 import { formatPhoneInternational } from '../lib/phone'
+import { emergencyRelationLabel } from '../lib/joining'
 import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
 import { BlockAccountDialog } from '../components/BlockAccountDialog'
 import { momentWords } from '../lib/appNotices'
@@ -52,6 +53,8 @@ const volunteerSchema = z.object({
   /** Who to ring about them (0301): the same people's to see, by the same function. */
   emergency_contact_name: z.string().nullable().optional(),
   emergency_contact_phone: z.string().nullable().optional(),
+  /** What that person is to them (0302). */
+  emergency_contact_relation: z.string().nullable().optional(),
   dob: z.string().nullable(),
   anniversary: z.string().nullable(),
 })
@@ -67,6 +70,8 @@ const contactSchema = z.object({
   // Absent from a database that has not had 0301 yet.
   emergency_contact_name: z.string().nullable().optional(),
   emergency_contact_phone: z.string().nullable().optional(),
+  // And from one that has not had 0302.
+  emergency_contact_relation: z.string().nullable().optional(),
 })
 
 async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
@@ -85,7 +90,14 @@ async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
   // Never carried for anybody else, even if a row ever arrived with them.
   if (!withContacts) {
     return people.map(
-      ({ email: _email, phone: _phone, emergency_contact_name: _name, emergency_contact_phone: _ring, ...rest }) => rest,
+      ({
+        email: _email,
+        phone: _phone,
+        emergency_contact_name: _name,
+        emergency_contact_phone: _ring,
+        emergency_contact_relation: _who,
+        ...rest
+      }) => rest,
     )
   }
   const contacts = await supabase.rpc('people_contacts', { p_ids: null })
@@ -100,6 +112,7 @@ async function fetchVolunteers(withContacts: boolean): Promise<Volunteer[]> {
           phone: c.phone,
           emergency_contact_name: c.emergency_contact_name ?? null,
           emergency_contact_phone: c.emergency_contact_phone ?? null,
+          emergency_contact_relation: c.emergency_contact_relation ?? null,
         }
       : p
   })
@@ -482,7 +495,12 @@ export function VolunteersPage() {
               {/* Who to ring about them (0301): wanted on a phone, in a hurry, so the number is a link that dials. */}
               {seesContacts && v.emergency_contact_phone && (
                 <span className="min-w-0 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
-                  In an emergency: {v.emergency_contact_name || 'their contact'},{' '}
+                  In an emergency: {v.emergency_contact_name || 'their contact'}
+                  {/* Who is being rung (0302): said before the number, because it changes what is said. */}
+                  {emergencyRelationLabel(v.emergency_contact_relation)
+                    ? ` (${emergencyRelationLabel(v.emergency_contact_relation)!.toLowerCase()})`
+                    : ''}
+                  ,{' '}
                   <a
                     href={`tel:${v.emergency_contact_phone}`}
                     className="whitespace-nowrap text-accent-blue-soft hover:text-on-surface"

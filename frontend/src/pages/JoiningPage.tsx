@@ -14,6 +14,8 @@ import { fetchHouseholds, myFamily, saveAddress, type Household } from '../lib/f
 import {
   ADDRESS_LIMITS,
   EMERGENCY_NAME_LIMIT,
+  EMERGENCY_RELATIONS,
+  emergencyRelationOf,
   MARITAL_STATUSES,
   VISA_TYPES,
   MISSING_TEXT,
@@ -211,6 +213,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
     town: edits.town ?? home?.town ?? '',
     postcode: edits.postcode ?? home?.postcode ?? '',
     emergencyName: edits.emergencyName ?? profile?.emergency_contact_name ?? '',
+    emergencyRelation: edits.emergencyRelation ?? emergencyRelationOf(profile?.emergency_contact_relation),
     emergencyPhone: edits.emergencyPhone ?? profile?.emergency_contact_phone ?? '',
   }
 
@@ -251,7 +254,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const ORDER: (keyof JoiningAnswers)[] = [
     'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary',
     'visaType', 'visaHasExpiry', 'visaExpiry', 'hasDbs',
-    'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone',
+    'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone',
   ]
   // Only questions on the screen: the expiry ones appear once a status is
   // chosen, and naming a question nobody can see is its own confusion.
@@ -619,6 +622,18 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                 className={`${inputClasses} ${redRing('emergencyName')}`}
               />
               {problem('emergencyName')}
+            </label>
+            <label id={joiningFieldId('emergencyRelation')} className={labelClasses}>
+              Who they are to you
+              <Select
+                value={answers.emergencyRelation}
+                onChange={(value) => set('emergencyRelation', value as JoiningAnswers['emergencyRelation'])}
+                placeholder="Choose one"
+                aria-label="Who they are to you"
+                className={`${triggerClasses} ${redRing('emergencyRelation')}`}
+                options={EMERGENCY_RELATIONS.map((r) => ({ value: r.value, label: r.label }))}
+              />
+              {problem('emergencyRelation')}
             </label>
             <div id={joiningFieldId('emergencyPhone')} className="flex flex-col gap-1.5">
               <PhoneField

@@ -43,5 +43,7 @@ export const profileSchema = z.object({
    */
   emergency_contact_name: z.string().nullable().optional(),
   emergency_contact_phone: z.string().nullable().optional(),
+  /** What that person is to them (0302). */
+  emergency_contact_relation: z.string().nullable().optional(),
 })
 export type Profile = z.infer<typeof profileSchema>

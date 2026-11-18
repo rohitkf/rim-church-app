@@ -88,7 +88,42 @@ export interface JoiningAnswers {
   postcode: string
   /** Who to ring if something happens to them, and on what number (0301). */
   emergencyName: string
+  /** What that person is to them (0302): one of EMERGENCY_RELATIONS. */
+  emergencyRelation: EmergencyRelation | ''
   emergencyPhone: string
+}
+
+/**
+ * What the person to ring is to them (0302).
+ *
+ * A short list rather than a sentence: the word is read at a glance by
+ * somebody about to make a hard phone call, and a list is the same word
+ * for the same thing on every profile. "Other" is there so nobody is
+ * forced into a wrong answer. The database's check holds the same values;
+ * joining.test.ts fails if the two differ.
+ */
+export const EMERGENCY_RELATIONS = [
+  { value: 'spouse', label: 'Husband or wife' },
+  { value: 'partner', label: 'Partner' },
+  { value: 'parent', label: 'Parent' },
+  { value: 'child', label: 'Son or daughter' },
+  { value: 'sibling', label: 'Brother or sister' },
+  { value: 'relative', label: 'Other relative' },
+  { value: 'friend', label: 'Friend' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export type EmergencyRelation = (typeof EMERGENCY_RELATIONS)[number]['value']
+
+/** A stored relationship as a known one, or blank: a value this app has never heard of is asked again. */
+export function emergencyRelationOf(value: string | null | undefined): EmergencyRelation | '' {
+  return EMERGENCY_RELATIONS.find((r) => r.value === value)?.value ?? ''
+}
+
+/** How a stored relationship reads on a page. Unknown values are shown as they are. */
+export function emergencyRelationLabel(value: string | null | undefined): string | null {
+  if (!value) return null
+  return EMERGENCY_RELATIONS.find((r) => r.value === value)?.label ?? value
 }
 
 /**
@@ -100,7 +135,7 @@ export interface JoiningAnswers {
  * for the answer and no way past. Add a question here and in
  * `profile_gaps()`, and this number goes up with it.
  */
-export const JOINING_FORM = 2
+export const JOINING_FORM = 3
 
 /**
  * What is still missing, in the order the form asks for it.
@@ -132,6 +167,7 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
   if (!answers.town.trim()) missing.push('town')
   if (!answers.postcode.trim()) missing.push('postcode')
   if (!answers.emergencyName.trim()) missing.push('emergencyName')
+  if (!answers.emergencyRelation) missing.push('emergencyRelation')
   if (!answers.emergencyPhone.trim()) missing.push('emergencyPhone')
   return missing
 }
@@ -162,6 +198,7 @@ export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message
   town: { label: 'Town or city', message: 'Enter your town or city.' },
   postcode: { label: 'Postcode', message: 'Enter your postcode.' },
   emergencyName: { label: 'Emergency contact’s name', message: 'Enter the name of somebody we can ring in an emergency.' },
+  emergencyRelation: { label: 'Emergency contact’s relationship to you', message: 'Choose who they are to you.' },
   emergencyPhone: { label: 'Emergency contact’s number', message: 'Enter their phone number.' },
 }
 
@@ -275,6 +312,7 @@ export function toProfileRows(answers: JoiningAnswers): {
       marital_status: answers.maritalStatus || null,
       anniversary: answers.maritalStatus === 'married' ? answers.anniversary || null : null,
       emergency_contact_name: answers.emergencyName.trim() || null,
+      emergency_contact_relation: answers.emergencyRelation || null,
       emergency_contact_phone: answers.emergencyPhone.trim() || null,
     },
     sensitive: {
