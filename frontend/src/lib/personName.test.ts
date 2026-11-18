@@ -74,17 +74,22 @@ describe('a name is not sent unless it is one', () => {
 
 /*
  * The database applies the same rule to whatever reaches it (0306), and
- * its own check at the end of that migration runs these same examples
- * through the SQL. This holds the two lists together: an example added
+ * the migration that last set the rule runs these same examples through
+ * the SQL. This holds the two lists together: an example added
  * here and not there fails, and the other way round.
  */
 describe('the database is held to the same examples', () => {
-  const migrations = import.meta.glob('../../../supabase/migrations/0306_*.sql', {
+  const migrations = import.meta.glob('../../../supabase/migrations/*.sql', {
     query: '?raw',
     import: 'default',
     eager: true,
   }) as Record<string, string>
-  const [file, sql = ''] = Object.entries(migrations)[0] ?? []
+  // The newest migration that carries the list is the rule in force.
+  const [file, sql = ''] =
+    Object.entries(migrations)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .filter(([, text]) => text.includes('-- NAME_EXAMPLES begin'))
+      .pop() ?? []
   const block = sql.slice(sql.indexOf('-- NAME_EXAMPLES begin'), sql.indexOf('-- NAME_EXAMPLES end'))
   const inSql = [...block.matchAll(/^\s*\('((?:[^']|'')*)', (null|'(?:[^']|'')*')\),?$/gm)].map(
     ([, typed, kept]) => [typed.replace(/''/g, "'"), kept === 'null' ? null : kept.slice(1, -1).replace(/''/g, "'")] as const,

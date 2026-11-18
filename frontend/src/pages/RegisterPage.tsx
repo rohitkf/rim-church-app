@@ -1,4 +1,3 @@
-import { nameProblem, tidyName } from '../lib/personName'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -195,7 +194,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         .map((t) => ({
           ticket_type_id: t.id,
           quantity: wanted[t.id].quantity,
-          attendee_names: Array.from({ length: wanted[t.id].quantity }, (_, i) => tidyName(wanted[t.id].names[i])),
+          attendee_names: Array.from({ length: wanted[t.id].quantity }, (_, i) => (wanted[t.id].names[i] ?? '').trim()),
           donation_pence: t.kind === 'donation' ? (parsePounds(wanted[t.id].donation) ?? 0) : undefined,
         })),
     [event.ticket_types, wanted],
@@ -237,7 +236,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const register = useMutation({
     mutationFn: () =>
       registerForEvent(event.slug, {
-        name: tidyName(name),
+        name: name.trim(),
         email: email.trim(),
         phone,
         date_id: event.date_mode === 'choose' ? dateId : null,
@@ -296,19 +295,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         problems.push({ key: `amount-${t.id}`, spot: 'tickets', text: `The least for “${t.name}” is ${pounds(t.min_donation_pence ?? 0)}.` })
     }
   }
-  // Who each ticket is for is optional, so only a name that has been typed
-  // and is not one is a problem (0306): said at its own box, by ticket.
-  for (const t of event.ticket_types) {
-    const w = wanted[t.id]
-    if (!w || w.quantity < 2) continue
-    for (let i = 0; i < w.quantity; i += 1) {
-      const wrong = nameProblem(w.names[i], `The name for ${t.name} ${i + 1}`)
-      if (wrong) problems.push({ key: `who-${t.id}-${i}`, spot: 'tickets', text: wrong })
-    }
-  }
-  const nameWrong = nameProblem(name, 'Your name')
   if (!name.trim()) problems.push({ key: 'name', spot: 'name', text: 'Enter your name.' })
-  else if (nameWrong) problems.push({ key: 'name', spot: 'name', text: nameWrong })
   if (!email.trim()) problems.push({ key: 'email', spot: 'email', text: 'Enter your email address.' })
   else if (!looksLikeEmail(email))
     problems.push({ key: 'email', spot: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
@@ -619,30 +606,23 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                     {w.quantity > 1 && (
                       <div className="mt-3 flex flex-col gap-2">
                         <p className="text-label-md text-on-surface-variant">Who are they for? (optional)</p>
-                        {Array.from({ length: w.quantity }, (_, i) => {
-                          const setWho = (value: string) =>
-                            setWanted((all) => {
-                              const names = [...w.names]
-                              names[i] = value
-                              return { ...all, [t.id]: { ...w, names } }
-                            })
-                          const key = `who-${t.id}-${i}`
-                          return (
-                            <div key={i} className="flex flex-col gap-1.5">
-                              <input
-                                value={w.names[i] ?? ''}
-                                onChange={(e) => setWho(e.target.value)}
-                                onBlur={() => setWho(tidyName(w.names[i]))}
-                                aria-label={`${t.name} ${i + 1} name`}
-                                placeholder={`${t.name} ${i + 1}`}
-                                maxLength={120}
-                                className={`${inputClasses} ${ring(key)}`}
-                                {...marked(key)}
-                              />
-                              {say(key)}
-                            </div>
-                          )
-                        })}
+                        {Array.from({ length: w.quantity }, (_, i) => (
+                          <input
+                            key={i}
+                            value={w.names[i] ?? ''}
+                            onChange={(e) =>
+                              setWanted((all) => {
+                                const names = [...w.names]
+                                names[i] = e.target.value
+                                return { ...all, [t.id]: { ...w, names } }
+                              })
+                            }
+                            aria-label={`${t.name} ${i + 1} name`}
+                            placeholder={`${t.name} ${i + 1}`}
+                            maxLength={120}
+                            className={inputClasses}
+                          />
+                        ))}
                       </div>
                     )}
                   </li>
@@ -664,7 +644,6 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  onBlur={() => setName(tidyName(name))}
                   autoComplete="name"
                   maxLength={120}
                   className={`${inputClasses} ${ring('name')}`}

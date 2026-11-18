@@ -8,13 +8,16 @@
  *
  * **The database has the last word.** `person_name_tidy()` and
  * `person_name_ok()` are the same two rules in SQL, and a trigger on every
- * table that keeps somebody's name (profiles, household_members, guests,
- * registration_orders, registration_order_tickets, registration_messages)
- * applies them to whatever arrives, from this app or from anything else.
+ * table that keeps the name of somebody in the church (profiles,
+ * household_members, guests) applies them to whatever arrives, from this
+ * app or from anything else. Not registrations and reception: a visitor's
+ * name is kept as they typed it (0307, the Owner's instruction), and so is
+ * the name on a bank account.
  * What is here is so the form can show the name as it will be saved and
  * say what is wrong before the save is sent. The two are held together by
  * one list of examples: `NAME_EXAMPLES` below is what this file's test
- * runs, and the same pairs are the `do` block at the end of the migration.
+ * runs, and the same pairs are a `do` block in the newest migration that
+ * sets the rule (0307).
  * Change the rule in both, and the list in both.
  *
  * The rule:
@@ -38,10 +41,11 @@
  *    MacDonald, whatever its owner did;
  *  - **initials stay capitals** where they were plainly meant: a word of
  *    one or two letters typed in capitals, in a name that has a small
- *    letter somewhere (Ps Emmanuel KB, KK Renjith). A name typed all in
- *    capitals says nothing about which of its words are initials, so
- *    JO SMITH is Jo Smith — and initials can always be given with full
- *    stops (K.B.);
+ *    letter somewhere (Ps Emmanuel KB, KK Renjith), or a name that is
+ *    nothing else — a last name of "YL" is initials (0307). A longer name
+ *    typed all in capitals says nothing about which of its words are
+ *    initials, so JO SMITH is Jo Smith — and initials can always be
+ *    given with full stops (K.B.);
  *  - a name is letters — of any alphabet — with spaces, hyphens,
  *    apostrophes and full stops between them, and starts with a letter.
  *    No digits, no @, no underscore.
@@ -122,7 +126,9 @@ export function tidyName(raw: string | null | undefined): string {
         let end = i
         while (end < chars.length && chars[end] !== "'" && !endsWord(chars[end])) end += 1
         // "'" ends the look but not the word: O'B is not initials.
-        initials = someSmall && end - i <= 2 && chars[end] !== "'" && chars.slice(i, end).every(isCapital)
+        // Chosen, or all there is: one or two capitals with nothing beside them.
+        const alone = i === 0 && end === chars.length
+        initials = (someSmall || alone) && end - i <= 2 && chars[end] !== "'" && chars.slice(i, end).every(isCapital)
       }
       const meant =
         typedProper && word.length >= 2 && isCapital(ch) && isSmall(chars[i - 1]) && isSmall(chars[i + 1]) && isSmall(chars[i + 2])
@@ -244,7 +250,11 @@ export const NAME_EXAMPLES: readonly (readonly [typed: string, kept: string | nu
   ['M kurian', 'M Kurian'],
   ['JO SMITH', 'Jo Smith'],
   ['MR JOHN SMITH', 'Mr John Smith'],
-  ['YL', 'Yl'],
+  ['YL', 'YL'],
+  ['yl', 'Yl'],
+  ['Li', 'Li'],
+  ['V', 'V'],
+  ['RAJ', 'Raj'],
   ['kb', 'Kb'],
   ['k.b. ganesh', 'K.B. Ganesh'],
   ['John RAJ', 'John Raj'],
