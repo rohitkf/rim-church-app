@@ -22,7 +22,7 @@ const db = vi.hoisted(() => ({
     { user_id: 'a', joined: true, gaps: [], notifications: true },
     { user_id: 'b', joined: true, gaps: ['dob', 'visaType'], notifications: false },
     { user_id: 'c', joined: false, gaps: ['phone', 'dob', 'maritalStatus', 'visaType'], notifications: false },
-  ],
+  ] as { user_id: string; joined: boolean; gaps: string[]; notifications: boolean; completed_at?: string | null }[],
   locations: [
     { user_id: 'a', state: 'granted', platform: 'ios', installed: true, reported_at: '2026-11-01T10:00:00Z', asked_at: null },
     { user_id: 'b', state: 'granted', platform: 'android', installed: false, reported_at: '2026-11-01T10:00:00Z', asked_at: null },
@@ -69,6 +69,7 @@ function show() {
 }
 
 beforeEach(() => {
+  for (const row of db.setup) delete row.completed_at
   db.pushes = []
   db.asks = []
   db.allowed = true
@@ -205,5 +206,45 @@ describe('Settings › Onboarding', () => {
     show()
     await screen.findByText('Ada Grace')
     expect(screen.queryByRole('link', { name: 'Clock In’s settings' })).toBeNull()
+  })
+
+  /*
+   * When somebody finished their details (0304): the tick says they have,
+   * the line under their name says when.
+   */
+  describe('when somebody finished their details', () => {
+    const when = (iso: string) =>
+      new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+    it('is said under the name of somebody whose details are complete, to the minute', async () => {
+      db.setup[0].completed_at = '2026-11-18T07:42:00Z'
+      show()
+      const ada = (await screen.findByText('Ada Grace')).closest('tr')!
+      expect(within(ada).getByText(`details completed ${when('2026-11-18T07:42:00Z')}`)).toBeInTheDocument()
+    })
+
+    it('is not said of somebody who finished once and has a blank now: the date is not the tick', async () => {
+      // Ben finished, then rubbed out his date of birth.
+      db.setup[1].completed_at = '2026-11-17T20:00:00Z'
+      show()
+      const ben = (await screen.findByText('Ben Okafor')).closest('tr')!
+      expect(within(ben).queryByText(/details completed/)).toBeNull()
+      expect(within(ben).getByRole('img', { name: 'Profile complete: not yet' })).toBeInTheDocument()
+    })
+
+    it('is left unsaid where no date was kept, and the tick still stands', async () => {
+      show()
+      const ada = (await screen.findByText('Ada Grace')).closest('tr')!
+      expect(within(ada).queryByText(/details completed/)).toBeNull()
+      expect(within(ada).getByRole('img', { name: 'Profile complete: done' })).toBeInTheDocument()
+    })
+
+    it('sits with what else the ticks cannot say', async () => {
+      db.setup[0].completed_at = '2026-11-18T07:42:00Z'
+      show()
+      await screen.findByText('Ada Grace')
+      // Ben was sent the tour and asked; that line is as it was.
+      expect(within(screen.getByText('Ben Okafor').closest('tr')!).getByText(/tour sent .* · asked /)).toBeInTheDocument()
+    })
   })
 })

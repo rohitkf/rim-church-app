@@ -34,9 +34,9 @@ export const RELEASES: Release[] = [
     title: 'An event can have an agenda',
     lead: 'The running order of the day, on the event’s own page — like the Service Planner has for a service.',
     points: [
-      'In an event’s editor: Agenda. Add what happens, in the order it happens.',
+      'In an event’s editor: Agenda. It is optional — an event with none shows nothing.',
       'Only a title is needed. Start and end times and a line of detail are there when you know them.',
-      'For an event over several days, an item can say which day it is on.',
+      'For an event over several days: one agenda for the whole event, or one for each day. A day can be left with nothing.',
       'People see it on the event’s page, under About, before they register.',
     ],
     link: { to: '/registrations', label: 'Open Registrations' },

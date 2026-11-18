@@ -340,6 +340,15 @@ export interface AgendaDraft {
   day: number | null
 }
 
+/**
+ * How an event's agenda is kept, as the editor asks it (the Owner's ask,
+ * November 2026): none at all, one for the whole event, or one for each of
+ * its days — where a day may be left with nothing. It is a way of writing
+ * the agenda down, not something the database stores: an item names a day
+ * or it does not, and the mode is read back off the items.
+ */
+export type AgendaMode = 'none' | 'all' | 'days'
+
 export interface EventDraft {
   title: string
   slug: string
@@ -356,6 +365,12 @@ export interface EventDraft {
   dates: DateDraft[]
   /** The running order of the day, in the order it is shown (0303). */
   agenda: AgendaDraft[]
+  /**
+   * None, one for the whole event, or one a day. With `none` the items stay
+   * in the draft, out of sight, so choosing it by mistake loses nothing —
+   * until the event is saved, which saves no agenda.
+   */
+  agendaMode: AgendaMode
   ticketTypes: TicketTypeDraft[]
   promoCodes: PromoDraft[]
   locationName: string
@@ -379,29 +394,77 @@ export interface EventDraft {
 }
 
 export const newDateDraft = (): DateDraft => ({ id: null, date: '', start: '', endDate: '', end: '', label: '' })
-export const newAgendaDraft = (): AgendaDraft => ({ id: null, title: '', start: '', end: '', details: '', day: null })
+export const newAgendaDraft = (day: number | null = null): AgendaDraft => ({ id: null, title: '', start: '', end: '', details: '', day })
 
 /** What the database's columns hold (0303). */
 export const AGENDA_LIMITS = { title: 120, details: 300, items: 60 } as const
 
+/** The agenda a day at a time: what is on no day first, then each day in turn; within a day, as it stood. */
+export function agendaByDay(agenda: readonly AgendaDraft[]): AgendaDraft[] {
+  const place = (a: AgendaDraft) => (a.day === null ? -1 : a.day)
+  return agenda
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => place(x.a) - place(y.a) || x.i - y.i)
+    .map(({ a }) => a)
+}
+
 /**
- * A date taken out of the draft, and the agenda brought into step: what
- * was on that day goes with it — as it does in the database — and what was
- * on a later day still names the same day.
+ * The agenda rewritten for another way of keeping it. Nothing is ever
+ * dropped by choosing:
+ *
+ *   one for the whole event — every item is on no day, in the order the
+ *       days had them;
+ *   one for each day — what was on no day goes onto the first day, to be
+ *       moved from there, and the list is set out a day at a time;
+ *   none — the items are left exactly as they are, out of sight.
  */
-export function withoutDate(draft: EventDraft, index: number): Pick<EventDraft, 'dates' | 'agenda'> {
+export function agendaInMode(draft: Pick<EventDraft, 'agenda' | 'dates'>, mode: AgendaMode): Pick<EventDraft, 'agenda' | 'agendaMode'> {
+  if (mode === 'none') return { agenda: draft.agenda, agendaMode: 'none' }
+  if (mode === 'all') return { agenda: agendaByDay(draft.agenda).map((a) => (a.day === null ? a : { ...a, day: null })), agendaMode: 'all' }
+  // A day a time needs days to be on: with one date there is only the one agenda.
+  if (draft.dates.length < 2) return agendaInMode(draft, 'all')
   return {
-    dates: draft.dates.filter((_, i) => i !== index),
-    agenda: draft.agenda
-      .filter((a) => a.day !== index)
-      .map((a) => (a.day !== null && a.day > index ? { ...a, day: a.day - 1 } : a)),
+    agenda: agendaByDay(draft.agenda.map((a) => (a.day === null || !draft.dates[a.day] ? { ...a, day: 0 } : a))),
+    agendaMode: 'days',
   }
 }
 
-/** An item moved one place up (-1) or down (+1); the same list when it is already at the end. */
+/** How a saved agenda was kept, read back off its items. */
+export function agendaModeOf(agenda: readonly AgendaDraft[], dates: number): AgendaMode {
+  if (agenda.length === 0) return 'none'
+  return dates > 1 && agenda.some((a) => a.day !== null) ? 'days' : 'all'
+}
+
+/** What saving writes: nothing for an event that has no agenda, whatever is still in the draft. */
+export function agendaToSave(draft: Pick<EventDraft, 'agenda' | 'agendaMode'>): AgendaDraft[] {
+  if (draft.agendaMode === 'none') return []
+  return draft.agendaMode === 'all' ? draft.agenda.map((a) => (a.day === null ? a : { ...a, day: null })) : draft.agenda
+}
+
+/**
+ * A date taken out of the draft, and the agenda brought into step: what
+ * was on that day goes with it — as it does in the database — and what was
+ * on a later day still names the same day. An event left with one date has
+ * one agenda: a day at a time means nothing with a single day.
+ */
+export function withoutDate(draft: EventDraft, index: number): Pick<EventDraft, 'dates' | 'agenda' | 'agendaMode'> {
+  const dates = draft.dates.filter((_, i) => i !== index)
+  const agenda = draft.agenda
+    .filter((a) => a.day !== index)
+    .map((a) => (a.day !== null && a.day > index ? { ...a, day: a.day - 1 } : a))
+  if (draft.agendaMode === 'days' && dates.length < 2) return { dates, ...agendaInMode({ agenda, dates }, 'all') }
+  return { dates, agenda, agendaMode: draft.agendaMode }
+}
+
+/**
+ * An item moved one place up (-1) or down (+1) among the items of its own
+ * day; the same list when it is already first or last there.
+ */
 export function movedAgenda(agenda: AgendaDraft[], index: number, by: -1 | 1): AgendaDraft[] {
-  const to = index + by
-  if (to < 0 || to >= agenda.length) return agenda
+  const day = agenda[index]?.day
+  let to = index + by
+  while (to >= 0 && to < agenda.length && agenda[to].day !== day) to += by
+  if (!agenda[index] || to < 0 || to >= agenda.length) return agenda
   const next = [...agenda]
   ;[next[index], next[to]] = [next[to], next[index]]
   return next
@@ -423,6 +486,7 @@ export function emptyDraft(): EventDraft {
     end: '',
     dates: [newDateDraft()],
     agenda: [],
+    agendaMode: 'none',
     ticketTypes: [{ ...newTicketTypeDraft(), name: 'General admission' }],
     promoCodes: [],
     locationName: '',
@@ -506,10 +570,7 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
     start: sameTimes ? dateDrafts[0].start : '',
     end: sameTimes ? dateDrafts[0].end : '',
     dates: dateDrafts.length ? dateDrafts : [newDateDraft()],
-    agenda: (full.agenda ?? []).map((a) => {
-      const day = a.date_id ? dates.findIndex((d) => d.id === a.date_id) : -1
-      return { id: a.id, title: a.title, start: a.starts ?? '', end: a.ends ?? '', details: a.details ?? '', day: day >= 0 ? day : null }
-    }),
+    ...agendaOf(full),
     ticketTypes: ticketTypes.map((t) => ({
       id: t.id,
       isNew: false,
@@ -551,6 +612,18 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
   }
 }
 
+/** A saved agenda as the editor holds it: its items, and how it was kept. */
+function agendaOf(full: RegistrationEventFull): Pick<EventDraft, 'agenda' | 'agendaMode'> {
+  const several = full.dates.length > 1
+  const items: AgendaDraft[] = (full.agenda ?? []).map((a) => {
+    const day = several && a.date_id ? full.dates.findIndex((d) => d.id === a.date_id) : -1
+    return { id: a.id, title: a.title, start: a.starts ?? '', end: a.ends ?? '', details: a.details ?? '', day: day >= 0 ? day : null }
+  })
+  const agendaMode = agendaModeOf(items, full.dates.length)
+  // Set out a day at a time, as the editor shows it, so an item's number is its place on the page.
+  return { agenda: agendaMode === 'days' ? agendaByDay(items) : items, agendaMode }
+}
+
 const parsePence = (text: string): number | null => {
   const cleaned = text.replace(/[£,\s]/g, '')
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null
@@ -586,8 +659,10 @@ export function draftProblems(draft: EventDraft): string[] {
   if (draft.dates.length === 0) problems.push('Add at least one date.')
   const dates = datesOf(draft)
   if (typeof dates === 'string') problems.push(dates)
-  if (draft.agenda.length > AGENDA_LIMITS.items) problems.push(`An agenda holds ${AGENDA_LIMITS.items} items at most.`)
-  for (const [i, a] of draft.agenda.entries()) {
+  // Only what would be saved is held to anything: an agenda put away with "No agenda" is not asked about.
+  const agenda = agendaToSave(draft)
+  if (agenda.length > AGENDA_LIMITS.items) problems.push(`An agenda holds ${AGENDA_LIMITS.items} items at most.`)
+  for (const [i, a] of agenda.entries()) {
     const n = i + 1
     // Only the title is asked for: the times and the detail are there when they are known.
     if (!a.title.trim()) problems.push(`Agenda item ${n} needs a title, or remove it.`)
@@ -748,7 +823,8 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
   // The agenda (0303): what is gone from the draft is deleted, the rest is
   // written in the order it stands. After the dates, because an item may
   // name one — and an item on a removed date went with it just above.
-  const keptAgenda = new Set(draft.agenda.map((a) => a.id).filter((id): id is string => !!id))
+  const agenda = agendaToSave(draft)
+  const keptAgenda = new Set(agenda.map((a) => a.id).filter((id): id is string => !!id))
   const removedDates = new Set((existing?.dates ?? []).filter((d) => !keptDates.has(d.id)).map((d) => d.id))
   for (const a of existing?.agenda ?? []) {
     // One on a date just removed has already gone with it: the database took it.
@@ -757,7 +833,7 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
       if (error) throw error
     }
   }
-  for (const [i, a] of draft.agenda.entries()) {
+  for (const [i, a] of agenda.entries()) {
     const values = {
       event_id: eventId,
       date_id: a.day === null ? null : (dateIds[a.day] ?? null),
