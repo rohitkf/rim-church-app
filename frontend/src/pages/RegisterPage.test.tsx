@@ -93,6 +93,7 @@ const event = (over: Partial<PublicEvent> = {}): PublicEvent => ({
     { id: 't-std', name: 'Standard', description: null, kind: 'free', price_pence: 0, min_donation_pence: null, quantity: 10, remaining: 3, remaining_by_date: {} },
     { id: 't-lunch', name: 'With lunch', description: 'Includes lunch', kind: 'paid', price_pence: 2000, min_donation_pence: null, quantity: null, remaining: null, remaining_by_date: {} },
   ],
+  agenda: [],
   logo_path: null,
   ...over,
 })
@@ -947,3 +948,38 @@ describe('the register page opened from an invitation link', () => {
     expect(state.resent).toEqual([])
   })
 })
+
+/*
+ * The agenda (0303): what happens on the day, on the event's own page.
+ */
+describe('an event’s agenda on its public page', () => {
+  it('is not there for an event with none', async () => {
+    show()
+    await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })
+    expect(screen.queryByText('Agenda')).toBeNull()
+  })
+
+  it('sets out the day under About, before the form', async () => {
+    state.event = event({
+      agenda: [
+        { id: 'a1', date_id: null, title: 'Doors open', details: null, starts: '18:00', ends: null },
+        { id: 'a2', date_id: null, title: 'Teaching', details: 'Pastor Ama', starts: '18:30', ends: '19:45' },
+        { id: 'a3', date_id: null, title: 'Refreshments', details: null, starts: null, ends: null },
+      ],
+    })
+    show()
+    const agenda = (await screen.findByText('Agenda')).parentElement!
+    expect(within(agenda).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Doors open'),
+      expect.stringContaining('Teaching'),
+      expect.stringContaining('Refreshments'),
+    ])
+    expect(within(agenda).getByText('Pastor Ama')).toBeInTheDocument()
+    // After the words about the event, and before the form to register.
+    const about = screen.getByText('About')
+    const register = screen.getByRole('heading', { name: 'Register' })
+    expect(about.compareDocumentPosition(agenda) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(agenda.compareDocumentPosition(register) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+

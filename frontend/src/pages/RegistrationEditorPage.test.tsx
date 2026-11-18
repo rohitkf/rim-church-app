@@ -344,3 +344,116 @@ describe('making a registration event', () => {
     expect(state.synced).toEqual([{ id: 'e-saved', slug: 'plc-2026' }])
   })
 })
+
+/*
+ * The agenda (0303): the running order of the day, written in the editor
+ * and shown on the event's page. Only a title is asked for.
+ */
+describe('an event’s agenda in the editor', () => {
+  const titleOf = (n: number) => screen.getByRole('textbox', { name: `Agenda item ${n} title` })
+
+  it('starts with none, and says an event does not need one', () => {
+    show('/registrations/new')
+    expect(screen.getByText('No agenda yet. An event does not need one.')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Agenda item 1' })).toBeNull()
+  })
+
+  it('adds an item with only a title, and saves it with the event', async () => {
+    const user = show('/registrations/new')
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Youth Night')
+    await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-21')
+    await pickTime(user, screen.getByRole('button', { name: 'Date 1 starts' }), '18:30')
+    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await user.type(titleOf(1), 'Doors open')
+    await user.click(screen.getByRole('button', { name: 'Save as draft' }))
+
+    expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft.agenda).toEqual([{ id: null, title: 'Doors open', start: '', end: '', details: '', day: null }])
+  })
+
+  it('takes a time and a line of detail when they are known', async () => {
+    const user = show('/registrations/new')
+    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    const first = screen.getByRole('group', { name: 'Agenda item 1' })
+    await user.type(titleOf(1), 'Teaching')
+    // An end is shut until there is a start to end.
+    expect(within(first).getByRole('button', { name: 'Agenda item 1 ends' })).toBeDisabled()
+    await pickTime(user, within(first).getByRole('button', { name: 'Agenda item 1 starts' }), '10:00')
+    await pickTime(user, within(first).getByRole('button', { name: 'Agenda item 1 ends' }), '11:15')
+    await user.type(within(first).getByRole('textbox', { name: 'Agenda item 1 detail' }), 'Pastor Ama')
+
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Conference')
+    await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-21')
+    await pickTime(user, screen.getByRole('button', { name: 'Date 1 starts' }), '09:00')
+    await user.click(screen.getByRole('button', { name: 'Save as draft' }))
+    await screen.findByText('event page e-saved')
+    expect(state.saved[0].draft.agenda).toEqual([{ id: null, title: 'Teaching', start: '10:00', end: '11:15', details: 'Pastor Ama', day: null }])
+  })
+
+  it('will not save an item with no title, and says which', async () => {
+    const user = show('/registrations/new')
+    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await user.click(screen.getByRole('button', { name: /Add an item/ }))
+    await user.type(titleOf(1), 'Worship')
+    await user.click(screen.getByRole('button', { name: 'Save as draft' }))
+    const problems = screen.getByRole('alert', { name: 'Before this can be saved' })
+    expect(within(problems).getByText('Agenda item 2 needs a title, or remove it.')).toBeInTheDocument()
+    expect(state.saved).toEqual([])
+  })
+
+  it('moves an item up and down, and takes one away', async () => {
+    const user = show('/registrations/new')
+    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await user.click(screen.getByRole('button', { name: /Add an item/ }))
+    await user.click(screen.getByRole('button', { name: /Add an item/ }))
+    await user.type(titleOf(1), 'Doors')
+    await user.type(titleOf(2), 'Worship')
+    await user.type(titleOf(3), 'Lunch')
+    const order = () => [1, 2, 3].filter((n) => screen.queryByRole('group', { name: `Agenda item ${n}` })).map((n) => (titleOf(n) as HTMLInputElement).value)
+
+    expect(screen.getByRole('button', { name: 'Move agenda item 1 up' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move agenda item 3 down' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Move agenda item 3 up' }))
+    expect(order()).toEqual(['Doors', 'Lunch', 'Worship'])
+    await user.click(screen.getByRole('button', { name: 'Move agenda item 1 down' }))
+    expect(order()).toEqual(['Lunch', 'Doors', 'Worship'])
+    await user.click(screen.getByRole('button', { name: 'Remove agenda item 2' }))
+    expect(order()).toEqual(['Lunch', 'Worship'])
+  })
+
+  it('asks which day only when the event has more than one, and an item on a day goes with that day', async () => {
+    const user = show('/registrations/new')
+    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await user.type(titleOf(1), 'Workshops')
+    // One date: no question to ask.
+    expect(screen.queryByRole('combobox', { name: 'Agenda item 1 day' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Add a date/ }))
+    const day = screen.getByRole('combobox', { name: 'Agenda item 1 day' })
+    expect(day).toHaveTextContent('Each day')
+    await user.click(day)
+    await user.click(await screen.findByRole('option', { name: 'Date 2' }))
+    expect(screen.getByRole('combobox', { name: 'Agenda item 1 day' })).toHaveTextContent('Date 2')
+
+    // The second date removed: what was on it goes with it.
+    await user.click(within(screen.getByRole('group', { name: 'Date 2' })).getByRole('button', { name: 'Remove this date' }))
+    expect(screen.queryByRole('group', { name: 'Agenda item 1' })).toBeNull()
+    expect(screen.getByText('No agenda yet. An event does not need one.')).toBeInTheDocument()
+  })
+
+  it('opens an event with the agenda it was saved with', async () => {
+    state.existing = {
+      ...full(),
+      agenda: [
+        { id: 'a1', event_id: 'e1', date_id: null, sort_order: 0, title: 'Doors open', details: null, starts: '18:00', ends: null },
+        { id: 'a2', event_id: 'e1', date_id: null, sort_order: 1, title: 'Teaching', details: 'Pastor Ama', starts: '18:30', ends: '19:45' },
+      ],
+    }
+    show('/registrations/e1/edit')
+    expect(await screen.findByDisplayValue('Doors open')).toBeInTheDocument()
+    expect(titleOf(2)).toHaveValue('Teaching')
+    expect(screen.getByRole('textbox', { name: 'Agenda item 2 detail' })).toHaveValue('Pastor Ama')
+    expect(screen.getByRole('button', { name: /Add an item/ })).toBeInTheDocument()
+  })
+})
+
