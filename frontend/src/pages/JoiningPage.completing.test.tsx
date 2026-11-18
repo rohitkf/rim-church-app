@@ -32,7 +32,7 @@ const state = vi.hoisted(() => ({
   /** Who to ring, as on their profile (0301). */
   emergency: {
     name: 'Ama Mensah' as string | null,
-    relation: 'parent' as string | null,
+    relation: 'mother' as string | null,
     phone: '+447812345678' as string | null,
   },
   addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
@@ -98,7 +98,7 @@ beforeEach(() => {
   state.refreshed = 0
   state.addresses = []
   state.home = { id: 'h1', address_line1: '1 High Street', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }
-  state.emergency = { name: 'Ama Mensah', relation: 'parent', phone: '+447812345678' }
+  state.emergency = { name: 'Ama Mensah', relation: 'mother', phone: '+447812345678' }
 })
 
 /** The app's own select: a combobox that opens a list of options. */
@@ -151,7 +151,7 @@ describe('completing a profile that has a blank', () => {
     // What they gave before goes back as it was: the address and who to ring.
     expect(profile).toMatchObject({
       emergency_contact_name: 'Ama Mensah',
-      emergency_contact_relation: 'parent',
+      emergency_contact_relation: 'mother',
       emergency_contact_phone: '+447812345678',
     })
     expect(state.addresses).toEqual([{ line1: '1 High Street', line2: '', town: 'Leeds', postcode: 'LS1 1AA' }])
@@ -203,14 +203,14 @@ describe('completing a profile that has a blank', () => {
     await user.type(screen.getByLabelText(/^Town or city/), 'Leeds')
     await user.type(screen.getByLabelText(/^Postcode/), 'ls1 5hd')
     await user.type(screen.getByLabelText(/^Their name/), 'Kofi Mensah')
-    await choose(user, 'Who they are to you', 'Husband or wife')
+    await choose(user, 'Who they are to you', 'Husband')
     await user.type(screen.getByLabelText('Their phone number'), '07898765432')
     await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
     await waitFor(() => expect(state.refreshed).toBe(1))
     expect(state.addresses).toEqual([{ line1: '22 Park Row', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 5HD' }])
     expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({
       emergency_contact_name: 'Kofi Mensah',
-      emergency_contact_relation: 'spouse',
+      emergency_contact_relation: 'husband',
       emergency_contact_phone: '+447898765432',
       onboarded_at: '2026-01-05T09:00:00Z',
     })
@@ -233,14 +233,40 @@ describe('completing a profile that has a blank', () => {
     )
     expect(screen.getByDisplayValue('Ama Mensah')).toBeInTheDocument()
     await pickDate(user, screen.getByLabelText('Date of birth'), '1990-04-12')
-    await choose(user, 'Who they are to you', 'Parent')
+    await choose(user, 'Who they are to you', 'Mother')
     await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
     await waitFor(() => expect(state.refreshed).toBe(1))
     expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({
       emergency_contact_name: 'Ama Mensah',
-      emergency_contact_relation: 'parent',
+      emergency_contact_relation: 'mother',
       emergency_contact_phone: '+447812345678',
     })
+  })
+
+  /*
+   * An answer from before the list was split (0305): "Husband or wife" was
+   * an answer, and is kept as one. Nobody is asked again for it.
+   */
+  it('keeps an answer chosen when two people shared a word, shows it as chosen, and does not ask again', async () => {
+    const user = userEvent.setup()
+    state.emergency = { name: 'Kofi Mensah', relation: 'spouse', phone: '+447812345678' }
+    render(<JoiningPage completing />)
+    const alert = await screen.findByRole('alert')
+    await waitFor(() => expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual(['Date of birth']))
+    const picker = screen.getByRole('combobox', { name: 'Who they are to you' })
+    expect(picker).toHaveTextContent('Husband or wife')
+    // Their own answer is in the list, after the ones offered now, so it is not a blank.
+    await user.click(picker)
+    const offered = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    // (The list draws a tick beside whichever is chosen.)
+    expect(offered.at(-1)).toMatch(/^Husband or wife/)
+    expect(offered).toHaveLength(13)
+    await user.keyboard('{Escape}')
+
+    await pickDate(user, screen.getByLabelText('Date of birth'), '1990-04-12')
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({ emergency_contact_relation: 'spouse' })
   })
 
   it('asks again for a relationship this app has never heard of, rather than keep a word it cannot show', async () => {

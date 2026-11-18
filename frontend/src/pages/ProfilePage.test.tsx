@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   /** Who to ring, as on the profile (0301). */
   emergency: {
     name: 'Ama Mensah' as string | null,
-    relation: 'parent' as string | null,
+    relation: 'mother' as string | null,
     phone: '+447812345678' as string | null,
   },
   phone: null as string | null,
@@ -81,7 +81,7 @@ function show() {
 beforeEach(() => {
   state.updates = []
   state.refreshed = 0
-  state.emergency = { name: 'Ama Mensah', relation: 'parent', phone: '+447812345678' }
+  state.emergency = { name: 'Ama Mensah', relation: 'mother', phone: '+447812345678' }
   state.phone = null
 })
 
@@ -131,7 +131,7 @@ describe('who to ring in an emergency', () => {
     expect(screen.getByRole('heading', { name: 'In an emergency' })).toBeInTheDocument()
     expect(screen.getByLabelText('Their name')).toHaveValue('Ama Mensah')
     expect(screen.getByLabelText('Their phone number')).toHaveValue('07812 345678')
-    expect(screen.getByRole('combobox', { name: 'Who they are to you' })).toHaveTextContent('Parent')
+    expect(screen.getByRole('combobox', { name: 'Who they are to you' })).toHaveTextContent('Mother')
     expect(screen.queryByText(/Not saved yet/)).toBeNull()
   })
 
@@ -155,16 +155,34 @@ describe('who to ring in an emergency', () => {
     const user = userEvent.setup()
     show()
     await user.click(screen.getByRole('combobox', { name: 'Who they are to you' }))
-    await user.click(await screen.findByRole('option', { name: 'Husband or wife' }))
+    await user.click(await screen.findByRole('option', { name: 'Wife' }))
     await waitFor(
       () =>
         expect(profileSaves().at(-1)).toMatchObject({
           emergency_contact_name: 'Ama Mensah',
-          emergency_contact_relation: 'spouse',
+          emergency_contact_relation: 'wife',
           emergency_contact_phone: '+447812345678',
         }),
       { timeout: 3000 },
     )
+  })
+
+  /*
+   * An answer from before the list was split (0305) is still an answer:
+   * shown as chosen, saved as it is, and changeable for a closer one.
+   */
+  it('shows an answer chosen when two people shared a word, and waits for nothing', async () => {
+    state.emergency = { name: 'Kofi Mensah', relation: 'sibling', phone: '+447812345678' }
+    const user = userEvent.setup()
+    show()
+    expect(screen.getByRole('combobox', { name: 'Who they are to you' })).toHaveTextContent('Brother or sister')
+    expect(screen.queryByText(/Not saved yet/)).toBeNull()
+    await user.click(screen.getByRole('combobox', { name: 'Who they are to you' }))
+    await user.click(await screen.findByRole('option', { name: 'Sister' }))
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ emergency_contact_relation: 'sister' }), { timeout: 3000 })
+    // Once changed, the old word is not offered to go back to.
+    await user.click(screen.getByRole('combobox', { name: 'Who they are to you' }))
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).not.toContain('Brother or sister')
   })
 
   it('waits for who they are, for somebody who gave a name and a number before it was asked', async () => {
@@ -190,7 +208,7 @@ describe('who to ring in an emergency', () => {
       () =>
         expect(profileSaves().at(-1)).toMatchObject({
           emergency_contact_name: 'Kofi Mensah',
-          emergency_contact_relation: 'parent',
+          emergency_contact_relation: 'mother',
           emergency_contact_phone: '+447812345678',
         }),
       { timeout: 3000 },

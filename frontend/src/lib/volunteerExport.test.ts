@@ -40,7 +40,7 @@ const base = (over: Partial<ExportInput> = {}): ExportInput => ({
       phone: '07000',
       dob: '1990-04-02',
       emergency_contact_name: 'Ama Mensah',
-      emergency_contact_relation: 'parent',
+      emergency_contact_relation: 'mother',
       emergency_contact_phone: '+447812345678',
     }),
     person('u2', 'Tunde', 'Alabi'),
@@ -90,7 +90,7 @@ describe('the volunteer workbook', () => {
       // Who to ring about her (0301), the number as it would be dialled.
       'Ama Mensah',
       // Who she is to her (0302), as the word and not the stored value.
-      'Parent',
+      'Mother',
       '+44 7812 345678',
       '1990-04-02',
       '',

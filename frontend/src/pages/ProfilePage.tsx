@@ -9,11 +9,11 @@ import { todayIso } from '../lib/monthGrid'
 import { SectionTile, inputClasses } from '../components/Surface'
 import {
   EMERGENCY_NAME_LIMIT,
-  EMERGENCY_RELATIONS,
   MARITAL_STATUSES,
   VISA_TYPES,
   emergencyProblems,
   emergencyRelationOf,
+  emergencyRelationOptions,
   isSettledStatus,
 } from '../lib/joining'
 import { YesNoSwitch } from '../components/YesNoSwitch'
@@ -255,7 +255,7 @@ export function ProfilePage() {
               onChange={setEmergencyRelation}
               placeholder="Choose one"
               aria-label="Who they are to you"
-              options={EMERGENCY_RELATIONS.map((r) => ({ value: r.value, label: r.label }))}
+              options={emergencyRelationOptions(emergencyRelation)}
             />
           </label>
           <PhoneField
