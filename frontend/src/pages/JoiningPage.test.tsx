@@ -103,7 +103,7 @@ async function fillWhereAndWho() {
   await userEvent.type(screen.getByLabelText('Town or city'), 'Leeds')
   await userEvent.type(screen.getByLabelText('Postcode'), 'ls1 1aa')
   await userEvent.type(screen.getByLabelText('Their name'), 'Ama Mensah')
-  await choose('Who they are to you', 'Brother or sister')
+  await choose('Who they are to you', 'Brother')
   await userEvent.type(screen.getByLabelText('Their phone number'), '07812345678')
 }
 
@@ -188,7 +188,7 @@ describe('joining', () => {
       dob: '1990-04-02',
       marital_status: 'single',
       emergency_contact_name: 'Ama Mensah',
-      emergency_contact_relation: 'sibling',
+      emergency_contact_relation: 'brother',
       emergency_contact_phone: '+447812345678',
     })
     // The address is the household's: through its own function, postcode in capitals.
@@ -274,6 +274,20 @@ describe('joining', () => {
       within(screen.getByRole('alert')).getByRole('button', { name: /Emergency contact’s number — check what you entered/ }),
     ).toBeInTheDocument()
     expect(state.written).toHaveLength(0)
+  })
+
+  /*
+   * One word for one person (0305): "Husband or wife" and "Brother or
+   * sister" confused whoever was choosing.
+   */
+  it('offers each relationship as its own answer, never two people to a word', async () => {
+    render(<JoiningPage />)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Who they are to you' }))
+    const offered = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(offered).toEqual([
+      'Husband', 'Wife', 'Partner', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other relative', 'Friend', 'Other',
+    ])
+    expect(offered.some((word) => / or /.test(word ?? ''))).toBe(false)
   })
 
   it('offers the browser nothing to fill the contact’s number with', () => {

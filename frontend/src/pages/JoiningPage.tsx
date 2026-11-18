@@ -14,8 +14,8 @@ import { fetchHouseholds, myFamily, saveAddress, type Household } from '../lib/f
 import {
   ADDRESS_LIMITS,
   EMERGENCY_NAME_LIMIT,
-  EMERGENCY_RELATIONS,
   emergencyRelationOf,
+  emergencyRelationOptions,
   MARITAL_STATUSES,
   VISA_TYPES,
   MISSING_TEXT,
@@ -631,7 +631,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                 placeholder="Choose one"
                 aria-label="Who they are to you"
                 className={`${triggerClasses} ${redRing('emergencyRelation')}`}
-                options={EMERGENCY_RELATIONS.map((r) => ({ value: r.value, label: r.label }))}
+                options={emergencyRelationOptions(answers.emergencyRelation)}
               />
               {problem('emergencyRelation')}
             </label>

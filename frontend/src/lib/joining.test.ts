@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   EMERGENCY_RELATIONS,
+  EMERGENCY_RELATIONS_BEFORE,
   JOINING_FORM,
   emergencyProblems,
   emergencyRelationLabel,
   emergencyRelationOf,
+  emergencyRelationOptions,
   invalidAnswers,
   isSettledStatus,
   isComplete,
@@ -32,7 +34,7 @@ const answers = (over: Partial<JoiningAnswers> = {}): JoiningAnswers => ({
   town: 'Leeds',
   postcode: 'LS1 1AA',
   emergencyName: 'Ama Mensah',
-  emergencyRelation: 'sibling',
+  emergencyRelation: 'sister',
   emergencyPhone: '+447812345678',
   ...over,
 })
@@ -216,7 +218,7 @@ describe('an address and somebody to ring', () => {
     const rows = toProfileRows(answers({ addressLine2: ' Flat 3 ', postcode: ' ls1 1aa ' }))
     expect(rows.profile).toMatchObject({
       emergency_contact_name: 'Ama Mensah',
-      emergency_contact_relation: 'sibling',
+      emergency_contact_relation: 'sister',
       emergency_contact_phone: '+447812345678',
     })
     expect(rows.address).toEqual({ line1: '1 High Street', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 1AA' })
@@ -248,14 +250,43 @@ describe('who the person to ring is', () => {
     expect(missingAnswers(answers({ emergencyRelation: '' }))).toEqual(['emergencyRelation'])
   })
 
-  it('is one of the values the database will keep', () => {
+  it('is one of the values the database will keep: the ones offered, then the four from before', () => {
     const list = sql.match(/emergency_contact_relation in \(([^)]*)\)/)![1]
     const kept = [...list.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
-    expect(kept).toEqual(EMERGENCY_RELATIONS.map((r) => r.value))
+    expect(kept).toEqual([...EMERGENCY_RELATIONS, ...EMERGENCY_RELATIONS_BEFORE].map((r) => r.value))
+  })
+
+  /*
+   * One word for one person (0305). "Husband or wife", "Brother or sister",
+   * "Son or daughter" and "Parent" each stood for two, which confused
+   * whoever was choosing and told whoever was ringing less than they wanted.
+   */
+  it('offers one word for one person: nobody shares an answer', () => {
+    const labels = EMERGENCY_RELATIONS.map((r) => r.label)
+    expect(labels).toEqual(['Husband', 'Wife', 'Partner', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other relative', 'Friend', 'Other'])
+    expect(labels.filter((word) => / or /.test(word))).toEqual([])
+    expect(new Set(EMERGENCY_RELATIONS.map((r) => r.value)).size).toBe(EMERGENCY_RELATIONS.length)
+  })
+
+  it('keeps the four answers from before as answers: known, read as they were chosen, and not offered', () => {
+    for (const before of EMERGENCY_RELATIONS_BEFORE) {
+      expect(emergencyRelationOf(before.value)).toBe(before.value)
+      expect(emergencyRelationLabel(before.value)).toBe(before.label)
+      expect(emergencyRelationOptions(null).map((o) => o.value)).not.toContain(before.value)
+    }
+    // Somebody who answered with one is not missing an answer.
+    expect(missingAnswers(answers({ emergencyRelation: 'spouse' }))).toEqual([])
+  })
+
+  it('offers somebody their own earlier answer, last, so it shows as chosen — and nobody else’s', () => {
+    expect(emergencyRelationOptions('spouse').at(-1)).toEqual({ value: 'spouse', label: 'Husband or wife' })
+    expect(emergencyRelationOptions('spouse')).toHaveLength(EMERGENCY_RELATIONS.length + 1)
+    expect(emergencyRelationOptions('wife')).toHaveLength(EMERGENCY_RELATIONS.length)
+    expect(emergencyRelationOptions('')).toHaveLength(EMERGENCY_RELATIONS.length)
   })
 
   it('reads as a word on a page, and a value nobody knows as itself', () => {
-    expect(emergencyRelationLabel('spouse')).toBe('Husband or wife')
+    expect(emergencyRelationLabel('mother')).toBe('Mother')
     expect(emergencyRelationLabel('godparent')).toBe('godparent')
     expect(emergencyRelationLabel(null)).toBeNull()
   })
