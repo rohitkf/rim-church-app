@@ -29,6 +29,10 @@ const state = vi.hoisted(() => ({
   // An address put right after a bounce (0283): what was asked, and whether the database took it.
   fixed: [] as unknown[],
   fixRefused: false,
+  // The event's own page, which is where a ticket reads the agenda from (0303):
+  // what it answers (an Error is a request that failed), and which events were asked about.
+  eventPage: null as unknown,
+  eventAsked: [] as string[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
@@ -49,6 +53,10 @@ vi.mock('../components/QrCode', () => ({
 vi.mock('../lib/registrations', async (original) => ({
   ...(await original<typeof import('../lib/registrations')>()),
   fetchOrder: () => Promise.resolve(state.order),
+  fetchPublicEvent: (slug: string) => {
+    state.eventAsked.push(slug)
+    return state.eventPage instanceof Error ? Promise.reject(state.eventPage) : Promise.resolve(state.eventPage)
+  },
   reportPayment: (code: string, method: string, done: boolean, proof?: { path?: string | null; reference?: string | null }) => {
     state.reported.push({ code, method, done, ...(proof ?? {}) })
     return Promise.resolve()
@@ -194,6 +202,8 @@ beforeEach(() => {
   state.mailAnswer = { ok: true, sent: true }
   state.fixed = []
   state.fixRefused = false
+  state.eventPage = null
+  state.eventAsked = []
 })
 
 describe('the ticket page', () => {
@@ -805,5 +815,120 @@ describe('a promo code put on from the ticket page', () => {
     show()
     await screen.findByRole('region', { name: 'Paying' })
     expect(screen.queryByText(/Have a promo code\?/)).toBeNull()
+  })
+})
+
+/*
+ * The agenda on the ticket (0303): what happens on the day, on the page
+ * people open on the day. It is the event's, so it is read from the
+ * event's own page; the ticket stands without it.
+ */
+describe('the agenda on a ticket', () => {
+  const line = (id: string, title: string, date_id: string | null = null, starts: string | null = null) => ({
+    id,
+    date_id,
+    title,
+    details: null as string | null,
+    starts,
+    ends: null as string | null,
+  })
+  /** The event's page, as far as a ticket reads it. */
+  const eventPage = (agenda: ReturnType<typeof line>[]) => ({ agenda })
+  const twoDays = [
+    { id: 'd1', starts_at: at(2026, 11, 20, 18, 30), ends_at: null, label: 'Opening night' },
+    { id: 'd2', starts_at: at(2026, 11, 21, 9, 0), ends_at: null, label: 'Conference day' },
+  ]
+  const titles = () =>
+    within(screen.getByText('Agenda').parentElement!)
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('.font-medium')?.textContent)
+
+  it('is not there for an event with none', async () => {
+    state.eventPage = eventPage([])
+    show()
+    await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })
+    await waitFor(() => expect(state.eventAsked).toEqual(['pastors-2026']))
+    expect(screen.queryByText('Agenda')).toBeNull()
+  })
+
+  it('sets out the day after where it is, and before what was booked', async () => {
+    state.eventPage = eventPage([line('a1', 'Doors open', null, '18:00'), line('a2', 'Teaching', null, '18:30'), line('a3', 'Refreshments')])
+    show()
+    const agenda = (await screen.findByText('Agenda')).parentElement!
+    expect(titles()).toEqual(['Doors open', 'Teaching', 'Refreshments'])
+    const where = screen.getByText('Where')
+    const tickets = screen.getByText('Tickets')
+    expect(where.compareDocumentPosition(agenda) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(agenda.compareDocumentPosition(tickets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows a ticket for the whole of a two-day event both days, a day at a time', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, dates: twoDays } }
+    state.eventPage = eventPage([line('a1', 'Worship', 'd1'), line('a2', 'Workshops', 'd2')])
+    show()
+    await screen.findByText('Agenda')
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      expect.stringContaining('Opening night'),
+      expect.stringContaining('Conference day'),
+    ])
+    expect(titles()).toEqual(['Worship', 'Workshops'])
+  })
+
+  it('shows a ticket for one date that day only: what is on it and what is on every day, and nothing of the other', async () => {
+    const o = order()
+    state.order = { ...o, date: twoDays[1], event: { ...o.event, date_mode: 'choose', dates: twoDays } }
+    state.eventPage = eventPage([
+      line('a0', 'Registration desk'),
+      line('a1', 'Worship', 'd1'),
+      line('a2', 'Workshops', 'd2'),
+      line('a3', 'Lunch', 'd2'),
+    ])
+    show()
+    await screen.findByText('Agenda')
+    expect(titles()).toEqual(['Registration desk', 'Workshops', 'Lunch'])
+    // The ticket has already said which day it is for: no day headings.
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull()
+    expect(screen.queryByText('Worship')).toBeNull()
+  })
+
+  it('still shows the ticket when the agenda cannot be read, and says nothing is wrong', async () => {
+    state.eventPage = new Error('offline')
+    show()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })).toBeInTheDocument()
+    await waitFor(() => expect(state.eventAsked.length).toBeGreaterThan(0))
+    // The code for the door is there all the same.
+    expect(screen.getByRole('img', { name: /ABCDEFGHJKMN/ })).toBeInTheDocument()
+    expect(screen.queryByText('Agenda')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('is not asked for, or shown, on a cancelled ticket', async () => {
+    state.order = order({ status: 'cancelled', can_cancel: false })
+    state.eventPage = eventPage([line('a1', 'Doors open')])
+    show()
+    await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(state.eventAsked).toEqual([])
+    expect(screen.queryByText('Agenda')).toBeNull()
+  })
+
+  it('is not asked for, or shown, for an event that was called off', async () => {
+    const o = order()
+    state.order = { ...o, event: { ...o.event, cancelled_at: '2026-11-10T10:00:00Z', cancel_note: null } }
+    state.eventPage = eventPage([line('a1', 'Doors open')])
+    show()
+    await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(state.eventAsked).toEqual([])
+    expect(screen.queryByText('Agenda')).toBeNull()
+  })
+
+  it('is on a registration still to be paid for: the day is the same day', async () => {
+    state.order = order({ payment_status: 'awaiting', payment_method: null, total_pence: 2000, subtotal_pence: 2000 })
+    state.eventPage = eventPage([line('a1', 'Doors open')])
+    show()
+    expect(await screen.findByText('Agenda')).toBeInTheDocument()
+    expect(titles()).toEqual(['Doors open'])
   })
 })

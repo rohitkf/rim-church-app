@@ -50,6 +50,7 @@ import {
   AGENDA_LIMITS,
   agendaByDay,
   agendaDays,
+  agendaForTicket,
   agendaInMode,
   agendaModeOf,
   agendaToSave,
@@ -492,5 +493,45 @@ describe('the agenda as it is read', () => {
       logo_path: null,
     })
     expect(event.agenda).toEqual([])
+  })
+})
+
+/*
+ * On a ticket: the whole agenda for a ticket to the whole event, and this
+ * ticket's day for a ticket to one date.
+ */
+describe('the agenda on a ticket', () => {
+  const dates: PublicDate[] = [
+    { id: 'd1', starts_at: at(2026, 11, 20, 18, 30), ends_at: null, label: 'Opening night' },
+    { id: 'd2', starts_at: at(2026, 11, 21, 9, 0), ends_at: null, label: 'Conference day' },
+  ]
+  const line = (id: string, date_id: string | null): PublicAgendaItem => ({ id, date_id, title: id, details: null, starts: null, ends: null })
+  const agenda = [line('every', null), line('fri', 'd1'), line('sat-a', 'd2'), line('sat-b', 'd2')]
+
+  it('is all of it, on its days, for a ticket to the whole event', () => {
+    const ticket = agendaForTicket(agenda, { booked: null, all: dates })
+    expect(ticket.agenda).toEqual(agenda)
+    expect(ticket.dates).toEqual(dates)
+    expect(agendaDays(ticket.agenda, ticket.dates).map((d) => d.date?.id ?? null)).toEqual([null, 'd1', 'd2'])
+  })
+
+  it('is one day for a ticket to one date: what is on every day and what is on that one, as a single list', () => {
+    const ticket = agendaForTicket(agenda, { booked: dates[1], all: dates })
+    expect(ticket.agenda.map((a) => a.id)).toEqual(['every', 'sat-a', 'sat-b'])
+    expect(ticket.dates).toEqual([dates[1]])
+    // One block, no day to head it: the ticket has already said which day.
+    expect(agendaDays(ticket.agenda, ticket.dates)).toEqual([{ date: null, items: ticket.agenda }])
+  })
+
+  it('is nothing for a ticket to a day that has nothing on it', () => {
+    const ticket = agendaForTicket([line('fri', 'd1')], { booked: dates[1], all: dates })
+    expect(ticket.agenda).toEqual([])
+    expect(agendaDays(ticket.agenda, ticket.dates)).toEqual([])
+  })
+
+  it('leaves the event’s own list alone', () => {
+    const before = JSON.stringify(agenda)
+    agendaForTicket(agenda, { booked: dates[0], all: dates })
+    expect(JSON.stringify(agenda)).toBe(before)
   })
 })

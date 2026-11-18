@@ -1179,6 +1179,27 @@ export function agendaDays(agenda: readonly PublicAgendaItem[], dates: readonly 
   return days
 }
 
+/**
+ * The agenda as a ticket shows it.
+ *
+ * A ticket for the whole event shows the whole agenda, a day at a time. A
+ * ticket for one date — an event where people pick one — shows that day:
+ * what is on it and what is on every day, as one list in the order it was
+ * arranged, with no day headings, because the ticket has already said
+ * which day it is for. What is on the other days is not this ticket's.
+ */
+export function agendaForTicket(
+  agenda: readonly PublicAgendaItem[],
+  dates: { booked: PublicDate | null; all: readonly PublicDate[] },
+): { agenda: PublicAgendaItem[]; dates: PublicDate[] } {
+  if (!dates.booked) return { agenda: [...agenda], dates: [...dates.all] }
+  const day = dates.booked.id
+  return {
+    agenda: agenda.filter((a) => !a.date_id || a.date_id === day).map((a) => (a.date_id ? { ...a, date_id: null } : a)),
+    dates: [dates.booked],
+  }
+}
+
 export async function fetchPublicEvent(slug: string): Promise<PublicEvent | null> {
   const { data, error } = await supabase.rpc('registration_public_event', { p_slug: slug })
   if (error) throw error

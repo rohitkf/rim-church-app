@@ -37,7 +37,7 @@ export const RELEASES: Release[] = [
       'In an event’s editor: Agenda. It is optional — an event with none shows nothing.',
       'Only a title is needed. Start and end times and a line of detail are there when you know them.',
       'For an event over several days: one agenda for the whole event, or one for each day. A day can be left with nothing.',
-      'People see it on the event’s page, under About, before they register.',
+      'People see it on the event’s page, under About, before they register — and on their ticket, for the day they booked.',
     ],
     link: { to: '/registrations', label: 'Open Registrations' },
     page: '/registrations',

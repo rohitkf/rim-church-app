@@ -17,7 +17,8 @@ import { ContactOrganisers } from '../components/ContactOrganisers'
 import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
 import { paysOnline, registrationSteps, stepNumber } from '../lib/registrationSteps'
-import { PAYMENT_WORDS, cancelOrder, fetchOrder, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
+import { EventAgenda } from '../components/EventAgenda'
+import { PAYMENT_WORDS, agendaForTicket, cancelOrder, fetchOrder, fetchPublicEvent, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -180,6 +181,23 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
   const image = registrationImageUrl(event.image_path)
   const directions = directionsUrl(event.location)
   const dates = order.date ? [order.date] : event.dates
+  /*
+   * The agenda (0303) is the event's, not the order's, so it is read where
+   * the event's page reads it: registration_public_event(), by the link the
+   * ticket already carries. It is an extra, asked for on its own: a ticket
+   * is a ticket whether or not the agenda arrives, so a failure shows
+   * nothing rather than an error — and it is not asked for at all for a
+   * ticket that admits to nothing (cancelled, or an event called off).
+   */
+  const going = order.status === 'confirmed' && !event.cancelled_at
+  const eventPage = useQuery({
+    queryKey: ['ticket-agenda', event.slug],
+    queryFn: () => fetchPublicEvent(event.slug),
+    enabled: going,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+  const ticketAgenda = going && eventPage.data ? agendaForTicket(eventPage.data.agenda, { booked: order.date, all: event.dates }) : null
   // Called off by the church (0250): no ticket to show, nothing to pay.
   const eventOff = !!event.cancelled_at
   const needsPayment = !eventOff && order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
@@ -501,6 +519,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
             )}
           </div>
         )}
+        {/* What happens on the day (0303): this ticket's day, for a ticket to one date. */}
+        {ticketAgenda && <EventAgenda agenda={ticketAgenda.agenda} dates={ticketAgenda.dates} />}
         <div>
           <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Tickets</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-md text-on-surface">
