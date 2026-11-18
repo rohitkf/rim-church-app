@@ -1,3 +1,4 @@
+import { nameProblem, tidyName } from '../lib/personName'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
@@ -521,18 +522,43 @@ function PersonForm({
 }) {
   const [d, setD] = useState<PersonDraft>(initial)
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((cur) => ({ ...cur, [k]: v }))
+  // A name is called wrong once Save has been pressed with it, not while it is being typed.
+  const [tried, setTried] = useState(false)
+  const firstProblem = tried ? nameProblem(d.first_name, 'First name') : null
+  const lastProblem = tried ? nameProblem(d.last_name, 'Last name') : null
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-row)] bg-raised px-4 py-4 hairline">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={labelClasses}>
           First name
-          <input value={d.first_name} onChange={(e) => set('first_name', e.target.value)} maxLength={60} className={inputClasses} />
+          <input
+            value={d.first_name}
+            onChange={(e) => set('first_name', e.target.value)}
+            onBlur={() => set('first_name', tidyName(d.first_name))}
+            maxLength={60}
+            aria-invalid={firstProblem ? true : undefined}
+            aria-describedby={firstProblem ? 'family-person-name-problem' : undefined}
+            className={`${inputClasses} ${firstProblem ? 'field-error' : ''}`}
+          />
         </label>
         <label className={labelClasses}>
           Last name
-          <input value={d.last_name} onChange={(e) => set('last_name', e.target.value)} maxLength={60} className={inputClasses} />
+          <input
+            value={d.last_name}
+            onChange={(e) => set('last_name', e.target.value)}
+            onBlur={() => set('last_name', tidyName(d.last_name))}
+            maxLength={60}
+            aria-invalid={lastProblem ? true : undefined}
+            aria-describedby={lastProblem ? 'family-person-name-problem' : undefined}
+            className={`${inputClasses} ${lastProblem ? 'field-error' : ''}`}
+          />
         </label>
       </div>
+      {(firstProblem || lastProblem) && (
+        <p id="family-person-name-problem" role="alert" className="text-label-sm text-error">
+          {[firstProblem, lastProblem].filter(Boolean).join(' ')}
+        </p>
+      )}
       <label className={labelClasses}>
         Date of birth
         <DateField value={d.dob} onChange={(v) => set('dob', v)} label="Date of birth" max={todayIso()} clearable />
@@ -571,7 +597,17 @@ function PersonForm({
         </>
       )}
       <div className="flex flex-wrap gap-2">
-        <ActionButton size="sm" disabled={busy || !d.first_name.trim()} onClick={() => onSave(d)}>
+        <ActionButton
+          size="sm"
+          disabled={busy || !d.first_name.trim()}
+          onClick={() => {
+            const tidy = { ...d, first_name: tidyName(d.first_name), last_name: tidyName(d.last_name) }
+            setD(tidy)
+            setTried(true)
+            if (nameProblem(tidy.first_name) || nameProblem(tidy.last_name)) return
+            onSave(tidy)
+          }}
+        >
           Save
         </ActionButton>
         <ActionButton size="sm" tone="ghost" onClick={onCancel}>

@@ -10,6 +10,7 @@ import { AgeNote } from '../components/AgeNote'
 import { VisaNoteField } from '../components/VisaNoteField'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
+import { tidyName } from '../lib/personName'
 import { fetchHouseholds, myFamily, saveAddress, type Household } from '../lib/family'
 import {
   ADDRESS_LIMITS,
@@ -380,6 +381,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                 <input
                   value={answers.firstName}
                   onChange={(e) => set('firstName', e.target.value)}
+                  onBlur={() => set('firstName', tidyName(answers.firstName))}
                   autoComplete="given-name"
                   {...described('firstName')}
                   className={`${inputClasses} ${redRing('firstName')}`}
@@ -391,6 +393,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                 <input
                   value={answers.lastName}
                   onChange={(e) => set('lastName', e.target.value)}
+                  onBlur={() => set('lastName', tidyName(answers.lastName))}
                   autoComplete="family-name"
                   {...described('lastName')}
                   className={`${inputClasses} ${redRing('lastName')}`}
@@ -616,6 +619,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
               <input
                 value={answers.emergencyName}
                 onChange={(e) => set('emergencyName', e.target.value)}
+                onBlur={() => set('emergencyName', tidyName(answers.emergencyName))}
                 maxLength={EMERGENCY_NAME_LIMIT}
                 autoComplete="off"
                 {...described('emergencyName')}

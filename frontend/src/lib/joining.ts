@@ -12,6 +12,7 @@
  * two places is a list that disagrees with itself by the spring.
  */
 
+import { nameProblem, tidyName } from './personName'
 import { ageFrom } from './celebrations'
 
 export const MARITAL_STATUSES = [
@@ -240,14 +241,10 @@ export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message
 /** The id of the place on the form a question lives, for "take me there". */
 export const joiningFieldId = (field: keyof JoiningAnswers) => `joining-${field}`
 
-const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M} '’.-]*$/u
-
-function nameProblem(value: string): string | null {
-  const text = value.trim()
-  if (!text) return null
-  if (text.length > 50) return 'Keep it to 50 letters or fewer.'
-  if (!NAME_PATTERN.test(text)) return 'Use letters only — spaces, hyphens and apostrophes are fine.'
-  return null
+/** A name here is a name everywhere: lib/personName.ts is the one rule (0306). This adds the form's own length. */
+function ownNameProblem(value: string, what: string): string | null {
+  if (tidyName(value).length > 50) return 'Keep it to 50 letters or fewer.'
+  return nameProblem(value, what)
 }
 
 /**
@@ -264,9 +261,9 @@ export function invalidAnswers(
   today: Date = new Date(),
 ): Partial<Record<keyof JoiningAnswers, string>> {
   const bad: Partial<Record<keyof JoiningAnswers, string>> = {}
-  const first = nameProblem(answers.firstName)
+  const first = ownNameProblem(answers.firstName, 'First name')
   if (first) bad.firstName = first
-  const last = nameProblem(answers.lastName)
+  const last = ownNameProblem(answers.lastName, 'Last name')
   if (last) bad.lastName = last
 
   const year = (iso: string) => Number(iso.slice(0, 4))
@@ -312,6 +309,10 @@ export function emergencyProblems(
 ): { name?: string; phone?: string } {
   const problems: { name?: string; phone?: string } = {}
   if (name.trim().length > EMERGENCY_NAME_LIMIT) problems.name = `Keep it to ${EMERGENCY_NAME_LIMIT} letters or fewer.`
+  else {
+    const wrong = nameProblem(name, 'Their name')
+    if (wrong) problems.name = wrong
+  }
   const digits = (value: string | null | undefined) => (value ?? '').replace(/[^\d+]/g, '')
   if (phone.trim() && digits(phone) === digits(ownPhone)) {
     problems.phone = 'That is your own number. Give somebody else’s, who can be rung about you.'
@@ -340,13 +341,13 @@ export function toProfileRows(answers: JoiningAnswers): {
   const settled = isSettledStatus(answers.visaType)
   return {
     profile: {
-      first_name: answers.firstName.trim(),
-      last_name: answers.lastName.trim(),
+      first_name: tidyName(answers.firstName),
+      last_name: tidyName(answers.lastName),
       phone: answers.phone.trim() || null,
       dob: answers.dob || null,
       marital_status: answers.maritalStatus || null,
       anniversary: answers.maritalStatus === 'married' ? answers.anniversary || null : null,
-      emergency_contact_name: answers.emergencyName.trim() || null,
+      emergency_contact_name: tidyName(answers.emergencyName) || null,
       emergency_contact_relation: answers.emergencyRelation || null,
       emergency_contact_phone: answers.emergencyPhone.trim() || null,
     },

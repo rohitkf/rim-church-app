@@ -1,3 +1,4 @@
+import { nameToSave } from './personName'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
@@ -76,7 +77,7 @@ export async function addGuest(fields: {
   const { data, error } = await supabase
     .from('guests')
     .insert({
-      name: fields.name.trim(),
+      name: nameToSave(fields.name, 'A guest’s name'),
       title: fields.title?.trim() || null,
       note: fields.note?.trim() || null,
     })
@@ -129,7 +130,7 @@ export async function fetchDepartmentGuests(departmentId: string): Promise<Depar
 
 /** Put a name on the team: on the roll already, or added to it. Returns the guest's id. */
 export async function addGuestToTeam(departmentId: string, name: string, type: 'core' | 'guest'): Promise<string> {
-  const { data, error } = await supabase.rpc('add_guest_to_team', { p_department: departmentId, p_name: name.trim(), p_type: type })
+  const { data, error } = await supabase.rpc('add_guest_to_team', { p_department: departmentId, p_name: nameToSave(name, 'Their name'), p_type: type })
   if (error) throw error
   return z.string().parse(data)
 }

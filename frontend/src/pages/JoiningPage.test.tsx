@@ -351,7 +351,16 @@ describe('joining', () => {
     const first = screen.getByDisplayValue('Grace')
     await userEvent.clear(first)
     await userEvent.type(first, 'Gr4ce')
-    expect(screen.getByText(/Use letters only/)).toBeInTheDocument()
+    expect(screen.getByText('First name can only have letters in it. Take out 4.')).toBeInTheDocument()
     expect(first.className).toContain('field-error')
+  })
+
+  it('shows a name as it will be saved once its box is left, and saves it that way', async () => {
+    render(<JoiningPage />)
+    const first = screen.getByDisplayValue('Grace')
+    await userEvent.clear(first)
+    await userEvent.type(first, '  gRACE-anne ')
+    await userEvent.tab()
+    expect(first).toHaveValue('Grace-Anne')
   })
 })

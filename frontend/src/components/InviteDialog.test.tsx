@@ -64,6 +64,24 @@ describe('InviteDialog', () => {
     expect(sentBody()).toMatchObject({ first_name: 'Grace', last_name: 'Mensah' })
   })
 
+  it('sends the name as a name is written, however it was typed', async () => {
+    const { user } = show()
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.type(screen.getByPlaceholderText('Grace'), 'gRACE')
+    await user.type(screen.getByPlaceholderText('Mensah'), 'mensah-o’brien')
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(sentBody()).toMatchObject({ first_name: 'Grace', last_name: "Mensah-O'Brien" })
+  })
+
+  it('will not send a name that is not one, and says what to take out', async () => {
+    const { user } = show()
+    await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')
+    await user.type(screen.getByPlaceholderText('Grace'), 'Grace2')
+    await user.click(screen.getByRole('button', { name: /Send invite/ }))
+    expect(screen.getByText('First name can only have letters in it. Take out 2.')).toBeInTheDocument()
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
   it('still sends without one, because a name nobody is sure of is worse than none', async () => {
     const { user } = show()
     await user.type(screen.getByPlaceholderText('name@example.com'), 'grace@rehoboth.org')

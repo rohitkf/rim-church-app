@@ -352,6 +352,25 @@ describe('Reception', () => {
     expect(state.mailed).toEqual([])
   })
 
+  it('registers a walk-in’s name the way a name is written, and will not take one that is not a name (0306)', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Walk-in' }))
+    const form = screen.getByRole('form', { name: 'Walk-in' })
+    const name = within(form).getByRole('textbox', { name: 'Name' })
+    await user.type(name, 'walk1n')
+    await user.click(within(form).getByRole('button', { name: 'One more Standard' }))
+    await user.click(within(form).getByRole('button', { name: 'Register' }))
+    expect(within(form).getByText('Their name can only have letters in it. Take out 1.')).toBeInTheDocument()
+    expect(state.walkIns).toHaveLength(0)
+
+    await user.clear(name)
+    await user.type(name, 'wALK  in')
+    await user.click(within(form).getByRole('button', { name: 'Register' }))
+    await waitFor(() => expect(state.walkIns).toHaveLength(1))
+    expect(state.walkIns[0]).toMatchObject(['e1', { name: 'Walk In' }])
+  })
+
   /*
    * Undo (0281): a door is where a thumb lands on the wrong row. Every
    * press says who it was done to, with Undo on it.
