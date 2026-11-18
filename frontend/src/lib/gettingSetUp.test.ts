@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { JOINING_FORM, MISSING_TEXT, VISA_TYPES, missingAnswers } from './joining'
-import { SETUP_COLUMNS, hasSomethingLeft, setupCardDue, setupTicksOf, type PersonSetup } from './gettingSetUp'
+import { SETUP_COLUMNS, completedAt, hasSomethingLeft, setupCardDue, setupTicksOf, type PersonSetup } from './gettingSetUp'
 
 const migrations = import.meta.glob('../../../supabase/migrations/*.sql', {
   query: '?raw',
@@ -13,6 +13,7 @@ const person = (over: Partial<PersonSetup> = {}): PersonSetup => ({
   joined: true,
   gaps: [],
   notifications: true,
+  completed_at: null,
   ...over,
 })
 const toured = { seen: { welcome: '2026-10-02T10:00:00Z' }, pushed_at: null }
@@ -78,6 +79,35 @@ describe('a person’s row of ticks', () => {
   })
 })
 
+/*
+ * When somebody finished their details (0304). The database keeps the
+ * first moment and never moves it, so the date alone does not say they are
+ * finished now: only a profile that is complete has one to show.
+ */
+describe('when somebody finished their details', () => {
+  const at = '2026-11-18T07:42:00Z'
+
+  it('is the date on record, for a profile that is complete', () => {
+    const setup = person({ completed_at: at })
+    expect(completedAt(setup, setupTicksOf(setup, toured, phone))).toBe(at)
+  })
+
+  it('is nothing for a profile with a blank now, though it was finished once', () => {
+    const setup = person({ completed_at: at, gaps: ['emergencyRelation'] })
+    expect(completedAt(setup, setupTicksOf(setup, toured, phone))).toBeNull()
+  })
+
+  it('is nothing for somebody not through the joining form', () => {
+    const setup = person({ completed_at: at, joined: false })
+    expect(completedAt(setup, setupTicksOf(setup, toured, phone))).toBeNull()
+  })
+
+  it('is nothing where none was kept, or nobody was asked about', () => {
+    expect(completedAt(person(), { profile: true })).toBeNull()
+    expect(completedAt(undefined, { profile: true })).toBeNull()
+  })
+})
+
 describe('whether the card is due', () => {
   it('is not, for somebody never asked', () => {
     expect(setupCardDue(null)).toBe(false)
@@ -97,13 +127,21 @@ describe('whether the card is due', () => {
  * statuses that do not run out, and the names of the questions.
  */
 describe('the database’s copy of the joining form’s rule', () => {
-  // The newest migration that defines it is the one in force.
-  const sql = Object.entries(migrations)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, text]) => text)
-    .filter((text) => text.includes('function public.profile_gaps('))
-    .pop()!
-  const body = sql.slice(sql.indexOf('function public.profile_gaps('), sql.indexOf('revoke all on function public.profile_gaps'))
+  /** The newest migration that defines a function is the one in force for it. */
+  const newestWith = (signature: string) =>
+    Object.entries(migrations)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, text]) => text)
+      .filter((text) => text.includes(signature))
+      .pop()!
+  /** That function's own text, from its name to the end of its body. */
+  const functionText = (signature: string) => {
+    const sql = newestWith(signature)
+    const from = sql.indexOf(signature)
+    return sql.slice(from, sql.indexOf('$function$;', from))
+  }
+  // The questions, form by form.
+  const body = functionText('function public.profile_gaps(p_user uuid, p_form integer)')
 
   it('calls the same statuses settled', () => {
     const lists = [...body.matchAll(/visa_type not in \(([^)]*)\)/g)].map((m) =>
@@ -149,23 +187,41 @@ describe('the database’s copy of the joining form’s rule', () => {
    * this app has, the newest the database will answer for, and the one the
    * table in Settings › Onboarding goes by.
    */
-  it('numbers its forms, and this app’s is the newest it knows', () => {
-    const newestAnswered = Number(sql.match(/least\(coalesce\(p_form, 1\), (\d+)\)/)?.[1])
-    const newestForTable = Number(sql.match(/select public\.profile_gaps\(p_user, (\d+)\);/)?.[1])
-    expect(newestAnswered).toBe(JOINING_FORM)
-    expect(newestForTable).toBe(JOINING_FORM)
-    // Every question added after the first form is asked only of an app that has it.
-    const later = [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => m[2])
-    expect(later).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone'])
-    // And each behind the form it came with: the relationship is the third form's (0302).
+  it('numbers its forms, and this app’s is the newest the database knows', () => {
+    // One number, in one place (0304): joining_form().
+    const newest = Number(functionText('function public.joining_form()').match(/select (\d+);/)?.[1])
+    expect(newest).toBe(JOINING_FORM)
+    // The table in Settings › Onboarding and the door of an app that names its form both ask it, and write no number of their own.
+    expect(functionText('function public.profile_gaps(p_user uuid)')).toContain('public.profile_gaps(p_user, public.joining_form())')
+    expect(functionText('function public.my_profile_gaps_for(p_form integer)')).toContain('least(coalesce(p_form, 1), public.joining_form())')
+    // Every question added after the first form is asked only of an app that has it, and none is asked of a form the database does not know.
     const formOf = Object.fromEntries(
       [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => [m[2], Number(m[1])]),
     )
-    expect(formOf).toMatchObject({ addressLine1: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3 })
+    expect(formOf).toEqual({ addressLine1: 2, town: 2, postcode: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3 })
+    expect(Math.max(...Object.values(formOf))).toBe(newest)
   })
 
-  it('keeps the door of the app before it on the first form', () => {
-    const old = sql.slice(sql.indexOf('function public.my_profile_gaps()'))
-    expect(old.slice(0, old.indexOf('$function$;'))).toContain('public.profile_gaps(auth.uid(), 1)')
+  it('keeps the door of the app before the forms were numbered on the first form', () => {
+    expect(functionText('function public.my_profile_gaps()')).toContain('public.profile_gaps(auth.uid(), 1)')
+  })
+
+  /*
+   * When somebody finished (0304): recorded by the database for the newest
+   * form, from each of the four places an answer can land.
+   */
+  it('records when somebody finished from every place an answer can land', () => {
+    const sql = newestWith('function public.profile_completion_watch()')
+    const watched = [...sql.matchAll(/create trigger \w+_completion_watch\s+after ([a-z ]+) on public\.(\w+)/g)].map((m) => `${m[2]}: ${m[1]}`)
+    expect(watched.sort()).toEqual([
+      'household_members: insert or update',
+      'households: update',
+      'profile_sensitive: insert or update',
+      'profiles: insert or update',
+    ])
+    // For the newest form, whatever that is: no number of its own.
+    expect(functionText('function public.profile_completion_note(p_user uuid)')).toContain('public.joining_form()')
+    // And never in the way of the save it is watching.
+    expect(functionText('function public.profile_completion_watch()')).toContain('exception when others then')
   })
 })

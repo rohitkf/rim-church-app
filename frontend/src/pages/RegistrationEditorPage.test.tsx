@@ -347,15 +347,35 @@ describe('making a registration event', () => {
 
 /*
  * The agenda (0303): the running order of the day, written in the editor
- * and shown on the event's page. Only a title is asked for.
+ * and shown on the event's page. It is optional altogether, and the editor
+ * asks first how it is kept: none, one for the whole event, or one for
+ * each day (the Owner's ask, November 2026). Only a title is asked of an
+ * item.
  */
 describe('an event’s agenda in the editor', () => {
   const titleOf = (n: number) => screen.getByRole('textbox', { name: `Agenda item ${n} title` })
+  const choice = () => screen.getByRole('radiogroup', { name: 'Does this event have an agenda?' })
+  const choose = (user: ReturnType<typeof userEvent.setup>, name: string) => user.click(within(choice()).getByRole('radio', { name }))
+  const titles = () =>
+    screen.queryAllByRole('textbox', { name: /^Agenda item \d+ title$/ }).map((box) => (box as HTMLInputElement).value)
 
   it('starts with none, and says an event does not need one', () => {
     show('/registrations/new')
-    expect(screen.getByText('No agenda yet. An event does not need one.')).toBeInTheDocument()
+    expect(within(choice()).getByRole('radio', { name: 'No agenda' })).toBeChecked()
+    expect(screen.getByText('An event does not need one. Nothing about an agenda is shown on its page.')).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Agenda item 1' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add an item' })).toBeNull()
+  })
+
+  it('offers one agenda for an event with one date, and a day at a time only once there is a second', async () => {
+    const user = show('/registrations/new')
+    expect(within(choice()).getAllByRole('radio').map((r) => r.textContent)).toEqual(['No agenda', 'Add an agenda'])
+    await user.click(screen.getByRole('button', { name: /Add a date/ }))
+    expect(within(choice()).getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'No agenda',
+      'One agenda',
+      'One per day',
+    ])
   })
 
   it('adds an item with only a title, and saves it with the event', async () => {
@@ -363,17 +383,20 @@ describe('an event’s agenda in the editor', () => {
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Youth Night')
     await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-21')
     await pickTime(user, screen.getByRole('button', { name: 'Date 1 starts' }), '18:30')
-    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await choose(user, 'Add an agenda')
+    await user.click(screen.getByRole('button', { name: 'Add an item' }))
     await user.type(titleOf(1), 'Doors open')
     await user.click(screen.getByRole('button', { name: 'Save as draft' }))
 
     expect(await screen.findByText('event page e-saved')).toBeInTheDocument()
+    expect(state.saved[0].draft.agendaMode).toBe('all')
     expect(state.saved[0].draft.agenda).toEqual([{ id: null, title: 'Doors open', start: '', end: '', details: '', day: null }])
   })
 
   it('takes a time and a line of detail when they are known', async () => {
     const user = show('/registrations/new')
-    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
+    await choose(user, 'Add an agenda')
+    await user.click(screen.getByRole('button', { name: 'Add an item' }))
     const first = screen.getByRole('group', { name: 'Agenda item 1' })
     await user.type(titleOf(1), 'Teaching')
     // An end is shut until there is a start to end.
@@ -392,8 +415,9 @@ describe('an event’s agenda in the editor', () => {
 
   it('will not save an item with no title, and says which', async () => {
     const user = show('/registrations/new')
-    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
-    await user.click(screen.getByRole('button', { name: /Add an item/ }))
+    await choose(user, 'Add an agenda')
+    await user.click(screen.getByRole('button', { name: 'Add an item' }))
+    await user.click(screen.getByRole('button', { name: 'Add an item' }))
     await user.type(titleOf(1), 'Worship')
     await user.click(screen.getByRole('button', { name: 'Save as draft' }))
     const problems = screen.getByRole('alert', { name: 'Before this can be saved' })
@@ -403,45 +427,116 @@ describe('an event’s agenda in the editor', () => {
 
   it('moves an item up and down, and takes one away', async () => {
     const user = show('/registrations/new')
-    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
-    await user.click(screen.getByRole('button', { name: /Add an item/ }))
-    await user.click(screen.getByRole('button', { name: /Add an item/ }))
-    await user.type(titleOf(1), 'Doors')
-    await user.type(titleOf(2), 'Worship')
-    await user.type(titleOf(3), 'Lunch')
-    const order = () => [1, 2, 3].filter((n) => screen.queryByRole('group', { name: `Agenda item ${n}` })).map((n) => (titleOf(n) as HTMLInputElement).value)
-
+    await choose(user, 'Add an agenda')
+    for (const title of ['Doors', 'Worship', 'Lunch']) {
+      await user.click(screen.getByRole('button', { name: 'Add an item' }))
+      await user.type(titleOf(titles().length), title)
+    }
     expect(screen.getByRole('button', { name: 'Move agenda item 1 up' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Move agenda item 3 down' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move agenda item 3 up' }))
-    expect(order()).toEqual(['Doors', 'Lunch', 'Worship'])
+    expect(titles()).toEqual(['Doors', 'Lunch', 'Worship'])
     await user.click(screen.getByRole('button', { name: 'Move agenda item 1 down' }))
-    expect(order()).toEqual(['Lunch', 'Doors', 'Worship'])
+    expect(titles()).toEqual(['Lunch', 'Doors', 'Worship'])
     await user.click(screen.getByRole('button', { name: 'Remove agenda item 2' }))
-    expect(order()).toEqual(['Lunch', 'Worship'])
+    expect(titles()).toEqual(['Lunch', 'Worship'])
   })
 
-  it('asks which day only when the event has more than one, and an item on a day goes with that day', async () => {
+  it('put away with "No agenda", keeps what was written until the save, and saves none of it', async () => {
     const user = show('/registrations/new')
-    await user.click(screen.getByRole('button', { name: /Add an agenda/ }))
-    await user.type(titleOf(1), 'Workshops')
-    // One date: no question to ask.
-    expect(screen.queryByRole('combobox', { name: 'Agenda item 1 day' })).toBeNull()
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Youth Night')
+    await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-21')
+    await pickTime(user, screen.getByRole('button', { name: 'Date 1 starts' }), '18:30')
+    await choose(user, 'Add an agenda')
+    await user.click(screen.getByRole('button', { name: 'Add an item' }))
+    await user.type(titleOf(1), 'Doors open')
 
-    await user.click(screen.getByRole('button', { name: /Add a date/ }))
-    const day = screen.getByRole('combobox', { name: 'Agenda item 1 day' })
-    expect(day).toHaveTextContent('Each day')
-    await user.click(day)
-    await user.click(await screen.findByRole('option', { name: 'Date 2' }))
-    expect(screen.getByRole('combobox', { name: 'Agenda item 1 day' })).toHaveTextContent('Date 2')
-
-    // The second date removed: what was on it goes with it.
-    await user.click(within(screen.getByRole('group', { name: 'Date 2' })).getByRole('button', { name: 'Remove this date' }))
+    await choose(user, 'No agenda')
     expect(screen.queryByRole('group', { name: 'Agenda item 1' })).toBeNull()
-    expect(screen.getByText('No agenda yet. An event does not need one.')).toBeInTheDocument()
+    expect(screen.getByText(/The item written here is kept until you save — saving removes it\./)).toBeInTheDocument()
+    // Chosen by mistake: it comes straight back.
+    await choose(user, 'Add an agenda')
+    expect(titleOf(1)).toHaveValue('Doors open')
+
+    await choose(user, 'No agenda')
+    await user.click(screen.getByRole('button', { name: 'Save as draft' }))
+    await screen.findByText('event page e-saved')
+    expect(state.saved[0].draft.agendaMode).toBe('none')
   })
 
-  it('opens an event with the agenda it was saved with', async () => {
+  describe('for an event over several days', () => {
+    /** Two dates, the second not yet given a day, so it is called "Date 2". */
+    async function twoDates() {
+      const user = show('/registrations/new')
+      await pickDate(user, screen.getByRole('button', { name: 'Date 1' }), '2026-11-20')
+      await user.click(screen.getByRole('button', { name: /Add a date/ }))
+      return user
+    }
+    const dayOne = () => screen.getByRole('region', { name: /^Agenda for .*20.*2026$/ })
+    const dayTwo = () => screen.getByRole('region', { name: 'Agenda for Date 2' })
+
+    it('keeps one agenda for the whole event, with no day asked', async () => {
+      const user = await twoDates()
+      await choose(user, 'One agenda')
+      expect(screen.getByText('One agenda for the whole event: a single running order, shown once.')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Add an item' }))
+      await user.type(titleOf(1), 'Worship')
+      expect(screen.queryByRole('region', { name: /^Agenda for/ })).toBeNull()
+    })
+
+    it('keeps one for each day, each with its own list, and a day may be left with nothing', async () => {
+      const user = await twoDates()
+      await choose(user, 'One per day')
+      // A block a day, both empty, and that is allowed.
+      expect(within(dayOne()).getByText('Nothing for this day. It can stay that way.')).toBeInTheDocument()
+      expect(within(dayTwo()).getByText('Nothing for this day. It can stay that way.')).toBeInTheDocument()
+
+      await user.click(within(dayTwo()).getByRole('button', { name: 'Add an item to Date 2' }))
+      await user.type(within(dayTwo()).getByRole('textbox', { name: 'Agenda item 1 title' }), 'Workshops')
+      expect(within(dayOne()).getByText('Nothing for this day. It can stay that way.')).toBeInTheDocument()
+
+      // Something for the first day goes above it: the list reads a day at a time.
+      await user.click(within(dayOne()).getByRole('button', { name: /^Add an item to / }))
+      await user.type(within(dayOne()).getByRole('textbox', { name: 'Agenda item 1 title' }), 'Opening night')
+      expect(titles()).toEqual(['Opening night', 'Workshops'])
+      expect(within(dayTwo()).getByRole('textbox', { name: 'Agenda item 2 title' })).toHaveValue('Workshops')
+      // The only item on its day has nowhere to move to.
+      expect(within(dayTwo()).getByRole('button', { name: 'Move agenda item 2 up' })).toBeDisabled()
+    })
+
+    it('changes from one agenda to one a day and back without losing a line', async () => {
+      const user = await twoDates()
+      await choose(user, 'One agenda')
+      for (const title of ['Doors', 'Worship']) {
+        await user.click(screen.getByRole('button', { name: 'Add an item' }))
+        await user.type(titleOf(titles().length), title)
+      }
+      // What was on no day goes onto the first day, to be moved from there.
+      await choose(user, 'One per day')
+      expect(within(dayOne()).getAllByRole('textbox', { name: /title$/ }).map((b) => (b as HTMLInputElement).value)).toEqual(['Doors', 'Worship'])
+      expect(within(dayTwo()).queryByRole('textbox', { name: /title$/ })).toBeNull()
+      await choose(user, 'One agenda')
+      expect(titles()).toEqual(['Doors', 'Worship'])
+    })
+
+    it('takes a day’s agenda with the day, and is one agenda again when one day is left', async () => {
+      const user = await twoDates()
+      await choose(user, 'One per day')
+      await user.click(within(dayOne()).getByRole('button', { name: /^Add an item to / }))
+      await user.type(titleOf(1), 'Opening night')
+      await user.click(within(dayTwo()).getByRole('button', { name: 'Add an item to Date 2' }))
+      await user.type(titleOf(2), 'Workshops')
+
+      await user.click(within(screen.getByRole('group', { name: 'Date 2' })).getByRole('button', { name: 'Remove this date' }))
+      expect(titles()).toEqual(['Opening night'])
+      // One date: one agenda, and the choice says so.
+      expect(within(choice()).getAllByRole('radio').map((r) => r.textContent)).toEqual(['No agenda', 'Add an agenda'])
+      expect(within(choice()).getByRole('radio', { name: 'Add an agenda' })).toBeChecked()
+      expect(screen.queryByRole('region', { name: /^Agenda for/ })).toBeNull()
+    })
+  })
+
+  it('opens an event with the agenda it was saved with, kept the way it was kept', async () => {
     state.existing = {
       ...full(),
       agenda: [
@@ -453,7 +548,13 @@ describe('an event’s agenda in the editor', () => {
     expect(await screen.findByDisplayValue('Doors open')).toBeInTheDocument()
     expect(titleOf(2)).toHaveValue('Teaching')
     expect(screen.getByRole('textbox', { name: 'Agenda item 2 detail' })).toHaveValue('Pastor Ama')
-    expect(screen.getByRole('button', { name: /Add an item/ })).toBeInTheDocument()
+    expect(within(choice()).getByRole('radio', { name: 'Add an agenda' })).toBeChecked()
+  })
+
+  it('opens an event that has no agenda on "No agenda"', async () => {
+    state.existing = full()
+    show('/registrations/e1/edit')
+    await screen.findByDisplayValue('Pastors & Leaders 2026')
+    expect(within(choice()).getByRole('radio', { name: 'No agenda' })).toBeChecked()
   })
 })
-

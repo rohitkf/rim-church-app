@@ -12,6 +12,7 @@ import { LOCATION_ACCESS_KEY, fetchEveryonesLocationAccess } from '../lib/locati
 import {
   SETUP_COLUMNS,
   SETUP_KEY,
+  completedAt,
   fetchPeopleSetup,
   hasSomethingLeft,
   promptSetup,
@@ -75,9 +76,17 @@ function Tick({ done, label }: { done: boolean; label: string }) {
   )
 }
 
-/** What the ticks cannot say: a tour sent and not opened, an ask still waiting. */
-function detailOf(row: OnboardingRow | undefined, somethingLeft: boolean): string | null {
+/** A moment as the table says it: the day, and the time on it. */
+const dayAndTime = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+/**
+ * What the ticks cannot say: when their details were finished (0304), a
+ * tour sent and not opened, an ask still waiting.
+ */
+function detailOf(row: OnboardingRow | undefined, somethingLeft: boolean, completed: string | null): string | null {
   const bits: string[] = []
+  if (completed) bits.push(`details completed ${dayAndTime(completed)}`)
   const tour = tourStatusOf(row)
   if (tour.kind === 'sent') bits.push(`tour sent ${day(tour.at)}`)
   if (row?.setup_asked_at && somethingLeft) bits.push(`asked ${day(row.setup_asked_at)}`)
@@ -143,7 +152,8 @@ export function OnboardingCard() {
       .map((p) => {
         const ticks = setupTicksOf(setupOf.get(p.id), tourOf.get(p.id), locationOf.get(p.id))
         const left = hasSomethingLeft(ticks)
-        return { ...p, name: `${p.first_name} ${p.last_name}`.trim(), ticks, left, detail: detailOf(tourOf.get(p.id), left) }
+        const completed = completedAt(setupOf.get(p.id), ticks)
+        return { ...p, name: `${p.first_name} ${p.last_name}`.trim(), ticks, left, detail: detailOf(tourOf.get(p.id), left, completed) }
       })
   }, [people.data, tours.data, setup.data, locations.data])
 

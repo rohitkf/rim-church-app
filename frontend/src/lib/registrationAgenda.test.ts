@@ -48,7 +48,11 @@ vi.mock('./supabaseClient', () => {
 
 import {
   AGENDA_LIMITS,
+  agendaByDay,
   agendaDays,
+  agendaInMode,
+  agendaModeOf,
+  agendaToSave,
   agendaItemSchema,
   draftFromEvent,
   draftProblems,
@@ -70,6 +74,7 @@ const at = (y: number, m: number, d: number, h: number, min: number) => new Date
 
 const item = (over: Partial<AgendaDraft> = {}): AgendaDraft => ({ ...newAgendaDraft(), title: 'Worship', ...over })
 
+/** A draft that can be saved; one given an agenda has one, kept as a single list unless it says otherwise. */
 const good = (over: Partial<EventDraft> = {}): EventDraft => ({
   ...emptyDraft(),
   title: 'Leaders Conference',
@@ -78,6 +83,7 @@ const good = (over: Partial<EventDraft> = {}): EventDraft => ({
   start: '09:00',
   end: '17:00',
   dates: [{ ...newDateDraft(), date: '2026-11-21' }],
+  agendaMode: over.agenda?.length ? 'all' : 'none',
   ...over,
 })
 
@@ -91,6 +97,7 @@ beforeEach(() => {
 describe('what an agenda asks for', () => {
   it('is nothing at all: an event needs no agenda', () => {
     expect(emptyDraft().agenda).toEqual([])
+    expect(emptyDraft().agendaMode).toBe('none')
     expect(draftProblems(good())).toEqual([])
   })
 
@@ -139,6 +146,16 @@ describe('the order of an agenda', () => {
     expect(movedAgenda(agenda, 2, 1)).toBe(agenda)
   })
 
+  it('moves an item among the items of its own day, past whatever is on another', () => {
+    const days = [item({ title: 'Fri A', day: 0 }), item({ title: 'Sat A', day: 1 }), item({ title: 'Fri B', day: 0 }), item({ title: 'Sat B', day: 1 })]
+    // Fri B goes above Fri A, not above Sat A.
+    expect(titles(movedAgenda(days, 2, -1))).toEqual(['Fri B', 'Sat A', 'Fri A', 'Sat B'])
+    // Sat B is last on its day: there is nowhere down to go.
+    expect(movedAgenda(days, 3, 1)).toBe(days)
+    // Fri A is first on its day, though not first in the list after a move.
+    expect(movedAgenda(days, 0, -1)).toBe(days)
+  })
+
   it('is not rearranged by its times: an item with none has to sit where it was put', () => {
     const mixed = [item({ title: 'Lunch', start: '13:00' }), item({ title: 'Announcements' }), item({ title: 'Doors', start: '09:00' })]
     expect(draftProblems(good({ agenda: mixed }))).toEqual([])
@@ -149,6 +166,7 @@ describe('the order of an agenda', () => {
 describe('an agenda over several days', () => {
   const threeDays = (): EventDraft =>
     good({
+      agendaMode: 'days',
       dates: [
         { ...newDateDraft(), date: '2026-11-20' },
         { ...newDateDraft(), date: '2026-11-21' },
@@ -174,8 +192,93 @@ describe('an agenda over several days', () => {
   })
 
   it('refuses an item on a day that is not one of the dates', () => {
-    const draft = good({ agenda: [item({ day: 3 })] })
+    const draft = good({ agendaMode: 'days', agenda: [item({ day: 3 })] })
     expect(draftProblems(draft)).toEqual(['Agenda item 1 is on a day that is no longer one of the dates.'])
+  })
+
+  it('becomes one agenda when only one day is left: a day at a time means nothing with a single day', () => {
+    const two = good({
+      agendaMode: 'days',
+      dates: [{ ...newDateDraft(), date: '2026-11-20' }, { ...newDateDraft(), date: '2026-11-21' }],
+      agenda: [item({ title: 'Opening night', day: 0 }), item({ title: 'Workshops', day: 1 })],
+    })
+    const next = withoutDate(two, 0)
+    expect(next.agendaMode).toBe('all')
+    expect(next.agenda.map((a) => [a.title, a.day])).toEqual([['Workshops', null]])
+  })
+})
+
+/*
+ * The agenda is optional altogether, and for an event over several days
+ * there are two ways to keep one (the Owner's ask, November 2026): a single
+ * agenda for the whole event, or one for each day — where a day may be
+ * left with nothing.
+ */
+describe('how an agenda is kept', () => {
+  const twoDates = [{ ...newDateDraft(), date: '2026-11-20' }, { ...newDateDraft(), date: '2026-11-21' }]
+  const shape = (list: AgendaDraft[]) => list.map((a) => [a.title, a.day])
+
+  it('is read back off a saved agenda: none, one for the event, or one a day', () => {
+    expect(agendaModeOf([], 2)).toBe('none')
+    expect(agendaModeOf([item()], 2)).toBe('all')
+    expect(agendaModeOf([item({ day: 1 })], 2)).toBe('days')
+    // One date: there is only the one agenda, whatever an item says.
+    expect(agendaModeOf([item({ day: 0 })], 1)).toBe('all')
+  })
+
+  it('sets out an agenda a day at a time: what is on no day, then each day in turn, each as it stood', () => {
+    const mixed = [item({ title: 'Sat A', day: 1 }), item({ title: 'Every', day: null }), item({ title: 'Fri A', day: 0 }), item({ title: 'Sat B', day: 1 })]
+    expect(shape(agendaByDay(mixed))).toEqual([
+      ['Every', null],
+      ['Fri A', 0],
+      ['Sat A', 1],
+      ['Sat B', 1],
+    ])
+  })
+
+  it('made one for each day, puts what was on no day onto the first day — nothing is dropped', () => {
+    const next = agendaInMode({ dates: twoDates, agenda: [item({ title: 'Doors' }), item({ title: 'Workshops', day: 1 }), item({ title: 'Worship' })] }, 'days')
+    expect(next.agendaMode).toBe('days')
+    expect(shape(next.agenda)).toEqual([
+      ['Doors', 0],
+      ['Worship', 0],
+      ['Workshops', 1],
+    ])
+  })
+
+  it('made one for the whole event, takes every item off its day, in the order the days had them', () => {
+    const next = agendaInMode({ dates: twoDates, agenda: [item({ title: 'Sat A', day: 1 }), item({ title: 'Fri A', day: 0 })] }, 'all')
+    expect(next.agendaMode).toBe('all')
+    expect(shape(next.agenda)).toEqual([
+      ['Fri A', null],
+      ['Sat A', null],
+    ])
+  })
+
+  it('cannot be one for each day with a single date: it is the one agenda', () => {
+    const next = agendaInMode({ dates: [twoDates[0]], agenda: [item({ title: 'Doors' })] }, 'days')
+    expect(next.agendaMode).toBe('all')
+    expect(shape(next.agenda)).toEqual([['Doors', null]])
+  })
+
+  it('put away with "No agenda", keeps what was written, untouched, and saves none of it', () => {
+    const agenda = [item({ title: 'Fri A', day: 0 }), item({ title: 'Sat A', day: 1 })]
+    const next = agendaInMode({ dates: twoDates, agenda }, 'none')
+    expect(next.agenda).toBe(agenda)
+    expect(agendaToSave(next)).toEqual([])
+    // And choosing again brings it back as it was.
+    expect(shape(agendaInMode({ dates: twoDates, agenda: next.agenda }, 'days').agenda)).toEqual(shape(agenda))
+  })
+
+  it('is not asked about while it is put away: a blank item in an agenda that will not be saved stops nothing', () => {
+    const draft = good({ agendaMode: 'none', agenda: [item({ title: '' })] })
+    expect(draftProblems(draft)).toEqual([])
+  })
+
+  it('leaves a day with nothing on it alone', () => {
+    const draft = good({ agendaMode: 'days', dates: twoDates, agenda: [item({ title: 'Workshops', day: 1 })] })
+    expect(draftProblems(draft)).toEqual([])
+    expect(shape(agendaToSave(draft))).toEqual([['Workshops', 1]])
   })
 })
 
@@ -220,16 +323,26 @@ describe('a saved agenda back in the editor', () => {
     ],
   })
 
-  it('is as it was written: the times, the detail, and each item on its day', () => {
-    expect(draftFromEvent(full()).agenda).toEqual([
+  it('is as it was written — the times, the detail, each item on its day — and set out a day at a time', () => {
+    const draft = draftFromEvent(full())
+    expect(draft.agendaMode).toBe('days')
+    expect(draft.agenda).toEqual([
       { id: 'a1', title: 'Doors', start: '09:00', end: '', details: '', day: null },
-      { id: 'a2', title: 'Workshops', start: '10:00', end: '12:30', details: 'Rooms 1 to 3', day: 1 },
+      // A day that is no longer one of the dates reads as on no day.
       { id: 'a3', title: 'Lunch', start: '', end: '', details: '', day: null },
+      { id: 'a2', title: 'Workshops', start: '10:00', end: '12:30', details: 'Rooms 1 to 3', day: 1 },
     ])
   })
 
-  it('is empty for an event that never had one', () => {
-    expect(draftFromEvent({ ...full(), agenda: undefined }).agenda).toEqual([])
+  it('is no agenda for an event that never had one', () => {
+    const draft = draftFromEvent({ ...full(), agenda: undefined })
+    expect(draft.agenda).toEqual([])
+    expect(draft.agendaMode).toBe('none')
+  })
+
+  it('is one agenda for the whole event when no item names a day', () => {
+    const one = { ...full(), agenda: full().agenda!.filter((a) => a.id === 'a1') }
+    expect(draftFromEvent(one).agendaMode).toBe('all')
   })
 
   it('reads the database’s time, which carries seconds, as the minutes the form keeps', () => {
@@ -242,7 +355,8 @@ describe('a saved agenda back in the editor', () => {
     it('writes each item in the order it stands, on the day it names', async () => {
       const existing = full()
       const draft = draftFromEvent(existing)
-      draft.agenda = [draft.agenda[1], draft.agenda[0], item({ title: 'Closing', start: '16:00', details: ' Main hall ', day: 0 })]
+      const byId = (id: string) => draft.agenda.find((a) => a.id === id)!
+      draft.agenda = [byId('a2'), byId('a1'), item({ title: 'Closing', start: '16:00', details: ' Main hall ', day: 0 })]
       await saveRegistrationEvent(draft, existing)
 
       expect(agendaWrites()).toEqual([
@@ -260,6 +374,7 @@ describe('a saved agenda back in the editor', () => {
       const draft = draftFromEvent(existing)
       draft.dates = [...draft.dates, { ...newDateDraft(), date: '2026-11-22' }]
       draft.agenda = [item({ title: 'Sending out', day: 2 })]
+      draft.agendaMode = 'days'
       await saveRegistrationEvent(draft, existing)
 
       const made = agendaWrites().find((c) => c.op === 'insert')
@@ -287,6 +402,29 @@ describe('a saved agenda back in the editor', () => {
       // The form cannot make this (the end is shut until there is a start); the save does not trust that.
       await expect(saveRegistrationEvent(draft, null)).rejects.toThrow('Agenda item 1 has an end time and no start time.')
       expect(db.calls).toEqual([])
+    })
+
+    it('saved with "No agenda", deletes what the event had and writes nothing', async () => {
+      const existing = full()
+      const draft = { ...draftFromEvent(existing), agendaMode: 'none' as const }
+      await saveRegistrationEvent(draft, existing)
+      expect(agendaWrites().map((c) => [c.op, c.id])).toEqual([
+        ['delete', 'a1'],
+        ['delete', 'a2'],
+        ['delete', 'a3'],
+      ])
+    })
+
+    it('saved as one for the whole event, takes every item off its day', async () => {
+      const existing = full()
+      const draft = draftFromEvent(existing)
+      Object.assign(draft, agendaInMode(draft, 'all'))
+      await saveRegistrationEvent(draft, existing)
+      expect(agendaWrites().filter((c) => c.op === 'update').map((c) => [c.id, c.values?.date_id, c.values?.sort_order])).toEqual([
+        ['a1', null, 0],
+        ['a3', null, 1],
+        ['a2', null, 2],
+      ])
     })
 
     it('writes a new event’s agenda under the event it has just made', async () => {

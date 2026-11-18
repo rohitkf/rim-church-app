@@ -30,6 +30,13 @@ const personSetupSchema = z.object({
   gaps: z.array(z.string()).nullable().transform((v) => v ?? []),
   /** Whether any device of theirs is registered for push. */
   notifications: z.boolean().nullable().transform((v) => v === true),
+  /**
+   * When they first had every answer the newest form asks (0304). It says
+   * nothing about now — an answer rubbed out since leaves the date and
+   * takes the tick — so read it through `completedAt`. Absent from a
+   * database that has not had 0304.
+   */
+  completed_at: z.string().nullable().optional().transform((v) => v ?? null),
 })
 export type PersonSetup = z.infer<typeof personSetupSchema>
 
@@ -133,6 +140,15 @@ export function setupTicksOf(
     notifications: setup?.notifications === true,
     installed: location?.installed === true,
   }
+}
+
+/**
+ * When somebody finished their details, for a profile that is complete
+ * now; null for one that is not, whatever it once was, and for one that
+ * was finished before the date was kept.
+ */
+export function completedAt(setup: PersonSetup | undefined, ticks: Pick<SetupTicks, 'profile'>): string | null {
+  return ticks.profile ? (setup?.completed_at ?? null) : null
 }
 
 /** Whether anything is left — the same question `prompt_setup()` asks. */

@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
 import { DateField, TimeField } from '../components/DateTimeFields'
-import { Select } from '../components/Select'
 import { formatDateValue } from '../lib/dateTimeFormat'
 import { PlaceMap } from '../components/PlaceMap'
 import { QueryState } from '../components/QueryState'
@@ -16,6 +15,8 @@ import { registerUrl } from '../lib/registrationLinks'
 import {
   AGENDA_LIMITS,
   REGISTRATIONS_KEY,
+  agendaByDay,
+  agendaInMode,
   draftFromEvent,
   draftProblems,
   emptyDraft,
@@ -192,7 +193,7 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
 
         <SectionTile
           title="Agenda"
-          hint="What happens on the day, in the order it happens. Optional — and so are the times: give a title now and the rest when it is settled. It is shown on the event's page."
+          hint="Optional. The running order of the day, shown on the event's page: one for the whole event, or one for each of its days."
         >
           <AgendaEditor draft={draft} set={set} />
         </SectionTile>
@@ -471,7 +472,7 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
   )
 }
 
-/** What a date is called in the agenda's day picker: its day, and its label when it has one. */
+/** What a date is called in the agenda: its day, and its label when it has one. */
 function dayName(date: DateDraft, index: number): string {
   const day = date.date ? formatDateValue(date.date) : `Date ${index + 1}`
   return date.label.trim() ? `${day} · ${date.label.trim()}` : day
@@ -479,110 +480,204 @@ function dayName(date: DateDraft, index: number): string {
 
 /**
  * The agenda (0303): the running order of the day, as the Service Planner
- * has for a service. Only a title is asked for. The order is the order it
- * is written in — an item with no time has to sit somewhere, and whoever
- * wrote it knows where — so each line moves up and down by its own buttons.
+ * has for a service — and optional altogether.
+ *
+ * It starts with one question, because the answer changes what is written:
+ * no agenda, one for the whole event, or one for each day (offered when
+ * the event has more than one, and a day may be left with nothing).
+ * Changing the answer never throws anything away — the items are rewritten
+ * for the new shape (lib/registrations `agendaInMode`), and with "No
+ * agenda" they wait out of sight until the event is saved.
+ *
+ * Only a title is asked of an item. The order is the order it is written
+ * in — an item with no time has to sit somewhere, and whoever wrote it
+ * knows where — so each line moves up and down by its own buttons, among
+ * the items of its own day.
  */
 function AgendaEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<EventDraft>) => void }) {
   const items = draft.agenda
-  const setItem = (i: number, patch: Partial<AgendaDraft>) => set({ agenda: items.map((a, j) => (j === i ? { ...a, ...patch } : a)) })
-  // Which day is only a question when there is more than one.
+  const mode = draft.agendaMode
   const severalDays = draft.dates.length > 1
   const full = items.length >= AGENDA_LIMITS.items
-  const quiet = 'tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:bg-raised hover:text-on-surface disabled:opacity-40 disabled:hover:bg-transparent'
+  const setItem = (i: number, patch: Partial<AgendaDraft>) => set({ agenda: items.map((a, j) => (j === i ? { ...a, ...patch } : a)) })
+  // A new item goes at the end of its own day, and the list stays set out a day at a time.
+  const add = (day: number | null) => set({ agenda: mode === 'days' ? agendaByDay([...items, newAgendaDraft(day)]) : [...items, newAgendaDraft(day)] })
+  /** The items of one day, each with its place in the whole list — which is its number. */
+  const onDay = (day: number | null) => items.map((a, i) => ({ a, i })).filter(({ a }) => a.day === day)
+
+  const list = (rows: { a: AgendaDraft; i: number }[]) => (
+    <ol className="flex flex-col gap-3">
+      {rows.map(({ a, i }, place) => (
+        <AgendaItemEditor
+          key={i}
+          item={a}
+          n={i + 1}
+          first={place === 0}
+          last={place === rows.length - 1}
+          onChange={(patch) => setItem(i, patch)}
+          onMove={(by) => set({ agenda: movedAgenda(items, i, by) })}
+          onRemove={() => set({ agenda: items.filter((_, j) => j !== i) })}
+        />
+      ))}
+    </ol>
+  )
+  const adder = (day: number | null, label: string, name?: string) => (
+    <ActionButton size="sm" tone="quiet" disabled={full} onClick={() => add(day)} aria-label={name} glyph={<span aria-hidden="true">+</span>}>
+      {label}
+    </ActionButton>
+  )
 
   return (
     <div className="flex flex-col gap-4">
-      {items.length === 0 && (
-        <p className="text-body-sm text-on-surface-variant">No agenda yet. An event does not need one.</p>
+      <SegmentedControl
+        label="Does this event have an agenda?"
+        value={mode === 'days' && !severalDays ? 'all' : mode}
+        onChange={(next) => set(agendaInMode(draft, next))}
+        options={
+          severalDays
+            ? [
+                { value: 'none', label: 'No agenda' },
+                { value: 'all', label: 'One agenda' },
+                { value: 'days', label: 'One per day' },
+              ]
+            : [
+                { value: 'none', label: 'No agenda' },
+                { value: 'all', label: 'Add an agenda' },
+              ]
+        }
+      />
+
+      {mode === 'none' && (
+        <p className="-mt-2 text-label-md text-on-surface-faint">
+          {items.length === 0
+            ? 'An event does not need one. Nothing about an agenda is shown on its page.'
+            : `Nothing about an agenda will be shown. The ${items.length === 1 ? 'item' : `${items.length} items`} written here ${items.length === 1 ? 'is' : 'are'} kept until you save — saving removes ${items.length === 1 ? 'it' : 'them'}.`}
+        </p>
       )}
-      <ol className="flex flex-col gap-3">
-        {items.map((a, i) => {
-          const n = i + 1
-          return (
-            <li key={i} role="group" aria-label={`Agenda item ${n}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
-              <div className="flex flex-wrap items-end gap-3">
-                <Field label={`Item ${n}`} className="min-w-48 flex-[2]">
-                  <input
-                    value={a.title}
-                    onChange={(e) => setItem(i, { title: e.target.value })}
-                    placeholder="Doors open, Worship, Lunch…"
-                    maxLength={AGENDA_LIMITS.title}
-                    aria-label={`Agenda item ${n} title`}
-                    className={inputClasses}
-                  />
-                </Field>
-                <Field label="Starts (optional)">
-                  <TimeField
-                    value={a.start}
-                    // An end is the end of something that starts: it goes with the start.
-                    onChange={(start) => setItem(i, start ? { start } : { start: '', end: '' })}
-                    label={`Agenda item ${n} starts`}
-                    clearable
-                  />
-                </Field>
-                <Field label="Ends (optional)">
-                  <TimeField value={a.end} onChange={(end) => setItem(i, { end })} label={`Agenda item ${n} ends`} clearable disabled={!a.start} />
-                </Field>
-              </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <Field label="Detail (optional)" className="min-w-48 flex-[2]">
-                  <input
-                    value={a.details}
-                    onChange={(e) => setItem(i, { details: e.target.value })}
-                    placeholder="Who is speaking, which room…"
-                    maxLength={AGENDA_LIMITS.details}
-                    aria-label={`Agenda item ${n} detail`}
-                    className={inputClasses}
-                  />
-                </Field>
-                {severalDays && (
-                  <Field label="Day" className="min-w-44 flex-1">
-                    <Select
-                      value={a.day === null ? 'each' : String(a.day)}
-                      onChange={(value) => setItem(i, { day: value === 'each' ? null : Number(value) })}
-                      aria-label={`Agenda item ${n} day`}
-                      options={[
-                        { value: 'each', label: 'Each day' },
-                        ...draft.dates.map((d, j) => ({ value: String(j), label: dayName(d, j) })),
-                      ]}
-                    />
-                  </Field>
+
+      {mode === 'all' && (
+        <>
+          <p className="-mt-2 text-label-md text-on-surface-faint">
+            {severalDays
+              ? 'One agenda for the whole event: a single running order, shown once.'
+              : 'What happens, in the order it happens. Only a title is needed: add the times and the detail when they are settled.'}
+          </p>
+          {list(items.map((a, i) => ({ a, i })))}
+          <div className="flex flex-wrap items-center gap-3">
+            {adder(null, 'Add an item')}
+            {full && <span className="text-label-md text-on-surface-faint">An agenda holds {AGENDA_LIMITS.items} items at most.</span>}
+          </div>
+        </>
+      )}
+
+      {mode === 'days' && (
+        <>
+          <p className="-mt-2 text-label-md text-on-surface-faint">
+            An agenda for each day of the event. Leave a day empty and nothing is shown for it.
+          </p>
+          {/* Items on no day at all: only ever from an agenda written before the days were chosen. */}
+          {onDay(null).length > 0 && (
+            <section aria-label="Agenda for each day" className="flex flex-col gap-3">
+              <h3 className="text-body-md font-semibold text-on-surface">Each day</h3>
+              {list(onDay(null))}
+            </section>
+          )}
+          {draft.dates.map((d, j) => {
+            const rows = onDay(j)
+            const name = dayName(d, j)
+            return (
+              <section key={j} aria-label={`Agenda for ${name}`} className="flex flex-col gap-3">
+                <h3 className="text-body-md font-semibold text-on-surface">{name}</h3>
+                {rows.length === 0 ? (
+                  <p className="text-body-sm text-on-surface-variant">Nothing for this day. It can stay that way.</p>
+                ) : (
+                  list(rows)
                 )}
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-1">
-                <button type="button" disabled={i === 0} onClick={() => set({ agenda: movedAgenda(items, i, -1) })} aria-label={`Move agenda item ${n} up`} className={quiet}>
-                  <span aria-hidden="true">↑</span> Up
-                </button>
-                <button
-                  type="button"
-                  disabled={i === items.length - 1}
-                  onClick={() => set({ agenda: movedAgenda(items, i, 1) })}
-                  aria-label={`Move agenda item ${n} down`}
-                  className={quiet}
-                >
-                  <span aria-hidden="true">↓</span> Down
-                </button>
-                <button
-                  type="button"
-                  onClick={() => set({ agenda: items.filter((_, j) => j !== i) })}
-                  aria-label={`Remove agenda item ${n}`}
-                  className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-faint hover:text-error hover:underline"
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-      <div className="flex flex-wrap items-center gap-3">
-        <ActionButton size="sm" tone="quiet" disabled={full} onClick={() => set({ agenda: [...items, newAgendaDraft()] })} glyph={<span aria-hidden="true">+</span>}>
-          {items.length === 0 ? 'Add an agenda' : 'Add an item'}
-        </ActionButton>
-        {full && <span className="text-label-md text-on-surface-faint">An agenda holds {AGENDA_LIMITS.items} items at most.</span>}
-      </div>
+                <div>{adder(j, 'Add an item', `Add an item to ${name}`)}</div>
+              </section>
+            )
+          })}
+          {full && <span className="text-label-md text-on-surface-faint">An agenda holds {AGENDA_LIMITS.items} items at most.</span>}
+        </>
+      )}
     </div>
+  )
+}
+
+/** One line of the agenda: its title, and whatever else is known. */
+function AgendaItemEditor({
+  item,
+  n,
+  first,
+  last,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  item: AgendaDraft
+  /** Its place in the whole agenda, which is what a problem names it by. */
+  n: number
+  /** First or last among the items of its own day. */
+  first: boolean
+  last: boolean
+  onChange: (patch: Partial<AgendaDraft>) => void
+  onMove: (by: -1 | 1) => void
+  onRemove: () => void
+}) {
+  const quiet = 'tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:bg-raised hover:text-on-surface disabled:opacity-40 disabled:hover:bg-transparent'
+  return (
+    <li role="group" aria-label={`Agenda item ${n}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label={`Item ${n}`} className="min-w-48 flex-[2]">
+          <input
+            value={item.title}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Doors open, Worship, Lunch…"
+            maxLength={AGENDA_LIMITS.title}
+            aria-label={`Agenda item ${n} title`}
+            className={inputClasses}
+          />
+        </Field>
+        <Field label="Starts (optional)">
+          <TimeField
+            value={item.start}
+            // An end is the end of something that starts: it goes with the start.
+            onChange={(start) => onChange(start ? { start } : { start: '', end: '' })}
+            label={`Agenda item ${n} starts`}
+            clearable
+          />
+        </Field>
+        <Field label="Ends (optional)">
+          <TimeField value={item.end} onChange={(end) => onChange({ end })} label={`Agenda item ${n} ends`} clearable disabled={!item.start} />
+        </Field>
+      </div>
+      <Field label="Detail (optional)">
+        <input
+          value={item.details}
+          onChange={(e) => onChange({ details: e.target.value })}
+          placeholder="Who is speaking, which room…"
+          maxLength={AGENDA_LIMITS.details}
+          aria-label={`Agenda item ${n} detail`}
+          className={inputClasses}
+        />
+      </Field>
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <button type="button" disabled={first} onClick={() => onMove(-1)} aria-label={`Move agenda item ${n} up`} className={quiet}>
+          <span aria-hidden="true">↑</span> Up
+        </button>
+        <button type="button" disabled={last} onClick={() => onMove(1)} aria-label={`Move agenda item ${n} down`} className={quiet}>
+          <span aria-hidden="true">↓</span> Down
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove agenda item ${n}`}
+          className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-faint hover:text-error hover:underline"
+        >
+          Remove
+        </button>
+      </div>
+    </li>
   )
 }
 
