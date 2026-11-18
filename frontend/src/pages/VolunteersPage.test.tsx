@@ -68,6 +68,8 @@ vi.mock('../lib/supabaseClient', () => ({
           // Who to ring about them (0301). Rose has given nobody yet.
           emergency_contact_name: id === 'rose' ? null : `Parent of ${id}`,
           emergency_contact_phone: id === 'rose' ? null : '+447812345678',
+          // Who that person is to them (0302). Joel gave a name and a number before it was asked.
+          emergency_contact_relation: id === 'newbie' ? 'parent' : null,
         })),
         error: null,
       })
@@ -232,6 +234,8 @@ describe('contact details on the volunteers page', () => {
     const line = (await screen.findByText(/In an emergency: Parent of newbie/)).closest('span')!
     const number = within(line).getByRole('link', { name: '+44 7812 345678' })
     expect(number).toHaveAttribute('href', 'tel:+447812345678')
+    // Who is being rung, before the number (0302).
+    expect(line).toHaveTextContent('In an emergency: Parent of newbie (parent), +44 7812 345678')
   })
 
   it('say nothing about an emergency for somebody who has given nobody', async () => {

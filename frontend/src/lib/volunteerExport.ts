@@ -18,6 +18,7 @@ import type { UserRole } from '../auth/types'
 import type { Household, HouseholdMember } from './family'
 import { ageFrom } from './celebrations'
 import { formatPhoneInternational } from './phone'
+import { emergencyRelationLabel } from './joining'
 import { ROLE_NAME } from './roleNames'
 
 export interface ExportPerson {
@@ -30,6 +31,8 @@ export interface ExportPerson {
   /** Who to ring about them (0301), with the contact details and never without. */
   emergency_contact_name?: string | null
   emergency_contact_phone?: string | null
+  /** What that person is to them (0302), as its value; the sheet says the word. */
+  emergency_contact_relation?: string | null
   dob?: string | null
   anniversary?: string | null
 }
@@ -162,6 +165,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       { label: 'Email', width: 30 },
       { label: 'Phone', width: 16 },
       { label: 'Emergency contact', width: 24 },
+      { label: 'Relationship', width: 18 },
       { label: 'Emergency number', width: 18 },
       { label: 'Date of birth', width: 14 },
       { label: 'Wedding anniversary', width: 18 },
@@ -175,6 +179,7 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       blank(p.email),
       blank(formatPhoneInternational(p.phone)),
       blank(p.emergency_contact_name),
+      blank(emergencyRelationLabel(p.emergency_contact_relation)),
       blank(formatPhoneInternational(p.emergency_contact_phone)),
       blank(p.dob),
       blank(p.anniversary),
@@ -403,7 +408,7 @@ function familySheets(
   return [families, children]
 }
 
-const CONTACT_COLUMNS = new Set(['Email', 'Phone', 'Emergency contact', 'Emergency number'])
+const CONTACT_COLUMNS = new Set(['Email', 'Phone', 'Emergency contact', 'Relationship', 'Emergency number'])
 
 /** The same sheet with its Email and Phone columns taken out. */
 function withoutContacts(sheet: ExportSheet): ExportSheet {

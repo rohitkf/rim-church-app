@@ -102,7 +102,7 @@ const DETAIL_FIELDS: Record<'phone' | 'dob' | 'marital' | 'status' | 'address' |
   status: ['visaType', 'visaHasExpiry', 'visaExpiry'],
   // Line 2 is optional, so it is never a gap.
   address: ['addressLine1', 'town', 'postcode'],
-  emergency: ['emergencyName', 'emergencyPhone'],
+  emergency: ['emergencyName', 'emergencyRelation', 'emergencyPhone'],
 }
 
 /**

@@ -40,7 +40,7 @@ describe('a person’s row of ticks', () => {
       expect(ticks.emergency, gap).toBe(true)
       expect(ticks.profile, gap).toBe(false)
     }
-    for (const gap of ['emergencyName', 'emergencyPhone']) {
+    for (const gap of ['emergencyName', 'emergencyRelation', 'emergencyPhone']) {
       const ticks = setupTicksOf(person({ gaps: [gap] }), toured, phone)
       expect(ticks.emergency, gap).toBe(false)
       expect(ticks.address, gap).toBe(true)
@@ -118,7 +118,7 @@ describe('the database’s copy of the joining form’s rule', () => {
     const names = [...body.matchAll(/then '([A-Za-z0-9]+)' end/g)].map((m) => m[1])
     expect(names).toEqual([
       'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary', 'visaType', 'visaHasExpiry', 'visaExpiry',
-      'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone',
+      'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone',
     ])
     for (const name of names) expect(MISSING_TEXT).toHaveProperty(name)
   })
@@ -135,7 +135,7 @@ describe('the database’s copy of the joining form’s rule', () => {
     const blank = missingAnswers({
       firstName: '', lastName: '', phone: '', dob: '', maritalStatus: 'married', anniversary: '',
       visaType: '', visaHasExpiry: null, visaExpiry: '', hasDbs: null, visaNote: '',
-      addressLine1: '', addressLine2: '', town: '', postcode: '', emergencyName: '', emergencyPhone: '',
+      addressLine1: '', addressLine2: '', town: '', postcode: '', emergencyName: '', emergencyRelation: '', emergencyPhone: '',
     })
     for (const field of blank) {
       if (field === 'hasDbs' || field === 'visaHasExpiry') continue // the second appears once a status is chosen
@@ -156,7 +156,12 @@ describe('the database’s copy of the joining form’s rule', () => {
     expect(newestForTable).toBe(JOINING_FORM)
     // Every question added after the first form is asked only of an app that has it.
     const later = [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => m[2])
-    expect(later).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyPhone'])
+    expect(later).toEqual(['addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone'])
+    // And each behind the form it came with: the relationship is the third form's (0302).
+    const formOf = Object.fromEntries(
+      [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => [m[2], Number(m[1])]),
+    )
+    expect(formOf).toMatchObject({ addressLine1: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3 })
   })
 
   it('keeps the door of the app before it on the first form', () => {

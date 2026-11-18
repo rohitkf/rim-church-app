@@ -13,7 +13,11 @@ const state = vi.hoisted(() => ({
   updates: [] as { table: string; row: Record<string, unknown> }[],
   refreshed: 0,
   /** Who to ring, as on the profile (0301). */
-  emergency: { name: 'Ama Mensah' as string | null, phone: '+447812345678' as string | null },
+  emergency: {
+    name: 'Ama Mensah' as string | null,
+    relation: 'parent' as string | null,
+    phone: '+447812345678' as string | null,
+  },
   phone: null as string | null,
 }))
 
@@ -31,6 +35,7 @@ vi.mock('../auth/AuthContext', () => ({
       anniversary: null,
       marital_status: 'single',
       emergency_contact_name: state.emergency.name,
+      emergency_contact_relation: state.emergency.relation,
       emergency_contact_phone: state.emergency.phone,
     },
     refreshProfile: () => {
@@ -76,7 +81,7 @@ function show() {
 beforeEach(() => {
   state.updates = []
   state.refreshed = 0
-  state.emergency = { name: 'Ama Mensah', phone: '+447812345678' }
+  state.emergency = { name: 'Ama Mensah', relation: 'parent', phone: '+447812345678' }
   state.phone = null
 })
 
@@ -126,7 +131,53 @@ describe('who to ring in an emergency', () => {
     expect(screen.getByRole('heading', { name: 'In an emergency' })).toBeInTheDocument()
     expect(screen.getByLabelText('Their name')).toHaveValue('Ama Mensah')
     expect(screen.getByLabelText('Their phone number')).toHaveValue('07812 345678')
+    expect(screen.getByRole('combobox', { name: 'Who they are to you' })).toHaveTextContent('Parent')
     expect(screen.queryByText(/Not saved yet/)).toBeNull()
+  })
+
+  /*
+   * Red, as Erase Data's card is (the Owner's ask): the one card on the
+   * page about something going wrong, found at a glance.
+   */
+  it('is the red card on the page, and the only one', () => {
+    show()
+    const card = screen.getByRole('heading', { name: 'In an emergency' }).closest('section')!
+    expect(card.className).toContain('--color-accent-red')
+    const others = screen
+      .getAllByRole('heading', { level: 2 })
+      .filter((h) => h.textContent !== 'In an emergency')
+      .map((h) => h.closest('section')!)
+    expect(others.length).toBeGreaterThan(0)
+    for (const other of others) expect(other.className).not.toContain('--color-accent-red')
+  })
+
+  it('saves who they are as soon as it is chosen', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(screen.getByRole('combobox', { name: 'Who they are to you' }))
+    await user.click(await screen.findByRole('option', { name: 'Husband or wife' }))
+    await waitFor(
+      () =>
+        expect(profileSaves().at(-1)).toMatchObject({
+          emergency_contact_name: 'Ama Mensah',
+          emergency_contact_relation: 'spouse',
+          emergency_contact_phone: '+447812345678',
+        }),
+      { timeout: 3000 },
+    )
+  })
+
+  it('waits for who they are, for somebody who gave a name and a number before it was asked', async () => {
+    state.emergency = { name: 'Ama Mensah', relation: null, phone: '+447812345678' }
+    const user = userEvent.setup()
+    show()
+    expect(screen.getByText('Choose who they are to you. Not saved yet.')).toBeInTheDocument()
+    // The rest of the profile goes on saving, and does not blank what is on record.
+    const first = screen.getByDisplayValue('Rohit')
+    await user.clear(first)
+    await user.type(first, 'Rohan')
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ first_name: 'Rohan' }), { timeout: 3000 })
+    expect(profileSaves().at(-1)).toMatchObject({ emergency_contact_name: 'Ama Mensah', emergency_contact_phone: '+447812345678' })
   })
 
   it('saves a changed name with the rest of the profile', async () => {
@@ -136,7 +187,12 @@ describe('who to ring in an emergency', () => {
     await user.clear(name)
     await user.type(name, 'Kofi Mensah')
     await waitFor(
-      () => expect(profileSaves().at(-1)).toMatchObject({ emergency_contact_name: 'Kofi Mensah', emergency_contact_phone: '+447812345678' }),
+      () =>
+        expect(profileSaves().at(-1)).toMatchObject({
+          emergency_contact_name: 'Kofi Mensah',
+          emergency_contact_relation: 'parent',
+          emergency_contact_phone: '+447812345678',
+        }),
       { timeout: 3000 },
     )
   })
