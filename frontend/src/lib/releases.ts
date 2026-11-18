@@ -34,10 +34,12 @@ export const RELEASES: Release[] = [
     title: 'Names are written like names',
     lead: 'However a name is typed, it is saved with its capitals: “john SMITH” is John Smith.',
     points: [
-      'Everybody’s name has been put right once — on the rota, the teams, the guest roll and registrations. Only capitals and spaces moved.',
+      'Everybody’s name has been put right once — on the rota, the teams and the guest roll. Only capitals and spaces moved.',
       'From now on it happens as you type: leave the box and the name is shown as it will be kept.',
       'Anne-Marie, O’Brien and McDonald keep their capitals. A capital you type inside your own name, as in MacDonald, is kept.',
+      'Initials stay capitals: KB, or a last name of YL.',
       'A name is letters only. Numbers and symbols are refused, with what to take out said by the box.',
+      'Registrations and Reception are as they were: a visitor’s name is kept as they typed it.',
       'If yours has come out wrong, change it in Settings › Profile.',
     ],
   },
