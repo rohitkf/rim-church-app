@@ -1,3 +1,4 @@
+import { nameToSave, tidyName } from '../lib/personName'
 import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -86,7 +87,7 @@ export function GuestRollCard() {
       const { error: err } = await supabase
         .from('guests')
         .update({
-          name: draft.name.trim(),
+          name: nameToSave(draft.name, 'A guest’s name'),
           title: draft.title.trim() || null,
           note: draft.note.trim() || null,
         })
@@ -185,6 +186,7 @@ export function GuestRollCard() {
                       <input
                         value={draft.name}
                         onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                        onBlur={() => setDraft({ ...draft, name: tidyName(draft.name) })}
                         placeholder="Name"
                         aria-label="Name"
                         className={`${fieldClasses} sm:flex-1`}
@@ -310,6 +312,7 @@ export function GuestRollCard() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => setName(tidyName(name))}
               placeholder="Name"
               aria-label="Guest name"
               className={`${fieldClasses} sm:flex-1`}

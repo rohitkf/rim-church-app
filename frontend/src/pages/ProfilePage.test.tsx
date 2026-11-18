@@ -101,6 +101,29 @@ describe('the profile saves itself', () => {
     expect(screen.queryByRole('button', { name: /Save changes/ })).toBeNull()
   })
 
+  it('saves a name the way a name is written, and shows it so once the box is left', async () => {
+    const user = userEvent.setup()
+    show()
+    const first = screen.getByDisplayValue('Rohit')
+    await user.clear(first)
+    await user.type(first, 'rOHAN')
+    await user.tab()
+    expect(first).toHaveValue('Rohan')
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ first_name: 'Rohan' }), { timeout: 3000 })
+  })
+
+  it('does not save a name that is not one, and says what to take out', async () => {
+    const user = userEvent.setup()
+    show()
+    const first = screen.getByDisplayValue('Rohit')
+    await user.clear(first)
+    await user.type(first, 'y@cht_234')
+    expect(screen.getByText(/First name can only have letters in it\. Take out @, _, 2, 3 and 4\. Not saved yet\./)).toBeInTheDocument()
+    expect(first).toHaveAttribute('aria-invalid', 'true')
+    await new Promise((r) => setTimeout(r, 1300))
+    expect(profileSaves()).toHaveLength(0)
+  })
+
   it('does not save a blank name over somebody’s name', async () => {
     const user = userEvent.setup()
     show()

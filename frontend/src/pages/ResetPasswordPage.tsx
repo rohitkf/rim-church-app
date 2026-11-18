@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
 import { PasswordInput } from '../components/PasswordInput'
+import { nameProblem, tidyName } from '../lib/personName'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -117,6 +118,11 @@ export function ResetPasswordPage() {
     e.preventDefault()
     if (!canSubmit) return
     setError(null)
+    const wrong = welcoming ? (nameProblem(firstName, 'First name') ?? nameProblem(lastName, 'Last name')) : null
+    if (wrong) {
+      setError(wrong)
+      return
+    }
     setSubmitting(true)
     try {
       // The name goes first. If it fails, nothing has been changed and they
@@ -131,7 +137,7 @@ export function ResetPasswordPage() {
         }
         const { error: nameError } = await supabase
           .from('profiles')
-          .update({ first_name: firstName.trim(), last_name: lastName.trim() })
+          .update({ first_name: tidyName(firstName), last_name: tidyName(lastName) })
           .eq('id', id)
         if (nameError) {
           setError(nameError.message)
@@ -175,7 +181,7 @@ export function ResetPasswordPage() {
           <>
             <p className="text-body-sm text-on-surface-variant">
               {welcoming
-                ? `Good to have you, ${firstName.trim() || 'friend'}. You're signed in.`
+                ? `Good to have you, ${tidyName(firstName) || 'friend'}. You're signed in.`
                 : "You're signed in with your new password."}
             </p>
             <button
@@ -214,6 +220,7 @@ export function ResetPasswordPage() {
                     <input
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
+                      onBlur={() => setFirstName(tidyName(firstName))}
                       required
                       maxLength={80}
                       autoComplete="given-name"
@@ -227,6 +234,7 @@ export function ResetPasswordPage() {
                     <input
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
+                      onBlur={() => setLastName(tidyName(lastName))}
                       maxLength={80}
                       autoComplete="family-name"
                       placeholder="Mensah"

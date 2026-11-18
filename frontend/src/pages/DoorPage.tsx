@@ -1,3 +1,4 @@
+import { nameProblem, tidyName } from '../lib/personName'
 import { type FormEvent, useMemo, useState } from 'react'
 import { useRegistrationRights } from '../lib/registrationRights'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -495,7 +496,9 @@ function WalkIn({
   }, 0)
 
   const problems: string[] = []
+  const nameWrong = nameProblem(name, 'Their name')
   if (!name.trim()) problems.push('Their name.')
+  else if (nameWrong) problems.push(nameWrong)
   if (phoneStatus === 'invalid') problems.push('A phone number that looks right, or none.')
   if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push('An email address that looks right, or none.')
   if (dateMode === 'choose' && !dateId) problems.push('Which date they are here for.')
@@ -513,7 +516,7 @@ function WalkIn({
   const register = useMutation({
     mutationFn: () =>
       walkIn(eventId, {
-        name: name.trim(),
+        name: tidyName(name),
         email: email.trim(),
         phone,
         date_id: dateMode === 'choose' ? dateId : null,
@@ -524,7 +527,7 @@ function WalkIn({
       }),
     onSuccess: (code) => {
       const address = email.trim() || null
-      const who = name.trim()
+      const who = tidyName(name)
       setError(null)
       // Undone, the walk-in is gone (0281) — so their ticket is not emailed
       // until the offer has passed. The card below keeps the same Undo for
@@ -592,7 +595,7 @@ function WalkIn({
     <form onSubmit={submit} noValidate aria-label="Walk-in" className="flex flex-col gap-4">
       <p className="text-body-sm text-on-surface-variant">Somebody at the door who did nothing online. An email address gets them their ticket; a phone number is for the church.</p>
       <Field label="Name">
-        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} className={inputClasses} />
+        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setName(tidyName(name))} autoComplete="off" maxLength={120} className={inputClasses} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <PhoneField key={round} value={phone} onChange={setPhone} onStatus={setPhoneStatus} showError={submitted} label="Phone (optional)" eyebrow />

@@ -1,6 +1,7 @@
 import { errorMessage } from './errorMessage'
 import { EdgeFunctionRefusal } from './edgeFunctionRefusal'
 import { noAnswerText } from './networkFailure'
+import { NotAName } from './personName'
 
 /**
  * Turn a database rejection into something a volunteer can act on.
@@ -57,7 +58,7 @@ function isOurOwnMessage(code: unknown): boolean {
 }
 
 function translate(err: unknown): string | null {
-  if (err instanceof EdgeFunctionRefusal) return err.message
+  if (err instanceof EdgeFunctionRefusal || err instanceof NotAName) return err.message
   if (typeof err !== 'object' || err === null) return null
   const { code, message, details } = err as Record<string, unknown>
   if (isOurOwnMessage(code)) return typeof message === 'string' ? message : null

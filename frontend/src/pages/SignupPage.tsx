@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
 import { CheckEmailDialog } from '../components/CheckEmailDialog'
 import { alreadyHasAccount } from '../lib/signInWords'
+import { nameProblem, tidyName } from '../lib/personName'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -31,6 +32,11 @@ export function SignupPage() {
   const [sentTo, setSentTo] = useState<string | null>(null)
   // The address that turned out to have an account already.
   const [taken, setTaken] = useState<string | null>(null)
+  // A name is called wrong once its box has been left, or the form sent.
+  const [left, setLeft] = useState<{ first?: boolean; last?: boolean }>({})
+
+  const firstProblem = left.first ? nameProblem(firstName, 'First name') : null
+  const lastProblem = left.last ? nameProblem(lastName, 'Last name') : null
 
   const checks = passwordChecks(password)
   const score = passwordScore(password)
@@ -44,12 +50,20 @@ export function SignupPage() {
     if (!canSubmit) return
     setError(null)
     setTaken(null)
+    // Saved as a name is written, and refused here with the reason when it
+    // is not one: the database would salvage what it could and say nothing.
+    const first = tidyName(firstName)
+    const last = tidyName(lastName)
+    setFirstName(first)
+    setLastName(last)
+    setLeft({ first: true, last: true })
+    if (nameProblem(first) || nameProblem(last)) return
     setSubmitting(true)
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { first_name: firstName, last_name: lastName } },
+        options: { data: { first_name: first, last_name: last } },
       })
       if (error) {
         setError(error.message)
@@ -88,6 +102,13 @@ export function SignupPage() {
                 required
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                onBlur={() => {
+                  setFirstName(tidyName(firstName))
+                  setLeft((was) => ({ ...was, first: true }))
+                }}
+                autoComplete="given-name"
+                aria-invalid={firstProblem ? true : undefined}
+                aria-describedby={firstProblem ? 'signup-first-problem' : undefined}
                 className={authInputClasses}
               />
             </label>
@@ -97,10 +118,24 @@ export function SignupPage() {
                 required
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                onBlur={() => {
+                  setLastName(tidyName(lastName))
+                  setLeft((was) => ({ ...was, last: true }))
+                }}
+                autoComplete="family-name"
+                aria-invalid={lastProblem ? true : undefined}
+                aria-describedby={lastProblem ? 'signup-last-problem' : undefined}
                 className={authInputClasses}
               />
             </label>
           </div>
+          {/* Outside the labels: words inside one become part of the field's name. */}
+          {(firstProblem || lastProblem) && (
+            <div role="alert" className="-mt-2 flex flex-col gap-1 text-body-sm text-error">
+              {firstProblem && <p id="signup-first-problem">{firstProblem}</p>}
+              {lastProblem && <p id="signup-last-problem">{lastProblem}</p>}
+            </div>
+          )}
           <label className="flex flex-col gap-2">
             <AuthLabel>Email</AuthLabel>
             <input

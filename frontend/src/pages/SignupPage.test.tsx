@@ -29,7 +29,7 @@ beforeEach(() => {
   auth.user = { identities: [{}] }
 })
 
-async function fillIn(email = '  ada@gmail.com ') {
+async function fillIn(email = '  ada@gmail.com ', name: [string, string] = ['Ada', 'Grace']) {
   render(
     <MemoryRouter>
       <SignupPage />
@@ -37,8 +37,8 @@ async function fillIn(email = '  ada@gmail.com ') {
   )
   const user = userEvent.setup()
   const [first, last] = screen.getAllByRole('textbox')
-  await user.type(first, 'Ada')
-  await user.type(last, 'Grace')
+  await user.type(first, name[0])
+  await user.type(last, name[1])
   await user.type(screen.getByRole('textbox', { name: /email/i }), email)
   const passwords = document.querySelectorAll('input[type="password"]')
   await user.type(passwords[0] as HTMLElement, 'Sunday-Rota-9')
@@ -64,6 +64,20 @@ describe('signing up', () => {
     // (An email field drops stray spaces itself.)
     expect(screen.getByRole('textbox', { name: /email/i })).toHaveValue('ada@gmail.com')
     expect(screen.getAllByRole('textbox')[0]).toHaveValue('Ada')
+  })
+
+  it('saves a name the way a name is written, however it was typed', async () => {
+    await fillIn(undefined, ['aDA', 'o’NEIL-smith '])
+    await screen.findByRole('dialog', { name: 'Check your email' })
+    expect(auth.calls[0].data).toEqual({ first_name: 'Ada', last_name: "O'Neil-Smith" })
+  })
+
+  it('will not make an account for a name that is not one, and says what to take out', async () => {
+    await fillIn(undefined, ['y@cht_234', 'Grace'])
+    expect(screen.getByText('First name can only have letters in it. Take out @, _, 2, 3 and 4.')).toBeInTheDocument()
+    expect(screen.getAllByRole('textbox')[0]).toHaveAttribute('aria-invalid', 'true')
+    expect(auth.calls).toHaveLength(0)
+    expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
   })
 
   it('shows no such dialog when sign-up failed', async () => {

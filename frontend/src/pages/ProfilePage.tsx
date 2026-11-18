@@ -23,6 +23,7 @@ import { PhoneField } from '../components/PhoneField'
 import { AgeNote } from '../components/AgeNote'
 import { VisaNoteField } from '../components/VisaNoteField'
 import { useErrorText } from '../lib/useErrorText'
+import { nameProblem, tidyName } from '../lib/personName'
 
 const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 
@@ -37,13 +38,13 @@ function coreOf(
   emergency: { name: string; relation: string; phone: string },
 ) {
   return {
-    first_name: first.trim(),
-    last_name: last.trim(),
+    first_name: tidyName(first),
+    last_name: tidyName(last),
     phone: phone.trim() || null,
     dob: dob || null,
     marital_status: marital || null,
     anniversary: anniversary || null,
-    emergency_contact_name: emergency.name.trim() || null,
+    emergency_contact_name: tidyName(emergency.name) || null,
     emergency_contact_relation: emergency.relation || null,
     emergency_contact_phone: emergency.phone.trim() || null,
   }
@@ -126,6 +127,15 @@ export function ProfilePage() {
         ? 'Enter their phone number: everybody needs somebody we can ring.'
         : (emergencyBad.name ?? emergencyBad.phone ?? null)
 
+  /*
+   * A name that is not one waits too (0306), and says why: saved as it
+   * stands the database would refuse the whole row, phone and dates with
+   * it, in a toast every time a key was pressed.
+   */
+  const firstProblem = nameProblem(firstName, 'First name')
+  const lastProblem = nameProblem(lastName, 'Last name')
+  const nameWaits = firstProblem ?? lastProblem
+
   const profileId = profile?.id
   useEffect(() => {
     if (!profileId) return
@@ -158,7 +168,7 @@ export function ProfilePage() {
       : { name: emergencyName, relation: emergencyRelation, phone: emergencyPhone }
     const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary, emergency)
     const json = JSON.stringify(core)
-    if (json === savedCore.current || !firstName.trim() || !lastName.trim()) return
+    if (json === savedCore.current || !firstName.trim() || !lastName.trim() || nameWaits) return
     const timer = window.setTimeout(async () => {
       // Anniversary arrived in a later migration. If the database hasn't had
       // it applied yet, save everything else rather than losing the edit.
@@ -175,7 +185,7 @@ export function ProfilePage() {
       refreshProfile()
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyRelation, emergencyPhone, emergencyWaits, refreshProfile, errorText])
+  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyRelation, emergencyPhone, emergencyWaits, nameWaits, refreshProfile, errorText])
 
   useEffect(() => {
     if (!profileId || !sensitive || savedSensitive.current === null) return
@@ -207,13 +217,37 @@ export function ProfilePage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
           <label className={`min-w-0 flex-1 ${labelClasses}`}>
             First name
-            <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClasses} />
+            <input
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              onBlur={() => setFirstName(tidyName(firstName))}
+              autoComplete="given-name"
+              aria-invalid={firstProblem ? true : undefined}
+              aria-describedby={firstProblem ? 'profile-name-waits' : undefined}
+              className={`${inputClasses} ${firstProblem ? 'field-error' : ''}`}
+            />
           </label>
           <label className={`min-w-0 flex-1 ${labelClasses}`}>
             Last name
-            <input required value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClasses} />
+            <input
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              onBlur={() => setLastName(tidyName(lastName))}
+              autoComplete="family-name"
+              aria-invalid={lastProblem ? true : undefined}
+              aria-describedby={lastProblem ? 'profile-name-waits' : undefined}
+              className={`${inputClasses} ${lastProblem ? 'field-error' : ''}`}
+            />
           </label>
         </div>
+        {/* Outside the labels: words inside one become part of the field's name. */}
+        {nameWaits && (
+          <p id="profile-name-waits" role="status" className="mt-3 text-label-sm text-error">
+            {[firstProblem, lastProblem].filter(Boolean).join(' ')} Not saved yet.
+          </p>
+        )}
       </SectionTile>
 
       <SectionTile title="How to reach you" hint="Only you and the Owner can see these.">
@@ -241,6 +275,7 @@ export function ProfilePage() {
             <input
               value={emergencyName}
               onChange={(e) => setEmergencyName(e.target.value)}
+              onBlur={() => setEmergencyName(tidyName(emergencyName))}
               maxLength={EMERGENCY_NAME_LIMIT}
               autoComplete="off"
               aria-invalid={emergencyWaits ? true : undefined}

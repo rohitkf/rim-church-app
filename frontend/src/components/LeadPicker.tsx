@@ -1,3 +1,4 @@
+import { isName } from '../lib/personName'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PersonRef } from '../lib/sessionAssignees'
 
@@ -114,7 +115,8 @@ export function LeadPicker({
    */
   const typed = query.trim()
   const canAdd = useMemo(() => {
-    if (!onAddGuest || !typed) return false
+    // Only a name can go on the roll (0306): "band 2" is not offered a row that would be refused.
+    if (!onAddGuest || !typed || !isName(typed)) return false
     return !options.some((o) => sameName(o.name) === sameName(typed))
   }, [onAddGuest, typed, options])
 

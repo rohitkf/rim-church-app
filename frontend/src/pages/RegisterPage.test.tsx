@@ -211,6 +211,48 @@ describe('the public register page', () => {
     ])
   })
 
+  it('registers names the way names are written, however they were typed (0306)', async () => {
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+    await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+    await user.type(screen.getByRole('textbox', { name: 'Standard 2 name' }), 'KOFI  owusu')
+    await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'ama o’brien-OWUSU ')
+    await user.tab()
+    // Shown as it will be kept as soon as the box is left.
+    expect(screen.getByRole('textbox', { name: 'Your name' })).toHaveValue("Ama O'Brien-Owusu")
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@example.org')
+    await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ama@example.org')
+    await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await confirmEmail(user)
+    await screen.findByText('ticket page ABCDEFGHJKMN')
+    const { order: sent } = state.registered[0] as { order: { name: string; lines: { attendee_names: string[] }[] } }
+    expect(sent.name).toBe("Ama O'Brien-Owusu")
+    expect(sent.lines[0].attendee_names).toEqual(['', 'Kofi Owusu'])
+  })
+
+  it('will not register a name that is not one, its own or a ticket’s, and says which and why (0306)', async () => {
+    const user = show()
+    await screen.findByRole('heading', { level: 1 })
+    await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+    await user.click(screen.getByRole('button', { name: 'One more Standard' }))
+    await user.type(screen.getByRole('textbox', { name: 'Standard 2 name' }), 'Kofi_2')
+    await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'y@cht_234')
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@example.org')
+    await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ama@example.org')
+    await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Is this your email address?' })).toBeNull()
+    expect(state.registered).toHaveLength(0)
+    const own = screen.getByRole('textbox', { name: 'Your name' })
+    expect(own).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getAllByText('Your name can only have letters in it. Take out @, _, 2, 3 and 4.').length).toBeGreaterThan(0)
+    expect(screen.getByRole('textbox', { name: 'Standard 2 name' })).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getAllByText('The name for Standard 2 can only have letters in it. Take out _ and 2.').length).toBeGreaterThan(0)
+  })
+
   it('shows the steps ahead once there is something to pay, and none on a free order', async () => {
     const user = show()
     await screen.findByRole('heading', { level: 1 })

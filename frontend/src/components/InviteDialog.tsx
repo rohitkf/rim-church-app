@@ -5,6 +5,7 @@ import { ActionButton, Field, Overlay, inputClasses } from './Surface'
 import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
 import { Select } from './Select'
+import { nameProblem, tidyName } from '../lib/personName'
 
 /**
  * Asking somebody to join.
@@ -58,8 +59,8 @@ export function InviteDialog({
         email: email.trim(),
         department_id: departmentId || null,
         member_type: memberType,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
+        first_name: tidyName(firstName),
+        last_name: tidyName(lastName),
       })
       return email.trim()
     },
@@ -83,6 +84,13 @@ export function InviteDialog({
     e.preventDefault()
     if (!email.trim().includes('@')) {
       setError("That doesn't look like an email address.")
+      return
+    }
+    // The account is made with whatever is sent, and the database salvages
+    // a bad name without a word (0306) — so it is said here.
+    const wrong = nameProblem(firstName, 'First name') ?? nameProblem(lastName, 'Last name')
+    if (wrong) {
+      setError(wrong)
       return
     }
     invite.mutate()
@@ -127,6 +135,7 @@ export function InviteDialog({
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
+              onBlur={() => setFirstName(tidyName(firstName))}
               maxLength={80}
               placeholder="Grace"
               className={inputClasses}
@@ -137,6 +146,7 @@ export function InviteDialog({
             <input
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
+              onBlur={() => setLastName(tidyName(lastName))}
               maxLength={80}
               placeholder="Mensah"
               className={inputClasses}

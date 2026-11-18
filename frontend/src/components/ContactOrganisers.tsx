@@ -1,3 +1,4 @@
+import { nameProblem, tidyName } from '../lib/personName'
 import { useId, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ActionButton, Eyebrow, Overlay, inputClasses } from './Surface'
@@ -95,12 +96,14 @@ function ContactForm({
   const boxes = useRef<Partial<Record<Spot, HTMLInputElement | HTMLTextAreaElement | null>>>({})
 
   const send = useMutation({
-    mutationFn: () => sendRegistrationMessage(slug, { name: name.trim(), email: email.trim(), message: message.trim(), code }),
+    mutationFn: () => sendRegistrationMessage(slug, { name: tidyName(name), email: email.trim(), message: message.trim(), code }),
     onSuccess: onSent,
   })
 
   const problems: { spot: Spot; text: string }[] = []
+  const nameWrong = nameProblem(name, 'Your name')
   if (!name.trim()) problems.push({ spot: 'name', text: 'Your name is missing.' })
+  else if (nameWrong) problems.push({ spot: 'name', text: nameWrong })
   if (!email.trim()) problems.push({ spot: 'email', text: 'Your email address is missing — it is how they answer you.' })
   else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push({ spot: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
   if (!message.trim()) problems.push({ spot: 'message', text: 'Your message is empty.' })
@@ -151,6 +154,7 @@ function ContactForm({
               ref={(el) => void (boxes.current.name = el)}
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => setName(tidyName(name))}
               autoComplete="name"
               maxLength={120}
               className={`${inputClasses} ${of('name') ? 'field-error' : ''}`}

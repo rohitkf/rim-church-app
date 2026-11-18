@@ -1,3 +1,4 @@
+import { nameToSave } from './personName'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 import { fetchBirthDates, fullDate } from './birthDates'
@@ -202,8 +203,8 @@ export async function savePerson(input: {
     p_id: input.id,
     p_where: input.where,
     p_kind: input.kind,
-    p_first: draft.first_name,
-    p_last: draft.last_name,
+    p_first: nameToSave(draft.first_name, 'First name'),
+    p_last: nameToSave(draft.last_name, 'Last name'),
     p_dob: draft.dob || null,
     p_gender: draft.gender || null,
     p_school: draft.school,
