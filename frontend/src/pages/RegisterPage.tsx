@@ -7,6 +7,7 @@ import { registerFormSteps } from '../lib/registrationSteps'
 import { LinkedText } from '../components/LinkedText'
 import { PlaceMap } from '../components/PlaceMap'
 import { Countdown } from '../components/Countdown'
+import { EventAgenda } from '../components/EventAgenda'
 import { PhoneField } from '../components/PhoneField'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { ContactOrganisers } from '../components/ContactOrganisers'
@@ -443,6 +444,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
             </p>
           </div>
         )}
+        {/* What happens on the day (0303). Drawn only when the event has one. */}
+        <EventAgenda agenda={event.agenda} dates={event.dates} />
       </section>
 
       {emailed ? (

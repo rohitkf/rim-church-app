@@ -132,11 +132,31 @@ export const promoCodeSchema = z.object({
 })
 export type PromoCode = z.infer<typeof promoCodeSchema>
 
+/**
+ * One line of an event's agenda (0303): what happens, and whatever else is
+ * known — when it starts and ends ("HH:MM", the venue's own clock), a line
+ * of detail, and which of the event's days when it has several.
+ */
+export const agendaItemSchema = z.object({
+  id: z.string(),
+  event_id: z.string(),
+  date_id: z.string().nullable(),
+  sort_order: z.number(),
+  title: z.string(),
+  details: z.string().nullable(),
+  // Postgres says a time with its seconds; the app keeps the minutes.
+  starts: z.string().nullable().transform((t) => (t ? t.slice(0, 5) : null)),
+  ends: z.string().nullable().transform((t) => (t ? t.slice(0, 5) : null)),
+})
+export type AgendaItem = z.infer<typeof agendaItemSchema>
+
 export interface RegistrationEventFull {
   event: RegistrationEvent
   dates: EventDate[]
   ticketTypes: TicketType[]
   promoCodes: PromoCode[]
+  /** In the order it was arranged. Absent from a caller that never asked for it. */
+  agenda?: AgendaItem[]
 }
 
 const EVENT_COLUMNS =
@@ -234,7 +254,7 @@ export function groupEvents(rows: EventSummary[], now: Date): EventGroup[] {
 }
 
 export async function fetchRegistrationEvent(id: string): Promise<RegistrationEventFull | null> {
-  const [event, dates, types, promos] = await Promise.all([
+  const [event, dates, types, promos, agenda] = await Promise.all([
     supabase.from('registration_events').select(EVENT_COLUMNS).eq('id', id).maybeSingle(),
     supabase.from('registration_event_dates').select('id, event_id, starts_at, ends_at, label, sort_order, diary_event_id').eq('event_id', id).order('starts_at'),
     supabase
@@ -243,17 +263,20 @@ export async function fetchRegistrationEvent(id: string): Promise<RegistrationEv
       .eq('event_id', id)
       .order('sort_order'),
     supabase.from('registration_promo_codes').select('id, event_id, code, kind, value, ticket_type_ids, max_uses, uses, active, tickets_covered').eq('event_id', id).order('code'),
+    supabase.from('registration_event_agenda').select('id, event_id, date_id, sort_order, title, details, starts, ends').eq('event_id', id).order('sort_order'),
   ])
   if (event.error) throw event.error
   if (!event.data) return null
   if (dates.error) throw dates.error
   if (types.error) throw types.error
   if (promos.error) throw promos.error
+  if (agenda.error) throw agenda.error
   return {
     event: registrationEventSchema.parse(event.data),
     dates: z.array(eventDateSchema).parse(dates.data ?? []),
     ticketTypes: z.array(ticketTypeSchema).parse(types.data ?? []),
     promoCodes: z.array(promoCodeSchema).parse(promos.data ?? []),
+    agenda: z.array(agendaItemSchema).parse(agenda.data ?? []),
   }
 }
 
@@ -301,6 +324,22 @@ export interface PromoDraft {
   active: boolean
 }
 
+/** One line of the agenda as the editor holds it (0303). */
+export interface AgendaDraft {
+  /** Null until it has been saved. */
+  id: string | null
+  title: string
+  /** "HH:MM", or "" for no time. */
+  start: string
+  end: string
+  details: string
+  /**
+   * Which of the draft's dates it is on, by its place in `dates` — a date
+   * not saved yet has no id to name — or null for each day.
+   */
+  day: number | null
+}
+
 export interface EventDraft {
   title: string
   slug: string
@@ -315,6 +354,8 @@ export interface EventDraft {
   start: string
   end: string
   dates: DateDraft[]
+  /** The running order of the day, in the order it is shown (0303). */
+  agenda: AgendaDraft[]
   ticketTypes: TicketTypeDraft[]
   promoCodes: PromoDraft[]
   locationName: string
@@ -338,6 +379,33 @@ export interface EventDraft {
 }
 
 export const newDateDraft = (): DateDraft => ({ id: null, date: '', start: '', endDate: '', end: '', label: '' })
+export const newAgendaDraft = (): AgendaDraft => ({ id: null, title: '', start: '', end: '', details: '', day: null })
+
+/** What the database's columns hold (0303). */
+export const AGENDA_LIMITS = { title: 120, details: 300, items: 60 } as const
+
+/**
+ * A date taken out of the draft, and the agenda brought into step: what
+ * was on that day goes with it — as it does in the database — and what was
+ * on a later day still names the same day.
+ */
+export function withoutDate(draft: EventDraft, index: number): Pick<EventDraft, 'dates' | 'agenda'> {
+  return {
+    dates: draft.dates.filter((_, i) => i !== index),
+    agenda: draft.agenda
+      .filter((a) => a.day !== index)
+      .map((a) => (a.day !== null && a.day > index ? { ...a, day: a.day - 1 } : a)),
+  }
+}
+
+/** An item moved one place up (-1) or down (+1); the same list when it is already at the end. */
+export function movedAgenda(agenda: AgendaDraft[], index: number, by: -1 | 1): AgendaDraft[] {
+  const to = index + by
+  if (to < 0 || to >= agenda.length) return agenda
+  const next = [...agenda]
+  ;[next[index], next[to]] = [next[to], next[index]]
+  return next
+}
 export const newTicketTypeDraft = (): TicketTypeDraft => ({ id: crypto.randomUUID(), isNew: true, name: '', description: '', kind: 'free', price: '', minDonation: '', quantity: '' })
 export const newPromoDraft = (): PromoDraft => ({ id: null, code: '', kind: 'percent', value: '', ticketTypeIds: [], limited: false, maxUses: '', covered: '', active: true })
 
@@ -354,6 +422,7 @@ export function emptyDraft(): EventDraft {
     start: '',
     end: '',
     dates: [newDateDraft()],
+    agenda: [],
     ticketTypes: [{ ...newTicketTypeDraft(), name: 'General admission' }],
     promoCodes: [],
     locationName: '',
@@ -437,6 +506,10 @@ export function draftFromEvent(full: RegistrationEventFull): EventDraft {
     start: sameTimes ? dateDrafts[0].start : '',
     end: sameTimes ? dateDrafts[0].end : '',
     dates: dateDrafts.length ? dateDrafts : [newDateDraft()],
+    agenda: (full.agenda ?? []).map((a) => {
+      const day = a.date_id ? dates.findIndex((d) => d.id === a.date_id) : -1
+      return { id: a.id, title: a.title, start: a.starts ?? '', end: a.ends ?? '', details: a.details ?? '', day: day >= 0 ? day : null }
+    }),
     ticketTypes: ticketTypes.map((t) => ({
       id: t.id,
       isNew: false,
@@ -513,6 +586,15 @@ export function draftProblems(draft: EventDraft): string[] {
   if (draft.dates.length === 0) problems.push('Add at least one date.')
   const dates = datesOf(draft)
   if (typeof dates === 'string') problems.push(dates)
+  if (draft.agenda.length > AGENDA_LIMITS.items) problems.push(`An agenda holds ${AGENDA_LIMITS.items} items at most.`)
+  for (const [i, a] of draft.agenda.entries()) {
+    const n = i + 1
+    // Only the title is asked for: the times and the detail are there when they are known.
+    if (!a.title.trim()) problems.push(`Agenda item ${n} needs a title, or remove it.`)
+    if (a.end && !a.start) problems.push(`Agenda item ${n} has an end time and no start time.`)
+    if (a.end && a.end === a.start) problems.push(`Agenda item ${n} ends when it starts.`)
+    if (a.day !== null && !draft.dates[a.day]) problems.push(`Agenda item ${n} is on a day that is no longer one of the dates.`)
+  }
   if (draft.ticketTypes.length === 0) problems.push('Add at least one ticket type.')
   for (const [i, t] of draft.ticketTypes.entries()) {
     const n = i + 1
@@ -648,11 +730,46 @@ export async function saveRegistrationEvent(draft: EventDraft, existing: Registr
       if (error) throw error
     }
   }
+  // Each date's id, in the draft's order: an agenda item names its day by it.
+  const dateIds: string[] = []
   for (const [i, d] of draft.dates.entries()) {
     const values = { event_id: eventId, starts_at: dates[i].starts, ends_at: dates[i].ends, label: dates[i].label, sort_order: i }
-    const { error } = d.id
-      ? await supabase.from('registration_event_dates').update(values).eq('id', d.id)
-      : await supabase.from('registration_event_dates').insert(values)
+    if (d.id) {
+      const { error } = await supabase.from('registration_event_dates').update(values).eq('id', d.id)
+      if (error) throw error
+      dateIds.push(d.id)
+    } else {
+      const { data, error } = await supabase.from('registration_event_dates').insert(values).select('id').single()
+      if (error) throw error
+      dateIds.push((data as { id: string }).id)
+    }
+  }
+
+  // The agenda (0303): what is gone from the draft is deleted, the rest is
+  // written in the order it stands. After the dates, because an item may
+  // name one — and an item on a removed date went with it just above.
+  const keptAgenda = new Set(draft.agenda.map((a) => a.id).filter((id): id is string => !!id))
+  const removedDates = new Set((existing?.dates ?? []).filter((d) => !keptDates.has(d.id)).map((d) => d.id))
+  for (const a of existing?.agenda ?? []) {
+    // One on a date just removed has already gone with it: the database took it.
+    if (!keptAgenda.has(a.id) && !(a.date_id && removedDates.has(a.date_id))) {
+      const { error } = await supabase.from('registration_event_agenda').delete().eq('id', a.id)
+      if (error) throw error
+    }
+  }
+  for (const [i, a] of draft.agenda.entries()) {
+    const values = {
+      event_id: eventId,
+      date_id: a.day === null ? null : (dateIds[a.day] ?? null),
+      sort_order: i,
+      title: a.title.trim(),
+      details: a.details.trim() || null,
+      starts: a.start || null,
+      ends: a.start && a.end ? a.end : null,
+    }
+    const { error } = a.id
+      ? await supabase.from('registration_event_agenda').update(values).eq('id', a.id)
+      : await supabase.from('registration_event_agenda').insert(values)
     if (error) throw error
   }
 
@@ -921,6 +1038,17 @@ export const locationSchema = z.object({
   longitude: z.number().nullable(),
 })
 
+/** A line of the agenda as the public page is handed it (0303). */
+export const publicAgendaItemSchema = z.object({
+  id: z.string(),
+  date_id: z.string().nullable(),
+  title: z.string(),
+  details: z.string().nullable(),
+  starts: z.string().nullable(),
+  ends: z.string().nullable(),
+})
+export type PublicAgendaItem = z.infer<typeof publicAgendaItemSchema>
+
 export const publicEventSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -944,9 +1072,36 @@ export const publicEventSchema = z.object({
   payment_note: z.string().nullable(),
   dates: z.array(publicDateSchema),
   ticket_types: z.array(publicTicketTypeSchema),
+  // Absent from a database that has not had 0303: an event with no agenda.
+  agenda: z.array(publicAgendaItemSchema).optional().default([]),
   logo_path: z.string().nullable(),
 })
 export type PublicEvent = z.infer<typeof publicEventSchema>
+
+/**
+ * The agenda as it is read: one block for each day that has something on
+ * it, the event's days in their own order, and before them whatever is on
+ * no day in particular. An event whose agenda names no day at all is one
+ * block with no heading.
+ */
+export interface AgendaDay {
+  /** The date it is on; null is each day, or an event with one. */
+  date: PublicDate | null
+  items: PublicAgendaItem[]
+}
+
+export function agendaDays(agenda: readonly PublicAgendaItem[], dates: readonly PublicDate[]): AgendaDay[] {
+  const known = new Set(dates.map((d) => d.id))
+  // A day that is no longer one of the dates reads as no day, rather than vanish.
+  const general = agenda.filter((a) => !a.date_id || !known.has(a.date_id))
+  const days: AgendaDay[] = []
+  if (general.length > 0) days.push({ date: null, items: general })
+  for (const date of dates) {
+    const items = agenda.filter((a) => a.date_id === date.id)
+    if (items.length > 0) days.push({ date, items })
+  }
+  return days
+}
 
 export async function fetchPublicEvent(slug: string): Promise<PublicEvent | null> {
   const { data, error } = await supabase.rpc('registration_public_event', { p_slug: slug })

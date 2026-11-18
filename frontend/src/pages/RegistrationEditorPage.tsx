@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
 import { DateField, TimeField } from '../components/DateTimeFields'
+import { Select } from '../components/Select'
+import { formatDateValue } from '../lib/dateTimeFormat'
 import { PlaceMap } from '../components/PlaceMap'
 import { QueryState } from '../components/QueryState'
 import { FocalPointPicker } from '../components/FocalPointPicker'
@@ -12,11 +14,14 @@ import { showToast } from '../lib/toast'
 import { geocodeAddress, suggestAddresses, type Found } from '../lib/geocode'
 import { registerUrl } from '../lib/registrationLinks'
 import {
+  AGENDA_LIMITS,
   REGISTRATIONS_KEY,
   draftFromEvent,
   draftProblems,
   emptyDraft,
   fetchRegistrationEvent,
+  movedAgenda,
+  newAgendaDraft,
   newDateDraft,
   newPromoDraft,
   newTicketTypeDraft,
@@ -28,6 +33,8 @@ import {
   slugify,
   syncRegistrationDiary,
   uploadRegistrationImage,
+  withoutDate,
+  type AgendaDraft,
   type DateDraft,
   type EventDraft,
   type ImageFocus,
@@ -40,7 +47,7 @@ import {
 
 /**
  * Making or changing a registration event (0244): everything on one page,
- * top to bottom — the picture, the words, the dates, the tickets, promo
+ * top to bottom — the picture, the words, the dates, the agenda, the tickets, promo
  * codes, the place on the map, when registration opens and closes, how to
  * pay, and the church diary. Save keeps it as it is (a draft stays a
  * draft); publishing is on the event's own page.
@@ -181,6 +188,13 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
 
         <SectionTile title="Dates and times">
           <DatesEditor draft={draft} set={set} />
+        </SectionTile>
+
+        <SectionTile
+          title="Agenda"
+          hint="What happens on the day, in the order it happens. Optional — and so are the times: give a title now and the rest when it is settled. It is shown on the event's page."
+        >
+          <AgendaEditor draft={draft} set={set} />
         </SectionTile>
 
         <SectionTile title="Tickets" hint={draft.dateMode === 'choose' ? 'The quantity of each type is per date.' : 'Leave the quantity blank for no limit.'}>
@@ -442,7 +456,8 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
               </Field>
             </div>
             {draft.dates.length > 1 && (
-              <button type="button" onClick={() => set({ dates: draft.dates.filter((_, j) => j !== i) })} className="tap self-end text-label-md text-on-surface-faint hover:text-error hover:underline">
+              // What the agenda has on that day goes with it, and later days keep their items (withoutDate).
+              <button type="button" onClick={() => set(withoutDate(draft, i))} className="tap self-end text-label-md text-on-surface-faint hover:text-error hover:underline">
                 Remove this date
               </button>
             )}
@@ -452,6 +467,121 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
       <ActionButton size="sm" tone="quiet" onClick={() => set({ dates: [...draft.dates, newDateDraft()] })} glyph={<span aria-hidden="true">+</span>}>
         Add a date
       </ActionButton>
+    </div>
+  )
+}
+
+/** What a date is called in the agenda's day picker: its day, and its label when it has one. */
+function dayName(date: DateDraft, index: number): string {
+  const day = date.date ? formatDateValue(date.date) : `Date ${index + 1}`
+  return date.label.trim() ? `${day} · ${date.label.trim()}` : day
+}
+
+/**
+ * The agenda (0303): the running order of the day, as the Service Planner
+ * has for a service. Only a title is asked for. The order is the order it
+ * is written in — an item with no time has to sit somewhere, and whoever
+ * wrote it knows where — so each line moves up and down by its own buttons.
+ */
+function AgendaEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<EventDraft>) => void }) {
+  const items = draft.agenda
+  const setItem = (i: number, patch: Partial<AgendaDraft>) => set({ agenda: items.map((a, j) => (j === i ? { ...a, ...patch } : a)) })
+  // Which day is only a question when there is more than one.
+  const severalDays = draft.dates.length > 1
+  const full = items.length >= AGENDA_LIMITS.items
+  const quiet = 'tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:bg-raised hover:text-on-surface disabled:opacity-40 disabled:hover:bg-transparent'
+
+  return (
+    <div className="flex flex-col gap-4">
+      {items.length === 0 && (
+        <p className="text-body-sm text-on-surface-variant">No agenda yet. An event does not need one.</p>
+      )}
+      <ol className="flex flex-col gap-3">
+        {items.map((a, i) => {
+          const n = i + 1
+          return (
+            <li key={i} role="group" aria-label={`Agenda item ${n}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+              <div className="flex flex-wrap items-end gap-3">
+                <Field label={`Item ${n}`} className="min-w-48 flex-[2]">
+                  <input
+                    value={a.title}
+                    onChange={(e) => setItem(i, { title: e.target.value })}
+                    placeholder="Doors open, Worship, Lunch…"
+                    maxLength={AGENDA_LIMITS.title}
+                    aria-label={`Agenda item ${n} title`}
+                    className={inputClasses}
+                  />
+                </Field>
+                <Field label="Starts (optional)">
+                  <TimeField
+                    value={a.start}
+                    // An end is the end of something that starts: it goes with the start.
+                    onChange={(start) => setItem(i, start ? { start } : { start: '', end: '' })}
+                    label={`Agenda item ${n} starts`}
+                    clearable
+                  />
+                </Field>
+                <Field label="Ends (optional)">
+                  <TimeField value={a.end} onChange={(end) => setItem(i, { end })} label={`Agenda item ${n} ends`} clearable disabled={!a.start} />
+                </Field>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <Field label="Detail (optional)" className="min-w-48 flex-[2]">
+                  <input
+                    value={a.details}
+                    onChange={(e) => setItem(i, { details: e.target.value })}
+                    placeholder="Who is speaking, which room…"
+                    maxLength={AGENDA_LIMITS.details}
+                    aria-label={`Agenda item ${n} detail`}
+                    className={inputClasses}
+                  />
+                </Field>
+                {severalDays && (
+                  <Field label="Day" className="min-w-44 flex-1">
+                    <Select
+                      value={a.day === null ? 'each' : String(a.day)}
+                      onChange={(value) => setItem(i, { day: value === 'each' ? null : Number(value) })}
+                      aria-label={`Agenda item ${n} day`}
+                      options={[
+                        { value: 'each', label: 'Each day' },
+                        ...draft.dates.map((d, j) => ({ value: String(j), label: dayName(d, j) })),
+                      ]}
+                    />
+                  </Field>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                <button type="button" disabled={i === 0} onClick={() => set({ agenda: movedAgenda(items, i, -1) })} aria-label={`Move agenda item ${n} up`} className={quiet}>
+                  <span aria-hidden="true">↑</span> Up
+                </button>
+                <button
+                  type="button"
+                  disabled={i === items.length - 1}
+                  onClick={() => set({ agenda: movedAgenda(items, i, 1) })}
+                  aria-label={`Move agenda item ${n} down`}
+                  className={quiet}
+                >
+                  <span aria-hidden="true">↓</span> Down
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set({ agenda: items.filter((_, j) => j !== i) })}
+                  aria-label={`Remove agenda item ${n}`}
+                  className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-faint hover:text-error hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      <div className="flex flex-wrap items-center gap-3">
+        <ActionButton size="sm" tone="quiet" disabled={full} onClick={() => set({ agenda: [...items, newAgendaDraft()] })} glyph={<span aria-hidden="true">+</span>}>
+          {items.length === 0 ? 'Add an agenda' : 'Add an item'}
+        </ActionButton>
+        {full && <span className="text-label-md text-on-surface-faint">An agenda holds {AGENDA_LIMITS.items} items at most.</span>}
+      </div>
     </div>
   )
 }

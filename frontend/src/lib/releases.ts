@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'event-agenda',
+    date: '2026-11-18',
+    title: 'An event can have an agenda',
+    lead: 'The running order of the day, on the event’s own page — like the Service Planner has for a service.',
+    points: [
+      'In an event’s editor: Agenda. Add what happens, in the order it happens.',
+      'Only a title is needed. Start and end times and a line of detail are there when you know them.',
+      'For an event over several days, an item can say which day it is on.',
+      'People see it on the event’s page, under About, before they register.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'promo-later',
     date: '2026-11-17',
     title: 'A promo code can be added after registering',

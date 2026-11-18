@@ -86,6 +86,7 @@ export const LIVE_TABLES: LiveTable[] = [
   /* ---- registrations (0244): the Owner's screens, as orders come in ---- */
   { table: 'registration_events', keys: ['registrations'] },
   { table: 'registration_event_dates', keys: ['registrations'] },
+  { table: 'registration_event_agenda', keys: ['registrations'] },
   { table: 'registration_ticket_types', keys: ['registrations'] },
   { table: 'registration_promo_codes', keys: ['registrations'] },
   { table: 'registration_invites', keys: ['registrations'] },

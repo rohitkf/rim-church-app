@@ -47,7 +47,7 @@ export const SAVE_ONCE_TABLES: ReadonlySet<string> = new Set([
   'church_events', 'department_guests', 'department_members', 'department_role_checklist_items',
   'department_role_groups', 'department_roles', 'departments', 'giving_bank_accounts', 'giving_links',
   'guest_availability', 'guest_rota_assignments', 'guests', 'inventory_categories', 'inventory_documents',
-  'inventory_items', 'messages', 'purchase_requests', 'registration_event_dates', 'registration_events',
+  'inventory_items', 'messages', 'purchase_requests', 'registration_event_agenda', 'registration_event_dates', 'registration_events',
   'registration_invites', 'registration_promo_codes', 'registration_ticket_types', 'rota_assignments', 'rota_checklist_progress',
   'rota_release_requests', 'rota_tags', 'service_debrief_items', 'service_debriefs', 'service_series',
   'service_session_assignees', 'service_sessions', 'service_template_sessions', 'service_templates',
