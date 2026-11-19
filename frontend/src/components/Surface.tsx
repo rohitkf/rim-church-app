@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { defaultNavLabel, useNavNames } from '../lib/navNames'
 import { Chevron } from './Collapsible'
 import { createPortal } from 'react-dom'
-import type { ComponentType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, ComponentType, ElementType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 /**
  * The design system's primitives.
@@ -204,28 +204,32 @@ function buttonClasses(tone: ButtonTone, size: 'sm' | 'md', className: string): 
  * stands beside buttons and should not read as a word in a sentence.
  * `newTab` opens it beside the app and says so with the arrow.
  */
-export function ActionLink({
-  href,
+export function ActionLink<C extends ElementType = 'a'>({
+  as,
   children,
   tone = 'quiet',
   size = 'md',
   newTab = false,
   className = '',
-  'aria-label': ariaLabel,
+  ...rest
 }: {
-  href: string
+  /**
+   * What to draw it as, when a plain `<a href>` would leave the app: a
+   * router's `Link`, with its own `to`. Surface.tsx knows no router.
+   */
+  as?: C
   children: ReactNode
   tone?: ButtonTone
   size?: 'sm' | 'md'
   newTab?: boolean
   className?: string
-  'aria-label'?: string
-}) {
+} & Omit<ComponentPropsWithoutRef<C>, 'as' | 'children' | 'className'>) {
+  const Tag: ElementType = as ?? 'a'
   return (
-    <a href={href} aria-label={ariaLabel} className={buttonClasses(tone, size, className)} {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+    <Tag className={buttonClasses(tone, size, className)} {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})} {...rest}>
       {children}
       {newTab && <span aria-hidden="true">↗</span>}
-    </a>
+    </Tag>
   )
 }
 

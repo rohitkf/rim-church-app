@@ -274,6 +274,8 @@ beforeEach(() => {
   state.againAnswer = { ok: true, sent: true }
   // Nothing remembered from the test before, and no ten seconds to wait for an email.
   resetUndoForTests(0)
+  // Nor which of cards and table the test before left the page on.
+  window.localStorage.removeItem('rim.registrations.view')
 })
 
 describe('an event’s page', () => {
@@ -605,6 +607,69 @@ describe('an event’s page', () => {
     await user.click(screen.getByRole('button', { name: 'Download QR code' }))
     await waitFor(() => expect(state.downloaded).toEqual(['plc-2026-qr.png']))
     expect(screen.getByRole('link', { name: 'Open Reception' })).toHaveAttribute('href', '/door?event=e1')
+  })
+
+  it('copies the link from a button beside it', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    await user.click(screen.getByRole('button', { name: 'Copy link' }))
+    expect(await navigator.clipboard.readText()).toBe('https://rim-church-app.vercel.app/register/plc-2026')
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+  })
+
+  it('shows the registrations as cards or as a table, and keeps which on this device', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    const as = within(screen.getByRole('radiogroup', { name: 'Show as' }))
+    expect(as.getByRole('radio', { name: 'Cards' })).toBeChecked()
+    await user.click(as.getByRole('radio', { name: 'Table' }))
+    expect(as.getByRole('radio', { name: 'Table' })).toBeChecked()
+    const table = within(screen.getByRole('table', { name: 'Registrations' }))
+    // The same five, one line each, and the cards gone.
+    expect(table.getAllByRole('rowheader')).toHaveLength(5)
+    expect(screen.queryByRole('list', { name: 'Orders' })).toBeNull()
+    expect(window.localStorage.getItem('rim.registrations.view')).toBe('table')
+    await user.click(as.getByRole('radio', { name: 'Cards' }))
+    expect(screen.getByRole('list', { name: 'Orders' })).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Registrations' })).toBeNull()
+  })
+
+  it('opens as the table on a device that was left on it', async () => {
+    window.localStorage.setItem('rim.registrations.view', 'table')
+    show()
+    expect(await screen.findByRole('table', { name: 'Registrations' })).toBeInTheDocument()
+  })
+
+  it('filters, searches and sorts the table as it does the cards, and works a row from it', async () => {
+    window.localStorage.setItem('rim.registrations.view', 'table')
+    const user = show()
+    const table = () => screen.getByRole('table', { name: 'Registrations' })
+    const rows = () =>
+      within(table())
+        .getAllByRole('row')
+        .map((r) => r.getAttribute('aria-label'))
+        .filter((n): n is string => n !== null)
+    await screen.findByRole('table', { name: 'Registrations' })
+    expect(rows()).toHaveLength(5)
+    // By name, A to Z, from the heading.
+    await user.click(within(within(table()).getByRole('columnheader', { name: /Name/ })).getByRole('button'))
+    expect(rows()).toEqual([...rows()].sort())
+    // The Status dropdown narrows the rows, and the count beside it says so.
+    await user.click(screen.getByRole('combobox', { name: 'Status' }))
+    await user.click(screen.getByRole('option', { name: /Receipt to check/ }))
+    expect(rows()).toEqual(['Dan Reported'])
+    expect(screen.getByText(/Showing 1 of 5/)).toBeInTheDocument()
+    // The row's own step does what the card's does.
+    await user.click(within(within(table()).getByRole('row', { name: 'Dan Reported' })).getByRole('button', { name: 'Mark as received' }))
+    await waitFor(() => expect(state.marked).toContainEqual(['o-dan', 'received']))
+    // And Details opens the whole card under it, ticket and all.
+    await user.click(screen.getByRole('button', { name: 'Show Dan Reported’s details' }))
+    const card = within(within(table()).getByRole('listitem', { name: 'Dan Reported' }))
+    expect(card.getByRole('link', { name: 'Open Dan Reported’s ticket' })).toHaveAttribute('href', expect.stringContaining('/ticket/EFGHJKMNPQRS'))
+    // Search works on the table as well.
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'grace')
+    expect(rows()).toEqual(['Grace Mensah'])
   })
 
   it('opens the door scanner, which checks a ticket in', async () => {

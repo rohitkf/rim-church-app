@@ -29,6 +29,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'registrations-table',
+    date: '2026-11-19',
+    title: 'Registrations as a table',
+    lead: 'An event’s registrations can be shown as cards or as a table, one line each.',
+    points: [
+      'Show as: Cards or Table, beside the filters. A wide screen starts on the table, a phone on cards, and your choice is remembered on that device.',
+      'Press a heading to put the table in order — name, tickets, amount, status, payment method, when they registered. Press it again to turn it round.',
+      'The search and the two filters work on the table as they do on the cards.',
+      'Each row has its next step as a button and the rest in its menu; Details opens the whole registration under the row.',
+      'The link to share sits in a box of its own, with Copy link, Download QR code and Open Reception as buttons.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'registration-filters',
     date: '2026-11-19',
     title: 'Simpler filters on registrations',
