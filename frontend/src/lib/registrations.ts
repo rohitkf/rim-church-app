@@ -1501,6 +1501,15 @@ export async function fixOrderEmail(code: string, email: string): Promise<void> 
 /** Nothing owed on it: free, or the money is in (or waived). */
 export const isPaid = (o: { payment_status: PaymentStatus }) => o.payment_status === 'not_needed' || o.payment_status === 'received' || o.payment_status === 'waived'
 
+/** The colour each is said in, wherever it is said: a card's tag, a table's cell. */
+export const PAYMENT_TONE: Record<PaymentStatus, 'neutral' | 'orange' | 'blue' | 'green'> = {
+  not_needed: 'neutral',
+  awaiting: 'orange',
+  reported: 'blue',
+  received: 'green',
+  waived: 'green',
+}
+
 export const PAYMENT_WORDS: Record<PaymentStatus, string> = {
   not_needed: 'Nothing to pay',
   awaiting: 'Awaiting payment',

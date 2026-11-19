@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionButton, ActionLink, Field, FitFigure, Overlay, PageHeader, Pill, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, ActionLink, Field, FitFigure, Overlay, PageHeader, Pill, SegmentedControl, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
@@ -10,6 +10,9 @@ import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
 import { RegistrationBreakdown } from '../components/RegistrationBreakdown'
 import { OrderFilterBar } from '../components/OrderFilterBar'
+import { OrderTable } from '../components/OrderTable'
+import { DEFAULT_SORT, nextSort, sortOrders, type OrderSort } from '../lib/orderSort'
+import { readRegistrationView, writeRegistrationView, type RegistrationView } from '../lib/registrationView'
 import { NO_FILTERS, orderMatches, type OrderFilters } from '../lib/orderFilters'
 import { onlineLinkName, wayOf, wayWords } from '../lib/registrationBreakdown'
 import { GIVING_KEY, fetchGiving } from '../lib/giving'
@@ -28,6 +31,7 @@ import { registerUrl, ticketUrl } from '../lib/registrationLinks'
 import { downloadBlob, qrPngBlob } from '../lib/qrPng'
 import { writeWorkbook } from '../lib/writeWorkbook'
 import {
+  PAYMENT_TONE,
   PAYMENT_WORDS,
   duplicateEmails,
   orderMoney,
@@ -100,6 +104,9 @@ export function RegistrationEventPage() {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [filters, setFilters] = useState<OrderFilters>(NO_FILTERS)
+  // Cards or a table (lib/registrationView): where there is room for a table it starts as one, and the choice is kept on this device.
+  const [view, setView] = useState<RegistrationView>(readRegistrationView)
+  const [sort, setSort] = useState<OrderSort>(DEFAULT_SORT)
   const [query, setQuery] = useState('')
   const [noteFor, setNoteFor] = useState<OrderRow | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -358,6 +365,29 @@ export function RegistrationEventPage() {
   const toVerify = rights.verify ? rows.filter(wantsVerifying).length : 0
   // Emails that did not arrive (0283): everybody on the page sees which; whoever may correct them is told to.
   const undelivered = rows.filter(emailWantsDoing).length
+  // What a registration can do, made once: its menu, its next steps and its card — the cards draw them, and so does the table.
+  const working = mark.isPending || verify.isPending || takePromoOff.isPending
+  const actionsOf = (o: OrderRow) =>
+    withUndo(
+      lastDone(o.id),
+      () => void runUndo({ orderId: o.id, refresh, words: errorText }),
+      orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined, () => removePromo(o)),
+    )
+  const stepsOf = (o: OrderRow) =>
+    nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))
+  const cardOf = (o: OrderRow) => (
+    <OrderLine
+      key={o.id}
+      order={o}
+      invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
+      sharesEmail={sharesAnEmail(o, dupes)}
+      dateLabel={dates.find((d) => d.id === o.date_id)}
+      onlineName={onlineName}
+      busy={working}
+      actions={actionsOf(o)}
+      next={stepsOf(o)}
+    />
+  )
   // A tap on what wants doing shows those orders, and goes to them.
   const showOrders = (f: Partial<OrderFilters>) => {
     setFilters({ ...NO_FILTERS, ...f })
@@ -500,40 +530,48 @@ export function RegistrationEventPage() {
       )}
 
       <Tile className="mb-4">
-        <div className="flex items-start gap-4">
-          <div className="min-w-0 flex-1">
+        {/* The link and its code side by side. What can be done with the link is under the link where there is room
+            beside the code, and under both on a phone — beside the code, a phone had room for one button a line. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
+          <div className="min-w-0">
             <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{event.status === 'published' ? 'Share this link' : 'The link, once published'}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <a href={link} target="_blank" rel="noopener noreferrer" className="min-w-0 break-all font-mono text-body-sm text-accent-blue-soft hover:underline">
-                {link}
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(link)
-                  setCopied(true)
-                  window.setTimeout(() => setCopied(false), 1500)
-                }}
-                className="tap text-label-md font-medium text-accent-blue-soft hover:underline"
-              >
-                {copied ? 'Copied' : 'Copy link'}
-              </button>
-              <button type="button" onClick={() => downloadQr.mutate()} disabled={downloadQr.isPending} className="tap text-label-md font-medium text-accent-blue-soft hover:underline disabled:opacity-60">
-                Download QR code
-              </button>
-              {event.status !== 'draft' && !cancelled && rights.door && (
-                <Link to={`/door?event=${event.id}`} className="tap text-label-md font-medium text-accent-blue-soft hover:underline">
-                  Open Reception
-                </Link>
-              )}
-            </div>
-            {event.status === 'draft' && <p className="mt-1 text-label-md text-on-surface-faint">Only you can open it while it is a draft — a preview.</p>}
-            {event.status !== 'draft' && <p className="mt-1 text-label-md text-on-surface-faint">The QR code says this link: on a poster or a slide, whoever scans it lands on the registration page.</p>}
+            {/* The link in a field of its own, so it reads as the thing to take; what can be done with it as buttons beneath, not as three more blue lines. */}
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block w-fit max-w-full break-all rounded-[var(--radius-chip)] bg-raised px-3 py-2 font-mono text-body-sm text-accent-blue-soft hairline hover:bg-raised-strong"
+            >
+              {link}
+            </a>
           </div>
-          <div className="shrink-0 rounded-[var(--radius-chip)] bg-white p-1.5">
+          <div className="rounded-[var(--radius-chip)] bg-white p-1.5 sm:row-span-2">
             <QrCode text={link} label={`QR code for ${link}`} className="h-20 w-20" />
           </div>
+          <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1">
+            <ActionButton
+              size="sm"
+              tone="quiet"
+              onClick={() => {
+                void navigator.clipboard?.writeText(link)
+                setCopied(true)
+                window.setTimeout(() => setCopied(false), 1500)
+              }}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </ActionButton>
+            <ActionButton size="sm" tone="quiet" onClick={() => downloadQr.mutate()} disabled={downloadQr.isPending}>
+              Download QR code
+            </ActionButton>
+            {event.status !== 'draft' && !cancelled && rights.door && (
+              <ActionLink as={Link} to={`/door?event=${event.id}`} size="sm" tone="quiet">
+                Open Reception
+              </ActionLink>
+            )}
+          </div>
         </div>
+        {event.status === 'draft' && <p className="mt-2.5 text-label-md text-on-surface-faint">Only you can open it while it is a draft — a preview.</p>}
+        {event.status !== 'draft' && <p className="mt-2.5 text-label-md text-on-surface-faint">The QR code says this link: on a poster or a slide, whoever scans it lands on the registration page.</p>}
       </Tile>
 
       {/* Two by two until there is room for four in a row: four across a tablet left each tile narrower than its figure.
@@ -704,30 +742,39 @@ export function RegistrationEventPage() {
                 setQuery('')
               }}
             />
+            {/* Cards say everything about one; the table says a line about each and can be put in order. */}
+            <SegmentedControl<RegistrationView>
+              label="Show as"
+              value={view}
+              onChange={(next) => {
+                setView(next)
+                writeRegistrationView(next)
+              }}
+              options={[
+                { value: 'cards', label: 'Cards' },
+                { value: 'table', label: 'Table' },
+              ]}
+              className="w-fit sm:ml-auto"
+            />
           </div>
         )}
         <QueryState isLoading={orders.isLoading} error={orders.error} isEmpty={rows.length === 0} emptyMessage="Nobody yet.">
           {shown.length === 0 ? (
             <p className="mt-3 text-body-sm text-on-surface-variant">Nobody matches.</p>
+          ) : view === 'table' ? (
+            <OrderTable
+              orders={sortOrders(shown, sort)}
+              sort={sort}
+              onSort={(key) => setSort((was) => nextSort(was, key))}
+              onlineName={onlineName}
+              actionsFor={actionsOf}
+              stepsFor={stepsOf}
+              cardFor={cardOf}
+              busy={working}
+            />
           ) : (
             <ul aria-label="Orders" className="mt-3 flex flex-col gap-2">
-              {shown.map((o) => (
-                <OrderLine
-                  key={o.id}
-                  order={o}
-                  invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
-                  sharesEmail={sharesAnEmail(o, dupes)}
-                  dateLabel={dates.find((d) => d.id === o.date_id)}
-                  onlineName={onlineName}
-                  busy={mark.isPending || verify.isPending || takePromoOff.isPending}
-                  actions={withUndo(
-                    lastDone(o.id),
-                    () => void runUndo({ orderId: o.id, refresh, words: errorText }),
-                    orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined, () => removePromo(o)),
-                  )}
-                  next={nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))}
-                />
-              ))}
+              {shown.map(cardOf)}
             </ul>
           )}
         </QueryState>
@@ -1037,14 +1084,6 @@ function refundHow(o: OrderRow): string {
   return o.payment_method === 'paypal' ? 'Refunded in PayPal' : 'Sent back to the account it came from'
 }
 
-const PAY_TONE: Record<OrderRow['payment_status'], 'neutral' | 'orange' | 'blue' | 'green'> = {
-  not_needed: 'neutral',
-  awaiting: 'orange',
-  reported: 'blue',
-  received: 'green',
-  waived: 'green',
-}
-
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
 /**
@@ -1157,7 +1196,7 @@ function OrderLine({
               <Pill tone="red">Cancelled</Pill>
             ) : order.total_pence > 0 ? (
               <>
-                <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+                <Pill tone={PAYMENT_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
                 {/* How: by bank, by the online link, at reception. Said beside where it stands, so "awaiting payment" at reception is told from one by bank at a glance. */}
                 {way && way !== 'none' && <Pill tone="neutral">{wayWords(way, onlineName)}</Pill>}
                 {/* A code that took some of it off. One that took all of it is said by "Free with code" instead. */}

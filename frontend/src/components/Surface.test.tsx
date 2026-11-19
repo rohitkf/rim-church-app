@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { ActionButton, IconBadge, SectionTile, SegmentedControl, FitFigure } from './Surface'
+import { Link, MemoryRouter } from 'react-router-dom'
+import { ActionButton, ActionLink, IconBadge, SectionTile, SegmentedControl, FitFigure } from './Surface'
 import { ShieldIcon } from './icons'
 
 describe('the settings primitives', () => {
@@ -102,5 +103,37 @@ describe('a figure that is never wider than its tile', () => {
   it('stays on one line: a sum broken across two is two numbers', () => {
     render(<FitFigure>£1255.00</FitFigure>)
     expect(screen.getByText('£1255.00').className).toContain('whitespace-nowrap')
+  })
+})
+
+describe('a link that is drawn as a button', () => {
+  it('goes somewhere else in a new tab, and says nothing of where it came from', () => {
+    render(
+      <ActionLink href="https://example.org/ticket/ABC" newTab>
+        Ticket
+      </ActionLink>,
+    )
+    const link = screen.getByRole('link', { name: 'Ticket' })
+    expect(link).toHaveAttribute('href', 'https://example.org/ticket/ABC')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('is a link inside the app when given the router’s own, with the button’s shape', () => {
+    render(
+      <MemoryRouter>
+        <ActionLink as={Link} to="/door?event=e1" size="sm">
+          Open Reception
+        </ActionLink>
+        <ActionButton size="sm" tone="quiet">
+          Copy link
+        </ActionButton>
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: 'Open Reception' })
+    expect(link).toHaveAttribute('href', '/door?event=e1')
+    expect(link).not.toHaveAttribute('target')
+    // The same pill as the button beside it.
+    expect(link.className).toBe(screen.getByRole('button', { name: 'Copy link' }).className)
   })
 })
