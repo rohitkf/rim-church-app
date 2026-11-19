@@ -11,7 +11,6 @@ import {
   newDateDraft,
   newPromoDraft,
   newTicketTypeDraft,
-  orderMatches,
   orderTotals,
   checkedInToday,
   registrationExportFileName,
@@ -489,55 +488,6 @@ describe('what the door works (0247)', () => {
     expect(receiverName({ receiver: { first_name: 'Rohit', last_name: null } })).toBe('Rohit')
     expect(receiverName({ receiver: null })).toBe('')
     expect(receiverName({})).toBe('')
-  })
-})
-
-describe('finding an order', () => {
-  const awaiting = row({})
-  const paid = row({ id: 'o2', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', email: 'ben@example.org', payment_status: 'received', promo_code: null })
-  const here = row({ id: 'o3', code: 'CDEFGHJKMNPQ', name: 'Grace Mensah', email: 'grace@example.org', payment_status: 'not_needed', total_pence: 0, checked_in_at: '2026-11-21T18:40:00Z' })
-  const gone = row({ id: 'o4', code: 'DEFGHJKMNPQR', name: 'Asha Mathew', email: 'asha@example.org', status: 'cancelled', checked_in_at: '2026-11-21T18:40:00Z' })
-  const all = [awaiting, paid, here, gone]
-  const names = (filter: Parameters<typeof orderMatches>[1], q = '') => all.filter((o) => orderMatches(o, filter, q)).map((o) => o.name)
-
-  it('filters by what is owed, who has arrived, and what was cancelled', () => {
-    expect(names('all')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
-    expect(names('to_pay')).toEqual(['Ama Owusu'])
-    expect(names('to_check')).toEqual([])
-    expect(names('paid')).toEqual(['Ben Joseph'])
-    // Cancelled after arriving: not here any more.
-    expect(names('checked_in')).toEqual(['Grace Mensah'])
-    expect(names('cancelled')).toEqual(['Asha Mathew'])
-  })
-
-  it('has a filter for emails that did not arrive, on registrations still live (0283)', () => {
-    const bounced = row({ id: 'o5', name: 'Jerry Typo', email_status: 'bounced' })
-    const held = row({ id: 'o6', name: 'Held Back', email_status: 'suppressed' })
-    const unsent = row({ id: 'o7', name: 'Not Sent', email_status: 'failed' })
-    const arrived = row({ id: 'o8', name: 'Arrived', email_status: 'delivered' })
-    const late = row({ id: 'o9', name: 'Delayed', email_status: 'delayed' })
-    const off = row({ id: 'o10', name: 'Cancelled Bounce', email_status: 'bounced', status: 'cancelled' })
-    const none = row({ id: 'o11', name: 'No Address', email: null, email_status: 'bounced' })
-    const list = [bounced, held, unsent, arrived, late, off, none, ...all]
-    expect(list.filter((o) => orderMatches(o, 'email', '')).map((o) => o.name)).toEqual(['Jerry Typo', 'Held Back', 'Not Sent'])
-    expect(list.filter((o) => orderMatches(o, 'email', 'held')).map((o) => o.name)).toEqual(['Held Back'])
-  })
-
-  it('matches a walk-in with no address by name or code, and never by the address it has not got', () => {
-    const walk = row({ email: null, phone: null, name: 'Walk In', code: 'WALKIN123456', source: 'walk_in' })
-    expect(orderMatches(walk, 'all', 'walk')).toBe(true)
-    expect(orderMatches(walk, 'all', 'WALKIN')).toBe(true)
-    expect(orderMatches(walk, 'all', 'example.org')).toBe(false)
-  })
-
-  it('matches a name, an email, a code, a phone, a promo code or an attendee', () => {
-    expect(names('all', 'ben')).toEqual(['Ben Joseph'])
-    expect(names('all', 'AMA@example')).toEqual(['Ama Owusu'])
-    expect(names('all', 'cdefghjkmnpq')).toEqual(['Grace Mensah'])
-    expect(names('all', '07700')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
-    expect(names('all', 'early')).toEqual(['Ama Owusu', 'Grace Mensah', 'Asha Mathew'])
-    expect(names('all', 'kofi')).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Asha Mathew'])
-    expect(names('to_pay', 'nobody')).toEqual([])
   })
 })
 

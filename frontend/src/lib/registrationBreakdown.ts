@@ -76,11 +76,48 @@ function stageOf(o: Counted): Stage {
 }
 
 /** The ways of paying, in the order the groups are drawn; `none` is nobody having said. */
-const WAYS = ['bank', 'paypal', 'reception', 'none'] as const
-type Way = (typeof WAYS)[number]
+export const WAYS = ['bank', 'paypal', 'reception', 'none'] as const
+export type Way = (typeof WAYS)[number]
 const WAY_TITLE: Record<Way, string> = { ...METHOD_WORDS, none: 'Way of paying not chosen' }
 
-export function ticketBreakdown(orders: readonly Counted[]): TicketBreakdown {
+/**
+ * Where a live registration's money stands, one answer each: nothing to
+ * pay, let go, not paid yet, a receipt sent, or paid. The breakdown's
+ * groups and the list's filters (lib/orderFilters) both ask this, so a
+ * number in the table and the number on a filter are the same people.
+ */
+export type PaymentPlace = 'free' | 'waived' | 'awaiting' | 'reported' | 'received'
+export function paymentOf(o: Pick<Counted, 'payment_status' | 'total_pence'>): PaymentPlace {
+  if (o.payment_status === 'waived') return 'waived'
+  if (o.payment_status === 'not_needed' || o.total_pence <= 0) return 'free'
+  return o.payment_status === 'received' ? 'received' : o.payment_status === 'reported' ? 'reported' : 'awaiting'
+}
+
+/** How a registration pays, or null where there is nothing to pay or it was let go. */
+export function wayOf(o: Pick<Counted, 'payment_status' | 'total_pence' | 'payment_method'>): Way | null {
+  const place = paymentOf(o)
+  return place === 'free' || place === 'waived' ? null : (o.payment_method ?? 'none')
+}
+
+/**
+ * What the online link is called. `paypal` is the stored word for "paid
+ * by the link", whatever the link is; an event's links have names of
+ * their own ("Paypal"), and when they all share one that name is said
+ * instead of "Online link". Several different links, or none: the plain
+ * word.
+ */
+export function onlineLinkName(labels: readonly (string | null | undefined)[]): string {
+  const named = [...new Set(labels.map((l) => (l ?? '').trim()).filter(Boolean).map((l) => l.toLowerCase()))]
+  if (named.length !== 1) return METHOD_WORDS.paypal
+  return labels.map((l) => (l ?? '').trim()).find((l) => l.toLowerCase() === named[0])!
+}
+
+/** A way of paying in words, with the online link called by its own name where it has one. */
+export function wayWords(way: Way, onlineName: string = METHOD_WORDS.paypal): string {
+  return way === 'paypal' ? onlineName : way === 'none' ? 'Not chosen' : METHOD_WORDS[way]
+}
+
+export function ticketBreakdown(orders: readonly Counted[], onlineName: string = METHOD_WORDS.paypal): TicketBreakdown {
   const live = orders.filter((o) => o.status === 'confirmed')
   // Lines are made as they are met and kept by key, so nothing empty is ever drawn.
   const lines = new Map<string, BreakdownLine & { group: string; place: number }>()
@@ -93,22 +130,26 @@ export function ticketBreakdown(orders: readonly Counted[]): TicketBreakdown {
   }
 
   for (const o of live) {
-    if (o.payment_status === 'waived') {
+    const way = wayOf(o)
+    if (paymentOf(o) === 'waived') {
       add('waived', 0, 'waived', 'Let go by the church', 'waived', o, o.total_pence)
-    } else if (o.payment_status === 'not_needed' || o.total_pence <= 0) {
+    } else if (way === null) {
       // A code and an invitation are never both taken (registration_register drops the code).
       const code = o.promo_code?.trim().toUpperCase()
       if (code) add('free', 0, `free-code-${code}`, `Free with code ${code}`, 'off', o, o.discount_pence)
       else if (o.invite_id && o.discount_pence > 0) add('free', 1, 'free-invite', 'Free by an invite link', 'off', o, o.discount_pence)
       else add('free', 2, 'free-ticket', 'Free tickets', 'off', o, 0)
     } else {
-      const way: Way = o.payment_method ?? 'none'
       const stage = STAGES.find((s) => s.key === stageOf(o))!
       add(way, STAGES.indexOf(stage), `${way}-${stage.key}`, stage.label, stage.money, o, o.total_pence)
     }
   }
 
-  const titles: [string, string][] = [['free', 'Nothing to pay'], ...WAYS.map((w): [string, string] => [w, WAY_TITLE[w]]), ['waived', 'Payment waived']]
+  const titles: [string, string][] = [
+    ['free', 'Nothing to pay'],
+    ...WAYS.map((w): [string, string] => [w, w === 'paypal' ? onlineName : WAY_TITLE[w]]),
+    ['waived', 'Payment waived'],
+  ]
   const groups = titles
     .map(([key, title]) => {
       const own = [...lines.values()]

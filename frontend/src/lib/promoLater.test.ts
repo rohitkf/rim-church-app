@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pounds } from './money'
-import { discountOn, duplicateEmails, orderMatches, orderMoney, sharesAnEmail, type OrderRow, type PromoCode } from './registrations'
+import { discountOn, duplicateEmails, orderMoney, sharesAnEmail, type OrderRow, type PromoCode } from './registrations'
+import { NO_FILTERS, orderMatches } from './orderFilters'
 import { canTakePromo, carriesPromo, promoHeldBy, promoWords, promoWorth, usablePromos } from './promoLater'
 import migration from '../../../supabase/migrations/0298_a_promo_code_can_be_put_on_a_registration_already_made.sql?raw'
 import removal from '../../../supabase/migrations/0299_a_promo_code_can_be_taken_off_a_registration.sql?raw'
@@ -201,10 +202,10 @@ describe('registrations that share an email address', () => {
   })
 
   it('has a filter of its own, which the words typed still narrow', () => {
-    expect(rows.filter((o) => orderMatches(o, 'duplicates', '', dupes)).map((o) => o.id)).toEqual(['a', 'b'])
-    expect(rows.filter((o) => orderMatches(o, 'duplicates', 'free', dupes)).map((o) => o.id)).toEqual(['b'])
+    expect(rows.filter((o) => orderMatches(o, { ...NO_FILTERS, only: 'duplicates' }, '', dupes)).map((o) => o.id)).toEqual(['a', 'b'])
+    expect(rows.filter((o) => orderMatches(o, { ...NO_FILTERS, only: 'duplicates' }, 'free', dupes)).map((o) => o.id)).toEqual(['b'])
     // Asked without the list, it finds nothing rather than everything.
-    expect(rows.filter((o) => orderMatches(o, 'duplicates', '')).length).toBe(0)
+    expect(rows.filter((o) => orderMatches(o, { ...NO_FILTERS, only: 'duplicates' }, '')).length).toBe(0)
   })
 })
 

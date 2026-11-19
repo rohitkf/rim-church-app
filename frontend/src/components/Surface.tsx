@@ -189,6 +189,46 @@ const BUTTON_TONES: Record<ButtonTone, string> = {
   ghost: 'text-on-surface-variant hover:text-on-surface',
 }
 
+/** A button's look, for the two things that wear it: a `<button>` and a link that is one. */
+function buttonClasses(tone: ButtonTone, size: 'sm' | 'md', className: string): string {
+  // A small button is 32px tall, which a cursor hits and a thumb misses.
+  // `tap` gives it the touch floor without changing how it looks on a
+  // desktop; the medium size already clears it.
+  const sizing = size === 'sm' ? 'tap px-3.5 py-1.5 text-label-md font-semibold' : 'px-5 py-3 text-body-sm font-semibold'
+  return `inline-flex items-center justify-center gap-2 rounded-full transition-[transform,background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`
+}
+
+/**
+ * A link that is a button: somewhere to go, drawn as the pill a button
+ * is. For a way out of the app (a ticket's own page, a receipt) that
+ * stands beside buttons and should not read as a word in a sentence.
+ * `newTab` opens it beside the app and says so with the arrow.
+ */
+export function ActionLink({
+  href,
+  children,
+  tone = 'quiet',
+  size = 'md',
+  newTab = false,
+  className = '',
+  'aria-label': ariaLabel,
+}: {
+  href: string
+  children: ReactNode
+  tone?: ButtonTone
+  size?: 'sm' | 'md'
+  newTab?: boolean
+  className?: string
+  'aria-label'?: string
+}) {
+  return (
+    <a href={href} aria-label={ariaLabel} className={buttonClasses(tone, size, className)} {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+      {children}
+      {newTab && <span aria-hidden="true">↗</span>}
+    </a>
+  )
+}
+
 /**
  * Every button in the app is a pill. Size is the only thing that changes
  * with importance — never the shape, and never more than one primary on a
@@ -228,12 +268,6 @@ export function ActionButton({
   /** What the tour calls this button, when it points at it (components/Tour). */
   'data-tour'?: string
 }) {
-  // A small button is 32px tall, which a cursor hits and a thumb misses.
-  // `tap` gives it the touch floor without changing how it looks on a
-  // desktop; the medium size already clears it.
-  const sizing =
-    size === 'sm' ? 'tap px-3.5 py-1.5 text-label-md font-semibold' : 'px-5 py-3 text-body-sm font-semibold'
-
   return (
     <button
       type={type}
@@ -244,7 +278,7 @@ export function ActionButton({
       aria-expanded={ariaExpanded}
       aria-controls={ariaControls}
       data-tour={dataTour}
-      className={`inline-flex items-center justify-center gap-2 rounded-full transition-[transform,background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50 disabled:active:scale-100 ${BUTTON_TONES[tone]} ${sizing} ${className}`}
+      className={buttonClasses(tone, size, className)}
     >
       {/* Wrapped, because a text glyph ("+") beside text children would
           merge with them into one flex item and the gap would never land:

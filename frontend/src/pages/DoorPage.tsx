@@ -27,7 +27,6 @@ import {
   markOrder,
   notifyPayment,
   payAndCheckIn,
-  orderMatches,
   sendTicketEmail,
   todaysEvent,
   walkIn,
@@ -37,6 +36,7 @@ import {
   type OrderRow,
   type TicketType,
 } from '../lib/registrations'
+import { orderSays } from '../lib/orderFilters'
 
 /**
  * Reception (0247): the door, on one page, for whoever works it — the
@@ -317,7 +317,7 @@ function Find({
 }) {
   const [query, setQuery] = useState('')
   const shown = orders
-    .filter((o) => orderMatches(o, 'all', query))
+    .filter((o) => orderSays(o, query))
     .sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name) : a.status === 'confirmed' ? -1 : 1))
   return (
     <section aria-label="Find a registration">
