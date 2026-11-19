@@ -315,39 +315,56 @@ describe('an event’s page', () => {
     await user.clear(screen.getByRole('searchbox', { name: 'Search registrations' }))
 
     const names = () => screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))
-    // Three questions, each choice saying how many it holds.
-    const payment = within(screen.getByRole('radiogroup', { name: 'Payment' }))
-    expect(payment.getAllByRole('radio').map((r) => r.textContent)).toEqual(['All', 'Not paid yet 1', 'Receipt to check 1', 'Paid 1', 'Free 1'])
-    await user.click(payment.getByRole('radio', { name: 'Not paid yet 1' }))
+    const status = () => screen.getByRole('combobox', { name: 'Status' })
+    const method = () => screen.getByRole('combobox', { name: 'Payment method' })
+    const choose = async (box: HTMLElement, name: RegExp) => {
+      await user.click(box)
+      await user.click(screen.getByRole('option', { name }))
+    }
+    // Two dropdowns, each choice in its list saying how many it holds.
+    await user.click(status())
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent!.replace('✓', ''))).toEqual([
+      'All registrations',
+      'Not paid yet1',
+      'Receipt to check1',
+      'Paid1',
+      'Free1',
+      'Payment to verify2',
+      'Checked in1',
+      'Cancelled1',
+    ])
+    await user.click(screen.getByRole('option', { name: /Not paid yet/ }))
     expect(names()).toEqual(['Ama Owusu'])
-    await user.click(payment.getByRole('radio', { name: 'Receipt to check 1' }))
+    await choose(status(), /Receipt to check/)
     expect(names()).toEqual(['Dan Reported'])
-    await user.click(payment.getByRole('radio', { name: 'Paid 1' }))
+    await choose(status(), /^Paid/)
     expect(names()).toEqual(['Ben Joseph'])
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 5: Paid')
-    await user.click(payment.getByRole('radio', { name: 'Free 1' }))
+    expect(status()).toHaveTextContent(/^Paid$/)
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 5')
+    await choose(status(), /Free/)
     expect(names()).toEqual(['Grace Mensah'])
-    await user.click(payment.getByRole('radio', { name: 'All' }))
+    await choose(status(), /All registrations/)
 
     // How it is paid: the online link by the name the church gave it.
-    const way = within(await screen.findByRole('radiogroup', { name: 'Way of paying' }))
-    expect(way.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Any', 'Bank transfer 1', 'Paypal 1', 'Not chosen 1'])
-    await user.click(way.getByRole('radio', { name: 'Bank transfer 1' }))
+    await user.click(method())
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent!.replace('✓', ''))).toEqual(['Any payment method', 'Bank transfer1', 'Paypal1', 'Not chosen yet1'])
+    await user.click(screen.getByRole('option', { name: /Bank transfer/ }))
     expect(names()).toEqual(['Ben Joseph'])
-    await user.click(way.getByRole('radio', { name: 'Paypal 1' }))
+    await choose(method(), /Paypal/)
     expect(names()).toEqual(['Dan Reported'])
-    // Chosen together they narrow, and what is chosen is said back.
-    await user.click(payment.getByRole('radio', { name: /^Paid/ }))
-    expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 0 of 5: Paid · Paypal')
-    await user.click(screen.getByRole('button', { name: 'Show everybody' }))
+    // Chosen together they narrow: with Paypal chosen, "Paid" would show nobody, so it is greyed and cannot be picked.
+    await user.click(status())
+    expect(screen.getByRole('option', { name: /^Paid/ })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(screen.getByRole('option', { name: /Receipt to check/ }))
+    expect(names()).toEqual(['Dan Reported'])
+    expect(screen.getByRole('status')).toHaveTextContent('Receipt to check · Paypal: Showing 1 of 5')
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
     expect(names()).toHaveLength(5)
     expect(screen.queryByRole('status')).toBeNull()
 
-    const only = within(screen.getByRole('group', { name: 'Show only' }))
-    await user.click(only.getByRole('button', { name: 'Checked in 1' }))
+    await choose(status(), /Checked in/)
     expect(names()).toEqual(['Grace Mensah'])
-    await user.click(only.getByRole('button', { name: 'Cancelled 1' }))
+    await choose(status(), /Cancelled/)
     expect(names()).toEqual(['Asha Mathew'])
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'nobody')
     expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
@@ -542,7 +559,7 @@ describe('an event’s page', () => {
     const todo = screen.getByRole('group', { name: 'What wants doing' })
     expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1awaiting payment'])
     await user.click(within(todo).getByRole('button', { name: /receipt to check/ }))
-    expect(screen.getByRole('radio', { name: 'Receipt to check 1' })).toBeChecked()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(/^Receipt to check$/)
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
     // The receipt's row carries the decision, no menu needed.
     const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
@@ -901,7 +918,8 @@ describe('what became of each registration’s email (0283)', () => {
     const doing = within(screen.getByRole('group', { name: 'What wants doing' }))
     await user.click(doing.getByRole('button', { name: /1\s*email not delivered/ }))
     expect(screen.getAllByRole('listitem').filter((li) => li.getAttribute('aria-label')).map((li) => li.getAttribute('aria-label'))).toEqual(['Jerry Typo'])
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 6: Email not delivered')
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(/^Email not delivered$/)
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 6')
   })
 
   it('shows the status to everybody on the page, and the correcting only to whoever may', async () => {
@@ -1403,7 +1421,7 @@ describe('registrations made without the code, twice, or waived', () => {
     const wants = screen.getByRole('group', { name: 'What wants doing' })
     await user.click(within(wants).getByRole('button', { name: /2\s*registrations share an email/ }))
     expect(rows()).toEqual(['Binitha John', 'Binitha John'])
-    expect(screen.getByRole('button', { name: /Same email\s*2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(/^Same email twice$/)
   })
 
   it('draws no empty "What wants doing" on a cancelled event whose only news is a shared email', async () => {

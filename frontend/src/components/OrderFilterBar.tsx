@@ -1,46 +1,38 @@
-import type { ReactNode } from 'react'
-import { Eyebrow, SegmentedControl } from './Surface'
+import { ActionButton } from './Surface'
+import { Select, selectPillClasses, selectPillOnClasses, type SelectItem, type SelectOption } from './Select'
 import {
   NO_FILTERS,
   ONLY_FILTERS,
   PAYMENT_FILTERS,
+  STATUS_HEADINGS,
+  anyFilter,
+  filterWords,
   orderFits,
+  statusOf,
   wayFilters,
-  type OnlyFilter,
+  withStatus,
   type OrderFilters,
-  type PaymentFilter,
+  type StatusChoice,
   type WayFilter,
 } from '../lib/orderFilters'
 import type { OrderRow } from '../lib/registrations'
 
-/** A row of choices under its question. On a phone it goes on to a second line: every choice stays in sight, and nothing has to be dragged into view. */
-function Question({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <Eyebrow>{title}</Eyebrow>
-      {children}
-    </div>
-  )
-}
-
-const counted = (label: string, n: number | null) =>
-  n === null ? (
-    label
-  ) : (
-    <>
-      {label} <span className="font-mono text-label-sm tabular opacity-70">{n}</span>
-    </>
-  )
-
 /**
- * The filters over an event's registrations (lib/orderFilters): where the
- * money stands, how it is paid, and one thing more to show only.
+ * The filters over an event's registrations (lib/orderFilters): two
+ * dropdowns in a row, **Status** and **Payment method**, each a pill that
+ * says its answer.
  *
- * Each choice says how many it would show **with the other rows as they
- * are**: with At reception chosen, "Paid" says how many paid at reception.
- * A choice nobody on the event is in is not offered at all — an event
- * with no waived payment has no "Waived" — and a row with nothing to
- * choose is not drawn.
+ * A dropdown is tinted while it is narrowing the list, so what is on is
+ * seen without reading it. Its list says beside each choice how many it
+ * would show **with the other dropdown as it is** — with At reception
+ * chosen, "Paid" says how many paid at reception — and greys a choice
+ * that would show nobody, so no pick ends in an empty list. A choice
+ * nobody on the event is in is not listed at all (no "Waived" where
+ * nothing was), and the payment-method dropdown is not drawn for an event
+ * where nobody pays.
+ *
+ * Beside them, once anything is chosen or typed: how many are shown out
+ * of how many, and one button that puts everything back.
  */
 export function OrderFilterBar({
   orders,
@@ -48,6 +40,9 @@ export function OrderFilterBar({
   filters,
   onChange,
   onlineName,
+  shown,
+  searching = false,
+  onClear,
 }: {
   orders: readonly OrderRow[]
   /** duplicateEmails() of the same orders. */
@@ -56,49 +51,82 @@ export function OrderFilterBar({
   onChange: (next: OrderFilters) => void
   /** What the event's online link is called, when it has one name. */
   onlineName?: string
+  /** How many registrations the list is showing now, the typed words counted too. */
+  shown: number
+  /** Something is typed in the search box: the count is said, and Clear clears that as well. */
+  searching?: boolean
+  onClear: () => void
 }) {
   const count = (f: OrderFilters) => orders.filter((o) => orderFits(o, f, duplicates)).length
-  // Offered: somebody on the event is in it (whatever else is chosen), or it is the one chosen.
-  const payments = PAYMENT_FILTERS.filter((p) => p.key === 'all' || p.key === filters.payment || count({ ...NO_FILTERS, payment: p.key }) > 0)
-  const ways = wayFilters(onlineName).filter((w) => w.key === 'any' || w.key === filters.way || count({ ...NO_FILTERS, way: w.key }) > 0)
-  const onlys = ONLY_FILTERS.filter((o) => o.key === filters.only || count({ ...NO_FILTERS, only: o.key }) > 0)
+  const status = statusOf(filters)
 
+  /** A choice in a list: how many it would show as things stand; greyed at none; left out if nobody on the event is in it. */
+  const option = (value: string, label: string, here: OrderFilters, alone: OrderFilters, chosen: boolean): SelectOption | null => {
+    if (!chosen && count(alone) === 0) return null
+    const n = count(here)
+    return { value, label, hint: String(n), disabled: n === 0 && !chosen }
+  }
+  const present = (list: (SelectOption | null)[]) => list.filter((o): o is SelectOption => o !== null)
+
+  // The Status list: everybody, then what there is under each heading.
+  const payments = present(
+    PAYMENT_FILTERS.filter((p) => p.key !== 'all').map((p) => {
+      const choice: StatusChoice = `payment:${p.key as Exclude<typeof p.key, 'all'>}`
+      return option(choice, p.label, withStatus(filters, choice), withStatus(NO_FILTERS, choice), status === choice)
+    }),
+  )
+  const others = (kind: 'todo' | 'came') =>
+    present(
+      ONLY_FILTERS.filter((o) => o.kind === kind).map((o) => {
+        const choice: StatusChoice = `only:${o.key}`
+        return option(choice, o.label, withStatus(filters, choice), withStatus(NO_FILTERS, choice), status === choice)
+      }),
+    )
+  const statusItems: SelectItem[] = [
+    { value: 'all', label: PAYMENT_FILTERS[0].label },
+    ...[
+      { label: STATUS_HEADINGS.payment, options: payments },
+      { label: STATUS_HEADINGS.todo, options: others('todo') },
+      { label: STATUS_HEADINGS.came, options: others('came') },
+    ].filter((group) => group.options.length > 0),
+  ]
+
+  const ways = present(
+    wayFilters(onlineName).map((w) =>
+      w.key === 'any' ? { value: 'any', label: w.label } : option(w.key, w.label, { ...filters, way: w.key }, { ...NO_FILTERS, way: w.key }, filters.way === w.key),
+    ),
+  )
+
+  const on = anyFilter(filters)
   return (
-    <div className="flex flex-col gap-3">
-      {payments.length > 1 && (
-        <Question title="Payment">
-          <SegmentedControl<PaymentFilter>
-            label="Payment"
-            value={filters.payment}
-            onChange={(payment) => onChange({ ...filters, payment })}
-            options={payments.map((p) => ({ value: p.key, label: counted(p.label, p.key === 'all' ? null : count({ ...filters, payment: p.key })) }))}
-            wraps
-          />
-        </Question>
-      )}
+    <div role="group" aria-label="Filter registrations" className="flex flex-wrap items-center gap-2">
+      <Select
+        aria-label="Status"
+        value={status}
+        onChange={(next) => onChange(withStatus(filters, next as StatusChoice))}
+        options={statusItems}
+        className={status === 'all' ? selectPillClasses : selectPillOnClasses}
+      />
       {ways.length > 1 && (
-        <Question title="Way of paying">
-          <SegmentedControl<WayFilter>
-            label="Way of paying"
-            value={filters.way}
-            onChange={(way) => onChange({ ...filters, way })}
-            options={ways.map((w) => ({ value: w.key, label: counted(w.label, w.key === 'any' ? null : count({ ...filters, way: w.key })) }))}
-            wraps
-          />
-        </Question>
+        <Select
+          aria-label="Payment method"
+          value={filters.way}
+          onChange={(next) => onChange({ ...filters, way: next as WayFilter })}
+          options={ways}
+          className={filters.way === 'any' ? selectPillClasses : selectPillOnClasses}
+        />
       )}
-      {onlys.length > 0 && (
-        <Question title="Show only">
-          {/* Pressed again, it is let go: there is no "none" to look for. */}
-          <SegmentedControl<OnlyFilter>
-            label="Show only"
-            kind="pressed"
-            value={filters.only}
-            onChange={(only) => onChange({ ...filters, only: filters.only === only ? null : only })}
-            options={onlys.map((o) => ({ value: o.key, label: counted(o.label, count({ ...filters, only: o.key })) }))}
-            wraps
-          />
-        </Question>
+      {(on || searching) && (
+        <>
+          <ActionButton size="sm" tone="ghost" onClick={onClear}>
+            Clear
+          </ActionButton>
+          {/* Said for a screen reader with what is chosen; for the eye the tinted pills say that already. */}
+          <p role="status" className="text-label-md text-on-surface-variant">
+            <span className="sr-only">{on ? `${filterWords(filters, onlineName)}: ` : ''}</span>
+            Showing {shown} of {orders.length}
+          </p>
+        </>
       )}
     </div>
   )

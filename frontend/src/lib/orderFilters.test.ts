@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_FILTERS, anyFilter, filterWords, orderFits, orderMatches, orderSays, wayFilters, type OrderFilters } from './orderFilters'
+import { NO_FILTERS, anyFilter, filterWords, orderFits, orderMatches, orderSays, statusOf, wayFilters, withStatus, type OrderFilters } from './orderFilters'
 import { onlineLinkName, ticketBreakdown } from './registrationBreakdown'
 import { duplicateEmails, type OrderRow } from './registrations'
 
@@ -41,7 +41,7 @@ const people = [
 ]
 const names = (f: Partial<OrderFilters>, q = '') => people.filter((o) => orderMatches(o, { ...NO_FILTERS, ...f }, q)).map((o) => o.name)
 
-describe('finding registrations: three questions', () => {
+describe('finding registrations: where each stands, and how it is paid', () => {
   it('shows everybody, the cancelled too, when nothing is chosen', () => {
     expect(names({})).toHaveLength(people.length)
     expect(anyFilter(NO_FILTERS)).toBe(false)
@@ -135,12 +135,33 @@ describe('finding registrations: three questions', () => {
   })
 })
 
+describe('the Status dropdown is one choice', () => {
+  it('reads as everybody, a payment, or one other thing', () => {
+    expect(statusOf(NO_FILTERS)).toBe('all')
+    expect(statusOf({ payment: 'received', way: 'any', only: null })).toBe('payment:received')
+    expect(statusOf({ payment: 'all', way: 'bank', only: 'cancelled' })).toBe('only:cancelled')
+  })
+
+  it('sets one and lets go of the other, and leaves the payment method alone', () => {
+    const paidAtDoor: OrderFilters = { payment: 'received', way: 'reception', only: null }
+    expect(withStatus(paidAtDoor, 'only:checked_in')).toEqual({ payment: 'all', way: 'reception', only: 'checked_in' })
+    expect(withStatus({ payment: 'all', way: 'reception', only: 'checked_in' }, 'payment:awaiting')).toEqual({ payment: 'awaiting', way: 'reception', only: null })
+    expect(withStatus(paidAtDoor, 'all')).toEqual({ payment: 'all', way: 'reception', only: null })
+  })
+
+  it('round-trips: what it is set to is what it says', () => {
+    for (const choice of ['all', 'payment:free', 'payment:reported', 'only:to_verify', 'only:duplicates'] as const) {
+      expect(statusOf(withStatus(NO_FILTERS, choice))).toBe(choice)
+    }
+  })
+})
+
 describe('what is chosen, said back in words', () => {
   it('names each choice, in the order of the rows', () => {
     expect(filterWords(NO_FILTERS)).toBe('')
     expect(filterWords({ payment: 'received', way: 'reception', only: null })).toBe('Paid · At reception')
-    expect(filterWords({ payment: 'reported', way: 'bank', only: 'to_verify' })).toBe('Receipt to check · Bank transfer · To verify')
-    expect(filterWords({ payment: 'all', way: 'none', only: null })).toBe('Not chosen')
+    expect(filterWords({ payment: 'reported', way: 'bank', only: 'to_verify' })).toBe('Receipt to check · Bank transfer · Payment to verify')
+    expect(filterWords({ payment: 'all', way: 'none', only: null })).toBe('Not chosen yet')
   })
 
   it('calls the online link by its own name where the event’s links share one', () => {
@@ -150,8 +171,8 @@ describe('what is chosen, said back in words', () => {
     expect(onlineLinkName(['Paypal', 'Stripe'])).toBe('Online link')
     expect(onlineLinkName([])).toBe('Online link')
     expect(onlineLinkName(['', null])).toBe('Online link')
-    expect(wayFilters('Paypal').map((w) => w.label)).toEqual(['Any', 'Bank transfer', 'Paypal', 'At reception', 'Not chosen'])
-    expect(wayFilters().map((w) => w.label)).toEqual(['Any', 'Bank transfer', 'Online link', 'At reception', 'Not chosen'])
+    expect(wayFilters('Paypal').map((w) => w.label)).toEqual(['Any payment method', 'Bank transfer', 'Paypal', 'At reception', 'Not chosen yet'])
+    expect(wayFilters().map((w) => w.label)).toEqual(['Any payment method', 'Bank transfer', 'Online link', 'At reception', 'Not chosen yet'])
     expect(filterWords({ payment: 'received', way: 'paypal', only: null }, 'Paypal')).toBe('Paid · Paypal')
     expect(ticketBreakdown(people, 'Paypal').groups.map((g) => g.title)).toContain('Paypal')
   })

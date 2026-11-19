@@ -28,6 +28,12 @@ export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  /**
+   * A few characters beside the option in the list — how many it holds,
+   * say — and not in the field once it is chosen: the field says what was
+   * picked, the list says what picking each would give.
+   */
+  hint?: string
 }
 
 export interface SelectOptionGroup {
@@ -370,9 +376,15 @@ export function Select({
         }`}
       >
         <span className="min-w-0 break-words">{option.label}</span>
-        {isSelected && (
-          <span aria-hidden="true" className="shrink-0 text-accent-blue-soft">
-            ✓
+        {(option.hint || isSelected) && (
+          <span className="flex shrink-0 items-center gap-2">
+            {option.hint && <span className="font-mono text-label-sm tabular text-on-surface-faint">{option.hint}</span>}
+            {/* A place kept for the tick in a list that has hints, so the numbers stay in one column whichever is chosen. */}
+            {(isSelected || option.hint) && (
+              <span aria-hidden="true" className={`w-3 text-accent-blue-soft ${isSelected ? '' : 'invisible'}`}>
+                ✓
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -391,6 +403,13 @@ export const reachPickerClasses =
 /** The compact trigger, for a picker sitting inside a row of controls. */
 export const selectPillClasses =
   'tap rounded-full bg-raised hairline px-3 py-1.5 text-body-sm text-on-surface transition-shadow duration-200 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] disabled:opacity-50'
+
+/**
+ * The compact trigger when what it holds is narrowing a list: the same
+ * pill, tinted, so a filter that is on is seen without reading it.
+ */
+export const selectPillOnClasses =
+  'tap rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] px-3 py-1.5 text-body-sm font-medium text-accent-blue-soft transition-shadow duration-200 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] disabled:opacity-50'
 
 function ChevronGlyph({ open }: { open: boolean }): ReactNode {
   return (
