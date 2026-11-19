@@ -13,12 +13,12 @@ import {
 } from '../lib/orderFilters'
 import type { OrderRow } from '../lib/registrations'
 
-/** A row of choices under its question. It scrolls sideways on a phone rather than squeeze its labels. */
+/** A row of choices under its question. On a phone it goes on to a second line: every choice stays in sight, and nothing has to be dragged into view. */
 function Question({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <Eyebrow>{title}</Eyebrow>
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">{children}</div>
+      {children}
     </div>
   )
 }
@@ -72,7 +72,7 @@ export function OrderFilterBar({
             value={filters.payment}
             onChange={(payment) => onChange({ ...filters, payment })}
             options={payments.map((p) => ({ value: p.key, label: counted(p.label, p.key === 'all' ? null : count({ ...filters, payment: p.key })) }))}
-            scrolls
+            wraps
           />
         </Question>
       )}
@@ -83,7 +83,7 @@ export function OrderFilterBar({
             value={filters.way}
             onChange={(way) => onChange({ ...filters, way })}
             options={ways.map((w) => ({ value: w.key, label: counted(w.label, w.key === 'any' ? null : count({ ...filters, way: w.key })) }))}
-            scrolls
+            wraps
           />
         </Question>
       )}
@@ -96,7 +96,7 @@ export function OrderFilterBar({
             value={filters.only}
             onChange={(only) => onChange({ ...filters, only: filters.only === only ? null : only })}
             options={onlys.map((o) => ({ value: o.key, label: counted(o.label, count({ ...filters, only: o.key })) }))}
-            scrolls
+            wraps
           />
         </Question>
       )}

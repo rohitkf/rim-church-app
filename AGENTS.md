@@ -653,6 +653,25 @@ are separate and neither is automatic — is [SETUP.md](./SETUP.md).
   to check still sends nothing that is not a name. The database tidies
   and refuses whatever arrives regardless (§3) — the form is so the
   reason is seen before the save, not the rule.
+- **A figure in a tile is a `FitFigure`** (Surface.tsx), in a tile given
+  `@container min-w-0`. `text-numeral` is one size and a figure is as
+  long as it is: £1255.00 ran out of a tile that held £180.00, on a
+  tablet where four tiles shared a row and on a 320px phone. `FitFigure`
+  works the size out from the tile's own width and the figure's length,
+  capped at a tile's figure; `chars` gives two sums side by side one
+  size. And four tiles go two by two until `lg`: `grid-cols-2
+  lg:grid-cols-4`, not `sm:grid-cols-4`.
+- **A row of choices too long for a phone wraps** (`SegmentedControl
+  wraps`), it does not scroll sideways. A scrolling row cut nothing and
+  hid half its choices until somebody thought to drag; a wrapping one
+  keeps every label whole and every choice in sight, and on a wide
+  screen is a short row and not a bar stretched across the page.
+- **Checking a layout is done at more than one width.** The sweep
+  (`.claude/skills/verify/sweep.mjs`) catches a page that scrolls
+  sideways at 360px; it does not catch a figure running out of its own
+  tile at 768px, which is how the money tiles shipped broken on a
+  tablet. Before the pull request for anything that changes a layout:
+  the page at 320, 390, 768 and 1280, looked at.
 - Server state is TanStack Query. Invalidate by key after a mutation.
 - Tests sit beside what they test and are named for the behaviour a person
   would notice. Reach for `getByRole`.

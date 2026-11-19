@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useRegistrationRights } from '../lib/registrationRights'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ActionButton, PageHeader, Pill, StackedBar, Statistic, Tile } from '../components/Surface'
+import { ActionButton, FitFigure, PageHeader, Pill, StackedBar, Statistic, Tile } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
 import { Lifespan } from '../components/Lifespan'
 import { pounds } from '../lib/money'
@@ -68,18 +68,20 @@ export function RegistrationsPage() {
       <QueryState isLoading={events.isLoading} error={events.error} isEmpty={rows.length === 0} emptyMessage="No events yet. Make one, publish it, and share its link.">
         {/* The word under the figure in all four. Left to wrap, "4 events"
             sat on one line and "£120.00 received" on two, at every width. */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Tile>
-            <Statistic className="flex-col" value={rows.length} unit={rows.length === 1 ? 'event' : 'events'} />
+        {/* Two by two until four fit in a row, and each figure sized to its own tile (FitFigure):
+            four across a tablet cut "£180.00" off at the tile's edge. */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Tile className="@container min-w-0">
+            <Statistic className="flex-col" value={<FitFigure>{rows.length}</FitFigure>} unit={rows.length === 1 ? 'event' : 'events'} />
           </Tile>
-          <Tile>
-            <Statistic className="flex-col" value={totals.orders} unit={`${totals.orders === 1 ? 'order' : 'orders'} · ${totals.tickets} tickets`} />
+          <Tile className="@container min-w-0">
+            <Statistic className="flex-col" value={<FitFigure>{totals.orders}</FitFigure>} unit={`${totals.orders === 1 ? 'order' : 'orders'} · ${totals.tickets} tickets`} />
           </Tile>
-          <Tile>
-            <Statistic className="flex-col" value={<Money>{pounds(totals.received)}</Money>} unit="received" />
+          <Tile className="@container min-w-0">
+            <Statistic className="flex-col" value={<FitFigure>{pounds(totals.received)}</FitFigure>} unit="received" />
           </Tile>
-          <Tile tone={totals.attention > 0 ? 'warning' : 'plain'}>
-            <Statistic className="flex-col" value={totals.attention} unit={totals.attention === 1 ? 'needs a look' : 'need a look'} />
+          <Tile tone={totals.attention > 0 ? 'warning' : 'plain'} className="@container min-w-0">
+            <Statistic className="flex-col" value={<FitFigure>{totals.attention}</FitFigure>} unit={totals.attention === 1 ? 'needs a look' : 'need a look'} />
           </Tile>
         </div>
 
@@ -101,10 +103,6 @@ export function RegistrationsPage() {
   )
 }
 
-/** A sum of money is wider than a count: a step smaller on a phone, so the tile holds it. */
-function Money({ children }: { children: ReactNode }) {
-  return <span className="text-headline-lg sm:text-numeral">{children}</span>
-}
 
 function EventCard({ event, past }: { event: EventSummary; past: boolean }) {
   const navigate = useNavigate()
