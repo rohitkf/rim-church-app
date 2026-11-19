@@ -264,6 +264,27 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
   },
+  // Comment on a session (0308): a Pastor's word about one session of the
+  // running order, out of the box nobody else's — not an Admin's either.
+  'svc.comment': {
+    admin: offer('none all', 'none'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
+    pastor: offer('none all', 'all'),
+  },
+  // Read those comments (0308): the Admins' out of the box. Whoever wrote
+  // one reads their own without it — that is not a rule about who.
+  'svc.comment_read': {
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
+  },
   'svc.repeat': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),

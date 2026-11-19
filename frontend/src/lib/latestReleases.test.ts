@@ -42,6 +42,14 @@ describe('the newest version’s notes', () => {
     expect(await fetchLatestReleases(answer([]))).toBe(RELEASES)
   })
 
+  it('keeps who a release is for, so the waiting build’s notes are not told to everybody', async () => {
+    const waiting = [{ key: 'comments', date: '2026-11-20', title: 'Comments', lead: '', points: [], page: '/service-planner', holds: ['svc.comment', 'svc.comment_read'] }]
+    const read = await fetchLatestReleases(answer(waiting))
+    expect(read[0].holds).toEqual(['svc.comment', 'svc.comment_read'])
+    expect(unseenReleases({}, () => true, read, () => false)).toEqual([])
+    expect(unseenReleases({}, () => true, read, (cap) => cap === 'svc.comment')).toHaveLength(1)
+  })
+
   it('is a file the service worker leaves to the network', () => {
     // It keeps hashed assets, fonts and images; a .json at the root is none of them.
     expect(worker).toMatch(/\\\.\(png\|svg\|webmanifest\|ico\)\$/)
@@ -51,9 +59,10 @@ describe('the newest version’s notes', () => {
 
 describe('what somebody has not been told', () => {
   it('is every release not on their account that they may open, newest first', () => {
-    const all = unseenReleases({}, () => true)
+    // Somebody who opens every page and holds every right: the Owner.
+    const all = unseenReleases({}, () => true, RELEASES, () => true)
     expect(all).toEqual(RELEASES)
-    const some = unseenReleases({ [RELEASES[0].key]: 'x' }, (page) => page !== '/countdown')
+    const some = unseenReleases({ [RELEASES[0].key]: 'x' }, (page) => page !== '/countdown', RELEASES, () => true)
     expect(some.some((r) => r.key === RELEASES[0].key)).toBe(false)
     expect(some.some((r) => r.page === '/countdown')).toBe(false)
     expect(some.length).toBeGreaterThan(0)

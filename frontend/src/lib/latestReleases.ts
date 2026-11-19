@@ -26,6 +26,10 @@ const releaseSchema = z.object({
   points: z.array(z.string()),
   link: z.object({ to: z.string(), label: z.string() }).optional(),
   page: z.string().optional(),
+  // Kept, or the notes of the build that is waiting would lose who they
+  // are for and be told to everybody who opens the page. A right this
+  // build has never heard of is one nobody here holds.
+  holds: z.array(z.string()).optional(),
 })
 
 export const RELEASES_URL = '/releases.json'
