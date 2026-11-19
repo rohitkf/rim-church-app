@@ -1,34 +1,37 @@
 /**
- * Finding registrations on an event's page: three plain questions.
+ * Finding registrations on an event's page: two dropdowns.
  *
  * There was one row of ten filters — All, To pay, Receipts, To verify,
- * Paid, Checked in, Cancelled, Refunds, Undelivered, Same email — and it
- * could not say "paid at reception" or "bank transfers with a receipt to
- * check": how somebody pays was nowhere in it. Its words overlapped too
- * ("To pay" held the receipts as well, so the pill that said 16 awaiting
- * payment opened a list of 29). The Owner asked for filters that are clear
- * and tell bank transfer from the online link from reception, paid from
- * not (November 2026).
+ * Paid, Checked in, Cancelled, Refunds, Undelivered, Same email — which
+ * could not say "paid at reception": how somebody pays was nowhere in it,
+ * and its words overlapped ("To pay" held the receipts as well). It
+ * became three rows of chips, which said everything and was a wall of
+ * choices: fifteen buttons, an "All" and an "Any", numbers on each. The
+ * Owner asked for something cleaner that is not confusing (November
+ * 2026).
  *
- * So the one row is three, each a question with one answer:
+ * So there are two questions, each a dropdown that says its answer:
  *
- *   Payment        where the money stands — not paid yet, a receipt to
- *                  check, paid, free, waived. Each live registration is
- *                  in exactly one (`paymentOf`).
- *   Way of paying  bank transfer, the online link, at reception, or not
- *                  chosen (`wayOf`). Only what has something to pay has
- *                  one.
- *   Show only      the things that cut across those: to verify, checked
- *                  in, cancelled, refunds, an email that did not arrive,
- *                  the same email twice. One at a time, or none.
+ *   Status          where a registration stands — "All registrations",
+ *                   or one thing: its payment (not paid yet, a receipt to
+ *                   check, paid, free, waived), something to do about it
+ *                   (a payment to verify, a refund, an email that did not
+ *                   arrive, the same email twice), or whether they came
+ *                   (checked in, cancelled). Headed in the list, so the
+ *                   three kinds are told apart.
+ *   Payment method  bank transfer, the online link, at reception, or not
+ *                   chosen yet. Only what has something to pay has one.
  *
  * Chosen together they narrow: Paid and At reception is who paid at the
- * door; Not paid yet and At reception is who said they would. The first
- * two ask `lib/registrationBreakdown`, so a number on a filter and the
- * same line of "How the tickets are paid for" are the same people.
+ * door. Each choice says, in its list, how many it would show with the
+ * other dropdown as it is; one that would show nobody is greyed, and one
+ * nobody on the event is in is not listed at all.
  *
- * The first two are about live registrations: choosing either leaves the
- * cancelled out, which have "Cancelled" under Show only.
+ * Underneath, a filter is still three parts (`payment`, `way`, `only`),
+ * because the pills under the page's tiles set them and `orderFits` reads
+ * them; the Status dropdown sets `payment` or `only`, never both. The
+ * first two ask `lib/registrationBreakdown`, so a number here and the
+ * same line of "How the tickets are paid for" are the same people.
  */
 import { emailWantsDoing } from './emailDelivery'
 import { WAYS, paymentOf, wayOf, wayWords, type PaymentPlace, type Way } from './registrationBreakdown'
@@ -48,7 +51,7 @@ export const NO_FILTERS: OrderFilters = { payment: 'all', way: 'any', only: null
 
 /** In the order they are read: what is still owed first. */
 export const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All registrations' },
   { key: 'awaiting', label: 'Not paid yet' },
   { key: 'reported', label: 'Receipt to check' },
   { key: 'received', label: 'Paid' },
@@ -56,18 +59,40 @@ export const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: 'waived', label: 'Waived' },
 ]
 
-export const ONLY_FILTERS: { key: OnlyFilter; label: string }[] = [
-  { key: 'to_verify', label: 'To verify' },
-  { key: 'checked_in', label: 'Checked in' },
-  { key: 'cancelled', label: 'Cancelled' },
-  { key: 'refunds', label: 'Refunds' },
-  { key: 'email', label: 'Email not delivered' },
-  { key: 'duplicates', label: 'Same email' },
+/** `kind` is the heading it sits under in the Status list: something to do about it, or whether they came. */
+export const ONLY_FILTERS: { key: OnlyFilter; label: string; kind: 'todo' | 'came' }[] = [
+  { key: 'to_verify', label: 'Payment to verify', kind: 'todo' },
+  { key: 'refunds', label: 'Refunds', kind: 'todo' },
+  { key: 'email', label: 'Email not delivered', kind: 'todo' },
+  { key: 'duplicates', label: 'Same email twice', kind: 'todo' },
+  { key: 'checked_in', label: 'Checked in', kind: 'came' },
+  { key: 'cancelled', label: 'Cancelled', kind: 'came' },
 ]
 
-/** The ways of paying to choose from, the online link called by its own name. */
+/**
+ * What the Status dropdown holds: everybody, one place the payment can
+ * stand, or one other thing. One value, so it is one dropdown.
+ */
+export type StatusChoice = 'all' | `payment:${PaymentPlace}` | `only:${OnlyFilter}`
+
+export function statusOf(f: OrderFilters): StatusChoice {
+  // A pill under the tiles can set either; `only` is the narrower, and is what is said.
+  return f.only ? `only:${f.only}` : f.payment !== 'all' ? `payment:${f.payment}` : 'all'
+}
+
+/** The filters with the Status dropdown set to this, the payment method left as it was. */
+export function withStatus(f: OrderFilters, choice: StatusChoice): OrderFilters {
+  if (choice.startsWith('payment:')) return { ...f, payment: choice.slice(8) as PaymentPlace, only: null }
+  if (choice.startsWith('only:')) return { ...f, payment: 'all', only: choice.slice(5) as OnlyFilter }
+  return { ...f, payment: 'all', only: null }
+}
+
+/** The Status list's headings, in the order they are read. */
+export const STATUS_HEADINGS = { payment: 'Payment', todo: 'To do', came: 'Attendance' } as const
+
+/** The payment methods to choose from, the online link called by its own name. */
 export function wayFilters(onlineName?: string): { key: WayFilter; label: string }[] {
-  return [{ key: 'any', label: 'Any' }, ...WAYS.map((w) => ({ key: w, label: wayWords(w, onlineName) }))]
+  return [{ key: 'any', label: 'Any payment method' }, ...WAYS.map((w) => ({ key: w, label: w === 'none' ? 'Not chosen yet' : wayWords(w, onlineName) }))]
 }
 
 export const anyFilter = (f: OrderFilters): boolean => f.payment !== 'all' || f.way !== 'any' || f.only !== null
@@ -113,14 +138,13 @@ export function orderMatches(o: OrderRow, filters: OrderFilters, query: string, 
 }
 
 /**
- * What is chosen, in words, for the line above the list: "Paid · At
- * reception", "Receipt to check · Bank transfer · To verify". Empty when
- * nothing is.
+ * What is chosen, in words, for whoever cannot see the dropdowns: "Paid ·
+ * At reception". Empty when nothing is.
  */
 export function filterWords(f: OrderFilters, onlineName?: string): string {
   return [
     f.payment === 'all' ? null : PAYMENT_FILTERS.find((p) => p.key === f.payment)!.label,
-    f.way === 'any' ? null : wayWords(f.way, onlineName),
+    f.way === 'any' ? null : wayFilters(onlineName).find((w) => w.key === f.way)!.label,
     f.only ? ONLY_FILTERS.find((o) => o.key === f.only)!.label : null,
   ]
     .filter(Boolean)

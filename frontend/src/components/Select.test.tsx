@@ -65,6 +65,26 @@ describe('Select', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('Audio')
   })
 
+  it('says a hint beside an option in the list, and not in the field once it is chosen', async () => {
+    const user = show({
+      options: [
+        { value: '', label: 'All registrations' },
+        { value: 'paid', label: 'Paid', hint: '3' },
+        { value: 'free', label: 'Free', hint: '0', disabled: true },
+      ],
+    })
+    await user.click(screen.getByRole('combobox'))
+    const paid = screen.getByRole('option', { name: /Paid/ })
+    expect(paid).toHaveTextContent('3')
+    // One that would give nothing is there, greyed, and cannot be picked.
+    expect(screen.getByRole('option', { name: /Free/ })).toHaveAttribute('aria-disabled', 'true')
+    await user.click(screen.getByRole('option', { name: /Free/ }))
+    expect(screen.getByRole('status')).toHaveTextContent('nothing')
+    await user.click(paid)
+    // The field says what was picked; the number belonged to the list.
+    expect(screen.getByRole('combobox')).toHaveTextContent(/^Paid$/)
+  })
+
   it('files options under their headings, as an optgroup did', async () => {
     const user = show({
       options: [

@@ -10,7 +10,7 @@ import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
 import { RegistrationBreakdown } from '../components/RegistrationBreakdown'
 import { OrderFilterBar } from '../components/OrderFilterBar'
-import { NO_FILTERS, anyFilter, filterWords, orderMatches, type OrderFilters } from '../lib/orderFilters'
+import { NO_FILTERS, orderMatches, type OrderFilters } from '../lib/orderFilters'
 import { onlineLinkName, wayOf, wayWords } from '../lib/registrationBreakdown'
 import { GIVING_KEY, fetchGiving } from '../lib/giving'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
@@ -680,7 +680,8 @@ export function RegistrationEventPage() {
           </div>
         </div>
         {rows.length > 0 && (
-          <div className="mt-3 flex flex-col gap-3">
+          // Find by typing, narrow by two dropdowns (lib/orderFilters), and beside them how many are shown and the way back to everybody.
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <input
               type="search"
               value={query}
@@ -688,29 +689,21 @@ export function RegistrationEventPage() {
               aria-label="Search registrations"
               placeholder="Name, email, phone or code"
               autoCapitalize="off"
-              className={`${inputClasses} max-w-sm`}
+              className={`${inputClasses} sm:w-72`}
             />
-            {/* Three questions, each with one answer: where the money stands, how it is paid, and one thing more (lib/orderFilters). */}
-            <OrderFilterBar orders={rows} duplicates={dupes} filters={filters} onChange={setFilters} onlineName={onlineName} />
-            {/* What is chosen, said back in words, with the one way out of all of it. */}
-            {(anyFilter(filters) || query.trim() !== '') && (
-              <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
-                <span>
-                  Showing {shown.length} of {rows.length}
-                  {anyFilter(filters) && `: ${filterWords(filters, onlineName)}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilters(NO_FILTERS)
-                    setQuery('')
-                  }}
-                  className="tap font-medium text-accent-blue-soft hover:underline"
-                >
-                  Show everybody
-                </button>
-              </p>
-            )}
+            <OrderFilterBar
+              orders={rows}
+              duplicates={dupes}
+              filters={filters}
+              onChange={setFilters}
+              onlineName={onlineName}
+              shown={shown.length}
+              searching={query.trim() !== ''}
+              onClear={() => {
+                setFilters(NO_FILTERS)
+                setQuery('')
+              }}
+            />
           </div>
         )}
         <QueryState isLoading={orders.isLoading} error={orders.error} isEmpty={rows.length === 0} emptyMessage="Nobody yet.">
