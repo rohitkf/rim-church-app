@@ -17,11 +17,13 @@ const auth = vi.hoisted(() => ({
   profile: { id: 'me', onboarded_at: '2026-10-01T10:00:00Z' } as { id: string; onboarded_at: string | null } | null,
   viewAs: null as unknown,
 }))
-const db = vi.hoisted(() => ({ seen: {} as Record<string, string>, marked: [] as string[], canOpen: true }))
+const db = vi.hoisted(() => ({ seen: {} as Record<string, string>, marked: [] as string[], canOpen: true, holds: true }))
 const pwa = vi.hoisted(() => ({ updateReady: false }))
 vi.mock('../lib/usePwa', () => ({ usePwa: () => pwa }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+// Somebody who holds every right, so a release about one (`holds`) is theirs to be told.
+vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => db.holds }) }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => db.canOpen, standing: 'church' }) }))
 vi.mock('../lib/onboarding', async () => {
   const actual = await vi.importActual<typeof import('../lib/onboarding')>('../lib/onboarding')
@@ -72,6 +74,7 @@ beforeEach(() => {
   db.seen = seenAllBut('not-ended')
   db.marked = []
   db.canOpen = true
+  db.holds = true
 })
 
 describe('what is new', () => {
@@ -157,6 +160,24 @@ describe('what is new', () => {
     const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
     expect(within(sheet).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Clock in when you arrive'])
     await waitFor(() => expect(db.marked).toEqual(['clock-in']))
+  })
+
+  it('says nothing about a right this person does not hold, on a page they can open', async () => {
+    // Private comments on a session are a Pastor's to write and the Admins' to read (0308).
+    db.seen = seenAllBut('session-comments')
+    db.holds = false
+    show()
+    await quiet()
+  })
+
+  it('tells somebody who holds the right', async () => {
+    db.seen = seenAllBut('session-comments')
+    const user = userEvent.setup()
+    show()
+    await notice()
+    await user.click(screen.getByRole('button', { name: 'Show details' }))
+    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
+    expect(within(sheet).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Private comments on a session'])
   })
 
   it('is not there at all when the only news is a page they cannot open', async () => {

@@ -94,15 +94,27 @@ describe('the permission catalog', () => {
     for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     }
-    // Out of the box: reading both registrations pages, and verifying payments.
+    // Out of the box: reading both registrations pages, verifying payments, and commenting on a session (0308).
     const yes = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'pastor') && ruleFor(cap, 'pastor').byDefault !== 'none').sort()
-    expect(yes).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view'])
+    expect(yes).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view', 'svc.comment'])
     // Every other cell is a choice, and starts at No.
     for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'pastor') && !yes.includes(c))) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
     // Verifying is nobody's out of the box but a Pastor's: "Run registrations" is not it.
     for (const role of GRANT_ROLES) expect(CATALOG['reg.verify'][role].byDefault, role).toBe('none')
+  })
+
+  it('lets a Pastor comment on a session and the Admins read it, and nobody else either (0308)', () => {
+    for (const role of GRANT_ROLES) expect(CATALOG['svc.comment'][role].byDefault, role).toBe('none')
+    expect(ruleFor('svc.comment', 'pastor').byDefault).toBe('all')
+    for (const role of GRANT_ROLES) expect(CATALOG['svc.comment_read'][role].byDefault, role).toBe(role === 'admin' ? 'all' : 'none')
+    // One Pastor does not read another's unless the church says so.
+    expect(ruleFor('svc.comment_read', 'pastor')).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
+    // Each is a choice for everybody: nothing about it is fixed.
+    for (const cap of ['svc.comment', 'svc.comment_read'] as const) {
+      for (const role of GRANT_ROLES) expect(CATALOG[cap][role].reaches, `${cap} ${role}`).toEqual(['none', 'all'])
+    }
   })
 
   it('asks may() only about capabilities it catalogues', () => {

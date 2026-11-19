@@ -56,6 +56,17 @@ import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
+import { SessionComments } from '../components/SessionComments'
+import {
+  SESSION_COMMENTS_KEY,
+  addSessionComment,
+  bySession,
+  deleteSessionComment,
+  fetchSessionComments,
+  seenBy,
+  type SessionComment,
+} from '../lib/sessionComments'
+import { useAuth } from '../auth/AuthContext'
 import { fetchServiceSeries, repeatSummary, stopServiceSeries } from '../lib/serviceRepeat'
 import {
   serviceSchema,
@@ -122,6 +133,13 @@ export function ServicePlannerPage() {
   const mayRepeat = can('svc.repeat') && !previewing
   const mayTemplates = can('svc.templates') && !previewing
   const canManage = mayPlan || mayService
+  // A comment on a session (0308) is its own two rights and has nothing to
+  // do with planning: a Pastor's to write and the Admins' to read, out of
+  // the box. Preview shows the page as the team gets it, and the team gets
+  // no comments, so both go with the rest.
+  const mayComment = can('svc.comment') && !previewing
+  const mayReadComments = can('svc.comment_read') && !previewing
+  const myId = useAuth().session?.user.id ?? null
   // Buttons the church gave this person on top of that (Settings › Page by
   // page › Service Planner, 0184). Preview drops them with the rest.
   const heldControls = usePlannerControls()
@@ -143,6 +161,20 @@ export function ServicePlannerPage() {
     enabled: mayPlan || given.has('substitute'),
   })
 
+  // Asked for only by somebody who writes comments or reads them: nobody
+  // else has any to be given, and most people who open a running order
+  // are neither.
+  const commentsQuery = useQuery({
+    queryKey: [...SESSION_COMMENTS_KEY, serviceId],
+    queryFn: () => fetchSessionComments(serviceId!),
+    enabled: !!serviceId && (mayComment || mayReadComments),
+  })
+  // The database already gave back only what this person may read. The
+  // narrowing here is for View as, where it gave back what the Admin
+  // looking may read and the screen has to show what the previewed role
+  // would: their own, unless that role reads them all.
+  const commentsOf = bySession(seenBy(commentsQuery.data ?? [], { mayRead: mayReadComments, myId }))
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['service-sessions', serviceId] })
 
   const [undoStack, setUndoStack] = useState<{ label: string; writes: RunWrite[] }[]>([])
@@ -154,6 +186,16 @@ export function ServicePlannerPage() {
   // Sessions whose substitute row was opened from the menu but has nobody
   // on it yet. One with a substitute always shows its row.
   const [substituteOpen, setSubstituteOpen] = useState<Set<string>>(() => new Set())
+  // Sessions whose box for a new comment is open, from the menu or from
+  // "Add a comment" under the ones already there.
+  const [commentOpen, setCommentOpen] = useState<Set<string>>(() => new Set())
+  const writeComment = (sessionId: string, open: boolean) =>
+    setCommentOpen((was) => {
+      const next = new Set(was)
+      if (open) next.add(sessionId)
+      else next.delete(sessionId)
+      return next
+    })
 
   const updateField = useMutation({
     mutationFn: async ({
@@ -448,6 +490,28 @@ export function ServicePlannerPage() {
     },
     onError: (err: unknown) =>
       setServiceError(errorText(err, 'Could not delete the session.')),
+  })
+
+  const refreshComments = () => queryClient.invalidateQueries({ queryKey: [...SESSION_COMMENTS_KEY, serviceId] })
+  // A refusal is said in the box the comment was typed in, not at the top
+  // of the page, which may be a screen away from the session it is about.
+  const addComment = useMutation({
+    mutationFn: async ({ sessionId, body }: { sessionId: string; body: string }) => {
+      try {
+        await addSessionComment(sessionId, body)
+      } catch (err) {
+        throw new Error(errorText(err, 'Could not save the comment.'))
+      }
+    },
+    onSuccess: () => refreshComments(),
+  })
+  const deleteComment = useMutation({
+    mutationFn: (comment: SessionComment) => deleteSessionComment(comment.id),
+    onSuccess: () => {
+      setServiceError(null)
+      return refreshComments()
+    },
+    onError: (err: unknown) => setServiceError(errorText(err, 'Could not delete the comment.')),
   })
 
   /*
@@ -1418,6 +1482,18 @@ export function ServicePlannerPage() {
                       // the church gave them (0184), until the lock.
                       .filter(([control]) => mayControl(control))
                       .map(([, action]) => action)
+                    // Not a planner button: its own right (svc.comment), on
+                    // every session — a skipped one and a finished service
+                    // included, since "that ran long" is said afterwards.
+                    // Above Remove, which stays the last thing in the menu.
+                    if (mayComment) {
+                      const removes = sessionActions.findIndex((a) => a.tone === 'danger')
+                      sessionActions.splice(removes < 0 ? sessionActions.length : removes, 0, {
+                        label: 'Add a comment',
+                        hint: 'Private: not shown to the team',
+                        onSelect: () => writeComment(session.id, true),
+                      })
+                    }
                     // The last session has no next one to mark "Not
                     // started", so its hold is the service's: Not ended.
                     if (!skipped && session.id === lastLiveId && endOpen && !endedAt) {
@@ -1699,6 +1775,30 @@ export function ServicePlannerPage() {
                                 </li>
                               ))}
                             </ul>
+                          )}
+
+                          {/* What was said about it (0308), to whoever may
+                              read that: nothing at all for everybody else,
+                              and nothing on the Preview or the sheet. */}
+                          {(mayComment || mayReadComments) && (
+                            <SessionComments
+                              sessionName={session.session_name}
+                              comments={commentsOf.get(session.id) ?? []}
+                              myId={myId}
+                              mayWrite={mayComment}
+                              writing={commentOpen.has(session.id)}
+                              onWriting={(open) => writeComment(session.id, open)}
+                              onAdd={(body) => addComment.mutateAsync({ sessionId: session.id, body })}
+                              onDelete={(comment) =>
+                                ask({
+                                  title: 'Delete this comment?',
+                                  body: `“${comment.body.length > 120 ? `${comment.body.slice(0, 120)}…` : comment.body}” goes for good, for you and for whoever could read it.`,
+                                  confirmLabel: 'Delete',
+                                  onConfirm: () => deleteComment.mutate(comment),
+                                })
+                              }
+                              busy={addComment.isPending || deleteComment.isPending}
+                            />
                           )}
 
                           {/* The rail is too narrow for a time field on a

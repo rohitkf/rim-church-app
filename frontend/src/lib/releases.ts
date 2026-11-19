@@ -25,9 +25,41 @@ export interface Release {
   link?: { to: string; label: string }
   /** Only for people who may open this page; others are not told about a door they have no key to. */
   page?: string
+  /**
+   * Only for people who hold one of these rights (as well as opening
+   * `page`, if it names one): for something on a page everybody opens that
+   * only a few may do — a Pastor's comments on a session are on the
+   * Service Planner, and the whole church has no use for the news.
+   *
+   * Plain strings, not `CapabilityKey`: this file is also read by the
+   * build (build/releasesFile.ts), which imports nothing of the app.
+   * `releases.test.ts` checks each is a right there is.
+   */
+  holds?: string[]
+}
+
+/** Whether this release is this person's to be told about. */
+function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string) => boolean): boolean {
+  if (r.page && !canOpen(r.page)) return false
+  return !r.holds || r.holds.some(can)
 }
 
 export const RELEASES: Release[] = [
+  {
+    key: 'session-comments',
+    date: '2026-11-20',
+    title: 'Private comments on a session',
+    lead: 'A Pastor can now comment on any session of a service’s running order, and only the Admins and the Owner read it.',
+    points: [
+      'On the Service Planner, a Pastor opens a session’s menu and chooses Add a comment.',
+      'The comment shows on that session for the Admins and the Owner, with who said it and when. The team does not see it, and it is on neither the Preview nor the exported sheet.',
+      'Whoever wrote a comment sees their own and can delete it. A comment cannot be edited.',
+      'Who may comment, and who may read the comments, are two rows in Access & Privileges under Services: “Comment on a session” and “Read the comments on sessions”. Each role is a choice, and a team or one person can be given either by name.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.comment', 'svc.comment_read'],
+  },
   {
     key: 'registrations-table',
     date: '2026-11-19',
@@ -304,8 +336,9 @@ export function nextUnseenRelease(
   seen: Record<string, string>,
   canOpen: (page: string) => boolean,
   releases: Release[] = RELEASES,
+  can: (cap: string) => boolean = () => false,
 ): Release | null {
-  return releases.find((r) => !(r.key in seen) && (!r.page || canOpen(r.page))) ?? null
+  return releases.find((r) => !(r.key in seen) && isFor(r, canOpen, can)) ?? null
 }
 
 /** Every release this person has not been told about and may open, newest first. */
@@ -313,8 +346,10 @@ export function unseenReleases(
   seen: Record<string, string>,
   canOpen: (page: string) => boolean,
   releases: Release[] = RELEASES,
+  /** Asked only about a release that names rights. Left out, nobody holds any: such a release is told to nobody rather than to everybody. */
+  can: (cap: string) => boolean = () => false,
 ): Release[] {
-  return releases.filter((r) => !(r.key in seen) && (!r.page || canOpen(r.page)))
+  return releases.filter((r) => !(r.key in seen) && isFor(r, canOpen, can))
 }
 
 /** How many releases the details list names; anything older is counted, not listed. */

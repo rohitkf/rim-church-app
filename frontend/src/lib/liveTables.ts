@@ -67,6 +67,13 @@ export const LIVE_TABLES: LiveTable[] = [
     keys: ['service-sessions', 'rota-service-sessions', 'finished-service-sessions'],
   },
   {
+    // What a Pastor said about a session (0308): whoever may read it sees
+    // it arrive without refreshing. The message says the table moved and
+    // nothing of what was said; the refetch goes through the read policy.
+    table: 'service_session_comments',
+    keys: ['session-comments'],
+  },
+  {
     // The one that moves while people are watching: start it, skip it,
     // grant it ten minutes, and every following session shifts.
     table: 'service_sessions',

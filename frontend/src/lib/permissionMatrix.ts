@@ -262,6 +262,22 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Until the service has finished; afterwards it is a record. Its menu’s buttons — Session started, Add time, Skip and the rest — can also be given one by one to a team or a person, in Page by Page › Service Planner › Planner buttons.',
       },
       {
+        action: 'Comment on a session',
+        key: 'svc.comment',
+        at: ['/service-planner'],
+        short: 'Comment on sessions',
+        can: granted('svc.comment'),
+        note: 'A Pastor’s out of the box. A comment is read by whoever wrote it and by whoever has the row below — never by the team. It cannot be edited, only deleted by whoever wrote it.',
+      },
+      {
+        action: 'Read the comments on sessions',
+        key: 'svc.comment_read',
+        at: ['/service-planner'],
+        short: 'Read session comments',
+        can: granted('svc.comment_read'),
+        note: 'The Admins’ out of the box, and the Owner’s always. Everybody reads their own comments without it.',
+      },
+      {
         action: 'Add a guest to a service',
         key: 'svc.guests',
         at: ['/service-planner'],
