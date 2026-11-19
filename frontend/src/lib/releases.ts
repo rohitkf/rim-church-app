@@ -29,6 +29,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'tickets-by-payment',
+    date: '2026-11-19',
+    title: 'Tickets by how they are paid for',
+    lead: 'An event’s page now splits its tickets by scenario, not only into received and still to come.',
+    points: [
+      'Under the ticket types: How the tickets are paid for.',
+      'Free with each promo code or invite link, then each way of paying: bank transfer, the online link, at reception, and not chosen yet.',
+      'For each: what is paid and verified, paid and not verified, has a receipt to check, or is not paid yet — with orders, tickets and the money.',
+      'Every live registration is counted once, so it adds up to the numbers at the top.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'names-written-as-names',
     date: '2026-11-18',
     title: 'Names are written like names',

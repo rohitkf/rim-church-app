@@ -1720,7 +1720,8 @@ export function orderMatches(o: OrderRow, filter: OrderFilter, query: string, du
   return hay.some((h) => h.toLowerCase().includes(q))
 }
 
-const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { paypal: 'Online link', bank: 'Bank transfer', reception: 'At reception' }
+/** A way of paying, as the office reads it. `paypal` is whatever the event's online link is. */
+export const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { paypal: 'Online link', bank: 'Bank transfer', reception: 'At reception' }
 
 /**
  * The event's orders as sheets for the accounts: every order, every

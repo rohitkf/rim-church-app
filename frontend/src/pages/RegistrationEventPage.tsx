@@ -8,6 +8,7 @@ import { QrCode } from '../components/QrCode'
 import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
+import { RegistrationBreakdown } from '../components/RegistrationBreakdown'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
 import { applyPromoToOrder, canTakePromo, carriesPromo, promoHeldBy, removePromoFromOrder, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
 import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
@@ -632,6 +633,9 @@ export function RegistrationEventPage() {
           )
         })}
       </ul>
+
+      {/* The same tickets by how each is paid for: by code, by bank, by the online link, at reception, not yet chosen. */}
+      <RegistrationBreakdown orders={rows} />
 
       {/* What people have written to the organisers (0287). Nothing is drawn while there are none. */}
       {rights.office && <RegistrationMessages eventId={id} eventTitle={event.title} codeOf={(orderId) => rows.find((o) => o.id === orderId)?.code ?? null} />}
