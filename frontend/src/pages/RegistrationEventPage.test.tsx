@@ -70,6 +70,16 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 vi.mock('../lib/qrCamera', () => ({ useQrCamera: () => 'unavailable' }))
+// The church's own giving details: read only for what its online link is called.
+vi.mock('../lib/giving', async (original) => ({
+  ...(await original<typeof import('../lib/giving')>()),
+  fetchGiving: () =>
+    Promise.resolve({
+      page: { intro: null, qr_image_path: null, qr_image_caption: null },
+      links: [{ id: 'l1', label: 'Paypal', url: 'https://paypal.me/church', note: null, show_qr: false, sort_order: 0 }],
+      accounts: [],
+    }),
+}))
 vi.mock('../lib/promoLater', async (original) => ({
   ...(await original<typeof import('../lib/promoLater')>()),
   applyPromoToOrder: (id: string, code: string) => {
@@ -301,21 +311,44 @@ describe('an event’s page', () => {
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'cdefghjkmnpq')
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
-    expect(screen.getByText('1 of 5')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 5')
     await user.clear(screen.getByRole('searchbox', { name: 'Search registrations' }))
 
-    const show_ = screen.getByRole('radiogroup', { name: 'Show' })
-    // Each segment says how many it holds.
-    await user.click(within(show_).getByRole('radio', { name: 'To pay 2' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu', 'Dan Reported'])
-    await user.click(within(show_).getByRole('radio', { name: 'Receipts 1' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
-    await user.click(within(show_).getByRole('radio', { name: 'Paid 1' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Ben Joseph'])
-    await user.click(within(show_).getByRole('radio', { name: 'Checked in 1' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Grace Mensah'])
-    await user.click(within(show_).getByRole('radio', { name: 'Cancelled 1' }))
-    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Asha Mathew'])
+    const names = () => screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))
+    // Three questions, each choice saying how many it holds.
+    const payment = within(screen.getByRole('radiogroup', { name: 'Payment' }))
+    expect(payment.getAllByRole('radio').map((r) => r.textContent)).toEqual(['All', 'Not paid yet 1', 'Receipt to check 1', 'Paid 1', 'Free 1'])
+    await user.click(payment.getByRole('radio', { name: 'Not paid yet 1' }))
+    expect(names()).toEqual(['Ama Owusu'])
+    await user.click(payment.getByRole('radio', { name: 'Receipt to check 1' }))
+    expect(names()).toEqual(['Dan Reported'])
+    await user.click(payment.getByRole('radio', { name: 'Paid 1' }))
+    expect(names()).toEqual(['Ben Joseph'])
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 5: Paid')
+    await user.click(payment.getByRole('radio', { name: 'Free 1' }))
+    expect(names()).toEqual(['Grace Mensah'])
+    await user.click(payment.getByRole('radio', { name: 'All' }))
+
+    // How it is paid: the online link by the name the church gave it.
+    const way = within(await screen.findByRole('radiogroup', { name: 'Way of paying' }))
+    expect(way.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Any', 'Bank transfer 1', 'Paypal 1', 'Not chosen 1'])
+    await user.click(way.getByRole('radio', { name: 'Bank transfer 1' }))
+    expect(names()).toEqual(['Ben Joseph'])
+    await user.click(way.getByRole('radio', { name: 'Paypal 1' }))
+    expect(names()).toEqual(['Dan Reported'])
+    // Chosen together they narrow, and what is chosen is said back.
+    await user.click(payment.getByRole('radio', { name: /^Paid/ }))
+    expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 0 of 5: Paid · Paypal')
+    await user.click(screen.getByRole('button', { name: 'Show everybody' }))
+    expect(names()).toHaveLength(5)
+    expect(screen.queryByRole('status')).toBeNull()
+
+    const only = within(screen.getByRole('group', { name: 'Show only' }))
+    await user.click(only.getByRole('button', { name: 'Checked in 1' }))
+    expect(names()).toEqual(['Grace Mensah'])
+    await user.click(only.getByRole('button', { name: 'Cancelled 1' }))
+    expect(names()).toEqual(['Asha Mathew'])
     await user.type(screen.getByRole('searchbox', { name: 'Search registrations' }), 'nobody')
     expect(screen.getByText('Nobody matches.')).toBeInTheDocument()
   })
@@ -467,7 +500,26 @@ describe('an event’s page', () => {
     await user.click(within(viewer).getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
-    expect(within(ben).getByText(/^Received .* by Rohit F · bank transfer$/)).toBeInTheDocument()
+    // How it was paid is its own tag beside "Paid", not a word at the end of this line.
+    expect(within(ben).getByText(/^Received .* by Rohit F$/)).toBeInTheDocument()
+    expect(within(ben).getByText('Bank transfer')).toBeInTheDocument()
+  })
+
+  it('says on each registration how it is paid, and keeps its ticket and its code on one line at the foot', async () => {
+    show()
+    const ben = await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    expect(within(ben).getByText('Paid')).toBeInTheDocument()
+    expect(within(ben).getByText('Bank transfer')).toBeInTheDocument()
+    const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
+    expect(await within(dan).findByText('Paypal')).toBeInTheDocument()
+    // Nobody has said how: nothing is claimed. Free, or cancelled: no way of paying at all.
+    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByText(/Bank transfer|Paypal|At reception/)).toBeNull()
+    expect(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).queryByText(/Bank transfer|Paypal|At reception/)).toBeNull()
+    // The ticket is a button of its own, named for whose it is, opening beside the app.
+    const ticket = within(ben).getByRole('link', { name: 'Open Ben Joseph’s ticket' })
+    expect(ticket).toHaveAttribute('href', expect.stringContaining('/ticket/BCDEFGHJKMNP'))
+    expect(ticket).toHaveAttribute('target', '_blank')
+    expect(ticket.parentElement).toHaveTextContent('BCDEFGHJKMNP')
   })
 
   it('says up front what wants doing, each a tap to those orders, and gives a row its next step', async () => {
@@ -479,7 +531,7 @@ describe('an event’s page', () => {
     const todo = screen.getByRole('group', { name: 'What wants doing' })
     expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1awaiting payment'])
     await user.click(within(todo).getByRole('button', { name: /receipt to check/ }))
-    expect(screen.getByRole('radio', { name: 'Receipts 1' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'Receipt to check 1' })).toBeChecked()
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
     // The receipt's row carries the decision, no menu needed.
     const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
@@ -838,7 +890,7 @@ describe('what became of each registration’s email (0283)', () => {
     const doing = within(screen.getByRole('group', { name: 'What wants doing' }))
     await user.click(doing.getByRole('button', { name: /1\s*email not delivered/ }))
     expect(screen.getAllByRole('listitem').filter((li) => li.getAttribute('aria-label')).map((li) => li.getAttribute('aria-label'))).toEqual(['Jerry Typo'])
-    expect(screen.getByText('1 of 6')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Showing 1 of 6: Email not delivered')
   })
 
   it('shows the status to everybody on the page, and the correcting only to whoever may', async () => {
@@ -1340,7 +1392,7 @@ describe('registrations made without the code, twice, or waived', () => {
     const wants = screen.getByRole('group', { name: 'What wants doing' })
     await user.click(within(wants).getByRole('button', { name: /2\s*registrations share an email/ }))
     expect(rows()).toEqual(['Binitha John', 'Binitha John'])
-    expect(screen.getByRole('radio', { name: /Same email\s*2/ })).toBeChecked()
+    expect(screen.getByRole('button', { name: /Same email\s*2/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('draws no empty "What wants doing" on a cancelled event whose only news is a shared email', async () => {

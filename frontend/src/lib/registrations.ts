@@ -3,7 +3,7 @@ import type { ExportSheet } from './volunteerExport'
 import { invokeEdgeFunction } from './edgeFunction'
 import { supabase } from './supabaseClient'
 import { registerUrl } from './registrationLinks'
-import { deliveryWord, emailWantsDoing } from './emailDelivery'
+import { deliveryWord } from './emailDelivery'
 
 /*
  * Registration events (0244): events anybody can sign up for from a link.
@@ -1649,21 +1649,6 @@ export async function setOrderNotes(id: string, notes: string): Promise<void> {
   if (error) throw error
 }
 
-export type OrderFilter = 'all' | 'to_pay' | 'to_check' | 'to_verify' | 'paid' | 'checked_in' | 'cancelled' | 'refunds' | 'email' | 'duplicates'
-
-export const ORDER_FILTERS: { key: OrderFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'to_pay', label: 'To pay' },
-  { key: 'to_check', label: 'Receipts' },
-  { key: 'to_verify', label: 'To verify' },
-  { key: 'paid', label: 'Paid' },
-  { key: 'checked_in', label: 'Checked in' },
-  { key: 'cancelled', label: 'Cancelled' },
-  { key: 'refunds', label: 'Refunds' },
-  { key: 'email', label: 'Undelivered' },
-  { key: 'duplicates', label: 'Same email' },
-]
-
 /**
  * The addresses more than one live registration is under, lower case. One
  * person registering twice — once at full price, once with the code they
@@ -1684,40 +1669,6 @@ export function duplicateEmails(orders: readonly Pick<OrderRow, 'email' | 'statu
 /** A live registration under an address another live one is under too. */
 export function sharesAnEmail(o: Pick<OrderRow, 'email' | 'status' | 'anonymised_at'>, duplicates: ReadonlySet<string>): boolean {
   return o.status === 'confirmed' && !o.anonymised_at && !!o.email && duplicates.has(o.email.trim().toLowerCase())
-}
-
-/**
- * Whether an order is one of the filter's, and says the words typed.
- * `duplicates` is duplicateEmails() of the whole list: an order cannot
- * say by itself that another shares its address.
- */
-export function orderMatches(o: OrderRow, filter: OrderFilter, query: string, duplicates: ReadonlySet<string> = new Set()): boolean {
-  const live = o.status === 'confirmed'
-  const kept =
-    filter === 'all'
-      ? true
-      : filter === 'to_pay'
-        ? live && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
-        : filter === 'to_check'
-          ? live && o.payment_status === 'reported'
-        : filter === 'to_verify'
-          ? wantsVerifying(o)
-        : filter === 'paid'
-          ? live && (o.payment_status === 'received' || o.payment_status === 'waived')
-          : filter === 'checked_in'
-            ? live && !!o.checked_in_at
-            : filter === 'refunds'
-              ? !!o.refund_status
-              : filter === 'email'
-                ? emailWantsDoing(o)
-                : filter === 'duplicates'
-                  ? sharesAnEmail(o, duplicates)
-                  : o.status === 'cancelled'
-  if (!kept) return false
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  const hay = [o.name, o.email ?? '', o.code, o.phone ?? '', o.promo_code ?? '', o.notes ?? '', ...o.tickets.map((t) => t.attendee_name ?? '')]
-  return hay.some((h) => h.toLowerCase().includes(q))
 }
 
 /** A way of paying, as the office reads it. `paypal` is whatever the event's online link is. */

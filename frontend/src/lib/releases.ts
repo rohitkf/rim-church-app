@@ -29,6 +29,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    key: 'registration-filters',
+    date: '2026-11-19',
+    title: 'Clearer filters on registrations',
+    lead: 'One long row of filters is now three plain questions, and each registration says how it is paid.',
+    points: [
+      'Payment: not paid yet, receipt to check, paid, free.',
+      'Way of paying: bank transfer, your online link by its own name, at reception, or not chosen.',
+      'Choose one from each to narrow: Paid with At reception is who paid at the door; Not paid yet with At reception is who said they would.',
+      'Show only: to verify, checked in, cancelled, refunds, emails not delivered, the same email twice. Tap again to let go.',
+      'Every choice says how many it holds, and a line above the list says what is chosen, with “Show everybody” to clear it.',
+      'On each registration: a tag for how it is paid, and its ticket as a button of its own at the foot.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'tickets-by-payment',
     date: '2026-11-19',
     title: 'Tickets by how they are paid for',

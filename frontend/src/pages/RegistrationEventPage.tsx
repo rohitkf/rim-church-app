@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionButton, Field, Overlay, PageHeader, Pill, SegmentedControl, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, ActionLink, Field, Overlay, PageHeader, Pill, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
@@ -9,6 +9,10 @@ import { QueryState } from '../components/QueryState'
 import { RegistrationMessages } from '../components/RegistrationMessages'
 import { RegistrationInvites } from '../components/RegistrationInvites'
 import { RegistrationBreakdown } from '../components/RegistrationBreakdown'
+import { OrderFilterBar } from '../components/OrderFilterBar'
+import { NO_FILTERS, anyFilter, filterWords, orderMatches, type OrderFilters } from '../lib/orderFilters'
+import { onlineLinkName, wayOf, wayWords } from '../lib/registrationBreakdown'
+import { GIVING_KEY, fetchGiving } from '../lib/giving'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
 import { applyPromoToOrder, canTakePromo, carriesPromo, promoHeldBy, removePromoFromOrder, sendTicketAfterPromo, usablePromos } from '../lib/promoLater'
 import { fetchInvites, inviteNames, invitesKey } from '../lib/registrationInvites'
@@ -24,7 +28,6 @@ import { registerUrl, ticketUrl } from '../lib/registrationLinks'
 import { downloadBlob, qrPngBlob } from '../lib/qrPng'
 import { writeWorkbook } from '../lib/writeWorkbook'
 import {
-  ORDER_FILTERS,
   PAYMENT_WORDS,
   duplicateEmails,
   orderMoney,
@@ -44,7 +47,6 @@ import {
   markOrder,
   payAndCheckIn as takeAndAdmit,
   notifyPayment,
-  orderMatches,
   proofUrl,
   receiverName,
   verifierName,
@@ -59,7 +61,6 @@ import {
   whenWords,
   type EventStatus,
   type OrderAction,
-  type OrderFilter,
   type OrderRow,
 } from '../lib/registrations'
 
@@ -98,7 +99,7 @@ export function RegistrationEventPage() {
   const { ask, dialog } = useConfirmAction()
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [filter, setFilter] = useState<OrderFilter>('all')
+  const [filters, setFilters] = useState<OrderFilters>(NO_FILTERS)
   const [query, setQuery] = useState('')
   const [noteFor, setNoteFor] = useState<OrderRow | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -119,6 +120,8 @@ export function RegistrationEventPage() {
 
   const full = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'event', id], queryFn: () => fetchRegistrationEvent(id) })
   const orders = useQuery({ queryKey: [...REGISTRATIONS_KEY, 'orders', id], queryFn: () => fetchRegistrationOrders(id) })
+  // Only for what the church's own online link is called, when the event pays through the church's giving details.
+  const giving = useQuery({ queryKey: GIVING_KEY, queryFn: fetchGiving, enabled: full.data?.event.payment_use_church_giving === true })
   // The event's invitation links (0295), for the name of the one each order came by. The list itself is RegistrationInvites'.
   const invites = useQuery({ queryKey: invitesKey(id), queryFn: () => fetchInvites(id), enabled: rights.office })
   const invitedBy = inviteNames(invites.data ?? [])
@@ -346,8 +349,9 @@ export function RegistrationEventPage() {
   const checkedIn = confirmed.filter((o) => o.checked_in_at).length
   const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
   const canPublish = dates.length > 0 && ticketTypes.length > 0
-  const shown = rows.filter((o) => orderMatches(o, filter, query, dupes))
-  const countOf = (f: OrderFilter) => rows.filter((o) => orderMatches(o, f, '', dupes)).length
+  const shown = rows.filter((o) => orderMatches(o, filters, query, dupes))
+  // The online link by its own name ("Paypal"), where the event's links share one; "Online link" otherwise.
+  const onlineName = onlineLinkName([...event.payment_links, ...(event.payment_use_church_giving ? (giving.data?.links ?? []) : [])].map((l) => l.label))
   const reported = confirmed.filter((o) => o.payment_status === 'reported').length
   const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
   // Only whoever may verify is told what waits on them.
@@ -355,8 +359,8 @@ export function RegistrationEventPage() {
   // Emails that did not arrive (0283): everybody on the page sees which; whoever may correct them is told to.
   const undelivered = rows.filter(emailWantsDoing).length
   // A tap on what wants doing shows those orders, and goes to them.
-  const showOrders = (f: OrderFilter) => {
-    setFilter(f)
+  const showOrders = (f: Partial<OrderFilters>) => {
+    setFilters({ ...NO_FILTERS, ...f })
     setQuery('')
     document.getElementById('registered')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
   }
@@ -550,7 +554,7 @@ export function RegistrationEventPage() {
       {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || (sharing > 0 && !cancelled)) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_check')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ payment: 'reported' })}>
               <Pill tone="blue" dot className="-ml-1">
                 {reported}
               </Pill>
@@ -558,7 +562,7 @@ export function RegistrationEventPage() {
             </ActionButton>
           )}
           {toVerify > 0 && !cancelled && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_verify')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ only: 'to_verify' })}>
               <Pill tone="blue" dot className="-ml-1">
                 {toVerify}
               </Pill>
@@ -566,7 +570,7 @@ export function RegistrationEventPage() {
             </ActionButton>
           )}
           {awaitingOnly > 0 && !cancelled && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('to_pay')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ payment: 'awaiting' })}>
               <Pill tone="orange" className="-ml-1">
                 {awaitingOnly}
               </Pill>
@@ -574,7 +578,7 @@ export function RegistrationEventPage() {
             </ActionButton>
           )}
           {owed.length > 0 && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('refunds')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ only: 'refunds' })}>
               <Pill tone="orange" dot className="-ml-1">
                 {owed.length}
               </Pill>
@@ -582,7 +586,7 @@ export function RegistrationEventPage() {
             </ActionButton>
           )}
           {undelivered > 0 && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('email')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ only: 'email' })}>
               <Pill tone="red" dot className="-ml-1">
                 {undelivered}
               </Pill>
@@ -591,7 +595,7 @@ export function RegistrationEventPage() {
           )}
           {/* One person registered twice, most often: once without the code and once with it. */}
           {sharing > 0 && !cancelled && (
-            <ActionButton size="sm" tone="quiet" onClick={() => showOrders('duplicates')}>
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ only: 'duplicates' })}>
               <Pill tone="orange" className="-ml-1">
                 {sharing}
               </Pill>
@@ -635,7 +639,7 @@ export function RegistrationEventPage() {
       </ul>
 
       {/* The same tickets by how each is paid for: by code, by bank, by the online link, at reception, not yet chosen. */}
-      <RegistrationBreakdown orders={rows} />
+      <RegistrationBreakdown orders={rows} onlineName={onlineName} />
 
       {/* What people have written to the organisers (0287). Nothing is drawn while there are none. */}
       {rights.office && <RegistrationMessages eventId={id} eventTitle={event.title} codeOf={(orderId) => rows.find((o) => o.id === orderId)?.code ?? null} />}
@@ -682,32 +686,27 @@ export function RegistrationEventPage() {
               autoCapitalize="off"
               className={`${inputClasses} max-w-sm`}
             />
-            {/* Seven segments do not fit a phone; the row scrolls rather than squeezes. Each says how many it holds. */}
-            <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-              <SegmentedControl
-                label="Show"
-                value={filter}
-                onChange={setFilter}
-                options={ORDER_FILTERS.map((f) => {
-                  const n = countOf(f.key)
-                  return {
-                    value: f.key,
-                    label: (
-                      <>
-                        {f.label}
-                        {f.key !== 'all' && n > 0 && (
-                          <>
-                            {' '}
-                            <span className="font-mono text-label-sm tabular opacity-70">{n}</span>
-                          </>
-                        )}
-                      </>
-                    ),
-                  }
-                })}
-                scrolls
-              />
-            </div>
+            {/* Three questions, each with one answer: where the money stands, how it is paid, and one thing more (lib/orderFilters). */}
+            <OrderFilterBar orders={rows} duplicates={dupes} filters={filters} onChange={setFilters} onlineName={onlineName} />
+            {/* What is chosen, said back in words, with the one way out of all of it. */}
+            {(anyFilter(filters) || query.trim() !== '') && (
+              <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
+                <span>
+                  Showing {shown.length} of {rows.length}
+                  {anyFilter(filters) && `: ${filterWords(filters, onlineName)}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilters(NO_FILTERS)
+                    setQuery('')
+                  }}
+                  className="tap font-medium text-accent-blue-soft hover:underline"
+                >
+                  Show everybody
+                </button>
+              </p>
+            )}
           </div>
         )}
         <QueryState isLoading={orders.isLoading} error={orders.error} isEmpty={rows.length === 0} emptyMessage="Nobody yet.">
@@ -722,6 +721,7 @@ export function RegistrationEventPage() {
                   invitedBy={o.invite_id ? (invitedBy[o.invite_id] ?? 'an invite link') : null}
                   sharesEmail={sharesAnEmail(o, dupes)}
                   dateLabel={dates.find((d) => d.id === o.date_id)}
+                  onlineName={onlineName}
                   busy={mark.isPending || verify.isPending || takePromoOff.isPending}
                   actions={withUndo(
                     lastDone(o.id),
@@ -734,11 +734,6 @@ export function RegistrationEventPage() {
             </ul>
           )}
         </QueryState>
-        {rows.length > 0 && shown.length !== rows.length && (
-          <p className="mt-2 text-label-md text-on-surface-faint">
-            {shown.length} of {rows.length}
-          </p>
-        )}
       </section>
 
       {scanning && (
@@ -1108,6 +1103,7 @@ function OrderLine({
   actions,
   next,
   busy,
+  onlineName,
 }: {
   order: OrderRow
   /** The name of the invitation link it came by (0295), if it came by one. */
@@ -1118,6 +1114,8 @@ function OrderLine({
   actions: MenuAction[]
   next: NextStep[]
   busy: boolean
+  /** What the event's online link is called, when it has one name. */
+  onlineName?: string
 }) {
   const receiver = receiverName(order)
   const verifier = verifierName(order)
@@ -1130,6 +1128,8 @@ function OrderLine({
   const undelivered = live && !!delivery?.wants
   const tagged = undelivered || (live && order.email_status === 'delayed')
   const changer = [order.changer?.first_name, order.changer?.last_name].filter(Boolean).join(' ')
+  // How it pays, for one that is live and has something to pay.
+  const way = live ? wayOf(order) : null
   return (
     <li aria-label={order.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline sm:p-4 ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-2">
@@ -1154,13 +1154,23 @@ function OrderLine({
               {order.phone && `${order.email ? ' · ' : ''}${order.phone}`}
             </p>
           )}
+          {/* What became of the email to that address, under the address: a tag instead (below) when it wants something. */}
+          {delivery && !tagged && delivery.kind !== 'none' && (
+            <p className={`font-mono text-label-sm ${delivery.kind === 'delivered' ? 'text-accent-green-soft' : 'text-on-surface-faint'}`} title={delivery.says}>
+              {delivery.label}
+            </p>
+          )}
 
           {/* Where it stands. */}
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             {order.status === 'cancelled' ? (
               <Pill tone="red">Cancelled</Pill>
             ) : order.total_pence > 0 ? (
-              <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+              <>
+                <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+                {/* How: by bank, by the online link, at reception. Said beside where it stands, so "awaiting payment" at reception is told from one by bank at a glance. */}
+                {way && way !== 'none' && <Pill tone="neutral">{wayWords(way, onlineName)}</Pill>}
+              </>
             ) : (
               <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy && order.discount_pence > 0 ? 'Free by invitation' : 'Free'}</Pill>
             )}
@@ -1211,7 +1221,8 @@ function OrderLine({
             <p className="mt-1 text-label-md text-on-surface-faint">
               {order.payment_status === 'waived' ? 'Waived' : 'Received'} {stamp(order.received_at)}
               {receiver && ` by ${receiver}`}
-              {order.payment_method && ` · ${METHOD_WORDS[order.payment_method]}`}
+              {/* Said by its own tag above for one that pays; here only where there is no tag (a waived one). */}
+              {!way && order.payment_method && ` · ${wayWords(order.payment_method, onlineName)}`}
             </p>
           )}
           {live && order.payment_verified_at && (
@@ -1247,23 +1258,20 @@ function OrderLine({
           ))}
         </div>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-label-sm text-on-surface-faint">
-        <span>{stamp(order.created_at)}</span>
-        <span>{order.code}</span>
-        <a href={ticketUrl(order.code)} target="_blank" rel="noopener noreferrer" className="tap text-accent-blue-soft hover:underline">
-          Ticket <span aria-hidden="true">↗</span>
-        </a>
-        {delivery && !tagged && delivery.kind !== 'none' && (
-          <span className={delivery.kind === 'delivered' ? 'text-accent-green-soft' : undefined} title={delivery.says}>
-            {delivery.label}
-          </span>
-        )}
+      {/* The foot: when it was made and its code on one side, the way to its ticket on the other — level with each other,
+          and on the narrowest phone the code goes under the date rather than push the button about. */}
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
+        <p className="flex min-w-0 flex-wrap gap-x-3 font-mono text-label-sm text-on-surface-faint">
+          <span className="whitespace-nowrap">{stamp(order.created_at)}</span>
+          <span className="whitespace-nowrap">{order.code}</span>
+        </p>
+        <ActionLink href={ticketUrl(order.code)} newTab size="sm" tone="quiet" className="shrink-0" aria-label={`Open ${order.name}’s ticket`}>
+          Ticket
+        </ActionLink>
       </div>
     </li>
   )
 }
-
-const METHOD_WORDS: Record<NonNullable<OrderRow['payment_method']>, string> = { paypal: 'PayPal', bank: 'bank transfer', reception: 'at reception' }
 
 /** Where to send a refund: what the attendee sent, if anything, and otherwise the way it came. Private to the Refunds right. */
 function RefundDetailsSheet({ order, onClose }: { order: OrderRow; onClose: () => void }) {

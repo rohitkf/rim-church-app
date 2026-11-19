@@ -21,8 +21,15 @@ const AMOUNT = 'hidden whitespace-nowrap py-2 pl-4 text-right font-mono text-lab
  * (lib/stickyHead). Nothing is drawn for an event nobody has registered
  * for.
  */
-export function RegistrationBreakdown({ orders }: { orders: readonly OrderRow[] }) {
-  const { groups, orders: allOrders, tickets } = ticketBreakdown(orders)
+export function RegistrationBreakdown({
+  orders,
+  onlineName,
+}: {
+  orders: readonly OrderRow[]
+  /** What the event's online link is called, when it has one name (lib/registrationBreakdown onlineLinkName). */
+  onlineName?: string
+}) {
+  const { groups, orders: allOrders, tickets } = ticketBreakdown(orders, onlineName)
   if (groups.length === 0) return null
 
   return (
