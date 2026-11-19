@@ -1143,10 +1143,8 @@ function OrderLine({
                 · {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
               </span>
             </p>
-            <p className="shrink-0 font-mono text-body-sm tabular text-on-surface">
-              {order.total_pence > 0 ? pounds(order.total_pence) : 'Free'}
-              {order.promo_code && <span className="text-on-surface-faint"> · {order.promo_code}</span>}
-            </p>
+            {/* The sum alone. The code that made it stood here too, never shrinking: a long one left the name a column one word wide and ran over it on a phone. It is a tag below. */}
+            <p className="shrink-0 font-mono text-body-sm tabular text-on-surface">{order.total_pence > 0 ? pounds(order.total_pence) : 'Free'}</p>
           </div>
           {(order.email || order.phone) && (
             <p className="break-words text-body-sm text-on-surface-variant">
@@ -1170,9 +1168,18 @@ function OrderLine({
                 <Pill tone={PAY_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
                 {/* How: by bank, by the online link, at reception. Said beside where it stands, so "awaiting payment" at reception is told from one by bank at a glance. */}
                 {way && way !== 'none' && <Pill tone="neutral">{wayWords(way, onlineName)}</Pill>}
+                {/* A code that took some of it off. One that took all of it is said by "Free with code" instead. */}
+                {order.promo_code && (
+                  <Pill tone="neutral" className="max-w-full">
+                    <span className="min-w-0 truncate">Code {order.promo_code}</span>
+                  </Pill>
+                )}
               </>
             ) : (
-              <Pill tone="neutral">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy && order.discount_pence > 0 ? 'Free by invitation' : 'Free'}</Pill>
+              // A tag is one line and never wider than the card: a very long code is cut short with an ellipsis rather than pushed out of it.
+              <Pill tone="neutral" className="max-w-full">
+                <span className="min-w-0 truncate">{order.promo_code ? `Free with code ${order.promo_code}` : invitedBy && order.discount_pence > 0 ? 'Free by invitation' : 'Free'}</span>
+              </Pill>
             )}
             {live && order.payment_verified_at && order.total_pence > 0 && (
               <Pill tone="green" dot>
