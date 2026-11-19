@@ -522,6 +522,17 @@ describe('an event’s page', () => {
     expect(ticket.parentElement).toHaveTextContent('BCDEFGHJKMNP')
   })
 
+  it('says a promo code as a tag of its own, and leaves the sum alone beside the name', async () => {
+    show()
+    // Ama registered with EARLY, which took some off: £36.00 still to pay.
+    const ama = await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(within(ama).getByText('Code EARLY')).toBeInTheDocument()
+    // The sum is the sum: the code used to follow it on the same unshrinking line, and a long one ran over the name.
+    expect(within(ama).getByText('£36.00')).toHaveTextContent(/^£36\.00$/)
+    // Nobody without a code is given the tag.
+    expect(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).queryByText(/^Code /)).toBeNull()
+  })
+
   it('says up front what wants doing, each a tap to those orders, and gives a row its next step', async () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
