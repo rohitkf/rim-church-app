@@ -405,11 +405,13 @@ export function Steps({ steps, caption, label = 'Progress', className = '' }: { 
 const segmentTrackBase = 'grid grid-flow-col gap-0.5 rounded-[9px] bg-track p-0.5'
 export const segmentTrackClasses = `${segmentTrackBase} auto-cols-[minmax(0,1fr)]`
 /**
- * A track too long for a phone, in a parent that scrolls sideways: every
- * segment is at least as wide as its label, so nothing is squeezed or cut,
- * and on a wide screen they share what is left.
+ * A track with more to choose from than one line of a phone holds: the
+ * segments keep the width of their labels and go on to a second line. It
+ * hugs what it holds, so on a wide screen it is a short row and not a bar
+ * stretched across the page. (It scrolled sideways once: nothing was cut,
+ * and half the choices were out of sight until somebody thought to drag.)
  */
-const segmentScrollTrackClasses = `${segmentTrackBase} w-max min-w-full auto-cols-[minmax(max-content,1fr)]`
+const segmentWrapTrackClasses = 'flex w-fit max-w-full flex-wrap gap-0.5 rounded-[9px] bg-track p-0.5'
 
 /**
  * One segment. The chosen one is a raised plate — white on light, the
@@ -460,7 +462,7 @@ export function SegmentedControl<T extends string>({
   options,
   kind = 'radio',
   disabled,
-  scrolls = false,
+  wraps = false,
   className = '',
 }: {
   label: string
@@ -470,25 +472,25 @@ export function SegmentedControl<T extends string>({
   kind?: 'radio' | 'tab' | 'pressed'
   disabled?: boolean
   /**
-   * More segments than a phone can hold, inside a parent with
-   * `overflow-x-auto`: the row scrolls and no label is cut. Without it,
-   * five or more segments on a phone share the width and truncate.
+   * More segments than a phone can hold in a line: each keeps the width
+   * of its label and the row wraps, so every choice is in sight. Without
+   * it, five or more segments on a phone share the width and truncate.
    */
-  scrolls?: boolean
+  wraps?: boolean
   className?: string
 }) {
   const groupRole = kind === 'radio' ? 'radiogroup' : kind === 'tab' ? 'tablist' : 'group'
   // Four or five segments share a phone's width: the labels keep their size
   // and give up some of their room instead.
-  const padding = options.length >= 4 ? 'px-1.5' : 'px-3'
+  const padding = wraps ? 'flex-none px-3' : options.length >= 4 ? 'px-1.5' : 'px-3'
   // Five equal shares of a phone are narrower than "By person": there each
   // segment takes what its label needs, and the short ones give up the room.
-  // Not a track that scrolls: that one was made as wide as its labels, and
-  // squeezing it back into the phone is what cut every label on the
+  // Not a track that wraps: that one is as wide as its labels already, and
+  // squeezing it back into shares is what once cut every label on the
   // registrations filter ("To pay", "Receipt:o verify").
-  const shares = !scrolls && options.length >= 5 ? 'max-[420px]:w-full max-[420px]:auto-cols-[minmax(0,auto)]' : ''
+  const shares = !wraps && options.length >= 5 ? 'max-[420px]:w-full max-[420px]:auto-cols-[minmax(0,auto)]' : ''
   return (
-    <div role={groupRole} aria-label={label} className={`${scrolls ? segmentScrollTrackClasses : segmentTrackClasses} ${shares} ${className}`}>
+    <div role={groupRole} aria-label={label} className={`${wraps ? segmentWrapTrackClasses : segmentTrackClasses} ${shares} ${className}`}>
       {options.map((o) => {
         const on = o.value === value
         const state =
@@ -758,6 +760,35 @@ export function Statistic({
       <span className="text-numeral tabular">{value}</span>
       {unit && <span className="font-mono text-label-sm text-on-surface-faint">{unit}</span>}
     </div>
+  )
+}
+
+/**
+ * A tile's figure that is never wider than its tile.
+ *
+ * `text-numeral` is one size, and a figure is as long as it is: £180.00
+ * sat in a quarter-width tile where £1255.00 ran out of it and under the
+ * next (a tablet with four tiles in a row; a 320px phone with two). A
+ * step smaller "on a phone" fixed one width for one length of sum.
+ *
+ * So the size is worked out from the tile's own width and how long the
+ * figure is: each character is about 0.62em wide, so a figure of n
+ * characters can be at most 160/n hundredths of the tile's width a
+ * character — and never bigger than a tile's figure is anyway. The tile
+ * is the container: give it `@container` (and `min-w-0`, in a grid).
+ * Use it as a `Statistic`'s value.
+ *
+ * `chars` sizes it as if it were that long: two sums side by side, one a
+ * character longer than the other, are given the longer one's length so
+ * they come out the same size and not a point apart.
+ */
+export function FitFigure({ children, chars }: { children: string | number; chars?: number }) {
+  const text = String(children)
+  const most = Math.floor(1600 / Math.max(text.length, chars ?? 0, 1)) / 10
+  return (
+    <span className="block whitespace-nowrap leading-tight" style={{ fontSize: `min(var(--text-numeral), ${most}cqi)` }}>
+      {text}
+    </span>
   )
 }
 

@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionButton, ActionLink, Field, Overlay, PageHeader, Pill, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
+import { ActionButton, ActionLink, Field, FitFigure, Overlay, PageHeader, Pill, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu'
 import { TicketScanner } from '../components/TicketScanner'
 import { QrCode } from '../components/QrCode'
@@ -415,6 +415,8 @@ export function RegistrationEventPage() {
   const unrefunded = rows.filter((o) => o.total_pence > 0 && (o.payment_status === 'received' || o.payment_status === 'reported') && o.refund_status !== 'refunded')
   const owed = rows.filter((o) => o.refund_status === 'owed')
   const owedPence = owed.reduce((n, o) => n + o.total_pence, 0)
+  // The two sums in the tiles are one size: the longer of them decides it.
+  const sumChars = Math.max(pounds(money.received).length, pounds(owed.length > 0 ? owedPence : money.toCome).length)
   const eventActions: MenuAction[] = [
     { label: 'Download QR code', onSelect: () => downloadQr.mutate(), hint: 'For a poster or a message' },
     { label: 'Export to Excel', onSelect: () => exportAll.mutate(), disabled: rows.length === 0 },
@@ -534,20 +536,22 @@ export function RegistrationEventPage() {
         </div>
       </Tile>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile>
-          <Statistic value={confirmed.length} unit={confirmed.length === 1 ? 'order' : 'orders'} />
+      {/* Two by two until there is room for four in a row: four across a tablet left each tile narrower than its figure.
+          Each the same way up — the figure, and what it is under it — and each figure sized to its own tile (FitFigure). */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile className="@container min-w-0">
+          <Statistic className="flex-col" value={<FitFigure>{confirmed.length}</FitFigure>} unit={confirmed.length === 1 ? 'order' : 'orders'} />
         </Tile>
-        <Tile>
-          <Statistic value={tickets} unit="tickets" />
+        <Tile className="@container min-w-0">
+          <Statistic className="flex-col" value={<FitFigure>{tickets}</FitFigure>} unit="tickets" />
         </Tile>
-        <Tile>
-          <Statistic value={<Money>{pounds(money.received)}</Money>} unit="received" />
+        <Tile className="@container min-w-0">
+          <Statistic className="flex-col" value={<FitFigure chars={sumChars}>{pounds(money.received)}</FitFigure>} unit="received" />
           {/* What was let go is said, and never counted as money in. */}
           {money.waived > 0 && <p className="mt-1 font-mono text-label-sm text-on-surface-faint">plus {pounds(money.waived)} waived</p>}
         </Tile>
-        <Tile tone={owed.length > 0 ? 'warning' : 'plain'}>
-          {owed.length > 0 ? <Statistic value={<Money>{pounds(owedPence)}</Money>} unit="refunds owed" /> : <Statistic value={<Money>{pounds(money.toCome)}</Money>} unit="still to come" />}
+        <Tile tone={owed.length > 0 ? 'warning' : 'plain'} className="@container min-w-0">
+          <Statistic className="flex-col" value={<FitFigure chars={sumChars}>{pounds(owed.length > 0 ? owedPence : money.toCome)}</FitFigure>} unit={owed.length > 0 ? 'refunds owed' : 'still to come'} />
         </Tile>
       </div>
 
@@ -882,11 +886,6 @@ function NameToType({ title, label, value, onChange }: { title: string; label: s
       </Field>
     </>
   )
-}
-
-/** A sum of money is wider than a count: a step smaller on a phone, so the tile holds it. */
-function Money({ children }: { children: ReactNode }) {
-  return <span className="text-headline-lg sm:text-numeral">{children}</span>
 }
 
 const ACTION_DONE: Record<OrderAction, string> = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ActionButton, IconBadge, SectionTile, SegmentedControl } from './Surface'
+import { render, screen, within } from '@testing-library/react'
+import { ActionButton, IconBadge, SectionTile, SegmentedControl, FitFigure } from './Surface'
 import { ShieldIcon } from './icons'
 
 describe('the settings primitives', () => {
@@ -55,22 +55,52 @@ describe('a segmented control', () => {
    * phone's width and truncate — right for "By person", wrong for a row
    * that was put in a scrolling parent so that nothing would be cut: that
    * rule squeezed the registrations filter until it read "Receipt:o
-   * verify". A row that scrolls says so, and is never squeezed.
+   * verify". It was then made to scroll sideways, which cut nothing and
+   * hid half the choices. A row that wraps keeps every label whole and
+   * every choice in sight, and is never squeezed.
    */
-  it('never squeezes a row that scrolls: each segment keeps the width of its label', () => {
+  it('never squeezes or hides a row that wraps: each segment keeps the width of its label and the row goes on to a second line', () => {
     const seven = ['All', 'To pay', 'Receipts to verify', 'Paid', 'Checked in', 'Cancelled', 'Refunds'].map((label) => ({ value: label, label }))
-    render(<SegmentedControl label="Show" value="All" onChange={() => {}} options={seven} scrolls />)
-    const scrolling = screen.getByRole('radiogroup', { name: 'Show' })
-    expect(scrolling.className).toContain('auto-cols-[minmax(max-content,1fr)]')
-    expect(scrolling.className).toContain('w-max')
-    expect(scrolling.className).toContain('min-w-full')
-    expect(scrolling.className).not.toContain('max-[420px]')
-    expect(scrolling.className).not.toContain('auto-cols-[minmax(0,1fr)]')
+    render(<SegmentedControl label="Show" value="All" onChange={() => {}} options={seven} wraps />)
+    const wrapping = screen.getByRole('radiogroup', { name: 'Show' })
+    expect(wrapping.className).toContain('flex-wrap')
+    // As wide as what it holds, and never wider than its place.
+    expect(wrapping.className).toContain('w-fit')
+    expect(wrapping.className).toContain('max-w-full')
+    expect(wrapping.className).not.toContain('max-[420px]')
+    expect(wrapping.className).not.toContain('auto-cols-[minmax(0,1fr)]')
+    for (const segment of within(wrapping).getAllByRole('radio')) expect(segment.className).toContain('flex-none')
 
     // Without it the same seven share a phone, as they always did.
     render(<SegmentedControl label="Fit" value="All" onChange={() => {}} options={seven} />)
     const sharing = screen.getByRole('radiogroup', { name: 'Fit' })
     expect(sharing.className).toContain('max-[420px]:w-full')
     expect(sharing.className).toContain('auto-cols-[minmax(0,1fr)]')
+  })
+})
+
+/*
+ * A figure in a tile is as long as it is, and the tile as wide as the
+ * screen leaves it: £1255.00 ran out of a tile that held £180.00. Whether
+ * it fits is a browser's to say (checked there, at nine widths); what is
+ * held here is that the size is worked out from the tile and the figure's
+ * own length, and capped at a tile's figure.
+ */
+describe('a figure that is never wider than its tile', () => {
+  const sizeOf = (figure: string | number) => {
+    const { container } = render(<FitFigure>{figure}</FitFigure>)
+    return (container.firstElementChild as HTMLElement).style.fontSize
+  }
+
+  it('is at most a tile’s figure, and smaller the longer it is', () => {
+    expect(sizeOf(57)).toBe('min(var(--text-numeral), 80cqi)')
+    expect(sizeOf('£180.00')).toBe('min(var(--text-numeral), 22.8cqi)')
+    expect(sizeOf('£1255.00')).toBe('min(var(--text-numeral), 20cqi)')
+    expect(sizeOf('£100020.00')).toBe('min(var(--text-numeral), 16cqi)')
+  })
+
+  it('stays on one line: a sum broken across two is two numbers', () => {
+    render(<FitFigure>£1255.00</FitFigure>)
+    expect(screen.getByText('£1255.00').className).toContain('whitespace-nowrap')
   })
 })

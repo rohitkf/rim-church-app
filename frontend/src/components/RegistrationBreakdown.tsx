@@ -7,7 +7,7 @@ import type { OrderRow } from '../lib/registrations'
 // The sticking and the colour are written on each heading itself: stickyHead.test.tsx reads the cells.
 const HEAD = 'py-2 font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant'
 const NUMBER = 'w-16 whitespace-nowrap py-2 pl-3 text-right font-mono text-label-md tabular'
-const AMOUNT = 'hidden whitespace-nowrap py-2 pl-4 text-right font-mono text-label-md tabular sm:table-cell'
+const AMOUNT = 'hidden w-44 whitespace-nowrap py-2 pl-4 text-right font-mono text-label-md tabular sm:table-cell'
 
 /**
  * An event's tickets by how each is paid for (lib/registrationBreakdown):
@@ -33,7 +33,8 @@ export function RegistrationBreakdown({
   if (groups.length === 0) return null
 
   return (
-    <section aria-labelledby="breakdown-heading" className="mt-8">
+    // No wider than a table of four short columns reads: across a desktop the numbers sat half a screen from the words they belong to.
+    <section aria-labelledby="breakdown-heading" className="mt-8 max-w-3xl">
       <h2 id="breakdown-heading" className="text-headline-md text-on-surface">
         How the tickets are paid for
       </h2>
@@ -51,7 +52,7 @@ export function RegistrationBreakdown({
               <th scope="col" className={`${HEAD} w-16 pl-3 text-right ${HEAD_ON_PAGE} ${ON_CARD}`}>
                 Tickets
               </th>
-              <th scope="col" className={`${HEAD} hidden pl-4 text-right sm:table-cell ${HEAD_ON_PAGE} ${ON_CARD}`}>
+              <th scope="col" className={`${HEAD} hidden w-44 pl-4 text-right sm:table-cell ${HEAD_ON_PAGE} ${ON_CARD}`}>
                 Money
               </th>
             </tr>
