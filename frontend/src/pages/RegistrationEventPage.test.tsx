@@ -287,6 +287,15 @@ describe('an event’s page', () => {
     expect(within(screen.getByRole('listitem', { name: 'Asha Mathew' })).getByText('Cancelled')).toBeInTheDocument()
   })
 
+  it('splits the tickets by how each is paid for, and the split adds up to the numbers above it', async () => {
+    show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    const table = within(screen.getByRole('region', { name: 'How the tickets are paid for' })).getByRole('table')
+    const total = within(within(table).getByRole('row', { name: /^All live registrations/ })).getAllByRole('cell')
+    // The same four live orders and seven tickets the tiles say.
+    expect(total.map((c) => c.textContent).slice(0, 2)).toEqual(['4', '7'])
+  })
+
   it('finds a registration by what was typed, and filters by where it stands', async () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })

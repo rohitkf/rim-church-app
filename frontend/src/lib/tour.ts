@@ -336,7 +336,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/registrations',
         target: 'page-title',
         title: 'Registrations',
-        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes and invite links, a map, an agenda of the day, and who has paid. A code can be put on a registration after it is made, a message to the organisers lands on the event’s page, and anything pressed by accident has Undo for ten minutes.',
+        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes and invite links, a map, an agenda of the day, and who has paid — with a table of the tickets by how each is paid for. A code can be put on a registration after it is made, a message to the organisers lands on the event’s page, and anything pressed by accident has Undo for ten minutes.',
       },
       {
         path: '/door',
