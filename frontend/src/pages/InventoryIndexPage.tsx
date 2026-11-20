@@ -63,7 +63,6 @@ export function InventoryIndexPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Equipment"
         title="Inventory"
         description="Every team's register. Value counts only what is in service — anything retired, missing, on loan or in repair is left out."
         action={

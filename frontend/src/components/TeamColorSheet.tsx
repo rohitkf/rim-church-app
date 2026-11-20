@@ -69,7 +69,7 @@ export function TeamColorSheet({
 
         <div className="flex items-center gap-3.5">
           <span
-            className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] font-mono text-label-md uppercase transition-colors duration-200 ease-[var(--ease-glide)]"
+            className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[18px] font-mono text-label-md transition-colors duration-200 ease-[var(--ease-glide)]"
             style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >
@@ -128,7 +128,7 @@ export function TeamColorSheet({
           style={teamWash(chosen, teamStyle)}
         >
           <span
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] font-mono text-label-sm uppercase transition-colors duration-200 ease-[var(--ease-glide)]"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] font-mono text-label-sm transition-colors duration-200 ease-[var(--ease-glide)]"
             style={teamAvatarStyle(chosen, teamStyle)}
             aria-hidden="true"
           >

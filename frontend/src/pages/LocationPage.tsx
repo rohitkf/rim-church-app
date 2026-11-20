@@ -34,9 +34,8 @@ export function LocationPage() {
   return (
     <div className="mx-auto w-full max-w-[720px]">
       <PageHeader
-        eyebrow="This phone"
         title="Allow location"
-        description="Clocking in on Sunday reads where your phone is, once, when you press CLOCK IN. It is never read in the background."
+        description="Clocking in on Sunday reads where your phone is, once, when you press Clock in. It is never read in the background."
       />
 
       <div className="flex flex-col gap-5">

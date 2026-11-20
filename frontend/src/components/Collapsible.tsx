@@ -71,7 +71,7 @@ export function Fold({
         onClick={() => setOpen((was) => !was)}
         className="tap flex w-full items-center justify-between gap-3 border-t border-outline-variant pt-4 text-left"
       >
-        <span className="font-mono text-eyebrow uppercase text-on-surface-variant">{label}</span>
+        <span className="font-mono text-eyebrow text-on-surface-variant">{label}</span>
         <span className="flex shrink-0 items-center gap-2.5">
           {summary && <span className="font-mono text-label-sm text-on-surface-faint">{summary}</span>}
           <Chevron open={open} />

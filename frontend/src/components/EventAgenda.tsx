@@ -43,7 +43,7 @@ export function EventAgenda({
 
   return (
     <div className={className}>
-      <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Agenda</p>
+      <p className="font-mono text-label-sm text-on-surface-faint">Agenda</p>
       <div className="mt-2 flex flex-col gap-5">
         {days.map((day) => (
           <section key={day.date?.id ?? 'each-day'} aria-label={day.date ? `Agenda for ${dayWords(day.date)}` : 'Agenda'}>

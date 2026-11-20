@@ -21,7 +21,7 @@ export function Countdown({ to, lead, over, tone = 'blue' }: { to: string; lead:
   const spoken = `${lead} ${shown.map(([n, u]) => `${n} ${u}`).join(' ')}`
   return (
     <div role="timer" aria-label={spoken} className="rounded-[var(--radius-card)] bg-surface-lowest px-4 py-3 hairline">
-      <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{lead}</p>
+      <p className="font-mono text-label-sm text-on-surface-faint">{lead}</p>
       <div aria-hidden="true" className={`mt-1 flex items-baseline gap-3 ${colour}`}>
         {shown.map(([n, u], i) => (
           <span key={u} className="flex items-baseline gap-1">

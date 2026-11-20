@@ -121,7 +121,6 @@ export function ChurchUpdatesPage() {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <PageHeader
-        eyebrow="For the whole church"
         title="Church Updates"
         description="News from the church — what has changed, what is coming, and who to thank."
       />

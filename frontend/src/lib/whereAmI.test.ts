@@ -14,7 +14,7 @@ describe('the at-church dot', () => {
     expect(answered({ state: 'in', distance_m: 30, accuracy_m: 12 })).toEqual({
       tone: 'green',
       label: 'At church',
-      detail: '30 m from church · ± 12 m. CLOCK IN will work here.',
+      detail: '30 m from church · ± 12 m. Clock in will work here.',
     })
   })
 

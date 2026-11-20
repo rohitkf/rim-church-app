@@ -70,7 +70,7 @@ export function AppIdentityNotice() {
         <ImageIcon className="mt-0.5 shrink-0 text-accent-blue-soft" width={18} height={18} />
       )}
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-eyebrow uppercase text-accent-blue-soft">This device</p>
+        <p className="font-mono text-eyebrow text-accent-blue-soft">This device</p>
         <p className="mt-0.5 break-words text-body-md font-medium text-on-surface">
           {words.title}
           {decision.change !== 'icon' && (current.shortName ?? current.name) ? `: ${current.shortName ?? current.name}` : ''}

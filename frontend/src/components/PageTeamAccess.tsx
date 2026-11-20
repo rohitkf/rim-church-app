@@ -121,7 +121,7 @@ export function PageTeamAccess({
 
   return (
     <section aria-label="Team by team">
-      <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Team by team</h3>
+      <h3 className="font-mono text-label-sm text-on-surface-variant">Team by team</h3>
       <p className="mt-1 text-label-md text-on-surface-faint">
         Each team’s own rules for this page. A cell left “As the church” follows the rule below; a team’s own
         reaches no wider than the team. The Owner and Admins always may.
@@ -142,7 +142,7 @@ export function PageTeamAccess({
                   <span className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-on-surface">
                     {t.name}
                     {ownRules(t.id) && (
-                      <span className="inline-flex items-center gap-1 font-mono text-label-sm font-normal uppercase tracking-wide text-accent-blue-soft">
+                      <span className="inline-flex items-center gap-1 font-mono text-label-sm font-normal text-accent-blue-soft">
                         <span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent-blue" />
                         Own rules
                       </span>
@@ -167,7 +167,7 @@ export function PageTeamAccess({
                             <th
                               key={role}
                               scope="col"
-                              className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}
+                              className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}
                             >
                               {roleLabel(role)}
                             </th>

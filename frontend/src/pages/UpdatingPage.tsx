@@ -31,7 +31,7 @@ export function UpdatingPage({
     <main className="flex min-h-[100svh] items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-7 text-center hairline sm:p-9">
         <IconBadge icon={ReloadIcon} tone="blue" size="lg" className="mx-auto" />
-        <p className="mt-5 font-mono text-eyebrow uppercase text-on-surface-faint">One moment</p>
+        <p className="mt-5 font-mono text-eyebrow text-on-surface-faint">One moment</p>
         <h1 className="mt-2 text-balance text-headline-md text-on-surface">The app is being updated</h1>
         <p className="mt-3 text-body-md text-on-surface-variant">
           A new version is going out and its last part has not arrived yet. It usually takes a minute or two.

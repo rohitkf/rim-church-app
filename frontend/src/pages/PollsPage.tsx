@@ -326,7 +326,6 @@ export function PollsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <PageHeader
-        eyebrow="Ask and answer"
         title="Polls"
         description="The questions put to you — by the church, your team, or for a service you are on."
         action={

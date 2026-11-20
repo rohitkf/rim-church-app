@@ -93,7 +93,7 @@ export function TeamReadinessPanel({
   const body = (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <span className="font-mono text-label-sm text-on-surface-variant">
           Ready for service?
         </span>
         <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">

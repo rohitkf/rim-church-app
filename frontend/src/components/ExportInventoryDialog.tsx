@@ -160,7 +160,7 @@ export function ExportInventoryDialog({
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto px-6">
           {!oneTeam && (
             <fieldset>
-              <legend className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              <legend className="font-mono text-label-sm text-on-surface-variant">
                 Teams
               </legend>
               <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -183,7 +183,7 @@ export function ExportInventoryDialog({
           )}
 
           <fieldset className={oneTeam ? '' : 'mt-5'}>
-            <legend className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+            <legend className="font-mono text-label-sm text-on-surface-variant">
               Which items
             </legend>
             <div role="group" aria-label="Filter the items" className="mt-2 flex flex-wrap gap-1.5">

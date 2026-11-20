@@ -60,7 +60,7 @@ export function DoorPage() {
   const rights = useRegistrationRights()
   // Asked again every so often: a page left open at the door notices the key being turned (0288).
   const lock = useReceptionLock({ watch: true })
-  const header = <PageHeader eyebrow="Church life" title="Reception" description="Scan tickets, check people in, take payments at the door, register a walk-in." />
+  const header = <PageHeader title="Reception" description="Scan tickets, check people in, take payments at the door, register a walk-in." />
   // Locked, and this person's way in is a door right: told why, and nothing is asked of the database.
   if (lock.locked && !rights.door) {
     return (

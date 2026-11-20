@@ -311,7 +311,6 @@ export function SetListsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="What we are singing"
         title="Set Lists"
         description="One list per service, in the order the songs come. The worship team keeps it, and everybody can read it."
       />

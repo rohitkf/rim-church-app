@@ -118,8 +118,9 @@ export function CountdownPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Sunday · Live"
+        // Said only while something is running: it used to read "Sunday · Live" on a Tuesday with nothing on.
         live={live.length > 0}
+        context={live.length > 0 ? 'Live now' : undefined}
         title="Countdown"
         description="The running order’s clock, as the Service Planner keeps it. Past zero it counts on, so you can see how far over it is running."
       />

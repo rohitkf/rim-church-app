@@ -38,7 +38,6 @@ export function GivingPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Tithes & offerings"
         title="Giving"
         description={
           giving.data?.page.intro ??
@@ -184,7 +183,7 @@ export function AccountCard({ account }: { account: BankAccount }) {
           .map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <dt className="font-mono text-label-sm uppercase text-on-surface-faint">{label}</dt>
+                <dt className="font-mono text-label-sm text-on-surface-faint">{label}</dt>
                 <dd className="break-words font-mono text-body-md text-on-surface">{value}</dd>
               </div>
               <CopyButton value={value} what={label} />

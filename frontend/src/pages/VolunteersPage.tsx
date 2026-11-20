@@ -442,7 +442,7 @@ export function VolunteersPage() {
         <div className="flex items-start gap-3 p-5 pb-4">
           <span
             aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised font-mono text-label-md uppercase text-on-surface-variant"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised font-mono text-label-md text-on-surface-variant"
           >
             {initialsOf(v)}
           </span>
@@ -452,7 +452,7 @@ export function VolunteersPage() {
                 {v.first_name} {v.last_name}
               </span>
               {v.id === session?.user.id && (
-                <span className="shrink-0 rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
+                <span className="shrink-0 rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm text-accent-blue-soft">
                   You
                 </span>
               )}
@@ -460,27 +460,27 @@ export function VolunteersPage() {
               {(isOwner || holdsAdmin || overwatchGrant || pastorGrant || block) && (
                 <span className="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto">
                   {block && (
-                    <span className="rounded-full bg-error-container px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-error-container">
+                    <span className="rounded-full bg-error-container px-3 py-1 font-mono text-label-sm text-on-error-container">
                       Blocked
                     </span>
                   )}
                   {isOwner && (
-                    <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-secondary">
+                    <span className="rounded-full bg-secondary px-3 py-1 font-mono text-label-sm text-on-secondary">
                       Owner
                     </span>
                   )}
                   {holdsAdmin && (
-                    <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-on-primary">
+                    <span className="rounded-full bg-primary px-3 py-1 font-mono text-label-sm text-on-primary">
                       Admin
                     </span>
                   )}
                   {overwatchGrant && (
-                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm text-accent-indigo-soft">
                       Overwatch
                     </span>
                   )}
                   {pastorGrant && (
-                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+                    <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-3 py-1 font-mono text-label-sm text-accent-indigo-soft">
                       Pastor
                     </span>
                   )}
@@ -533,7 +533,7 @@ export function VolunteersPage() {
 
         <div className="grid grid-cols-1 gap-px bg-border-subtle sm:grid-cols-2">
           <div className="bg-surface-lowest p-5">
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            <div className="font-mono text-label-sm text-on-surface-faint">
               Core teams
             </div>
             {shownDeptIds.length === 0 ? (
@@ -566,7 +566,7 @@ export function VolunteersPage() {
                         {dept?.name ?? 'Unknown team'}
                       </span>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${designationClass[designation]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm ${designationClass[designation]}`}
                       >
                         {designation}
                       </span>
@@ -622,7 +622,7 @@ export function VolunteersPage() {
           </div>
 
           <div className="bg-surface-lowest p-5">
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            <div className="font-mono text-label-sm text-on-surface-faint">
               Guest teams
             </div>
             {guest.length === 0 ? (
@@ -831,7 +831,6 @@ export function VolunteersPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Everyone with an account"
         title="Volunteers"
         description="The teams they're on, and what they're allowed to do. Roles granted here control what each person can see and change."
         action={

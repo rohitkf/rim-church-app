@@ -65,7 +65,7 @@ export function RegistrationEditorPage() {
   if (!rights.edit) {
     return (
       <div>
-        <PageHeader eyebrow="Registrations" title={id ? 'Edit event' : 'New event'} />
+        <PageHeader title={id ? 'Edit event' : 'New event'} />
         <p className="text-body-md text-on-surface-variant">Making and editing events is not one of your rights. Whoever runs the app can give it to you in Access &amp; Privileges (“Make &amp; edit events”).</p>
         <Link to={id ? `/registrations/${id}` : '/registrations'} className="tap mt-3 inline-block text-label-md font-medium text-accent-blue-soft hover:underline">
           Back
@@ -133,7 +133,6 @@ function Editor({ existing }: { existing: RegistrationEventFull | null }) {
   return (
     <form onSubmit={submit} aria-label={existing ? 'Edit event' : 'New event'}>
       <PageHeader
-        eyebrow="Registrations"
         title={existing ? 'Edit event' : 'New event'}
         description="Everything on one page. Save keeps it as a draft until you publish it from the event's page."
       />

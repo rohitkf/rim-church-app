@@ -90,7 +90,7 @@ function ErrorLine({ error }: { error: string | null }) {
 function Preview({ children }: { children: ReactNode }) {
   return (
     <div>
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+      <div className="font-mono text-label-sm text-on-surface-faint">
         Preview — how members see it
       </div>
       <div className="mt-2 rounded-[var(--radius-chip)] bg-surface-lowest p-3 hairline">{children}</div>

@@ -512,7 +512,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                       {hit.detail}
                     </span>
                   </span>
-                  <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-on-surface-variant">
+                  <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[0.75rem] font-medium text-on-surface-variant">
                     {hit.kind}
                   </span>
                 </button>

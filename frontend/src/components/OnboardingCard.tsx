@@ -282,7 +282,7 @@ export function OnboardingCard() {
             <table aria-label="Getting set up" className="w-full min-w-[40rem] border-collapse text-body-sm">
               <thead>
                 <tr>
-                  <th scope="col" className="sticky left-0 top-0 z-30 min-w-40 bg-surface-lowest px-2 pb-2 pt-1 text-left align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant">
+                  <th scope="col" className="sticky left-0 top-0 z-30 min-w-40 bg-surface-lowest px-2 pb-2 pt-1 text-left align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal text-on-surface-variant">
                     Name
                   </th>
                   {SETUP_COLUMNS.map((c) => (
@@ -290,7 +290,7 @@ export function OnboardingCard() {
                       key={c.key}
                       scope="col"
                       title={c.label}
-                      className="sticky top-0 z-20 bg-surface-lowest px-1.5 pb-2 pt-1 text-center align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant"
+                      className="sticky top-0 z-20 bg-surface-lowest px-1.5 pb-2 pt-1 text-center align-bottom shadow-[inset_0_-1px_0_var(--color-border-subtle)] font-mono text-label-sm font-normal text-on-surface-variant"
                     >
                       <span aria-hidden="true">{c.short}</span>
                       <span className="sr-only">{c.label}</span>

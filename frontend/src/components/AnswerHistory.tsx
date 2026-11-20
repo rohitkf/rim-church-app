@@ -61,7 +61,7 @@ export function AnswerHistory({
                   </span>
                   {line.was && <span className="text-on-surface-faint">{line.was}</span>}
                   {line.late && (
-                    <span className="rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                    <span className="rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm text-on-surface-faint">
                       After answers closed
                     </span>
                   )}

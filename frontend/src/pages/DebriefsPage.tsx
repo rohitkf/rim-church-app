@@ -449,7 +449,6 @@ export function DebriefsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="After the service"
         title="Debriefs"
         description="What each team said afterwards — written by whoever runs the team, read by everybody, and kept for a while."
       />

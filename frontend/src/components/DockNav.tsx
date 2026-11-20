@@ -310,7 +310,7 @@ export function DockNav({
               {groupItems(items).map((run) => (
                 <section key={run.group ?? 'top'} aria-label={run.group ?? undefined}>
                   {run.group && (
-                    <h2 className="mb-1 px-3 font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+                    <h2 className="mb-1 px-3 font-mono text-label-sm text-on-surface-faint">
                       {run.group}
                     </h2>
                   )}

@@ -272,7 +272,7 @@ export function IssuesPage() {
               .map(({ key, heading, list }) => (
                 <div key={key} aria-label={heading ?? undefined} role={heading ? 'group' : undefined}>
                   {heading && (
-                    <h3 className="mb-2 font-mono text-label-sm uppercase tracking-[0.12em] text-accent-indigo-soft">
+                    <h3 className="mb-2 font-mono text-label-sm text-accent-indigo-soft">
                       {heading}
                     </h3>
                   )}
@@ -336,7 +336,6 @@ export function IssuesPage() {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <PageHeader
-        eyebrow="Seen at a service"
         title="Issues"
         description="Something a team needs to put right — who noticed it at which service, and what its Head made of it."
       />
@@ -638,11 +637,11 @@ function RaiseIssue({
 
   return (
     <form onSubmit={submit} aria-label="Raise an issue" className="flex min-w-0 flex-col gap-4 rounded-[var(--radius-row)] bg-surface-muted p-3.5 hairline">
-      <h3 className="font-mono text-label-md uppercase tracking-[0.14em] text-on-surface">Raise an issue</h3>
+      <h3 className="font-mono text-label-md text-on-surface">Raise an issue</h3>
       {(opensNote ?? aside) && <p className="-mt-2 text-body-sm text-on-surface-variant">{opensNote ?? aside}</p>}
       <fieldset disabled={shut} className="flex min-w-0 flex-col gap-4 disabled:opacity-60">
       <div className="flex min-w-0 flex-col gap-2">
-        <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Which team it is for</span>
+        <span className="font-mono text-label-sm text-on-surface-variant">Which team it is for</span>
         <Select
           aria-label="Team it is for"
           disabled={shut}
@@ -671,7 +670,7 @@ function RaiseIssue({
       </Field>
       {myTeams.length + (asOverwatch ? 1 : 0) > 1 && (
         <div className="flex min-w-0 flex-col gap-2">
-          <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">Raised as</span>
+          <span className="font-mono text-label-sm text-on-surface-variant">Raised as</span>
           <Select
             aria-label="Raised as"
             disabled={shut}

@@ -68,7 +68,7 @@ export function SessionComments({
 
   return (
     <div role="group" aria-label={`Comments on ${sessionName}`} className="mt-3 rounded-[var(--radius-chip)] bg-raised px-3 py-2.5 hairline">
-      <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-label-sm text-on-surface-variant">
         {comments.length === 1 ? 'Comment' : 'Comments'}
         <span className="font-sans normal-case tracking-normal text-on-surface-faint">Private — not shown to the team</span>
       </p>

@@ -51,7 +51,7 @@ const EVENT_TONE: Record<HealthEvent['kind'], PillTone> = { job: 'orange', push:
 function Figure({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="min-w-0 rounded-[var(--radius-row)] bg-raised px-4 py-3">
-      <p className="font-mono text-eyebrow uppercase text-on-surface-faint">{label}</p>
+      <p className="font-mono text-eyebrow text-on-surface-faint">{label}</p>
       <p className="mt-1 text-headline-sm tabular text-on-surface [overflow-wrap:anywhere]">{value}</p>
       {note && <p className="mt-0.5 text-label-md text-on-surface-faint">{note}</p>}
     </div>

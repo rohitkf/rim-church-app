@@ -190,7 +190,7 @@ export function LateAnswerQueue({
 
   return (
     <div className="mt-3 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)] p-3.5">
-      <p className="font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
+      <p className="font-mono text-label-sm text-accent-orange-soft">
         {requests.length} late {requests.length === 1 ? 'change' : 'changes'} to approve
       </p>
       <ul className="mt-2 flex flex-col gap-3">

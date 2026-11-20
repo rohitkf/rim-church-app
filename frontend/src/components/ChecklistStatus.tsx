@@ -17,7 +17,7 @@ const statusBadgeClasses: Record<ChecklistItemStatus, string> = {
 export function StatusBadge({ status }: { status: ChecklistItemStatus }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${statusBadgeClasses[status]}`}
+      className={`rounded-full px-2 py-0.5 font-mono text-label-sm ${statusBadgeClasses[status]}`}
     >
       {statusLabel[status]}
     </span>

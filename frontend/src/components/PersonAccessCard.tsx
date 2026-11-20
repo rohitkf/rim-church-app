@@ -302,7 +302,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
                     if (shown.length === 0) return null
                     return (
                       <section key={area.area}>
-                        <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">{area.area}</h3>
+                        <h3 className="font-mono text-label-sm text-on-surface-variant">{area.area}</h3>
                         <ul className="mt-2 flex flex-col gap-1">
                           {shown.map(({ c, no, cell }) => (
                             <li
@@ -501,7 +501,7 @@ function GivenMore({
                   <Link
                     to={`/settings/access?tab=team&team=${teamId}`}
                     aria-label={`Through ${teamName(teamId)}${grant.leadsOnly ? '’s Heads' : ''} — open By team`}
-                    className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] px-2.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft hover:text-on-surface"
+                    className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_14%,transparent)] px-2.5 py-0.5 font-mono text-label-sm text-accent-blue-soft hover:text-on-surface"
                   >
                     Through {teamName(teamId)}
                     {grant.leadsOnly ? '’s Heads' : ''}

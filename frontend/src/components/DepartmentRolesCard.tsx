@@ -371,7 +371,7 @@ function RoleChecklistEditor({
 
       {canManage && suggestions.length > 0 && (
         <div className="mt-3 border-t border-border-subtle pt-2.5">
-          <div className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+          <div className="font-mono text-label-sm text-on-surface-faint">
             Already on another role
           </div>
           <ul className="mt-1 flex flex-col gap-1">
@@ -611,7 +611,7 @@ function CopyChecklistFrom({
                       className="rounded-[var(--radius-chip)] bg-surface-lowest p-3 hairline"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface">
+                        <span className="font-mono text-label-sm text-on-surface">
                           {p.label}
                         </span>
                         {rows.some((i) => !isDuplicate(i)) && (
@@ -979,7 +979,7 @@ function RoleRow({
                 className="flex flex-col rounded-[var(--radius-chip)] bg-raised/50 p-3"
               >
                 <div className="flex items-baseline gap-2">
-                  <h4 className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface">
+                  <h4 className="font-mono text-label-sm text-on-surface">
                     {p.label}
                   </h4>
                   <span className="ml-auto shrink-0 font-mono text-label-sm tabular-nums text-on-surface-faint">
@@ -1096,7 +1096,7 @@ function RoleGroupSection({
               {/* A real heading, not a styled span: this is the structure
                   of the card, and a screen reader should be able to jump
                   between families the way an eye does. */}
-              <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+              <h3 className="font-mono text-label-sm text-on-surface-variant">
                 {section.group?.name ?? UNGROUPED_LABEL}
                 <span className="ml-2 text-on-surface-faint">{section.roles.length}</span>
               </h3>

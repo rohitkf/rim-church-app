@@ -247,7 +247,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/',
         target: 'clock-in',
         title: 'Clock in when you arrive',
-        body: 'On a service day, press CLOCK IN on the dashboard when you get to church. Your phone is read once, there and then, and you are marked Present on your teams. If it will not let you, ask to be clocked in, with the time you arrived.',
+        body: 'On a service day, press Clock in on the dashboard when you get to church. Your phone is read once, there and then, and you are marked Present on your teams. If it will not let you, ask to be clocked in, with the time you arrived.',
       },
       {
         path: '/checklists',

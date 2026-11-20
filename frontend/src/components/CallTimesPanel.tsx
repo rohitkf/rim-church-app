@@ -244,7 +244,7 @@ export function CallTimesPanel({
 
           {days.length > 1 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Day</span>
+              <span className="font-mono text-label-sm text-on-surface-faint">Day</span>
               <Select
                 value={day.date}
                 onChange={setChosen}

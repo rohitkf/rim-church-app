@@ -67,7 +67,7 @@ export function ClockInCard() {
       {draft && (
         <div className="flex flex-col gap-4">
           <p className="px-1 text-body-sm text-on-surface-variant">
-            Whoever is on the day’s rota presses CLOCK IN on their Dashboard when they arrive. Their phone is read
+            Whoever is on the day’s rota presses Clock in on their Dashboard when they arrive. Their phone is read
             once, there and then, and they are marked Present if it is at church. Set where the church is on the
             Clock In page.
           </p>

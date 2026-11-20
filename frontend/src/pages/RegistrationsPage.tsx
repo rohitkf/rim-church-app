@@ -51,7 +51,6 @@ export function RegistrationsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Sign-ups from a link"
         title="Registrations"
         description="Events anybody can register for from a link, no account needed: tickets, promo codes, a map, and who has paid."
         action={

@@ -364,7 +364,7 @@ export function PurchaseRequests({
               type="button"
               onClick={() => setShowDecided((v) => !v)}
               aria-expanded={showDecided}
-              className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint hover:text-on-surface"
+              className="font-mono text-label-sm text-on-surface-faint hover:text-on-surface"
             >
               {showDecided ? 'Hide' : 'Show'} what has been decided ({decided.length})
             </button>
@@ -732,7 +732,7 @@ function RequestRow({
             ×{row.quantity}
           </span>
         )}
-        <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${STATUS_TONE[row.status]}`}>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm ${STATUS_TONE[row.status]}`}>
           {row.status}
         </span>
         {showTeam && row.department && (

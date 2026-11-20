@@ -60,7 +60,7 @@ describe('the at-church dot on the Dashboard', () => {
     const user = userEvent.setup()
     render(<Dot />)
     await user.click(await screen.findByRole('button', { name: /At church/ }))
-    expect(screen.getByText('30 m from church · ± 12 m. CLOCK IN will work here.')).toBeInTheDocument()
+    expect(screen.getByText('30 m from church · ± 12 m. Clock in will work here.')).toBeInTheDocument()
     state.answer = { state: 'out', distance_m: 2300, radius_m: 100, accuracy_m: 20, needed_m: 50 }
     await user.click(screen.getByRole('button', { name: 'Check again' }))
     expect(await screen.findByText('Not at church')).toBeInTheDocument()

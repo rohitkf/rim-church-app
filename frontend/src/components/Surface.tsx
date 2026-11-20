@@ -82,7 +82,7 @@ export function Card(props: Parameters<typeof Tile>[0]) {
 /** The mono micro-label above a heading or a number. */
 export function Eyebrow({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <span className={`font-mono text-eyebrow uppercase text-on-surface-faint ${className}`}>
+    <span className={`font-mono text-eyebrow text-on-surface-faint ${className}`}>
       {children}
     </span>
   )
@@ -128,18 +128,26 @@ function useChurchPageName(title: string): string {
  * feels like one product rather than a set of screens.
  */
 export function PageHeader({
-  eyebrow,
+  back,
+  status,
+  context,
   live,
-  belowEyebrow,
   title,
   description,
   action,
 }: {
-  eyebrow?: ReactNode
-  /** Puts the live dot before the eyebrow. */
+  /** The way back to the page this one belongs to: a link, above the title. */
+  back?: ReactNode
+  /** Where this thing stands (a pill, a dot), above the title. */
+  status?: ReactNode
+  /**
+   * A fact about what the page is showing just now — the day, the window,
+   * whose answers — under the title. Not a name for the section: the
+   * title is that.
+   */
+  context?: ReactNode
+  /** Puts the live dot before the context. */
   live?: boolean
-  /** A line under the eyebrow, above the title. */
-  belowEyebrow?: ReactNode
   title: string
   description?: ReactNode
   action?: ReactNode
@@ -152,15 +160,22 @@ export function PageHeader({
     // `data-tour`: what the tour points at when a step is about the page itself.
     <header data-tour="page-title" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">
       <div className="max-w-2xl">
-        {eyebrow && (
-          <span className="flex items-center gap-2.5">
-            {live && <LiveDot />}
-            <Eyebrow>{eyebrow}</Eyebrow>
-          </span>
-        )}
-        {belowEyebrow && <div className="mt-2">{belowEyebrow}</div>}
+        {/* Nothing sits over the title to name the section (it used to: a
+            small label in capitals, "CHURCH LIFE" over "Reception"). The
+            title says where you are; a label above it said it twice, and
+            is how a template opens a page. What may sit here is something
+            to press or something true of this one thing: the way back,
+            and where it stands. */}
+        {back && <div className="text-label-md text-on-surface-variant">{back}</div>}
+        {status && <div className={back ? 'mt-2' : ''}>{status}</div>}
         {/* Apple's Large Title, 34pt bold, on a phone as on a desk. */}
-        <h1 className="mt-2 text-headline-xl">{shown}</h1>
+        <h1 className={`text-headline-xl ${back || status ? 'mt-2' : ''}`}>{shown}</h1>
+        {context && (
+          <p className="mt-1 flex items-center gap-2 font-mono text-label-sm text-on-surface-faint">
+            {live && <LiveDot />}
+            <span className="min-w-0">{context}</span>
+          </p>
+        )}
         {description && (
           <p className="mt-1.5 text-body-md text-on-surface-variant sm:text-body-lg">{description}</p>
         )}
@@ -320,9 +335,12 @@ const PILL_TONES: Record<PillTone, string> = {
 }
 
 /**
- * A status, a tag, a count. Always mono and uppercase, because a pill is
- * read as a label rather than as prose — and because that is what stops
- * it competing with the sentence beside it.
+ * A status, a tag, a count. Always mono, because a pill is read as a
+ * label rather than as prose — and because that is what stops it
+ * competing with the sentence beside it. In the words' own case: it was
+ * set in capitals with wide tracking until November 2026, when the Owner
+ * had the app's labels and pills put in sentence case; a pill is 12px
+ * now, a step up from the 11 that capitals could carry.
  */
 export function Pill({
   children,
@@ -337,7 +355,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] uppercase leading-none tracking-[0.12em] ${PILL_TONES[tone]} ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.75rem] font-medium leading-none ${PILL_TONES[tone]} ${className}`}
     >
       {dot && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}

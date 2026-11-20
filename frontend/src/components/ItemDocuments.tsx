@@ -207,7 +207,7 @@ export function ItemDocuments({
               className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-[var(--radius-row)] bg-raised px-3.5 py-2.5 hairline"
             >
               <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                <span className="shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
                   {KINDS.find((k) => k.value === doc.kind)?.label ?? doc.kind}
                 </span>
                 <button

@@ -985,7 +985,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     kind: 'dial',
     label: 'Clock-in opens',
     summary: 'Before somebody’s call time — and their reminder goes out then too.',
-    help: 'This many minutes before somebody’s earliest call time of the day, the big CLOCK IN button appears on their Dashboard and their phone is sent a reminder. The two always go together. It stays open until the day’s last service has ended.',
+    help: 'This many minutes before somebody’s earliest call time of the day, the big Clock in button appears on their Dashboard and their phone is sent a reminder. The two always go together. It stays open until the day’s last service has ended.',
     affects: ['/clock-in'],
     min: 0,
     max: 240,

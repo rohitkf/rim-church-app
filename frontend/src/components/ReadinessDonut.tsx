@@ -112,9 +112,9 @@ export function ReadinessDonut({
             textAnchor="middle"
             dominantBaseline="central"
             className="fill-on-surface-faint font-mono"
-            style={{ fontSize: Math.max(10, size * 0.068), letterSpacing: '0.16em' }}
+            style={{ fontSize: Math.max(11, size * 0.075), letterSpacing: '0.01em' }}
           >
-            {caption.toUpperCase()}
+            {caption}
           </text>
         )}
       </svg>

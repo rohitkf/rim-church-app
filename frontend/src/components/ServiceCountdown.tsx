@@ -87,7 +87,7 @@ export function ServiceCountdown({
             <RollingDigits value={secs} />
           </span>
         </span>
-        <span className="flex flex-col pb-3 font-mono text-eyebrow uppercase text-on-surface-faint">
+        <span className="flex flex-col pb-3 font-mono text-eyebrow text-on-surface-faint">
           {label ?? 'until doors'}
           {moment && <span className="normal-case text-on-surface-variant">{until} {moment}</span>}
         </span>
@@ -98,7 +98,7 @@ export function ServiceCountdown({
   return (
     <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5" aria-label={spoken}>
       {!label && (
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <span className="font-mono text-label-sm text-on-surface-variant">
           Starts in
         </span>
       )}
@@ -117,7 +117,7 @@ export function ServiceCountdown({
         </span>
       </span>
       {label && (
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <span className="font-mono text-label-sm text-on-surface-variant">
           {label}
           {/* The comma belongs to this half, so when the line breaks between
               the two on a phone the second does not open with a stray dot. */}

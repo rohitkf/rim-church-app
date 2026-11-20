@@ -186,9 +186,16 @@
   --text-label-sm--line-height: 1rem;
   --text-label-sm--font-weight: 500;
 
-  --text-eyebrow: 0.6875rem; /* Caption 2 11/13 — the floor */
-  --text-eyebrow--line-height: 0.8125rem;
-  --text-eyebrow--letter-spacing: 0.12em;
+  /*
+   * A tile's label, a field's label. It was Caption 2 (11/13) in capitals
+   * with .12em between the letters; the Owner had labels put in sentence
+   * case (November 2026), and lower-case letters at 11px with that much
+   * air between them are a row of specks. So it is 12/16 and tracked as
+   * small text is: barely.
+   */
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1rem;
+  --text-eyebrow--letter-spacing: 0.01em;
   --text-eyebrow--font-weight: 500;
 }
 

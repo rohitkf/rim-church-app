@@ -187,7 +187,7 @@ export function InstallAppGuide({ onClose }: { onClose: () => void }) {
           <div id="install-guide-picker" hidden={!picking} className="mt-3">
             {GROUPS.map((group) => (
               <div key={group} className="mt-3 first:mt-0">
-                <p className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+                <p className="font-mono text-label-sm text-on-surface-faint">
                   {group}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">

@@ -418,7 +418,7 @@ export function ChecklistsIndexPage() {
                       {/* The date is the day's heading above. */}
                       <h3 className="text-headline-lg">{service.service_type}</h3>
                       {finished && (
-                        <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+                        <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-green-soft">
                           Finished · closed
                         </span>
                       )}
@@ -501,7 +501,7 @@ export function ChecklistsIndexPage() {
                         {bandsOf(forService).map((band) => (
                         <li key={band.key} aria-label={band.label} className="flex flex-col gap-3">
                           {band.showHeading && (
-                            <h4 className="flex items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                            <h4 className="flex items-center gap-2 font-mono text-label-sm text-on-surface-variant">
                               <TeamMark color={band.color} />
                               {band.label}
                             </h4>
@@ -646,7 +646,7 @@ export function ChecklistsIndexPage() {
                                       row. */}
                                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                     <span
-                                      className={`font-mono text-label-md font-semibold uppercase tracking-[0.12em] ${
+                                      className={`font-mono text-label-md font-semibold ${
                                         phase.value === 'pre'
                                           ? 'text-accent-blue-soft'
                                           : phase.value === 'during'
@@ -793,7 +793,7 @@ export function ChecklistsIndexPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={
+        context={
           /* One day reads as a day; a window reads as a window. Saying
              "next service day" over a fortnight of them would be a lie the
              page then spends five sections contradicting. */

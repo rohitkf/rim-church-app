@@ -74,7 +74,6 @@ export function DepartmentsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Organisation"
         title="Teams"
         description="The teams you're a core member, guest, or head of — plus every team if you're an Admin."
       />
@@ -132,7 +131,7 @@ export function DepartmentsPage() {
                     </Link>
 
                     {dept.is_service_flow && (
-                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
+                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[0.75rem] font-medium text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
                         Signs checklists off
                       </span>
                     )}

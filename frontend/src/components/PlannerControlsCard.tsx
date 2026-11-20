@@ -67,7 +67,7 @@ export function PlannerControlsCard({
 
   return (
     <section aria-label="Planner buttons">
-      <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Planner buttons</h3>
+      <h3 className="font-mono text-label-sm text-on-surface-variant">Planner buttons</h3>
       <p className="mt-1 text-label-md text-on-surface-faint">
         Who else may use the buttons in a session’s menu and End service, and which. Whoever may plan the
         running order already has them all. A team’s buttons go to everybody on it and its Heads.

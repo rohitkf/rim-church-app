@@ -73,7 +73,6 @@ export function SettingsPage() {
     return (
       <div>
         <PageHeader
-          eyebrow="Your account & the church"
           title="Settings"
           description="Pick a room. Each one does one job."
         />

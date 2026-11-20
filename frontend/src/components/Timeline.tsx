@@ -246,7 +246,7 @@ export function AssigneePill({
       </span>
       <span className="min-w-0 break-words text-label-md text-on-surface">{name}</span>
       {substitute && (
-        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase tracking-wide text-accent-orange-soft">
+        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
           Sub
         </span>
       )}

@@ -193,9 +193,9 @@ system font tracks itself by size, and a value on top of that doubles it.
 | `text-body-sm` | Subheadline | 15/20 | the app's ordinary text |
 | `text-label-md` | — | 14/19 medium | buttons, links |
 | `text-label-sm` | Caption 1 | 12/16 mono | counts, timestamps |
-| `text-eyebrow` | Caption 2 | 11/13 mono, `.12em`, uppercase | every tile's label |
+| `text-eyebrow` | Caption 1 | 12/16 mono, `.01em`, sentence case | every tile's and field's label |
 
-**Nothing is set under 11px** — the HIG's floor, and `Pill` sits on it.
+**Nothing is set under 11px** — the HIG's floor; a keycap sits on it, and a `Pill` and a label are a step above at 12.
 Buttons are semibold, as the platform's are. Use `tabular` on any number
 that changes, or the layout twitches as it updates.
 
@@ -210,10 +210,10 @@ isn't here, add it here rather than inline — that is the whole mechanism.
 |---|---|
 | `Tile` | content on the canvas. `tone`: `plain` \| `accent` \| `success` \| `warning` \| `danger` |
 | `Panel` | a Tile with a titled header strip (`title`, `icon`, `live`, `aside`) |
-| `PageHeader` | every page's opening: eyebrow, title, one line, one action |
-| `Eyebrow` | the mono micro-label above a heading or a number |
+| `PageHeader` | every page's opening: the title, one line, one action. Above the title only a way `back` or a `status`; a fact about what is shown (`context`: the day, whose answers) goes under it. **Never a label naming the section** |
+| `Eyebrow` | the mono micro-label of a tile, a group or a number, in sentence case. Not for the line above a page title |
 | `Row` | a line inside a tile. `variant`: `raised` \| `inset` \| `dashed` \| `bare` |
-| `Pill` | a status or a tag. Always mono, uppercase, `dot` optional |
+| `Pill` | a status or a tag. Always mono, in the words' own case, 12px, `dot` optional |
 | `ActionButton` | every button. `tone`: `primary` \| `quiet` \| `success` \| `danger` \| `ghost` |
 | `SegmentedControl` | a choice between two and five answers, one at a time. `kind`: `radio` \| `tab` \| `pressed` (what it means to a screen reader; the look is the same). `segmentTrackClasses` / `segmentClasses` for one whose segments are links |
 | `Switch` (`SettingRows`) | on or off: the system's 51×31 switch, green when on, a real checkbox underneath |
@@ -380,8 +380,8 @@ The interface talks like a person who knows the job.
 
 ## 9. Adding a screen
 
-1. `PageHeader` with an eyebrow, a title, one line of orientation, and at
-   most one action.
+1. `PageHeader` with a title, one line of orientation, and at most one
+   action. No label over the title: the title is the name.
 2. Content in `Tile`s. On a wide layout use the 12-column grid and the
    design's 7/5 rhythm — alternating the wide tile keeps a long page from
    reading as two stacked columns.
@@ -430,6 +430,14 @@ Three things are kept on purpose where the HIG would not insist on them:
   app's eyebrows, pills, times and counts are mono, because that is what
   lets a dense Sunday screen be read at a glance. It is the app's one
   typographic signature.
+- **Sentence case, everywhere** (the Owner, November 2026). Labels and
+  pills were set in capitals with wide tracking, and every page opened
+  with a small capital label over its title ("CHURCH LIFE" over
+  "Reception"). Both are what a generated screen does without being
+  asked, and neither said anything the words did not: a label reads in
+  its own case, and a page's title is its name. The only capitals left
+  are data — a ticket's code, a postcode, somebody's initials — and the
+  labels on the stage plan, which is a drawing.
 - **The dock instead of a tab bar.** A floating pill that labels only the
   current destination, with a sliding window of three on a phone. A tab
   bar labels every tab and shows at most five; the app has seventeen

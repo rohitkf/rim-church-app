@@ -127,7 +127,7 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
     /* One line, always. "DBS MISSING" wrapping to two lines inside a pill
        was most of what made this roster look broken on a phone. */
     <span
-      className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
+      className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm ${
         sensitive.has_dbs
           ? 'bg-status-coordinator/15 text-status-coordinator'
           : 'bg-error-container text-on-error-container'
@@ -349,7 +349,7 @@ export function DepartmentDetailPage() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="min-w-0 break-words text-body-md font-medium text-on-surface">{who}</span>
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-raised-strong px-2 py-0.5 font-mono text-label-sm text-on-surface-faint">
               No account yet
             </span>
           </div>
@@ -605,7 +605,7 @@ export function DepartmentDetailPage() {
                         </span>
                         {rank !== 'member' && (
                           <span
-                            className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${
+                            className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm ${
                               rank === 'head'
                                 ? 'bg-primary/15 text-accent-blue-soft'
                                 : 'bg-secondary/15 text-accent-blue-soft'
@@ -674,7 +674,7 @@ export function DepartmentDetailPage() {
               <div className="mt-4 hidden @3xl:block">
                 <table className="w-full text-left text-body-sm">
                   <thead>
-                    <tr className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                    <tr className="font-mono text-label-sm text-on-surface-variant">
                       <th className={`py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Member</th>
                       {seesAges && <th className={`whitespace-nowrap py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>Age</th>}
                       <th className={`whitespace-nowrap py-2 pr-4 ${HEAD_ON_PAGE} ${ON_CARD}`}>On this team</th>

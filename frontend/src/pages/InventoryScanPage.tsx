@@ -42,7 +42,7 @@ export function InventoryScanPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg">
-      <PageHeader eyebrow="Equipment register" title="Opening item…" />
+      <PageHeader title="Opening item…" />
       <QueryState
         isLoading={itemQuery.isLoading}
         error={itemQuery.error}

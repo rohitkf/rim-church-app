@@ -475,7 +475,7 @@ export function StageLayoutPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={
+        back={
           <Link to="/stage" className="hover:underline">
             ‹ Stage layouts
           </Link>
@@ -980,7 +980,7 @@ function BlockInspector({
       )}
 
       <div className="mt-5">
-        <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Notes on this block</h3>
+        <h3 className="font-mono text-label-sm text-on-surface-variant">Notes on this block</h3>
         <CommentList comments={notes} myId={myId} canDelete={canDelete} onDelete={onDeleteNote} empty="No notes pinned here." />
         {canComment && <CommentForm onSend={onNote} busy={false} placeholder="e.g. needs a second DI box" />}
       </div>
