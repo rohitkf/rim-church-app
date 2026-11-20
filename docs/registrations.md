@@ -32,7 +32,7 @@ flowchart LR
     M[Tidy up<br/>names blanked after set days]
   end
   subgraph Reception
-    J[Scan & check in<br/>paid: in, no tap<br/>owes: Paid now · walk-ins]
+    J[Scan & check in<br/>paid: in, no tap<br/>owes: Paid & check in · walk-ins]
   end
 
   B -- diary sync --> H
@@ -173,8 +173,9 @@ personal details are tidied away after the event.
 - A paid or free ticket for today checks in straight away, with no tap.
   A check-in is a day's: on the second day of a two-day event the same
   ticket is checked in again, and "here" counts today.
-- A ticket that still owes is held up with **Check in** and **Paid now,
-  check in**.
+- A ticket that still owes is held up (**Payment needed**) with **Paid &
+  check in**; a row on Find also has **Mark as paid** alone, for somebody
+  not at the door yet.
 - Warns about cancelled tickets, tickets for another day, and people
   already checked in.
 - Registers walk-ins on the spot, paid or free.
@@ -224,7 +225,7 @@ protection.
 | Refunds | `reg.refund` | See refund details and mark orders Refunded |
 | Cancel & delete | `reg.cancel` | Cancel or restore orders, cancel the event, delete it once refunds are done |
 | Check people in | `reg.door` | Use Reception and the scanner |
-| Take payments at the door | `reg.door_pay` | "Paid now, check in" at Reception |
+| Take payments at the door | `reg.door_pay` | "Paid & check in" and "Mark as paid" at Reception |
 | Register walk-ins | `reg.walk_in` | The Walk-in tab at Reception |
 | Correct email addresses | `reg.email` | Put an attendee's address right, which sends their email again. Opens the Registrations page to read. **Admins have this one out of the box**; every other right above is nobody's until it is given |
 

@@ -10,7 +10,7 @@ import { resetUndoForTests } from '../lib/registrationUndo'
 /*
  * One event, run from its page (0244, 0245): the numbers, who has
  * registered, what reception does to an order, and the export. Proof of
- * payment (0247): the receipt beside the order, Mark as received confirms
+ * payment (0247): the receipt beside the order, Mark as paid confirms
  * the ticket by email, Not received asks again; and the link's QR code.
  */
 
@@ -293,7 +293,7 @@ describe('an event’s page', () => {
     expect(types.getByText('4 / 40')).toBeInTheDocument()
     expect(screen.getByText('1 checked in')).toBeInTheDocument()
     const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
-    expect(within(ama).getByText('Awaiting payment')).toBeInTheDocument()
+    expect(within(ama).getByText('Not paid yet')).toBeInTheDocument()
     expect(within(ama).getByText('For Ama Owusu, Kofi Owusu')).toBeInTheDocument()
     expect(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByText('Bringing the twins')).toBeInTheDocument()
     expect(within(screen.getByRole('listitem', { name: 'Asha Mathew' })).getByText('Cancelled')).toBeInTheDocument()
@@ -377,7 +377,7 @@ describe('an event’s page', () => {
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
     let menu = await openMenu(user, 'Ama Owusu')
     expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
-      expect.stringContaining('Mark as received'),
+      expect.stringContaining('Mark as paid'),
       'Waive the payment',
       expect.stringContaining('Check in'),
       // She registered with a code (EARLY): it can be taken off again (0299).
@@ -385,12 +385,12 @@ describe('an event’s page', () => {
       'Add a note',
       'Cancel registration',
     ])
-    await user.click(within(menu).getByRole('menuitem', { name: /Mark as received/ }))
+    await user.click(within(menu).getByRole('menuitem', { name: /Mark as paid/ }))
     await waitFor(() => expect(state.marked).toEqual([['o1', 'received']]))
 
     menu = await openMenu(user, 'Ben Joseph')
-    expect(within(menu).queryByRole('menuitem', { name: /Mark as received/ })).toBeNull()
-    await user.click(within(menu).getByRole('menuitem', { name: 'Back to awaiting payment' }))
+    expect(within(menu).queryByRole('menuitem', { name: /Mark as paid/ })).toBeNull()
+    await user.click(within(menu).getByRole('menuitem', { name: /^Back to not paid/ }))
     await waitFor(() => expect(state.marked).toContainEqual(['o-ben', 'awaiting']))
 
     menu = await openMenu(user, 'Grace Mensah')
@@ -431,7 +431,7 @@ describe('an event’s page', () => {
 
     // Read only otherwise: nothing of the office's to press on the row.
     const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
-    expect(within(dan).queryByRole('button', { name: 'Mark as received' })).toBeNull()
+    expect(within(dan).queryByRole('button', { name: 'Mark as paid' })).toBeNull()
     await user.click(within(dan).getByRole('button', { name: 'Verify payment' }))
     await waitFor(() => expect(state.marked).toEqual([['o-dan', 'verify']]))
   })
@@ -451,7 +451,7 @@ describe('an event’s page', () => {
     const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
     expect(within(dan).getByText('Verified payment')).toBeInTheDocument()
     expect(within(dan).getByText(/^Verified .* by Pastor John$/)).toBeInTheDocument()
-    expect(within(dan).getByRole('button', { name: 'Mark as received' })).toBeInTheDocument()
+    expect(within(dan).getByRole('button', { name: 'Mark as paid' })).toBeInTheDocument()
     expect(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).queryByText('Verified payment')).toBeNull()
     let menu = await openMenu(first, 'Dan Reported')
     expect(within(menu).queryByRole('menuitem', { name: /verification/ })).toBeNull()
@@ -506,7 +506,7 @@ describe('an event’s page', () => {
   it('shows the receipt beside an order that says it paid, and who took the money', async () => {
     const user = show()
     const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
-    expect(within(dan).getByText('Receipt sent — being checked')).toBeInTheDocument()
+    expect(within(dan).getByText('Receipt to check')).toBeInTheDocument()
     expect(within(dan).getByText('Ref PP-123')).toBeInTheDocument()
     // The receipt opens over the page, through a signed link made on the tap — no new tab, the page stays.
     const open = vi.spyOn(window, 'open')
@@ -555,19 +555,52 @@ describe('an event’s page', () => {
   it('says up front what wants doing, each a tap to those orders, and gives a row its next step', async () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })
-    // Awaiting money has no next step: there is nothing to decide until it arrives.
-    expect(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).queryByRole('button', { name: /Mark as/ })).toBeNull()
     expect(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByText(/^Checked in /)).toBeInTheDocument()
     const todo = screen.getByRole('group', { name: 'What wants doing' })
-    expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1awaiting payment'])
+    expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1not paid yet'])
     await user.click(within(todo).getByRole('button', { name: /receipt to check/ }))
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(/^Receipt to check$/)
     expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Dan Reported'])
     // The receipt's row carries the decision, no menu needed.
     const dan = screen.getByRole('listitem', { name: 'Dan Reported' })
-    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
+    await user.click(within(dan).getByRole('button', { name: 'Mark as paid' }))
     await waitFor(() => expect(state.marked).toEqual([['o-dan', 'received']]))
     await waitFor(() => expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS']))
+  })
+
+  it('gives each registration its own button for the money and for the door, never the one for the other', async () => {
+    const user = show()
+    // Not paid, no receipt: Mark as paid, and no Check in while it owes (0266).
+    const ama = await screen.findByRole('listitem', { name: 'Ama Owusu' })
+    expect(within(ama).getByRole('button', { name: 'Mark as paid' })).toBeInTheDocument()
+    expect(within(ama).queryByRole('button', { name: 'Check in' })).toBeNull()
+    // Paid and not in yet: Check in, and nothing about money.
+    const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
+    expect(within(ben).getByRole('button', { name: 'Check in' })).toBeInTheDocument()
+    expect(within(ben).queryByRole('button', { name: 'Mark as paid' })).toBeNull()
+    // In already, or cancelled: neither.
+    for (const name of ['Grace Mensah', 'Asha Mathew']) {
+      const row = screen.getByRole('listitem', { name })
+      expect(within(row).queryByRole('button', { name: 'Check in' }), name).toBeNull()
+      expect(within(row).queryByRole('button', { name: 'Mark as paid' }), name).toBeNull()
+    }
+    // The two are told apart by colour as well as by word: blue records money, green lets somebody in.
+    expect(within(ama).getByRole('button', { name: 'Mark as paid' }).className).toContain('accent-blue')
+    expect(within(ben).getByRole('button', { name: 'Check in' }).className).toContain('accent-green')
+    await user.click(within(ben).getByRole('button', { name: 'Check in' }))
+    await waitFor(() => expect(state.marked).toContainEqual(['o-ben', 'check_in']))
+    await user.click(within(ama).getByRole('button', { name: 'Mark as paid' }))
+    await waitFor(() => expect(state.marked).toContainEqual(['o1', 'received']))
+  })
+
+  it('says the day somebody was checked in when it was not today, and what the date at the foot of a card is', async () => {
+    const yesterday = new Date(Date.now() - 24 * 3600_000)
+    state.orders = [order({ id: 'o-ben', code: 'BCDEFGHJKMNP', name: 'Ben Joseph', payment_status: 'received', checked_in_at: yesterday.toISOString() })]
+    show()
+    const ben = await screen.findByRole('listitem', { name: 'Ben Joseph' })
+    const day = yesterday.toLocaleDateString([], { weekday: 'short' })
+    expect(within(ben).getByText(new RegExp(`^Checked in ${day} `))).toBeInTheDocument()
+    expect(within(ben).getByText(/^Registered /)).toBeInTheDocument()
   })
 
   it('leads back to every event from the top', async () => {
@@ -581,7 +614,7 @@ describe('an event’s page', () => {
     await screen.findByRole('listitem', { name: 'Dan Reported' })
     let menu = await openMenu(user, 'Dan Reported')
     expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
-      expect.stringContaining('Mark as received'),
+      expect.stringContaining('Mark as paid'),
       expect.stringContaining('Not received, ask again'),
       'Waive the payment',
       expect.stringContaining('Check in'),
@@ -596,7 +629,7 @@ describe('an event’s page', () => {
     await waitFor(() => expect(state.notified).toEqual([['unmatched', 'EFGHJKMNPQRS']]))
 
     menu = await openMenu(user, 'Dan Reported')
-    await user.click(within(menu).getByRole('menuitem', { name: /Mark as received/ }))
+    await user.click(within(menu).getByRole('menuitem', { name: /Mark as paid/ }))
     await waitFor(() => expect(state.marked).toContainEqual(['o-dan', 'received']))
     await waitFor(() => expect(state.notified).toContainEqual(['paid', 'EFGHJKMNPQRS']))
   })
@@ -660,7 +693,7 @@ describe('an event’s page', () => {
     expect(rows()).toEqual(['Dan Reported'])
     expect(screen.getByText(/Showing 1 of 5/)).toBeInTheDocument()
     // The row's own step does what the card's does.
-    await user.click(within(within(table()).getByRole('row', { name: 'Dan Reported' })).getByRole('button', { name: 'Mark as received' }))
+    await user.click(within(within(table()).getByRole('row', { name: 'Dan Reported' })).getByRole('button', { name: 'Mark as paid' }))
     await waitFor(() => expect(state.marked).toContainEqual(['o-dan', 'received']))
     // And Details opens the whole card under it, ticket and all.
     await user.click(screen.getByRole('button', { name: 'Show Dan Reported’s details' }))
@@ -678,7 +711,7 @@ describe('an event’s page', () => {
     await user.click(screen.getByRole('button', { name: 'Scan tickets' }))
     const dialog = screen.getByRole('dialog', { name: 'Scan tickets' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Ticket code' }), 'BCDEFGHJKMNP')
-    await user.click(within(dialog).getByRole('button', { name: 'Find' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Enter code' }))
     // Ben has paid, so reading his ticket checks him in with no tap.
     await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
     expect(within(dialog).getByText('Checked in')).toBeInTheDocument()
@@ -815,7 +848,7 @@ describe('an event’s page', () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Dan Reported' })
     expect(within(await openMenu(user, 'Dan Reported')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
-      expect.stringContaining('Mark as received'),
+      expect.stringContaining('Mark as paid'),
       expect.stringContaining('Not received, ask again'),
       'Waive the payment',
       'Add a note',
@@ -854,8 +887,8 @@ describe('taking a press back', () => {
     resetUndoForTests(60_000)
     const user = show()
     const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
-    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
-    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Marked as received']))
+    await user.click(within(dan).getByRole('button', { name: 'Mark as paid' }))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Marked as paid']))
     expect(lastOffer().action!.label).toBe('Undo')
     expect(state.notified).toEqual([])
 
@@ -872,7 +905,7 @@ describe('taking a press back', () => {
     state.undoRefused = { message: 'This registration has changed since. Use the menu to put it right.' }
     const user = show()
     const dan = await screen.findByRole('listitem', { name: 'Dan Reported' })
-    await user.click(within(dan).getByRole('button', { name: 'Mark as received' }))
+    await user.click(within(dan).getByRole('button', { name: 'Mark as paid' }))
     await waitFor(() => expect(state.toasts).toHaveLength(1))
     lastOffer().action!.run()
     await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Could not undo that.', tone: 'error' }))
@@ -1358,13 +1391,13 @@ describe('registrations made without the code, twice, or waived', () => {
     const user = show()
     await screen.findByRole('listitem', { name: 'Binitha John' })
     const item = within(await openMenu(user, 'Binitha John')).getByRole('menuitem', { name: /Remove promo code/ })
-    expect(item).toHaveTextContent('It goes back to £20.00, awaiting payment')
+    expect(item).toHaveTextContent('It goes back to £20.00, not paid yet')
     await user.click(item)
 
     // What it will do, said before it is done: the price, the code's use, and who is told.
     const dialog = screen.getByRole('alertdialog', { name: 'Remove the promo code from Binitha John’s registration?' })
     expect(dialog).toHaveTextContent('FREE comes off and has its use back.')
-    expect(dialog).toHaveTextContent('goes back to £20.00, awaiting payment, and an email to binitha@example.org asks for it.')
+    expect(dialog).toHaveTextContent('goes back to £20.00, not paid yet, and an email to binitha@example.org asks for it.')
     expect(state.promoRemoved).toEqual([])
     await user.click(within(dialog).getByRole('button', { name: 'Remove it' }))
 
@@ -1408,7 +1441,7 @@ describe('registrations made without the code, twice, or waived', () => {
     await user.click(item)
     const dialog = screen.getByRole('alertdialog', { name: /Remove the promo code/ })
     expect(dialog).toHaveTextContent('It took nothing off this registration, so the price stays as it is and nobody is told.')
-    expect(dialog).not.toHaveTextContent('awaiting payment')
+    expect(dialog).not.toHaveTextContent('not paid yet')
     await user.click(within(dialog).getByRole('button', { name: 'Remove it' }))
     await waitFor(() => expect(state.promoRemoved).toEqual(['o-un']))
     await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Promo code FREE removed' }))
@@ -1456,7 +1489,7 @@ describe('registrations made without the code, twice, or waived', () => {
     expect(checkedIn?.words).toContain('undo the check-in first')
     const paid = await offered('Has Paid')
     expect(paid?.pressable).toBe(false)
-    expect(paid?.words).toContain('put it back to awaiting payment first')
+    expect(paid?.words).toContain('put it back to not paid first')
     const said = await offered('Says Paid')
     expect(said?.pressable).toBe(false)
     expect(said?.words).toContain('settle that first')

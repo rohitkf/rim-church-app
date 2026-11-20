@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { OrderTable } from './OrderTable'
 import { DEFAULT_SORT, nextSort, sortOrders, type OrderSort } from '../lib/orderSort'
 import type { OrderRow } from '../lib/registrations'
+import { paymentWordsOf } from '../lib/orderFilters'
 
 const order = (name: string, over: Partial<OrderRow> = {}): OrderRow =>
   ({
@@ -49,7 +50,7 @@ function Table({ busy = false }: { busy?: boolean }) {
       onSort={(key) => setSort((was) => nextSort(was, key))}
       onlineName="Paypal"
       actionsFor={(o) => [{ label: `Note on ${o.name}`, onSelect: () => chosen(o.name) }]}
-      stepsFor={(o) => (o.payment_status === 'reported' ? [{ label: 'Mark as received', tone: 'primary', onClick: () => stepped(o.name) }] : [])}
+      stepsFor={(o) => (o.payment_status === 'reported' ? [{ label: 'Mark as paid', tone: 'primary', onClick: () => stepped(o.name) }] : [])}
       cardFor={(o) => <li key={o.id}>The whole card of {o.name}</li>}
       busy={busy}
     />
@@ -75,6 +76,8 @@ describe('an event’s registrations as a table', () => {
     expect(cells('Ben')).toEqual(['2', '£60.00', 'PaidChecked in', 'Bank transfer'])
     expect(cells('Dan')).toEqual(['1', '£30.00', 'Receipt to check', 'Paypal'])
     expect(cells('Ama')).toEqual(['1', '£30.00', 'Not paid yet', 'At reception'])
+    // A waived one is Waived, not "Paid (waived)": nobody paid.
+    expect(paymentWordsOf(order('W', { payment_status: 'waived' }))).toBe('Waived')
     // Nothing to pay has no way of paying; neither has a cancelled one.
     expect(cells('Grace')).toEqual(['1', 'Free', 'Free', '—'])
     expect(cells('Asha')).toEqual(['1', '£30.00', 'Cancelled', '—'])
@@ -108,10 +111,10 @@ describe('an event’s registrations as a table', () => {
     const user = userEvent.setup()
     render(<Table />)
     const dan = within(screen.getByRole('row', { name: 'Dan' }))
-    await user.click(dan.getByRole('button', { name: 'Mark as received' }))
+    await user.click(dan.getByRole('button', { name: 'Mark as paid' }))
     expect(stepped).toHaveBeenCalledWith('Dan')
     // A row with nothing waiting has no such button.
-    expect(within(screen.getByRole('row', { name: 'Ama' })).queryByRole('button', { name: 'Mark as received' })).toBeNull()
+    expect(within(screen.getByRole('row', { name: 'Ama' })).queryByRole('button', { name: 'Mark as paid' })).toBeNull()
     await user.click(dan.getByRole('button', { name: 'Actions for Dan' }))
     await user.click(screen.getByRole('menuitem', { name: 'Note on Dan' }))
     expect(chosen).toHaveBeenCalledWith('Dan')
@@ -136,6 +139,6 @@ describe('an event’s registrations as a table', () => {
 
   it('holds a row’s step while a save is on its way', () => {
     render(<Table busy />)
-    expect(within(screen.getByRole('row', { name: 'Dan' })).getByRole('button', { name: 'Mark as received' })).toBeDisabled()
+    expect(within(screen.getByRole('row', { name: 'Dan' })).getByRole('button', { name: 'Mark as paid' })).toBeDisabled()
   })
 })

@@ -3,7 +3,8 @@ import { ActionButton, Overlay, Pill, inputClasses } from './Surface'
 import { useQrCamera } from '../lib/qrCamera'
 import { codeFromScan } from '../lib/registrationLinks'
 import { pounds } from '../lib/money'
-import { PAYMENT_WORDS, checkedInToday, isPaid, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
+import { checkedInToday, checkedInWords, isPaid, whenWords, type EventDate, type OrderRow } from '../lib/registrations'
+import { paymentWordsOf } from '../lib/orderFilters'
 
 /**
  * The door (0246, 0247): the camera reads the QR code on each ticket —
@@ -28,6 +29,8 @@ export interface ScannerProps {
   busy: boolean
   onCheckIn: (order: OrderRow) => void
   onPaidAndCheckIn: (order: OrderRow) => void
+  /** Takes a check-in back from the card it was made on: a scan lets somebody in without a tap, so the way out is here too. */
+  onUndoCheckIn?: (order: OrderRow) => void
   /** May take the money there and then (0251); off, an owing ticket is only held up. */
   canTakePayment?: boolean
   /** The camera runs only while this is on (a hidden tab keeps its hands off it). */
@@ -36,7 +39,7 @@ export interface ScannerProps {
   askFirst?: boolean
 }
 
-export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, canTakePayment = true, active = true, askFirst = false }: ScannerProps) {
+export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn, onUndoCheckIn, canTakePayment = true, active = true, askFirst = false }: ScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [cameraOn, setCameraOn] = useState(!askFirst)
   const [found, setFound] = useState<{ code: string; id: string | null; auto: boolean } | null>(null)
@@ -92,6 +95,8 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
   const otherDay = !!orderDate && new Date(orderDate.starts_at).toDateString() !== today
   const owes = !!order && order.status === 'confirmed' && order.total_pence > 0 && !isPaid(order)
   const inToday = !!order && checkedInToday(order)
+  // Seen in the account (0267) and not yet marked as paid: nothing to collect.
+  const verified = owes && !!order?.payment_verified_at
 
   return (
     <div>
@@ -145,9 +150,12 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                 ) : found.auto ? (
                   <Pill tone="green">Checked in</Pill>
                 ) : inToday ? (
-                  <Pill tone="blue">Already checked in {new Date(order.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
+                  <Pill tone="blue">Already {checkedInWords(order.checked_in_at!).replace(/^C/, 'c')}</Pill>
                 ) : order.checked_in_at ? (
                   <Pill tone="neutral">Checked in {new Date(order.checked_in_at).toLocaleDateString([], { weekday: 'short' })} · not yet today</Pill>
+                ) : owes ? (
+                  // Never "Valid" beside "Not a ticket yet": one card, one verdict.
+                  <Pill tone="orange">{verified ? 'To mark as paid' : 'Payment needed'}</Pill>
                 ) : (
                   <Pill tone="green">Valid</Pill>
                 )}
@@ -158,7 +166,7 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                 )}
                 {order.status === 'confirmed' && order.total_pence === 0 && order.promo_code && <Pill tone="neutral">Free with code {order.promo_code}</Pill>}
                 {order.status === 'confirmed' && order.total_pence > 0 && (
-                  <Pill tone={order.payment_status === 'received' || order.payment_status === 'waived' ? 'green' : 'orange'}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+                  <Pill tone={order.payment_status === 'received' || order.payment_status === 'waived' ? 'green' : 'orange'}>{paymentWordsOf(order)}</Pill>
                 )}
               </div>
               <h3 className="mt-2 text-headline-sm text-on-surface">
@@ -177,17 +185,24 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
                   {whenWords(orderDate.starts_at, orderDate.ends_at)}
                 </p>
               )}
-              {owes && (
+              {owes && !verified && (
                 <p className="mt-1 text-body-sm text-accent-orange-soft">
                   {pounds(order.total_pence)} still to pay.
-                  {order.payment_status === 'reported' && ` They say they paid${order.proof_reference ? ` (ref ${order.proof_reference})` : ''}; it has not been matched yet.`}
+                  {order.payment_status === 'reported' && ` They say they paid${order.proof_reference ? ` (ref ${order.proof_reference})` : ''}; the office has not checked it yet.`}
                 </p>
+              )}
+              {verified && (
+                <p className="mt-1 text-body-sm text-accent-green-soft">{pounds(order.total_pence)} has been seen in the account. Nothing more to collect: it only wants marking as paid.</p>
               )}
               {owes && !inToday && (
                 <p className="mt-1 text-body-sm font-medium text-on-surface">
-                  {canTakePayment
-                    ? 'Not a ticket yet: take the payment to check them in.'
-                    : 'Not a ticket yet: they cannot be checked in until it is paid. Send them to whoever is taking payments.'}
+                  {verified
+                    ? canTakePayment
+                      ? 'Not a ticket yet: mark it as paid to check them in.'
+                      : 'Not a ticket yet: they cannot be checked in until it is marked as paid. Send them to whoever is taking payments.'
+                    : canTakePayment
+                      ? 'Not a ticket yet: take the payment to check them in.'
+                      : 'Not a ticket yet: they cannot be checked in until it is paid. Send them to whoever is taking payments.'}
                 </p>
               )}
               {order.notes && <p className="mt-1 text-body-sm text-on-surface-variant">Note: {order.notes}</p>}
@@ -198,12 +213,25 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
             {/* Not while it owes (0266): the money first, then the door. */}
             {order && order.status === 'confirmed' && !inToday && !found.auto && !owes && (
               <ActionButton tone="success" onClick={() => onCheckIn(order)} disabled={busy}>
-                Check in
+                Check in{order.quantity > 1 ? ` all ${order.quantity}` : ''}
               </ActionButton>
             )}
             {order && order.status === 'confirmed' && !inToday && owes && canTakePayment && (
-              <ActionButton tone="quiet" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
-                Paid now, check in
+              <ActionButton tone="success" onClick={() => onPaidAndCheckIn(order)} disabled={busy}>
+                Paid &amp; check in{order.quantity > 1 ? ` all ${order.quantity}` : ''}
+              </ActionButton>
+            )}
+            {order && order.status === 'confirmed' && (inToday || found.auto) && onUndoCheckIn && (
+              <ActionButton
+                tone="quiet"
+                onClick={() => {
+                  // No longer "checked in as it was read": the card goes back to offering it.
+                  setFound((was) => (was ? { ...was, auto: false } : was))
+                  onUndoCheckIn(order)
+                }}
+                disabled={busy}
+              >
+                Undo check-in
               </ActionButton>
             )}
             <ActionButton tone="ghost" onClick={next}>
@@ -224,8 +252,9 @@ export function ScannerPanel({ orders, dates, busy, onCheckIn, onPaidAndCheckIn,
           maxLength={80}
           className={`${inputClasses} flex-1`}
         />
+        {/* Not "Find": a paid ticket's code checks them in, as its QR code would. */}
         <ActionButton type="submit" tone="quiet" disabled={!codeFromScan(typed)}>
-          Find
+          Enter code
         </ActionButton>
       </form>
     </div>

@@ -13,7 +13,7 @@ import { OrderFilterBar } from '../components/OrderFilterBar'
 import { OrderTable } from '../components/OrderTable'
 import { DEFAULT_SORT, nextSort, sortOrders, type OrderSort } from '../lib/orderSort'
 import { readRegistrationView, writeRegistrationView, type RegistrationView } from '../lib/registrationView'
-import { NO_FILTERS, orderMatches, type OrderFilters } from '../lib/orderFilters'
+import { NO_FILTERS, orderMatches, paymentWordsOf, type OrderFilters } from '../lib/orderFilters'
 import { onlineLinkName, wayOf, wayWords } from '../lib/registrationBreakdown'
 import { GIVING_KEY, fetchGiving } from '../lib/giving'
 import { ApplyPromoDialog } from '../components/ApplyPromoDialog'
@@ -32,7 +32,6 @@ import { downloadBlob, qrPngBlob } from '../lib/qrPng'
 import { writeWorkbook } from '../lib/writeWorkbook'
 import {
   PAYMENT_TONE,
-  PAYMENT_WORDS,
   duplicateEmails,
   orderMoney,
   sharesAnEmail,
@@ -57,6 +56,8 @@ import {
   verifyOrderPayment,
   canBeVerified,
   wantsVerifying,
+  isPaid,
+  checkedInWords,
   registrationExportFileName,
   sendTicketAgain,
   setOrderEmail,
@@ -245,7 +246,7 @@ export function RegistrationEventPage() {
     mutationFn: (order: OrderRow) => takeAndAdmit(order.id),
     onSuccess: (_r, order) => {
       setError(null)
-      done(order, 'Received, and checked in', ticketConfirmed(order))
+      done(order, 'Marked as paid, and checked in', ticketConfirmed(order))
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not change that registration.')),
@@ -258,7 +259,7 @@ export function RegistrationEventPage() {
       // The email that says so waits for the undo, like the other one.
       done(
         order,
-        order.email ? 'Back to awaiting payment — they will be emailed' : 'Back to awaiting payment',
+        order.email ? 'Back to not paid — they will be emailed' : 'Back to not paid',
         order.email ? () => void notifyPayment('unmatched', order.code) : undefined,
       )
       return refresh()
@@ -374,7 +375,7 @@ export function RegistrationEventPage() {
       orderActions(o, (action) => mark.mutate({ order: o, action }), () => openNote(o), () => cancelOrder(o), () => notReceived(o), cancelled, () => setRefundFor(o), rights, (verified) => verify.mutate({ order: o, verified }), () => openEmail(o), codes.length > 0 ? () => openPromo(o) : undefined, () => removePromo(o)),
     )
   const stepsOf = (o: OrderRow) =>
-    nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o))
+    nextSteps(o, (action) => mark.mutate({ order: o, action }), () => notReceived(o), () => setRefundFor(o), rights, cancelled ? undefined : () => verify.mutate({ order: o, verified: true }), () => openEmail(o), cancelled)
   const cardOf = (o: OrderRow) => (
     <OrderLine
       key={o.id}
@@ -408,7 +409,7 @@ export function RegistrationEventPage() {
       title: `Remove the promo code from ${order.name}’s registration?`,
       body:
         order.discount_pence > 0
-          ? `${order.promo_code ?? 'The code'} comes off and has its use back. The registration goes back to ${pounds(order.subtotal_pence)}, awaiting payment${
+          ? `${order.promo_code ?? 'The code'} comes off and has its use back. The registration goes back to ${pounds(order.subtotal_pence)}, not paid yet${
               order.email ? `, and an email to ${order.email} asks for it.` : '. They gave no email address, so nobody is told.'
             }`
           : // Registered with a code that came to nothing (free tickets only): it still spent a use.
@@ -433,8 +434,8 @@ export function RegistrationEventPage() {
     ask({
       title: `Not received from ${order.name}?`,
       body: order.email
-        ? `Their registration goes back to awaiting payment, and an email to ${order.email} says the payment could not be matched and asks them to check, or pay at reception.`
-        : 'Their registration goes back to awaiting payment. They gave no email address, so nobody is told.',
+        ? `Their registration goes back to not paid, and an email to ${order.email} says the payment could not be matched and asks them to check, or pay at reception.`
+        : 'Their registration goes back to not paid. They gave no email address, so nobody is told.',
       confirmLabel: 'Ask again',
       cancelLabel: 'Keep it',
       onConfirm: () => askAgain.mutate(order),
@@ -616,7 +617,7 @@ export function RegistrationEventPage() {
               <Pill tone="orange" className="-ml-1">
                 {awaitingOnly}
               </Pill>
-              awaiting payment
+              not paid yet
             </ActionButton>
           )}
           {owed.length > 0 && (
@@ -787,6 +788,7 @@ export function RegistrationEventPage() {
           busy={mark.isPending || payAndCheckIn.isPending}
           onCheckIn={(order) => mark.mutate({ order, action: 'check_in' })}
           onPaidAndCheckIn={(order) => payAndCheckIn.mutate(order)}
+          onUndoCheckIn={(order) => mark.mutate({ order, action: 'undo_check_in' })}
           onClose={() => setScanning(false)}
         />
       )}
@@ -929,9 +931,9 @@ function NameToType({ title, label, value, onChange }: { title: string; label: s
 }
 
 const ACTION_DONE: Record<OrderAction, string> = {
-  received: 'Marked as received',
+  received: 'Marked as paid',
   waived: 'Payment waived',
-  awaiting: 'Back to awaiting payment',
+  awaiting: 'Back to not paid',
   check_in: 'Checked in',
   undo_check_in: 'Check-in undone',
   cancel: 'Registration cancelled',
@@ -1000,10 +1002,10 @@ function orderActions(
     if (o.payment_status !== 'not_needed') {
       if (o.payment_status !== 'received' && r.takePayment) {
         actions.push({
-          label: 'Mark as received',
+          label: 'Mark as paid',
           onSelect: () => act('received'),
           tone: 'accent',
-          hint: o.payment_status === 'reported' ? 'The receipt matches the account; their ticket is confirmed by email' : 'The money has arrived',
+          hint: o.payment_status === 'reported' ? 'The receipt matches the account; their ticket is confirmed by email' : 'They have paid; their ticket is confirmed by email',
         })
       }
       if (r.approve) {
@@ -1011,7 +1013,7 @@ function orderActions(
         if (promo && canTakePromo(o)) actions.push({ label: 'Apply a promo code', onSelect: promo, hint: 'They were meant to use one: the price comes down on this registration' })
         if (o.payment_status === 'reported') actions.push({ label: 'Not received, ask again', onSelect: notReceived, hint: 'Nothing matches; an email asks them to check' })
         if (o.payment_status !== 'waived') actions.push({ label: 'Waive the payment', onSelect: () => act('waived') })
-        if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to awaiting payment', onSelect: () => act('awaiting') })
+        if (o.payment_status === 'received' || o.payment_status === 'waived') actions.push({ label: 'Back to not paid', onSelect: () => act('awaiting'), hint: 'It was marked paid or waived by mistake' })
       }
     }
     if (r.checkIn) {
@@ -1020,7 +1022,7 @@ function orderActions(
           ? { label: 'Undo check-in', onSelect: () => act('undo_check_in') }
           : // Not while it owes (0266): the database refuses it, so say why here.
             o.total_pence > 0 && (o.payment_status === 'awaiting' || o.payment_status === 'reported')
-            ? { label: 'Check in', onSelect: () => undefined, disabled: true, hint: 'Not until it is paid: mark it received or waive it first' }
+            ? { label: 'Check in', onSelect: () => undefined, disabled: true, hint: 'Not until it is paid: mark it paid or waive it first' }
             : { label: 'Check in', onSelect: () => act('check_in'), hint: 'They have arrived' },
       )
     }
@@ -1031,7 +1033,7 @@ function orderActions(
       actions.push(
         held
           ? { label: 'Remove promo code', onSelect: () => undefined, disabled: true, hint: held }
-          : { label: 'Remove promo code', onSelect: removePromo, hint: o.discount_pence > 0 ? `It goes back to ${pounds(o.subtotal_pence)}, awaiting payment` : 'It took nothing off: the code just has its use back' },
+          : { label: 'Remove promo code', onSelect: removePromo, hint: o.discount_pence > 0 ? `It goes back to ${pounds(o.subtotal_pence)}, not paid yet` : 'It took nothing off: the code just has its use back' },
       )
     }
   } else if (o.refund_status !== 'refunded' && r.cancel) {
@@ -1051,6 +1053,7 @@ function nextSteps(
   r: RegistrationRights,
   verify?: () => void,
   email?: () => void,
+  eventCancelled = false,
 ): NextStep[] {
   if (o.refund_status === 'owed' && r.refund) {
     return [
@@ -1062,14 +1065,23 @@ function nextSteps(
   // Whoever can see the accounts goes first (0267): the office goes by their tag.
   if (verify && r.verify && wantsVerifying(o)) steps.push({ label: 'Verify payment', onClick: verify, tone: 'primary' })
   if (o.status === 'confirmed' && o.payment_status === 'reported' && r.takePayment) {
-    steps.push({ label: 'Mark as received', onClick: () => act('received'), tone: steps.length > 0 ? 'quiet' : 'primary' })
+    steps.push({ label: 'Mark as paid', onClick: () => act('received'), tone: 'accent-quiet' })
     if (r.approve) steps.push({ label: 'Not received', onClick: notReceived, tone: 'quiet' })
+  }
+  // Not paid, and no receipt either: somebody who pays the office in person, or whose money simply turned up.
+  // Its own button, in the colour of money, so it is never taken for the one that lets them in.
+  if (o.status === 'confirmed' && o.total_pence > 0 && o.payment_status === 'awaiting' && r.takePayment) {
+    steps.push({ label: 'Mark as paid', onClick: () => act('received'), tone: 'accent-quiet' })
+  }
+  // Paid, free or waived, and not in yet: Check in, in the door's green. Not while it owes (0266), and not at a cancelled event.
+  if (o.status === 'confirmed' && !eventCancelled && !o.checked_in_at && r.checkIn && (o.total_pence <= 0 || isPaid(o))) {
+    steps.push({ label: 'Check in', onClick: () => act('check_in'), tone: 'success-quiet' })
   }
   // Their email did not arrive (0283): the address wants putting right.
   if (email && r.email && emailWantsDoing(o)) steps.push({ label: 'Correct email address', onClick: email, tone: steps.length > 0 ? 'quiet' : 'primary' })
   return steps
 }
-type NextStep = { label: string; onClick: () => void; tone: 'primary' | 'quiet' }
+type NextStep = { label: string; onClick: () => void; tone: 'primary' | 'quiet' | 'success-quiet' | 'accent-quiet' }
 
 const paidCash = (o: OrderRow) => !o.payment_method || o.payment_method === 'reception'
 /** Where a refund goes, for the menu and the sheet. */
@@ -1196,7 +1208,7 @@ function OrderLine({
               <Pill tone="red">Cancelled</Pill>
             ) : order.total_pence > 0 ? (
               <>
-                <Pill tone={PAYMENT_TONE[order.payment_status]}>{PAYMENT_WORDS[order.payment_status]}</Pill>
+                <Pill tone={PAYMENT_TONE[order.payment_status]}>{paymentWordsOf(order)}</Pill>
                 {/* How: by bank, by the online link, at reception. Said beside where it stands, so "awaiting payment" at reception is told from one by bank at a glance. */}
                 {way && way !== 'none' && <Pill tone="neutral">{wayWords(way, onlineName)}</Pill>}
                 {/* A code that took some of it off. One that took all of it is said by "Free with code" instead. */}
@@ -1218,7 +1230,8 @@ function OrderLine({
               </Pill>
             )}
             {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
-            {live && order.checked_in_at && <Pill tone="green">Checked in {new Date(order.checked_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>}
+            {/* The day too when it was not today: on the second day of an event a time alone reads as this morning's door. */}
+            {live && order.checked_in_at && <Pill tone="green">{checkedInWords(order.checked_in_at)}</Pill>}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
             {invitedBy && <Pill tone="indigo">Invited: {invitedBy}</Pill>}
             {sharesEmail && <Pill tone="orange">Same email as another</Pill>}
@@ -1300,7 +1313,8 @@ function OrderLine({
           and on the narrowest phone the code goes under the date rather than push the button about. */}
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
         <p className="flex min-w-0 flex-wrap gap-x-3 font-mono text-label-sm text-on-surface-faint">
-          <span className="whitespace-nowrap">{stamp(order.created_at)}</span>
+          {/* Said what it is: a date alone under a card that also says when they paid and when they came in could be any of the three. */}
+          <span className="whitespace-nowrap">Registered {stamp(order.created_at)}</span>
           <span className="whitespace-nowrap">{order.code}</span>
         </p>
         <ActionLink href={ticketUrl(order.code)} newTab size="sm" tone="quiet" className="shrink-0" aria-label={`Open ${order.name}’s ticket`}>

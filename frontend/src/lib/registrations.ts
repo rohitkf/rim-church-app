@@ -1912,6 +1912,17 @@ export function checkedInToday(order: Pick<OrderRow, 'checked_in_at'>, now = new
   return !!order.checked_in_at && new Date(order.checked_in_at).toDateString() === now.toDateString()
 }
 
+/**
+ * "Checked in 6:42 PM" today; "Checked in Fri 6:42 PM" any other day. A
+ * time alone on the second day of an event reads as today's door.
+ */
+export function checkedInWords(at: string, now = new Date()): string {
+  const when = new Date(at)
+  const time = when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (when.toDateString() === now.toDateString()) return `Checked in ${time}`
+  return `Checked in ${when.toLocaleDateString([], { weekday: 'short' })} ${time}`
+}
+
 export function doorEvents(events: EventSummary[], now = new Date()): EventSummary[] {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   return events

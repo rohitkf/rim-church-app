@@ -59,6 +59,17 @@ export const PAYMENT_FILTERS: { key: PaymentFilter; label: string }[] = [
   { key: 'waived', label: 'Waived' },
 ]
 
+/**
+ * Where a registration's payment stands, in the words the people who work
+ * registrations read: the Status dropdown's own, so the tag on a card, the
+ * column in the table, the row at Reception and the filter that finds them
+ * all say one thing. (The attendee's ticket has its own words,
+ * `PAYMENT_WORDS`: "Receipt sent — being checked" is theirs to read, and
+ * "Receipt to check" is the office's to do.)
+ */
+export const PAYMENT_PLACE_WORDS = Object.fromEntries(PAYMENT_FILTERS.filter((p) => p.key !== 'all').map((p) => [p.key, p.label])) as Record<PaymentPlace, string>
+export const paymentWordsOf = (o: Parameters<typeof paymentOf>[0]): string => PAYMENT_PLACE_WORDS[paymentOf(o)]
+
 /** `kind` is the heading it sits under in the Status list: something to do about it, or whether they came. */
 export const ONLY_FILTERS: { key: OnlyFilter; label: string; kind: 'todo' | 'came' }[] = [
   { key: 'to_verify', label: 'Payment to verify', kind: 'todo' },

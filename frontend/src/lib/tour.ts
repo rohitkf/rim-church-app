@@ -342,7 +342,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/door',
         target: 'page-title',
         title: 'Reception',
-        body: 'The door on the day. Scan a ticket’s QR code or find the name, check people in, take a payment, register a walk-in. You are shown the buttons that are yours to press.',
+        body: 'The door on the day. Scan a ticket’s QR code or find the name, check people in, take a payment, register a walk-in. Green buttons let somebody in; the blue one, Mark as paid, records their money without checking them in. Whatever you press says so with Undo, and the row keeps the offer for ten minutes. You are shown the buttons that are yours to press.',
       },
       {
         path: '/settings',

@@ -86,7 +86,7 @@ describe('the Registrations page', () => {
     const user = show()
     const card = await screen.findByRole('listitem', { name: 'Pastors & Leaders 2026' })
     expect(within(card).getByText('Taking registrations')).toBeInTheDocument()
-    expect(within(card).getByText('3 awaiting payment')).toBeInTheDocument()
+    expect(within(card).getByText('3 not paid yet')).toBeInTheDocument()
     expect(within(card).getByText('12 orders · £300.00 of £400.00 received')).toBeInTheDocument()
     expect(within(card).getByRole('img', { name: '£300.00 of £400.00 received' })).toBeInTheDocument()
     expect(within(card).getByRole('link', { name: /register\/pastors-2026/ })).toHaveAttribute('href', 'https://rim-church-app.vercel.app/register/pastors-2026')
@@ -139,7 +139,7 @@ describe('the Registrations page', () => {
     expect(names('Cancelled')).toEqual(['Called Off'])
     const later = screen.getByRole('listitem', { name: 'Later On' })
     expect(within(later).getByText('1 receipt to check')).toBeInTheDocument()
-    expect(within(later).getByText('2 awaiting payment')).toBeInTheDocument()
+    expect(within(later).getByText('2 not paid yet')).toBeInTheDocument()
     expect(within(screen.getByRole('listitem', { name: 'Called Off' })).getByText('2 refunds owed')).toBeInTheDocument()
     // One receipt and two refunds: three things to look at.
     expect(screen.getByText('need a look').parentElement!.querySelector('.text-numeral')!.textContent).toBe('3')

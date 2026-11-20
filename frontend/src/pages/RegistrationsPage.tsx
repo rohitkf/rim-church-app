@@ -135,7 +135,7 @@ function EventCard({ event, past }: { event: EventSummary; past: boolean }) {
             {event.reported} {event.reported === 1 ? 'receipt' : 'receipts'} to check
           </Pill>
         )}
-        {awaitingOnly > 0 && <Pill tone="orange">{awaitingOnly} awaiting payment</Pill>}
+        {awaitingOnly > 0 && <Pill tone="orange">{awaitingOnly} not paid yet</Pill>}
         {event.owed > 0 && (
           <Pill tone="orange" dot>
             {event.owed} {event.owed === 1 ? 'refund' : 'refunds'} owed

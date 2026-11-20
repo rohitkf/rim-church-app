@@ -16,9 +16,9 @@ import { parsePounds, pounds } from '../lib/money'
 import { ticketUrl } from '../lib/registrationLinks'
 import type { PhoneStatus } from '../lib/phone'
 import {
-  PAYMENT_WORDS,
   REGISTRATIONS_KEY,
   checkedInToday,
+  checkedInWords,
   doorEvents,
   fetchRegistrationEvent,
   fetchRegistrationEvents,
@@ -36,7 +36,7 @@ import {
   type OrderRow,
   type TicketType,
 } from '../lib/registrations'
-import { orderSays } from '../lib/orderFilters'
+import { orderSays, paymentWordsOf } from '../lib/orderFilters'
 
 /**
  * Reception (0247): the door, on one page, for whoever works it — the
@@ -165,7 +165,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
       andIn ? payAndCheckIn(order.id) : markOrder(order.id, 'received'),
     onSuccess: (_r, { order, andIn }) => {
       setError(null)
-      done(order, andIn ? `Received, and checked in ${order.name}` : `Received from ${order.name}`, tookMoney(order))
+      done(order, andIn ? `Marked as paid, and checked in ${order.name}` : `Marked as paid: ${order.name}`, tookMoney(order))
       return refresh()
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not take that payment.')),
@@ -186,7 +186,8 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
   const tickets = confirmed.reduce((n, o) => n + o.quantity, 0)
   // Today's door: a check-in from the first day of a two-day event is not here now.
   const here = confirmed.filter((o) => checkedInToday(o)).reduce((n, o) => n + o.quantity, 0)
-  const owing = confirmed.filter((o) => o.total_pence > 0 && !isPaid(o)).length
+  // In tickets, like the two beside it: "1 still to pay" for a family of three read as one person.
+  const owing = confirmed.filter((o) => o.total_pence > 0 && !isPaid(o)).reduce((n, o) => n + o.quantity, 0)
 
   return (
     <div>
@@ -236,13 +237,14 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
 
       {tab === 'scan' && !readOnly && (
         <section aria-label="Scan tickets">
-          <p className="mb-3 text-body-sm text-on-surface-variant">Start scanning and point the camera at the QR code on a ticket. A paid ticket is checked in as it is read.</p>
+          <p className="mb-3 text-body-sm text-on-surface-variant">Start scanning and point the camera at the QR code on a ticket, or type its code. A paid ticket is checked in as it is read; one that still owes is held up.</p>
           <ScannerPanel
             orders={rows}
             dates={dates}
             busy={busy}
             onCheckIn={(order) => checkIn.mutate(order)}
             onPaidAndCheckIn={(order) => paid.mutate({ order, andIn: true })}
+            onUndoCheckIn={(order) => undoCheckIn.mutate(order)}
             canTakePayment={rights.takePayment}
             askFirst
           />
@@ -340,6 +342,10 @@ function Find({
             const day = o.date_id ? dates.find((d) => d.id === o.date_id) : undefined
             const owes = o.status === 'confirmed' && o.total_pence > 0 && !isPaid(o)
             const inToday = checkedInToday(o)
+            // Seen in the account by whoever can see it (0267), and not yet marked as paid: nothing to collect at the door.
+            const verified = owes && !!o.payment_verified_at
+            // A registration is checked in whole: say so where it is more than one person.
+            const all = o.quantity > 1 ? ` all ${o.quantity}` : ''
             const last = lastDone(o.id)
             return (
               <li key={o.id} aria-label={o.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${o.status === 'cancelled' ? 'opacity-60' : ''}`}>
@@ -355,11 +361,11 @@ function Find({
                   {o.status === 'cancelled' ? (
                     <Pill tone="red">Cancelled</Pill>
                   ) : inToday ? (
-                    <Pill tone="blue">Checked in {new Date(o.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Pill>
+                    <Pill tone="blue">{checkedInWords(o.checked_in_at!)}</Pill>
                   ) : o.checked_in_at ? (
                     <Pill tone="neutral">Checked in {new Date(o.checked_in_at).toLocaleDateString([], { weekday: 'short' })} · not yet today</Pill>
                   ) : null}
-                  {o.status === 'confirmed' && o.total_pence > 0 && <Pill tone={PAY_TONE[o.payment_status]}>{PAYMENT_WORDS[o.payment_status]}</Pill>}
+                  {o.status === 'confirmed' && o.total_pence > 0 && <Pill tone={PAY_TONE[o.payment_status]}>{paymentWordsOf(o)}</Pill>}
                   {o.status === 'confirmed' && o.total_pence > 0 && o.payment_verified_at && (
                     <Pill tone="green" dot>
                       Verified payment
@@ -372,10 +378,16 @@ function Find({
                   <p className="text-label-md text-on-surface-faint">For {o.tickets.map((t) => t.attendee_name).filter(Boolean).join(', ')}</p>
                 )}
                 {day && <p className="text-label-md text-on-surface-faint">{whenWords(day.starts_at, day.ends_at)}</p>}
-                {owes && (
+                {owes && !verified && (
                   <p className="mt-1 text-body-sm text-accent-orange-soft">
                     {pounds(o.total_pence)} still to pay.
-                    {o.payment_status === 'reported' && ` They say they paid${o.proof_reference ? ` (ref ${o.proof_reference})` : ''}; it has not been matched yet.`}
+                    {o.payment_status === 'reported' && ` They say they paid${o.proof_reference ? ` (ref ${o.proof_reference})` : ''}; the office has not checked it yet.`}
+                  </p>
+                )}
+                {/* "Still to pay" beside "Verified payment" asked the door to take the money twice. */}
+                {verified && (
+                  <p className="mt-1 text-body-sm text-accent-green-soft">
+                    {pounds(o.total_pence)} has been seen in the account. Nothing more to collect: it only wants marking as paid.
                   </p>
                 )}
                 {o.notes && <p className="mt-1 text-body-sm text-on-surface-variant">Note: {o.notes}</p>}
@@ -387,17 +399,28 @@ function Find({
                 {o.status === 'confirmed' && canCheckIn && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {/* Not while it owes (0266): the money first, then the door. */}
+                    {/* Green lets them in; blue records their money. Two buttons where there are two things to do,
+                        so the money can be taken for somebody who is not at the door yet. */}
                     {!inToday && !owes && (
                       <ActionButton size="sm" tone="success" onClick={() => onCheckIn(o)} disabled={busy}>
-                        Check in
+                        Check in{all}
                       </ActionButton>
                     )}
                     {!inToday && owes && !canTakePayment && (
-                      <p className="text-body-sm font-medium text-on-surface">Cannot be checked in until it is paid. Send them to whoever is taking payments.</p>
+                      <p className="text-body-sm font-medium text-on-surface">
+                        {verified
+                          ? 'Cannot be checked in until it is marked as paid. Send them to whoever is taking payments.'
+                          : 'Cannot be checked in until it is paid. Send them to whoever is taking payments.'}
+                      </p>
+                    )}
+                    {owes && canTakePayment && !inToday && (
+                      <ActionButton size="sm" tone="success" onClick={() => onPaid(o, true)} disabled={busy}>
+                        Paid &amp; check in{all}
+                      </ActionButton>
                     )}
                     {owes && canTakePayment && (
-                      <ActionButton size="sm" tone="quiet" onClick={() => onPaid(o, !inToday)} disabled={busy}>
-                        {inToday ? 'Paid now' : 'Paid now, check in'}
+                      <ActionButton size="sm" tone="accent-quiet" onClick={() => onPaid(o, false)} disabled={busy}>
+                        Mark as paid
                       </ActionButton>
                     )}
                     {inToday && (

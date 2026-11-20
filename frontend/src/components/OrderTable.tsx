@@ -3,8 +3,8 @@ import { ActionButton, Pill, TableScroll, Tile } from './Surface'
 import { ActionMenu, type MenuAction } from './ActionMenu'
 import { HEAD_IN_BOX, ON_CARD } from '../lib/stickyHead'
 import { pounds } from '../lib/money'
-import { PAYMENT_FILTERS } from '../lib/orderFilters'
-import { paymentOf, wayOf, wayWords, type PaymentPlace } from '../lib/registrationBreakdown'
+import { paymentWordsOf } from '../lib/orderFilters'
+import { wayOf, wayWords } from '../lib/registrationBreakdown'
 import { PAYMENT_TONE, type OrderRow } from '../lib/registrations'
 import type { OrderSort, SortKey } from '../lib/orderSort'
 
@@ -12,7 +12,8 @@ import type { OrderSort, SortKey } from '../lib/orderSort'
 export interface RowStep {
   label: string
   onClick: () => void
-  tone: 'primary' | 'quiet'
+  /** `primary` is drawn quiet here (see below); a tinted one keeps its colour, which is what tells Mark as paid from Check in down a column. */
+  tone: 'primary' | 'quiet' | 'success-quiet' | 'accent-quiet'
 }
 
 const stamp = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
@@ -28,8 +29,6 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
 
 const CELL = 'px-3 py-2.5 align-middle'
 
-/** Where the payment stands, in the words the Status dropdown uses for the same thing. */
-const STATUS_WORDS = Object.fromEntries(PAYMENT_FILTERS.map((p) => [p.key, p.label])) as Record<PaymentPlace, string>
 
 /**
  * An event's registrations as a table: one line each, in whatever order
@@ -42,10 +41,10 @@ const STATUS_WORDS = Object.fromEntries(PAYMENT_FILTERS.map((p) => [p.key, p.lab
  * two dropdowns above narrow both.
  *
  * **Everything a card can do, a row can.** Its first next step is a
- * button in the row (Verify payment, Mark as received) — a quiet one
- * whatever the card makes it: thirteen receipts to check were thirteen
- * blue buttons down a column, and the Status tag beside each already
- * says which rows want something; the rest are in
+ * button in the row (Verify payment, Mark as paid, Check in) — never a
+ * filled one, whatever the card makes it: thirteen receipts to check were
+ * thirteen blue buttons down a column. A tinted one keeps its tint: blue
+ * records money, green lets somebody in; the rest are in
  * its menu, the same menu the card has; and **Details** opens the whole
  * card under the row, for the receipt, the note, who took the money and
  * the ticket. (The ticket was a button in the row too, and with it the
@@ -133,7 +132,7 @@ export function OrderTable({
               return (
                 <Fragment key={order.id}>
                   <tr aria-label={order.name} className={`border-t border-border-subtle ${live ? '' : 'opacity-60'}`}>
-                    <th scope="row" className={`${CELL} max-w-[11rem] pl-4 font-normal sm:max-w-[14rem] sm:pl-5`}>
+                    <th scope="row" className={`${CELL} max-w-[11rem] pl-4 font-normal sm:max-w-[12rem] sm:pl-5`}>
                       <span className="block truncate font-medium text-on-surface">{order.name}</span>
                       {order.email && <span className="block truncate text-label-md text-on-surface-faint">{order.email}</span>}
                     </th>
@@ -143,7 +142,7 @@ export function OrderTable({
                         `whitespace-nowrap`, or the column is sized for a tag's longest word and the tag runs over the next column. */}
                     <td className={`${CELL} whitespace-nowrap`}>
                       <span className="flex items-center gap-1">
-                        {!live ? <Pill tone="red">Cancelled</Pill> : <Pill tone={PAYMENT_TONE[order.payment_status]}>{STATUS_WORDS[paymentOf(order)]}</Pill>}
+                        {!live ? <Pill tone="red">Cancelled</Pill> : <Pill tone={PAYMENT_TONE[order.payment_status]}>{paymentWordsOf(order)}</Pill>}
                         {live && order.checked_in_at && <Pill tone="green">Checked in</Pill>}
                       </span>
                     </td>
@@ -152,7 +151,7 @@ export function OrderTable({
                     <td className={`${CELL} whitespace-nowrap`}>
                       <span className="flex items-center justify-end gap-1.5">
                         {step && (
-                          <ActionButton size="sm" tone="quiet" onClick={step.onClick} disabled={busy}>
+                          <ActionButton size="sm" tone={step.tone === 'primary' ? 'quiet' : step.tone} onClick={step.onClick} disabled={busy}>
                             {step.label}
                           </ActionButton>
                         )}

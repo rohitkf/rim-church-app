@@ -86,7 +86,7 @@ export function carriesPromo(o: Pick<OrderRow, 'status' | 'promo_code'>): boolea
 export function promoHeldBy(o: Pick<OrderRow, 'checked_in_at' | 'payment_status'>): string | null {
   if (o.checked_in_at) return 'They are checked in: undo the check-in first'
   if (o.payment_status === 'reported') return 'They say they have paid: settle that first'
-  if (o.payment_status === 'received' || o.payment_status === 'waived') return 'A payment is recorded: put it back to awaiting payment first'
+  if (o.payment_status === 'received' || o.payment_status === 'waived') return 'A payment is recorded: put it back to not paid first'
   return null
 }
 
