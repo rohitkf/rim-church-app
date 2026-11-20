@@ -84,6 +84,11 @@ function isNotOurs(error: unknown, filename?: string | null): boolean {
   const said = saidBy(error)
   if (/^script error\.?$/i.test(said.trim())) return true // another origin's script; the browser hides the rest
   if (/resizeobserver loop/i.test(said)) return true // a notice, not a failure
+  // A wallet a browser carries (Brave, MetaMask, Trust and the like) writes its own script into
+  // every page and trips over itself there: "window.ethereum.selectedAddress = undefined", from
+  // "global code" at the page's own address, as if the page had said it (19 November 2026, the
+  // one error App Health had ever been sent). This app has no wallet and touches none of these.
+  if (/\bwindow\.(?:ethereum|solana|tronWeb|web3|phantom|trustwallet)\b|\bethereum\.(?:selectedAddress|request|isMetaMask)\b/i.test(said)) return true
   const where = `${filename ?? ''}\n${error instanceof Error ? (error.stack ?? '') : ''}`
   return /(?:chrome|moz|safari-web)-extension:\/\/|webkit-masked-url:\/\//i.test(where)
 }

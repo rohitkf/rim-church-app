@@ -171,6 +171,8 @@ export function AppShell() {
 
       {/* The dock floats over the page, so the page has to end above it. */}
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 lg:px-10 lg:pt-4">
+        {/* Room for a floating notice ("The app was updated"), so it never sits on the page's title (TopNotice). */}
+        <div aria-hidden="true" className="h-[var(--top-notice-h,0px)] transition-[height] duration-300 ease-[var(--ease-glide)]" />
         {/* The church's notices stand above whatever page this is (0278). */}
         <AppNoticeBanner />
         {/* A new logo or name, said once on a device that already has the app (lib/installedIdentity). */}

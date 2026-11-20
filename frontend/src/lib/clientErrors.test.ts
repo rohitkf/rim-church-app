@@ -129,6 +129,17 @@ describe('whether a failure is news', () => {
     expect(worthReporting('window', new Error('boom'), 'https://rim-church-app.vercel.app/assets/index-abc.js')).toBe(true)
   })
 
+  it('never is, for a wallet a browser wrote into the page: the one error App Health had ever been sent', () => {
+    // As it arrived from an iPhone on the public registration page: the page's own address, line 1.
+    const brave = new TypeError("undefined is not an object (evaluating 'window.ethereum.selectedAddress = undefined')")
+    brave.stack = 'global code@https://rim-church-app.vercel.app/register/pastors-leaders-conference-2026:1:16'
+    expect(worthReporting('window', brave, 'https://rim-church-app.vercel.app/register/pastors-leaders-conference-2026')).toBe(false)
+    expect(worthReporting('promise', new TypeError("Cannot read properties of undefined (reading 'ethereum.request')"))).toBe(false)
+    expect(worthReporting('window', new TypeError('window.solana is undefined'))).toBe(false)
+    // A TypeError of the app's own is still news, whatever word is in it.
+    expect(worthReporting('window', new TypeError("Cannot read properties of undefined (reading 'selected')"))).toBe(true)
+  })
+
   it('never is, for nothing at all', () => {
     for (const nothing of [null, undefined, '']) expect(worthReporting('promise', nothing)).toBe(false)
   })

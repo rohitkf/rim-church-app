@@ -132,7 +132,8 @@ describe('the database’s copy of the joining form’s rule', () => {
     Object.entries(migrations)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, text]) => text)
-      .filter((text) => text.includes(signature))
+      // Where it is defined, not merely named: 0311 alters joining_form() without redefining it.
+      .filter((text) => text.includes(`create or replace ${signature}`))
       .pop()!
   /** That function's own text, from its name to the end of its body. */
   const functionText = (signature: string) => {

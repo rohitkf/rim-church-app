@@ -1,4 +1,25 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
+
+/*
+ * The room a notice takes, told to the page.
+ *
+ * The notice floats (it must stay in sight while the page scrolls), and
+ * for as long as it did only that it sat on top of whatever the page had
+ * there: on a phone, the page's own title — "Rece…ion" behind "The app
+ * was updated" until somebody dismissed it, after every release. So while
+ * a notice is up it writes its height to `--top-notice-h`, and AppShell
+ * leaves that much room above the page. Gone, the room goes with it.
+ *
+ * Kept per notice: two can be up at once, and one leaving must not take
+ * the other's room.
+ */
+const heights = new Map<object, number>()
+function writeRoom(): void {
+  const root = document.documentElement
+  const tallest = Math.max(0, ...heights.values())
+  if (tallest > 0) root.style.setProperty('--top-notice-h', `${tallest}px`)
+  else root.style.removeProperty('--top-notice-h')
+}
 
 /**
  * A small line at the top of the screen with a button or two on it: a new
@@ -7,12 +28,33 @@ import type { ReactNode } from 'react'
  * It holds nothing up. It sits under the app's top strip, above the page
  * and below every dialog (z-40; an Overlay is z-50), takes no focus, and
  * only its own pill catches a tap — the rest of the row lets them through
- * to the page. On a phone the buttons sit on a second line.
+ * to the page. On a phone the buttons sit on a second line. And it covers
+ * nothing: the page leaves it room (`--top-notice-h`, below).
  */
 export function TopNotice({ label, text, children }: { label: string; text: ReactNode; children: ReactNode }) {
+  const pill = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = pill.current
+    if (!el) return
+    const key = {}
+    // Its own height and a little air under it.
+    const measure = () => {
+      heights.set(key, Math.ceil(el.getBoundingClientRect().height) + 12)
+      writeRoom()
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(el)
+    return () => {
+      observer?.disconnect()
+      heights.delete(key)
+      writeRoom()
+    }
+  }, [])
   return (
     <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.75rem)] z-40 flex justify-center px-4 lg:top-[calc(env(safe-area-inset-top)+5.5rem)]">
       <div
+        ref={pill}
         role="status"
         aria-label={label}
         // A phone has no room for the words and three buttons on one line,
