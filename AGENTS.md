@@ -988,7 +988,7 @@ Each of these has already cost real time. None of them show up in review.
   — is the not-found panel instead of a red line.
 - **The tour points at `data-tour` anchors.** `PageHeader` is every page's
   `page-title`; the rest are named where they are drawn (`dock`, `search`,
-  `bell`, `account`, `at-church`, `notices`, `clock-in`, `serving-tabs`,
+  `bell`, `account`, `at-church`, `notices`, `clock-in`,
   `join-team`, `rota-assign`, `ready-light`, `board-composer`,
   `people-invite`, `people-export`, and `settings:<room>` on the Settings
   hall's tiles). Some are only drawn some of the time — `notices` while
@@ -1453,7 +1453,14 @@ its `page.<key>` cells, in a migration and in `lib/permissions.ts`'s
 with the default `group` it sits under in the More sheet (Sunday, After the service,
 Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
-never seen lands in its default group, or at the top. It can also rename a page
+never seen lands in its default group, or at the top. **A menu entry that is
+split, merged or given a new address goes in `lib/navLayout`'s `MOVED`** (old
+address to what stands in its place): the church's saved menu names addresses,
+so without it the old entry is silently dropped and its replacements fall to
+the top, out from under the heading the church put it. Serving became
+Availability, Team Rota and Checklists that way (November 2026), with no
+migration; keep the old address as a route that redirects
+(`OldServingLink`). It can also rename a page
 (`nav_layout.labels`, path to name): the menu and dock, the search box and the page's
 `PageHeader` say the new name — the heading at the page's own address only, never on
 the dashboard (a greeting) or a page further in →

@@ -10,7 +10,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@ta
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PageGate } from './components/PageGate'
-import { ServingLayout, ServingStart } from './components/ServingTabs'
+import { OldServingLink } from './components/OldServingLink'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
@@ -213,14 +213,13 @@ const router = createBrowserRouter(
             <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
             <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
             <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
-            {/* Serving: answer, get put on, tick it off — three steps of
-                one job, so one destination with a tab for each (lib/serving). */}
-            <Route path="/serving" element={<ServingStart />} />
-            <Route element={<ServingLayout />}>
-              <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
-              <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
-              <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
-            </Route>
+            {/* Answer, get put on, tick it off: three pages of their own.
+                /serving was the one menu entry that held them as tabs; a
+                link kept from then still opens somewhere. */}
+            <Route path="/serving" element={<OldServingLink />} />
+            <Route path="/availability" lazy={page(() => import('./pages/AvailabilityPage'), 'AvailabilityPage')} />
+            <Route path="/rota" lazy={page(() => import('./pages/TeamRotaPage'), 'TeamRotaPage')} />
+            <Route path="/checklists" lazy={page(() => import('./pages/ChecklistsIndexPage'), 'ChecklistsIndexPage')} />
             <Route path="/checklists/:departmentId/:serviceId" lazy={page(() => import('./pages/DepartmentPrepPage'), 'DepartmentPrepPage')} />
             <Route path="/inventory" lazy={page(() => import('./pages/InventoryIndexPage'), 'InventoryIndexPage')} />
             <Route path="/inventory/:id" lazy={page(() => import('./pages/InventoryPage'), 'InventoryPage')} />

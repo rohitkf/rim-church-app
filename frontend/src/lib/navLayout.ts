@@ -26,13 +26,44 @@ export const navLayoutSchema = z.object({
 })
 export type NavLayout = z.infer<typeof navLayoutSchema>
 
+/**
+ * Menu entries that have since become other entries: the old address, and
+ * what stands in its place, in order.
+ *
+ * Serving was one entry holding Availability, Team Rota and Checklists as
+ * tabs (October to November 2026). They are three entries again, so a menu
+ * saved in between names an address the app no longer offers. Read as it
+ * stands, that entry would be dropped and the three pages treated as new
+ * — put under a heading the church may not have, or at the top. Instead
+ * the three take the old entry's place: a church that kept Serving under
+ * "Team Management" finds all three there, in order, with nothing to
+ * re-arrange and no migration to wait for.
+ */
+const MOVED: Record<string, string[]> = {
+  '/serving': ['/availability', '/rota', '/checklists'],
+}
+
+/** A saved arrangement, with every entry that has moved replaced by what it became. */
+export function withMovedPages(layout: NavLayout): NavLayout {
+  const named = new Set([...layout.top, ...layout.groups.flatMap((g) => g.items)])
+  if (!Object.keys(MOVED).some((old) => named.has(old))) return layout
+  // A page already placed by hand stays where it was put, not where the old entry was.
+  const swap = (paths: string[]) => paths.flatMap((p) => (MOVED[p] ? MOVED[p].filter((to) => !named.has(to)) : [p]))
+  const labels = Object.fromEntries(Object.entries(layout.labels ?? {}).filter(([path]) => !MOVED[path]))
+  return {
+    top: swap(layout.top),
+    groups: layout.groups.map((g) => ({ name: g.name, items: swap(g.items) })),
+    ...(layout.labels ? { labels } : {}),
+  }
+}
+
 export async function fetchNavLayout(): Promise<NavLayout | null> {
   const { data, error } = await supabase.from('app_settings').select('nav_layout').eq('id', true).maybeSingle()
   if (error) throw error
   const parsed = navLayoutSchema.safeParse(data?.nav_layout)
   // Anything unreadable is treated as no arrangement at all: the app's own
   // menu is always a working menu, a half-parsed one might not be.
-  return parsed.success ? parsed.data : null
+  return parsed.success ? withMovedPages(parsed.data) : null
 }
 
 /**

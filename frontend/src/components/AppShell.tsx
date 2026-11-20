@@ -105,11 +105,7 @@ export function AppShell() {
   // Only what this person may open, under the church's choices (Settings
   // › Access & Privileges) — the same answer PageGate gives at the door.
   const { canOpen } = usePageAccess()
-  // A set of tabs is offered when any one of them may be opened: a Church
-  // Member the rota is open to still has Serving, with the one tab in it.
-  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) =>
-    item.tabs ? item.tabs.some(canOpen) : canOpen(item.to),
-  )
+  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) => canOpen(item.to))
   // And what the church calls each page, for the page's heading and the
   // search box to say the same as the menu.
   const names = navLabels(layoutQuery.data)

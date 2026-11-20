@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'serving-is-three-pages',
+    date: '2026-11-20',
+    title: 'Availability, Team Rota and Checklists are pages of their own',
+    lead: 'Serving is gone from the menu. The three pages it held as tabs are each in the menu under their own name, where Serving was.',
+    points: [
+      'Availability, Team Rota and Checklists each open in one tap, and the strip of three tabs across the top of them is gone.',
+      'Nothing about the pages themselves has changed, nor who may open each one.',
+      'A link or shortcut you kept to Serving still works: it opens the first of the three that is yours.',
+      'An Admin can move or rename each of them in Settings › Menu, like any other page.',
+    ],
+    link: { to: '/rota', label: 'Open Team Rota' },
+    page: '/rota',
+  },
+  {
     key: 'a-calmer-look',
     date: '2026-11-20',
     title: 'A calmer look',

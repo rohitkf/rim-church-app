@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applyNavLayout, defaultNavLayout, navLabels, navLayoutSchema } from './navLayout'
+import { NAV_ITEMS } from './navItems'
+import { applyNavLayout, defaultNavLayout, navLabels, navLayoutSchema, withMovedPages } from './navLayout'
 
 const items = [
   { to: '/' },
@@ -78,5 +79,65 @@ describe('pages the church has renamed', () => {
 
   it('still reads an arrangement saved before pages could be renamed', () => {
     expect(navLayoutSchema.safeParse({ top: ['/'], groups: [] }).success).toBe(true)
+  })
+})
+
+/*
+ * Serving was one menu entry holding three pages as tabs; they are three
+ * entries again. A menu saved in between names the old entry, and has to
+ * come out with the three where it stood.
+ */
+describe('a menu saved while Serving was one entry', () => {
+  // The church's own arrangement, as it stood on production in November 2026.
+  const saved = {
+    top: ['/', '/clock-in', '/countdown'],
+    groups: [
+      { name: 'Church Events', items: ['/service-planner', '/events', '/registrations', '/door'] },
+      { name: 'Team Management', items: ['/serving', '/departments'] },
+      { name: 'Service Management', items: ['/set-lists', '/stage', '/issues', '/debriefs'] },
+      { name: 'Communications', items: ['/messages', '/team-chat', '/polls'] },
+      { name: 'Church Related', items: ['/songs', '/updates', '/prayer', '/giving', '/volunteers', '/inventory'] },
+      { name: 'App Related', items: ['/feedback'] },
+    ],
+    labels: { '/events': 'Church Calendar' },
+  }
+
+  it('puts the three pages where Serving stood, in order', () => {
+    const now = withMovedPages(saved)
+    expect(now.groups[1]).toEqual({ name: 'Team Management', items: ['/availability', '/rota', '/checklists', '/departments'] })
+    // Nothing else moves, and the church's names are kept.
+    expect(now.top).toEqual(saved.top)
+    expect(now.groups[0]).toEqual(saved.groups[0])
+    expect(now.groups[2]).toEqual(saved.groups[2])
+    expect(now.labels).toEqual({ '/events': 'Church Calendar' })
+  })
+
+  it('shows them under that heading in the menu itself', () => {
+    const menu = applyNavLayout(NAV_ITEMS, withMovedPages(saved))
+    const team = menu.filter((i) => i.group === 'Team Management').map((i) => i.label)
+    expect(team).toEqual(['Availability', 'Team Rota', 'Checklists', 'Teams'])
+    expect(menu.some((i) => i.to === '/serving')).toBe(false)
+    // None of the three has fallen to the top for want of a heading.
+    expect(menu.filter((i) => !i.group).map((i) => i.to)).toEqual(['/', '/clock-in', '/countdown'])
+  })
+
+  it('works where Serving sat at the top, under no heading', () => {
+    expect(withMovedPages({ top: ['/', '/serving'], groups: [] }).top).toEqual(['/', '/availability', '/rota', '/checklists'])
+  })
+
+  it('drops a name the church gave the old entry, which no page answers to now', () => {
+    const now = withMovedPages({ top: ['/serving'], groups: [], labels: { '/serving': 'Rotas', '/rota': 'Rota' } })
+    expect(now.labels).toEqual({ '/rota': 'Rota' })
+  })
+
+  it('leaves a page already placed by hand where it was put', () => {
+    const now = withMovedPages({ top: ['/rota'], groups: [{ name: 'Teams', items: ['/serving'] }] })
+    expect(now.top).toEqual(['/rota'])
+    expect(now.groups[0].items).toEqual(['/availability', '/checklists'])
+  })
+
+  it('hands back a menu that never named it untouched', () => {
+    const fine = { top: ['/'], groups: [{ name: 'Sunday', items: ['/rota'] }] }
+    expect(withMovedPages(fine)).toBe(fine)
   })
 })

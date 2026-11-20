@@ -73,7 +73,6 @@ function Page({ name }: { name: string }) {
       {pathname === '/' && <button data-tour="bell">bell</button>}
       {pathname === '/' && <button data-tour="account">account</button>}
       {pathname === '/departments' && <div data-tour="join-team">join</div>}
-      {['/availability', '/rota', '/checklists'].includes(pathname) && <nav data-tour="serving-tabs">tabs</nav>}
     </div>
   )
 }
@@ -127,12 +126,12 @@ describe('starting itself', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('shows a new Team Member only the chapters they have gained, starting on Serving', async () => {
+  it('shows a new Team Member only the chapters they have gained, starting on Availability', async () => {
     access.standing = 'member'
     teams.onATeam = true
     db.row = { user_id: 'me', seen: { welcome: 'x', around: 'x', church: 'x' }, pushed_at: null }
     show()
-    expect(await screen.findByText('Serving, in three steps')).toBeInTheDocument()
+    expect(await screen.findByText('Can you serve?')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/availability')
     expect(dialog().textContent).toContain('Your Sunday · Part 1 of 3')
   })
