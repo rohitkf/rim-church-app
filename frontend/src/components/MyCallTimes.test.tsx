@@ -82,13 +82,33 @@ describe('your call time, on the Dashboard', () => {
     expect(within(card).getByRole('link', { name: 'Every team' })).toHaveAttribute('href', '/rota')
   })
 
-  it('lists every team I am on or head, and the usual time where none was set', async () => {
+  it('gives a line to each time, when my teams are called at different times', async () => {
     world.led = ['worship']
     show()
     const card = await screen.findByRole('region', { name: 'Your call times' })
     const rows = within(card).getAllByRole('listitem').map((li) => li.textContent)
+    expect(rows).toHaveLength(2)
     expect(rows[0]).toMatch(/^Sound06:30/)
+    // Nobody set Worship's: the usual seven.
     expect(rows[1]).toMatch(/^Worship07:00/)
+  })
+
+  it('says the time once for teams called together', async () => {
+    world.led = ['worship']
+    world.callTimes = []
+    show()
+    const card = await screen.findByRole('region', { name: 'Your call time' })
+    const rows = within(card).getAllByRole('listitem').map((li) => li.textContent)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatch(/^SoundWorship07:00/)
+  })
+
+  it('shows the next service day only, never the ones after it', async () => {
+    show()
+    const card = await screen.findByRole('region', { name: 'Your call time' })
+    // The Sunday after is inside the week ahead, and is not mentioned.
+    expect(within(card).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(card).queryByText(/29 Nov/)).toBeNull()
   })
 
   it('says Tomorrow and Today rather than a date', async () => {
@@ -99,17 +119,15 @@ describe('your call time, on the Dashboard', () => {
 
   it('goes the moment the call time is reached', async () => {
     at('2026-11-22T06:29:58')
-    // On the day only: a week ahead would bring the following Sunday in beside it.
-    set({ days: 0 })
     show()
     expect(await screen.findByRole('region', { name: 'Your call time' })).toBeInTheDocument()
     expect(screen.getByText('Today')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your call time' })).toBeNull(), { timeout: 4000 })
+    // Gone, and next Sunday's does not take its place.
+    await waitFor(() => expect(screen.queryByRole('region')).toBeNull(), { timeout: 4000 })
   })
 
-  it('is not there once the call time has passed', async () => {
+  it('is not there for the rest of the day once the call time has passed', async () => {
     at('2026-11-22T06:31:00')
-    set({ days: 0 })
     show()
     await settle()
     expect(screen.queryByRole('region')).toBeNull()
@@ -117,7 +135,7 @@ describe('your call time, on the Dashboard', () => {
 
   it('stays past the call time for as long as the church set, saying it is due', async () => {
     at('2026-11-22T06:40:00')
-    set({ stayMinutes: 15, days: 0 })
+    set({ stayMinutes: 15 })
     show()
     const card = await screen.findByRole('region', { name: 'Your call time' })
     expect(within(card).getByText('Due now')).toBeInTheDocument()

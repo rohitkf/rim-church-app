@@ -391,9 +391,10 @@ frontend/src/
   components/Tour.tsx        the engine: walks the pages, points at `data-tour`
                              anchors, Next / Back / Skip; starts itself when due
   lib/display.ts             the screens' preferences, each falling back on its own
-  lib/myCallTimes.ts         a person's own call times for the Dashboard's card
-                             (components/MyCallTimes): which teams, which days,
-                             and when each leaves — the church tunes it in
+  lib/myCallTimes.ts         a person's own call time for the Dashboard's card
+                             (components/MyCallTimes): one day only — today's,
+                             or the next service day's, never the ones after —
+                             and when it leaves. The church tunes it in
                              `display.callTimes` (show, days, stayMinutes, who,
                              countdown). Every team's are on the Team Rota
   lib/notificationLink.ts    every notification type: its label and its link

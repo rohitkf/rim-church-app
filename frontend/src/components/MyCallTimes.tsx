@@ -6,7 +6,7 @@ import { useDisplay } from '../lib/appSettings'
 import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 import { addDays } from '../lib/dateRange'
 import { todayIso } from '../lib/monthGrid'
-import { myCallTimes, relativeDay } from '../lib/myCallTimes'
+import { myCallTime, relativeDay } from '../lib/myCallTimes'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { supabase } from '../lib/supabaseClient'
 import { useNow } from '../lib/useNow'
@@ -33,10 +33,11 @@ async function fetchCallTimesOn(dates: string[]): Promise<CallTimeRow[]> {
 /**
  * When this person is due in, on the Dashboard (lib/myCallTimes).
  *
- * Their own teams and nothing else: every team's call time is on the Team
- * Rota, for whoever opens up. Each time leaves when it is reached — or as
- * long after as the church has set — and the card goes with the last of
- * them, so it is never a thing to read past.
+ * One answer: today's call time if there is a service today, otherwise
+ * the next service day's — never the ones after. Their own teams and
+ * nothing else: every team's call time is on the Team Rota, for whoever
+ * opens up. It leaves when it is reached — or as long after as the church
+ * has set — so it is never a thing to read past.
  *
  * It draws nothing while it is finding out, and nothing if it cannot: a
  * card that is absent most of the week should not announce itself with a
@@ -92,10 +93,10 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
   const now = Math.max(tick, passed)
 
   const known = wanted && dates.length > 0 && callTimesQuery.isSuccess && departmentsQuery.isSuccess && (!byRota || rotaQuery.isSuccess)
-  const days = useMemo(
+  const day = useMemo(
     () =>
       known
-        ? myCallTimes({
+        ? myCallTime({
             services: ahead,
             rows: callTimesQuery.data ?? [],
             teams: departmentsQuery.data ?? [],
@@ -106,12 +107,12 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
             days: settings.days,
             stayMinutes: settings.stayMinutes,
           })
-        : [],
+        : null,
     [known, ahead, callTimesQuery.data, departmentsQuery.data, mine, onRota, today, now, settings.days, settings.stayMinutes],
   )
 
   // The next moment one of them goes.
-  const nextGone = days.length === 0 ? null : Math.min(...days.flatMap((d) => d.teams.map((t) => new Date(t.at).getTime() + settings.stayMinutes * 60_000)))
+  const nextGone = day ? Math.min(...day.calls.map((c) => new Date(c.at).getTime() + settings.stayMinutes * 60_000)) : null
   useEffect(() => {
     if (nextGone === null) return
     // A timer cannot be set further out than about 24 days; the half-minute clock covers anything beyond.
@@ -120,17 +121,20 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
     return () => window.clearTimeout(id)
   }, [nextGone])
 
-  if (days.length === 0) return null
-  const several = days.length > 1 || days[0].teams.length > 1
+  if (!day) return null
+  // Teams called at different times: the one case with more than one line.
+  const title = day.calls.length > 1 ? 'Your call times' : 'Your call time'
 
   return (
-    <section aria-label={several ? 'Your call times' : 'Your call time'} className={className}>
+    <section aria-label={title} className={className}>
       <Tile tone="accent" padded={false} className="overflow-hidden px-5 py-5 sm:px-7 sm:py-6">
         <div className="flex items-start gap-3">
           <IconBadge icon={TimerIcon} tone="blue" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-headline-sm text-on-surface">{several ? 'Your call times' : 'Your call time'}</h2>
-            <p className="mt-0.5 break-words text-body-sm text-on-surface-variant">When you are due in.</p>
+            <h2 className="text-headline-sm text-on-surface">{title}</h2>
+            <p className="mt-0.5 break-words text-body-sm text-on-surface-variant">
+              <span className="font-medium text-on-surface">{relativeDay(day.date, today)}</span> · {day.services.map((s) => s.service_type).join(' · ')}
+            </p>
           </div>
           {canOpen('/rota') && (
             <Link to="/rota" className="tap shrink-0 text-label-md font-medium text-accent-blue-soft">
@@ -139,38 +143,37 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
           )}
         </div>
 
-        {days.map((day) => (
-          <div key={day.date} className="mt-4">
-            <p className="break-words text-body-sm text-on-surface">
-              <span className="font-medium">{relativeDay(day.date, today)}</span>
-              <span className="text-on-surface-variant"> · {day.services.map((s) => s.service_type).join(' · ')}</span>
-            </p>
-            <ul aria-label={`Your teams, ${relativeDay(day.date, today)}`} className="mt-1 divide-y divide-border-subtle">
-              {day.teams.map((team) => {
-                const due = now >= new Date(team.at).getTime()
-                return (
-                  <li key={team.id} className="min-w-0 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <TeamMark color={team.color} />
-                      <span className="min-w-0 flex-1 break-words text-body-md text-on-surface">{team.name}</span>
-                      <span className="font-mono text-headline-sm tabular text-on-surface">{team.clock}</span>
+        <ul className="mt-3 divide-y divide-border-subtle">
+          {day.calls.map((call) => {
+            const due = now >= new Date(call.at).getTime()
+            return (
+              <li key={call.clock} className="min-w-0 py-2.5">
+                <div className="flex items-center gap-3">
+                  {/* Every team called for this time: one time, said once. */}
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
+                    {call.teams.map((team) => (
+                      <span key={team.id} className="flex min-w-0 items-center gap-2.5">
+                        <TeamMark color={team.color} />
+                        <span className="min-w-0 break-words text-body-md text-on-surface">{team.name}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <span className="shrink-0 font-mono text-headline-sm tabular text-on-surface">{call.clock}</span>
+                </div>
+                {due ? (
+                  // Only where the church keeps it past the call time: the time has come.
+                  <p className="mt-0.5 pl-4 text-label-md text-on-surface-variant">Due now</p>
+                ) : (
+                  settings.countdown && (
+                    <div className="mt-0.5 pl-4">
+                      <ServiceCountdown startsAt={call.at} label="until your call" />
                     </div>
-                    {due ? (
-                      // Only where the church keeps it past the call time: the time has come.
-                      <p className="mt-0.5 pl-4 text-label-md text-on-surface-variant">Due now</p>
-                    ) : (
-                      settings.countdown && (
-                        <div className="mt-0.5 pl-4">
-                          <ServiceCountdown startsAt={team.at} label="until your call" />
-                        </div>
-                      )
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ))}
+                  )
+                )}
+              </li>
+            )
+          })}
+        </ul>
       </Tile>
     </section>
   )
