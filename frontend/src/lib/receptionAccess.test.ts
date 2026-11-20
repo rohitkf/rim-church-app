@@ -30,8 +30,13 @@ describe('who works Reception, as holders and ticks', () => {
     expect(receptionGrantChanges(stored, next)).toEqual([
       { capability: 'reg.walk_in', team: 'ushers', reach: 'all' },
       { capability: 'reg.door_pay', person: 'grace', reach: null },
+      // Somebody new starts with everything a door does (0312): each a tick that can come off.
       { capability: 'reg.door', person: 'sam', reach: 'all' },
+      { capability: 'reg.door_pay', person: 'sam', reach: 'all' },
+      { capability: 'reg.walk_in', person: 'sam', reach: 'all' },
+      { capability: 'reg.door_fix', person: 'sam', reach: 'all' },
     ])
+    expect(NEW_DOOR_HOLDER).not.toContain('reg.door_view')
     expect(receptionGrantChanges(stored, stored)).toEqual([])
   })
 

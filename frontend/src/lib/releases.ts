@@ -46,6 +46,22 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'reception-sorts-out-problems',
+    date: '2026-11-20',
+    title: 'Reception can sort out its own problems',
+    lead: 'Each registration at Reception has a ⋯ menu for whatever is not a check-in, a payment or a walk-in — so the person at the door can deal with it there.',
+    points: [
+      'From the menu: correct an email address or send the ticket again, add a note, apply a promo code they were meant to use, waive a payment or put it back to not paid, cancel a registration or put one back, and open their ticket.',
+      'It is a new tick, “Sort out problems”, in Settings › Reception. Everybody who works the door today has been given it; take it off anybody who should not have it.',
+      'Somebody newly added to Reception now starts with everything ticked — check in, payments, walk-ins and sorting out problems — instead of check-in alone.',
+      'Every press says so with Undo for ten minutes, like the rest of Reception.',
+      'Still the office’s, from the event’s page: verifying a payment against the bank, “not received, ask again”, refunds, taking a promo code off, and anything about the event itself.',
+      'An Admin now has every registrations and Reception right out of the box. Each is still a cell in Access & Privileges.',
+    ],
+    link: { to: '/door', label: 'Open Reception' },
+    page: '/door',
+  },
+  {
     key: 'ticket-way-back',
     date: '2026-11-20',
     title: 'A way back from somebody’s ticket',

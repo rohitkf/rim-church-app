@@ -108,7 +108,7 @@ export function ReceptionSettingsCard() {
 
       <SectionTile
         title="Who works Reception"
-        hint="The Owner and whoever runs registrations always can. Add a team (everybody on it, and its Heads) or a person, and tick what each may press."
+        hint="The Owner, an Admin and whoever runs registrations always can. Add a team (everybody on it, and its Heads) or a person, and tick what each may press."
       >
         {holders.length === 0 ? (
           <p className="rounded-[var(--radius-row)] bg-raised px-4 py-3 text-body-sm text-on-surface-variant">
@@ -208,7 +208,7 @@ export function ReceptionSettingsCard() {
               </div>
             </div>
             <p className="mt-2 text-label-sm text-on-surface-faint">
-              Somebody new starts with checking people in, and no money. A whole role can be given Reception too, in{' '}
+              Somebody new starts with everything a door does — checking in, payments, walk-ins and sorting out problems — so they can deal with whoever is in front of them; take off any tick they should not have. A whole role can be given Reception too, in{' '}
               <Link to="/settings/access" className="font-medium text-accent-blue-soft hover:underline">
                 Access &amp; Privileges
               </Link>

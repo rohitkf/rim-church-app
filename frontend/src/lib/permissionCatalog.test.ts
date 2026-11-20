@@ -101,8 +101,22 @@ describe('the permission catalog', () => {
     for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'pastor') && !yes.includes(c))) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
     }
-    // Verifying is nobody's out of the box but a Pastor's: "Run registrations" is not it.
-    for (const role of GRANT_ROLES) expect(CATALOG['reg.verify'][role].byDefault, role).toBe('none')
+    // Verifying is a Pastor's out of the box, and an Admin's since 0312; nobody else's, and "Run registrations" is not it.
+    for (const role of GRANT_ROLES) expect(CATALOG['reg.verify'][role].byDefault, role).toBe(role === 'admin' ? 'all' : 'none')
+  })
+
+  it('gives an Admin every registrations and Reception row out of the box, and nobody else any (0312)', () => {
+    // The Owner, November 2026: "By default admins and owners have all the access to everything."
+    const reg = CAPABILITY_KEYS.filter((cap) => cap.startsWith('reg.'))
+    expect(reg).toHaveLength(13)
+    for (const cap of reg) {
+      // A cell, not a fixture: the church can turn any of them off again.
+      expect(ruleFor(cap, 'admin'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
+      for (const role of GRANT_ROLES.filter((r) => r !== 'admin')) expect(CATALOG[cap][role].byDefault, `${cap} ${role}`).toBe('none')
+    }
+    // "Sort out problems" is one of them, a choice for everybody.
+    expect(reg).toContain('reg.door_fix')
+    for (const role of GRANT_ROLES) expect(CATALOG['reg.door_fix'][role].reaches, role).toEqual(['none', 'all'])
   })
 
   it('lets a Pastor comment on a session and the Admins read it, and nobody else either (0308)', () => {

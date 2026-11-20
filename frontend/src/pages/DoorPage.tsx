@@ -12,6 +12,8 @@ import { useReceptionLock } from '../lib/receptionLock'
 import { useErrorText } from '../lib/useErrorText'
 import { usePageAccess } from '../lib/usePageAccess'
 import { offerUndo, orderIdOfCode, runUndo, useRecentUndo } from '../lib/registrationUndo'
+import { ActionMenu, type MenuAction } from '../components/ActionMenu'
+import { useDoorTools } from '../lib/useDoorTools'
 import { parsePounds, pounds } from '../lib/money'
 import { ticketUrl } from '../lib/registrationLinks'
 import type { PhoneStatus } from '../lib/phone'
@@ -170,7 +172,17 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not take that payment.')),
   })
-  const busy = checkIn.isPending || undoCheckIn.isPending || paid.isPending
+  // The rest of what the door can do to a registration, behind its menu (0312).
+  const tools = useDoorTools({
+    slug: full.data?.event.slug ?? '',
+    eventCancelled: !!full.data?.event.cancelled_at,
+    ticketTypes: full.data?.ticketTypes ?? [],
+    promoCodes: full.data?.promoCodes ?? [],
+    rights,
+    refresh,
+    onError: setError,
+  })
+  const busy = checkIn.isPending || undoCheckIn.isPending || paid.isPending || tools.busy
 
   if (full.isLoading) return <QueryState isLoading error={null}>{null}</QueryState>
   if (full.error || !full.data) {
@@ -262,6 +274,8 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           onTakeBack={takeBack}
           canTakePayment={rights.takePayment}
           canCheckIn={rights.checkIn}
+          // Somebody here to look only has nothing to press, and so no menu either.
+          actionsFor={readOnly && !rights.fix ? undefined : tools.actionsFor}
         />
       )}
       {tab === 'walk_in' && rights.walkIn && (
@@ -275,6 +289,7 @@ function Door({ eventId, refresh, manager }: { eventId: string; refresh: () => P
           canTakePayment={rights.takePayment}
         />
       )}
+      {tools.dialogs}
     </div>
   )
 }
@@ -302,6 +317,7 @@ function Find({
   onTakeBack,
   canTakePayment,
   canCheckIn,
+  actionsFor,
 }: {
   orders: OrderRow[]
   dates: EventDate[]
@@ -316,6 +332,8 @@ function Find({
   canTakePayment: boolean
   /** False for somebody here to look only: no buttons at all. */
   canCheckIn: boolean
+  /** The rest of what can be done to a registration, behind its menu (0312); absent for somebody here to look. */
+  actionsFor?: (order: OrderRow) => MenuAction[]
 }) {
   const [query, setQuery] = useState('')
   const shown = orders
@@ -349,13 +367,17 @@ function Find({
             const last = lastDone(o.id)
             return (
               <li key={o.id} aria-label={o.name} className={`rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline ${o.status === 'cancelled' ? 'opacity-60' : ''}`}>
-                <p className="text-body-md font-medium text-on-surface">
-                  {o.name}
-                  <span className="text-on-surface-variant">
-                    {' '}
-                    · {o.quantity} {o.quantity === 1 ? 'ticket' : 'tickets'}
-                  </span>
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 text-body-md font-medium text-on-surface [overflow-wrap:anywhere]">
+                    {o.name}
+                    <span className="text-on-surface-variant">
+                      {' '}
+                      · {o.quantity} {o.quantity === 1 ? 'ticket' : 'tickets'}
+                    </span>
+                  </p>
+                  {/* Whatever does not fit the buttons below: a wrong address, a note, a code, a waiver, a cancellation (0312). */}
+                  {actionsFor && <ActionMenu label={o.name} actions={actionsFor(o)} className="-mr-1.5 -mt-1.5 shrink-0" />}
+                </div>
                 {/* Where they stand, on its own line: a long pill beside the name squeezed it into a column on a phone. */}
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   {o.status === 'cancelled' ? (

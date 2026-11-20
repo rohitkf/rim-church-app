@@ -662,9 +662,12 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   // Registrations (0244): events anybody can sign up for. The Owner
-  // always; an Admin or anybody else only by the church's choice.
+  // always, and an Admin out of the box on every row here since 0312
+  // ("by default admins and owners have all the access to everything",
+  // the Owner, November 2026) — each still a cell the church can turn
+  // off. Anybody else only by the church's choice.
   'reg.manage': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -684,7 +687,7 @@ export const CATALOG = {
   // Work the door (0247): scan tickets, take money at reception, check
   // people in, register a walk-in — without being able to change events.
   'reg.door': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -693,7 +696,7 @@ export const CATALOG = {
   },
   // The parts of registrations, each its own right (0251).
   'reg.view': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -704,9 +707,10 @@ export const CATALOG = {
   },
   // Verify a payment (0267): say it arrived in the bank or PayPal. Its own
   // right — "Run registrations" does not give it — and a Pastor's out of
-  // the box, because the Pastor is who can see the accounts.
+  // the box, because the Pastor is who can see the accounts; an Admin's
+  // too since 0312.
   'reg.verify': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -716,7 +720,7 @@ export const CATALOG = {
   },
   // See Reception without working it (0267): the list and the counts.
   'reg.door_view': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -725,7 +729,7 @@ export const CATALOG = {
     pastor: offer('none all', 'all'),
   },
   'reg.edit': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -733,7 +737,7 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   'reg.approve': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -741,7 +745,7 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   'reg.refund': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -749,7 +753,7 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   'reg.cancel': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -757,7 +761,7 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   'reg.door_pay': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -765,7 +769,21 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   'reg.walk_in': {
-    admin: offer('none all', 'none'),
+    admin: offer('none all', 'all'),
+    head: offer('none all', 'none'),
+    assistant: offer('none all', 'none'),
+    coordinator: offer('none all', 'none'),
+    member: offer('none all', 'none'),
+    newcomer: offer('none all', 'none'),
+  },
+  // Sort out problems at Reception (0312): the things a door meets that
+  // are not a check-in, a payment or a walk-in — a wrong email address, a
+  // note, a promo code they did not use, a payment to waive or to put
+  // back to not paid, a registration to cancel or put back. A door right
+  // like the other four: Settings › Reception gives it, and a locked
+  // Reception switches it off.
+  'reg.door_fix': {
+    admin: offer('none all', 'all'),
     head: offer('none all', 'none'),
     assistant: offer('none all', 'none'),
     coordinator: offer('none all', 'none'),
@@ -773,9 +791,9 @@ export const CATALOG = {
     newcomer: offer('none all', 'none'),
   },
   // Correct an attendee's email address, which sends their email again
-  // (0283). The one registrations right an Admin has out of the box — the
-  // Owner asked for it so — and it opens the Registrations page, because
-  // nobody can correct a list they cannot see.
+  // (0283). It opens the Registrations page, because nobody can correct
+  // a list they cannot see. It was the one registrations right an Admin
+  // had out of the box until 0312 gave them the rest.
   'reg.email': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),

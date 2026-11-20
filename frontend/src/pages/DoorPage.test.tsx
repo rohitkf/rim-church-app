@@ -25,6 +25,12 @@ const state = vi.hoisted(() => ({
   toasts: [] as { text: string; tone?: string; action?: { label: string; run: () => void } }[],
   undone: [] as string[],
   undoRefused: null as null | { message: string },
+  // What "Sort out problems" wrote (0312): notes, addresses, codes, and tickets sent once more.
+  notes: [] as unknown[],
+  emails: [] as unknown[],
+  promos: [] as unknown[],
+  again: [] as string[],
+  opened: [] as string[],
 }))
 const cam = vi.hoisted(() => ({ onText: null as null | ((text: string) => void) }))
 
@@ -33,7 +39,12 @@ vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, 
 const rights = vi.hoisted(() => ({ now: { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true } as Record<string, boolean> }))
 vi.mock('../lib/registrationRights', async (original) => ({
   ...(await original<typeof import('../lib/registrationRights')>()),
-  useRegistrationRights: () => rights.now,
+  // The five words 0312 split out of the office's rights, as rightsFrom() derives them for somebody
+  // without the door's "Sort out problems"; a test that means otherwise says so in rights.now.
+  useRegistrationRights: () => {
+    const r = rights.now
+    return { fix: false, waive: r.approve, promo: r.approve, cancelOrder: r.cancel, note: r.office, ...r }
+  },
 }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({
@@ -88,6 +99,25 @@ vi.mock('../lib/registrations', async (original) => ({
   sendTicketEmail: (code: string) => {
     state.mailed.push(code)
     return Promise.resolve({ ok: true, sent: true })
+  },
+  setOrderNotes: (id: string, notes: string) => {
+    state.notes.push([id, notes])
+    return Promise.resolve()
+  },
+  setOrderEmail: (id: string, email: string) => {
+    state.emails.push([id, email])
+    return Promise.resolve(true)
+  },
+  sendTicketAgain: (code: string) => {
+    state.again.push(code)
+    return Promise.resolve({ ok: true, sent: true })
+  },
+}))
+vi.mock('../lib/promoLater', async (original) => ({
+  ...(await original<typeof import('../lib/promoLater')>()),
+  applyPromoToOrder: (id: string, code: string) => {
+    state.promos.push([id, code])
+    return Promise.resolve()
   },
 }))
 
@@ -209,6 +239,15 @@ beforeEach(() => {
   state.toasts = []
   state.undone = []
   state.undoRefused = null
+  state.notes = []
+  state.emails = []
+  state.promos = []
+  state.again = []
+  state.opened = []
+  window.open = ((url: string) => {
+    state.opened.push(url)
+    return null
+  }) as typeof window.open
   // Nothing remembered from the test before, and no ten seconds to wait for an email.
   resetUndoForTests(0)
 })
@@ -594,5 +633,151 @@ describe('Reception', () => {
     state.events = [summary({ id: 'e-past', status: 'closed', first_starts_at: daysOn(-7, 19), last_ends_at: daysOn(-7, 21) }), summary({ id: 'e-draft', status: 'draft' })]
     show()
     expect(await screen.findByText(/No event today, and none coming up/)).toBeInTheDocument()
+  })
+})
+
+/*
+ * What a door meets that is not a check-in, a payment or a walk-in (0312,
+ * the Owner on the first day of a conference): a wrong address, a note,
+ * a code they did not use, somebody to come in free, a registration
+ * cancelled that should not have been. Each registration has a menu for
+ * those, drawn from the office's own list and asked with the door's rights.
+ */
+describe('sorting out problems at Reception', () => {
+  // Everything a door does, "Sort out problems" included, and nothing of the office's.
+  const doorWithFix = { office: false, door: true, edit: false, approve: false, takePayment: true, refund: false, cancel: false, delete: false, checkIn: true, walkIn: true, verify: false, fix: true, email: true, note: true, promo: true, waive: true, cancelOrder: true }
+  // The door as it was: check in, take a payment, a walk-in.
+  const doorAsItWas = { ...doorWithFix, fix: false, email: false, note: false, promo: false, waive: false, cancelOrder: false }
+  const find = async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    return user
+  }
+  const menuOf = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(within(screen.getByRole('listitem', { name })).getByRole('button', { name: `Actions for ${name}` }))
+    return screen.getByRole('menu')
+  }
+  const labels = (menu: HTMLElement) => within(menu).getAllByRole('menuitem').map((m) => m.textContent)
+
+  it('gives whoever sorts out problems a menu on each registration: waive, a note, the address, cancel, their ticket', async () => {
+    rights.now = doorWithFix
+    const user = await find()
+    // Ama owes: the money can be taken, or let go; the rest is there for whatever else is wrong.
+    expect(labels(await menuOf(user, 'Ama Owusu'))).toEqual([
+      expect.stringContaining('Mark as paid'),
+      'Waive the payment',
+      expect.stringContaining('Check in'),
+      expect.stringContaining('Change email address'),
+      'Add a note',
+      'Cancel registration',
+      expect.stringContaining('Open their ticket'),
+    ])
+    await user.click(screen.getByRole('menuitem', { name: 'Waive the payment' }))
+    await waitFor(() => expect(state.marked).toEqual([['o1', 'waived']]))
+    // Said, with Undo on it, like every other press at the door.
+    expect(state.toasts.at(-1)).toMatchObject({ text: 'Payment waived: Ama Owusu', action: { label: 'Undo' } })
+    // A waiver is not a payment: nobody is emailed "your ticket is confirmed".
+    expect(state.notified).toEqual([])
+  })
+
+  it('puts a paid registration back to not paid, for a payment marked on the wrong row', async () => {
+    rights.now = doorWithFix
+    const user = await find()
+    const menu = await menuOf(user, 'Sam Paul')
+    expect(labels(menu)).toContainEqual(expect.stringContaining('Back to not paid'))
+    await user.click(within(menu).getByRole('menuitem', { name: /Back to not paid/ }))
+    await waitFor(() => expect(state.marked).toEqual([['o-sam', 'awaiting']]))
+  })
+
+  it('keeps a note, and corrects an address — the ticket goes again once the undo has passed', async () => {
+    rights.now = doorWithFix
+    const user = await find()
+    await user.click(within(await menuOf(user, 'Ama Owusu')).getByRole('menuitem', { name: 'Add a note' }))
+    const note = screen.getByRole('dialog', { name: 'A note on Ama Owusu’s registration' })
+    await user.type(within(note).getByRole('textbox', { name: 'Note' }), 'Wheelchair space')
+    await user.click(within(note).getByRole('button', { name: 'Save note' }))
+    await waitFor(() => expect(state.notes).toEqual([['o1', 'Wheelchair space']]))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await user.click(within(await menuOf(user, 'Ama Owusu')).getByRole('menuitem', { name: /Change email address/ }))
+    const dialog = screen.getByRole('dialog')
+    const box = within(dialog).getByRole('textbox')
+    await user.clear(box)
+    await user.type(box, 'ama.owusu@example.org')
+    await user.click(within(dialog).getByRole('button', { name: /Save|Change/ }))
+    await waitFor(() => expect(state.emails).toEqual([['o1', 'ama.owusu@example.org']]))
+    await waitFor(() => expect(state.again).toEqual(['ABCDEFGHJKMN']))
+  })
+
+  it('cancels a registration only after asking, and puts a cancelled one back', async () => {
+    rights.now = doorWithFix
+    state.orders = [...orders(), order({ id: 'o-gone', code: 'GHJKMNPQRSTU', name: 'Hana Gone', status: 'cancelled', promo_code: null, discount_pence: 0 })]
+    const user = await find()
+    await user.click(within(await menuOf(user, 'Ama Owusu')).getByRole('menuitem', { name: 'Cancel registration' }))
+    // Nothing is cancelled by the first press.
+    expect(state.marked).toEqual([])
+    const ask = screen.getByRole('dialog')
+    expect(ask).toHaveTextContent('Cancel Ama Owusu’s registration?')
+    expect(ask).toHaveTextContent('the office is told a refund is owed')
+    await user.click(within(ask).getByRole('button', { name: 'Cancel it' }))
+    await waitFor(() => expect(state.marked).toEqual([['o1', 'cancel']]))
+
+    const menu = await menuOf(user, 'Hana Gone')
+    // A cancelled registration: put it back, its address, a note, their ticket — and nothing about money or the door.
+    expect(labels(menu)).toEqual([expect.stringContaining('Put back'), expect.stringContaining('Change email address'), 'Add a note', expect.stringContaining('Open their ticket')])
+    await user.click(within(menu).getByRole('menuitem', { name: /Put back/ }))
+    await waitFor(() => expect(state.marked).toContainEqual(['o-gone', 'restore']))
+  })
+
+  it('puts a promo code on a registration made without it, where the event has one that could be used', async () => {
+    rights.now = doorWithFix
+    state.full = full({ promoCodes: [{ id: 'p1', event_id: 'e1', code: 'PASTOR100', kind: 'percent', value: 100, ticket_type_ids: [], max_uses: null, uses: 0, active: true, tickets_covered: null }] })
+    state.orders = [order({ promo_code: null, discount_pence: 0, total_pence: 4000 }), ...orders().slice(1)]
+    const user = await find()
+    const menu = await menuOf(user, 'Ama Owusu')
+    expect(labels(menu)).toContainEqual(expect.stringContaining('Apply a promo code'))
+    // Sam has paid: a code is for a registration still to be paid.
+    await user.click(within(menu).getByRole('menuitem', { name: /Apply a promo code/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('PASTOR100')
+    await user.click(within(dialog).getByRole('button', { name: /Apply|Put/ }))
+    await waitFor(() => expect(state.promos).toEqual([['o1', 'PASTOR100']]))
+  })
+
+  it('opens their ticket, for anybody working the door', async () => {
+    rights.now = doorAsItWas
+    const user = await find()
+    await user.click(within(await menuOf(user, 'Ben Joseph')).getByRole('menuitem', { name: /Open their ticket/ }))
+    expect(state.opened).toEqual([expect.stringMatching(/\/ticket\/BCDEFGHJKMNP$/)])
+  })
+
+  it('offers somebody who only checks in and takes payments none of it', async () => {
+    rights.now = doorAsItWas
+    const user = await find()
+    // What the buttons already do, and their ticket: no waiver, no note, no address, no cancelling.
+    expect(labels(await menuOf(user, 'Ama Owusu'))).toEqual([expect.stringContaining('Mark as paid'), expect.stringContaining('Check in'), expect.stringContaining('Open their ticket')])
+  })
+
+  it('never offers the office’s own at Reception, whoever is asking: verifying, “not received”, refunds, taking a code off', async () => {
+    // Somebody with every right there is — the Owner, at the door.
+    rights.now = { ...doorWithFix, office: true, edit: true, approve: true, refund: true, cancel: true, delete: true, verify: true }
+    state.orders = [
+      order({ payment_status: 'reported', payment_method: 'bank', proof_reference: 'REF-1' }),
+      order({ id: 'o-owed', code: 'HJKMNPQRSTUV', name: 'Owed Back', status: 'cancelled', payment_status: 'received', refund_status: 'owed', promo_code: null, discount_pence: 0 }),
+    ]
+    const user = await find()
+    const ama = labels(await menuOf(user, 'Ama Owusu')).join(' | ')
+    expect(ama).not.toMatch(/Verify payment|Not received|Remove promo code|refund/i)
+    expect(ama).toMatch(/Mark as paid/)
+    await user.keyboard('{Escape}')
+    expect(labels(await menuOf(user, 'Owed Back')).join(' | ')).not.toMatch(/refund/i)
+  })
+
+  it('gives somebody here to look only no menu at all', async () => {
+    rights.now = { ...doorAsItWas, checkIn: false, takePayment: false, walkIn: false }
+    show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    expect(screen.queryByRole('button', { name: /^Actions for/ })).toBeNull()
   })
 })
