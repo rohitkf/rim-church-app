@@ -66,7 +66,14 @@ export const appSettingsSchema = z.object({
    * session. The database works it out the same way, from the same row.
    */
   availability_closes_mode: z.enum(['clock', 'hours']).default('clock'),
-  availability_closes_hours: z.number().int().min(1).max(168).default(12),
+  availability_closes_hours: z.number().int().min(0).max(168).default(12),
+  /**
+   * The reminder and the head's notice follow the deadline (0310): whoever
+   * has not answered is reminded this many hours before answers close (0:
+   * never), and a team's heads are told how the team answered when they do.
+   */
+  availability_reminder_hours: z.number().int().min(0).max(168).default(24),
+  availability_closed_notice: z.boolean().default(true),
   /** The Team Coordinator's row on the rota. Null is the night sky. */
   coordinator_color: z.string().nullable().default(null),
   /** Preferences only the screens read (0123); lib/display reads it. */
@@ -155,6 +162,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   availability_closes_time: '23:59:00',
   availability_closes_mode: 'clock',
   availability_closes_hours: 12,
+  availability_reminder_hours: 24,
+  availability_closed_notice: true,
   coordinator_color: null,
   display: {},
   notification_retention_days: null,

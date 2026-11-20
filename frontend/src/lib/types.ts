@@ -97,6 +97,8 @@ export const serviceSchema = z.object({
   /** The link that goes with it and what to call it (0289); see lib/serviceLink. */
   link: z.string().nullable().optional(),
   link_label: z.string().nullable().optional(),
+  /** When answers close for this service, if not by the church's rule (0310). */
+  availability_closes_override: z.string().nullable().optional(),
 })
 export type Service = z.infer<typeof serviceSchema>
 

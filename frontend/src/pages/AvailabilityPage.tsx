@@ -731,8 +731,9 @@ export function AvailabilityPage() {
      */
     // …or, since 0309, a number of hours before the service begins, if
     // that is how the church has said it. Begins: its first session.
-    const answersClose = answersCloseAt(service.date, startOf(service), settings)
-    const closedWhen = closesWords(settings, startOf(service))
+    // …or at a moment of the service's own, where it has been given one (0310).
+    const answersClose = answersCloseAt(service.date, startOf(service), settings, service.availability_closes_override)
+    const closedWhen = closesWords(settings, startOf(service), service.availability_closes_override)
     const answersClosed = answersClose.getTime() <= now
     // What opens itself, and what somebody has since touched. A service
     // is open when those two disagree: the ones needing an answer now

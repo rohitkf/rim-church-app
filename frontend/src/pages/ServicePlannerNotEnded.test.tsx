@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -182,3 +182,36 @@ describe('a service that has not ended', () => {
     expect(screen.queryByRole('button', { name: 'Not ended' })).toBeNull()
   })
 })
+
+/*
+ * When availability answers close for the service, said on its page, and
+ * changed there for this one service by whoever manages services (0310).
+ */
+describe('when answers close, on the planner', () => {
+  it('says the deadline by the church’s rule, and gives the service one of its own', async () => {
+    vi.setSystemTime(at('09:00'))
+    const user = show()
+    const line = await screen.findByText(/^Availability answers closed/)
+    // The night before, at 23:59: long gone by Sunday morning.
+    expect(line).toHaveTextContent(/· the night before$/)
+    await user.click(screen.getByRole('button', { name: 'Change' }))
+    const dialog = screen.getByRole('dialog', { name: 'When answers close for this service' })
+    await user.click(within(dialog).getByRole('radio', { name: /A time of its own/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.updates).toHaveLength(1))
+    expect(db.updates[0].table).toBe('services')
+    // The moment the rule gave, now this service's own: an ISO instant, nothing else in the patch.
+    expect(Object.keys(db.updates[0].patch)).toEqual(['availability_closes_override'])
+    expect(String(db.updates[0].patch.availability_closes_override)).toMatch(/^2026-09-05T\d{2}:59:00\.000Z$/)
+    await waitFor(() => expect(screen.getByText(/^Availability answers closed/)).toHaveTextContent(/· set for this service$/))
+  })
+
+  it('is not said on a service that is over', async () => {
+    vi.setSystemTime(at('12:30'))
+    db.rows.services = [service({ ended_at: at('11:05').toISOString() })]
+    show()
+    await screen.findAllByText('Worship')
+    expect(screen.queryByText(/^Availability answers/)).toBeNull()
+  })
+})
+

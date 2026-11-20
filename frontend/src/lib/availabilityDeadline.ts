@@ -108,9 +108,18 @@ export interface ClosingRule {
   timezone?: string | null
 }
 
+/** The hours the rule says, or the twelve the database ships where the row has none. 0 is a number: when the service begins. */
+function hoursOf(rule: ClosingRule): number {
+  const n = rule.availability_closes_hours
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : 12
+}
+
 /**
- * The last moment an answer counts for one service, by whichever rule the
- * church has chosen.
+ * The last moment an answer counts for one service.
+ *
+ * A service may have a deadline of its own (`override`, 0310); where it
+ * has, that is the answer. Otherwise it is the church's rule, whichever
+ * way it is said.
  *
  * `startsAt` is when the service begins: its first session's start, or
  * null for one nobody has planned yet. Hours are counted back from that.
@@ -118,12 +127,14 @@ export interface ClosingRule {
  * the database does — it must have one, or its answers stay open for
  * ever (the bug 0092 closed).
  */
-export function answersCloseAt(serviceDate: string, startsAt: string | null | undefined, rule: ClosingRule): Date {
+export function answersCloseAt(serviceDate: string, startsAt: string | null | undefined, rule: ClosingRule, override?: string | null): Date {
+  if (override) {
+    const own = new Date(override)
+    if (Number.isFinite(own.getTime())) return own
+  }
   if (rule.availability_closes_mode === 'hours' && startsAt) {
     const begins = new Date(startsAt).getTime()
-    // A row older than the column, or a number that is not one: the default the database ships.
-    const hours = Number.isFinite(rule.availability_closes_hours) && (rule.availability_closes_hours as number) > 0 ? (rule.availability_closes_hours as number) : 12
-    if (Number.isFinite(begins)) return new Date(begins - hours * 3_600_000)
+    if (Number.isFinite(begins)) return new Date(begins - hoursOf(rule) * 3_600_000)
   }
   return availabilityClosesAt(serviceDate, rule.availability_closes_time, rule.timezone)
 }
@@ -137,16 +148,24 @@ export function hoursWords(hours: number): string {
   return [d, h].filter(Boolean).join(' ') || '0 hours'
 }
 
+/** "Sat 21 Nov, 18:00": a moment as a deadline is said, on the reader's clock. */
+export function deadlineWords(at: Date): string {
+  return at.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+}
+
 /**
  * When answers close, in words that fit after "Answers close" or "Answers
- * closed": "the night before", or "6 hours before the service". For the
- * service in hand: one with no running order closes the night before
- * whatever the rule, and the words must not say otherwise.
+ * closed": "the night before", "6 hours before the service", "when the
+ * service begins", or "on Sat 21 Nov, 18:00" for a service with a
+ * deadline of its own. For the service in hand: one with no running order
+ * closes the night before whatever the rule, and the words must not say
+ * otherwise.
  */
-export function closesWords(rule: ClosingRule, startsAt?: string | null): string {
+export function closesWords(rule: ClosingRule, startsAt?: string | null, override?: string | null): string {
+  if (override && Number.isFinite(new Date(override).getTime())) return `on ${deadlineWords(new Date(override))}`
   if (rule.availability_closes_mode === 'hours' && startsAt !== null) {
-    const hours = Number.isFinite(rule.availability_closes_hours) && (rule.availability_closes_hours as number) > 0 ? (rule.availability_closes_hours as number) : 12
-    return `${hoursWords(hours)} before the service`
+    const hours = hoursOf(rule)
+    return hours === 0 ? 'when the service begins' : `${hoursWords(hours)} before the service`
   }
   return 'the night before'
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { answersAreClosed, answersCloseAt, availabilityClosesAt, closesWords, hoursWords } from './availabilityDeadline'
+import { answersAreClosed, answersCloseAt, availabilityClosesAt, closesWords, deadlineWords, hoursWords } from './availabilityDeadline'
+import later from '../../../supabase/migrations/0310_reminders_follow_the_deadline.sql?raw'
 import migration from '../../../supabase/migrations/0309_answers_can_close_hours_before_the_service.sql?raw'
 
 const LONDON = 'Europe/London'
@@ -140,7 +141,7 @@ describe('when answers are due, counted in hours', () => {
   })
 
   it('falls back to twelve hours when the number is missing or not one', () => {
-    for (const bad of [null, undefined, 0, Number.NaN]) {
+    for (const bad of [null, undefined, -1, Number.NaN]) {
       expect(answersCloseAt('2026-09-13', '2026-09-13T09:30:00Z', { ...hours, availability_closes_hours: bad }).toISOString()).toBe('2026-09-12T21:30:00.000Z')
     }
   })
@@ -180,5 +181,67 @@ describe('the rule the database enforces (0309)', () => {
     expect(sql).toContain("check (availability_closes_mode in ('clock', 'hours'))")
     expect(sql).toContain('availability_closes_hours integer not null default 12')
     expect(sql).toContain('check (availability_closes_hours between 1 and 168)')
+  })
+})
+
+/*
+ * 0310: answers may close when the service begins, and one service may
+ * have a deadline of its own.
+ */
+describe('when answers are due: at the start, or by the service’s own deadline (0310)', () => {
+  const hours = { availability_closes_mode: 'hours' as const, availability_closes_hours: 6, availability_closes_time: '23:59', timezone: LONDON }
+  const clock = { ...hours, availability_closes_mode: 'clock' as const }
+  const own = '2026-09-11T17:00:00.000Z'
+
+  it('closes when the first session starts at 0 hours — 0 is a number, not a missing one', () => {
+    expect(answersCloseAt('2026-09-13', '2026-09-13T09:30:00Z', { ...hours, availability_closes_hours: 0 }).toISOString()).toBe('2026-09-13T09:30:00.000Z')
+    expect(closesWords({ ...hours, availability_closes_hours: 0 })).toBe('when the service begins')
+  })
+
+  it('is the service’s own deadline wherever it has one, whichever rule the church keeps', () => {
+    expect(answersCloseAt('2026-09-13', '2026-09-13T09:30:00Z', hours, own).toISOString()).toBe(own)
+    expect(answersCloseAt('2026-09-13', '2026-09-13T09:30:00Z', clock, own).toISOString()).toBe(own)
+    // …and for one nobody has planned yet.
+    expect(answersCloseAt('2026-09-13', null, hours, own).toISOString()).toBe(own)
+  })
+
+  it('is the rule again when the deadline is taken away, or is not a moment at all', () => {
+    for (const none of [null, undefined, '', 'nonsense']) {
+      expect(answersCloseAt('2026-09-13', '2026-09-13T09:30:00Z', hours, none).toISOString()).toBe('2026-09-13T03:30:00.000Z')
+    }
+  })
+
+  it('says a deadline of its own as the moment it is', () => {
+    expect(closesWords(hours, '2026-09-13T09:30:00Z', own)).toBe(`on ${deadlineWords(new Date(own))}`)
+    expect(closesWords(clock, null, own)).toBe(`on ${deadlineWords(new Date(own))}`)
+    expect(closesWords(clock, null, 'nonsense')).toBe('the night before')
+  })
+})
+
+describe('the rule the database enforces, with a service’s own deadline first (0310)', () => {
+  const sql = later.replace(/\s+/g, ' ')
+
+  it('answers with the service’s own deadline before the church’s rule', () => {
+    expect(sql).toContain("select coalesce( s.availability_closes_override, case")
+    expect(sql).toContain("when a.availability_closes_mode = 'hours' then coalesce( (select min(ss.start_time) from public.service_sessions ss where ss.service_id = s.id) - make_interval(hours => a.availability_closes_hours),")
+  })
+
+  it('takes 0 hours, and a reminder from never to a week ahead', () => {
+    expect(sql).toContain('check (availability_closes_hours between 0 and 168)')
+    expect(sql).toContain('availability_reminder_hours integer not null default 24')
+    expect(sql).toContain('check (availability_reminder_hours between 0 and 168)')
+    expect(sql).toContain('availability_closed_notice boolean not null default true')
+  })
+
+  it('keeps both messages to waking hours, and runs on the hour', () => {
+    expect(sql).toContain('if ahead = 0 or not public.church_is_awake() then return 0;')
+    expect(sql).toContain("public.church_waking_moment(public.availability_closes_at(s.id) - make_interval(hours => ahead), 'earlier') <= now()")
+    expect(sql).toContain("public.church_waking_moment(public.availability_closes_at(s.id), 'later') <= now()")
+    expect(sql).toContain("cron.schedule('rim-availability-reminder', '0 * * * *',")
+  })
+
+  it('leaves the two that write to people out of everybody’s reach but the job’s', () => {
+    expect(sql).toContain('revoke all on function public.notify_availability_closed() from public, anon, authenticated;')
+    expect(sql).toContain('revoke all on function public.availability_closed_line(uuid, uuid) from public, anon, authenticated;')
   })
 })

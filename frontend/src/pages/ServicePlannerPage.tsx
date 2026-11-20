@@ -52,6 +52,8 @@ import {
 } from '../lib/sessionRunPlan'
 import { SessionRunDialog, type RunAction } from '../components/SessionRunDialog'
 import { ServiceLinkControl } from '../components/ServiceLinkControl'
+import { AnswersCloseControl } from '../components/AnswersCloseControl'
+import { answersCloseAt, closesWords } from '../lib/availabilityDeadline'
 import { AddTimeDialog } from '../components/AddTimeDialog'
 import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -721,7 +723,7 @@ export function ServicePlannerPage() {
   const [serviceError, setServiceError] = useState<string | null>(null)
 
   const updateService = useMutation({
-    mutationFn: async (patch: { service_type?: string; date?: string; link?: string | null; link_label?: string | null }) => {
+    mutationFn: async (patch: { service_type?: string; date?: string; link?: string | null; link_label?: string | null; availability_closes_override?: string | null }) => {
       const { error } = await supabase.from('services').update(patch).eq('id', serviceId)
       if (error) throw error
       // Moving the service to another day: re-anchor the first session to
@@ -990,6 +992,23 @@ export function ServicePlannerPage() {
               error={serviceError}
               onSave={(patch, done) => updateService.mutate(patch, { onSuccess: done })}
             />
+            {/* When answers close for it (0310): said here because moving the
+                first session can move it, and changed here for one service
+                by whoever manages services. Not on a service that is over. */}
+            {serviceQuery.data && !endedAt && !previewing && (
+              <AnswersCloseControl
+                closesAt={answersCloseAt(serviceQuery.data.date, sessions[0]?.start_time ?? null, settings, serviceQuery.data.availability_closes_override)}
+                byRule={answersCloseAt(serviceQuery.data.date, sessions[0]?.start_time ?? null, settings)}
+                ruleWords={closesWords(settings, sessions[0]?.start_time ?? null)}
+                override={serviceQuery.data.availability_closes_override}
+                startsAt={sessions[0]?.start_time ?? null}
+                now={now}
+                canEdit={mayService && !locked}
+                busy={updateService.isPending}
+                error={serviceError}
+                onSave={(patch, done) => updateService.mutate(patch, { onSuccess: done })}
+              />
+            )}
             {/* Where it came from, said quietly. Stopped repeats say so,
                 rather than looking like one still running. */}
             {series && (
