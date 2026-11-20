@@ -58,4 +58,12 @@ describe('readDisplay', () => {
     const odd = readDisplay({ celebrations: { days: 400, limit: 0, place: 'sideways' } }).celebrations
     expect(odd).toMatchObject({ days: 7, limit: 6, place: 'above' })
   })
+  it('reads the Dashboard’s call-time card, and keeps each choice to what it can be', () => {
+    expect(readDisplay({}).callTimes).toEqual({ show: true, days: 7, stayMinutes: 0, who: 'team', countdown: true })
+    const chosen = readDisplay({ callTimes: { show: false, days: 0, stayMinutes: 20, who: 'rota', countdown: false } }).callTimes
+    expect(chosen).toEqual({ show: false, days: 0, stayMinutes: 20, who: 'rota', countdown: false })
+    // A month and a half ahead, a negative wait or an audience nobody offered are not choices.
+    const odd = readDisplay({ callTimes: { days: 45, stayMinutes: -5, who: 'everyone', countdown: 'yes' } }).callTimes
+    expect(odd).toEqual({ show: true, days: 7, stayMinutes: 0, who: 'team', countdown: true })
+  })
 })

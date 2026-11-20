@@ -235,7 +235,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/rota',
         target: 'page-title',
         title: 'Team Rota',
-        body: 'Who is doing what, and when each team is due in. Your call time also comes to your phone on Saturday evening, and again whenever it changes. If a role is yours permanently, you are on the rota for it without being asked, unless you say you cannot serve.',
+        body: 'Who is doing what, and when each team is due in. Your own call time is on your Dashboard too, until the time you are due, and comes to your phone on Saturday evening and again whenever it changes. If a role is yours permanently, you are on the rota for it without being asked, unless you say you cannot serve.',
       },
       {
         path: '/',

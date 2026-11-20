@@ -41,8 +41,22 @@ export type Celebrations = {
   limit: number
 }
 
+/** Each person's own call times on the Dashboard: whether, from when, until when, and for whom. */
+export type CallTimesCard = {
+  show: boolean
+  /** How many days before a service day it appears; 0 is the day itself. */
+  days: number
+  /** Minutes after a call time that it stays; 0 goes at the call time. */
+  stayMinutes: number
+  /** Everybody on the team, or only whoever the rota put on that day. */
+  who: 'team' | 'rota'
+  /** A running clock beside each time. */
+  countdown: boolean
+}
+
 export type Display = {
   dashboard: { serviceDays: number; openNext: 'auto' | 'always' | 'never'; show: Record<DashboardPanel, boolean> }
+  callTimes: CallTimesCard
   celebrations: Celebrations
   lists: { upcomingOpen: boolean; finishedOpen: boolean }
   windows: {
@@ -60,6 +74,7 @@ export const DISPLAY_DEFAULTS: Display = {
     openNext: 'auto',
     show: Object.fromEntries(DASHBOARD_PANELS.map((p) => [p.key, true])) as Record<DashboardPanel, boolean>,
   },
+  callTimes: { show: true, days: 7, stayMinutes: 0, who: 'team', countdown: true },
   celebrations: {
     show: true,
     place: 'above',
@@ -101,6 +116,7 @@ export function readDisplay(stored: unknown): Display {
   const lists = section('lists')
   const windows = section('windows')
   const cel = section('celebrations')
+  const call = section('callTimes')
   const num = (max: number) => z.number().int().min(1).max(max)
 
   return {
@@ -110,6 +126,13 @@ export function readDisplay(stored: unknown): Display {
       show: Object.fromEntries(
         DASHBOARD_PANELS.map((p) => [p.key, pick(z.boolean(), show[p.key], true)]),
       ) as Record<DashboardPanel, boolean>,
+    },
+    callTimes: {
+      show: pick(z.boolean(), call.show, d.callTimes.show),
+      days: pick(z.number().int().min(0).max(30), call.days, d.callTimes.days),
+      stayMinutes: pick(z.number().int().min(0).max(240), call.stayMinutes, d.callTimes.stayMinutes),
+      who: pick(z.enum(['team', 'rota']), call.who, d.callTimes.who),
+      countdown: pick(z.boolean(), call.countdown, d.callTimes.countdown),
     },
     celebrations: {
       show: pick(z.boolean(), cel.show, d.celebrations.show),

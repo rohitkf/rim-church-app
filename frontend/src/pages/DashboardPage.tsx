@@ -31,6 +31,7 @@ import {
   Statistic,
   Tile,
 } from '../components/Surface'
+import { MyCallTimes } from '../components/MyCallTimes'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { ReadinessDonut, ReadinessLegend } from '../components/ReadinessDonut'
 import { ActivityFeed } from '../components/ActivityFeed'
@@ -499,6 +500,10 @@ export function DashboardPage() {
         }
       />
       <FamilyRequests />
+      {/* When this person is due in, for their own teams, until the call
+          time is reached (Settings › Page by Page › Dashboard). Above the
+          Clock in button, which takes over from it. */}
+      <MyCallTimes className="mb-6" />
       {/* CLOCK IN, big, from a few minutes before this person's call time
           until the day's last service ends (0192) — and, on the days
           before, a word asking them to let the app read their location. */}
