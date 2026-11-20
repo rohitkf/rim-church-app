@@ -8,7 +8,7 @@ import { Countdown } from '../components/Countdown'
 import { useNow } from '../lib/timeLeft'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { TicketEmailFix } from '../components/TicketEmailFix'
-import { TicketStaffBack } from '../components/TicketStaffBack'
+import { StaffBackBar } from '../components/StaffBackBar'
 import { EMAIL_WATCH_EVERY_MS, watchesEmail } from '../lib/emailDelivery'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
@@ -220,7 +220,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
   return (
     <PublicShell title={`${title} · ${event.title}`} logoPath={order.logo_path}>
       {/* For whoever runs registrations, the way back to them: an attendee is never shown it. */}
-      <TicketStaffBack slug={event.slug} />
+      <StaffBackBar slug={event.slug} />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {/* A green "Registered" over an unpaid order read as "all done" (the
             Owner, November 2026: people registered and did not pay). */}

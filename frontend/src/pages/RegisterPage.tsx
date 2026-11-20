@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { PublicNothing, PublicShell } from '../components/PublicShell'
+import { StaffBackBar } from '../components/StaffBackBar'
 import { ActionButton, Field, FieldGroup, Pill, Steps, Tile, inputClasses } from '../components/Surface'
 import { registerFormSteps } from '../lib/registrationSteps'
 import { LinkedText } from '../components/LinkedText'
@@ -104,7 +105,14 @@ export function RegisterPage() {
     )
   }
   if (event.error || !event.data) {
-    return <PublicNothing title="No such event" body="This link doesn’t lead to an event. Check it with whoever sent it." />
+    return (
+      <PublicNothing
+        title="No such event"
+        body="This link doesn’t lead to an event. Check it with whoever sent it."
+        // Whoever runs registrations is not left on a dead link either.
+        above={<StaffBackBar slug={slug} officeOnly />}
+      />
+    )
   }
   return <EventPage event={event.data} onRegistered={() => event.refetch()} />
 }
@@ -374,6 +382,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
   return (
     <PublicShell title={event.title} logoPath={event.logo_path}>
+      {/* For whoever runs registrations, the way back to them: somebody registering is never shown it. */}
+      <StaffBackBar slug={event.slug} eventId={event.id} officeOnly />
       {image && (
         <img src={image} alt="" style={{ objectPosition: imagePosition(event.image_focus) }} className="mt-2 aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />
       )}

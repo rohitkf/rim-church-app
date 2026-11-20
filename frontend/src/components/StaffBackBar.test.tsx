@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { TicketStaffBack } from './TicketStaffBack'
+import { StaffBackBar } from './StaffBackBar'
 
 /*
  * The way back from somebody's ticket, for whoever runs registrations
@@ -36,12 +36,12 @@ vi.mock('../lib/registrations', () => ({
   },
 }))
 
-function show() {
+function show(props: { eventId?: string; officeOnly?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <TicketStaffBack slug="conference-2026" />
+        <StaffBackBar slug="conference-2026" {...props} />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -56,7 +56,7 @@ beforeEach(() => {
   state.eventAsked = []
 })
 
-describe('TicketStaffBack', () => {
+describe('StaffBackBar', () => {
   it('shows nothing to a visitor, and asks nothing about them', () => {
     state.session = null
     state.opens = ['/registrations', '/door']
@@ -104,6 +104,27 @@ describe('TicketStaffBack', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: 'Reception' })).toHaveAttribute('href', '/door?event=ev-1'))
     const links = screen.getAllByRole('link').map((a) => a.textContent)
     expect(links).toEqual(['←Back to registrations', 'Reception'])
+  })
+
+  it('on the registration page is for whoever runs registrations and nobody else', async () => {
+    // The Owner: "the same link … when I open the registration link as well (owner and admins only)".
+    state.opens = ['/door']
+    const door = show({ officeOnly: true, eventId: 'ev-7' })
+    expect(door.container).toBeEmptyDOMElement()
+    door.unmount()
+
+    state.opens = ['/registrations', '/door']
+    show({ officeOnly: true, eventId: 'ev-7' })
+    expect(screen.getByRole('link', { name: 'Back to registrations' })).toHaveAttribute('href', '/registrations/ev-7')
+    // Somebody who may open both still has Reception beside it, as on a ticket.
+    expect(screen.getByRole('link', { name: 'Reception' })).toHaveAttribute('href', '/door?event=ev-7')
+  })
+
+  it('asks nothing more where the page already knows its event', () => {
+    state.opens = ['/registrations']
+    show({ eventId: 'ev-7' })
+    expect(screen.getByRole('link', { name: 'Back to registrations' })).toHaveAttribute('href', '/registrations/ev-7')
+    expect(state.eventAsked).toEqual([])
   })
 
   it('waits for the answer rather than guessing: nothing while who they are is still loading', () => {
