@@ -142,7 +142,7 @@ export function DockNav({
 
   useLayoutEffect(() => {
     if (!travelling) return
-    const id = window.setTimeout(() => setTravelling(false), 520)
+    const id = window.setTimeout(() => setTravelling(false), 420)
     return () => window.clearTimeout(id)
   }, [travelling, pill])
 
@@ -179,17 +179,21 @@ export function DockNav({
           The stretch is a scale applied only while it is in flight, from
           the edge it is leaving, so the shape reaches ahead of itself and
           gathers up behind. Cheap, and it is the whole illusion.
+
+          It travels on the app's one curve (DESIGN.md §4). It used to
+          overshoot and settle back — a spring — and to throw a blue glow
+          under itself; neither is how anything else here moves or sits,
+          and the stretch already says "this went somewhere".
         */}
         {pill && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-2.5 h-11 rounded-full bg-primary shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--color-primary)_75%,transparent)] max-[380px]:top-2"
+            className="pointer-events-none absolute top-2.5 h-11 rounded-full bg-primary max-[380px]:top-2"
             style={{
               left: pill.left,
               width: pill.width,
               transform: travelling ? 'scaleX(1.08)' : 'scaleX(1)',
-              transition:
-                'left 520ms cubic-bezier(0.32, 1.42, 0.4, 1), width 520ms cubic-bezier(0.32, 1.42, 0.4, 1), transform 520ms cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'left 420ms var(--ease-glide), width 420ms var(--ease-glide), transform 420ms var(--ease-glide)',
             }}
           />
         )}

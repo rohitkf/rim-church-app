@@ -464,7 +464,7 @@ export function ChecklistsIndexPage() {
                       </div>
 
                       {packingUpUntil !== null && (
-                        <p className="mt-3 rounded-[var(--radius-chip)] border-l-4 border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_10%,transparent)] px-3 py-2 text-body-sm text-on-surface">
+                        <p className="mt-3 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-indigo)_10%,transparent)] py-2 pl-4 pr-3 text-body-sm text-on-surface shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-indigo)_28%,transparent)]">
                           The service has ended. The{' '}
                           <span className="font-medium">After the service</span> checklist stays
                           open until{' '}
@@ -628,17 +628,19 @@ export function ChecklistsIndexPage() {
                                 PHASES.filter((phase) => byPhase(items, phase.value).length > 0).map((phase) => (
                                 <div
                                   key={phase.value}
-                                  className={`mt-4 rounded-[var(--radius-chip)] border-l-4 py-2 pl-3 pr-1 ${
+                                  className={`mt-4 rounded-[var(--radius-chip)] py-2 pl-4 pr-1 ${
                                     phase.value === 'pre'
-                                      ? 'border-accent-blue bg-[color-mix(in_oklab,var(--color-accent-blue)_7%,transparent)]'
+                                      ? 'bg-[color-mix(in_oklab,var(--color-accent-blue)_7%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-blue)_26%,transparent)]'
                                       : phase.value === 'during'
-                                        ? 'border-accent-teal bg-[color-mix(in_oklab,var(--color-accent-teal)_7%,transparent)]'
-                                        : 'border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)]'
+                                        ? 'bg-[color-mix(in_oklab,var(--color-accent-teal)_7%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-teal)_26%,transparent)]'
+                                        : 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_7%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-indigo)_26%,transparent)]'
                                   }`}
                                 >
                                   {/* Two groups that have to read as two:
-                                      a coloured rule down the side, a tint,
-                                      and a heading in the group's colour —
+                                      a tint, an edge of the same colour all
+                                      the way round (it was a thick rule down
+                                      one side, which is how a template marks
+                                      a card), and a heading in the group's colour —
                                       blue before, teal during, indigo after — rather than
                                       a faint label that looked like another
                                       row. */}

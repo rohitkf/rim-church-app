@@ -5,7 +5,7 @@ description: Use at the start of any piece of work in this repository (a feature
 
 # Working here with the installed skills
 
-Eight skill sets are installed in `.claude/skills/` (each folder's `SOURCE.md` says where it came
+Nine skill sets are installed in `.claude/skills/` (each folder's `SOURCE.md` says where it came
 from and what was left out). They were written for other projects. This file says how they fit
 this one.
 
@@ -27,7 +27,7 @@ A skill that says MUST is still fourth. The collisions that matter:
 | Send work to subagents (`dispatching-parallel-agents`, `subagent-driven-development`, `caveman:cavecrew`) | Only when the Owner asks for it or the session's own rules allow it. |
 | Write the commit as one compressed line (`caveman:caveman-commit`) | Take its subject line. Keep the body: commits here explain why, in prose, and end with the attribution lines. |
 | Write a plan or a spec to a file | Only when the Owner asks for the file. Otherwise the plan is said and tracked in the task list. |
-| Pick a theme, a typeface or a new look (`hallmark`, `impeccable`) | The app has a design system (`DESIGN.md`, AGENTS §5): the device's own typeface, the app's tokens. Use these skills to judge and polish against it, never to replace it. |
+| Pick a theme, a typeface or a new look (`hallmark`, `impeccable`, `unslop`) | The app has a design system (`DESIGN.md`, AGENTS §5): the device's own typeface, the app's tokens. Use these skills to judge and polish against it, never to replace it. `unslop` says the same of itself: a product with a real brand gets polish mode. Where a skill's rule and `DESIGN.md` disagree (capital labels, pills, a greeting), it is the Owner's choice: list it, do not change it. |
 
 The voice modes (`caveman`, `ultracave`, `megacave`, `i-have-adhd`, ponytail's reply style) shape
 replies in the chat. They never touch what is kept: the app's own wording, code comments, commit
@@ -42,6 +42,7 @@ messages, PR bodies, migrations, `AGENTS.md`.
 | Build | `ponytail:ponytail` rules: reuse what exists, the smallest change that fully does the job. Logic in `frontend/src/lib` test-first with `superpowers:test-driven-development` (or `mattpocock-skills:tdd`; pick one, they say the same) |
 | A bug or a failing test | `superpowers:systematic-debugging` first. A hard one or a slow path: `mattpocock-skills:diagnosing-bugs` |
 | A screen that looks wrong | `frontend:verify` sweep to see it, then `impeccable:impeccable audit` and `critique` on the page, fix with the app's tokens, `impeccable:impeccable polish`, sweep again |
+| A screen that looks machine-made | `unslop:unslop` for its list of signs (`references/signs.md`), in polish mode; then `impeccable`'s detector (`scripts/impeccable detect --json <files>`) on what changed |
 | A new public page (registration, ticket) | `hallmark:hallmark` in its audit or redesign verb as a second opinion; the app's tokens still decide |
 | A database rule (policy, `may()`, a grant) | AGENTS §6 route, a per-role behaviour script, then `security-audit` on what changed |
 | Before saying it is done | `superpowers:verification-before-completion`, which here means AGENTS §2's four commands, `frontend:verify`, and for a migration the local run and the dry run |
@@ -95,6 +96,8 @@ Where a session has not loaded them, read the skill's file directly:
 - `impeccable`'s first step runs a launcher that downloads its engine. If the network refuses it,
   work from `skills/impeccable/reference/*.md` instead.
 - `hallmark`'s picture generation needs a Together AI key; do not use it here.
+- `unslop`'s `snapshot.mjs` and `story.mjs` drive a local browser (the story video also needs ffmpeg). Its
+  "set the direction and stop" step is already answered here: the direction is `DESIGN.md`.
 - `brag` needs the Hyperframes npm package, which is not installed here: `brag/SOURCE.md` has the
   commands, with telemetry off. Its `publish`, `share`, `cloud`, `auth` and `feedback` are never run.
 - `caveman:caveman-compress` rewrites a memory file in caveman style and sends its text to a model.

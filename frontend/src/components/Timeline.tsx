@@ -144,7 +144,7 @@ export function TimelineRow({
           // green is exactly the line, not a second line beside it.
           <span
             data-rail="elapsed"
-            className="absolute -top-1.5 w-0.5 bg-accent-green transition-[clip-path] duration-700 ease-[var(--ease-glide)]"
+            className="absolute -top-1.5 w-0.5 bg-accent-green transition-[clip-path] duration-300 ease-[var(--ease-glide)]"
             style={{ ...rail, clipPath: `inset(0 0 ${(1 - filled) * 100}% 0)` }}
           />
         )}
@@ -236,7 +236,7 @@ export function AssigneePill({
     >
       <span
         aria-hidden="true"
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[11px] ${
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[0.6875rem] ${
           substitute
             ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)] text-accent-orange-soft'
             : tones[tone]
@@ -246,7 +246,7 @@ export function AssigneePill({
       </span>
       <span className="min-w-0 break-words text-label-md text-on-surface">{name}</span>
       {substitute && (
-        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-accent-orange-soft">
+        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase tracking-wide text-accent-orange-soft">
           Sub
         </span>
       )}
@@ -307,7 +307,7 @@ export function RailCountdown({
 
   return (
     <span
-      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[11px] leading-[1.45] tabular ring-1 ${tone}`}
+      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[0.6875rem] leading-[1.45] tabular ring-1 ${tone}`}
       aria-label={label}
     >
       {text}

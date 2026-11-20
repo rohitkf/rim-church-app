@@ -520,7 +520,7 @@ export function PollsPage() {
                                 it, so a long option keeps the whole width. */}
                             <span
                               aria-hidden="true"
-                              className={`absolute inset-y-0 left-0 transition-[width] duration-500 ease-[var(--ease-glide)] ${
+                              className={`absolute inset-y-0 left-0 transition-[width] duration-300 ease-[var(--ease-glide)] ${
                                 picked ? 'bg-primary/25' : 'bg-raised-strong/60'
                               }`}
                               style={{ width: `${optionShare(count, counts)}%` }}

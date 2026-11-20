@@ -46,7 +46,7 @@ export function Zoomable({
         {thumbnail}
         <span
           aria-hidden="true"
-          className="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container/90 text-on-surface shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-transform group-hover:scale-110 dark:ring-white/15"
+          className="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container/90 text-on-surface shadow-[var(--shadow-lifted)] ring-1 ring-black/10 transition-colors duration-200 ease-[var(--ease-glide)] group-hover:bg-surface-container dark:ring-white/15"
         >
           <MagnifierGlyph plus />
         </span>

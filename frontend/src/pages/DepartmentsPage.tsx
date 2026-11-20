@@ -132,7 +132,7 @@ export function DepartmentsPage() {
                     </Link>
 
                     {dept.is_service_flow && (
-                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
+                      <span className="mt-3 self-start rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
                         Signs checklists off
                       </span>
                     )}

@@ -486,7 +486,7 @@ function IssueRow({
             {formatRelativeTime(issue.marked_at)}
           </p>
           {issue.remarks && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-border-subtle pl-3 text-body-sm text-on-surface">
+            <p className="mt-1 whitespace-pre-line break-words border-l border-border-subtle pl-3 text-body-sm text-on-surface">
               {issue.remarks}
             </p>
           )}

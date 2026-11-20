@@ -337,7 +337,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0.12em] ${PILL_TONES[tone]} ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] uppercase leading-none tracking-[0.12em] ${PILL_TONES[tone]} ${className}`}
     >
       {dot && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
@@ -830,7 +830,7 @@ export function StackedBar({
           .map((s) => (
             <div
               key={s.key}
-              className={`${s.className} transition-[width] duration-700 ease-[var(--ease-glide)]`}
+              className={`${s.className} transition-[width] duration-300 ease-[var(--ease-glide)]`}
               style={{ width: `${(s.value / total) * 100}%` }}
             />
           ))}

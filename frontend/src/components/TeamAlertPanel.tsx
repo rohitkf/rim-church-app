@@ -114,7 +114,7 @@ export function TeamAlertPanel() {
           <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
           <path d="M12 9v4M12 17h.01" />
         </svg>
-        <span className="font-mono text-eyebrow uppercase tracking-[0.18em] text-accent-orange-soft">
+        <span className="font-mono text-eyebrow uppercase text-accent-orange-soft">
           Send an alert
         </span>
       </div>
