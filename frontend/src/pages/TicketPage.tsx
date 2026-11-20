@@ -8,6 +8,7 @@ import { Countdown } from '../components/Countdown'
 import { useNow } from '../lib/timeLeft'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { TicketEmailFix } from '../components/TicketEmailFix'
+import { TicketStaffBack } from '../components/TicketStaffBack'
 import { EMAIL_WATCH_EVERY_MS, watchesEmail } from '../lib/emailDelivery'
 import { AccountCard } from './GivingPage'
 import { useErrorText } from '../lib/useErrorText'
@@ -18,7 +19,7 @@ import { pounds, priceWords } from '../lib/money'
 import { REGISTER_PATH, ticketUrl } from '../lib/registrationLinks'
 import { paysOnline, registrationSteps, stepNumber } from '../lib/registrationSteps'
 import { EventAgenda } from '../components/EventAgenda'
-import { PAYMENT_WORDS, agendaForTicket, cancelOrder, fetchOrder, fetchPublicEvent, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, uploadProof, whenWords, type OrderView } from '../lib/registrations'
+import { PAYMENT_WORDS, agendaForTicket, cancelOrder, fetchOrder, fetchPublicEvent, imagePosition, registrationImageUrl, reportPayment, requestRefund, sendTicketEmail, ticketEventKey, uploadProof, whenWords, type OrderView } from '../lib/registrations'
 
 /**
  * A ticket (0244): /ticket/<code>. The QR code for the door, what was
@@ -191,7 +192,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
    */
   const going = order.status === 'confirmed' && !event.cancelled_at
   const eventPage = useQuery({
-    queryKey: ['ticket-agenda', event.slug],
+    queryKey: ticketEventKey(event.slug),
     queryFn: () => fetchPublicEvent(event.slug),
     enabled: going,
     staleTime: 5 * 60_000,
@@ -218,6 +219,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
 
   return (
     <PublicShell title={`${title} · ${event.title}`} logoPath={order.logo_path}>
+      {/* For whoever runs registrations, the way back to them: an attendee is never shown it. */}
+      <TicketStaffBack slug={event.slug} />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {/* A green "Registered" over an unpaid order read as "all done" (the
             Owner, November 2026: people registered and did not pay). */}

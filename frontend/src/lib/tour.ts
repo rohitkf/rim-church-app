@@ -336,7 +336,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/registrations',
         target: 'page-title',
         title: 'Registrations',
-        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes and invite links, a map, an agenda of the day, and who has paid — with a table of the tickets by how each is paid for, and two dropdowns over the list: Status (not paid yet, a receipt to check, paid, free, and what wants doing) and Payment method (bank transfer, the online link, at reception). The list shows as cards or as a table whose headings put it in order. A code can be put on a registration after it is made, a message to the organisers lands on the event’s page, and anything pressed by accident has Undo for ten minutes.',
+        body: 'Events anybody can sign up for from a link, no account needed: tickets, promo codes and invite links, a map, an agenda of the day, and who has paid — with a table of the tickets by how each is paid for, and two dropdowns over the list: Status (not paid yet, a receipt to check, paid, free, and what wants doing) and Payment method (bank transfer, the online link, at reception). The list shows as cards or as a table whose headings put it in order. A code can be put on a registration after it is made, a message to the organisers lands on the event’s page, and anything pressed by accident has Undo for ten minutes. Open somebody’s ticket and a bar only the team sees, Back to registrations, brings you back to the event.',
       },
       {
         path: '/door',
