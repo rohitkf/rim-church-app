@@ -82,7 +82,7 @@ export function OverwatchCard() {
   const names = useNavNames()
   const draft = room.draft
 
-  // Every page in the menu, once — Serving's three tabs each count.
+  // Every page in the menu, once.
   const pages = useMemo(() => {
     const seen = new Set<string>()
     return SETTINGS_PAGES.flatMap((page) => {

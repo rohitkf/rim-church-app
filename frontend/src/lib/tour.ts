@@ -227,15 +227,9 @@ export const TOUR_CHAPTERS: TourChapter[] = [
     steps: [
       {
         path: '/availability',
-        target: 'serving-tabs',
-        title: 'Serving, in three steps',
-        body: 'Say if you can serve, see who was put on, tick off what is yours on the day. Serving in the dock opens on whichever step is waiting for you.',
-      },
-      {
-        path: '/availability',
         target: 'page-title',
         title: 'Can you serve?',
-        body: 'One tap per service, for each team you are on. Answers close ahead of the service — the night before, or a number of hours before it begins, whichever your church has set; each service says when — and your head builds the rota from them.',
+        body: 'The first of three pages for your Sunday; Team Rota and Checklists follow, each in the menu under its own name. One tap per service, for each team you are on. Answers close ahead of the service — the night before, or a number of hours before it begins, whichever your church has set; each service says when — and your head builds the rota from them.',
       },
       {
         path: '/rota',

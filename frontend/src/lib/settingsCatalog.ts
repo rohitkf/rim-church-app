@@ -1,7 +1,6 @@
 import { DEFAULT_SETTINGS, WEEKDAY_NAMES, type AppSettings } from './appSettings'
 import { DASHBOARD_PANELS, DISPLAY_DEFAULTS, readDisplay, type Display } from './display'
 import { NAV_ITEMS } from './navItems'
-import { SERVING_TABS } from './serving'
 
 /**
  * Every plain setting the church can change, written down once.
@@ -51,8 +50,6 @@ const SPECIAL_NAMES: Record<string, string> = {
 /** A page's name as the menu says it. */
 export function pageName(ref: PageRef): string {
   if (SPECIAL_NAMES[ref]) return SPECIAL_NAMES[ref]
-  const tab = SERVING_TABS.find((t) => t.to === ref)
-  if (tab) return tab.label
   return NAV_ITEMS.find((i) => i.to === ref)?.label ?? ref
 }
 

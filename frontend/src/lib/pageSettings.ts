@@ -1,7 +1,6 @@
 import type { ComponentType, SVGProps } from 'react'
 import { BellIcon, CalendarIcon, MegaphoneIcon, SettingsIcon } from '../components/icons'
 import { NAV_ITEMS } from './navItems'
-import { SERVING_TABS } from './serving'
 import { type Capability, type PermissionArea } from './permissionMatrix'
 import { ALERTS, APP, BELL, FEEDBACK_ROOM, GENERAL_ROOM, SERVICE_PAGES, SERVICE_PAGES_REF, affectsPage } from './settingsCatalog'
 import { TEAM_ROLES, isTeamSettable } from './permissions'
@@ -27,16 +26,7 @@ export interface SettingsPage {
 }
 
 export const SETTINGS_PAGES: SettingsPage[] = [
-  ...NAV_ITEMS.flatMap((item): SettingsPage[] =>
-    item.tabs
-      ? item.tabs.map((to) => ({
-          to,
-          label: SERVING_TABS.find((t) => t.to === to)?.label ?? to,
-          group: item.group ?? 'Home',
-          icon: item.icon,
-        }))
-      : [{ to: item.to, label: item.label, group: item.group ?? 'Home', icon: item.icon }],
-  ),
+  ...NAV_ITEMS.map((item): SettingsPage => ({ to: item.to, label: item.label, group: item.group ?? 'Home', icon: item.icon })),
   // What every service page shares, once (the Settings redesign): days
   // ahead, when a service is on, how long editing stays open, what is kept.
   { to: SERVICE_PAGES_REF, label: 'Services', group: 'Everywhere', icon: CalendarIcon },

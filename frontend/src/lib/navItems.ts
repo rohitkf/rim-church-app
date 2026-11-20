@@ -6,6 +6,8 @@ import {
   FeedbackIcon,
   GiftHeartIcon,
   CalendarIcon,
+  ChecklistIcon,
+  HandIcon,
   NotebookIcon,
   ClipboardUserIcon,
   MusicIcon,
@@ -23,7 +25,6 @@ import {
   TimerIcon,
   UsersIcon,
 } from '../components/icons'
-import { SERVING_PATH, SERVING_TABS } from './serving'
 
 /**
  * A destination. Who it is offered to is lib/pageAccess's (the church's
@@ -53,23 +54,23 @@ export type NavItem = DockItem
  *      the teams, the people, the cupboard.
  *
  * The dock's phone window slides along this list (lib/dockWindow), so the
- * order is not only a menu but the path along it. Getting it wrong costs
- * a tap every time.
+ * order is not only a menu but the path along it: from Availability the
+ * next step right is the rota built from it, and the one after is the
+ * checklist for the morning. Getting it wrong costs a tap every time.
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday' },
 
-  // Your Sunday, in the order it happens to you, ending with the songs.
-  // Answering, being put on and ticking it off are one job in three steps,
-  // so they are one destination with a tab each (lib/serving).
-  {
-    to: SERVING_PATH,
-    label: 'Serving',
-    icon: ClipboardUserIcon,
-    group: 'Sunday',
-    tabs: SERVING_TABS.map((tab) => tab.to),
-  },
+  // Your Sunday, in the order it happens to you, ending with the songs:
+  // say whether you can serve, see who was put on, tick off what is yours
+  // on the day. Three pages, each in the menu under its own name. For a
+  // month they were one "Serving" entry with a tab each; the church asked
+  // for them back as pages of their own (November 2026), and lib/navLayout's
+  // MOVED puts a menu saved in between right.
+  { to: '/availability', label: 'Availability', icon: HandIcon, group: 'Sunday' },
+  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, group: 'Sunday' },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, group: 'Sunday' },
   { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
   // Every song the church sings, kept for good (0241, 0243): where the
   // set list's song box finds them.

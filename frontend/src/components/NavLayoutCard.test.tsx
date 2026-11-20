@@ -73,7 +73,8 @@ describe('arranging the menu', () => {
     await waitFor(() => expect(db.writes).toHaveLength(1))
     expect(lastWrite().top).toEqual(['/'])
     expect(lastWrite().groups[0].name).toBe('Services')
-    expect(lastWrite().groups[0].items).toContain('/serving')
+    expect(lastWrite().groups[0].items).toEqual(expect.arrayContaining(['/availability', '/rota', '/checklists']))
+    expect(lastWrite().groups[0].items).not.toContain('/serving')
   })
 
   it('moves a whole group, pages and all', async () => {

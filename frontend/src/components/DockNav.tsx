@@ -20,12 +20,6 @@ export interface DockItem {
    * above them all.
    */
   group?: string
-  /**
-   * The pages this one destination stands for, when it is a set of tabs
-   * (Serving: Availability, Team Rota, Checklists). It is the current
-   * destination on any of them, and offered when any of them may be opened.
-   */
-  tabs?: string[]
 }
 
 
@@ -100,7 +94,7 @@ export function DockNav({
   const measured = useRef<{ left: number; width: number } | null>(null)
 
   const onPath = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
-  const isCurrent = (item: DockItem) => onPath(item.to) || (item.tabs ?? []).some(onPath)
+  const isCurrent = (item: DockItem) => onPath(item.to)
   const activeIndex = items.findIndex((item) => isCurrent(item))
 
   // The window that slides. Always the same number of slots at one width,

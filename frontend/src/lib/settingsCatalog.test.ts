@@ -170,7 +170,7 @@ describe('how the deadline for answers is set (0309)', () => {
 })
 
 describe('Page by Page', () => {
-  it('lists every page in the menu, Serving as its three tabs, and the three places that are not pages', () => {
+  it('lists every page in the menu, and the three places that are not pages', () => {
     const tos = SETTINGS_PAGES.map((p) => p.to)
     expect(tos).toEqual(
       expect.arrayContaining(['/', '/service-planner', '/availability', '/rota', '/checklists', '/set-lists', '/debriefs', '/inventory', BELL, ALERTS, APP]),

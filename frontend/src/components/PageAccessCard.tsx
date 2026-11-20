@@ -120,7 +120,6 @@ export function PageAccessCard() {
 
   // Issues follows "Who can raise one" in Page by Page.
   const scope = settings.issues_raise_scope
-  // Serving's three tabs are listed each on its own.
   const pages = pagesWithRules()
   const opens = (path: string) =>
     pageOpening(
