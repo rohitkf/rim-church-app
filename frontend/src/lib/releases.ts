@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'reception-for-chosen-events',
+    date: '2026-11-20',
+    title: 'Reception for chosen events',
+    lead: 'Somebody on Reception can be kept to the events you choose for them, instead of every event the church runs.',
+    points: [
+      'In Settings › Reception each person and team has “Events”: Every event, or Chosen events with a tick for each one.',
+      'Kept to chosen events, they see and work only those at Reception: the list, check-in, payments, walk-ins and sorting out problems. The others are not shown to them at all.',
+      'Everybody on Reception today still has every event. Nothing changes until you choose.',
+      'An event made later is not theirs until it is ticked. The Owner, Admins and whoever runs registrations always have every event.',
+    ],
+    // For whoever may change the ticks; a Settings room is not a page with an opening rule, so no link.
+    holds: ['app.permissions'],
+  },
+  {
     key: 'reception-list-by-who-is-in',
     date: '2026-11-20',
     title: 'Reception lists who is still to check in',

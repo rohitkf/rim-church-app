@@ -342,7 +342,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/reception',
         title: 'Who works the door',
-        body: 'Who works the door, and what each of them may press: check people in, take payments, register walk-ins, sort out problems — or look only. Somebody new starts with all four ticked. A door right is given once and holds every day, so whoever runs registrations can lock Reception between events: while it is locked the door’s rights give nothing, and nobody’s rights are changed.',
+        body: 'Who works the door, and what each of them may press: check people in, take payments, register walk-ins, sort out problems — or look only. Somebody new starts with all four ticked, for every event; “Chosen events” keeps a person or a team to the events ticked for them. A door right is given once and holds every day, so whoever runs registrations can lock Reception between events: while it is locked the door’s rights give nothing, and nobody’s rights are changed.',
       },
     ],
   },
