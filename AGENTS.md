@@ -1093,6 +1093,11 @@ Each of these has already cost real time. None of them show up in review.
   writes them to `/releases.json` (`build/releasesFile.ts`) and
   `lib/latestReleases.ts` reads that fresh — the service worker must keep
   leaving that file to the network. Do not bring back a modal for either.
+  The notice floats, so **it tells the page how much room it takes**: it
+  writes its height to `--top-notice-h` on the root and `AppShell` opens
+  `<main>` with a spacer of that height (nothing when no notice is up).
+  It used to sit on the page's title. A second floating thing at the top
+  of the screen takes the same road, not a z-index.
 - **Two copies of the notification map** must agree:
   `lib/notificationLink.ts` and `functions/push-notify/index.ts`. One is
   browser, one is Deno. They have drifted once already.
@@ -1131,6 +1136,19 @@ Each of these has already cost real time. None of them show up in review.
   report that throws inside the error boundary turns one broken page into
   a white screen, and one that loops fills the table to its ceiling and
   hides the error that started it.
+- **Not every error on a person's phone is the app's.** A crypto-wallet
+  add-on writes itself into every page a browser opens and throws there
+  (`window.ethereum.selectedAddress = undefined`, from "global code" at
+  the page's own address); the one row
+  in `client_errors` when the app was checked (November 2026) was that.
+  `isNotOurs` in `lib/clientErrors.ts` turns such a report away by what
+  it names — extension URLs already were. Add to that list when App
+  Health shows something the app could not have thrown; do not widen it
+  to a word the app's own code could say.
+- **Every function pins its `search_path`** (0311 did the last three).
+  The database's adviser flags one that does not; a new function is
+  written with `set search_path = ''` (or the schemas it needs), the
+  same as the rest.
 - **Most failures are not news, and a new kind of failure is reported by
   default only where something threw.** A read or a save that fails is
   reported only if `worthReporting` knows it (`isDatabaseFault`, an
