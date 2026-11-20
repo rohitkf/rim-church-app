@@ -136,6 +136,15 @@ describe('your call time, on the Dashboard', () => {
     expect(screen.queryByRole('region')).toBeNull()
   })
 
+  it('keeps it away until the next day where the church has asked for that', async () => {
+    at('2026-11-22T13:30:00')
+    world.finished = ['s-eng', 's-mal']
+    set({ next: 'day' })
+    show()
+    await settle()
+    expect(screen.queryByRole('region')).toBeNull()
+  })
+
   it('shows the next service day’s once today’s last service has ended', async () => {
     at('2026-11-22T13:30:00')
     world.finished = ['s-eng', 's-mal']

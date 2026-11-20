@@ -52,6 +52,8 @@ export type CallTimesCard = {
   who: 'team' | 'rota'
   /** A running clock beside each time. */
   countdown: boolean
+  /** When the next service day's call time takes over: once today's last service has ended, or not until the next day. */
+  next: 'after' | 'day'
 }
 
 export type Display = {
@@ -74,7 +76,7 @@ export const DISPLAY_DEFAULTS: Display = {
     openNext: 'auto',
     show: Object.fromEntries(DASHBOARD_PANELS.map((p) => [p.key, true])) as Record<DashboardPanel, boolean>,
   },
-  callTimes: { show: true, days: 7, stayMinutes: 0, who: 'team', countdown: true },
+  callTimes: { show: true, days: 7, stayMinutes: 0, who: 'team', countdown: true, next: 'after' },
   celebrations: {
     show: true,
     place: 'above',
@@ -133,6 +135,7 @@ export function readDisplay(stored: unknown): Display {
       stayMinutes: pick(z.number().int().min(0).max(240), call.stayMinutes, d.callTimes.stayMinutes),
       who: pick(z.enum(['team', 'rota']), call.who, d.callTimes.who),
       countdown: pick(z.boolean(), call.countdown, d.callTimes.countdown),
+      next: pick(z.enum(['after', 'day']), call.next, d.callTimes.next),
     },
     celebrations: {
       show: pick(z.boolean(), cel.show, d.celebrations.show),
