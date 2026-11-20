@@ -45,9 +45,9 @@ async function fetchCallTimesOn(dates: string[]): Promise<CallTimeRow[]> {
  * card that is absent most of the week should not announce itself with a
  * spinner, and the time is on the Team Rota for anybody who goes looking.
  *
- * Whether it shows at all, how far ahead, how long it stays, who it is
- * for and whether a clock runs beside it are the church's: Settings ›
- * Page by Page › Dashboard.
+ * Whether it shows at all, how far ahead, how long it stays, when the
+ * next one takes over, who it is for and whether a clock runs beside it
+ * are the church's: Settings › Page by Page › Dashboard.
  */
 export function MyCallTimes({ className = '' }: { className?: string }) {
   const settings = useDisplay().callTimes
@@ -111,10 +111,11 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
             now,
             days: settings.days,
             stayMinutes: settings.stayMinutes,
-            finished: isFinished,
+            // The church may hold the next one back until the next day (Settings › Page by Page › Dashboard).
+            finished: settings.next === 'after' ? isFinished : undefined,
           })
         : null,
-    [known, ahead, callTimesQuery.data, departmentsQuery.data, mine, onRota, today, now, settings.days, settings.stayMinutes, isFinished],
+    [known, ahead, callTimesQuery.data, departmentsQuery.data, mine, onRota, today, now, settings.days, settings.stayMinutes, settings.next, isFinished],
   )
 
   // The next moment one of them goes.

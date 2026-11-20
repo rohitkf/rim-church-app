@@ -17,10 +17,12 @@ same way.
    When work is implemented and verified, **open that PR to `main` without
    being asked** (AGENTS.md §1) — but **only after any migration or edge
    function it needs is already on production**. Applying a migration is
-   pre-approved once it has passed AGENTS.md §7's gates; deploying an edge
-   function, and sending anything to real people, still need the user's
-   explicit yes each time. The PR auto-merges and deploys; a frontend
-   ahead of its database is a broken page for everybody.
+   pre-approved once it has passed AGENTS.md §7's gates, and so is
+   deploying an edge function once `deno check` is clean (the Owner, 20
+   November 2026; smoke-test it straight after). Sending anything to real
+   people still needs the user's explicit yes each time. The PR
+   auto-merges and deploys; a frontend ahead of its database is a broken
+   page for everybody.
 2. **Start by listing the open pull requests, and take Dependabot's.**
    Any that are open are read, tried and merged into `develop` as part of
    the session (AGENTS.md §1) — pre-approved. Say in the report what was

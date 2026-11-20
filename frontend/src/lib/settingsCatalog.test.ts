@@ -87,7 +87,7 @@ describe('the settings catalog', () => {
   })
 
   it('lets the church set the Dashboard’s call-time card: whether, from when, until when, for whom', () => {
-    const ids = ['show', 'days', 'stayMinutes', 'who', 'countdown'].map((k) => `display.callTimes.${k}`)
+    const ids = ['show', 'days', 'stayMinutes', 'who', 'countdown', 'next'].map((k) => `display.callTimes.${k}`)
     const entries = ids.map((id) => SETTINGS_CATALOG.find((e) => e.id === id)!)
     expect(entries.every(Boolean)).toBe(true)
     expect(settingsForPage('/').map((e) => e.id)).toEqual(expect.arrayContaining(ids))

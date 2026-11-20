@@ -83,7 +83,7 @@ export const RELEASES: Release[] = [
       'If your teams are called at different times, each time has a line; teams called together share one.',
       'It goes when the time is reached, and the Clock in button takes over from there. Once the day’s last service has ended, the next service day’s call time appears.',
       'Every team’s call time is still on the Team Rota.',
-      'An Admin can change how far ahead it appears, how long it stays after the call time, whether it is for the whole team or only whoever is on the rota that day, and switch it or its countdown off: Settings › Page by Page › Dashboard.',
+      'An Admin can change how far ahead it appears, how long it stays after the call time, whether the next one appears after the last service or the next day, whether it is for the whole team or only whoever is on the rota that day, and switch it or its countdown off: Settings › Page by Page › Dashboard.',
     ],
     link: { to: '/', label: 'Open the Dashboard' },
     page: '/availability',

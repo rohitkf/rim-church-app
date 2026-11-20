@@ -8,7 +8,9 @@
  *                                     that event — "I have lost my ticket"
  *
  * and four are for the church — the caller has to be signed in and hold
- * the right for it (registration_can, 0251), or the answer is no:
+ * the right for it (registration_can, 0251), or the answer is no; and for
+ * the three about one ticket, somebody given Reception for some events
+ * only (0313) has to have been given that ticket's event:
  *
  *   { kind: 'paid', code }            the payment is in: "your ticket is confirmed"
  *   { kind: 'unmatched', code }       nothing matches: "we could not find your payment"
@@ -363,6 +365,8 @@ Deno.serve(async (req) => {
   const kind = payload.kind as Kind | undefined
   let orders: Order[] = []
   if (kind === 'confirm' || kind === 'paid' || kind === 'unmatched' || kind === 'again') {
+    // Whoever is asking for the church, when somebody is: asked again below, about the event.
+    let asking: string | null = null
     if (kind !== 'confirm') {
       // The church's word, from somebody allowed to give it.
       const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
@@ -374,12 +378,23 @@ Deno.serve(async (req) => {
       const { data: allowed, error: mayError } = await admin.rpc('registration_can', { uid: who.user.id, what })
       if (mayError) return json({ error: 'Could not check who is asking.' }, 500)
       if (!allowed) return json({ error: 'Sending this is not one of your rights.' }, 403)
+      asking = who.user.id
     }
     const code = (payload.code ?? '').trim().toUpperCase()
     if (!/^[A-Z0-9]{12}$/.test(code)) return json({ error: 'That is not a ticket code.' }, 400)
     const { data, error } = await admin.from('registration_orders').select(ORDER_SELECT).eq('code', code).maybeSingle()
     if (error) return json({ error: 'Could not read that ticket.' }, 500)
-    if (data) orders = [data as unknown as Order]
+    if (data) {
+      const found = data as unknown as Order
+      // Reception for some events only (0313): the right says what they may do, this says
+      // where. Somebody kept to the conference does not have the camp's tickets sent again.
+      if (asking && found.event?.id) {
+        const { data: open, error: openError } = await admin.rpc('registration_event_open', { uid: asking, ev: found.event.id })
+        if (openError) return json({ error: 'Could not check who is asking.' }, 500)
+        if (!open) return json({ error: 'That event is not one you work Reception for.' }, 403)
+      }
+      orders = [found]
+    }
   } else if (kind === 'event_cancelled') {
     // Everyone on a cancelled event, one email to each address.
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
