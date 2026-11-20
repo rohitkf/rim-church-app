@@ -13,6 +13,7 @@ const world = vi.hoisted(() => ({
   rotaOpen: true,
   callTimes: [] as { department_id: string; on_date: string; call_time: string }[],
   rota: [] as { service_id: string; department_id: string }[],
+  finished: [] as string[],
   asked: [] as string[],
 }))
 
@@ -21,6 +22,7 @@ vi.mock('../auth/AuthContext', () => ({
 }))
 vi.mock('../lib/appSettings', () => ({ useDisplay: () => ({ callTimes: world.settings }) }))
 vi.mock('../lib/useOwnMemberships', () => ({ useOwnMemberships: () => ({ teamIds: world.teamIds }) }))
+vi.mock('../lib/useFinishedServices', () => ({ useFinishedServices: () => ({ isFinished: (id: string) => world.finished.includes(id) }) }))
 vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ canOpen: () => world.rotaOpen, settled: true }) }))
 vi.mock('../lib/queries', () => ({
   fetchServices: () =>
@@ -66,7 +68,7 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   at('2026-11-20T18:00:00')
   set()
-  Object.assign(world, { teamIds: ['sound'], led: [], viewAs: null, rotaOpen: true, rota: [], asked: [] })
+  Object.assign(world, { teamIds: ['sound'], led: [], viewAs: null, rotaOpen: true, rota: [], asked: [], finished: [] })
   world.callTimes = [{ department_id: 'sound', on_date: '2026-11-22', call_time: '06:30:00' }]
 })
 afterEach(() => vi.useRealTimers())
@@ -108,7 +110,7 @@ describe('your call time, on the Dashboard', () => {
     const card = await screen.findByRole('region', { name: 'Your call time' })
     // The Sunday after is inside the week ahead, and is not mentioned.
     expect(within(card).getAllByRole('listitem')).toHaveLength(1)
-    expect(within(card).queryByText(/29 Nov/)).toBeNull()
+    expect(within(card).queryByText(/29 Nov|Nov 29/)).toBeNull()
   })
 
   it('says Tomorrow and Today rather than a date', async () => {
@@ -126,11 +128,22 @@ describe('your call time, on the Dashboard', () => {
     await waitFor(() => expect(screen.queryByRole('region')).toBeNull(), { timeout: 4000 })
   })
 
-  it('is not there for the rest of the day once the call time has passed', async () => {
-    at('2026-11-22T06:31:00')
+  it('is not there after the call time, while the day’s services are still to come or under way', async () => {
+    at('2026-11-22T11:00:00')
+    world.finished = ['s-eng']
     show()
     await settle()
     expect(screen.queryByRole('region')).toBeNull()
+  })
+
+  it('shows the next service day’s once today’s last service has ended', async () => {
+    at('2026-11-22T13:30:00')
+    world.finished = ['s-eng', 's-mal']
+    show()
+    const card = await screen.findByRole('region', { name: 'Your call time' })
+    expect(within(card).getByText(/29 Nov|Nov 29/)).toBeInTheDocument()
+    // Nobody set next Sunday's: the usual seven.
+    expect(within(card).getByText('07:00')).toBeInTheDocument()
   })
 
   it('stays past the call time for as long as the church set, saying it is due', async () => {

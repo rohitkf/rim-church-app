@@ -528,7 +528,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     label: 'Your call time',
     controlLabel: 'Show each person their call time on the Dashboard',
     summary: 'When each person is due in, for the teams they are on.',
-    help: 'A card near the top of the Dashboard with the time the person is called for: today’s, if there is a service today, otherwise the next service day’s — never the ones after. Teams called at the same time share one line. It is not there at all for somebody on no team, or when nothing is coming up. Every team’s call time is on the Team Rota, whatever this says.',
+    help: 'A card near the top of the Dashboard with the time the person is called for: today’s, if there is a service today, otherwise the next service day’s — never the ones after. Once today’s last service has ended, the next service day’s takes its place. Teams called at the same time share one line. It is not there at all for somebody on no team, or when nothing is coming up. Every team’s call time is on the Team Rota, whatever this says.',
     affects: ['/'],
   },
   {
@@ -561,7 +561,7 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     kind: 'dial',
     label: 'Goes away',
     summary: 'After the call time. 0 is at the call time itself.',
-    help: 'The call time leaves the card this many minutes after it has passed, and the card goes with it; the next service day’s does not appear until the day after. At 0 it is gone the moment the team is due; set it higher to keep it in front of somebody who is running late.',
+    help: 'The call time leaves the card this many minutes after it has passed, and the card goes with it; the next service day’s appears once the day’s last service has ended (or the day after, for a service with no running order to end). At 0 it is gone the moment the team is due; set it higher to keep it in front of somebody who is running late.',
     affects: ['/'],
     min: 0,
     max: 240,

@@ -7,6 +7,7 @@ import { callTimeRowSchema, type CallTimeRow } from '../lib/callTimes'
 import { addDays } from '../lib/dateRange'
 import { todayIso } from '../lib/monthGrid'
 import { myCallTime, relativeDay } from '../lib/myCallTimes'
+import { useFinishedServices } from '../lib/useFinishedServices'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { supabase } from '../lib/supabaseClient'
 import { useNow } from '../lib/useNow'
@@ -34,7 +35,8 @@ async function fetchCallTimesOn(dates: string[]): Promise<CallTimeRow[]> {
  * When this person is due in, on the Dashboard (lib/myCallTimes).
  *
  * One answer: today's call time if there is a service today, otherwise
- * the next service day's — never the ones after. Their own teams and
+ * the next service day's — never the ones after. Once today's last
+ * service has ended, the next service day's takes over. Their own teams and
  * nothing else: every team's call time is on the Team Rota, for whoever
  * opens up. It leaves when it is reached — or as long after as the church
  * has set — so it is never a thing to read past.
@@ -85,6 +87,9 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
     enabled: wanted && byRota && serviceIds.length > 0,
   })
   const onRota = useMemo(() => (byRota ? new Set(rotaQuery.data ?? []) : null), [byRota, rotaQuery.data])
+  // Whether today's services have ended: once the last has, the next service day's call time takes over.
+  const todaysIds = useMemo(() => ahead.filter((s) => s.date === today).map((s) => s.id), [ahead, today])
+  const { isFinished } = useFinishedServices(todaysIds)
 
   // The half-minute clock brings a new day in; `passed` is for the moment
   // a call time is reached, which should not wait for the next half-minute.
@@ -106,9 +111,10 @@ export function MyCallTimes({ className = '' }: { className?: string }) {
             now,
             days: settings.days,
             stayMinutes: settings.stayMinutes,
+            finished: isFinished,
           })
         : null,
-    [known, ahead, callTimesQuery.data, departmentsQuery.data, mine, onRota, today, now, settings.days, settings.stayMinutes],
+    [known, ahead, callTimesQuery.data, departmentsQuery.data, mine, onRota, today, now, settings.days, settings.stayMinutes, isFinished],
   )
 
   // The next moment one of them goes.

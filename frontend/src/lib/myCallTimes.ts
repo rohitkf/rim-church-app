@@ -18,9 +18,14 @@ import { shortServiceDay } from './sunday'
  *
  * It goes at the call time itself: once that has passed, the time is
  * either kept or missed, and what the Dashboard wants from them next is
- * the Clock in button. Nothing takes its place for the rest of that day —
- * a card that vanished at seven and came back at once with next week's
- * time would not have gone at all.
+ * the Clock in button. Nothing takes its place while the day's services
+ * are still to come or under way — a card that vanished at seven and came
+ * back at once with next week's time would not have gone at all.
+ *
+ * Once the day's last service has ended, that day is over and the next
+ * service day's call time is the one to show (the Owner: "ideally after
+ * the end of the current service"). A service with no running order has
+ * no end to have passed, so a day like that hands over at midnight.
  *
  * Somebody on two teams called at the same time is told that time once,
  * with both teams beside it. Only teams called at different times make a
@@ -57,6 +62,7 @@ export function myCallTime<S extends DatedService>({
   now,
   days,
   stayMinutes,
+  finished = () => false,
 }: {
   services: S[]
   /** Call times anybody has set, for any of the days in question. */
@@ -78,6 +84,8 @@ export function myCallTime<S extends DatedService>({
   days: number
   /** Minutes after a call time that it stays. */
   stayMinutes: number
+  /** Whether a service has ended (lib/useFinishedServices). Left out, none has. */
+  finished?: (serviceId: string) => boolean
 }): MyCallDay<S> | null {
   const last = addDays(today, days)
   const ahead = services.filter((s) => s.date >= today && s.date <= last)
@@ -89,6 +97,8 @@ export function myCallTime<S extends DatedService>({
       : teams.filter((t) => mine.includes(t.id))
     // A day they are not called on is not their next one.
     if (called.length === 0) continue
+    // Today, with every service over: the day is done, and the next one's turn has come.
+    if (day.date === today && day.services.every((s) => finished(s.id))) continue
 
     // This is the day, whether or not its times have passed: nothing later is looked at.
     const setThatDay = rows.filter((r) => r.on_date === day.date)
