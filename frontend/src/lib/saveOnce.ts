@@ -66,7 +66,7 @@ export const NOT_INSERTED_BY_THE_APP: ReadonlySet<string> = new Set([
   'client_errors', 'clock_in_history', 'clock_in_requests', 'clock_ins', 'department_role_permanents',
   'family_link_requests', 'guest_availability_history', 'household_members', 'households', 'inventory_events',
   'invitations', 'notifications', 'ownership_transfers', 'permission_changes', 'permission_grants',
-  'prayer_lists', 'prayer_requests', 'prayer_updates', 'push_subscriptions', 'registration_messages', 'registration_order_tickets',
+  'prayer_lists', 'prayer_requests', 'prayer_updates', 'push_subscriptions', 'reception_event_limits', 'registration_messages', 'registration_order_tickets',
   'registration_orders', 'service_issues', 'stage_layout_log', 'stage_move_requests',
   'stage_template_requests', 'stage_templates', 'team_join_requests',
 ])
