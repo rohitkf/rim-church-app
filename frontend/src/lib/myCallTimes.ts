@@ -3,44 +3,51 @@ import { effectiveCallTime, serviceDays, type CallTimeRow, type DatedService } f
 import { shortServiceDay } from './sunday'
 
 /**
- * A person's own call times, for the Dashboard.
+ * A person's own call time, for the Dashboard.
  *
  * The Team Rota has every team's call time, and the phone is told on
  * Saturday evening. The Dashboard is the page people actually open, and it
  * said when the service starts and never when *they* are due — so this is
- * the answer to "what time do I need to be there", for the teams they are
- * on, until the moment it stops being a thing to plan around.
+ * the answer to "what time do I need to be there".
  *
- * Which is the call time itself: once it has passed, the time is either
- * kept or missed, and what the Dashboard wants from them next is the Clock
- * in button. Each team goes at its own time, so somebody on Sound at 06:30
- * and Worship at 07:00 still sees Worship at 06:45.
+ * One answer, not a list: today's, if there is a service today, otherwise
+ * the next service day's. The first version listed every service day in
+ * the week ahead, and the Owner's word on it was that he wanted to see one
+ * call time, not the future's. So the day after next Sunday is not
+ * mentioned until next Sunday is over.
+ *
+ * It goes at the call time itself: once that has passed, the time is
+ * either kept or missed, and what the Dashboard wants from them next is
+ * the Clock in button. Nothing takes its place for the rest of that day —
+ * a card that vanished at seven and came back at once with next week's
+ * time would not have gone at all.
+ *
+ * Somebody on two teams called at the same time is told that time once,
+ * with both teams beside it. Only teams called at different times make a
+ * second line, and each goes at its own time.
  *
  * How far ahead it shows, how long it lingers and who it is for are the
  * church's (Settings › Page by Page › Dashboard, lib/display).
  */
 
 export interface MyCall {
-  id: string
-  name: string
-  color: string | null
   /** `HH:MM`. */
   clock: string
   /** The same, as a moment. */
   at: string
-  /** True when nobody set one and this is the usual time. */
-  isDefault: boolean
+  /** The teams called for that time, by name. */
+  teams: { id: string; name: string; color: string | null }[]
 }
 
 export interface MyCallDay<S extends DatedService = DatedService> {
   date: string
   /** Everything on that day: one call time covers all of it. */
   services: S[]
-  /** My teams still to be called, earliest first. */
-  teams: MyCall[]
+  /** The times still to come, earliest first: one, unless my teams are called at different times. */
+  calls: MyCall[]
 }
 
-export function myCallTimes<S extends DatedService>({
+export function myCallTime<S extends DatedService>({
   services,
   rows,
   teams,
@@ -71,24 +78,33 @@ export function myCallTimes<S extends DatedService>({
   days: number
   /** Minutes after a call time that it stays. */
   stayMinutes: number
-}): MyCallDay<S>[] {
+}): MyCallDay<S> | null {
   const last = addDays(today, days)
   const ahead = services.filter((s) => s.date >= today && s.date <= last)
-  const out: MyCallDay<S>[] = []
 
   for (const day of serviceDays(ahead)) {
-    const setThatDay = rows.filter((r) => r.on_date === day.date)
     const called = onRota
       ? // Whoever the rota put on, on the team it put them on — theirs or not.
         teams.filter((t) => day.services.some((s) => onRota.has(`${s.id}:${t.id}`)))
       : teams.filter((t) => mine.includes(t.id))
-    const still = called
-      .map((t): MyCall => ({ id: t.id, name: t.name, color: t.color, ...effectiveCallTime(setThatDay, t.id, day.date) }))
-      .filter((t) => now < new Date(t.at).getTime() + stayMinutes * 60_000)
-      .sort((a, b) => (a.clock !== b.clock ? (a.clock < b.clock ? -1 : 1) : a.name.localeCompare(b.name)))
-    if (still.length > 0) out.push({ date: day.date, services: day.services, teams: still })
+    // A day they are not called on is not their next one.
+    if (called.length === 0) continue
+
+    // This is the day, whether or not its times have passed: nothing later is looked at.
+    const setThatDay = rows.filter((r) => r.on_date === day.date)
+    const calls: MyCall[] = []
+    for (const team of [...called].sort((a, b) => a.name.localeCompare(b.name))) {
+      const { clock, at } = effectiveCallTime(setThatDay, team.id, day.date)
+      if (now >= new Date(at).getTime() + stayMinutes * 60_000) continue
+      const same = calls.find((c) => c.clock === clock)
+      const mark = { id: team.id, name: team.name, color: team.color }
+      if (same) same.teams.push(mark)
+      else calls.push({ clock, at, teams: [mark] })
+    }
+    calls.sort((a, b) => (a.clock < b.clock ? -1 : 1))
+    return calls.length > 0 ? { date: day.date, services: day.services, calls } : null
   }
-  return out
+  return null
 }
 
 /** "Today", "Tomorrow", or the day by name. */

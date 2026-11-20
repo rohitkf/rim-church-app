@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { callMoment } from './callTimes'
-import { myCallTimes, relativeDay } from './myCallTimes'
+import { myCallTime, relativeDay } from './myCallTimes'
 
 const teams = [
   { id: 'sound', name: 'Sound', color: '#06c' },
@@ -21,87 +21,102 @@ const rows = [
 ]
 // Friday evening, two days before the Sunday.
 const friday = new Date('2026-11-20T18:00:00').getTime()
-const ask = (over: Partial<Parameters<typeof myCallTimes>[0]> = {}) =>
-  myCallTimes({ services, rows, teams, mine: ['sound', 'worship'], onRota: null, today: '2026-11-20', now: friday, days: 7, stayMinutes: 0, ...over })
-const shape = (days: ReturnType<typeof myCallTimes>) => days.map((d) => `${d.date}: ${d.teams.map((t) => `${t.name} ${t.clock}`).join(', ')}`)
+const ask = (over: Partial<Parameters<typeof myCallTime>[0]> = {}) =>
+  myCallTime({ services, rows, teams, mine: ['sound', 'worship'], onRota: null, today: '2026-11-20', now: friday, days: 7, stayMinutes: 0, ...over })
+/** "2026-11-22: 06:30 Sound; 07:00 Worship" — or null. */
+const shape = (day: ReturnType<typeof myCallTime>) =>
+  day && `${day.date}: ${day.calls.map((c) => `${c.clock} ${c.teams.map((t) => t.name).join(' + ')}`).join('; ')}`
+const on = (date: string, clock: string) => ({ today: date, now: new Date(`${date}T${clock}:00`).getTime() })
 
-describe('my call times, for the Dashboard', () => {
-  it('lists each service day in the window with my teams, earliest call first', () => {
-    expect(shape(ask())).toEqual(['2026-11-22: Sound 06:30, Worship 07:00', '2026-11-25: Sound 07:00, Worship 07:00'])
+describe('my call time, for the Dashboard', () => {
+  it('is the next service day’s, and only that day’s', () => {
+    // Wednesday and the Sunday after are in the week ahead too, and are not mentioned.
+    expect(shape(ask())).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+  })
+
+  it('is today’s, when there is a service today', () => {
+    expect(shape(ask(on('2026-11-22', '05:00')))).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+  })
+
+  it('moves on to the next service day once this one is over', () => {
+    expect(shape(ask(on('2026-11-23', '09:00')))).toBe('2026-11-25: 07:00 Sound + Worship')
+    expect(shape(ask(on('2026-11-26', '09:00')))).toBe('2026-11-29: 07:00 Worship; 07:45 Sound')
   })
 
   it('names the day’s services once, however many there are', () => {
-    expect(ask()[0].services.map((s) => s.service_type)).toEqual(['English Service', 'Malayalam Service'])
+    expect(ask()!.services.map((s) => s.service_type)).toEqual(['English Service', 'Malayalam Service'])
   })
 
-  it('says which times nobody set', () => {
-    const [sunday] = ask()
-    expect(sunday.teams.map((t) => t.isDefault)).toEqual([false, true])
+  it('says a time once for teams called together, with each team beside it', () => {
+    const wednesday = ask(on('2026-11-24', '12:00'))!
+    expect(wednesday.calls).toHaveLength(1)
+    expect(wednesday.calls[0]).toMatchObject({ clock: '07:00', at: callMoment('2026-11-25', '07:00') })
+    expect(wednesday.calls[0].teams.map((t) => t.name)).toEqual(['Sound', 'Worship'])
   })
 
-  it('leaves out teams that are not mine, and days already gone', () => {
-    const all = ask().flatMap((d) => d.teams.map((t) => t.name))
-    expect(all).not.toContain('Kids')
-    expect(ask().map((d) => d.date)).not.toContain('2026-11-15')
+  it('leaves out teams that are not mine', () => {
+    expect(shape(ask())).not.toContain('Kids')
   })
 
   it('looks only as far ahead as the church set — 0 is the day itself', () => {
-    expect(ask({ days: 1 })).toEqual([])
-    expect(shape(ask({ days: 2 }))).toEqual(['2026-11-22: Sound 06:30, Worship 07:00'])
-    expect(ask({ days: 0 })).toEqual([])
-    expect(shape(ask({ days: 0, today: '2026-11-22', now: new Date('2026-11-22T05:00:00').getTime() }))).toEqual(['2026-11-22: Sound 06:30, Worship 07:00'])
-    expect(ask({ days: 9 }).map((d) => d.date)).toEqual(['2026-11-22', '2026-11-25', '2026-11-29'])
+    expect(ask({ days: 1 })).toBeNull()
+    expect(shape(ask({ days: 2 }))).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+    expect(ask({ days: 0 })).toBeNull()
+    expect(shape(ask({ days: 0, ...on('2026-11-22', '05:00') }))).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
   })
 
-  describe('goes away once the call time is reached', () => {
-    const on = (clock: string) => new Date(`2026-11-22T${clock}:00`).getTime()
-    const sunday = (clock: string, stayMinutes = 0) => shape(ask({ today: '2026-11-22', now: on(clock), days: 0, stayMinutes }))
+  describe('goes once the call time is reached', () => {
+    const sunday = (clock: string, stayMinutes = 0) => shape(ask({ ...on('2026-11-22', clock), stayMinutes }))
 
     it('is there a minute before', () => {
-      expect(sunday('06:29')).toEqual(['2026-11-22: Sound 06:30, Worship 07:00'])
+      expect(sunday('06:29')).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
     })
 
     it('drops a team at its own call time, and keeps the one still to come', () => {
-      expect(sunday('06:30')).toEqual(['2026-11-22: Worship 07:00'])
+      expect(sunday('06:30')).toBe('2026-11-22: 07:00 Worship')
     })
 
-    it('drops the day with its last team', () => {
-      expect(sunday('07:00')).toEqual([])
+    it('says nothing once the last has passed — not next week’s in its place', () => {
+      expect(sunday('07:00')).toBeNull()
+      // The following Sunday is inside the week ahead, and still is not shown today.
+      expect(sunday('14:00')).toBeNull()
+      expect(sunday('23:59')).toBeNull()
     })
 
     it('stays as long after the call time as the church set', () => {
-      expect(sunday('06:44', 15)).toEqual(['2026-11-22: Sound 06:30, Worship 07:00'])
-      expect(sunday('06:45', 15)).toEqual(['2026-11-22: Worship 07:00'])
-      expect(sunday('07:15', 15)).toEqual([])
+      expect(sunday('06:44', 15)).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+      expect(sunday('06:45', 15)).toBe('2026-11-22: 07:00 Worship')
+      expect(sunday('07:15', 15)).toBeNull()
     })
 
-    it('still shows the next service day, later that morning', () => {
-      expect(shape(ask({ today: '2026-11-22', now: on('09:00'), days: 7 }))).toEqual(['2026-11-25: Sound 07:00, Worship 07:00', '2026-11-29: Worship 07:00, Sound 07:45'])
+    it('drops teams called together, together', () => {
+      const wed = (clock: string) => shape(ask(on('2026-11-25', clock)))
+      expect(wed('06:59')).toBe('2026-11-25: 07:00 Sound + Worship')
+      expect(wed('07:00')).toBeNull()
     })
   })
 
   describe('for whoever the rota put on, when the church asks for that', () => {
-    it('keeps a team only on the days I am on its rota', () => {
-      const onRota = new Set(['s-mal:sound', 's-wed:worship'])
-      expect(shape(ask({ onRota }))).toEqual(['2026-11-22: Sound 06:30', '2026-11-25: Worship 07:00'])
+    it('is the next day I am serving, on the team I was put on', () => {
+      expect(shape(ask({ onRota: new Set(['s-mal:sound', 's-wed:worship']) }))).toBe('2026-11-22: 06:30 Sound')
+    })
+
+    it('passes over a service day I am not on for the next one I am', () => {
+      expect(shape(ask({ onRota: new Set(['s-wed:worship']) }))).toBe('2026-11-25: 07:00 Worship')
     })
 
     it('shows nothing to somebody the rota has not put on', () => {
-      expect(ask({ onRota: new Set() })).toEqual([])
+      expect(ask({ onRota: new Set() })).toBeNull()
     })
 
     it('counts a place on a team I am not otherwise on', () => {
-      expect(shape(ask({ mine: [], onRota: new Set(['s-eng:kids']) }))).toEqual(['2026-11-22: Kids 08:15'])
+      expect(shape(ask({ mine: [], onRota: new Set(['s-eng:kids']) }))).toBe('2026-11-22: 08:15 Kids')
     })
   })
 
-  it('gives each time as a moment, for the countdown', () => {
-    expect(ask()[0].teams[0].at).toBe(callMoment('2026-11-22', '06:30'))
-  })
-
   it('has nothing to say to somebody on no team, or about a team it cannot see', () => {
-    expect(ask({ mine: [] })).toEqual([])
-    expect(ask({ mine: ['gone'] })).toEqual([])
+    expect(ask({ mine: [] })).toBeNull()
+    expect(ask({ mine: ['gone'] })).toBeNull()
   })
 })
 
