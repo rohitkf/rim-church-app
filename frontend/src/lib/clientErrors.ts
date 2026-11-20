@@ -117,17 +117,24 @@ function isNotOurs(error: unknown, filename?: string | null): boolean {
  * can happen: an app opened on a session that died overnight was signed
  * in as far as anybody using it knows.
  */
-function heldASignInAtLoad(): boolean {
+/**
+ * Whether this device holds a sign-in at this moment: yes, no, or null
+ * when the storage will not say (a private window that refuses it).
+ */
+function holdsASignIn(): boolean | null {
   try {
-    if (typeof localStorage === 'undefined') return false
+    if (typeof localStorage === 'undefined') return null
     for (let i = 0; i < localStorage.length; i += 1) {
       if (/^sb-.+-auth-token$/.test(localStorage.key(i) ?? '')) return true
     }
+    return false
   } catch {
-    // Storage refused (a private window): nothing was held that we can know of.
+    // Storage refused: nothing is held that we can know of.
+    return null
   }
-  return false
 }
+
+const heldASignInAtLoad = (): boolean => holdsASignIn() === true
 
 let hadSession = heldASignInAtLoad()
 let hasSession = false
@@ -154,9 +161,23 @@ export function forgetSession(): void {
 const isRefusedByName = (error: unknown) =>
   codeOf(error) === '42501' && /^permission denied for (?:function|table|view)\b/i.test(saidBy(error).trim())
 
-/** A read refused only because the person's session ran out under the page. */
+/**
+ * A read refused only because the person's session ran out under the page.
+ *
+ * "No longer signed in" is asked two ways. What the app has been told
+ * (`hasSession`) can be behind: a tab left open overnight, or one whose
+ * sign-in was ended from another tab, goes on reading before the news
+ * reaches it — and the two refusals App Health was sent on 20 November
+ * 2026 (`my_clock_in_today`, `is_admin`, the same instant, nobody's name
+ * on them) came from exactly such a tab. The device's own storage is not
+ * behind: the sign-in library sends a read without a sign-in only when
+ * the storage holds none, and every tab shares it. So a device that holds
+ * no sign-in *now* has lapsed, whatever the app has heard. Storage that
+ * will not answer settles nothing, and what the app was told stands.
+ */
 export function isLapsedSessionRefusal(source: ErrorSource, error: unknown): boolean {
-  return source === 'query' && hadSession && !hasSession && isRefusedByName(error)
+  if (source !== 'query' || !hadSession || !isRefusedByName(error)) return false
+  return !hasSession || holdsASignIn() === false
 }
 
 /**

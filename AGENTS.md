@@ -1214,7 +1214,13 @@ Each of these has already cost real time. None of them show up in review.
   (`isLapsedSessionRefusal` in `lib/clientErrors.ts`: a refused *function*
   or *table* — a dead session is refused `profiles`, `role_permissions`
   and `app_notices` by name too — on a *read*, for somebody who was signed in on this page load and no
-  longer is — `AuthContext` tells it through `noteSession`). The same
+  longer is — `AuthContext` tells it through `noteSession`). "No longer
+  is" is asked two ways, because what the app has been told can be
+  behind: a tab left open overnight, or one whose sign-in was ended from
+  another tab, reads on before the news reaches it (two such refusals
+  reached App Health on 20 November 2026). So a device whose storage
+  holds no sign-in *at that moment* (`holdsASignIn`) has lapsed whatever
+  the app has heard; storage that will not answer settles nothing. The same
   refusal for somebody who is signed in is still the app's mistake and is
   still reported. Do not "fix" it by opening the helpers to `anon`.
 - **Signing out is this device's, and the sign-in service's own words
