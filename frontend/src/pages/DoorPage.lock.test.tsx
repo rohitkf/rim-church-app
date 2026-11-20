@@ -140,7 +140,11 @@ describe('Settings › Reception: who works the door', () => {
     expect(state.saved[0]).toEqual([
       { capability: 'reg.door_pay', team: 'ushers', reach: null },
       { capability: 'reg.walk_in', person: 'grace', reach: 'all' },
+      // Sam is new: everything a door does, ticked (0312).
       { capability: 'reg.door', person: 'sam', reach: 'all' },
+      { capability: 'reg.door_pay', person: 'sam', reach: 'all' },
+      { capability: 'reg.walk_in', person: 'sam', reach: 'all' },
+      { capability: 'reg.door_fix', person: 'sam', reach: 'all' },
     ])
   })
 

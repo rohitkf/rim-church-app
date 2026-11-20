@@ -49,7 +49,12 @@ vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, isSuper
 const rights = vi.hoisted(() => ({ now: { office: true, door: true, edit: true, approve: true, takePayment: true, refund: true, cancel: true, delete: true, checkIn: true, walkIn: true } as Record<string, boolean> }))
 vi.mock('../lib/registrationRights', async (original) => ({
   ...(await original<typeof import('../lib/registrationRights')>()),
-  useRegistrationRights: () => rights.now,
+  // The five words 0312 split out of the office's rights, as rightsFrom() derives them for somebody
+  // without the door's "Sort out problems"; a test that means otherwise says so in rights.now.
+  useRegistrationRights: () => {
+    const r = rights.now
+    return { fix: false, waive: r.approve, promo: r.approve, cancelOrder: r.cancel, note: r.office, ...r }
+  },
 }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/toast', () => ({

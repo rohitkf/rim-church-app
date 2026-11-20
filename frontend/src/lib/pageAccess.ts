@@ -208,14 +208,14 @@ export const PAGE_RULES: Record<string, PageRule> = {
     choices: ['admins'],
     enforcement: 'permission',
     by: ['reg.manage', 'reg.view', 'reg.edit', 'reg.approve', 'reg.refund', 'reg.cancel', 'reg.verify', 'reg.email'],
-    note: 'The Owner, and whoever the grid gives one of the registrations rights (Access & Privileges). An Admin opens it out of the box through “Correct email addresses” alone, to read and to put an address right; anything more needs its own cell. The public pages, /register/… and /ticket/…, need no sign-in.',
+    note: 'The Owner, an Admin out of the box, and whoever the grid gives one of the registrations rights (Access & Privileges). The public pages, /register/… and /ticket/…, need no sign-in.',
   },
   '/door': {
     default: 'admins',
     choices: ['admins'],
     enforcement: 'permission',
-    by: ['reg.manage', 'reg.door', 'reg.door_view', 'reg.door_pay', 'reg.walk_in'],
-    note: 'Reception: the Owner, whoever the grid gives “Run registrations”, and whoever it gives “Work the door” (Access & Privileges) — an Admin only with one of those cells.',
+    by: ['reg.manage', 'reg.door', 'reg.door_view', 'reg.door_pay', 'reg.walk_in', 'reg.door_fix'],
+    note: 'Reception: the Owner, an Admin out of the box, whoever the grid gives “Run registrations”, and whoever is put on Reception (Settings › Reception, or a cell in Access & Privileges).',
   },
   '/volunteers': {
     key: 'volunteers',

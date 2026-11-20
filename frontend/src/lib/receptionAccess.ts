@@ -17,6 +17,11 @@ export const RECEPTION_BUTTONS = [
   { key: 'reg.door', label: 'Check people in', hint: 'Scan or find a ticket, check it in, and undo a check-in' },
   { key: 'reg.door_pay', label: 'Take payments at the door', hint: 'Mark a registration paid at Reception' },
   { key: 'reg.walk_in', label: 'Register walk-ins', hint: 'Sign up somebody who turns up without a ticket' },
+  {
+    key: 'reg.door_fix',
+    label: 'Sort out problems',
+    hint: 'Correct an email or send a ticket again, add a note, apply a promo code, waive a payment or put it back to not paid, cancel a registration or put one back',
+  },
   { key: 'reg.door_view', label: 'See Reception, read only', hint: 'The list and the counts, with nothing to press' },
 ] as const satisfies readonly { key: CapabilityKey; label: string; hint: string }[]
 
@@ -24,8 +29,13 @@ export type ReceptionButton = (typeof RECEPTION_BUTTONS)[number]['key']
 
 export const RECEPTION_KEYS = RECEPTION_BUTTONS.map((b) => b.key) as [ReceptionButton, ...ReceptionButton[]]
 
-/** What somebody new starts with: checking people in, and no money. */
-export const NEW_DOOR_HOLDER: readonly ReceptionButton[] = ['reg.door']
+/**
+ * What somebody new starts with: everything a door does. It was checking
+ * people in and no money; the Owner asked that whoever is put on
+ * Reception can handle the attendee in front of them, walk-ins and
+ * payments included (November 2026). Each is still a tick to take off.
+ */
+export const NEW_DOOR_HOLDER: readonly ReceptionButton[] = ['reg.door', 'reg.door_pay', 'reg.walk_in', 'reg.door_fix']
 
 export interface ReceptionAccess {
   /** A team's id to what everybody on it, and its Heads, may press. */
