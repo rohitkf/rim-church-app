@@ -1200,7 +1200,7 @@ export function agendaForTicket(
   }
 }
 
-/** The key a ticket keeps its event's public page under: the agenda reads it, and so does the team's way back (TicketStaffBack). */
+/** The key a ticket keeps its event's public page under: the agenda reads it, and so does the team's way back (StaffBackBar). */
 export const ticketEventKey = (slug: string) => ['ticket-agenda', slug] as const
 
 export async function fetchPublicEvent(slug: string): Promise<PublicEvent | null> {

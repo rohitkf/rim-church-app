@@ -49,9 +49,10 @@ export function PublicShell({ title, logoPath, children }: { title: string; logo
 }
 
 /** A page that has nothing to show: the link is wrong, or the event has gone. */
-export function PublicNothing({ title, body }: { title: string; body: string }) {
+export function PublicNothing({ title, body, above }: { title: string; body: string; /** Something for the page's own people, over the message: the team's way back. */ above?: ReactNode }) {
   return (
     <PublicShell title={title} logoPath={null}>
+      {above}
       <div className="mt-10 rounded-[var(--radius-card)] bg-surface-lowest p-6 text-center hairline">
         <h1 className="text-headline-md text-on-surface">{title}</h1>
         <p className="mt-2 text-body-md text-on-surface-variant">{body}</p>

@@ -39,7 +39,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: state.session }) }))
-// Who may open which page: asked only about somebody signed in (components/TicketStaffBack).
+// Who may open which page: asked only about somebody signed in (components/StaffBackBar).
 vi.mock('../lib/usePageAccess', () => ({
   usePageAccess: () => ({ standing: 'member', settled: true, canOpen: (path: string) => state.opens.includes(path) }),
 }))

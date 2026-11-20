@@ -65,11 +65,12 @@ export const RELEASES: Release[] = [
     key: 'ticket-way-back',
     date: '2026-11-20',
     title: 'A way back from somebody’s ticket',
-    lead: 'Open an attendee’s ticket and there is now a button at the top that brings you back to that event’s registrations.',
+    lead: 'Open an attendee’s ticket, or an event’s registration link, and there is now a button at the top that brings you back to that event’s registrations.',
     points: [
       'Back to registrations sits above the ticket and goes straight to the event the ticket is for — no more closing the app and finding the event again.',
       'Only people who can open Registrations see it. The attendee, and anybody else with the link, sees the ticket as before.',
       'If you can also open Reception there is a button for that beside it; somebody who only works the door gets Back to Reception.',
+      'The event’s own registration link has the same bar, for whoever runs registrations.',
     ],
     link: { to: '/registrations', label: 'Open Registrations' },
     page: '/registrations',

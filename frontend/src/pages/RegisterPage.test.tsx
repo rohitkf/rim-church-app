@@ -25,9 +25,16 @@ const state = vi.hoisted(() => ({
   /** What the database says of the invitation link (0295); an Error is a check that could not be made. */
   invite: { ok: false, reason: 'not_found' } as unknown,
   inviteChecks: [] as string[],
+  // Whoever is signed in on this device, and the pages they may open: nobody, for somebody registering.
+  session: null as unknown,
+  opens: [] as string[],
 }))
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: state.session }) }))
+// Who may open which page: asked only about somebody signed in (components/StaffBackBar).
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ standing: 'member', settled: true, canOpen: (path: string) => state.opens.includes(path) }),
+}))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -128,6 +135,8 @@ const fillWho = async (user: ReturnType<typeof userEvent.setup>) => {
 }
 
 beforeEach(() => {
+  state.session = null
+  state.opens = []
   // "Yes, it’s right" counts down five seconds before it can be pressed
   // (ConfirmEmailDialog.test.tsx holds that); the form's tests do not wait for it.
   setConfirmEmailWaitForTests(0)
@@ -150,6 +159,42 @@ const confirmEmail = async (user: ReturnType<typeof userEvent.setup>, label = 'R
 }
 
 describe('the public register page', () => {
+  it('gives whoever runs registrations a way back to them, and somebody registering none', async () => {
+    // The Owner, November 2026: the same bar a ticket has, on the registration link — for the office alone.
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('navigation', { name: 'For the team' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Back to/ })).toBeNull()
+  })
+
+  it('shows the way back above the event, to this event’s registrations', async () => {
+    state.session = { user: { id: 'u1' } }
+    state.opens = ['/registrations']
+    show()
+    const bar = await screen.findByRole('navigation', { name: 'For the team' })
+    expect(within(bar).getByRole('link', { name: 'Back to registrations' })).toHaveAttribute('href', '/registrations/e1')
+    const title = screen.getByRole('heading', { level: 1 })
+    expect(bar.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('does not show it to somebody who only works the door', async () => {
+    state.session = { user: { id: 'u1' } }
+    state.opens = ['/door']
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('navigation', { name: 'For the team' })).toBeNull()
+  })
+
+  it('does not leave whoever runs registrations on a dead link either', async () => {
+    state.session = { user: { id: 'u1' } }
+    state.opens = ['/registrations']
+    state.event = null
+    show()
+    expect(await screen.findByRole('heading', { name: 'No such event' })).toBeInTheDocument()
+    // The event is not known, so the way back is to the list of events.
+    expect(await screen.findByRole('link', { name: 'Back to registrations' })).toHaveAttribute('href', '/registrations')
+  })
+
   it('says what, when, where and what is left, with a way to get there', async () => {
     show()
     expect(await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })).toBeInTheDocument()
