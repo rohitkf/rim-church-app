@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'your-call-time-on-the-dashboard',
+    date: '2026-11-20',
+    title: 'Your call time, on the Dashboard',
+    lead: 'The Dashboard now says when you are due in, for each team you are on, and stops saying it once that time has come.',
+    points: [
+      'A card near the top lists your teams and the time each is called for, with the day and a countdown. It shows for the week ahead.',
+      'Each time goes when it is reached. The Clock in button takes over from there.',
+      'Every team’s call time is still on the Team Rota.',
+      'An Admin can change how far ahead it appears, how long it stays after the call time, whether it is for the whole team or only whoever is on the rota that day, and switch it or its countdown off: Settings › Page by Page › Dashboard.',
+    ],
+    link: { to: '/', label: 'Open the Dashboard' },
+    page: '/availability',
+  },
+  {
     key: 'serving-is-three-pages',
     date: '2026-11-20',
     title: 'Availability, Team Rota and Checklists are pages of their own',

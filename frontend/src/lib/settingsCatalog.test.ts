@@ -86,6 +86,25 @@ describe('the settings catalog', () => {
     expect(readDisplay(panel.put({}, false as never).display).dashboard.show.activity).toBe(false)
   })
 
+  it('lets the church set the Dashboard’s call-time card: whether, from when, until when, for whom', () => {
+    const ids = ['show', 'days', 'stayMinutes', 'who', 'countdown'].map((k) => `display.callTimes.${k}`)
+    const entries = ids.map((id) => SETTINGS_CATALOG.find((e) => e.id === id)!)
+    expect(entries.every(Boolean)).toBe(true)
+    expect(settingsForPage('/').map((e) => e.id)).toEqual(expect.arrayContaining(ids))
+    // Each writes its own key and leaves the others, and the rest of the display, as they were.
+    const draft = { display: { celebrations: { days: 3 }, callTimes: { who: 'rota' } } }
+    const stay = entries[2].put(draft, 20 as never)
+    expect(readDisplay(stay.display).callTimes).toMatchObject({ stayMinutes: 20, who: 'rota', days: 7 })
+    expect(readDisplay(stay.display).celebrations.days).toBe(3)
+    expect(readDisplay(entries[3].put({}, 'rota' as never).display).callTimes.who).toBe('rota')
+    // The dials and choices wait on the switch: off, there is nothing to tune.
+    const off = { display: { callTimes: { show: false } } }
+    for (const entry of entries.slice(1)) {
+      expect(entry.when?.(off), entry.id).toBe(false)
+      expect(entry.when?.({}), entry.id).toBe(true)
+    }
+  })
+
   it('gives each page the settings that move it', () => {
     // Each setting has one home. The rota keeps what is only the rota's…
     const rota = settingsForPage('/rota').map((e) => e.id)
