@@ -1,3 +1,4 @@
+import { hoursWords } from './availabilityDeadline'
 import type { AppSettings } from './appSettings'
 import { nextBoardClearTime } from './boardClear'
 
@@ -27,6 +28,8 @@ type Settings = Pick<
   | 'after_service_checklist_minutes'
   | 'after_service_checklist_opens_minutes'
   | 'availability_closes_time'
+  | 'availability_closes_mode'
+  | 'availability_closes_hours'
   | 'team_chat_retention_days'
   | 'church_update_retention_days'
   | 'church_event_retention_days'
@@ -61,6 +64,8 @@ const FALLBACK: Settings = {
   after_service_checklist_minutes: 120,
   after_service_checklist_opens_minutes: 20,
   availability_closes_time: '23:59:00',
+  availability_closes_mode: 'clock',
+  availability_closes_hours: 12,
   team_chat_retention_days: 30,
   church_update_retention_days: 30,
   church_event_retention_days: 60,
@@ -140,7 +145,7 @@ export function lifespanOf(page: LifespanPage, given: Partial<Settings>, now = n
     case 'checklists':
       return `“Before the service” closes when the service ends; “After the service” opens ${formatMinutes(s.after_service_checklist_opens_minutes)} before the end and stays open ${formatMinutes(s.after_service_checklist_minutes)} after it. Ticks are ${afterService}.`
     case 'availability':
-      return `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service. They, and the log of every change to them, are ${afterService}.`
+      return `${s.availability_closes_mode === 'hours' ? `Answers close ${hoursWords(s.availability_closes_hours)} before each service begins` : `Answers close at ${s.availability_closes_time.slice(0, 5)} the night before each service`}. They, and the log of every change to them, are ${afterService}.`
     case 'rota':
       return `A service’s rota locks ${grace} after it ends, and is ${afterService}.`
     case 'planner':

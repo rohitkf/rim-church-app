@@ -95,3 +95,58 @@ export function answersAreClosed(
 ): boolean {
   return availabilityClosesAt(serviceDate, closesTime, timeZone).getTime() <= now
 }
+
+/**
+ * How the church says its deadline (0309): a time the night before, or a
+ * number of hours before the service begins. The same four columns the
+ * database's `availability_closes_at()` reads.
+ */
+export interface ClosingRule {
+  availability_closes_mode?: 'clock' | 'hours' | null
+  availability_closes_hours?: number | null
+  availability_closes_time?: string | null
+  timezone?: string | null
+}
+
+/**
+ * The last moment an answer counts for one service, by whichever rule the
+ * church has chosen.
+ *
+ * `startsAt` is when the service begins: its first session's start, or
+ * null for one nobody has planned yet. Hours are counted back from that.
+ * A service with no beginning keeps the night-before deadline, exactly as
+ * the database does — it must have one, or its answers stay open for
+ * ever (the bug 0092 closed).
+ */
+export function answersCloseAt(serviceDate: string, startsAt: string | null | undefined, rule: ClosingRule): Date {
+  if (rule.availability_closes_mode === 'hours' && startsAt) {
+    const begins = new Date(startsAt).getTime()
+    // A row older than the column, or a number that is not one: the default the database ships.
+    const hours = Number.isFinite(rule.availability_closes_hours) && (rule.availability_closes_hours as number) > 0 ? (rule.availability_closes_hours as number) : 12
+    if (Number.isFinite(begins)) return new Date(begins - hours * 3_600_000)
+  }
+  return availabilityClosesAt(serviceDate, rule.availability_closes_time, rule.timezone)
+}
+
+/** "2 hours", "1 hour", "2 days", "1 day 6 hours": a number of hours as somebody would say it. */
+export function hoursWords(hours: number): string {
+  const days = Math.floor(hours / 24)
+  const rest = hours % 24
+  const d = days === 0 ? '' : `${days} ${days === 1 ? 'day' : 'days'}`
+  const h = rest === 0 ? '' : `${rest} ${rest === 1 ? 'hour' : 'hours'}`
+  return [d, h].filter(Boolean).join(' ') || '0 hours'
+}
+
+/**
+ * When answers close, in words that fit after "Answers close" or "Answers
+ * closed": "the night before", or "6 hours before the service". For the
+ * service in hand: one with no running order closes the night before
+ * whatever the rule, and the words must not say otherwise.
+ */
+export function closesWords(rule: ClosingRule, startsAt?: string | null): string {
+  if (rule.availability_closes_mode === 'hours' && startsAt !== null) {
+    const hours = Number.isFinite(rule.availability_closes_hours) && (rule.availability_closes_hours as number) > 0 ? (rule.availability_closes_hours as number) : 12
+    return `${hoursWords(hours)} before the service`
+  }
+  return 'the night before'
+}

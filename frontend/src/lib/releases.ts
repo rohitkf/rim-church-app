@@ -46,6 +46,22 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'availability-closes-hours-before',
+    date: '2026-11-20',
+    title: 'Close availability hours before the service',
+    lead: 'The deadline for availability answers can now be a number of hours before each service begins, instead of a time the night before.',
+    points: [
+      'Settings › Page by Page › Availability › Answers close: choose “The night before” (as it has been) or “Hours before the service”.',
+      'Hours are counted back from the start of the service’s first session, from 1 hour to 7 days. An evening service closes later than a morning one.',
+      'A service with no running order yet closes the night before until it has one.',
+      'Nothing changes until you choose it: the deadline is still the night before, at the time you had set.',
+    ],
+    link: { to: '/availability', label: 'Open Availability' },
+    page: '/availability',
+    // News for whoever can change it; everybody else just sees each service's deadline, as before.
+    holds: ['settings.pages'],
+  },
+  {
     key: 'paid-and-check-in-buttons',
     date: '2026-11-20',
     title: 'Clearer buttons for paid and check in',

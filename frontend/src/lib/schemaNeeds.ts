@@ -17,7 +17,7 @@
  * there are no migrations to count. `migrationLedger.test.ts` holds it to
  * the files, so adding a migration and forgetting this fails the build.
  */
-export const SCHEMA_NEEDS = 308
+export const SCHEMA_NEEDS = 309
 
 /**
  * The first migration that must wait until this release is live, or null

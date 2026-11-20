@@ -235,7 +235,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/availability',
         target: 'page-title',
         title: 'Can you serve?',
-        body: 'One tap per service, for each team you are on. Answers close the night before, and your head builds the rota from them.',
+        body: 'One tap per service, for each team you are on. Answers close ahead of the service — the night before, or a number of hours before it begins, whichever your church has set; each service says when — and your head builds the rota from them.',
       },
       {
         path: '/rota',

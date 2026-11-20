@@ -60,6 +60,13 @@ export const appSettingsSchema = z.object({
    */
   timezone: z.string(),
   availability_closes_time: z.string(),
+  /**
+   * How that deadline is said (0309): 'clock' is the night before, at the
+   * time above; 'hours' is this many hours before the service's first
+   * session. The database works it out the same way, from the same row.
+   */
+  availability_closes_mode: z.enum(['clock', 'hours']).default('clock'),
+  availability_closes_hours: z.number().int().min(1).max(168).default(12),
   /** The Team Coordinator's row on the rota. Null is the night sky. */
   coordinator_color: z.string().nullable().default(null),
   /** Preferences only the screens read (0123); lib/display reads it. */
@@ -146,6 +153,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   video_tutorial_url: null,
   timezone: 'Europe/London',
   availability_closes_time: '23:59:00',
+  availability_closes_mode: 'clock',
+  availability_closes_hours: 12,
   coordinator_color: null,
   display: {},
   notification_retention_days: null,

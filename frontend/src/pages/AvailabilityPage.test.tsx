@@ -31,6 +31,8 @@ const state = vi.hoisted(() => ({
   rows: {} as Record<string, unknown[]>,
   /** When each service begins, ISO — absent when nothing is planned. */
   starts: {} as Record<string, string>,
+  /** Settings the church has moved off their defaults. */
+  settings: {} as Record<string, unknown>,
   /** Everything the page wrote, in order. */
   written: [] as { table: string; row: unknown; id?: string }[],
 }))
@@ -52,7 +54,7 @@ vi.mock('../lib/appSettings', async () => {
   const { DISPLAY_DEFAULTS } = await import('../lib/display')
   return {
     useDisplay: () => DISPLAY_DEFAULTS,
-    useAppSettings: () => ({ rota_window_days: 7 }),
+    useAppSettings: () => ({ rota_window_days: 7, ...state.settings }),
   }
 })
 vi.mock('../lib/useFinishedServices', () => ({
@@ -170,6 +172,7 @@ beforeEach(() => {
   state.read = []
   state.rows = {}
   state.starts = {}
+  state.settings = {}
   state.written = []
 })
 
@@ -509,6 +512,41 @@ describe('answering closes the night before', () => {
    * passed and took answers for ever. It comes off the service's date
    * now, which every service has from the moment it exists.
    */
+  /*
+   * Or a number of hours before the service begins, if that is how the
+   * church has said it (0309). SUNDAY's service begins at 10:30 British
+   * Summer Time, 09:30Z; two hours before is 07:30Z on the day itself,
+   * long after the night before has gone.
+   */
+  describe('counted in hours before the service, when the church has chosen that', () => {
+    beforeEach(() => {
+      state.settings = { availability_closes_mode: 'hours', availability_closes_hours: 2, availability_closes_time: '23:59:00', timezone: 'Europe/London' }
+      state.rows.service_sessions = [{ service_id: 's1', start_time: `${SUNDAY}T09:30:00Z` }]
+    })
+
+    it('still takes answers on the morning, until two hours before it begins', async () => {
+      standAt(`${SUNDAY}T07:29:00Z`)
+      show()
+      await screen.findAllByRole('heading', { name: /Today/ })
+      await waitFor(() => expect(answerGroup(cardFor(/Today/))).toBeInTheDocument())
+    })
+
+    it('stops taking them once that moment has gone', async () => {
+      standAt(`${SUNDAY}T07:30:00Z`)
+      show()
+      await screen.findAllByRole('heading', { name: /Today/ })
+      await waitFor(() => expect(answerGroup(cardFor(/Today/))).toBeNull())
+    })
+
+    it('closes the night before all the same when nothing is planned to count back from', async () => {
+      state.rows.service_sessions = []
+      standAt(`${SUNDAY}T07:00:00Z`)
+      show()
+      await screen.findAllByRole('heading', { name: /Today/ })
+      expect(answerGroup(cardFor(/Today/))).toBeNull()
+    })
+  })
+
   it('closes a service nobody has planned yet, like any other', async () => {
     state.starts = {}
     standAt(`${SUNDAY}T09:00:00`)
