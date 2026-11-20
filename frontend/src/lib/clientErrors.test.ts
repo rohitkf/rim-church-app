@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import {
   ERROR_SOURCES,
@@ -363,9 +363,17 @@ describe('the app and the database agree', () => {
 
 describe('a read refused because the session ran out under the page', () => {
   const refused = api('42501', 'permission denied for function is_admin')
+  // Somebody signed in is somebody whose device holds the sign-in: the library keeps it here.
+  const KEY = 'sb-example-auth-token'
+  const signIn = () => {
+    localStorage.setItem(KEY, '{"access_token":"x"}')
+    noteSession(true)
+  }
+  afterEach(() => localStorage.removeItem(KEY))
 
   it('is not news: the database keeps its rule helpers from whoever is not signed in', async () => {
-    noteSession(true)
+    signIn()
+    localStorage.removeItem(KEY)
     noteSession(false)
     expect(isLapsedSessionRefusal('query', refused)).toBe(true)
     expect(worthReporting('query', refused)).toBe(false)
@@ -374,7 +382,7 @@ describe('a read refused because the session ran out under the page', () => {
   })
 
   it('is still news for somebody who is signed in: the app asked for what it should not', async () => {
-    noteSession(true)
+    signIn()
     expect(worthReporting('query', refused)).toBe(true)
     await expect(reportError('query', refused)).resolves.toBe('7F3K2Q9A')
   })
@@ -399,27 +407,30 @@ describe('a read refused because the session ran out under the page', () => {
   })
 
   it('is news again once they have signed back in', () => {
-    noteSession(true)
+    signIn()
+    localStorage.removeItem(KEY)
     noteSession(false)
-    noteSession(true)
+    signIn()
     expect(worthReporting('query', refused)).toBe(true)
   })
 
   it('excuses a refused table as it does a function: a dead session is refused both', () => {
     // App Health, 16 November 2026: one page load on a dead session left five
     // refused functions and these three refused tables.
-    noteSession(true)
+    signIn()
+    localStorage.removeItem(KEY)
     noteSession(false)
     for (const table of ['profiles', 'role_permissions', 'app_notices']) {
       expect(worthReporting('query', api('42501', `permission denied for table ${table}`))).toBe(false)
     }
     // …and it is still news for somebody signed in, or never signed in.
-    noteSession(true)
+    signIn()
     expect(worthReporting('query', api('42501', 'permission denied for table profiles'))).toBe(true)
   })
 
   it('excuses only a refusal by name, and only a read', () => {
-    noteSession(true)
+    signIn()
+    localStorage.removeItem(KEY)
     noteSession(false)
     // Any other refusal is not the session's doing.
     expect(worthReporting('query', api('42501', 'new row violates row-level security policy for table "profiles"'))).toBe(true)
@@ -427,6 +438,39 @@ describe('a read refused because the session ran out under the page', () => {
     expect(worthReporting('query', api('42883', 'function public.nope() does not exist'))).toBe(true)
     // A page that threw is a page that threw.
     expect(worthReporting('page', new Error('boom'))).toBe(true)
+  })
+
+  it('is not news when the device has lost its sign-in and the app has not heard yet', async () => {
+    // App Health, 20 November 2026: my_clock_in_today and is_admin refused in the same instant on the
+    // Dashboard of a tab left open overnight, nobody's name on either. The sign-in was gone from the
+    // device (ended in another tab, or found dead on waking) before this tab was told.
+    signIn()
+    localStorage.removeItem(KEY)
+    for (const fn of ['my_clock_in_today', 'is_admin']) {
+      const gone = api('42501', `permission denied for function ${fn}`)
+      expect(isLapsedSessionRefusal('query', gone)).toBe(true)
+      await expect(reportError('query', gone)).resolves.toBeNull()
+    }
+    expect(rpc).not.toHaveBeenCalled()
+    // Signed in again on this device, a refusal is the app's own once more.
+    localStorage.setItem(KEY, '{"access_token":"y"}')
+    expect(worthReporting('query', refused)).toBe(true)
+  })
+
+  it('takes the app at its word when the storage will not say', () => {
+    noteSession(true)
+    const getItem = vi.spyOn(Storage.prototype, 'key').mockImplementation(() => {
+      throw new Error('storage refused')
+    })
+    try {
+      // Told they are signed in, and nothing to contradict it: a refusal is news.
+      localStorage.setItem(KEY, '{}')
+      expect(worthReporting('query', refused)).toBe(true)
+      noteSession(false)
+      expect(worthReporting('query', refused)).toBe(false)
+    } finally {
+      getItem.mockRestore()
+    }
   })
 })
 
