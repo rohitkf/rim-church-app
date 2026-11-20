@@ -33,9 +33,16 @@ const state = vi.hoisted(() => ({
   // what it answers (an Error is a request that failed), and which events were asked about.
   eventPage: null as unknown,
   eventAsked: [] as string[],
+  // Whoever is signed in on this device, and the pages they may open: nobody, for an attendee.
+  session: null as unknown,
+  opens: [] as string[],
 }))
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: null }) }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: false, isSuperAdmin: false, session: state.session }) }))
+// Who may open which page: asked only about somebody signed in (components/TicketStaffBack).
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ standing: 'member', settled: true, canOpen: (path: string) => state.opens.includes(path) }),
+}))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -191,6 +198,8 @@ window.addEventListener('click', (e) => {
 
 beforeEach(() => {
   state.order = order()
+  state.session = null
+  state.opens = []
   state.promoAsked = []
   state.promoRefused = false
   state.promoLeaves = null
@@ -207,6 +216,25 @@ beforeEach(() => {
 })
 
 describe('the ticket page', () => {
+  it('gives whoever runs registrations a way back to them, and an attendee none', async () => {
+    // The Owner, November 2026: from somebody's ticket the only way back was to close the app.
+    state.eventPage = { id: 'ev-9', agenda: [] }
+    const first = showOnce()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('navigation', { name: 'For the team' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Back to/ })).toBeNull()
+    first.unmount()
+
+    state.session = { user: { id: 'u1' } }
+    state.opens = ['/registrations']
+    showOnce()
+    const bar = await screen.findByRole('navigation', { name: 'For the team' })
+    await waitFor(() => expect(within(bar).getByRole('link', { name: 'Back to registrations' })).toHaveAttribute('href', '/registrations/ev-9'))
+    // Above the ticket, not under it: it is the way out.
+    const title = screen.getByRole('heading', { level: 1 })
+    expect(bar.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   /*
    * People registered, saw a QR code under a green "Registered" and took it
    * for a ticket (the Owner, November 2026). So an unpaid order leads with

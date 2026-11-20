@@ -1200,6 +1200,9 @@ export function agendaForTicket(
   }
 }
 
+/** The key a ticket keeps its event's public page under: the agenda reads it, and so does the team's way back (TicketStaffBack). */
+export const ticketEventKey = (slug: string) => ['ticket-agenda', slug] as const
+
 export async function fetchPublicEvent(slug: string): Promise<PublicEvent | null> {
   const { data, error } = await supabase.rpc('registration_public_event', { p_slug: slug })
   if (error) throw error
