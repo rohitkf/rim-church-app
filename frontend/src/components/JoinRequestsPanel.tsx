@@ -72,7 +72,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
       title="Requests to join"
       icon={UsersIcon}
       aside={
-        <span className="rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
+        <span className="rounded-full bg-secondary/12 px-2.5 py-1 font-mono text-[0.75rem] font-medium text-accent-blue-soft ring-1 ring-inset ring-secondary/20">
           {requests.length} waiting
         </span>
       }
@@ -105,7 +105,7 @@ export function JoinRequestsPanel({ requests }: JoinRequestsPanelProps) {
                   />
                 ) : (
                   <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-mono text-label-sm uppercase hairline"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-mono text-label-sm hairline"
                     style={teamAvatarStyle(request.department?.color, teamStyle)}
                     aria-hidden="true"
                   >

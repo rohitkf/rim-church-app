@@ -129,7 +129,7 @@ export function whereAmIWords(status: WhereAmIStatus): WhereAmIWords {
         return { tone: 'grey', label: 'Church location not set', detail: 'An Admin sets it at the top of the Clock In page.' }
       }
       const how = `${distance(a.distance_m ?? 0)} from church · ± ${a.accuracy_m ?? 0} m`
-      if (a.state === 'in') return { tone: 'green', label: 'At church', detail: `${how}. CLOCK IN will work here.` }
+      if (a.state === 'in') return { tone: 'green', label: 'At church', detail: `${how}. Clock in will work here.` }
       if (a.state === 'out') {
         return { tone: 'red', label: 'Not at church', detail: `${how}. You need to be within ${a.radius_m ?? 100} m to clock in.` }
       }

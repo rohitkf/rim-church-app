@@ -106,7 +106,7 @@ export function OrderTable({
                       type="button"
                       onClick={() => onSort(column.key)}
                       title={`Sort by ${column.label.toLowerCase()}`}
-                      className={`tap inline-flex items-center gap-1 font-mono text-label-sm uppercase tracking-wide hover:text-on-surface ${on ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}`}
+                      className={`tap inline-flex items-center gap-1 font-mono text-label-sm hover:text-on-surface ${on ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}`}
                     >
                       {column.label}
                       {/* The arrow keeps its place when it is not this column's, so pressing a heading moves nothing sideways. */}
@@ -117,7 +117,7 @@ export function OrderTable({
                   </th>
                 )
               })}
-              <th scope="col" className={`px-3 py-2 text-right font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}>
+              <th scope="col" className={`px-3 py-2 text-right font-mono text-label-sm font-normal text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}>
                 <span className="sr-only">What can be done</span>
               </th>
             </tr>

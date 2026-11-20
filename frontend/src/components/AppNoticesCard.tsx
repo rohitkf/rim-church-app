@@ -277,7 +277,7 @@ export function AppNoticesCard() {
               .filter((g) => g.rows.length > 0 || g.empty)
               .map((group) => (
                 <section key={group.title} aria-label={group.title}>
-                  <h3 className="mb-2 font-mono text-eyebrow uppercase text-on-surface-faint">{group.title}</h3>
+                  <h3 className="mb-2 font-mono text-eyebrow text-on-surface-faint">{group.title}</h3>
                   {group.rows.length === 0 ? (
                     <p className="text-body-sm text-on-surface-variant">{group.empty}</p>
                   ) : (

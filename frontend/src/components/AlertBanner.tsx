@@ -95,7 +95,7 @@ export function AlertBanner() {
           </svg>
         </div>
 
-        <p className="mt-4 font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
+        <p className="mt-4 font-mono text-label-sm text-accent-orange-soft">
           {alert.type === 'announcement' ? 'From the church' : 'From your team'}
         </p>
         <p className="mt-2 text-body-md text-on-surface">{alert.body}</p>

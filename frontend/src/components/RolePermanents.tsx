@@ -130,7 +130,7 @@ export function RolePermanentsPanel({
 
   return (
     <div className="mt-3 w-full rounded-[var(--radius-card)] bg-surface-lowest/70 p-3 hairline sm:p-4">
-      <h4 className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface">Permanent on {roleName}</h4>
+      <h4 className="font-mono text-label-sm text-on-surface">Permanent on {roleName}</h4>
       <p className="mt-1 max-w-prose text-label-sm text-on-surface-faint">
         On the rota of every service to come, without being chosen each time. Take somebody off one service on the Team
         Rota and they stay off that one; say “can’t serve” and they come off as anybody would.

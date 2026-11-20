@@ -112,7 +112,7 @@ export function TeamAccessCard() {
     <Link
       key={p.id}
       to={`/settings/access?tab=person&person=${p.id}`}
-      className="rounded-full bg-raised px-3 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft hover:text-on-surface"
+      className="rounded-full bg-raised px-3 py-1 font-mono text-label-sm text-accent-blue-soft hover:text-on-surface"
     >
       {p.name}
     </Link>
@@ -142,7 +142,7 @@ export function TeamAccessCard() {
                 [ROLE_NAME.member, roster],
               ].map(([label, list]) => (
                 <div key={label as string} className="flex flex-wrap items-center gap-2">
-                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                  <dt className="font-mono text-label-sm text-on-surface-variant">
                     {label as string} · {(list as PersonEntry[]).length}
                   </dt>
                   <dd className="flex flex-wrap gap-1.5">
@@ -217,7 +217,7 @@ export function TeamAccessCard() {
                                 <span className="sr-only">Action</span>
                               </th>
                               {roles.map((role) => (
-                                <th key={role} scope="col" className={`px-1 pb-1 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}>
+                                <th key={role} scope="col" className={`px-1 pb-1 pt-1 text-center font-mono text-label-sm font-normal text-on-surface-variant ${HEAD_IN_BOX} ${ON_RAISED}`}>
                                   {ROLE_SHORT[role]}
                                 </th>
                               ))}
@@ -235,7 +235,7 @@ export function TeamAccessCard() {
                                   return (
                                     <td key={role} className="py-1.5 text-center">
                                       {isTeamSettable(c.key!, role) ? (
-                                        <span className="inline-flex items-center gap-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                                        <span className="inline-flex items-center gap-1 font-mono text-label-sm text-on-surface-variant">
                                           {REACH_SHORT[reach]}
                                           {mine && (
                                             <span aria-label="This team’s own rule" title="This team’s own rule" className="h-2 w-2 rounded-full bg-accent-blue" />

@@ -2,7 +2,7 @@ import type { MessageRow } from '../lib/types'
 import { teamChipStyle } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 
-const chip = 'rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide'
+const chip = 'rounded-full px-2 py-0.5 font-mono text-label-sm '
 
 /**
  * Who a board post speaks for: its team, or — for a post with no team —

@@ -69,7 +69,7 @@ export function SessionGlimpse({
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="min-w-0">
-          <span className="block font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+          <span className="block font-mono text-label-sm text-on-surface-faint">
             {glimpse.current ? 'Now' : 'Between sessions'}
           </span>
           {glimpse.current && <span className="block text-headline-sm text-on-surface">{glimpse.current.name}</span>}

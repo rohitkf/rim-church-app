@@ -1461,8 +1461,8 @@ a step in `lib/tour.ts` for whoever should be shown it (the test holds
 every step to a page and an anchor that exist, and every page to a step;
 a page opened by a right goes in the `events` chapter's way, at the
 bottom of the ladder, §8) →
-a wash colour in its `WASH` map → `PageHeader` with an eyebrow, like
-every other page.
+a wash colour in its `WASH` map → `PageHeader` with a title and one line,
+like every other page (no label over the title: DESIGN.md §10).
 
 **A new kind of dashboard reminder** (something somebody must do, kept in
 sight until done): a branch in `my_open_requests()` (0178, a new
@@ -1715,12 +1715,17 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   mechanical half: `.claude/skills/impeccable/skills/impeccable/scripts/impeccable
   detect --json frontend/src` (it was four findings and is one: the
   dashed label strip on the stage plan, which is a drawing). Three things
-  both skills call tells are **this design system's own choices** and are
-  the Owner's to change, not a skill's: the small capital label above a
-  page title (`PageHeader`'s `eyebrow`), capitals on labels and pills
-  (`text-eyebrow`, `Pill`), and the Dashboard's greeting. What a pass may
-  fix without asking is drift from `DESIGN.md` itself: a curve that is
-  not `--ease-glide`, a glow, a stripe down one side of a card, a size
+  both skills call tells were **this design system's own choices**, so
+  they were put to the Owner rather than changed: the small capital label
+  above a page title, capitals on labels and pills, and the Dashboard's
+  greeting. The Owner dropped the first two and kept the greeting — so
+  `PageHeader` takes `back`, `status` and `context` and no label for the
+  section, `text-eyebrow` and `Pill` are sentence case at 12px, and
+  **nothing new is set in capitals with CSS** (data is the exception: a
+  postcode, a code; and the stage plan's own labels). A choice of that
+  kind is still the Owner's the next time a skill raises one. What a pass
+  may fix without asking is drift from `DESIGN.md` itself: a curve that
+  is not `--ease-glide`, a glow, a stripe down one side of a card, a size
   or a tracking written by hand where a token exists.
 - **The code graph is not committed.** `graphify extract . --code-only`
   then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in

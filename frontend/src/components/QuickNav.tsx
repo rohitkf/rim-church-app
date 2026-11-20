@@ -226,7 +226,7 @@ function QuickNavOverlay({
           <div key={run.group ?? 'top'}>
             {run.group && (
               <div
-                className="relative px-8 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-white/45"
+                className="relative px-8 font-mono text-eyebrow text-white/45"
                 style={{ height: Math.round(rowH * 0.6), lineHeight: `${Math.round(rowH * 0.6)}px` }}
               >
                 {run.group}

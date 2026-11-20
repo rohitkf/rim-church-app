@@ -101,7 +101,6 @@ export function PrayerPage() {
       {/* Asking is one button, not a form standing over the page: the
           requests are what most people open it for, and they come first. */}
       <PageHeader
-        eyebrow="Pray for one another"
         title="Prayer Requests"
         description="Ask the pastors privately, or ask the whole church. Pray for each other, and see what God has done."
         action={
@@ -423,7 +422,7 @@ function RequestCard({
         <ul aria-label="Updates" className="mt-3 flex flex-col gap-2">
           {r.updates.map((u) => (
             <li key={u.id} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 text-body-sm text-on-surface">
-              <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+              <span className="font-mono text-label-sm text-on-surface-faint">
                 Update · {formatRelativeTime(u.created_at)}
               </span>
               <span className="block whitespace-pre-line break-words">{u.body}</span>
@@ -462,7 +461,7 @@ function RequestCard({
 
       {r.assignees && r.assignees.length > 0 && (
         <div className="mt-3 text-label-md text-on-surface-variant">
-          <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Asked to pray</span>
+          <span className="font-mono text-label-sm text-on-surface-faint">Asked to pray</span>
           <ul aria-label="Asked to pray" className="mt-1 flex flex-wrap gap-1.5">
             {r.assignees.map((p) => (
               <li key={p.id} className="flex items-center gap-1 rounded-full bg-raised px-3 py-1">
@@ -727,7 +726,7 @@ function TestimonyCard({ request: r, board }: { request: PrayerRequest; board: P
       </div>
       {r.testimony && <p className="mt-2 whitespace-pre-line break-words text-body-lg text-on-surface">“{r.testimony}”</p>}
       <p className="mt-2 whitespace-pre-line break-words text-body-sm text-on-surface-variant">
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Asked · </span>
+        <span className="font-mono text-label-sm text-on-surface-faint">Asked · </span>
         {r.body}
       </p>
       {counts && <p className="mt-2 text-label-md text-on-surface-variant">Prayed for: {counts}</p>}

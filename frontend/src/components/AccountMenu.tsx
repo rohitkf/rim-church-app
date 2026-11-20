@@ -108,7 +108,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               </span>
               {/* What you are allowed to do here. The sidebar used to say it
                   under the church's name; this is where it lives now. */}
-              <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-on-surface-variant">
+              <span className="ml-auto shrink-0 rounded-full bg-raised-strong px-2 py-0.5 font-mono text-[0.75rem] font-medium text-on-surface-variant">
                 {primaryRoleLabel(isAdmin, roles, viewAs)}
               </span>
             </div>
@@ -127,7 +127,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
           </div>
 
           <div className="border-b border-border-subtle px-3 py-2.5">
-            <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+            <div className="font-mono text-label-sm text-on-surface-variant">
               Appearance
             </div>
             <div className="mt-2 flex rounded-full hairline p-0.5">
@@ -148,7 +148,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
               ))}
             </div>
 
-            <div className="mt-3 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+            <div className="mt-3 font-mono text-label-sm text-on-surface-variant">
               Teams
             </div>
             <div className="mt-2 flex rounded-full hairline p-0.5">
@@ -276,7 +276,7 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
 
   return (
     <div className="border-b border-border-subtle px-3 py-2.5">
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <div className="font-mono text-label-sm text-on-surface-variant">
         View as
       </div>
       {viewAs ? (

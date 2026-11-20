@@ -64,7 +64,6 @@ export function TeamChatPage() {
   return (
     <div className="mx-auto w-full max-w-[1360px]">
       <PageHeader
-        eyebrow="One team at a time"
         title="Team Chat"
         description="The room for your team — what is said here stays with the people on it."
       />

@@ -243,7 +243,6 @@ export function InventoryPage() {
       </Link>
 
       <PageHeader
-        eyebrow="Equipment register"
         title={`${deptQuery.data?.name ?? 'Team'} inventory`}
         description={
           canManage
@@ -422,7 +421,7 @@ export function InventoryPage() {
                       className="tap flex w-full items-center gap-2 border-b border-border-subtle pb-1.5 text-left"
                     >
                       <CategoryChevron open={isCategoryOpen(row.id)} />
-                      <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant">
+                      <span className="font-mono text-label-sm text-on-surface-variant">
                         {row.name}
                       </span>
                       <span className="font-mono text-label-sm text-on-surface-faint">
@@ -576,7 +575,7 @@ export function InventoryPage() {
                             onClick={() => toggleCategory(row.id)}
                             aria-expanded={isCategoryOpen(row.id)}
                             disabled={searching}
-                            className="tap flex w-full items-center gap-2 px-4 py-2 text-left font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-variant"
+                            className="tap flex w-full items-center gap-2 px-4 py-2 text-left font-mono text-label-sm text-on-surface-variant"
                           >
                             <CategoryChevron open={isCategoryOpen(row.id)} />
                             {row.name}

@@ -329,7 +329,7 @@ export function Select({
                       rule out to the edge of the menu, which is a shape no
                       option has. */}
                   <div className="flex items-center gap-2 px-3 py-1">
-                    <span className="shrink-0 font-mono text-label-sm font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                    <span className="shrink-0 font-mono text-label-sm font-semibold text-on-surface-variant">
                       {item.label}
                     </span>
                     <span aria-hidden="true" className="h-px flex-1 bg-border-subtle" />

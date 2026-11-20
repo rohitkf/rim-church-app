@@ -255,7 +255,7 @@ export function TeamBoard({
                 key={message.id}
                 className="rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-orange)_9%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_26%,transparent)]"
               >
-                <div className="flex items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
+                <div className="flex items-center gap-2 font-mono text-label-sm text-accent-orange-soft">
                   Alert
                   <span className="ml-auto normal-case text-on-surface-faint">
                     {formatTime(message.created_at)}

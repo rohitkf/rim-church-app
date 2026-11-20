@@ -99,7 +99,6 @@ export function SongsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="What we sing"
         title="Songs"
         description="Every song the church sings, kept for good. Start typing one on a set list and it is found here."
         action={
@@ -142,7 +141,7 @@ export function SongsPage() {
         isEmpty={shown.length === 0}
         emptyMessage={filter.trim() ? 'No song matches that.' : 'No songs yet. Add one, or put one on a set list.'}
       >
-        <p className="mt-4 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+        <p className="mt-4 font-mono text-label-sm text-on-surface-faint">
           {shown.length} {shown.length === 1 ? 'song' : 'songs'}
         </p>
         <ul aria-label="Songs" className="mt-2 flex flex-col gap-2">

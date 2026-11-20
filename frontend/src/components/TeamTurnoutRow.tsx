@@ -65,7 +65,7 @@ function TeamRing({
 function Figure({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
   return (
     <span className="min-w-0">
-      <span className="block font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+      <span className="block font-mono text-label-sm text-on-surface-faint">
         {label}
       </span>
       <span className="block text-body-md font-medium" style={tone ? { color: tone } : undefined}>

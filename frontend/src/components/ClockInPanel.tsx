@@ -180,12 +180,12 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
           className="flex flex-col gap-3 rounded-[var(--radius-row)] bg-surface-lowest px-4 py-3 hairline sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-label-sm font-medium uppercase tracking-wide text-on-surface-variant">Clock in</p>
+            <p className="text-label-sm font-medium text-on-surface-variant">Clock in</p>
             <p className="mt-0.5 text-body-sm font-medium text-on-surface">
               Location is blocked for this app, so you will not be able to clock in.
             </p>
             <p className="mt-0.5 text-label-sm text-on-surface-variant">
-              It is read when you open the app and when you press CLOCK IN — never in the background.
+              It is read when you open the app and when you press Clock in — never in the background.
             </p>
             {/* The steps for this phone and browser; asking again says
                 plainly when the phone refuses without asking. */}
@@ -218,7 +218,7 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
       <div className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline sm:p-5">
         {justClocked ? (
           <div role="status" className="text-center">
-            <p className="text-label-sm font-medium uppercase tracking-wide text-accent-green-soft">Clocked in</p>
+            <p className="text-label-sm font-medium text-accent-green-soft">Clocked in</p>
             <p className="mt-1 font-mono text-headline-xl tabular-nums text-on-surface">
               {churchClock(justClocked.clocked_at, timeZone)}
             </p>
@@ -236,7 +236,7 @@ export function ClockInPanel({ className = '' }: { className?: string }) {
               disabled={busy}
               className="flex w-full flex-col items-center justify-center gap-1 rounded-[var(--radius-card)] bg-primary px-6 py-7 text-on-primary shadow-[0_8px_24px_-12px_var(--color-primary)] transition-[transform,opacity] duration-200 active:scale-[0.98] disabled:opacity-80 sm:py-9"
             >
-              <span className="flex items-center gap-3 text-headline-lg uppercase tracking-[0.08em]">
+              <span className="flex items-center gap-3 text-headline-lg">
                 <MapPinIcon className="size-7" />
                 {step.at === 'reading' ? 'Finding you…' : step.at === 'sending' ? 'Checking…' : 'Clock in'}
               </span>
@@ -319,7 +319,7 @@ function AskedLine({ today, timeZone }: { today: MyClockIn; timeZone: string }) 
       {declined ? (
         <p>
           Your request to be clocked in was declined{request.decision_note ? `: ${request.decision_note}` : '.'} You
-          can still try CLOCK IN again.
+          can still try Clock in again.
         </p>
       ) : request.status === 'pending' ? (
         <div className="flex flex-wrap items-center justify-between gap-2">

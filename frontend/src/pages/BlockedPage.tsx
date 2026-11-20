@@ -47,7 +47,7 @@ export function BlockedPage({
         className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-7 text-center hairline sm:p-9"
       >
         <IconBadge icon={LockIcon} tone="red" size="lg" className="mx-auto" />
-        <p className="mt-5 font-mono text-eyebrow uppercase text-on-surface-faint">Account blocked</p>
+        <p className="mt-5 font-mono text-eyebrow text-on-surface-faint">Account blocked</p>
         <h1 id="blocked-title" className="mt-2 text-balance text-headline-md text-on-surface">
           Your account has been blocked by an administrator
         </h1>

@@ -459,7 +459,7 @@ function PageSection({
                 own — and then the page's settings and its own rooms. */}
             {rule && (
               <section>
-                <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Who can open it</h3>
+                <h3 className="font-mono text-label-sm text-on-surface-variant">Who can open it</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                   {editable && rule.choices.length > 1 && rule.key ? (
                     <SegmentedControl
@@ -492,7 +492,7 @@ function PageSection({
 
             {areas.length > 0 && (
               <section>
-                <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                <h3 className="font-mono text-label-sm text-on-surface-variant">
                   {rows.length > 0 ? 'For every team — the church’s rule' : 'Who may do what'}
                 </h3>
                 <p className="mt-1 text-label-md text-on-surface-faint">
@@ -525,7 +525,7 @@ function PageSection({
                                 <th
                                   key={r.key}
                                   scope="col"
-                                  className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
+                                  className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
                                 >
                                   {r.label}
                                 </th>
@@ -578,7 +578,7 @@ function PageSection({
                 who may only set the rules is shown the rules. */}
             {maySettings && (entries.length > 0 || rooms.length > 0) && (
               <section>
-                <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Settings</h3>
+                <h3 className="font-mono text-label-sm text-on-surface-variant">Settings</h3>
                 {entries.length > 0 && (
                   <div className="mt-1">
                     <SettingList>

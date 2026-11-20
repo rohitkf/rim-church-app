@@ -54,7 +54,7 @@ export function ReminderBanner({
       className={`flex flex-col gap-3 rounded-[var(--radius-row)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${TONE[tone]}`}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-label-sm font-medium uppercase tracking-wide text-on-surface-variant">{eyebrow}</p>
+        <p className="text-label-sm font-medium text-on-surface-variant">{eyebrow}</p>
         <p className="mt-0.5 line-clamp-2 break-words text-body-sm font-medium text-on-surface">{title}</p>
         {(day || teams.length > 0) && (
           <p className="mt-1.5 flex flex-wrap items-center gap-1.5">

@@ -199,7 +199,6 @@ export function MessageBoardPage() {
   return (
     <div className="mx-auto w-full max-w-[1360px]">
       <PageHeader
-        eyebrow="Everyone signed in"
         title="Message Board"
         description="A post speaks for the team on its badge."
         action={

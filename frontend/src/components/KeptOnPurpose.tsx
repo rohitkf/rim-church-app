@@ -9,7 +9,7 @@ export function KeptOnPurpose() {
   return (
     <>
       <section aria-label="Kept until somebody deletes them">
-        <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <h3 className="font-mono text-label-sm text-on-surface-variant">
           Kept until somebody deletes them
         </h3>
         <p className="mt-1 text-label-md text-on-surface-faint">Not on a clock, on purpose.</p>
@@ -22,7 +22,7 @@ export function KeptOnPurpose() {
         </ul>
       </section>
       <section aria-label="Uploads and the app’s own logs">
-        <h3 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <h3 className="font-mono text-label-sm text-on-surface-variant">
           Uploads and the app’s own logs
         </h3>
         <p className="mt-1 text-label-md text-on-surface-faint">Fixed, so storage stays in hand.</p>

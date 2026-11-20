@@ -427,7 +427,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
 
       {!cancelled && !eventOff && paid && (
         <section aria-label="Your ticket" className="mt-5 rounded-[var(--radius-card)] bg-white p-5 text-center shadow-[var(--shadow-lifted)]">
-          <p className="font-mono text-label-sm uppercase tracking-wide text-[#5a5a72]">Ticket</p>
+          <p className="font-mono text-label-sm text-[#5a5a72]">Ticket</p>
           <QrCode text={ticketUrl(order.code)} label={`Ticket ${order.code}`} className="mx-auto mt-2 h-48 w-48" />
           <p className="mt-3 font-mono text-headline-sm tracking-[0.2em] text-[#14143a]">{order.code}</p>
           <p className="mt-1 text-label-md text-[#5a5a72]">
@@ -447,7 +447,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
       */}
       {!cancelled && !eventOff && !paid && (
         <section aria-label="Your registration" className="mt-5 rounded-[var(--radius-card)] bg-surface-lowest p-5 text-center hairline">
-          <p className="font-mono text-label-sm font-semibold uppercase tracking-wide text-accent-orange-soft">
+          <p className="font-mono text-label-sm font-semibold text-accent-orange-soft">
             {order.payment_status === 'reported' ? 'Not a ticket yet — payment being checked' : 'Not a ticket — not paid'}
           </p>
           <p className="mt-2 text-label-md text-on-surface-variant">Registration code</p>
@@ -471,7 +471,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
       <section className="mt-6 flex flex-col gap-4">
         {image && <img src={image} alt="" style={{ objectPosition: imagePosition(event.image_focus) }} className="aspect-[16/9] w-full rounded-[var(--radius-card)] object-cover" />}
         <div>
-          <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">When</p>
+          <p className="font-mono text-label-sm text-on-surface-faint">When</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-md text-on-surface">
             {dates.map((d) => (
               <li key={d.id}>
@@ -483,7 +483,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
         </div>
         {event.attendance && event.attendance !== 'in_person' && !cancelled && (
           <section aria-label="Joining online" className="rounded-[var(--radius-card)] bg-surface-lowest p-4 hairline">
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Joining online</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">Joining online</p>
             {order.join ? (
               <>
                 {order.join.url ? (
@@ -507,7 +507,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
         )}
         {event.attendance !== 'online' && (event.location.name || event.location.address) && (
           <div>
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Where</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">Where</p>
             {event.location.name && <p className="mt-1 text-body-md text-on-surface">{event.location.name}</p>}
             {event.location.address && <p className="whitespace-pre-line text-body-sm text-on-surface-variant">{event.location.address}</p>}
             {directions && (
@@ -525,7 +525,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
         {/* What happens on the day (0303): this ticket's day, for a ticket to one date. */}
         {ticketAgenda && <EventAgenda agenda={ticketAgenda.agenda} dates={ticketAgenda.dates} />}
         <div>
-          <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Tickets</p>
+          <p className="font-mono text-label-sm text-on-surface-faint">Tickets</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-md text-on-surface">
             {order.tickets.map((t, i) => (
               <li key={i} className="flex items-center justify-between gap-3">
@@ -555,7 +555,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
           )}
         </div>
         <div>
-          <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Booked by</p>
+          <p className="font-mono text-label-sm text-on-surface-faint">Booked by</p>
           <p className="mt-1 text-body-md text-on-surface">{order.name}</p>
           {(order.email || order.phone) && (
             <p className="text-body-sm text-on-surface-variant">

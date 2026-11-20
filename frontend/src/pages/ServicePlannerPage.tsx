@@ -1068,7 +1068,7 @@ export function ServicePlannerPage() {
             same reason. */}
         {previewing && (
           <div className="sticky top-16 z-10 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-indigo)_30%,transparent)] backdrop-blur-xl">
-            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-indigo-soft">
+            <span className="font-mono text-label-sm text-accent-indigo-soft">
               Preview
             </span>
             <span className="text-body-sm text-on-surface-variant">
@@ -1087,7 +1087,7 @@ export function ServicePlannerPage() {
             what happened and that nothing is lost. */}
         {finished && (
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-card)] bg-[color-mix(in_oklab,var(--color-accent-green)_8%,var(--color-surface-lowest))] px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_24%,transparent)]">
-            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+            <span className="font-mono text-label-sm text-accent-green-soft">
               Finished
             </span>
             <span className="text-body-sm text-on-surface-variant">
@@ -1419,7 +1419,7 @@ export function ServicePlannerPage() {
                                 disabled: runPlan.isPending,
                                 onSelect: () => setConfirming({ action: 'start', id: session.id }),
                                 badge: isNext ? (
-                                  <span className="shrink-0 rounded-full bg-accent-green px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide text-accent-green-ink">
+                                  <span className="shrink-0 rounded-full bg-accent-green px-2 py-0.5 font-mono text-label-sm text-accent-green-ink">
                                     Next
                                   </span>
                                 ) : undefined,
@@ -1695,12 +1695,12 @@ export function ServicePlannerPage() {
                                   </span>
                                 )}
                                 {skipped && (
-                                  <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                                  <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm text-on-surface-variant">
                                     Skipped
                                   </span>
                                 )}
                                 {held && !skipped && (
-                                  <span className="rounded-full bg-error-container px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-error-container">
+                                  <span className="rounded-full bg-error-container px-2.5 py-1 font-mono text-label-sm text-on-error-container">
                                     Holding
                                   </span>
                                 )}
@@ -1716,7 +1716,7 @@ export function ServicePlannerPage() {
                                   aria-label={`Substitute for ${session.session_name}`}
                                   role="group"
                                 >
-                                  <span className="font-mono text-label-sm uppercase tracking-wide text-accent-orange-soft">
+                                  <span className="font-mono text-label-sm text-accent-orange-soft">
                                     Substitute
                                   </span>
                                   {mayControl('substitute') ? (
@@ -1824,7 +1824,7 @@ export function ServicePlannerPage() {
                               phone, so the first session carries its own. */}
                           {isFirst && canEdit && (
                             <label className="mt-3 flex items-center gap-2 sm:hidden">
-                              <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                              <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">
                                 Starts
                               </span>
                               {startTimeEditor}

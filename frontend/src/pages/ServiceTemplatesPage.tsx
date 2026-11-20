@@ -175,7 +175,6 @@ export function ServiceTemplatesPage() {
         ← Back to Service Planner
       </Link>
       <PageHeader
-        eyebrow="Reusable running orders"
         title="Service Templates"
         description="A template is the usual shape of a service — its start time and the sessions that always happen. Pick one when creating a service and the whole running order is pre-filled, ready to tweak."
       />
@@ -203,7 +202,7 @@ export function ServiceTemplatesPage() {
           </label>
         </div>
 
-        <div className="mt-5 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">Sessions</div>
+        <div className="mt-5 font-mono text-label-sm text-on-surface-variant">Sessions</div>
         <ul className="mt-2 flex flex-col gap-2">
           {drafts.map((d, i) => (
             <li key={i} className="flex items-center gap-2">

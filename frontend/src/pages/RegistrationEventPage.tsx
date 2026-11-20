@@ -474,12 +474,12 @@ export function RegistrationEventPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={
+        back={
           <Link to="/registrations" className="tap hover:underline">
             <span aria-hidden="true">← </span>Registrations
           </Link>
         }
-        belowEyebrow={cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
+        status={cancelled ? <Pill tone="red">Cancelled</Pill> : <Pill tone={STATUS_TONE[event.status]}>{STATUS_WORDS[event.status]}</Pill>}
         title={event.title}
         description={dates.map((d) => whenWords(d.starts_at, d.ends_at)).join(' · ') || 'No dates yet'}
         action={
@@ -535,7 +535,7 @@ export function RegistrationEventPage() {
             beside the code, and under both on a phone — beside the code, a phone had room for one button a line. */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
           <div className="min-w-0">
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">{event.status === 'published' ? 'Share this link' : 'The link, once published'}</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">{event.status === 'published' ? 'Share this link' : 'The link, once published'}</p>
             {/* The link in a field of its own, so it reads as the thing to take; what can be done with it as buttons beneath, not as three more blue lines. */}
             <a
               href={link}

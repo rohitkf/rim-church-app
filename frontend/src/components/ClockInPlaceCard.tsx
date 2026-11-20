@@ -203,20 +203,20 @@ export function ClockInPlaceCard() {
             </p>
             <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-body-sm sm:grid-cols-2">
               <div>
-                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Place</dt>
+                <dt className="font-mono text-label-sm text-on-surface-faint">Place</dt>
                 <dd data-testid="place-label" className="break-words text-on-surface">
                   {shown.label ?? '—'}
                 </dd>
               </div>
               <div>
-                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Pin</dt>
+                <dt className="font-mono text-label-sm text-on-surface-faint">Pin</dt>
                 <dd className="font-mono text-label-md text-on-surface-variant">
                   {shown.lat.toFixed(6)}, {shown.lng.toFixed(6)} · within {radius} m
                 </dd>
               </div>
             </dl>
             <div className="mt-4">
-              <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+              <p className="font-mono text-label-sm text-on-surface-faint">
                 Counts as at church within
               </p>
               <p className="mt-0.5 text-label-sm text-on-surface-variant">

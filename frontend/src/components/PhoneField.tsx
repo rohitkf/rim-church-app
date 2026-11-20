@@ -108,7 +108,7 @@ export function PhoneField({
 
   return (
     <div className="flex flex-col gap-1.5 text-body-sm text-on-surface-variant">
-      <label htmlFor={id} className={eyebrow ? 'font-mono text-label-sm uppercase tracking-wide text-on-surface-faint' : undefined}>
+      <label htmlFor={id} className={eyebrow ? 'font-mono text-label-sm text-on-surface-faint' : undefined}>
         {label}
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">

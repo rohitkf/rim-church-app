@@ -88,7 +88,7 @@ export function ExportSheetDialog({
             answers — the format is only which file the same sheet goes
             into. A swatch each, so the words are not doing the work. */}
         <div className="mt-5">
-          <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+          <span className="font-mono text-label-sm text-on-surface-faint">
             Sheet
           </span>
           <div role="radiogroup" aria-label="Sheet colour" className={`${segmentTrackClasses} mt-2`}>

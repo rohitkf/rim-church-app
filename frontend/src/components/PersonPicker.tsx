@@ -65,7 +65,7 @@ export function PersonPicker({
                 <span className="min-w-0 break-words">
                   {p.first_name} {p.last_name}
                 </span>
-                <span className="shrink-0 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                <span className="shrink-0 font-mono text-label-sm text-on-surface-faint">
                   On the app
                 </span>
               </button>

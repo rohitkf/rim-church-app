@@ -401,7 +401,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
 
       <section className="mt-5 flex flex-col gap-4">
         <div>
-          <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">When</p>
+          <p className="font-mono text-label-sm text-on-surface-faint">When</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-md text-on-surface">
             {event.dates.map((d) => (
               <li key={d.id}>
@@ -413,14 +413,14 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         </div>
         {event.attendance && event.attendance !== 'in_person' && (
           <div>
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Online</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">Online</p>
             <p className="mt-1 text-body-md text-on-surface">{event.attendance === 'both' ? 'In the hall, or join online.' : 'This event is online.'}</p>
             <p className="text-body-sm text-on-surface-variant">The link to join is on your ticket once you register.</p>
           </div>
         )}
         {event.attendance !== 'online' && (event.location.name || event.location.address) && (
           <div>
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Where</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">Where</p>
             {event.location.name && <p className="mt-1 text-body-md text-on-surface">{event.location.name}</p>}
             {event.location.address && <p className="whitespace-pre-line text-body-sm text-on-surface-variant">{event.location.address}</p>}
             {event.location.latitude !== null && event.location.longitude !== null && (
@@ -448,7 +448,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         )}
         {event.description && (
           <div>
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">About</p>
+            <p className="font-mono text-label-sm text-on-surface-faint">About</p>
             <p className="mt-1 whitespace-pre-line break-words text-body-md text-on-surface">
               <LinkedText text={event.description} />
             </p>

@@ -47,7 +47,7 @@ export function ReleaseDetails({
           <ul className="mt-5 flex flex-col gap-6">
             {shown.map((release) => (
               <li key={release.key}>
-                <p className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">{day(release.date)}</p>
+                <p className="font-mono text-label-sm text-on-surface-faint">{day(release.date)}</p>
                 <h3 className="mt-1 text-headline-sm">{release.title}</h3>
                 <p className="mt-1 text-body-sm text-on-surface-variant">{release.lead}</p>
                 <ul className="mt-2.5 flex flex-col gap-1.5">

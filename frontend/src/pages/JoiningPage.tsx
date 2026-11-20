@@ -348,7 +348,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
     <div className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center px-4 py-10">
       <div className="mb-6 flex items-center gap-3">
         <AppMark />
-        <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+        <span className="font-mono text-label-sm text-on-surface-faint">
           Rehoboth International Ministries
         </span>
       </div>
@@ -371,7 +371,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
 
       <form onSubmit={finish} className="mt-6 flex flex-col gap-5">
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <h2 className="font-mono text-label-sm text-on-surface-variant">
             Who you are
           </h2>
           <div className="mt-4 flex flex-col gap-4">
@@ -428,7 +428,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
         </section>
 
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <h2 className="font-mono text-label-sm text-on-surface-variant">
             Family
           </h2>
           <div className="mt-4 flex flex-col gap-4">
@@ -469,7 +469,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
         </section>
 
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <h2 className="font-mono text-label-sm text-on-surface-variant">
             Right to be here, and DBS
           </h2>
           <p className="mt-1 text-label-md text-on-surface-faint">
@@ -542,7 +542,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
         </section>
 
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <h2 className="font-mono text-label-sm text-on-surface-variant">
             Where you live
           </h2>
           <p className="mt-1 text-label-md text-on-surface-faint">
@@ -607,7 +607,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
         </section>
 
         <section className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline">
-          <h2 className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+          <h2 className="font-mono text-label-sm text-on-surface-variant">
             In an emergency
           </h2>
           <p className="mt-1 text-label-md text-on-surface-faint">

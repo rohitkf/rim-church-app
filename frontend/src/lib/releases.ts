@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-calmer-look',
+    date: '2026-11-20',
+    title: 'A calmer look',
+    lead: 'Nothing works differently. Labels are in ordinary case instead of capitals, and each page opens with its title.',
+    points: [
+      'Labels and status tags read as words: “Paid”, “Starts in”, “Value in service”, not PAID, STARTS IN, VALUE IN SERVICE.',
+      'The small line of capitals above each page’s title is gone. Where it said something useful — the date on the Dashboard, “The next 7 days” on Checklists — that now sits under the title.',
+      'The bar at the bottom slides to the page you choose without bouncing, and no longer glows.',
+      'The search box says Search.',
+    ],
+  },
+  {
     key: 'reception-sorts-out-problems',
     date: '2026-11-20',
     title: 'Reception can sort out its own problems',
@@ -376,7 +388,7 @@ export const RELEASES: Release[] = [
     key: 'clock-in',
     date: '2026-10-27',
     title: 'Clock in when you arrive',
-    lead: 'On a day you serve, a CLOCK IN button appears on your Dashboard a few minutes before your call time.',
+    lead: 'On a day you serve, a Clock in button appears on your Dashboard a few minutes before your call time.',
     points: [
       'Press it at church: your phone is read once, there and then, and you are marked Present on your teams.',
       'Allow location when the app asks, so it is ready on the day. It is never read in the background.',

@@ -31,7 +31,8 @@ function Screen({
 }: {
   icon: ComponentType<{ className?: string; width?: number; height?: number }>
   tone: Tone
-  eyebrow: string
+  /** A fact the title does not carry ("Error 404"). Not a second way of saying the title. */
+  eyebrow?: string
   title: string
   children: ReactNode
   actions: ReactNode
@@ -40,8 +41,8 @@ function Screen({
     <main className="flex min-h-[100svh] items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-7 text-center hairline sm:p-9">
         <IconBadge icon={icon} tone={tone} size="lg" className="mx-auto" />
-        <p className="mt-5 font-mono text-eyebrow uppercase text-on-surface-faint">{eyebrow}</p>
-        <h1 className="mt-2 text-balance text-headline-md text-on-surface">{title}</h1>
+        {eyebrow && <p className="mt-5 font-mono text-eyebrow text-on-surface-faint">{eyebrow}</p>}
+        <h1 className={`${eyebrow ? 'mt-2' : 'mt-5'} text-balance text-headline-md text-on-surface`}>{title}</h1>
         {children}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">{actions}</div>
       </div>
@@ -113,7 +114,6 @@ export function StalePageScreen({ onDashboard }: { onDashboard: boolean }) {
     <Screen
       icon={ReloadIcon}
       tone="blue"
-      eyebrow="Couldn’t load"
       title="This page couldn’t be loaded"
       actions={
         <>
@@ -152,7 +152,6 @@ export function BrokenPageScreen({ path, summary, reference }: { path: string; s
     <Screen
       icon={WarningIcon}
       tone="orange"
-      eyebrow="Something went wrong"
       title="This page ran into a problem"
       actions={
         onDashboard ? (

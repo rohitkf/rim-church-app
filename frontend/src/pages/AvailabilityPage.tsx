@@ -191,7 +191,7 @@ function AnswerNote({
 
   return (
     <div className="mt-3">
-      <label className="flex items-baseline justify-between gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <label className="flex items-baseline justify-between gap-2 font-mono text-label-sm text-on-surface-variant">
         <span>
           Note <span className="normal-case tracking-normal text-on-surface-faint">(optional)</span>
         </span>
@@ -746,7 +746,7 @@ export function AvailabilityPage() {
           <h2 className="text-headline-md">{service.service_type}</h2>
           <span className="flex items-baseline gap-2.5 text-body-sm text-on-surface-variant">
             {finished && (
-              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+              <span className="rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-green-soft">
                 Finished · closed
               </span>
             )}
@@ -764,7 +764,7 @@ export function AvailabilityPage() {
             */}
             {!finished &&
               (answersClosed ? (
-                <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                <span className="rounded-full bg-raised-strong px-2.5 py-1 font-mono text-label-sm text-on-surface-variant">
                   Answers closed
                 </span>
               ) : (
@@ -1094,7 +1094,7 @@ export function AvailabilityPage() {
                 // Opened for the team the dashboard was touched on; after
                 // that it is the reader's, since the prop never changes.
                 <details className="mt-3" open={focused || undefined}>
-                  <summary className="cursor-pointer font-mono text-label-sm uppercase text-on-surface-faint transition-colors duration-200 hover:text-on-surface">
+                  <summary className="cursor-pointer font-mono text-label-sm text-on-surface-faint transition-colors duration-200 hover:text-on-surface">
                     Team responses ({coreAnswered}/{coreIds.length})
                     {guests.length > 0 && ` + ${guests.length} guest${guests.length === 1 ? '' : 's'}`}
                   </summary>
@@ -1118,7 +1118,7 @@ export function AvailabilityPage() {
                             <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                               <span className="break-words text-on-surface">{m.name}</span>
                               {m.member_type === 'guest' && (
-                                <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                <span className="shrink-0 rounded-full bg-raised-strong px-1.5 py-0.5 font-mono text-label-sm text-on-surface-faint">
                                   Guest
                                 </span>
                               )}
@@ -1251,7 +1251,7 @@ export function AvailabilityPage() {
     <div>
       {dialog}
       <PageHeader
-        eyebrow={seesAllTeams ? 'All teams' : 'Your answers'}
+        context={seesAllTeams ? 'All teams' : 'Your answers'}
         title={seesAllTeams ? 'Availability Tracker' : 'Can you serve?'}
         description={
           isAdmin

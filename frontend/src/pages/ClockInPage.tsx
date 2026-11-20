@@ -127,7 +127,6 @@ export function ClockInPage() {
   return (
     <div className="mx-auto w-full max-w-[1100px]">
       <PageHeader
-        eyebrow="Who has arrived"
         title="Clock In"
         description="Everybody on the day’s rota clocks in from their Dashboard when they arrive. Their phone is read once, there and then."
       />
@@ -203,7 +202,7 @@ export function ClockInPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <h3 className="break-words text-body-lg font-semibold text-on-surface">{group.name}</h3>
-                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        <p className="font-mono text-label-sm text-on-surface-variant">
                           {group.rows.length} in
                           {group.rows.some((r) => isLate(r, lateAfter)) &&
                             ` · ${group.rows.filter((r) => isLate(r, lateAfter)).length} late`}
@@ -215,7 +214,7 @@ export function ClockInPage() {
                     {/* Who is still to come, first: it is who somebody opens this to chase (0280). */}
                     {group.stillOut.length > 0 && (
                       <div className="mt-3">
-                        <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">Still to arrive</p>
+                        <p className="font-mono text-label-sm text-on-surface-faint">Still to arrive</p>
                         <ul aria-label={`${group.name}: still to arrive`} className="mt-1.5 flex flex-wrap gap-1.5">
                           {group.stillOut.map((o) => (
                             <li
@@ -305,7 +304,7 @@ export function ClockInPage() {
                               )}
                               {open && theirs.length > 0 && (
                                 <div className="mt-3">
-                                  <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                  <p className="font-mono text-label-sm text-on-surface-faint">
                                     Their clock-in history
                                   </p>
                                   <ul aria-label={`${name}’s clock-in history`} className="flex flex-col">

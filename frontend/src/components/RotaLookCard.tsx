@@ -148,7 +148,7 @@ function TagsSection() {
               >
                 <TagBadge tag={tag} />
                 {!tag.shown && (
-                  <span className="font-mono text-label-sm uppercase text-on-surface-faint">Hidden</span>
+                  <span className="font-mono text-label-sm text-on-surface-faint">Hidden</span>
                 )}
                 <span className="ml-auto flex flex-wrap items-center gap-1">
                   <IconButton
@@ -413,7 +413,7 @@ export function CoordinatorPreview({ color, name = 'Santhi Chennamsetti' }: { co
 export function TagBadge({ tag }: { tag: { name: string; color: string } }) {
   return (
     <span
-      className="inline-block rounded-full px-2 py-0.5 font-mono text-label-sm font-medium uppercase"
+      className="inline-block rounded-full px-2 py-0.5 font-mono text-label-sm font-medium"
       style={tagStyle(tag.color)}
     >
       {tag.name}
@@ -424,7 +424,7 @@ export function TagBadge({ tag }: { tag: { name: string; color: string } }) {
 function Preview({ children }: { children: React.ReactNode }) {
   return (
     <div>
-      <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+      <div className="font-mono text-label-sm text-on-surface-faint">
         Preview — how it looks on the rota
       </div>
       <div className="mt-2 rounded-[var(--radius-chip)] bg-surface-lowest p-3 hairline">{children}</div>

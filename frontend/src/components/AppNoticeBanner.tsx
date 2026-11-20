@@ -85,7 +85,7 @@ export function AppNoticeBanner() {
           >
             <Icon className={`mt-0.5 shrink-0 ${look.ink}`} width={18} height={18} />
             <div className="min-w-0 flex-1">
-              <p className={`font-mono text-eyebrow uppercase ${look.ink}`}>{look.says}</p>
+              <p className={`font-mono text-eyebrow ${look.ink}`}>{look.says}</p>
               <p className="mt-0.5 break-words text-body-md font-medium text-on-surface">{notice.title}</p>
               {notice.body && (
                 <p className="mt-0.5 whitespace-pre-line break-words text-body-sm text-on-surface-variant">{notice.body}</p>

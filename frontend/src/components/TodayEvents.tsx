@@ -37,7 +37,7 @@ export function TodayEvents({
           colour: the card is dark in a light room too. */}
       <div className="relative">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <span className="font-mono text-eyebrow uppercase text-white/60">
+          <span className="font-mono text-eyebrow text-white/60">
             {events.length === 1 ? 'On today' : `On today · ${events.length}`}
           </span>
           <Link
@@ -64,7 +64,7 @@ export function TodayEvents({
                   {event.title}
                   {/* Day three of a conference is not a third conference. */}
                   {event.day && (
-                    <span className="rounded-full bg-white/15 px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-white/85">
+                    <span className="rounded-full bg-white/15 px-2.5 py-1 font-mono text-label-sm text-white/85">
                       Day {event.day.nth} of {event.day.of}
                     </span>
                   )}

@@ -549,7 +549,7 @@ export function TeamRotaPage() {
                     {live && (
                       <span className="flex shrink-0 items-center gap-2">
                         <LiveDot />
-                        <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-accent-green-soft">
+                        <span className="font-mono text-label-sm text-accent-green-soft">
                           On now
                         </span>
                       </span>
@@ -558,7 +558,7 @@ export function TeamRotaPage() {
                       {service.service_type}
                     </h2>
                     {finished && (
-                      <span className="shrink-0 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] px-2.5 py-1 font-mono text-label-sm text-accent-green-soft">
                         Finished
                       </span>
                     )}
@@ -736,7 +736,7 @@ export function TeamRotaPage() {
                                     <Chevron open={teamOpen} />
                                   </span>
                                 </span>
-                                <span className="mt-1 block font-mono text-label-sm uppercase text-on-surface-faint">
+                                <span className="mt-1 block font-mono text-label-sm text-on-surface-faint">
                                   {deptAssignments.length === 0
                                     ? 'nobody yet'
                                     : `${deptAssignments.length} assigned`}
@@ -838,7 +838,7 @@ export function TeamRotaPage() {
                                           {shownTags(a.tags).map((tag) => (
                                             <span
                                               key={tag.id}
-                                              className="ml-2 inline-block rounded-full px-2 py-0.5 align-middle font-mono text-label-sm font-medium uppercase"
+                                              className="ml-2 inline-block rounded-full px-2 py-0.5 align-middle font-mono text-label-sm font-medium"
                                               style={tagStyle(tag.color)}
                                             >
                                               {tag.name}
@@ -893,7 +893,7 @@ export function TeamRotaPage() {
                                                   // Every part is the usual case, drawn quietly:
                                                   // colour is kept for a row that carries only
                                                   // some, which is the one worth noticing.
-                                                  className={`tap rounded-full px-2 py-0.5 font-mono text-label-sm uppercase transition-opacity disabled:cursor-not-allowed ${
+                                                  className={`tap rounded-full px-2 py-0.5 font-mono text-label-sm transition-opacity disabled:cursor-not-allowed ${
                                                     on && onCount === PART_KEYS.length
                                                       ? sky
                                                         ? 'bg-white/15 text-white/80'
@@ -912,7 +912,7 @@ export function TeamRotaPage() {
                                               ) : (
                                                 <span
                                                   key={half}
-                                                  className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase ${
+                                                  className={`rounded-full px-2 py-0.5 font-mono text-label-sm ${
                                                     sky ? 'text-white/80' : 'text-on-surface-variant'
                                                   }`}
                                                 >
@@ -924,7 +924,7 @@ export function TeamRotaPage() {
                                         )}
                                         <span className="relative flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto sm:max-w-full">
                                           {pending ? (
-                                            <span className="shrink-0 font-mono text-label-sm uppercase text-accent-orange-soft">
+                                            <span className="shrink-0 font-mono text-label-sm text-accent-orange-soft">
                                               Release requested
                                             </span>
                                           ) : (
@@ -979,7 +979,7 @@ export function TeamRotaPage() {
                                     {arranged.sections.map((section) => (
                                       <div key={section.group?.id ?? 'ungrouped'}>
                                         {!bare && section.group && (
-                                          <h4 className="mb-1.5 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                                          <h4 className="mb-1.5 font-mono text-label-sm text-on-surface-faint">
                                             {section.group.name}
                                           </h4>
                                         )}
@@ -1192,7 +1192,7 @@ export function TeamRotaPage() {
                                             }
                                           })
                                         }
-                                        className={`tap rounded-full px-3 py-1.5 font-mono text-label-sm font-medium uppercase transition-opacity ${
+                                        className={`tap rounded-full px-3 py-1.5 font-mono text-label-sm font-medium transition-opacity ${
                                           on ? '' : 'opacity-55 hover:opacity-80'
                                         }`}
                                         style={on ? tagStyle(tag.color) : { boxShadow: 'inset 0 0 0 1px var(--color-outline-variant)' }}
@@ -1269,7 +1269,6 @@ export function TeamRotaPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Who is on what"
         title="Team Rota"
         // The rules of the rota (one role each, a Coordinator alongside a
         // job, a borrow needs the other head) are said where a role is

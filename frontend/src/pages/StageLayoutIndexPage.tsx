@@ -95,7 +95,6 @@ export function StageLayoutIndexPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Sunday"
         title="Stage Layout"
         description="Where everything and everybody stands — the stage and the hall in one picture, drawn once for the whole service."
       />

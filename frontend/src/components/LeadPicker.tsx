@@ -273,12 +273,12 @@ export function LeadPicker({
         >
           <span className="break-words">{option.name}</span>
           {sub && (
-            <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase tracking-wide text-accent-orange-soft">
+            <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
               Sub
             </span>
           )}
           {option.kind === 'guest' && (
-            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase tracking-wide text-accent-blue-soft">
+            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-blue-soft">
               Guest
             </span>
           )}
@@ -358,14 +358,14 @@ export function LeadPicker({
             </li>
 
             {members.length > 0 && (
-              <li className="px-3 pb-1 pt-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+              <li className="px-3 pb-1 pt-2 font-mono text-label-sm text-on-surface-faint">
                 Team
               </li>
             )}
             {members.map(row)}
 
             {guests.length > 0 && (
-              <li className="px-3 pb-1 pt-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+              <li className="px-3 pb-1 pt-2 font-mono text-label-sm text-on-surface-faint">
                 Guests
               </li>
             )}

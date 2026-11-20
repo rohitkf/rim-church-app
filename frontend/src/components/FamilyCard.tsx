@@ -209,7 +209,7 @@ export function FamilyCard() {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-3 border-t border-border-subtle pt-5 first:border-t-0 first:pt-0">
-      <h3 className="font-mono text-label-md font-semibold uppercase tracking-[0.12em] text-on-surface-variant">{title}</h3>
+      <h3 className="font-mono text-label-md font-semibold text-on-surface-variant">{title}</h3>
       {children}
     </section>
   )
@@ -282,7 +282,7 @@ function AddressBlock({
             onChange={(e) => setPostcode(e.target.value)}
             maxLength={12}
             autoComplete="postal-code"
-            className={`${inputClasses} uppercase`}
+            className={`${inputClasses}`}
           />
         </label>
       </div>

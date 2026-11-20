@@ -70,7 +70,6 @@ export function FeedbackPage() {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <PageHeader
-        eyebrow="Help us make the app better"
         title="Feedback"
         description="Something broken, something missing, something you love — tell the people who run the app."
       />
@@ -352,7 +351,7 @@ function FeedbackCard({
 
         {item.reply && (
           <div className="mt-4 rounded-[var(--radius-row)] bg-raised px-4 py-3">
-            <p className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+            <p className="font-mono text-label-sm text-on-surface-faint">
               Reply{item.replier ? ` from ${item.replier.first_name}` : ''}
             </p>
             <p className="mt-1 whitespace-pre-wrap break-words text-body-sm text-on-surface">{item.reply}</p>

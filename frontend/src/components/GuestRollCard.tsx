@@ -275,7 +275,7 @@ export function GuestRollCard() {
           */}
           {joined.length > 0 && (
             <div className="mt-5 border-t border-border-subtle pt-4">
-              <p className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
+              <p className="font-mono text-label-sm text-on-surface-faint">
                 Now members
               </p>
               <ul className="mt-2 flex flex-wrap gap-2">

@@ -160,7 +160,7 @@ function DiaryRow({
     <div className="flex w-full flex-col gap-1.5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE.anniversary.chip}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm ${KIND_TONE.anniversary.chip}`}
         >
           Wedding anniversary
         </span>
@@ -180,7 +180,7 @@ function DiaryRow({
         {entry.title}
       </span>
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[categoryOf(entry)].chip}`}
+        className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm ${KIND_TONE[categoryOf(entry)].chip}`}
       >
         {CATEGORY_LABEL[categoryOf(entry)]}
       </span>
@@ -309,7 +309,7 @@ function DiaryDays({
     <div className="mt-3 flex flex-col gap-5">
       {days.map(([date, entries]) => (
         <div key={date}>
-          <div className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+          <div className="font-mono text-label-sm text-on-surface-faint">
             {date === today ? 'Today' : formatServiceDay(date)}
           </div>
           <ul className="mt-2 flex flex-col gap-2">
@@ -944,7 +944,6 @@ export function EventsPage() {
           well, and an eyebrow that said otherwise would be the page
           describing a version of itself that no longer exists. */}
       <PageHeader
-        eyebrow="The church diary"
         title="Calendar"
         description="Birthdays, anniversaries, services and everything else the church has a date for — in one diary."
         action={
@@ -1000,7 +999,7 @@ export function EventsPage() {
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
-                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm uppercase tracking-wide ${
+                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm ${
                   d === 'Sun' ? 'text-accent-blue-soft' : 'text-on-surface-variant'
                 }`}
               >
@@ -1501,7 +1500,7 @@ export function EventsPage() {
             <div className="flex flex-wrap items-center gap-2">
               {reading.department?.color && <TeamMark color={reading.department.color} />}
               <span
-                className={`rounded-full px-2 py-0.5 font-mono text-label-sm uppercase tracking-wide ${KIND_TONE[reading.category === 'meeting' ? 'repeating' : 'event'].chip}`}
+                className={`rounded-full px-2 py-0.5 font-mono text-label-sm ${KIND_TONE[reading.category === 'meeting' ? 'repeating' : 'event'].chip}`}
               >
                 {CATEGORY_LABEL[reading.category === 'meeting' ? 'repeating' : 'event']}
               </span>
@@ -1512,7 +1511,7 @@ export function EventsPage() {
 
             <dl className="mt-4 flex flex-col gap-3">
               <div>
-                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                <dt className="font-mono text-label-sm text-on-surface-faint">
                   When
                 </dt>
                 <dd className="mt-0.5 text-body-md text-on-surface">
@@ -1540,7 +1539,7 @@ export function EventsPage() {
 
               {reading.location && (
                 <div>
-                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                  <dt className="font-mono text-label-sm text-on-surface-faint">
                     Where
                   </dt>
                   <dd className="mt-0.5 break-words text-body-md text-on-surface">
@@ -1550,7 +1549,7 @@ export function EventsPage() {
               )}
 
               <div>
-                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                <dt className="font-mono text-label-sm text-on-surface-faint">
                   {reading.teams && reading.teams.length > 1 && !reading.allTeams ? 'Teams' : 'Whose event'}
                 </dt>
                 <dd className="mt-0.5 text-body-md text-on-surface">
@@ -1560,7 +1559,7 @@ export function EventsPage() {
 
               {reading.details && (
                 <div>
-                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                  <dt className="font-mono text-label-sm text-on-surface-faint">
                     Anything else
                   </dt>
                   {/* Kept as it was typed: people write these as a few
@@ -1574,7 +1573,7 @@ export function EventsPage() {
 
               {reading.creator && (
                 <div>
-                  <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                  <dt className="font-mono text-label-sm text-on-surface-faint">
                     Added by
                   </dt>
                   <dd className="mt-0.5 text-body-md text-on-surface-variant">

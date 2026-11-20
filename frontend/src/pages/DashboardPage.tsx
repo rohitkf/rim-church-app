@@ -433,10 +433,10 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        // The dot under the date says whether this phone is at church
+        // The dot over the greeting says whether this phone is at church
         // (0195); it was a "live" dot with nothing to say.
-        belowEyebrow={<WhereAmIDot />}
-        eyebrow={
+        status={<WhereAmIDot />}
+        context={
           adminDate
             ? `${formatServiceDay(adminDate)} · ${
                 dayServices.length === 1 ? '1 service' : `${dayServices.length} services`
@@ -643,11 +643,11 @@ export function DashboardPage() {
                         <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                           <span className="text-headline-md">{service.service_type}</span>
                           {standing.state === 'running' ? (
-                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-blue-soft">
+                            <span className="font-mono text-label-sm text-accent-blue-soft">
                               On now
                             </span>
                           ) : done ? (
-                            <span className="font-mono text-label-sm uppercase tracking-wide text-accent-green-soft">
+                            <span className="font-mono text-label-sm text-accent-green-soft">
                               Finished
                             </span>
                           ) : null}
@@ -758,7 +758,7 @@ export function DashboardPage() {
                         <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
                           <span className="text-headline-xl text-accent-blue-soft">On now</span>
                           {standing.to !== null && (
-                            <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                            <span className="pb-1.5 font-mono text-eyebrow text-on-surface-faint">
                               until {formatTime(new Date(standing.to).toISOString())}
                             </span>
                           )}
@@ -770,7 +770,7 @@ export function DashboardPage() {
                               finished session already wear. */}
                           <span className="text-headline-xl text-accent-green-soft">Finished</span>
                           {standing.to !== null && (
-                            <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                            <span className="pb-1.5 font-mono text-eyebrow text-on-surface-faint">
                               ended {formatTime(new Date(standing.to).toISOString())}
                             </span>
                           )}
@@ -782,7 +782,7 @@ export function DashboardPage() {
                           fallback={
                             <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
                               <span className="text-headline-xl">{untilLabel(service.date)}</span>
-                              <span className="pb-1.5 font-mono text-eyebrow uppercase text-on-surface-faint">
+                              <span className="pb-1.5 font-mono text-eyebrow text-on-surface-faint">
                                 {formatServiceDay(service.date)}
                               </span>
                             </div>

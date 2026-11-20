@@ -87,7 +87,7 @@ export function Cell({ value }: { value: Allowed }) {
     )
   }
   return (
-    <span className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+    <span className="font-mono text-label-sm text-on-surface-variant">
       {value === 'own' ? 'own' : 'team'}
     </span>
   )
@@ -439,12 +439,12 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
           <dl className="flex flex-col gap-2">
             {ROLES.map((r) => (
               <div key={r.key} className="flex flex-wrap items-baseline gap-x-2">
-                <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface">{r.label}</dt>
+                <dt className="font-mono text-label-sm text-on-surface">{r.label}</dt>
                 <dd className="min-w-0 flex-1 text-label-sm text-on-surface-variant">{r.blurb}</dd>
               </div>
             ))}
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <dt className="font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">own / team / all</dt>
+              <dt className="font-mono text-label-sm text-on-surface-variant">own / team / all</dt>
               <dd className="min-w-0 flex-1 text-label-sm text-on-surface-variant">
                 Only for themselves, only for a team they lead or belong to, or everywhere. Somebody holding
                 two profiles gets whichever reaches further.
@@ -463,7 +463,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
               const rows = unfolded ? area.capabilities : area.capabilities.filter((c) => hasChoice(c, live))
               return (
                 <section key={area.area}>
-                  <h3 className="flex flex-wrap items-center gap-2 font-mono text-label-sm uppercase tracking-wide text-on-surface-variant">
+                  <h3 className="flex flex-wrap items-center gap-2 font-mono text-label-sm text-on-surface-variant">
                     {area.area}
                     <AreaStatus area={area} />
                   </h3>
@@ -491,7 +491,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                               <th
                                 key={r.key}
                                 scope="col"
-                                className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
+                                className={`px-2 pb-2 pt-1 text-center font-mono text-label-sm font-normal text-on-surface-variant ${HEAD_IN_BOX} ${ON_CARD}`}
                               >
                                 {r.label}
                               </th>

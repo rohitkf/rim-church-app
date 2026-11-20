@@ -21,7 +21,7 @@ export function CountRow({ counts, label, className = 'mt-4' }: { counts: Count[
     <dl className={`grid gap-2 ${columns} ${className}`} aria-label={label}>
       {counts.map((c) => (
         <div key={c.label} className="min-w-0 rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
-          <dt className="truncate font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+          <dt className="truncate font-mono text-label-sm text-on-surface-faint">
             {c.label}
           </dt>
           <dd

@@ -5,7 +5,7 @@ import { amountWords, ticketBreakdown } from '../lib/registrationBreakdown'
 import type { OrderRow } from '../lib/registrations'
 
 // The sticking and the colour are written on each heading itself: stickyHead.test.tsx reads the cells.
-const HEAD = 'py-2 font-mono text-label-sm font-normal uppercase tracking-wide text-on-surface-variant'
+const HEAD = 'py-2 font-mono text-label-sm font-normal text-on-surface-variant'
 const NUMBER = 'w-16 whitespace-nowrap py-2 pl-3 text-right font-mono text-label-md tabular'
 const AMOUNT = 'hidden w-44 whitespace-nowrap py-2 pl-4 text-right font-mono text-label-md tabular sm:table-cell'
 

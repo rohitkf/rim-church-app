@@ -137,7 +137,7 @@ function Person({
                 and Against call staying above it (lib/stickyHead.ts). */}
             <TableScroll className="mt-2">
               <table className="w-full min-w-[18rem] text-left text-body-sm">
-                <thead className="font-mono text-label-sm uppercase tracking-wide text-on-surface-faint">
+                <thead className="font-mono text-label-sm text-on-surface-faint">
                   <tr>
                     <th scope="col" className={`py-1 pr-3 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Day</th>
                     <th scope="col" className={`py-1 pr-3 font-normal ${HEAD_IN_BOX} ${ON_CARD}`}>Call</th>

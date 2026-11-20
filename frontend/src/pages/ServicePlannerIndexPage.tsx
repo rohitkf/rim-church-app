@@ -356,7 +356,6 @@ export function ServicePlannerIndexPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="The month ahead"
         title="Service Planner"
         description={
           canCreate
@@ -414,7 +413,7 @@ export function ServicePlannerIndexPage() {
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
-                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm uppercase tracking-wide ${d === 'Sun' ? 'text-accent-blue-soft' : 'text-on-surface-variant'}`}
+                className={`bg-surface-lowest px-1 py-2 text-center font-mono text-label-sm ${d === 'Sun' ? 'text-accent-blue-soft' : 'text-on-surface-variant'}`}
               >
                 {d}
               </div>
@@ -694,7 +693,7 @@ function DayGroup({
             : 'bg-secondary/10 text-accent-blue-soft'
         }`}
       >
-        <span className="font-mono text-label-sm uppercase leading-none">{d.month}</span>
+        <span className="font-mono text-label-sm leading-none">{d.month}</span>
         <span className="text-headline-md leading-tight">{d.day}</span>
       </div>
 

@@ -97,7 +97,7 @@ function Sheet({
   return (
     <Overlay label={label} onDismiss={onDismiss} align="sheet">
       <div className="w-full max-w-sm rounded-t-[var(--radius-card)] bg-surface-lowest p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-lifted)] sm:rounded-[var(--radius-card)] sm:pb-4">
-        <p className="mb-3 font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-variant">{label}</p>
+        <p className="mb-3 font-mono text-label-sm text-on-surface-variant">{label}</p>
         {children}
       </div>
     </Overlay>
@@ -441,7 +441,7 @@ function TimeColumns({
         {formatTimeValue(`${pad(hour)}:${pad(minute)}`)}
       </p>
       <label className="mx-auto mt-2 block max-w-[12rem] text-center">
-        <span className="font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-faint">Or type it</span>
+        <span className="font-mono text-label-sm text-on-surface-faint">Or type it</span>
         <input
           type="text"
           inputMode="decimal"
@@ -526,7 +526,7 @@ function Column({
   }, [value])
   return (
     <div>
-      <p className="mb-1 text-center font-mono text-label-sm uppercase tracking-[0.12em] text-on-surface-faint">{label}</p>
+      <p className="mb-1 text-center font-mono text-label-sm text-on-surface-faint">{label}</p>
       <div
         ref={list}
         role="listbox"
