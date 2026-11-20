@@ -83,6 +83,35 @@ describe('my call time, for the Dashboard', () => {
       expect(sunday('23:59')).toBeNull()
     })
 
+    describe('and the next service day takes its place once today’s services are over', () => {
+      const over = (ids: string[]) => (id: string) => ids.includes(id)
+      const afternoon = on('2026-11-22', '13:00')
+
+      it('not while a service is still to come or under way', () => {
+        expect(ask({ ...afternoon, finished: over([]) })).toBeNull()
+        // The English service has ended; the Malayalam one has not.
+        expect(ask({ ...afternoon, finished: over(['s-eng']) })).toBeNull()
+      })
+
+      it('as soon as the last one has ended', () => {
+        expect(shape(ask({ ...afternoon, finished: over(['s-eng', 's-mal']) }))).toBe('2026-11-25: 07:00 Sound + Worship')
+      })
+
+      it('only as far ahead as the church set', () => {
+        expect(ask({ ...afternoon, finished: over(['s-eng', 's-mal']), days: 2 })).toBeNull()
+        expect(shape(ask({ ...afternoon, finished: over(['s-eng', 's-mal']), days: 3 }))).toBe('2026-11-25: 07:00 Sound + Worship')
+      })
+
+      it('does not skip a day because a later day’s service is marked ended', () => {
+        expect(shape(ask({ ...on('2026-11-21', '09:00'), finished: over(['s-eng', 's-mal']) }))).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+      })
+
+      it('before the call time, an ended service changes nothing that morning', () => {
+        // Nothing has ended at 05:00; and were it marked so by mistake, the day would be over.
+        expect(shape(ask({ ...on('2026-11-22', '05:00'), finished: over(['s-eng']) }))).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
+      })
+    })
+
     it('stays as long after the call time as the church set', () => {
       expect(sunday('06:44', 15)).toBe('2026-11-22: 06:30 Sound; 07:00 Worship')
       expect(sunday('06:45', 15)).toBe('2026-11-22: 07:00 Worship')
