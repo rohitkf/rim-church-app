@@ -46,6 +46,22 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'paid-and-check-in-buttons',
+    date: '2026-11-20',
+    title: 'Clearer buttons for paid and check in',
+    lead: 'On Registrations and at Reception, taking somebody’s money and letting them in are two buttons, in two colours.',
+    points: [
+      'Mark as paid (blue) records the money. Check in (green) lets them in. Each registration shows the one it is waiting for, without opening its menu.',
+      'At Reception a registration that still owes has both: Paid & check in, and Mark as paid alone for somebody who is not at the door yet.',
+      'A registration of several tickets is checked in whole, and its button says so: Check in all 3.',
+      'One set of words everywhere: Not paid yet, Receipt to check, Paid, Waived, Free. “Mark as received” is now “Mark as paid”.',
+      'A payment already verified in the account is no longer called “still to pay” at the door: it only wants marking as paid.',
+      'A scanned ticket that owes says Payment needed, not Valid. A ticket checked in by its scan has Undo check-in on the same card.',
+    ],
+    link: { to: '/door', label: 'Open Reception' },
+    page: '/door',
+  },
+  {
     key: 'session-comments',
     date: '2026-11-20',
     title: 'Private comments on a session',

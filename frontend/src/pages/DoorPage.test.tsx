@@ -220,7 +220,8 @@ describe('Reception', () => {
     // Ben's ticket is here; six tickets live; Ama still owes.
     expect(stat('here')).toBe('1')
     expect(stat('tickets')).toBe('7')
-    expect(stat('still to pay')).toBe('1')
+    // In tickets, like the two beside it: Ama's registration is two people.
+    expect(stat('still to pay')).toBe('2')
     expect(screen.getByRole('link', { name: "The event's page" })).toHaveAttribute('href', '/registrations/e1')
     // The camera waits for a tap: opening Reception does not start it.
     expect(cam.onText).toBeNull()
@@ -243,7 +244,7 @@ describe('Reception', () => {
     const card = screen.getByRole('region', { name: 'Ticket found' })
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
     expect(state.marked).toEqual([])
-    await user.click(within(card).getByRole('button', { name: 'Paid now, check in' }))
+    await user.click(within(card).getByRole('button', { name: 'Paid & check in all 2' }))
     // One call, so it is one thing to undo (0281).
     await waitFor(() => expect(state.marked).toEqual([['o1', 'received_and_check_in']]))
     await waitFor(() => expect(state.notified).toEqual([['paid', 'ABCDEFGHJKMN']]))
@@ -258,7 +259,8 @@ describe('Reception', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Find a registration' }), 'grace')
     const grace = screen.getByRole('listitem', { name: 'Grace Mensah' })
     expect(screen.queryByRole('listitem', { name: 'Ama Owusu' })).toBeNull()
-    await user.click(within(grace).getByRole('button', { name: 'Check in' }))
+    // Three tickets on it, and a registration is checked in whole: the button says so.
+    await user.click(within(grace).getByRole('button', { name: 'Check in all 3' }))
     await waitFor(() => expect(state.marked).toEqual([['o-grace', 'check_in']]))
 
     await user.clear(screen.getByRole('searchbox', { name: 'Find a registration' }))
@@ -272,7 +274,7 @@ describe('Reception', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Find a registration' }), 'ama')
     const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
     expect(within(ama).getByText('£36.00 still to pay.')).toBeInTheDocument()
-    expect(within(ama).getByRole('button', { name: 'Paid now, check in' })).toBeInTheDocument()
+    expect(within(ama).getByRole('button', { name: 'Paid & check in all 2' })).toBeInTheDocument()
   })
 
   it('counts only today’s check-ins as here, and offers yesterday’s a check-in again (0254)', async () => {
@@ -360,7 +362,7 @@ describe('Reception', () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
     await user.click(screen.getByRole('tab', { name: 'Find' }))
-    await user.click(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByRole('button', { name: 'Check in' }))
+    await user.click(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByRole('button', { name: 'Check in all 3' }))
     await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah']))
     await user.click(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).getByRole('button', { name: 'Undo check-in' }))
     await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah', 'Check-in undone for Ben Joseph']))
@@ -379,9 +381,9 @@ describe('Reception', () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
     await user.click(screen.getByRole('tab', { name: 'Find' }))
-    await user.click(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).getByRole('button', { name: 'Paid now, check in' }))
+    await user.click(within(screen.getByRole('listitem', { name: 'Ama Owusu' })).getByRole('button', { name: 'Paid & check in all 2' }))
     await waitFor(() => expect(state.marked).toEqual([['o1', 'received_and_check_in']]))
-    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Received, and checked in Ama Owusu']))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Marked as paid, and checked in Ama Owusu']))
     expect(state.notified).toEqual([])
     state.toasts[0].action!.run()
     await waitFor(() => expect(state.undone).toEqual(['o1']))
@@ -420,11 +422,11 @@ describe('Reception', () => {
     // Nothing done yet: no row offers anything to take back.
     expect(screen.queryByRole('button', { name: /^Undo: / })).toBeNull()
     const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
-    await user.click(within(ama).getByRole('button', { name: 'Paid now, check in' }))
-    await waitFor(() => expect(within(ama).getByText('Just now: Received, and checked in Ama Owusu.')).toBeInTheDocument())
+    await user.click(within(ama).getByRole('button', { name: 'Paid & check in all 2' }))
+    await waitFor(() => expect(within(ama).getByText('Just now: Marked as paid, and checked in Ama Owusu.')).toBeInTheDocument())
     // On hers and nobody else's.
     expect(screen.getAllByRole('button', { name: /^Undo: / })).toHaveLength(1)
-    await user.click(within(ama).getByRole('button', { name: 'Undo: Received, and checked in Ama Owusu' }))
+    await user.click(within(ama).getByRole('button', { name: 'Undo: Marked as paid, and checked in Ama Owusu' }))
     await waitFor(() => expect(state.undone).toEqual(['o1']))
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Undo: / })).toBeNull())
     expect(state.toasts.at(-1)).toMatchObject({ text: 'Undone' })
@@ -436,7 +438,7 @@ describe('Reception', () => {
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
     await user.click(screen.getByRole('tab', { name: 'Find' }))
     const grace = screen.getByRole('listitem', { name: 'Grace Mensah' })
-    await user.click(within(grace).getByRole('button', { name: 'Check in' }))
+    await user.click(within(grace).getByRole('button', { name: 'Check in all 3' }))
     await user.click(await within(grace).findByRole('button', { name: 'Undo: Checked in Grace Mensah' }))
     await waitFor(() => expect(state.toasts.at(-1)).toMatchObject({ text: 'Could not undo that.', tone: 'error' }))
     expect(within(grace).getByRole('button', { name: 'Undo: Checked in Grace Mensah' })).toBeInTheDocument()
@@ -509,6 +511,34 @@ describe('Reception', () => {
     expect(await screen.findByText(/No event today, and none coming up/)).toBeInTheDocument()
   })
 
+  it('takes the money for somebody who is not at the door yet, with a button of its own', async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
+    const both = within(ama).getByRole('button', { name: 'Paid & check in all 2' })
+    const money = within(ama).getByRole('button', { name: 'Mark as paid' })
+    // Told apart by colour as well as by word: green lets them in, blue records their money.
+    expect(both.className).toContain('accent-green')
+    expect(money.className).toContain('accent-blue')
+    await user.click(money)
+    // The payment alone: nobody is checked in by it.
+    await waitFor(() => expect(state.marked).toEqual([['o1', 'received']]))
+    await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Marked as paid: Ama Owusu']))
+  })
+
+  it('does not ask the door for money the account already has (0267)', async () => {
+    state.orders = state.orders.map((o, i) => (i === 0 ? { ...(o as object), payment_status: 'reported', payment_verified_at: '2026-11-20T08:00:00Z' } : o)) as typeof state.orders
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    const ama = screen.getByRole('listitem', { name: 'Ama Owusu' })
+    expect(within(ama).getByText('Verified payment')).toBeInTheDocument()
+    expect(within(ama).queryByText(/still to pay/)).toBeNull()
+    expect(within(ama).getByText(/£36\.00 has been seen in the account\. Nothing more to collect/)).toBeInTheDocument()
+    expect(within(ama).getByRole('button', { name: 'Mark as paid' })).toBeInTheDocument()
+  })
+
   it('lets somebody who only checks people in do that, and nothing more (0251)', async () => {
     rights.now = { ...rights.now, takePayment: false, walkIn: false, approve: false, edit: false, refund: false, cancel: false, delete: false, office: false }
     const user = show()
@@ -518,14 +548,14 @@ describe('Reception', () => {
     scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
     const card = screen.getByRole('region', { name: 'Ticket found' })
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
-    expect(within(card).queryByRole('button', { name: /Paid now/ })).toBeNull()
+    expect(within(card).queryByRole('button', { name: /Paid|paid/ })).toBeNull()
     // An unpaid one is not theirs to let in (0266): they are told where to send them.
-    expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(within(card).queryByRole('button', { name: /^Check in/ })).toBeNull()
     expect(within(card).getByText(/cannot be checked in until it is paid/)).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Find' }))
     const row = screen.getByRole('listitem', { name: 'Ama Owusu' })
-    expect(within(row).queryByRole('button', { name: /Paid now/ })).toBeNull()
-    expect(within(row).queryByRole('button', { name: 'Check in' })).toBeNull()
+    expect(within(row).queryByRole('button', { name: /Paid|paid/ })).toBeNull()
+    expect(within(row).queryByRole('button', { name: /^Check in/ })).toBeNull()
     expect(within(row).getByText(/Cannot be checked in until it is paid/)).toBeInTheDocument()
   })
 

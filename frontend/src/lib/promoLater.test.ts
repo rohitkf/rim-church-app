@@ -92,7 +92,7 @@ describe('which registrations a code can be taken off again (0299)', () => {
     expect(promoHeldBy(order({ payment_status: 'awaiting' }))).toBeNull()
     expect(promoHeldBy(order({ payment_status: 'not_needed', checked_in_at: '2026-11-17T10:00:00Z' }))).toMatch(/undo the check-in first/)
     expect(promoHeldBy(order({ payment_status: 'reported' }))).toMatch(/settle that first/)
-    for (const payment_status of ['received', 'waived'] as const) expect(promoHeldBy(order({ payment_status }))).toMatch(/back to awaiting payment first/)
+    for (const payment_status of ['received', 'waived'] as const) expect(promoHeldBy(order({ payment_status }))).toMatch(/back to not paid first/)
   })
 })
 

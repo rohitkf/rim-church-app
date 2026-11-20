@@ -57,7 +57,7 @@ const dates: EventDate[] = [
   { id: 'd-tomorrow', event_id: 'e1', starts_at: new Date(new Date().setHours(18, 30, 0, 0) + 86400000).toISOString(), ends_at: null, label: 'Tomorrow', sort_order: 1, diary_event_id: null },
 ]
 
-const calls = vi.hoisted(() => ({ checkIn: [] as string[], paid: [] as string[], closed: 0 }))
+const calls = vi.hoisted(() => ({ checkIn: [] as string[], paid: [] as string[], undone: [] as string[], closed: 0 }))
 
 function show(rows = orders()) {
   render(
@@ -67,6 +67,7 @@ function show(rows = orders()) {
       busy={false}
       onCheckIn={(o) => calls.checkIn.push(o.id)}
       onPaidAndCheckIn={(o) => calls.paid.push(o.id)}
+      onUndoCheckIn={(o) => calls.undone.push(o.id)}
       onClose={() => (calls.closed += 1)}
     />,
   )
@@ -77,6 +78,7 @@ beforeEach(() => {
   cam.onText = null
   calls.checkIn = []
   calls.paid = []
+  calls.undone = []
   calls.closed = 0
 })
 
@@ -87,14 +89,18 @@ describe('the ticket scanner', () => {
     expect(screen.getByRole('dialog', { name: 'Scan tickets' })).toBeInTheDocument()
     scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
     const card = screen.getByRole('region', { name: 'Ticket found' })
-    expect(within(card).getByText('Valid')).toBeInTheDocument()
+    // One verdict on the card: never "Valid" beside "Not a ticket yet".
+    expect(within(card).getByText('Payment needed')).toBeInTheDocument()
+    expect(within(card).queryByText('Valid')).toBeNull()
     expect(within(card).getByRole('heading', { name: /^Ama Owusu/ })).toHaveTextContent(/2 tickets/)
-    expect(within(card).getByText('Awaiting payment')).toBeInTheDocument()
+    // The office's own word for it, as the Status filter has it.
+    expect(within(card).getByText('Not paid yet')).toBeInTheDocument()
     expect(within(card).getByText('£36.00 still to pay.')).toBeInTheDocument()
     expect(within(card).getByText('For Ama Owusu, Kofi Owusu')).toBeInTheDocument()
     expect(within(card).getByText('Not a ticket yet: take the payment to check them in.')).toBeInTheDocument()
-    expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
-    await user.click(within(card).getByRole('button', { name: 'Paid now, check in' }))
+    expect(within(card).queryByRole('button', { name: /^Check in/ })).toBeNull()
+    // Two tickets on it: the button says both go in.
+    await user.click(within(card).getByRole('button', { name: 'Paid & check in all 2' }))
     expect(calls.paid).toEqual(['o1'])
     expect(calls.checkIn).toEqual([])
   })
@@ -123,6 +129,30 @@ describe('the ticket scanner', () => {
     expect(within(card).getByText('Checked in')).toBeInTheDocument()
     expect(within(card).queryByRole('button', { name: 'Check in' })).toBeNull()
     expect(calls.checkIn).toEqual(['o-sam'])
+  })
+
+  it('takes a check-in back from the card it was made on, and offers it again', async () => {
+    const user = show()
+    scan('https://rim-church-app.vercel.app/ticket/EFGHJKMNPQRS')
+    const card = screen.getByRole('region', { name: 'Ticket found' })
+    // In without a tap, so the way out is on the same card.
+    await user.click(within(card).getByRole('button', { name: 'Undo check-in' }))
+    expect(calls.undone).toEqual(['o-sam'])
+    // No longer "Checked in": it is a valid ticket again, to check in by hand.
+    expect(within(card).queryByText('Checked in')).toBeNull()
+    expect(within(card).getByText('Valid')).toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: 'Check in' }))
+    expect(calls.checkIn).toEqual(['o-sam', 'o-sam'])
+  })
+
+  it('does not ask for money that has been seen in the account, only for it to be marked as paid (0267)', () => {
+    show([order({ payment_status: 'reported', payment_verified_at: '2026-11-20T08:00:00Z' } as Partial<OrderRow>)])
+    scan('https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    const card = screen.getByRole('region', { name: 'Ticket found' })
+    expect(within(card).getByText('To mark as paid')).toBeInTheDocument()
+    expect(within(card).queryByText(/still to pay/)).toBeNull()
+    expect(within(card).getByText(/£36\.00 has been seen in the account\. Nothing more to collect/)).toBeInTheDocument()
+    expect(within(card).getByText('Not a ticket yet: mark it as paid to check them in.')).toBeInTheDocument()
   })
 
   it('checks a ticket in again on the second day of an event, and says so (0254)', () => {
@@ -157,17 +187,17 @@ describe('the ticket scanner', () => {
     expect(within(card).getByText(/^For another day: /)).toBeInTheDocument()
     expect(within(card).getByText('Note: Wheelchair space')).toBeInTheDocument()
     expect(within(card).queryByText(/still to pay/)).toBeNull()
-    expect(within(card).getByRole('button', { name: 'Check in' })).toBeInTheDocument()
-    expect(within(card).queryByRole('button', { name: 'Paid now, check in' })).toBeNull()
+    expect(within(card).getByRole('button', { name: /^Check in/ })).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: /^Paid & check in/ })).toBeNull()
   })
 
   it('takes a typed code too', async () => {
     const user = show()
     const box = screen.getByRole('textbox', { name: 'Ticket code' })
-    expect(screen.getByRole('button', { name: 'Find' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Enter code' })).toBeDisabled()
     await user.type(box, 'abcdefghjkmn')
     expect(box).toHaveValue('ABCDEFGHJKMN')
-    await user.click(screen.getByRole('button', { name: 'Find' }))
+    await user.click(screen.getByRole('button', { name: 'Enter code' }))
     expect(within(screen.getByRole('region', { name: 'Ticket found' })).getByRole('heading', { name: /^Ama Owusu/ })).toBeInTheDocument()
     expect(box).toHaveValue('')
   })

@@ -174,12 +174,18 @@ export function PageHeader({
  * Buttons
  * ------------------------------------------------------------------ */
 
-export type ButtonTone = 'primary' | 'quiet' | 'success' | 'danger' | 'danger-quiet' | 'ghost'
+export type ButtonTone = 'primary' | 'quiet' | 'success' | 'success-quiet' | 'accent-quiet' | 'danger' | 'danger-quiet' | 'ghost'
 
 const BUTTON_TONES: Record<ButtonTone, string> = {
   primary: 'bg-primary text-on-primary',
   quiet: 'bg-raised-strong text-on-surface hairline-strong',
   success: 'bg-accent-green text-accent-green-ink font-semibold',
+  // The quiet button in a colour that says what kind of press it is, for a
+  // list where each row has one of several (a registration: green lets
+  // somebody in, blue records their money). Tinted, not filled: thirty rows
+  // of filled buttons is thirty primaries on one screen.
+  'success-quiet': 'bg-[color-mix(in_oklab,var(--color-accent-green)_16%,transparent)] text-accent-green-soft font-semibold hairline',
+  'accent-quiet': 'bg-[color-mix(in_oklab,var(--color-accent-blue)_18%,transparent)] text-accent-blue-soft font-semibold hairline',
   danger: 'bg-error text-on-error',
   // Removing one row of a list is not the same act as erasing the app, and
   // a filled red button in a row of five says it is. This is the quiet
