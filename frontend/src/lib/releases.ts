@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'reception-list-by-who-is-in',
+    date: '2026-11-20',
+    title: 'Reception lists who is still to check in',
+    lead: 'On Find, people who have checked in today move out of the way, so the list is the people you are still waiting for.',
+    points: [
+      '“Not checked in yet” is the list, with a count. Checking somebody in takes them off it.',
+      '“Checked in” and “Cancelled” are headings underneath, shut, each with a count. Tap one to open it — the latest check-in is first, with its Undo.',
+      'Searching looks through everybody at once, whether or not they are in.',
+      'Scan and Walk-in are unchanged.',
+    ],
+    link: { to: '/door', label: 'Open Reception' },
+    page: '/door',
+  },
+  {
     key: 'your-call-time-on-the-dashboard',
     date: '2026-11-20',
     title: 'Your call time, on the Dashboard',

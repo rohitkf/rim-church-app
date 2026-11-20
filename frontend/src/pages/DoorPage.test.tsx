@@ -252,6 +252,13 @@ beforeEach(() => {
   resetUndoForTests(0)
 })
 
+/** Open what Reception keeps shut until it is wanted: today's check-ins and the cancelled. */
+async function openShut(user: ReturnType<typeof userEvent.setup>) {
+  for (const button of screen.queryAllByRole('button', { expanded: false }).filter((b) => /^(Checked in|Cancelled)/.test(b.textContent ?? ''))) {
+    await user.click(button)
+  }
+}
+
 describe('Reception', () => {
   it('picks today’s event, shows how the door stands, and checks a paid ticket in on sight', async () => {
     show()
@@ -293,8 +300,11 @@ describe('Reception', () => {
     const user = show()
     await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
     await user.click(screen.getByRole('tab', { name: 'Find' }))
-    const list = screen.getByRole('list', { name: 'Registrations' })
-    expect(within(list).getAllByRole('listitem').map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu', 'Ben Joseph', 'Grace Mensah', 'Sam Paul'])
+    // Whoever is still to check in is the list; Ben, who is in, is under "Checked in", shut.
+    const waiting = screen.getByRole('list', { name: 'Not checked in yet' })
+    expect(within(waiting).getAllByRole('listitem').map((l) => l.getAttribute('aria-label'))).toEqual(['Ama Owusu', 'Grace Mensah', 'Sam Paul'])
+    expect(screen.queryByRole('listitem', { name: 'Ben Joseph' })).toBeNull()
+    expect(screen.getByRole('button', { name: /^Checked in/, expanded: false })).toHaveTextContent('1')
     await user.type(screen.getByRole('searchbox', { name: 'Find a registration' }), 'grace')
     const grace = screen.getByRole('listitem', { name: 'Grace Mensah' })
     expect(screen.queryByRole('listitem', { name: 'Ama Owusu' })).toBeNull()
@@ -303,6 +313,7 @@ describe('Reception', () => {
     await waitFor(() => expect(state.marked).toEqual([['o-grace', 'check_in']]))
 
     await user.clear(screen.getByRole('searchbox', { name: 'Find a registration' }))
+    await openShut(user)
     const ben = screen.getByRole('listitem', { name: 'Ben Joseph' })
     expect(within(ben).getByText(/^Checked in/)).toBeInTheDocument()
     await user.click(within(ben).getByRole('button', { name: 'Undo check-in' }))
@@ -329,6 +340,9 @@ describe('Reception', () => {
     expect(within(ben).getByText(/not yet today$/)).toBeInTheDocument()
     await user.click(within(ben).getByRole('button', { name: 'Check in' }))
     await waitFor(() => expect(state.marked).toEqual([['o-ben', 'check_in']]))
+    // Sam came today: under "Checked in", shut until it is opened.
+    expect(screen.queryByRole('listitem', { name: 'Sam Paul' })).toBeNull()
+    await openShut(user)
     const sam = screen.getByRole('listitem', { name: 'Sam Paul' })
     expect(within(sam).queryByRole('button', { name: 'Check in' })).toBeNull()
     expect(within(sam).getByRole('button', { name: 'Undo check-in' })).toBeInTheDocument()
@@ -403,6 +417,7 @@ describe('Reception', () => {
     await user.click(screen.getByRole('tab', { name: 'Find' }))
     await user.click(within(screen.getByRole('listitem', { name: 'Grace Mensah' })).getByRole('button', { name: 'Check in all 3' }))
     await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah']))
+    await openShut(user)
     await user.click(within(screen.getByRole('listitem', { name: 'Ben Joseph' })).getByRole('button', { name: 'Undo check-in' }))
     await waitFor(() => expect(state.toasts.map((t) => t.text)).toEqual(['Checked in Grace Mensah', 'Check-in undone for Ben Joseph']))
 
@@ -637,6 +652,76 @@ describe('Reception', () => {
 })
 
 /*
+ * The list by the middle of an evening was mostly people already inside
+ * (the Owner, during a conference): whoever is still to check in is the
+ * list, and the rest is kept under it, shut.
+ */
+describe('Reception’s list keeps whoever is in out of the way', () => {
+  const person = (id: string, name: string, over: Partial<OrderRow> = {}) =>
+    order({ id, code: `CODE${id.toUpperCase().padEnd(8, 'X')}`.slice(0, 12), name, quantity: 1, total_pence: 0, promo_code: null, discount_pence: 0, payment_status: 'not_needed', tickets: [], ...over })
+  const open = async () => {
+    const user = show()
+    await screen.findByRole('heading', { name: 'Pastors & Leaders 2026' })
+    await user.click(screen.getByRole('tab', { name: 'Find' }))
+    return user
+  }
+  const shown = () => screen.queryAllByRole('listitem').map((l) => l.getAttribute('aria-label'))
+
+  beforeEach(() => {
+    state.orders = [
+      person('a', 'Zed Waiting'),
+      person('b', 'Ama In Early', { checked_in_at: today(9, 5) }),
+      person('c', 'Hana Cancelled', { status: 'cancelled' }),
+      person('d', 'Ben Waiting'),
+      person('e', 'Kofi In Late', { checked_in_at: today(10, 20) }),
+      person('f', 'Efua Here Yesterday', { checked_in_at: daysOn(-1, 18) }),
+    ]
+  })
+
+  it('lists only whoever is still to check in, with how many', async () => {
+    await open()
+    expect(shown()).toEqual(['Ben Waiting', 'Efua Here Yesterday', 'Zed Waiting'])
+    expect(screen.getByRole('heading', { name: /^Not checked in yet/ })).toHaveTextContent('3')
+  })
+
+  it('keeps today’s check-ins and the cancelled under headings that are shut, each with its count', async () => {
+    await open()
+    expect(screen.getByRole('button', { name: /^Checked in/, expanded: false })).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: /^Cancelled/, expanded: false })).toHaveTextContent('1')
+  })
+
+  it('opens Checked in on a tap, the latest first, each with its Undo', async () => {
+    const user = await open()
+    await user.click(screen.getByRole('button', { name: /^Checked in/ }))
+    const list = screen.getByRole('list', { name: 'Checked in' })
+    expect(within(list).getAllByRole('listitem').map((l) => l.getAttribute('aria-label'))).toEqual(['Kofi In Late', 'Ama In Early'])
+    expect(within(list).getAllByRole('button', { name: 'Undo check-in' })).toHaveLength(2)
+    // And shuts again.
+    await user.click(screen.getByRole('button', { name: /^Checked in/ }))
+    expect(screen.queryByRole('list', { name: 'Checked in' })).toBeNull()
+  })
+
+  it('finds somebody already in, or cancelled, by searching — without opening anything', async () => {
+    const user = await open()
+    await user.type(screen.getByRole('searchbox', { name: 'Find a registration' }), 'kofi')
+    expect(shown()).toEqual(['Kofi In Late'])
+    await user.clear(screen.getByRole('searchbox', { name: 'Find a registration' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Find a registration' }), 'hana')
+    expect(shown()).toEqual(['Hana Cancelled'])
+    // The headings are for the whole list; a search has its own.
+    expect(screen.queryByRole('button', { name: /^Checked in/ })).toBeNull()
+  })
+
+  it('says so when everybody is in, and draws no heading for a group with nobody in it', async () => {
+    state.orders = [person('b', 'Ama In Early', { checked_in_at: today(9, 5) })]
+    await open()
+    expect(screen.getByText('Everybody who registered is in.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Checked in/ })).toHaveTextContent('1')
+    expect(screen.queryByRole('button', { name: /^Cancelled/ })).toBeNull()
+  })
+})
+
+/*
  * What a door meets that is not a check-in, a payment or a walk-in (0312,
  * the Owner on the first day of a conference): a wrong address, a note,
  * a code they did not use, somebody to come in free, a registration
@@ -655,6 +740,8 @@ describe('sorting out problems at Reception', () => {
     return user
   }
   const menuOf = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    // Somebody already in, or cancelled, is under a heading that is shut.
+    if (!screen.queryByRole('listitem', { name })) await openShut(user)
     await user.click(within(screen.getByRole('listitem', { name })).getByRole('button', { name: `Actions for ${name}` }))
     return screen.getByRole('menu')
   }
