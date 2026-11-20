@@ -89,7 +89,7 @@ interface Base {
 
 interface Dial extends Base {
   kind: 'dial'
-  unit: 'minutes' | 'days' | 'notifications' | 'entries' | 'metres'
+  unit: 'minutes' | 'hours' | 'days' | 'notifications' | 'entries' | 'metres'
   /** What 0 reads as, when 0 means something of its own ("Today only"). */
   zeroText?: string
   min: number
@@ -385,6 +385,25 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
 
   /* ---- Availability: when an answer is due, and on whose clock ---- */
   {
+    // Which of the two ways the deadline is said (0309). One or the other:
+    // the control under it is the one that belongs to the choice made.
+    ...column('availability_closes_mode'),
+    // A choice hands back a string; only the two it offers can come.
+    put: (_d, v) => ({ availability_closes_mode: v === 'hours' ? 'hours' : 'clock' }),
+    kind: 'choice',
+    style: 'segmented',
+    label: 'Answers close',
+    summary: 'At a time the night before, or a number of hours before the service begins.',
+    help: 'The deadline for saying whether you can serve. “The night before” is one time for every service, on its eve: Sunday’s answers are due on Saturday night, whenever on Sunday the service is. “Hours before the service” counts back from when each service begins — its first session — so an evening service closes later than a morning one, and the deadline can be two hours ahead or two days. Either way, after it only an Admin or the team’s head can change an answer, and the database refuses anybody else.',
+    affects: ['/availability'],
+    ariaLabel: 'How the deadline for answers is set',
+    options: [
+      { value: 'clock', label: 'The night before' },
+      { value: 'hours', label: 'Hours before the service' },
+    ],
+    fallbackText: 'The night before',
+  },
+  {
     ...column('availability_closes_time'),
     kind: 'time',
     label: 'Closes the night before, at',
@@ -395,6 +414,21 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     get: (d) => column('availability_closes_time').get(d).slice(0, 5),
     put: (_d, v) => ({ availability_closes_time: `${v}:00` }),
     fallback: DEFAULT_SETTINGS.availability_closes_time.slice(0, 5),
+    when: (d) => column('availability_closes_mode').get(d) !== 'hours',
+  },
+  {
+    ...column('availability_closes_hours'),
+    kind: 'dial',
+    unit: 'hours',
+    label: 'Closes this long before the service begins',
+    summary: 'Counted back from the start of the service’s first session.',
+    help: 'A service begins when its first session does, so moving that time on the Service Planner moves the deadline with it. A service with no running order yet has no beginning to count from: until it has one, its answers close the night before, at the time kept for that. After the deadline only an Admin or the team’s head can change an answer — and if somebody marks themselves unavailable before it, the role they were on goes back to unassigned and both heads are told.',
+    affects: ['/availability'],
+    min: 1,
+    max: 168,
+    dialMax: 72,
+    majorEvery: 12,
+    when: (d) => column('availability_closes_mode').get(d) === 'hours',
   },
   {
     ...column('timezone'),

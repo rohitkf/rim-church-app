@@ -117,6 +117,40 @@ describe('the settings catalog', () => {
   })
 })
 
+describe('how the deadline for answers is set (0309)', () => {
+  const entry = (id: string) => SETTINGS_CATALOG.find((e) => e.id === id)!
+  const shown = (id: string, draft: Partial<AppSettings>) => entry(id).when?.(draft) ?? true
+
+  it('offers the two ways, on Availability, and starts on the night before', () => {
+    const mode = entry('availability_closes_mode')
+    expect(mode.kind).toBe('choice')
+    if (mode.kind !== 'choice') return
+    expect(mode.options).toEqual([
+      { value: 'clock', label: 'The night before' },
+      { value: 'hours', label: 'Hours before the service' },
+    ])
+    expect(mode.affects).toEqual(['/availability'])
+    expect(mode.get({})).toBe('clock')
+    expect(mode.put({}, 'hours')).toEqual({ availability_closes_mode: 'hours' })
+    // Anything else it could be handed is the night before, never a third rule.
+    expect(mode.put({}, 'nonsense')).toEqual({ availability_closes_mode: 'clock' })
+  })
+
+  it('shows the time under the night before, and the hours under hours before — never both', () => {
+    expect(shown('availability_closes_time', {})).toBe(true)
+    expect(shown('availability_closes_hours', {})).toBe(false)
+    expect(shown('availability_closes_time', { availability_closes_mode: 'hours' })).toBe(false)
+    expect(shown('availability_closes_hours', { availability_closes_mode: 'hours' })).toBe(true)
+  })
+
+  it('takes an hour to a week, as the database does', () => {
+    const hours = entry('availability_closes_hours')
+    expect(hours.kind).toBe('dial')
+    if (hours.kind !== 'dial') return
+    expect([hours.min, hours.max, hours.unit, hours.fallback]).toEqual([1, 168, 'hours', 12])
+  })
+})
+
 describe('Page by Page', () => {
   it('lists every page in the menu, Serving as its three tabs, and the three places that are not pages', () => {
     const tos = SETTINGS_PAGES.map((p) => p.to)

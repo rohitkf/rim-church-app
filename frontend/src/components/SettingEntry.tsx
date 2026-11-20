@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { pageName, type Draft, type Patch, type SettingEntry as Entry } from '../lib/settingsCatalog'
 import { useNavNames } from '../lib/navNames'
 import { shortDuration } from '../lib/settingsReadout'
+import { hoursWords } from '../lib/availabilityDeadline'
 import { NumberDial } from './NumberDial'
 import { TimeField } from './DateTimeFields'
 import { Select, selectPillClasses } from './Select'
@@ -76,7 +77,9 @@ export function SettingEntryRow({
             ? `${n}`
             : entry.unit === 'metres'
               ? `${n} m`
-              : shortDuration(n, entry.unit)
+              : entry.unit === 'hours'
+                ? hoursWords(n)
+                : shortDuration(n, entry.unit)
     return (
       <SettingRow
         label={entry.label}

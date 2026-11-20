@@ -27,6 +27,12 @@ describe('how long things last', () => {
     expect(lifespanOf('planner', { ...settings, board_clear_dow: 1 })).toContain('Monday')
   })
 
+  it('says the deadline for answers the way the church has set it (0309)', () => {
+    expect(lifespanOf('availability', settings)).toContain('Answers close at 23:59 the night before each service.')
+    expect(lifespanOf('availability', { ...settings, availability_closes_mode: 'hours', availability_closes_hours: 6 })).toContain('Answers close 6 hours before each service begins.')
+    expect(lifespanOf('availability', { ...settings, availability_closes_mode: 'hours', availability_closes_hours: 48 })).toContain('Answers close 2 days before each service begins.')
+  })
+
   it('carries the numbers the church has set', () => {
     expect(lifespanOf('debriefs', settings)).toContain('30 days')
     expect(lifespanOf('debriefs', { ...settings, debrief_retention_days: 10 })).toContain('10 days')

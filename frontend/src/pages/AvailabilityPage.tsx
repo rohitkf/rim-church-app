@@ -27,7 +27,7 @@ import { CountRow } from '../components/CountRow'
 import { NudgeButton } from '../components/NudgeButton'
 import { useFinishedServices } from '../lib/useFinishedServices'
 import { useAppSettings, useDisplay } from '../lib/appSettings'
-import { availabilityClosesAt } from '../lib/availabilityDeadline'
+import { answersCloseAt, closesWords } from '../lib/availabilityDeadline'
 import { LOOKAHEAD_DAYS, servicesAhead, servicesToShow, shiftIsoDays } from '../lib/rotaWindow'
 import {
   availabilityWindowDays,
@@ -729,11 +729,10 @@ export function AvailabilityPage() {
      * the page's way of saying it before somebody taps a button that
      * would bounce.
      */
-    const answersClose = availabilityClosesAt(
-      service.date,
-      settings.availability_closes_time,
-      settings.timezone,
-    )
+    // …or, since 0309, a number of hours before the service begins, if
+    // that is how the church has said it. Begins: its first session.
+    const answersClose = answersCloseAt(service.date, startOf(service), settings)
+    const closedWhen = closesWords(settings, startOf(service))
     const answersClosed = answersClose.getTime() <= now
     // What opens itself, and what somebody has since touched. A service
     // is open when those two disagree: the ones needing an answer now
@@ -1075,8 +1074,8 @@ export function AvailabilityPage() {
               {canAnswerFor(dept.id) && answersClosed && finished && (
                 <p className="mt-2 text-label-sm text-on-surface-faint">
                   {mine
-                    ? `Answers closed the night before — you said ${statusLabel[mine].toLowerCase()}.`
-                    : 'Answers closed the night before.'}
+                    ? `Answers closed ${closedWhen} — you said ${statusLabel[mine].toLowerCase()}.`
+                    : `Answers closed ${closedWhen}.`}
                 </p>
               )}
 
