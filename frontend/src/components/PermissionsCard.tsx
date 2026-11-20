@@ -370,7 +370,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                         {/* How much of the area is theirs, at a glance. */}
                         <span className="mt-2 block h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-raised-strong" aria-hidden="true">
                           <span
-                            className="block h-full rounded-full bg-accent-green transition-[width] duration-700 ease-[var(--ease-glide)]"
+                            className="block h-full rounded-full bg-accent-green transition-[width] duration-300 ease-[var(--ease-glide)]"
                             style={{ width: `${(allowed / total) * 100}%` }}
                           />
                         </span>

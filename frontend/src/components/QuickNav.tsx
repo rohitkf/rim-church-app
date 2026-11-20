@@ -226,7 +226,7 @@ function QuickNavOverlay({
           <div key={run.group ?? 'top'}>
             {run.group && (
               <div
-                className="relative px-8 font-mono text-[11px] uppercase tracking-[0.18em] text-white/45"
+                className="relative px-8 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-white/45"
                 style={{ height: Math.round(rowH * 0.6), lineHeight: `${Math.round(rowH * 0.6)}px` }}
               >
                 {run.group}
@@ -245,7 +245,7 @@ function QuickNavOverlay({
                     if (el) rows.current.set(item.to, el)
                     else rows.current.delete(item.to)
                   }}
-                  className={`quicknav-row relative flex items-center px-8 font-mono text-[17px] tracking-[0.01em] transition-colors duration-150 ${
+                  className={`quicknav-row relative flex items-center px-8 font-mono text-[1.0625rem] tracking-[0.01em] transition-colors duration-150 ${
                     on ? 'text-on-primary' : 'text-white'
                   }`}
                   style={{ height: rowH, animationDelay: `${delay}ms` }}

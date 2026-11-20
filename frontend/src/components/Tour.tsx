@@ -530,7 +530,7 @@ function TourCard({
       {confetti && <Confetti count={36} />}
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-label-sm uppercase tracking-[0.16em] text-on-surface-faint">
+          <span className="font-mono text-label-sm uppercase tracking-[0.14em] text-on-surface-faint">
             {eyebrow}
           </span>
           {counter && (

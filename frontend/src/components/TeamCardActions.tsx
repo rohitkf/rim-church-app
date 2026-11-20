@@ -130,7 +130,7 @@ export function TeamCardActions({
             onClick={() => setPicking(true)}
             aria-label={`Colour for ${dept.name}`}
             title="Team colour"
-            className="tap-square h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-transform duration-300 ease-[var(--ease-glide)] hover:scale-110 active:scale-95 dark:ring-white/15"
+            className="tap-square h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-black/10 transition-[transform,box-shadow] duration-200 ease-[var(--ease-glide)] hover:ring-2 hover:ring-black/25 active:scale-95 dark:ring-white/15 dark:hover:ring-white/40"
             style={{ backgroundColor: dept.color ?? DEFAULT_DEPT_COLOR }}
           />
           <button

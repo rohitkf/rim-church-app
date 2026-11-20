@@ -416,7 +416,7 @@ function RequestCard({
       )}
 
       {r.status === 'answered' && r.testimony && (
-        <blockquote className="mt-3 border-l-2 border-accent-green pl-3 text-body-sm text-on-surface">“{r.testimony}”</blockquote>
+        <blockquote className="mt-3 border-l border-border-subtle pl-3 text-body-sm text-on-surface">“{r.testimony}”</blockquote>
       )}
 
       {r.updates.length > 0 && (

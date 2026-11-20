@@ -393,14 +393,13 @@ export function GlobalSearch() {
         className="tap flex w-full min-w-0 max-w-sm items-center gap-2.5 rounded-full bg-surface-low px-4 py-2.5 text-body-sm text-on-surface-variant ring-1 ring-inset ring-black/5 transition-shadow duration-200 ease-[var(--ease-glide)] hover:ring-secondary/50 dark:bg-surface-container dark:ring-white/10"
       >
         <SearchIcon width={16} height={16} className="shrink-0" />
-        {/* The narrowest phones have room for the word and not the phrase:
-            "Search a…" read as a fault, "Search" reads as a button. */}
-        <span className="min-w-0 flex-1 truncate text-left">
-          Search<span className="max-[400px]:hidden"> anything…</span>
-        </span>
+        {/* One word, at every width. It said "Search anything…" where there
+            was room, which is a slogan where a label was wanted; what can be
+            found is said inside, once the box is open. */}
+        <span className="min-w-0 flex-1 truncate text-left">Search</span>
         {/* The key this keyboard actually has. It advertised ⌘K to
             everybody, including the people who do not have that key. */}
-        <kbd className="hidden shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] text-on-surface-variant ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
+        <kbd className="hidden shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem] text-on-surface-variant ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
           {shortcutLabel(platform)}
         </kbd>
       </button>
@@ -472,11 +471,11 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                 go(hits[active])
               }
             }}
-            placeholder="Search anything…"
+            placeholder="Search"
             aria-label="Search"
             className="w-full bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-faint"
           />
-          <kbd className="hidden shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-on-surface-faint ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
+          <kbd className="hidden shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem] text-on-surface-faint ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
             esc
           </kbd>
         </label>
@@ -513,7 +512,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                       {hit.detail}
                     </span>
                   </span>
-                  <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.16em] text-on-surface-variant">
+                  <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-on-surface-variant">
                     {hit.kind}
                   </span>
                 </button>

@@ -76,7 +76,7 @@ function Digit({ value }: { value: number }) {
           className="absolute inset-x-0 top-0"
           style={{
             transform: `translateY(-${row}em)`,
-            transition: animate ? `transform ${ROLL_MS}ms cubic-bezier(0.2, 0.9, 0.25, 1)` : 'none',
+            transition: animate ? `transform ${ROLL_MS}ms var(--ease-glide)` : 'none',
           }}
         >
           {Array.from({ length: 20 }, (_, i) => (

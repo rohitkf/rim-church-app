@@ -1667,11 +1667,11 @@ So a session that starts from nothing works the way the last one did:
 
 ## 12. The skills installed in this repo
 
-`.claude/skills/` holds nine skill sets copied in at a pinned commit, each
+`.claude/skills/` holds ten skill sets copied in at a pinned commit, each
 with a `SOURCE.md` saying where it came from, its licence and what was
 left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
-`impeccable`, `hallmark`, `i-have-adhd`, `brag` and `graphify` (beside
-`security-audit`, and `frontend/.claude/skills/verify`). All but
+`impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag` and `graphify`
+(beside `security-audit`, and `frontend/.claude/skills/verify`). All but
 `graphify` and `security-audit` are plugin folders: they load as
 `<set>@skills-dir` and their skills are called `<set>:<skill>`.
 
@@ -1706,6 +1706,22 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   its telemetry off, and which of its commands send things off the
   machine and are never run. The bundled music is CC BY 4.0 and wants
   its credit wherever the video is posted.
+- **`unslop` and `impeccable` judge the app against its own design
+  system; they do not replace it** (the Owner asked for both to be run
+  over the whole app, November 2026). `unslop:unslop` lists the signs of
+  a screen nobody designed; here its own rule for a product with a real
+  brand applies — polish mode: fix what the audit finds, keep the
+  palette, the type and the layout. `impeccable`'s detector is the
+  mechanical half: `.claude/skills/impeccable/skills/impeccable/scripts/impeccable
+  detect --json frontend/src` (it was four findings and is one: the
+  dashed label strip on the stage plan, which is a drawing). Three things
+  both skills call tells are **this design system's own choices** and are
+  the Owner's to change, not a skill's: the small capital label above a
+  page title (`PageHeader`'s `eyebrow`), capitals on labels and pills
+  (`text-eyebrow`, `Pill`), and the Dashboard's greeting. What a pass may
+  fix without asking is drift from `DESIGN.md` itself: a curve that is
+  not `--ease-glide`, a glow, a stripe down one side of a card, a size
+  or a tracking written by hand where a token exists.
 - **The code graph is not committed.** `graphify extract . --code-only`
   then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in
   about twenty seconds with no model calls (`pip install

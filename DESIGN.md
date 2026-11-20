@@ -153,6 +153,13 @@ own sheets move on. Nothing in the interface uses `linear` or
 - **Nothing loops to be noticed.** No glow, no glisten, no sheen on a
   control or a card. The one thing that is allowed to keep moving is the
   galaxy behind today's event, which is a sky.
+- **Nothing springs.** The dock's highlight slides to the page you chose
+  on the same curve as everything else, stretching a little while it is
+  in flight; it does not overshoot and settle back, and it throws no
+  coloured shadow. A bar that fills (a checklist, a poll, a stacked bar)
+  does so in 300ms like any other movement.
+- **Hover changes an edge or a surface, never a size.** A press sinks;
+  a hover does not grow.
 
 `prefers-reduced-motion` is honoured globally in `index.css` — everything
 is simply there — and nothing in the app is told only by its motion.

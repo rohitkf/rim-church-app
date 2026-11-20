@@ -298,7 +298,7 @@ export function TeamBoard({
                   /* The gap stays. A conversation with a hole in it reads as
                      a conversation with a hole in it; one where the message
                      simply vanished reads as replies to nothing. */
-                  <div className="rounded-[18px] px-3.5 py-2.5 text-body-sm italic text-on-surface-faint hairline">
+                  <div className="rounded-[18px] px-3.5 py-2.5 text-body-sm text-on-surface-faint hairline">
                     This message was deleted
                   </div>
                 ) : editing ? (

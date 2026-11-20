@@ -54,7 +54,7 @@ export function AuthCard({
 /** The label above an auth field: mono, spaced, quiet. */
 export function AuthLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="font-mono text-[11px] uppercase leading-none tracking-[0.18em] text-on-surface-faint">
+    <span className="font-mono text-[0.6875rem] uppercase leading-none tracking-[0.12em] text-on-surface-faint">
       {children}
     </span>
   )

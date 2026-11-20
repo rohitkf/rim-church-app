@@ -319,6 +319,25 @@ body {
 }
 
 /*
+ * What the browser draws for itself wears the app's colours too. A
+ * selection was the system's blue-grey on a tile, and the caret was
+ * whatever the text colour was: neither belonged to the design. Selected
+ * text sits on the accent's tint and keeps its own ink, so it reads on
+ * every surface in both themes; the caret is the accent, the one colour
+ * that means "here is where you act".
+ */
+::selection {
+  background: color-mix(in oklab, var(--color-primary) 32%, transparent);
+  color: inherit;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  caret-color: var(--color-primary);
+}
+
+/*
  * Controls under 16px make iOS Safari zoom the whole page on focus, which
  * then leaves the layout scrolled sideways. Setting the floor here is
  * cheaper than auditing every input in the app.
@@ -545,11 +564,11 @@ body::before {
 }
 
 .welcome-beat {
-  animation: rim-beat-in 460ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: rim-beat-in 460ms var(--ease-glide) both;
 }
 
 .welcome-stagger {
-  animation: rim-beat-in 460ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: rim-beat-in 460ms var(--ease-glide) both;
 }
 
 /*
@@ -774,7 +793,7 @@ body::before {
 
 @media (max-width: 767px) {
   .dock-slot {
-    animation: rim-dock-slot 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation: rim-dock-slot 420ms var(--ease-glide) both;
   }
 }
 

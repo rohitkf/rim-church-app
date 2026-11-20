@@ -225,7 +225,7 @@ function ChecklistProgress({ name, pct }: { name: string; pct: number | null }) 
         className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-raised-strong"
       >
         <span
-          className={`block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-glide)] ${shown === 100 ? 'bg-accent-green' : 'bg-accent-blue'}`}
+          className={`block h-full rounded-full transition-[width] duration-300 ease-[var(--ease-glide)] ${shown === 100 ? 'bg-accent-green' : 'bg-accent-blue'}`}
           style={{ width: `${shown}%` }}
         />
       </span>
