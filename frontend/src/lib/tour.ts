@@ -161,7 +161,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/service-planner',
         target: 'page-title',
         title: 'Service Planner',
-        body: 'The running order of each service, session by session, who is taking each and who is coordinating it. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown.',
+        body: 'The running order of each service, session by session, who is taking each and who is coordinating it. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown. Under the title it says when availability answers close for that service; whoever manages services can give one service a deadline of its own there.',
       },
       {
         path: '/events',
@@ -367,7 +367,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/availability',
         target: 'page-title',
         title: 'Chase the answers',
-        body: 'The tracker shows who has not answered yet. Remind them with one tap, and approve a change somebody asks for after answers close.',
+        body: 'The tracker shows who has not answered yet. Everybody who has not is reminded for you before answers close, and when they close you are told how your team answered and who did not. Remind somebody yourself with one tap, and approve a change somebody asks for after answers close.',
       },
       {
         path: '/checklists',

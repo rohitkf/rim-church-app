@@ -27,6 +27,7 @@ export const NOTIFICATION_TYPES = [
   'rota_dropout',
   'availability_change_request',
   'availability_change_decision',
+  'availability_closed',
   'feedback_received',
   'feedback_answered',
   'family_link_request',
@@ -103,6 +104,9 @@ const NOTIFICATIONS: Record<NotificationType, { label: string; href: string }> =
     label: 'Your request to change your answer was answered',
     href: '/availability',
   },
+  // To a team's heads, when answers close for a service (0310): its body
+  // says how the team answered and who did not. The tracker is where to act on it.
+  availability_closed: { label: 'Answers have closed for a service', href: '/availability' },
   // All three carry their own sentence and land on the Dashboard: the
   // button, the requests to answer, and where yours stands, are all there.
   clock_in_reminder: { label: 'Clock in when you arrive', href: '/' },

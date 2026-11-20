@@ -46,6 +46,23 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'availability-reminders-follow-the-deadline',
+    date: '2026-11-20',
+    title: 'Reminders that follow the deadline',
+    lead: 'Availability reminders now go before answers close for every service, whatever day it is on, and heads are told when answers close.',
+    points: [
+      'Whoever has not answered is reminded 24 hours before answers close, and the reminder says when that is. It used to go only on Friday and Saturday evenings, so a midweek or Friday service was never reminded.',
+      'When answers close, each team’s Head and Assisting Heads get one message: how many said yes, maybe and no, and who did not answer.',
+      'Nobody is woken: both keep to 08:00–21:00.',
+      'Settings › Page by Page › Availability sets how long before, or Never, and turns the heads’ message off.',
+      'One service can have a deadline of its own: on its page in the Service Planner, under the title, Change.',
+      'Answers can now close when the service begins: 0 hours before.',
+    ],
+    link: { to: '/availability', label: 'Open Availability' },
+    page: '/availability',
+    holds: ['settings.pages', 'svc.manage'],
+  },
+  {
     key: 'availability-closes-hours-before',
     date: '2026-11-20',
     title: 'Close availability hours before the service',

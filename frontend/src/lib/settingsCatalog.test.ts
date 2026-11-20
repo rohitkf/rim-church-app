@@ -143,11 +143,29 @@ describe('how the deadline for answers is set (0309)', () => {
     expect(shown('availability_closes_hours', { availability_closes_mode: 'hours' })).toBe(true)
   })
 
-  it('takes an hour to a week, as the database does', () => {
+  it('takes from the start of the service to a week before, as the database does (0310)', () => {
     const hours = entry('availability_closes_hours')
     expect(hours.kind).toBe('dial')
     if (hours.kind !== 'dial') return
-    expect([hours.min, hours.max, hours.unit, hours.fallback]).toEqual([1, 168, 'hours', 12])
+    expect([hours.min, hours.max, hours.unit, hours.fallback, hours.zeroText]).toEqual([0, 168, 'hours', 12, 'When it begins'])
+  })
+
+  it('sets how long before the deadline people are reminded, and Never (0310)', () => {
+    const remind = entry('availability_reminder_hours')
+    expect(remind.kind).toBe('dial')
+    if (remind.kind !== 'dial') return
+    expect([remind.min, remind.max, remind.unit, remind.fallback, remind.zeroText]).toEqual([0, 168, 'hours', 24, 'Never'])
+    expect(remind.affects).toEqual(['/availability'])
+    // Whichever way the deadline is said: it is not one of the two choices' own controls.
+    expect(remind.when).toBeUndefined()
+  })
+
+  it('lets the church turn the heads’ notice off, and starts with it on (0310)', () => {
+    const notice = entry('availability_closed_notice')
+    expect(notice.kind).toBe('switch')
+    if (notice.kind !== 'switch') return
+    expect(notice.fallback).toBe(true)
+    expect(notice.put({}, false)).toEqual({ availability_closed_notice: false })
   })
 })
 
