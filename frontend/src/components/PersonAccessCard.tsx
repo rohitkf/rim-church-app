@@ -219,6 +219,7 @@ export function PersonAccessCard({ onOpenRoles }: { onOpenRoles: () => void }) {
       >
         <QueryState isLoading={people.isLoading} error={people.error}>
           <Select
+            search
             aria-label="Person"
             placeholder="Choose somebody…"
             value={personId}
@@ -530,6 +531,7 @@ function GivenMore({
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
           <Select
+            search
             aria-label="Give them"
             placeholder="Give them one thing more…"
             value={cap}
@@ -671,6 +673,7 @@ function BlockedFrom({ facts, name }: { facts: PersonFacts; name: string }) {
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
           <Select
+            search
             aria-label="Block them from"
             placeholder="Block them from one thing…"
             value={cap}

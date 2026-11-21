@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'type-to-find-in-long-lists',
+    date: '2026-11-21',
+    title: 'Type to find a person or a right',
+    lead: 'In Access & Privileges, the long lists now open with a box to type in, so nobody has to scroll for a name.',
+    points: [
+      'By person: choosing who, and “Give them one thing more”, each open with a search box. Type any part of a name — “sam” finds every Sam — or of what you want to give, such as “countdown”.',
+      'By team: the same for choosing the team and what to give it.',
+      'Typing the name of a section, such as “services”, lists everything in it.',
+      'The same box is on “Who arrived” when a clock-in is entered by hand.',
+    ],
+    holds: ['app.permissions'],
+  },
+  {
     key: 'order-the-people-on-a-session',
     date: '2026-11-21',
     title: 'Put the people on a session in order',

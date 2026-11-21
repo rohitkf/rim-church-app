@@ -126,6 +126,7 @@ export function TeamAccessCard() {
       >
         <QueryState isLoading={teams.isLoading} error={teams.error}>
           <Select
+            search
             aria-label="Team"
             placeholder="Choose a team…"
             value={teamId}
@@ -380,6 +381,7 @@ function GivenToTeam({
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
           <Select
+            search
             aria-label="Give the team"
             placeholder="Give the team one thing more…"
             value={cap}

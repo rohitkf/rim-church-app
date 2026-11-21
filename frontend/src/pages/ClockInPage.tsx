@@ -491,7 +491,7 @@ function AddClockIn({
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 basis-full sm:basis-64">
-          <Select value={person} onChange={setPerson} options={options} placeholder="Who" aria-label="Who arrived" />
+          <Select search value={person} onChange={setPerson} options={options} placeholder="Who" aria-label="Who arrived" />
         </div>
         <div className="w-full sm:w-44">
             <TimeField value={time} onChange={setTime} minuteStep={1} label="Arrived at" aria-label="Arrived at" />

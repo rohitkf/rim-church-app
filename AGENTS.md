@@ -367,7 +367,12 @@ Other things that are true and not guessable:
 ```
 frontend/src/
   components/Surface.tsx     the design system's primitives — start here
-  components/Select.tsx      the app's dropdown (never use a native <select>)
+  components/Select.tsx      the app's dropdown (never use a native <select>).
+                             Give it `search` when the list is long — everybody,
+                             every right somebody could be given: a phone has
+                             no keyboard to type-to-find with, so a long list
+                             there is a long scroll. Not on a short list, where
+                             the box only raises the keyboard
   components/DateTimeFields  DateField / TimeField / DateTimeField — never
                              <input type="date|time|datetime-local">; tests
                              pick through them with test/pickers.ts
