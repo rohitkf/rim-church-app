@@ -1711,9 +1711,9 @@ So a session that starts from nothing works the way the last one did:
 
 ## 12. The skills installed in this repo
 
-`.claude/skills/` holds nine skill sets copied in at a pinned commit, each
+`.claude/skills/` holds ten skill sets copied in at a pinned commit, each
 with a `SOURCE.md` saying where it came from, its licence and what was
-left out: `superpowers`, `mattpocock-skills`, `ponytail`,
+left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
 `impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag` and `graphify`
 (beside `security-audit`, and `frontend/.claude/skills/verify`). All but
 `graphify` and `security-audit` are plugin folders: they load as
@@ -1730,10 +1730,15 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   `SOURCE.md`. Their auto-running hooks are left out on purpose; the one
   exception is ponytail's, which its panel needs and which were read
   first (they run `git ls-files` and write flag files; no network).
-- **One panel sits above the prompt**: ponytail's own. A mode shapes
-  chat replies only, never anything that is kept. `caveman` and its panel
-  were removed on 21 November 2026 at the Owner's word (it was causing
-  them trouble); do not bring it back unasked.
+- **Two panels sit above the prompt**: ponytail's own, and caveman's,
+  which is written here (`.claude/skills/caveman/hooks/band/`, with tests
+  in `tests/`: `claude plugin validate` and `claude plugin test` on that
+  folder). Caveman starts off; a mode shapes chat replies only, never
+  anything that is kept. **Do not remove caveman.** It was taken out on
+  21 November 2026, on a guess at which skill the Owner had asked to be
+  rid of, and put back the same day at their word: "Don't remove
+  caveman. We need it." A request to remove a skill that does not name
+  one that is installed is a question to ask, not a guess to act on.
 - **`brag` makes a short video about the app** (`brag:brag`, with
   Hyperframes; `brag:brag-slim` without). It works outside the
   repository — the session's scratch directory, never `brag-output/` here
