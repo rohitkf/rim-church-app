@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'registration-takes-the-address-as-typed',
+    date: '2026-11-21',
+    title: 'Registration and Reception take an email address as it is typed',
+    lead: 'The check that refused an address ending in “.con” has been taken off the registration and Reception forms. It stays on signing up and asking for a reset link.',
+    points: [
+      'Registering for an event, a walk-in at Reception, an invitation and a correction to a registration’s address no longer refuse an address for its ending.',
+      'The register form still asks for the address twice and reads it back before registering, and still asks about a slip such as gmial.com.',
+      'An address typed wrong on a registration goes through, its email fails, and it shows on Registrations with a red mark to put right, as it did before.',
+    ],
+    holds: ['reg.manage'],
+  },
+  {
     key: 'clear-not-started',
     date: '2026-11-21',
     title: 'Taking back “Not started” is now called what it does',
@@ -105,7 +117,7 @@ export const RELEASES: Release[] = [
     title: 'A mistyped email address is caught as it is typed',
     lead: 'An address ending in “.con”, or any other ending that does not exist, is no longer taken: the form says so and offers the address that was meant.',
     points: [
-      'Signing up, asking for a reset link, registering for an event, a walk-in at Reception, an invitation and a correction to a registration’s address all check it the same way.',
+      'Signing up and asking for a reset link check it. (Registration and Reception did too at first; that was taken off the same day.)',
       'It says why (“Email addresses do not end in .con”) and offers the right one, such as name@gmail.com, to take with one press.',
       'A comma typed for the dot, a space, or a full stop left on the end are mended the same way.',
       'An address that could be real but looks like a slip, such as gmial.com, is still only asked about, as before.',

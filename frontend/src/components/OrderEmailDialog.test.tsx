@@ -5,9 +5,11 @@ import { OrderEmailDialog } from './OrderEmailDialog'
 import type { OrderRow } from '../lib/registrations'
 
 /*
- * The office putting a registration's address right. An address that
- * cannot be one is not sent to again, and not saved: it is mended first,
- * and the one that was meant is a press away.
+ * The office putting a registration's address right. It takes whatever is
+ * shaped like an address: for an hour it refused an ending that does not
+ * exist (".con"), and the Owner then had registration and Reception left
+ * alone for email issues (21 November 2026). A slip that looks like a
+ * well-known domain is still asked about, as it always was.
  */
 const order = (email: string) =>
   ({
@@ -32,31 +34,30 @@ const show = (email: string) => {
 }
 
 describe('a registration’s email address, put right by the office', () => {
-  it('will not send again to an address that cannot be one, and says why', () => {
+  it('refuses no address for its ending, and can send again to the one that is there', () => {
     show('ama@gmail.con')
-    expect(screen.getByRole('alert')).toHaveTextContent('Email addresses do not end in “.con”. Check the end of yours.')
-    expect(screen.getByRole('button', { name: 'Send it again' })).toBeDisabled()
-  })
-
-  it('offers the address that was meant, and saves that', async () => {
-    const { onSave, user } = show('ama@gmail.con')
-    await user.click(screen.getByRole('button', { name: 'ama@gmail.com' }))
-    expect(screen.getByRole('textbox')).toHaveValue('ama@gmail.com')
     expect(screen.queryByRole('alert')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Save and send' }))
-    expect(onSave).toHaveBeenCalledWith('ama@gmail.com')
+    expect(screen.getByRole('button', { name: 'Send it again' })).toBeEnabled()
   })
 
-  it('does not save a new address that cannot be one either', async () => {
+  it('saves a new address as it was typed', async () => {
     const { onSave, user } = show('ama@gmail.com')
     await user.clear(screen.getByRole('textbox'))
-    await user.type(screen.getByRole('textbox'), 'ama@hotmail.cmo{Enter}')
-    expect(onSave).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('do not end in “.cmo”')
-    expect(screen.getByRole('button', { name: 'ama@hotmail.com' })).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox'), 'ama@hotmail.cmo')
+    expect(screen.queryByRole('alert')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Save and send' }))
+    expect(onSave).toHaveBeenCalledWith('ama@hotmail.cmo')
   })
 
-  it('still questions, without refusing, a slip that could be a real address', async () => {
+  it('will not save what is not shaped like an address at all', async () => {
+    const { onSave, user } = show('ama@gmail.com')
+    await user.clear(screen.getByRole('textbox'))
+    await user.type(screen.getByRole('textbox'), 'ama-at-gmail{Enter}')
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Save and send' })).toBeDisabled()
+  })
+
+  it('still questions, without refusing, a slip that looks like a well-known domain', async () => {
     const { onSave, user } = show('ama@gmail.com')
     await user.clear(screen.getByRole('textbox'))
     await user.type(screen.getByRole('textbox'), 'ama@gmial.com')

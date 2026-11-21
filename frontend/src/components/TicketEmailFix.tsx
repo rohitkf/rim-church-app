@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { ActionButton, Field, inputClasses } from './Surface'
-import { emailMeant, emailProblem } from '../lib/emailAddress'
+import { looksLikeEmail, suggestEmail } from '../lib/emailDelivery'
 import { fixOrderEmail, sendTicketEmail, type OrderView } from '../lib/registrations'
 import { useErrorText } from '../lib/useErrorText'
 
@@ -23,9 +23,7 @@ export function TicketEmailFix({ order, noun, onFixed }: { order: OrderView; nou
   const [problem, setProblem] = useState<string | null>(null)
   const typed = email.trim()
   const same = typed.toLowerCase() === (order.email ?? '').toLowerCase()
-  const meant = emailMeant(typed)
-  // Whether what is typed can be an address at all: the one that came back often could not.
-  const wrong = typed ? emailProblem(typed) : null
+  const meant = suggestEmail(typed)
   const fix = useMutation({
     mutationFn: async () => {
       await fixOrderEmail(order.code, typed)
@@ -52,7 +50,7 @@ export function TicketEmailFix({ order, noun, onFixed }: { order: OrderView; nou
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (typed && !wrong && !same && !fix.isPending) fix.mutate()
+            if (looksLikeEmail(typed) && !same && !fix.isPending) fix.mutate()
           }}
           className="mt-3 flex flex-col gap-2"
         >
@@ -72,15 +70,10 @@ export function TicketEmailFix({ order, noun, onFixed }: { order: OrderView; nou
                 className={inputClasses}
               />
             </Field>
-            <ActionButton type="submit" disabled={fix.isPending || !typed || !!wrong || same}>
+            <ActionButton type="submit" disabled={fix.isPending || !looksLikeEmail(typed) || same}>
               {fix.isPending ? 'Sending…' : `Send my ${noun}`}
             </ActionButton>
           </div>
-          {wrong && (
-            <p role="alert" className="text-body-sm font-medium text-error">
-              {wrong.text}
-            </p>
-          )}
           {meant && (
             <p className="text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
               Did you mean{' '}

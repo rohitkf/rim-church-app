@@ -229,10 +229,9 @@ describe('the form that makes a link', () => {
     expect(fields(draft({ email: 'john@' }))).toEqual(['email'])
   })
 
-  it('refuses an address whose ending does not exist, and says the one that was meant', () => {
-    expect(inviteProblems(draft({ email: 'john@gmail.con' }), now)).toEqual([
-      { field: 'email', text: 'Email addresses do not end in “.con”. Check the end of yours. Did you mean john@gmail.com?' },
-    ])
+  // Registration is left alone for email issues (the Owner, 21 November 2026): shaped like an address is enough.
+  it('takes an address whatever its ending', () => {
+    expect(fields(draft({ email: 'john@gmail.con' }))).toEqual([])
   })
 
   it('wants a discount that is one', () => {

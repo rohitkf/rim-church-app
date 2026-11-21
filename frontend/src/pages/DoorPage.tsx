@@ -40,7 +40,6 @@ import {
 } from '../lib/registrations'
 import { orderSays, paymentWordsOf } from '../lib/orderFilters'
 import { doorGroups } from '../lib/doorGroups'
-import { emailProblem, emailProblemWords } from '../lib/emailAddress'
 import { Chevron } from '../components/Collapsible'
 
 /**
@@ -598,9 +597,7 @@ function WalkIn({
   const problems: string[] = []
   if (!name.trim()) problems.push('Their name.')
   if (phoneStatus === 'invalid') problems.push('A phone number that looks right, or none.')
-  // An address their ticket can be sent to, or none (lib/emailAddress): "…@gmail.con" used to be taken.
-  const emailWrong = email.trim() ? emailProblem(email) : null
-  if (emailWrong) problems.push(`${emailProblemWords(emailWrong)} Or leave the email out.`)
+  if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push('An email address that looks right, or none.')
   if (dateMode === 'choose' && !dateId) problems.push('Which date they are here for.')
   if (quantity === 0) problems.push('At least one ticket.')
   for (const t of ticketTypes) {

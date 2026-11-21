@@ -624,69 +624,24 @@ describe('the public register page', () => {
     })
 
     /*
-     * "People are typing .con in the end instead of .com and since it's
-     * going through, Resend fails." There is no .con: it is refused for
-     * that reason, with the address they meant one press away.
+     * For an hour this form refused an ending that does not exist (".con").
+     * The Owner then had registration and Reception left alone for email
+     * issues (21 November 2026): the address is taken as it is typed,
+     * twice, and read back; whether it can be one is not this form's to say.
      */
-    it('refuses an ending that does not exist, and does not register', async () => {
+    it('takes an address whatever its ending, and asks only whether it is theirs', async () => {
       const user = await open()
       await user.click(screen.getByRole('button', { name: 'One more Standard' }))
       await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Ama Owusu')
       await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail.con')
-      await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ama@gmail.con')
-      await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
-      await user.click(screen.getByRole('button', { name: 'Register' }))
-      expect(said()).toEqual(['Email addresses do not end in “.con”. Check the end of yours.'])
-      expect(screen.queryByRole('dialog', { name: 'Is this your email address?' })).toBeNull()
-      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveFocus()
-    })
-
-    it('says so as soon as the box is left, before Register is pressed', async () => {
-      const user = await open()
-      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail.con')
-      expect(screen.queryByText(/do not end in/)).toBeNull()
-      await user.tab()
-      expect(screen.getByText('Email addresses do not end in “.con”. Check the end of yours.')).toBeInTheDocument()
-      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveAttribute('aria-invalid', 'true')
-      // Nothing is said of an address that is fine, or of a box not yet filled.
-      await user.clear(screen.getByRole('textbox', { name: 'Email' }))
-      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail.com')
       await user.tab()
       expect(screen.queryByText(/do not end in/)).toBeNull()
-    })
-
-    it('offers the address they meant, and takes it for both boxes', async () => {
-      const user = await open()
-      await user.click(screen.getByRole('button', { name: 'One more Standard' }))
-      await user.type(screen.getByRole('textbox', { name: 'Your name' }), 'Ama Owusu')
-      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail.con')
+      expect(screen.getByRole('textbox', { name: 'Email' })).not.toHaveAttribute('aria-invalid')
       await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ama@gmail.con')
       await user.type(screen.getByRole('textbox', { name: 'Phone' }), '07911 123456')
-      await user.click(screen.getByRole('button', { name: 'ama@gmail.com' }))
-      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ama@gmail.com')
-      expect(screen.getByRole('textbox', { name: 'Confirm email' })).toHaveValue('ama@gmail.com')
-      expect(screen.queryByText(/do not end in/)).toBeNull()
       await user.click(screen.getByRole('button', { name: 'Register' }))
       const dialog = await screen.findByRole('dialog', { name: 'Is this your email address?' })
-      expect(within(dialog).getByTestId('email-to-confirm')).toHaveTextContent(/^ama@gmail\.com$/)
-    })
-
-    it('leaves the second box alone when it was typed differently', async () => {
-      const user = await open()
-      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail.con')
-      await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ama@gmail.com')
-      await user.click(screen.getByRole('button', { name: 'ama@gmail.com' }))
-      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ama@gmail.com')
-      expect(screen.getByRole('textbox', { name: 'Confirm email' })).toHaveValue('ama@gmail.com')
-    })
-
-    it('mends a comma typed for the dot', async () => {
-      const user = await open()
-      await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ama@gmail,com')
-      await user.tab()
-      expect(screen.getByText('That email address doesn’t look right. It should be like name@example.com.')).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'ama@gmail.com' }))
-      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ama@gmail.com')
+      expect(within(dialog).getByTestId('email-to-confirm')).toHaveTextContent(/^ama@gmail\.con$/)
     })
 
     it('says which date and how much, when those are what is missing', async () => {

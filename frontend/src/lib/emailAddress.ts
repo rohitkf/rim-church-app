@@ -24,9 +24,11 @@ import { suggestEmail } from './emailDelivery'
  * "ama@gmial.com" is a real ending on a domain somebody could own; it is
  * questioned (`suggestEmail`, lib/emailDelivery) and not refused.
  *
- * `looksLikeEmail` (lib/emailDelivery) stays as it was for reading an
- * address already kept: somebody who registered with a slip in theirs
- * still has to be able to type it to find their registration.
+ * This is asked of an account's address only: signing up, a reset link,
+ * and (said, not enforced) signing in. It was on the registration and
+ * Reception forms for an hour, and the Owner had it taken off them: "Don't
+ * touch registration and reception for email issues." Those take whatever
+ * is shaped like an address (`looksLikeEmail`, lib/emailDelivery).
  */
 
 export interface EmailProblem {

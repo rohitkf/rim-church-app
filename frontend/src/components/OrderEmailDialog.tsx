@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ActionButton, Field, Overlay, Pill, inputClasses } from './Surface'
-import { deliveryOf } from '../lib/emailDelivery'
-import { emailMeant, emailProblem } from '../lib/emailAddress'
+import { deliveryOf, looksLikeEmail, suggestEmail } from '../lib/emailDelivery'
 import type { OrderRow } from '../lib/registrations'
 
 /**
@@ -37,9 +36,7 @@ export function OrderEmailDialog({
   const typed = email.trim()
   const delivery = deliveryOf(order)
   const same = !!order.email && typed.toLowerCase() === order.email.toLowerCase()
-  const meant = emailMeant(typed)
-  // Whether it can be an address at all. One that cannot is not sent to again: it is put right first.
-  const wrong = typed ? emailProblem(typed) : null
+  const meant = suggestEmail(typed)
   const live = order.status === 'confirmed'
   const changer = [order.changer?.first_name, order.changer?.last_name].filter(Boolean).join(' ')
   const was = order.email_before?.email
@@ -50,7 +47,7 @@ export function OrderEmailDialog({
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          if (typed && !wrong && !busy) onSave(typed)
+          if (looksLikeEmail(typed) && !busy) onSave(typed)
         }}
         className="w-full max-w-md rounded-[var(--radius-card)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)]"
       >
@@ -92,11 +89,6 @@ export function OrderEmailDialog({
             className={inputClasses}
           />
         </Field>
-        {wrong && (
-          <p role="alert" className="mt-2 text-body-sm font-medium text-error">
-            {wrong.text}
-          </p>
-        )}
         {meant && (
           <p className="mt-2 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
             Did you mean{' '}
@@ -122,7 +114,7 @@ export function OrderEmailDialog({
           <ActionButton tone="ghost" onClick={onClose}>
             Cancel
           </ActionButton>
-          <ActionButton type="submit" disabled={busy || !typed || !!wrong || (same && !live)}>
+          <ActionButton type="submit" disabled={busy || !looksLikeEmail(typed) || (same && !live)}>
             {busy ? 'Saving…' : same ? 'Send it again' : live ? 'Save and send' : 'Save'}
           </ActionButton>
         </div>
