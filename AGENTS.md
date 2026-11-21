@@ -429,12 +429,15 @@ frontend/src/
                              meant), `isEmailAddress`, `emailMeant`. One @, a
                              name, a domain, and an ending that exists —
                              lib/domainEndings.ts, IANA's own list, which is
-                             why "…@gmail.con" is refused for a reason. **Every
-                             form that takes a new address asks this**, never
-                             a regex of its own: registering, a walk-in, an
-                             invitation, a correction, the message to the
-                             organisers, signing up, a reset link. Signing in
-                             says it and still tries. Signing up also takes
+                             why "…@gmail.con" is refused for a reason. **It
+                             is asked of an account's address and of no
+                             other**: signing up and a reset link refuse on
+                             it; signing in says it and still tries.
+                             Registering for an event, a walk-in, an
+                             invitation, a corrected address and the message
+                             to the organisers do **not** ask it (see below:
+                             they did for an hour, and the Owner had it
+                             taken off). Signing up also takes
                              the address twice and then asks
                              (components/ConfirmEmailDialog), as registering
                              for an event does: nothing is made until Yes.
@@ -467,12 +470,20 @@ frontend/src/
                              belongs to no account: `registration_orders`
                              points at people only as the staff who handled
                              it, so removing an unconfirmed account cannot
-                             reach one.) The check those forms already had
-                             — shape, a real ending, typed twice — is the
-                             one the Owner asked for and stays; do not add
-                             to it without being asked. `looksLikeEmail`
-                             (lib/emailDelivery) is only for reading an address
-                             already kept. A slip that could be a real address
+                             reach one.) Asked whether the ending check
+                             (".con") should come off those forms too, the
+                             Owner said yes, and it did: they take whatever
+                             is shaped like an address (`looksLikeEmail`,
+                             lib/emailDelivery: something, an @, something,
+                             a dot, something), typed twice and read back
+                             where they always were, and a slip that looks
+                             like a well-known domain is still only asked
+                             about (`suggestEmail`). So "…@gmail.con" goes
+                             through on a registration again, its email
+                             fails, and the office puts it right from the
+                             red mark, as before. **Do not put an address
+                             check back on registration or Reception
+                             without being asked.** A slip that could be a real address
                              (gmial.com) is questioned, not refused
                              (`suggestEmail`). To take a newer list of endings,
                              see the top of domainEndings.ts

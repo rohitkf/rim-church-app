@@ -95,10 +95,12 @@ export function deliveryWord(order: EmailFacts): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * Looks like an address: the same rule the database checks with. For
- * reading an address already kept (finding a registration by the address
- * it was made with). A form that takes a new address asks `emailProblem`
- * (lib/emailAddress), which also wants an ending that exists.
+ * Looks like an address: the same rule the database checks with. It is
+ * the whole of what registration and Reception ask of an address (the
+ * register form, a walk-in, an invitation, a correction, finding a
+ * registration by its address): the Owner had those left alone for email
+ * issues (November 2026). An *account's* address is asked more
+ * (`emailProblem`, lib/emailAddress, which also wants an ending that exists).
  */
 export const looksLikeEmail = (address: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address.trim())
 
