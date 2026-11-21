@@ -164,4 +164,23 @@ describe('RailCountdown', () => {
     render(<RailCountdown startsAt={gone} to="end" holding />)
     expect(screen.getByLabelText(/^Running 3m/)).toHaveTextContent(/^\+3m/)
   })
+
+  // 1:12:55 has to be worked out before it can be said: the minutes are under it.
+  it('says the same reading as one number of minutes, under the pill', () => {
+    const long = new Date(Date.now() + (72 * 60 + 55) * 1000).toISOString()
+    const { unmount } = render(<RailCountdown startsAt={long} />)
+    expect(screen.getByLabelText(/^Next session in 1:12:/)).toBeInTheDocument()
+    expect(screen.getByLabelText('73 minutes remaining')).toHaveTextContent('73 min')
+    unmount()
+
+    const gone = new Date(Date.now() - (2 * 60 + 17) * 1000).toISOString()
+    const over = render(<RailCountdown startsAt={gone} holding />)
+    expect(screen.getByLabelText('2 minutes over')).toHaveTextContent('2 min over')
+    over.unmount()
+
+    // Run out with nobody holding it: "due" has no minutes to count.
+    render(<RailCountdown startsAt={gone} />)
+    expect(screen.getByLabelText('The next session is due to start')).toHaveTextContent('due')
+    expect(screen.queryByText(/min/)).toBeNull()
+  })
 })

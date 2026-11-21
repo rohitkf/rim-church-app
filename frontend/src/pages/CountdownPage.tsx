@@ -9,7 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
-import { clockFace, clockSize, clockTone, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
+import { clockFace, clockSize, clockTone, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -196,7 +196,11 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         {clockFace(remaining)}
       </p>
 
-      <p className="mt-4 text-body-lg text-on-surface">
+      {/* The same, as one number of minutes: what gets held up on a card
+          at the back, with no hour to work out first (clockMinutes). */}
+      <p className="mt-3 text-headline-sm text-on-surface">{minutesWords(remaining)}</p>
+
+      <p className="mt-3 text-body-lg text-on-surface">
         {over ? (clock.to === 'end' ? 'Over the planned end' : `Over — ${what} was due`) : clock.to === 'end' ? 'Until the end of the service' : `Until ${what}`}
         <span className="font-mono tabular text-on-surface-variant"> · {due}</span>
       </p>

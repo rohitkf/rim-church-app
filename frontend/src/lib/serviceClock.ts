@@ -155,3 +155,38 @@ export function clockFace(ms: number): string {
 export function clockSize(face: string, widest: string): string {
   return `min(${widest}, ${Math.floor(1600 / Math.max(face.length, 5)) / 10}cqi)`
 }
+
+/**
+ * The same reading as one number of minutes: 1:12:55 is 73 minutes.
+ *
+ * A clock face with an hour on it has to be worked out before it can be
+ * said aloud ("an hour twelve, so seventy-two, three"), and whoever is
+ * signalling a preacher from the back wants the number that goes on the
+ * card. So the minutes are said under the clock, wherever it is drawn.
+ *
+ * Counting down it rounds up, the way a timer does: 72:55 left is "73
+ * minutes", and it says 73 until 72:00 is reached, so the number is never
+ * more time than there is by a whole minute and never claims a minute
+ * that has not been reached. Counting up past zero it rounds down: +2:17
+ * is "2 minutes over". Inside the last minute either way there is no
+ * honest whole number, so it says "under a minute".
+ */
+export function clockMinutes(ms: number): { minutes: number; over: boolean } {
+  const over = ms < 0
+  return { minutes: over ? Math.floor(-ms / 60_000) : Math.ceil(ms / 60_000), over }
+}
+
+/** In words, under the big clock: "73 minutes remaining", "2 minutes over". */
+export function minutesWords(ms: number): string {
+  const { minutes, over } = clockMinutes(ms)
+  const end = over ? 'over' : 'remaining'
+  if ((over && minutes < 1) || (!over && ms < 60_000)) return `Under a minute ${end}`
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ${end}`
+}
+
+/** In a few characters, under the rail's pill: "73 min", "<1 min", "2 min over". */
+export function minutesShort(ms: number): string {
+  const { minutes, over } = clockMinutes(ms)
+  const count = (over && minutes < 1) || (!over && ms < 60_000) ? '<1' : String(minutes)
+  return over ? `${count} min over` : `${count} min`
+}

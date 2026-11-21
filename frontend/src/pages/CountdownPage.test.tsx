@@ -219,3 +219,43 @@ describe('the Countdown’s number and its card', () => {
     expect(blank.style.fontSize).toBe('min(clamp(3.5rem, 16vw, 10rem), 20cqi)')
   })
 })
+
+/*
+ * Under the number, the same reading as one number of minutes: what gets
+ * held up on a card at the back, with no hour to work out first.
+ */
+describe('the minutes under the Countdown’s number', () => {
+  it('rounds up while counting down', async () => {
+    vi.setSystemTime(new Date(at('10:25').getTime() + 30_000))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('4:30')
+    expect(screen.getByText('5 minutes remaining')).toBeInTheDocument()
+  })
+
+  it('counts an hour as sixty', async () => {
+    db.rows.service_sessions = [session('s1', 'Message', '10:00', 120, 0), session('s2', 'Close', '12:00', 10, 1)]
+    vi.setSystemTime(new Date(at('10:25').getTime() + 30_000))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('1:34:30')
+    expect(screen.getByText('95 minutes remaining')).toBeInTheDocument()
+  })
+
+  it('says how many minutes over once it is counting up', async () => {
+    db.rows.service_sessions = [
+      session('s1', 'Worship', '10:00', 30, 0),
+      session('s2', 'Notices', '10:30', 10, 1, { held_at: at('10:30').toISOString() }),
+      session('s3', 'Sermon', '10:40', 40, 2),
+    ]
+    vi.setSystemTime(new Date(at('10:32').getTime() + 17_000))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('+2:17')
+    expect(screen.getByText('2 minutes over')).toBeInTheDocument()
+  })
+
+  it('has none on the blank clock', async () => {
+    vi.setSystemTime(at('08:00'))
+    show()
+    await screen.findByLabelText('No service is running')
+    expect(screen.queryByText(/minutes? (remaining|over)/)).toBeNull()
+  })
+})
