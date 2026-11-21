@@ -24,12 +24,11 @@ A skill that says MUST is still fourth. The collisions that matter:
 | Open or merge a PR when the work is done | Only by AGENTS §1: `develop` to `main`, after any migration is live, one at a time. `mattpocock-skills:pr` may shape the body. |
 | Publish specs, tickets or triage labels (`to-spec`, `to-tickets`, `triage`, `wayfinder`, `setup-matt-pocock-skills`) | No issue tracker is set up. The plan lives in the conversation's task list. Do not create issues unless the Owner asks. |
 | Interview the person question by question (`superpowers:brainstorming`, `grill-me`, `grilling`, `grill-with-docs`) | Do the thinking; ask only what the Owner alone can decide. Run a full interview when the Owner asks to be grilled. |
-| Send work to subagents (`dispatching-parallel-agents`, `subagent-driven-development`, `caveman:cavecrew`) | Only when the Owner asks for it or the session's own rules allow it. |
-| Write the commit as one compressed line (`caveman:caveman-commit`) | Take its subject line. Keep the body: commits here explain why, in prose, and end with the attribution lines. |
+| Send work to subagents (`dispatching-parallel-agents`, `subagent-driven-development`) | Only when the Owner asks for it or the session's own rules allow it. |
 | Write a plan or a spec to a file | Only when the Owner asks for the file. Otherwise the plan is said and tracked in the task list. |
 | Pick a theme, a typeface or a new look (`hallmark`, `impeccable`, `unslop`) | The app has a design system (`DESIGN.md`, AGENTS §5): the device's own typeface, the app's tokens. Use these skills to judge and polish against it, never to replace it. `unslop` says the same of itself: a product with a real brand gets polish mode. Where a skill's rule and `DESIGN.md` disagree (capital labels, pills, a greeting), it is the Owner's choice: list it, do not change it. |
 
-The voice modes (`caveman`, `ultracave`, `megacave`, `i-have-adhd`, ponytail's reply style) shape
+The voice modes (`i-have-adhd`, ponytail's reply style) shape
 replies in the chat. They never touch what is kept: the app's own wording, code comments, commit
 messages, PR bodies, migrations, `AGENTS.md`.
 
@@ -75,10 +74,8 @@ messages, PR bodies, migrations, `AGENTS.md`.
   name the newest one.
 - It reads structure, not meaning. It finds who calls what; it does not know the house rules.
 
-## The two panels
+## The panel
 
-- **caveman** (`off · caveman · ultracave · megacave` and `Commit · Review · Stats · Compact`): starts
-  off. A switch reaches the model beside the next prompt. Stats are measured, never estimated.
 - **ponytail** (`off · lite · full · ultra` and `Copy · Review · Audit · Board · Compact`): ponytail's
   own. Its hooks start a session at `full` unless `PONYTAIL_DEFAULT_MODE` says otherwise.
 
@@ -100,8 +97,5 @@ Where a session has not loaded them, read the skill's file directly:
   "set the direction and stop" step is already answered here: the direction is `DESIGN.md`.
 - `brag` needs the Hyperframes npm package, which is not installed here: `brag/SOURCE.md` has the
   commands, with telemetry off. Its `publish`, `share`, `cloud`, `auth` and `feedback` are never run.
-- `caveman:caveman-compress` rewrites a memory file in caveman style and sends its text to a model.
-  Never run it on `AGENTS.md` or `CLAUDE.md` unless the Owner asks: those are the house rules, in
-  the house's own prose.
 - Auto-running hooks from these sets are not installed (each `SOURCE.md` lists them), except
   ponytail's, which its panel needs.
