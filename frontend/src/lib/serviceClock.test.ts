@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clockFace, clockTone, serviceClock, type ClockSession } from './serviceClock'
+import { type ClockSession, clockFace, clockSize, clockTone, serviceClock } from './serviceClock'
 import { addTimePlan, holdPlan, type RunWrite } from './sessionRunPlan'
 
 const at = (hhmm: string) => new Date(`2026-09-06T${hhmm}:00`).getTime()
@@ -151,5 +151,32 @@ describe('the colour of the clock', () => {
     expect(clockTone(6 * min)).toBe('plenty')
     expect(clockTone(4 * min, null)).toBe('close')
     expect(clockTone(50_000, 0)).toBe('out')
+  })
+})
+
+/*
+ * 1:12:55 is two characters longer than 12:55, and sized from the screen
+ * alone it ran out of its card on a phone.
+ */
+describe('how big the clock is drawn', () => {
+  const widest = 'clamp(4.5rem, 22vw, 13rem)'
+  const share = (face: string) => Number(/, ([\d.]+)cqi\)$/.exec(clockSize(face, widest))?.[1])
+
+  it('is never more than it was, and never wider than its card', () => {
+    expect(clockSize('12:55', widest)).toBe('min(clamp(4.5rem, 22vw, 13rem), 32cqi)')
+  })
+
+  it('steps down when an hour comes onto it, and again for the plus of an overrun', () => {
+    expect(share('1:12:55')).toBeLessThan(share('12:55'))
+    expect(share('+1:12:55')).toBeLessThan(share('1:12:55'))
+    // Every character still fits: about 0.62em each, in a hundred hundredths of the card.
+    for (const face of ['4:05', '12:55', '+12:55', '1:12:55', '+1:12:55', '--:--:--']) {
+      expect(share(face) * 0.62 * face.length).toBeLessThanOrEqual(100)
+    }
+  })
+
+  it('does not change size as the minutes go from one figure to two', () => {
+    expect(share('9:59')).toBe(share('10:00'))
+    expect(share('0:00')).toBe(share('+0:01'))
   })
 })

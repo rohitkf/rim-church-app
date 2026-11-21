@@ -451,10 +451,11 @@ describe('a guest’s note', () => {
       />,
     )
     // The pill and its note are one piece: a name that is dragged takes its note with it.
-    const piece = screen.getByText('Pastor Sam Varghese').parentElement?.parentElement as HTMLElement
-    expect(within(piece).getByText('Note: Guest speaker')).toBeInTheDocument()
+    const pieceOf = (name: string) => screen.getByText(name).parentElement?.parentElement?.parentElement as HTMLElement
+    expect(within(pieceOf('Pastor Sam Varghese')).getByText('Note: Guest speaker')).toBeInTheDocument()
     // A member has none to say.
-    expect(screen.getByText('Grace Mensah').parentElement?.parentElement).not.toHaveTextContent('Note')
+    expect(pieceOf('Grace Mensah')).not.toHaveTextContent('Note')
+    expect(pieceOf('Grace Mensah')).toHaveTextContent('Grace Mensah')
   })
 
   it('says nothing for a guest with no note, or one that is only spaces', () => {
@@ -474,5 +475,68 @@ describe('a guest’s note', () => {
       />,
     )
     expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
+  })
+})
+
+describe('choosing a translator (0315)', () => {
+  it('says No translator until one is picked, and marks each one Trans', () => {
+    const { rerender } = render(
+      <LeadPicker variant="translator" label="Translator for Message" options={options} values={[]} onChange={vi.fn()} />,
+    )
+    expect(screen.getByRole('button', { name: 'Translator for Message' })).toHaveTextContent('No translator')
+
+    rerender(
+      <LeadPicker
+        variant="translator"
+        label="Translator for Message"
+        options={options}
+        values={[{ kind: 'member', id: 'u2' }]}
+        onChange={vi.fn()}
+      />,
+    )
+    const pill = screen.getByText('Tunde Alabi').parentElement
+    expect(pill).toHaveTextContent('Trans')
+    expect(pill).not.toHaveTextContent('Sub')
+    expect(screen.getByRole('button', { name: 'Translator for Message' })).toHaveTextContent('Add a translator')
+  })
+
+  it('offers No translator at the top of its list, and never somebody on the session’s other lists', async () => {
+    render(
+      <LeadPicker
+        variant="translator"
+        label="Translator for Message"
+        options={options}
+        values={[]}
+        exclude={[
+          { kind: 'member', id: 'u1' },
+          { kind: 'guest', id: 'g1' },
+        ]}
+        onChange={vi.fn()}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Translator for Message' }))
+    const list = screen.getByRole('listbox', { name: 'Translator for Message' })
+    expect(within(list).getByText('No translator')).toBeInTheDocument()
+    expect(within(list).queryByText('Grace Mensah')).not.toBeInTheDocument()
+    expect(within(list).queryByText('Pastor Sam Varghese')).not.toBeInTheDocument()
+    expect(within(list).getByText('Tunde Alabi')).toBeInTheDocument()
+  })
+
+  it('marks nobody taking the session, and a substitute only as Sub', () => {
+    const { rerender } = render(
+      <LeadPicker label="Who leads Message" options={options} values={[{ kind: 'member', id: 'u2' }]} onChange={vi.fn()} />,
+    )
+    expect(screen.getByText('Tunde Alabi').parentElement).not.toHaveTextContent('Trans')
+    rerender(
+      <LeadPicker
+        variant="substitute"
+        label="Substitute for Message"
+        options={options}
+        values={[{ kind: 'member', id: 'u2' }]}
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Tunde Alabi').parentElement).toHaveTextContent('Sub')
+    expect(screen.getByText('Tunde Alabi').parentElement).not.toHaveTextContent('Trans')
   })
 })

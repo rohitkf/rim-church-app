@@ -59,22 +59,41 @@ export function assigneeInitials(assignee: SessionAssignee): string {
 }
 
 /**
+ * What somebody is on a session: taking it, standing by to take it
+ * (0182), or translating it as it is taken (0315). One of the three and
+ * never two: the database keeps a person on a session once.
+ */
+export type SessionPart = 'lead' | 'substitute' | 'translator'
+
+/** Which of the three a row is. */
+export function partOf(assignee: SessionAssignee): SessionPart {
+  return assignee.is_translator ? 'translator' : assignee.is_substitute ? 'substitute' : 'lead'
+}
+
+/** One of a session's three lists, each in its own order. */
+function listOn(session: { assignees?: SessionAssignee[] }, part: SessionPart): SessionAssignee[] {
+  return [...(session.assignees ?? [])].filter((a) => partOf(a) === part).sort((a, b) => a.order_index - b.order_index)
+}
+
+/**
  * Everyone taking a session, in the order somebody put them there.
  *
  * Not the substitutes (0182): they are named to step in, not on it, so a
- * session with only a substitute is still a session nobody is taking.
+ * session with only a substitute is still a session nobody is taking. Nor
+ * the translators (0315), who say it again and do not take it.
  */
 export function peopleOn(session: { assignees?: SessionAssignee[] }): SessionAssignee[] {
-  return [...(session.assignees ?? [])]
-    .filter((a) => !a.is_substitute)
-    .sort((a, b) => a.order_index - b.order_index)
+  return listOn(session, 'lead')
 }
 
 /** Whoever steps in if they cannot, in their own order. */
 export function substitutesOn(session: { assignees?: SessionAssignee[] }): SessionAssignee[] {
-  return [...(session.assignees ?? [])]
-    .filter((a) => a.is_substitute)
-    .sort((a, b) => a.order_index - b.order_index)
+  return listOn(session, 'substitute')
+}
+
+/** Whoever translates it as it is taken, in their own order. */
+export function translatorsOn(session: { assignees?: SessionAssignee[] }): SessionAssignee[] {
+  return listOn(session, 'translator')
 }
 
 const named = (people: SessionAssignee[]) =>
@@ -88,6 +107,11 @@ export function namesOn(session: { assignees?: SessionAssignee[] }): string[] {
 /** The substitutes, as names ready to print. */
 export function substituteNamesOn(session: { assignees?: SessionAssignee[] }): string[] {
   return named(substitutesOn(session))
+}
+
+/** The translators, as names ready to print. */
+export function translatorNamesOn(session: { assignees?: SessionAssignee[] }): string[] {
+  return named(translatorsOn(session))
 }
 
 /**
@@ -104,22 +128,23 @@ export function substituteNamesOn(session: { assignees?: SessionAssignee[] }): s
 export function withNewOrder<S extends { assignees?: SessionAssignee[] }>(
   session: S,
   next: PersonRef[],
-  substitute = false,
+  part: SessionPart = 'lead',
 ): S | null {
-  const list = substitute ? substitutesOn(session) : peopleOn(session)
+  const list = listOn(session, part)
   const place = new Map(next.map((ref, index) => [keyOf(ref), index]))
   if (list.length !== place.size || !list.every((row) => place.has(keyOf(refOf(row))))) return null
   return {
     ...session,
     assignees: (session.assignees ?? []).map((row) =>
-      !!row.is_substitute === substitute ? { ...row, order_index: place.get(keyOf(refOf(row))) ?? row.order_index } : row,
+      partOf(row) === part ? { ...row, order_index: place.get(keyOf(refOf(row))) ?? row.order_index } : row,
     ),
   }
 }
 
 /**
- * Make one of the session's two lists — who is taking it, or who stands
- * in (`substitute`) — match `next`. `current` is that list's rows only.
+ * Make one of the session's three lists — who is taking it, who stands
+ * in or who translates (`part`) — match `next`. `current` is that list's
+ * rows only.
  *
  * Only the difference is written. Re-inserting the lot on every change
  * would work and would be simpler to read, but every row on this table is
@@ -131,7 +156,7 @@ export async function saveAssignees(
   sessionId: string,
   current: SessionAssignee[],
   next: PersonRef[],
-  substitute = false,
+  part: SessionPart = 'lead',
 ): Promise<void> {
   const wanted = new Map(next.map((ref, index) => [keyOf(ref), { ref, index }]))
   const held = new Map(current.map((row) => [keyOf(refOf(row)), row]))
@@ -158,7 +183,11 @@ export async function saveAssignees(
         user_id: ref.kind === 'member' ? ref.id : null,
         guest_id: ref.kind === 'guest' ? ref.id : null,
         order_index: index,
-        is_substitute: substitute,
+        is_substitute: part === 'substitute',
+        // Said only of a translator: every other row is one by the column's
+        // own default, and a row that never names the column is a row an
+        // app a release behind can still read back.
+        ...(part === 'translator' ? { is_translator: true } : {}),
       })),
     )
     if (error) throw error

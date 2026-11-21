@@ -151,6 +151,12 @@ export const sessionAssigneeSchema = z.object({
   order_index: z.number(),
   /** Named to step in if the person taking it cannot (0182). */
   is_substitute: z.boolean().default(false),
+  /**
+   * Translating the session as it is taken (0315): neither taking it nor
+   * standing by. Left out by a read that does not ask for it, which is
+   * the same as false.
+   */
+  is_translator: z.boolean().optional(),
   profile: personSummarySchema.nullable().optional(),
   guest: z
     .object({

@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-session-can-have-a-translator',
+    date: '2026-11-21',
+    title: 'A session can have a translator',
+    lead: 'Whoever translates a session as it is taken can now be named on it, apart from who takes it and who stands in.',
+    points: [
+      'On the Service Planner, open a session’s menu and choose Assign translator, under Assign substitute. A Translator row opens on the session: pick one person or several, members or guests.',
+      'Translators show in indigo with a Trans mark, in their own row, so they are never read as one more person taking the session. Everybody who opens the running order sees them.',
+      'The Preview and the exported sheet list them under a TRANSLATOR label.',
+      'A person is on a session once: taking it, standing in, or translating. Naming translators is for whoever plans the running order.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.sessions'],
+  },
+  {
     key: 'countdown-button-on-the-running-order',
     date: '2026-11-21',
     title: 'A button to the Countdown on the running order',

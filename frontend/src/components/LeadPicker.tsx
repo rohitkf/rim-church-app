@@ -16,6 +16,31 @@ export interface LeadOption {
 /** Who a row refers to. The same pair the assignee rows are written with. */
 export type LeadValue = PersonRef
 
+/**
+ * The three lists a session has, and how each is told from the others:
+ * its own words for nobody and for one more, and for the two that are not
+ * the people taking it, a dashed pill in a colour of its own with a mark —
+ * amber and Sub for whoever stands in (0182), indigo and Trans for whoever
+ * translates (0315) — so neither is ever read as one more person taking it.
+ */
+const KINDS = {
+  lead: { none: 'Unassigned', add: 'Add someone', mark: null, pill: 'bg-raised-strong hairline', markTone: '' },
+  substitute: {
+    none: 'No substitute',
+    add: 'Add a substitute',
+    mark: 'Sub',
+    pill: 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]',
+    markTone: 'bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] text-accent-orange-soft',
+  },
+  translator: {
+    none: 'No translator',
+    add: 'Add a translator',
+    mark: 'Trans',
+    pill: 'border border-dashed border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent)]',
+    markTone: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft',
+  },
+} as const
+
 /** A name as it is compared: case and stray spaces make nobody different. */
 function sameName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -65,7 +90,7 @@ export function LeadPicker({
    * chip is drawn apart — a dashed amber edge and a Sub mark — so it is
    * never read as one more person taking the session.
    */
-  variant?: 'lead' | 'substitute'
+  variant?: keyof typeof KINDS
   /**
    * People not to offer: those already in the session's other list. A
    * person is on a session once, taking it or standing by, never both.
@@ -94,7 +119,7 @@ export function LeadPicker({
     const skip = new Set((exclude ?? []).map(keyOf))
     return skip.size === 0 ? allOptions : allOptions.filter((o) => !skip.has(keyOf(o)))
   }, [allOptions, exclude])
-  const sub = variant === 'substitute'
+  const kind = KINDS[variant]
 
   // The people on this session, in the order they were put there, named
   // from the options list — a name that has since gone (a guest removed
@@ -289,16 +314,12 @@ export function LeadPicker({
         <span
           key={`${option.kind}-${option.id}`}
           {...chipProps(keyOf(option))}
-          className="inline-flex max-w-full flex-col items-start gap-0.5 rounded-[1.25rem]"
+          className="inline-flex flex-col items-start gap-0.5 rounded-[1.25rem]"
         >
           <span
-            className={`inline-flex max-w-full items-center gap-1.5 rounded-full py-1 pr-1 text-label-md text-on-surface ${
+            className={`inline-flex items-center gap-1.5 rounded-full py-1 pr-1 text-label-md text-on-surface ${
               movable ? 'pl-1' : 'pl-3'
-            } ${
-              sub
-                ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
-                : 'bg-raised-strong hairline'
-            }`}
+            } ${kind.pill}`}
           >
             {/* The grip, and the only place a drag starts: the name beside
                 it stays text, and the page under it still scrolls. */}
@@ -314,17 +335,26 @@ export function LeadPicker({
                 </span>
               </button>
             )}
-            <span className="min-w-0 break-words">{option.name}</span>
-            {sub && (
-              <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
-                Sub
-              </span>
-            )}
-            {option.kind === 'guest' && (
-              <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-blue-soft">
-                Guest
-              </span>
-            )}
+            {/* The name and its marks, which go under it when there is no
+                room beside: a grip, a name, Trans, Guest and a way off, in
+                a line, are wider than a session's card on a small phone,
+                and what ran off the edge was the way off. The name keeps
+                four rems to itself, so it narrows a word at a time and
+                never to a column of letters; a single word longer than
+                that breaks before it pushes the way off out of the card. */}
+            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="min-w-16 [overflow-wrap:anywhere]">{option.name}</span>
+              {kind.mark && (
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[0.75rem] font-medium ${kind.markTone}`}>
+                  {kind.mark}
+                </span>
+              )}
+              {option.kind === 'guest' && (
+                <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-blue-soft">
+                  Guest
+                </span>
+              )}
+            </span>
             <button
               type="button"
               aria-label={`Remove ${option.name}`}
@@ -363,7 +393,7 @@ export function LeadPicker({
         className="tap flex items-center gap-2 rounded-full bg-raised-strong px-3 py-2 text-left text-label-md text-on-surface hairline"
       >
         <span className="min-w-0 break-words text-left">
-          {chosen.length === 0 ? (sub ? 'No substitute' : 'Unassigned') : sub ? 'Add a substitute' : 'Add someone'}
+          {chosen.length === 0 ? kind.none : kind.add}
         </span>
         <svg
           className="h-3.5 w-3.5 shrink-0 text-on-surface-variant"
@@ -407,7 +437,7 @@ export function LeadPicker({
                   highlighted === 0 ? 'bg-raised-strong' : ''
                 }`}
               >
-                {sub ? 'No substitute' : 'Unassigned'}
+                {kind.none}
               </button>
             </li>
 
