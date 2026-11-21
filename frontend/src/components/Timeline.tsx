@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { formatCountdown } from '../lib/countdown'
+import { minutesShort, minutesWords } from '../lib/serviceClock'
 
 export type TimelineTone = 'plain' | 'now' | 'warning'
 
@@ -323,12 +324,28 @@ export function RailCountdown({
         ? 'The service is due to end'
         : 'The next session is due to start'
 
+  // The same reading as one number of minutes, under the pill (lib/
+  // serviceClock). Not once the gap has run out with nobody holding it:
+  // "due" has no minutes to count.
+  const minutes = over && !holding ? null : minutesShort(remaining)
+
   return (
-    <span
-      className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[0.6875rem] leading-[1.45] tabular ring-1 ${tone}`}
-      aria-label={label}
-    >
-      {text}
+    <span className="inline-flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-block rounded-full bg-surface-lowest px-2 py-0.5 font-mono text-[0.6875rem] leading-[1.45] tabular ring-1 ${tone}`}
+        aria-label={label}
+      >
+        {text}
+      </span>
+      {minutes && (
+        // Opaque, like the pill: the rail's line passes behind it and not through it.
+        <span
+          aria-label={minutesWords(remaining)}
+          className="inline-block rounded-full bg-surface-lowest px-1.5 font-mono text-[0.6875rem] leading-[1.45] tabular text-on-surface-variant"
+        >
+          {minutes}
+        </span>
+      )}
     </span>
   )
 }

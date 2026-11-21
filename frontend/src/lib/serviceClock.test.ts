@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type ClockSession, clockFace, clockSize, clockTone, serviceClock } from './serviceClock'
+import { type ClockSession, clockFace, clockMinutes, clockSize, clockTone, minutesShort, minutesWords, serviceClock } from './serviceClock'
 import { addTimePlan, holdPlan, type RunWrite } from './sessionRunPlan'
 
 const at = (hhmm: string) => new Date(`2026-09-06T${hhmm}:00`).getTime()
@@ -178,5 +178,38 @@ describe('how big the clock is drawn', () => {
   it('does not change size as the minutes go from one figure to two', () => {
     expect(share('9:59')).toBe(share('10:00'))
     expect(share('0:00')).toBe(share('+0:01'))
+  })
+})
+
+/*
+ * 1:12:55 has to be worked out before it can be said; the number that
+ * goes on a card held up at the back is 73.
+ */
+describe('the clock as one number of minutes', () => {
+  const ms = (h: number, m: number, sec: number) => ((h * 60 + m) * 60 + sec) * 1000
+
+  it('rounds up while counting down, as a timer does', () => {
+    expect(clockMinutes(ms(1, 12, 55))).toEqual({ minutes: 73, over: false })
+    expect(minutesWords(ms(1, 12, 55))).toBe('73 minutes remaining')
+    expect(minutesWords(ms(1, 12, 0))).toBe('72 minutes remaining')
+    expect(minutesWords(ms(0, 4, 5))).toBe('5 minutes remaining')
+    expect(minutesWords(ms(0, 1, 0))).toBe('1 minute remaining')
+    expect(minutesShort(ms(1, 12, 55))).toBe('73 min')
+  })
+
+  it('says under a minute for the last of it, not a number', () => {
+    expect(minutesWords(ms(0, 0, 59))).toBe('Under a minute remaining')
+    expect(minutesWords(0)).toBe('Under a minute remaining')
+    expect(minutesShort(ms(0, 0, 30))).toBe('<1 min')
+  })
+
+  it('rounds down once it is counting up, and says over', () => {
+    expect(clockMinutes(-ms(0, 2, 17))).toEqual({ minutes: 2, over: true })
+    expect(minutesWords(-ms(0, 2, 17))).toBe('2 minutes over')
+    expect(minutesWords(-ms(1, 5, 0))).toBe('65 minutes over')
+    expect(minutesWords(-ms(0, 1, 30))).toBe('1 minute over')
+    expect(minutesWords(-ms(0, 0, 20))).toBe('Under a minute over')
+    expect(minutesShort(-ms(0, 2, 17))).toBe('2 min over')
+    expect(minutesShort(-ms(0, 0, 20))).toBe('<1 min over')
   })
 })

@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'minutes-under-the-clock',
+    date: '2026-11-21',
+    title: 'The minutes left, under the clock',
+    lead: 'The Countdown and the running order now say the time left as one number of minutes, right under the timer.',
+    points: [
+      'With 1:12:55 on the clock, the line under it reads “73 minutes remaining”: no hour to work out first.',
+      'It rounds up while counting down, as a timer does, and says “under a minute” for the last of it.',
+      'Past zero it says how many minutes over.',
+      'On the Service Planner the same number is under the timer on the rail, as “73 min”.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'a-session-can-have-a-translator',
     date: '2026-11-21',
     title: 'A session can have a translator',
