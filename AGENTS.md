@@ -427,7 +427,10 @@ frontend/src/
                              a regex of its own: registering, a walk-in, an
                              invitation, a correction, the message to the
                              organisers, signing up, a reset link. Signing in
-                             says it and still tries. `looksLikeEmail`
+                             says it and still tries. Signing up also takes
+                             the address twice and then asks
+                             (components/ConfirmEmailDialog), as registering
+                             for an event does: nothing is made until Yes. `looksLikeEmail`
                              (lib/emailDelivery) is only for reading an address
                              already kept. A slip that could be a real address
                              (gmial.com) is questioned, not refused

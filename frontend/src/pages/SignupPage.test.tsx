@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { SignupPage } from './SignupPage'
+import { setConfirmEmailWaitForTests } from '../lib/emailDelivery'
 
 const auth = vi.hoisted(() => ({
   calls: [] as { email: string; data: unknown }[],
@@ -24,12 +25,19 @@ vi.mock('../lib/supabaseClient', () => ({
 }))
 
 beforeEach(() => {
+  // "Yes" waits five seconds on the page; a test has no reason to.
+  setConfirmEmailWaitForTests(0)
   auth.calls = []
   auth.error = null
   auth.user = { identities: [{}] }
 })
 
-async function fillIn(email = '  ada@gmail.com ', name: [string, string] = ['Ada', 'Grace']) {
+/**
+ * Fill the form in and press Sign up. `again` is the second email box
+ * (the same as the first unless said). With `confirm`, the address is
+ * then said to be theirs in the dialog that asks, if it came up.
+ */
+async function fillIn(email = '  ada@gmail.com ', name: [string, string] = ['Ada', 'Grace'], { again = email, confirm = true } = {}) {
   render(
     <MemoryRouter>
       <SignupPage />
@@ -39,11 +47,14 @@ async function fillIn(email = '  ada@gmail.com ', name: [string, string] = ['Ada
   const [first, last] = screen.getAllByRole('textbox')
   await user.type(first, name[0])
   await user.type(last, name[1])
-  await user.type(screen.getByRole('textbox', { name: /email/i }), email)
+  await user.type(screen.getByRole('textbox', { name: 'Email' }), email)
+  await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), again)
   const passwords = document.querySelectorAll('input[type="password"]')
   await user.type(passwords[0] as HTMLElement, 'Sunday-Rota-9')
   await user.type(passwords[1] as HTMLElement, 'Sunday-Rota-9')
-  await user.click(screen.getByRole('button', { name: /create account|sign up/i }))
+  await user.click(screen.getByRole('button', { name: 'Sign up' }))
+  const asked = screen.queryByRole('dialog', { name: 'Is this your email address?' })
+  if (confirm && asked) await user.click(await screen.findByRole('button', { name: 'Yes, it’s right — Sign up' }))
   return user
 }
 
@@ -62,7 +73,7 @@ describe('signing up', () => {
     await user.click(screen.getByRole('button', { name: 'Wrong address? Go back' }))
     expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
     // (An email field drops stray spaces itself.)
-    expect(screen.getByRole('textbox', { name: /email/i })).toHaveValue('ada@gmail.com')
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ada@gmail.com')
     expect(screen.getAllByRole('textbox')[0]).toHaveValue('Ada')
   })
 
@@ -82,10 +93,83 @@ describe('signing up', () => {
 
   // There is no .con: the confirmation could never arrive, and the account could never be confirmed.
   it('makes no account for an address that cannot be one, and says the one that was meant', async () => {
-    await fillIn('ada@gmail.con')
+    const user = await fillIn('ada@gmail.con')
     expect(auth.calls).toEqual([])
-    expect(screen.getByText(/Email addresses do not end in “\.con”.*Did you mean ada@gmail\.com\?/)).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
+    expect(screen.getByText('Email addresses do not end in “.con”. Check the end of yours.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // One press puts both boxes right.
+    await user.click(screen.getByRole('button', { name: 'ada@gmail.com' }))
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ada@gmail.com')
+    expect(screen.getByRole('textbox', { name: 'Confirm email' })).toHaveValue('ada@gmail.com')
+    expect(screen.queryByText(/do not end in/)).toBeNull()
+  })
+
+  /*
+   * As registering for an event does (November 2026): the address is
+   * typed twice, then shown on its own and asked about, and only then is
+   * the account made. An account made with a slip in its address can
+   * never be confirmed.
+   */
+  describe('the address, confirmed twice over', () => {
+    it('wants it typed twice, the same', async () => {
+      await fillIn('ada@gmail.com', undefined, { again: 'ada@gmial.com' })
+      expect(auth.calls).toEqual([])
+      expect(screen.getByText('The two email addresses are different. They have to be the same.')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('does not call capitals or a trailing space a difference', async () => {
+      await fillIn('Ada@Gmail.com', undefined, { again: 'ada@gmail.com ' })
+      expect(await screen.findByRole('dialog', { name: 'Check your email' })).toBeInTheDocument()
+      expect(auth.calls[0].email).toBe('Ada@Gmail.com')
+    })
+
+    it('says the two agree once they do', async () => {
+      await fillIn(undefined, undefined, { confirm: false })
+      expect(screen.getByText('The same as the one above.')).toBeInTheDocument()
+    })
+
+    it('asks whether the address is theirs before anything is made, and says where the link goes', async () => {
+      await fillIn(undefined, undefined, { confirm: false })
+      const dialog = screen.getByRole('dialog', { name: 'Is this your email address?' })
+      expect(dialog).toHaveTextContent('ada@gmail.com')
+      expect(dialog).toHaveTextContent('The link to confirm your account is sent here, and nowhere else.')
+      expect(auth.calls).toEqual([])
+    })
+
+    it('goes back to the form, everything as it was, on No', async () => {
+      const user = await fillIn(undefined, undefined, { confirm: false })
+      await user.click(screen.getByRole('button', { name: 'No, change it' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(auth.calls).toEqual([])
+      expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ada@gmail.com')
+      expect(screen.getAllByRole('textbox')[0]).toHaveValue('Ada')
+    })
+
+    it('makes the account on Yes, and only then', async () => {
+      const user = await fillIn(undefined, undefined, { confirm: false })
+      await user.click(await screen.findByRole('button', { name: 'Yes, it’s right — Sign up' }))
+      expect(await screen.findByRole('dialog', { name: 'Check your email' })).toBeInTheDocument()
+      expect(auth.calls).toHaveLength(1)
+      expect(screen.queryByRole('dialog', { name: 'Is this your email address?' })).toBeNull()
+    })
+
+    it('holds Yes back while the address is read', async () => {
+      setConfirmEmailWaitForTests(5)
+      await fillIn(undefined, undefined, { confirm: false })
+      expect(screen.getByRole('button', { name: /Check the address/ })).toBeDisabled()
+      expect(auth.calls).toEqual([])
+    })
+
+    it('offers the spelling of a well-known domain typed nearly right, and takes it for both boxes', async () => {
+      const user = await fillIn('ada@gmial.com', undefined, { confirm: false })
+      const dialog = screen.getByRole('dialog', { name: 'Is this your email address?' })
+      expect(dialog).toHaveTextContent('Did you mean ada@gmail.com?')
+      await user.click(screen.getByRole('button', { name: 'Yes, use that one' }))
+      await user.click(await screen.findByRole('button', { name: 'Yes, it’s right — Sign up' }))
+      await screen.findByRole('dialog', { name: 'Check your email' })
+      expect(auth.calls[0].email).toBe('ada@gmail.com')
+    })
   })
 
   it('shows no such dialog when sign-up failed', async () => {

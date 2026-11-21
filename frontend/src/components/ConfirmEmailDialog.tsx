@@ -4,7 +4,9 @@ import { confirmEmailWaitSeconds, suggestEmail } from '../lib/emailDelivery'
 
 /**
  * "Is this your email address?" — asked once, between pressing Register
- * and registering (0283).
+ * and registering (0283), and between pressing Sign up and the account
+ * being made (November 2026): an account made with a slip in its address
+ * can never be confirmed, and sits there for good.
  *
  * A ticket goes to the address typed, and an address typed with a slip
  * takes it nowhere: the email bounces, or worse, reaches a stranger. A
@@ -25,6 +27,8 @@ export function ConfirmEmailDialog({
   email,
   confirmLabel,
   busy,
+  note = 'Your ticket is sent here, and nowhere else. Check each letter: one slip and it never arrives.',
+  busyLabel = 'Registering…',
   onConfirm,
   onChange,
   onUse,
@@ -33,6 +37,10 @@ export function ConfirmEmailDialog({
   /** The form's own word for going ahead: "Register", "Register, then pay £10". */
   confirmLabel: string
   busy: boolean
+  /** What is sent to the address, in a sentence: a ticket unless the form says otherwise. */
+  note?: string
+  /** What Yes says while the form is doing it. */
+  busyLabel?: string
   onConfirm: () => void
   /** Back to the form, to type it again. */
   onChange: () => void
@@ -47,7 +55,7 @@ export function ConfirmEmailDialog({
         <p className="mt-3 break-all rounded-[var(--radius-chip)] bg-surface-container px-3.5 py-3 text-center font-mono text-body-lg font-medium text-on-surface" data-testid="email-to-confirm">
           {email}
         </p>
-        <p className="mt-3 text-body-sm text-on-surface-variant">Your ticket is sent here, and nowhere else. Check each letter: one slip and it never arrives.</p>
+        <p className="mt-3 text-body-sm text-on-surface-variant">{note}</p>
         {meant && (
           <div className="mt-3 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-3.5 py-3 text-body-sm text-on-surface">
             <p>
@@ -60,7 +68,7 @@ export function ConfirmEmailDialog({
         )}
         <div className="mt-6 flex flex-col gap-2">
           {/* Keyed by the address: a different one is a new thing to read, and a new count. */}
-          <ConfirmButton key={email} label={`Yes, it’s right — ${confirmLabel}`} busy={busy} onConfirm={onConfirm} />
+          <ConfirmButton key={email} label={`Yes, it’s right — ${confirmLabel}`} busy={busy} busyLabel={busyLabel} onConfirm={onConfirm} />
           <ActionButton tone="quiet" onClick={onChange} disabled={busy}>
             No, change it
           </ActionButton>
@@ -71,7 +79,7 @@ export function ConfirmEmailDialog({
 }
 
 /** "Yes", once the address has had its seconds: until then it counts down and cannot be pressed. */
-function ConfirmButton({ label, busy, onConfirm }: { label: string; busy: boolean; onConfirm: () => void }) {
+function ConfirmButton({ label, busy, busyLabel, onConfirm }: { label: string; busy: boolean; busyLabel: string; onConfirm: () => void }) {
   const [left, setLeft] = useState(confirmEmailWaitSeconds)
   const waiting = left > 0
   useEffect(() => {
@@ -82,7 +90,7 @@ function ConfirmButton({ label, busy, onConfirm }: { label: string; busy: boolea
   return (
     <ActionButton onClick={onConfirm} disabled={busy || waiting}>
       {busy ? (
-        'Registering…'
+        busyLabel
       ) : waiting ? (
         <>
           Check the address… <span className="tabular-nums">{left}</span>

@@ -8,7 +8,9 @@ import { PasswordInput } from '../components/PasswordInput'
 import { CheckEmailDialog } from '../components/CheckEmailDialog'
 import { alreadyHasAccount } from '../lib/signInWords'
 import { nameProblem, tidyName } from '../lib/personName'
-import { emailProblem, emailProblemWords } from '../lib/emailAddress'
+import { emailProblem } from '../lib/emailAddress'
+import { sameEmail } from '../lib/emailDelivery'
+import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -25,6 +27,13 @@ export function SignupPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  // Typed a second time, as registering for an event asks (November 2026):
+  // a slip is rarely made the same way twice.
+  const [emailAgain, setEmailAgain] = useState('')
+  // Which of the two boxes has been left, or the form sent: a slip is said then.
+  const [emailLeft, setEmailLeft] = useState<{ first?: boolean; again?: boolean }>({})
+  // "Is this your email address?" is open, between Sign up and the account.
+  const [confirming, setConfirming] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +47,16 @@ export function SignupPage() {
 
   const firstProblem = left.first ? nameProblem(firstName, 'First name') : null
   const lastProblem = left.last ? nameProblem(lastName, 'Last name') : null
+
+  // Whether the address can be one at all, and whether the two boxes say the same.
+  const emailWrong = email.trim() ? emailProblem(email) : null
+  const emailsDiffer = !!email.trim() && !!emailAgain.trim() && !sameEmail(email, emailAgain)
+  const emailsAgree = !!emailAgain.trim() && !emailWrong && sameEmail(email, emailAgain)
+  /** Take the address they meant: in the first box, and in the second if the same slip was typed there. */
+  const takeMeant = (meant: string) => {
+    if (sameEmail(email, emailAgain)) setEmailAgain(meant)
+    setEmail(meant)
+  }
 
   const checks = passwordChecks(password)
   const score = passwordScore(password)
@@ -60,12 +79,18 @@ export function SignupPage() {
     setLeft({ first: true, last: true })
     if (nameProblem(first) || nameProblem(last)) return
     // An address that cannot be one gets no confirmation email, and an
-    // account nobody can confirm: said here, with the one they meant.
-    const wrong = emailProblem(email)
-    if (wrong) {
-      setError(emailProblemWords(wrong))
-      return
-    }
+    // account nobody can confirm; nor one typed two ways. Said under the
+    // boxes, where they are put right.
+    setEmailLeft({ first: true, again: true })
+    if (emailProblem(email) || !sameEmail(email, emailAgain)) return
+    // Not made yet: the address is shown on its own first, and asked about.
+    setConfirming(true)
+  }
+
+  /** Make the account, once they have said the address is theirs. */
+  async function createAccount() {
+    const first = tidyName(firstName)
+    const last = tidyName(lastName)
     setSubmitting(true)
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -87,6 +112,8 @@ export function SignupPage() {
       setError(errorMessage(err, "Couldn't reach the server. Check your connection and try again."))
     } finally {
       setSubmitting(false)
+      // Whatever came of it is said on the form or over it, not behind this.
+      setConfirming(false)
     }
   }
 
@@ -148,12 +175,62 @@ export function SignupPage() {
             <AuthLabel>Email</AuthLabel>
             <input
               type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="off"
               required
+              maxLength={254}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmailLeft((was) => ({ ...was, first: true }))}
+              aria-invalid={emailLeft.first && emailWrong ? true : undefined}
+              aria-describedby={emailLeft.first && emailWrong ? 'signup-email-problem' : undefined}
               className={authInputClasses}
             />
           </label>
+          {/* Outside the label, like the names': why it cannot be an address, and the one they meant. */}
+          {emailLeft.first && emailWrong && (
+            <div role="alert" id="signup-email-problem" className="-mt-2 flex flex-col gap-1 text-body-sm">
+              <p className="text-error">{emailWrong.text}</p>
+              {emailWrong.meant && (
+                <p className="text-on-surface [overflow-wrap:anywhere]">
+                  Did you mean{' '}
+                  <button type="button" onClick={() => takeMeant(emailWrong.meant!)} className="tap font-semibold text-accent-blue-soft underline underline-offset-2">
+                    {emailWrong.meant}
+                  </button>
+                  ?
+                </p>
+              )}
+            </div>
+          )}
+          <label className="flex flex-col gap-2">
+            <AuthLabel>Confirm email</AuthLabel>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+              maxLength={254}
+              value={emailAgain}
+              onChange={(e) => setEmailAgain(e.target.value)}
+              onBlur={() => setEmailLeft((was) => ({ ...was, again: true }))}
+              aria-invalid={emailLeft.again && emailsDiffer ? true : undefined}
+              aria-describedby={emailLeft.again && emailsDiffer ? 'signup-email-again-problem' : undefined}
+              className={authInputClasses}
+            />
+          </label>
+          {emailLeft.again && emailsDiffer ? (
+            <p role="alert" id="signup-email-again-problem" className="-mt-2 text-body-sm text-error">
+              The two email addresses are different. They have to be the same.
+            </p>
+          ) : emailsAgree ? (
+            <p className="-mt-2 text-label-md text-accent-green-soft">The same as the one above.</p>
+          ) : (
+            <p className="-mt-2 text-label-md text-on-surface-faint">Type it again, so a slip in either shows.</p>
+          )}
           <label className="flex flex-col gap-2">
             <AuthLabel>Password</AuthLabel>
             <PasswordInput value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" />
@@ -217,6 +294,24 @@ export function SignupPage() {
       {/* Over the form rather than instead of it: "wrong address" is one tap
           back to what they typed. */}
       {sentTo && <CheckEmailDialog email={sentTo} onClose={() => setSentTo(null)} />}
+      {/* The address on its own, to be read, before anything is made
+          (components/ConfirmEmailDialog): Yes waits five seconds. */}
+      {confirming && (
+        <ConfirmEmailDialog
+          email={email.trim()}
+          confirmLabel="Sign up"
+          note="The link to confirm your account is sent here, and nowhere else. Check each letter: one slip and it never arrives."
+          busyLabel="Creating account…"
+          busy={submitting}
+          onConfirm={() => void createAccount()}
+          onChange={() => setConfirming(false)}
+          // The spelling offered is taken for both boxes: it is one address.
+          onUse={(next) => {
+            setEmail(next)
+            setEmailAgain(next)
+          }}
+        />
+      )}
     </AuthCard>
   )
 }

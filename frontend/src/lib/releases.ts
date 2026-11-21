@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'sign-up-confirms-the-address',
+    date: '2026-11-21',
+    title: 'Signing up confirms the email address, as registering does',
+    lead: 'Somebody making an account now types their email address twice and is then shown it on its own and asked whether it is right, before the account is made.',
+    points: [
+      'The two boxes have to say the same address.',
+      '“Is this your email address?” shows it large, and Yes cannot be pressed for five seconds, so it is read.',
+      'Nothing is made until Yes: an account made with a slip in its address could never be confirmed.',
+    ],
+    holds: ['app.permissions'],
+  },
+  {
     key: 'an-email-address-that-can-be-one',
     date: '2026-11-21',
     title: 'A mistyped email address is caught as it is typed',
