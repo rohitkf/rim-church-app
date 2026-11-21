@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'payment-reference-not-a-qr-code',
+    date: '2026-11-21',
+    title: 'An unpaid registration shows a payment reference, not a QR code',
+    lead: 'People were registering, seeing a QR code and stopping there. Until it is paid, the page now gives them a payment reference and what to pay.',
+    points: [
+      'Not paid yet: the code is labelled “Payment reference”, with no QR code in sight, and the page says “places held” rather than “tickets”.',
+      'At the door they tap “At the event? Show my code” and the QR code comes up for Reception to scan, as before. That is there whatever way they meant to pay.',
+      'A receipt being checked still shows its QR code. A paid ticket is unchanged.',
+      'If somebody cannot bring it up, Find still finds them by name, email, phone or the reference.',
+    ],
+    link: { to: '/door', label: 'Open Reception' },
+    page: '/door',
+  },
+  {
     key: 'reception-for-chosen-events',
     date: '2026-11-20',
     title: 'Reception for chosen events',
