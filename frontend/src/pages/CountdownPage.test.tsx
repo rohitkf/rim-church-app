@@ -6,7 +6,8 @@ import { CountdownPage } from './CountdownPage'
 
 /*
  * The Countdown page: the running order's clock, large. It counts to the
- * next session (or the end), and past zero keeps counting with a plus.
+ * next session (or the end), and past zero keeps counting with a minus
+ * (on this page only: lib/serviceClock `countdownFace`).
  */
 
 const SUNDAY = '2026-09-06'
@@ -82,7 +83,7 @@ describe('the Countdown page', () => {
     expect(screen.getByText(/Until Notices/)).toBeInTheDocument()
   })
 
-  it('keeps counting past zero, with a plus, when the next session has not started', async () => {
+  it('keeps counting past zero, with a minus, when the next session has not started', async () => {
     db.rows.service_sessions = [
       session('s1', 'Worship', '10:00', 30, 0),
       session('s2', 'Notices', '10:30', 10, 1, { held_at: at('10:30').toISOString() }),
@@ -91,7 +92,7 @@ describe('the Countdown page', () => {
     vi.setSystemTime(at('10:33'))
     show()
     const timer = await screen.findByRole('timer')
-    expect(timer).toHaveTextContent('+3:00')
+    expect(timer).toHaveTextContent('−3:00')
     expect(timer).toHaveAccessibleName('Running 3:00 over')
     expect(screen.getByText('Notices has not started yet.')).toBeInTheDocument()
   })
@@ -110,7 +111,7 @@ describe('the Countdown page', () => {
   it('counts the last session to the end, and past it until the end is called', async () => {
     vi.setSystemTime(at('11:25'))
     show()
-    expect(await screen.findByRole('timer')).toHaveTextContent('+5:00')
+    expect(await screen.findByRole('timer')).toHaveTextContent('−5:00')
     expect(screen.getByText(/Over the planned end/)).toBeInTheDocument()
   })
 
@@ -162,7 +163,7 @@ describe('the Countdown page', () => {
     ]
     vi.setSystemTime(at('11:27'))
     show()
-    expect(await screen.findByRole('timer')).toHaveTextContent('+7:00')
+    expect(await screen.findByRole('timer')).toHaveTextContent('−7:00')
     expect(screen.getByText('The service has not ended yet — Sermon is still running.')).toBeInTheDocument()
   })
 
@@ -182,7 +183,7 @@ describe('the Countdown page', () => {
     vi.setSystemTime(at('11:25'))
     show()
     const timer = await screen.findByRole('timer')
-    expect(timer).toHaveTextContent('+5:00')
+    expect(timer).toHaveTextContent('−5:00')
     expect(timer).toHaveClass('blink-over')
   })
 })
@@ -248,7 +249,7 @@ describe('the minutes under the Countdown’s number', () => {
     ]
     vi.setSystemTime(new Date(at('10:32').getTime() + 17_000))
     show()
-    expect(await screen.findByRole('timer')).toHaveTextContent('+2:17')
+    expect(await screen.findByRole('timer')).toHaveTextContent('−2:17')
     expect(screen.getByText('2 minutes over')).toBeInTheDocument()
   })
 
@@ -273,5 +274,25 @@ describe('a session’s note (0316)', () => {
     expect(screen.getByText('Worship')).toBeInTheDocument()
     expect(screen.queryByText(/Communion follows/)).toBeNull()
     expect(screen.queryByText('Note')).toBeNull()
+  })
+})
+
+describe('the sign on the Countdown’s number', () => {
+  // The Owner: "instead of showing +, show -. This is only for countdown page."
+  it('is a minus past zero, never a plus, and none while counting down', async () => {
+    db.rows.service_sessions = [session('s1', 'Worship', '10:00', 30, 0), session('s2', 'Notices', '10:30', 10, 1, { held_at: at('10:30').toISOString() })]
+    vi.setSystemTime(new Date(at('10:32').getTime() + 17_000))
+    const over = show()
+    const timer = await screen.findByRole('timer')
+    expect(timer.textContent).toBe('−2:17')
+    expect(timer.textContent).not.toContain('+')
+    // Said aloud it is words, with no sign to read out.
+    expect(timer).toHaveAccessibleName('Running 2:17 over')
+    // The line under it says "over" in words, as it always has.
+    expect(screen.getByText('2 minutes over')).toBeInTheDocument()
+    over.unmount()
+    vi.setSystemTime(at('10:10'))
+    show()
+    expect((await screen.findByRole('timer')).textContent).toBe('20:00')
   })
 })
