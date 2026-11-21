@@ -13,6 +13,7 @@ import { PhoneField } from '../components/PhoneField'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { ContactOrganisers } from '../components/ContactOrganisers'
 import { looksLikeEmail, sameEmail } from '../lib/emailDelivery'
+import { emailProblem, isEmailAddress } from '../lib/emailAddress'
 import { WarningIcon } from '../components/icons'
 import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
@@ -128,6 +129,8 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const [emailAgain, setEmailAgain] = useState('')
   /** They have been in the second box and left it: from then a difference is said at once. */
   const [againTouched, setAgainTouched] = useState(false)
+  // The first address has been typed and left: a slip in it is said then, not at the far end of the form.
+  const [emailTouched, setEmailTouched] = useState(false)
   /** Register was pressed with something wrong: from then every problem is said where it is. */
   const [tried, setTried] = useState(false)
   /** E.164, once it is a real number; the field keeps the rest to itself. */
@@ -304,9 +307,11 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
     }
   }
   if (!name.trim()) problems.push({ key: 'name', spot: 'name', text: 'Enter your name.' })
+  // Whether it can be an address at all (lib/emailAddress): "ama@gmail.con"
+  // used to go through, and the email service then refused to send to it.
+  const emailWrong = email.trim() ? emailProblem(email) : null
   if (!email.trim()) problems.push({ key: 'email', spot: 'email', text: 'Enter your email address.' })
-  else if (!looksLikeEmail(email))
-    problems.push({ key: 'email', spot: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
+  else if (emailWrong) problems.push({ key: 'email', spot: 'email', text: emailWrong.text })
   if (!emailAgain.trim()) problems.push({ key: 'emailAgain', spot: 'emailAgain', text: 'Enter your email address a second time.' })
   else if (!sameEmail(email, emailAgain))
     problems.push({ key: 'emailAgain', spot: 'emailAgain', text: 'The two email addresses are different. They have to be the same.' })
@@ -320,7 +325,12 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   const shown = (key: string): Problem | null => {
     const problem = problems.find((p) => p.key === key)
     if (!problem) return null
-    return tried || (key === 'emailAgain' && differNow) ? problem : null
+    return tried || (key === 'emailAgain' && differNow) || (key === 'email' && emailTouched && !!emailWrong) ? problem : null
+  }
+  /** Take the address they meant: in the first box, and in the second if the same slip was typed there. */
+  const takeMeant = (meant: string) => {
+    if (sameEmail(email, emailAgain)) setEmailAgain(meant)
+    setEmail(meant)
   }
   const errorId = (key: string) => `register-${key}-error`
   const say = (key: string) => {
@@ -334,7 +344,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
   /** For the control itself: ringed, marked wrong, and pointing at the words. */
   const ring = (key: string) => (shown(key) ? 'field-error' : '')
   const marked = (key: string) => (shown(key) ? { 'aria-invalid': true as const, 'aria-describedby': errorId(key) } : {})
-  const emailsAgree = !!emailAgain.trim() && looksLikeEmail(email) && sameEmail(email, emailAgain)
+  const emailsAgree = !!emailAgain.trim() && isEmailAddress(email) && sameEmail(email, emailAgain)
 
   /** Bring a part of the form into view and put the cursor in it. */
   const goTo = (spot: Spot) => {
@@ -668,6 +678,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
                   ref={emailField}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
                   type="email"
                   inputMode="email"
                   autoComplete="email"
@@ -680,6 +691,18 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
               {say('email') ?? (
                 <p className="text-label-md text-on-surface-faint">
                   {invite?.email_locked ? 'The address your invitation was sent to. Your ticket is sent here.' : 'Your ticket is sent here.'}
+                </p>
+              )}
+              {/* The address they meant, one press away: the slip is usually
+                  a letter, and easier to take back than to type again. Not
+                  for an invitation's own address, which is not theirs to change. */}
+              {shown('email') && emailWrong?.meant && !invite?.email_locked && (
+                <p className="text-body-sm text-on-surface [overflow-wrap:anywhere]">
+                  Did you mean{' '}
+                  <button type="button" onClick={() => takeMeant(emailWrong.meant!)} className="tap font-semibold text-accent-blue-soft underline underline-offset-2">
+                    {emailWrong.meant}
+                  </button>
+                  ?
                 </p>
               )}
             </div>

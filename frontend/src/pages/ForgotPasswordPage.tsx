@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 import { errorMessage } from '../lib/errorMessage'
+import { emailProblem, emailProblemWords } from '../lib/emailAddress'
 
 export function ForgotPasswordPage() {
   // The address they were trying to sign in or sign up with, when they came from there.
@@ -15,6 +16,13 @@ export function ForgotPasswordPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    // No link can reach an address that cannot be one, and "check your
+    // email" would send them to wait for it: said here instead.
+    const wrong = emailProblem(email)
+    if (wrong) {
+      setError(emailProblemWords(wrong))
+      return
+    }
     setSubmitting(true)
     let error: { message: string } | null = null
     try {

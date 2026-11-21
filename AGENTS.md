@@ -417,6 +417,22 @@ frontend/src/
                              the one in hand belongs is lib/chipOrder's, which
                              needs no browser. Use useDragReorder for rows and
                              this for anything that wraps
+  lib/emailAddress.ts        whether what was typed can be an email address:
+                             `emailProblem` (why not, and the address they
+                             meant), `isEmailAddress`, `emailMeant`. One @, a
+                             name, a domain, and an ending that exists —
+                             lib/domainEndings.ts, IANA's own list, which is
+                             why "…@gmail.con" is refused for a reason. **Every
+                             form that takes a new address asks this**, never
+                             a regex of its own: registering, a walk-in, an
+                             invitation, a correction, the message to the
+                             organisers, signing up, a reset link. Signing in
+                             says it and still tries. `looksLikeEmail`
+                             (lib/emailDelivery) is only for reading an address
+                             already kept. A slip that could be a real address
+                             (gmial.com) is questioned, not refused
+                             (`suggestEmail`). To take a newer list of endings,
+                             see the top of domainEndings.ts
   lib/checkInDays.ts         which church days a registration was checked in
                              on (`registration_check_ins`, 0314), a day's name
                              (the event's own label, "Day 1", when it has one)

@@ -229,6 +229,12 @@ describe('the form that makes a link', () => {
     expect(fields(draft({ email: 'john@' }))).toEqual(['email'])
   })
 
+  it('refuses an address whose ending does not exist, and says the one that was meant', () => {
+    expect(inviteProblems(draft({ email: 'john@gmail.con' }), now)).toEqual([
+      { field: 'email', text: 'Email addresses do not end in “.con”. Check the end of yours. Did you mean john@gmail.com?' },
+    ])
+  })
+
   it('wants a discount that is one', () => {
     expect(fields(draft({ value: '0' }))).toEqual(['value'])
     expect(fields(draft({ value: '101' }))).toEqual(['value'])
