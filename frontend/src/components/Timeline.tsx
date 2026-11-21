@@ -224,7 +224,7 @@ export function AssigneePill({
   tone?: 'neutral' | 'blue' | 'green' | 'indigo'
   /** Somebody standing in, not taking it (0182): a dashed amber pill with a Sub mark. */
   substitute?: boolean
-  /** Somebody translating it as it is taken (0315): a dashed indigo pill with a Trans mark. */
+  /** Somebody translating it as it is taken (0315): a dashed indigo pill, and no mark — its row says Translator. */
   translator?: boolean
 }) {
   const tones = {
@@ -262,11 +262,6 @@ export function AssigneePill({
       {substitute && (
         <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
           Sub
-        </span>
-      )}
-      {translator && !substitute && (
-        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-indigo-soft">
-          Trans
         </span>
       )}
     </span>
