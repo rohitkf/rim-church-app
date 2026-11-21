@@ -260,40 +260,18 @@ describe('the minutes under the Countdown’s number', () => {
   })
 })
 
-describe('the note on the session that is on (0316)', () => {
-  const NOTE = 'Communion follows. Elements on the table by 10:40.'
-
-  it('is said under the clock while its session is on, and asked for with the rest', async () => {
+describe('a session’s note (0316)', () => {
+  // The Owner, the day notes arrived: "No need to show the note in countdown page."
+  it('is not on the Countdown: this page is the clock', async () => {
     db.rows.service_sessions = [
-      session('s1', 'Worship', '10:00', 30, 0, { note: NOTE }),
-      session('s2', 'Notices', '10:30', 10, 1, { note: 'Keep it short.' }),
+      session('s1', 'Worship', '10:00', 30, 0, { note: 'Communion follows. Elements on the table by 10:40.' }),
+      session('s2', 'Notices', '10:30', 10, 1),
     ]
     vi.setSystemTime(at('10:10'))
     show()
-    const timer = await screen.findByRole('timer')
-    const note = screen.getByText(NOTE)
-    // After the number: the clock is what the page is for.
-    expect(timer.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // The next session's is not said until it is on.
-    expect(screen.queryByText('Keep it short.')).toBeNull()
-  })
-
-  it('changes with the session', async () => {
-    db.rows.service_sessions = [
-      session('s1', 'Worship', '10:00', 30, 0, { note: NOTE }),
-      session('s2', 'Notices', '10:30', 10, 1, { note: 'Keep it short.' }),
-    ]
-    vi.setSystemTime(at('10:33'))
-    show()
     await screen.findByRole('timer')
-    expect(screen.getByText('Keep it short.')).toBeInTheDocument()
-    expect(screen.queryByText(NOTE)).toBeNull()
-  })
-
-  it('says nothing for a session with none', async () => {
-    vi.setSystemTime(at('10:10'))
-    show()
-    await screen.findByRole('timer')
+    expect(screen.getByText('Worship')).toBeInTheDocument()
+    expect(screen.queryByText(/Communion follows/)).toBeNull()
     expect(screen.queryByText('Note')).toBeNull()
   })
 })
