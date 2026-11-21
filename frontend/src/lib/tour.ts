@@ -373,7 +373,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/rota',
         target: 'page-title',
         title: 'Call times',
-        body: 'Set when your team is due in. Everybody on it gets a push when it changes, and you can remind them all with one tap.',
+        body: 'Set when your team is due in. Everybody on it gets a push when it changes, and you can remind them all with one tap. Whoever may set every team’s can set them all to one time at once.',
       },
       {
         path: '/clock-in',

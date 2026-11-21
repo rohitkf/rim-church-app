@@ -12,6 +12,8 @@ const state = vi.hoisted(() => ({
   rows: [] as { department_id: string; on_date: string; call_time: string }[],
   writes: [] as { kind: string; payload: unknown }[],
   rpc: [] as { fn: string; args: unknown }[],
+  /** What the database says to the next write, when it says no. */
+  refuse: null as string | null,
 }))
 
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'gradient' }) }))
@@ -28,6 +30,7 @@ vi.mock('../lib/supabaseClient', () => ({
         eq: () => Promise.resolve({ data: state.rows, error: null }),
       }),
       upsert: (payload: unknown) => {
+        if (state.refuse) return Promise.resolve({ error: { code: '42501', message: state.refuse } })
         state.writes.push({ kind: 'upsert', payload })
         return Promise.resolve({ error: null })
       },
@@ -104,6 +107,7 @@ beforeEach(() => {
     { department_id: 'worship', on_date: SUNDAY, call_time: '08:00:00' },
   ]
   state.writes = []
+  state.refuse = null
 })
 
 afterEach(() => vi.useRealTimers())
@@ -294,5 +298,117 @@ describe('reminding a team of its call time (0224)', () => {
     show({ mine: ['media'] })
     await screen.findByText('Media')
     expect(screen.queryByRole('button', { name: /Remind/ })).toBeNull()
+  })
+})
+
+/*
+ * Every team's call time, set at once: the Owner asked for it, having set
+ * nine teams to the same time one box at a time.
+ */
+describe('setting every team’s call time at once', () => {
+  const group = () => screen.queryByRole('group', { name: 'Every team at once' })
+  const setAll = () => within(group()!).getByRole('button', { name: 'Set for every team' })
+
+  it('is there for whoever may set every team’s, and for nobody else', async () => {
+    const one = show({ manages: ['media'] })
+    await openPanel(one)
+    await screen.findByText('Media')
+    expect(group()).toBeNull()
+  })
+
+  it('says what pressing it would do before it is pressed', async () => {
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    // Media is at 08:30, Worship at 08:00, Ushers on the usual 07:00: at 07:00 two would change.
+    await waitFor(() => expect(group()).toHaveTextContent('2 of 3 teams change to 07:00; the rest are already due then.'))
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '09:15')
+    expect(group()).toHaveTextContent('All 3 teams change to 09:15.')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '08:30')
+    expect(group()).toHaveTextContent('2 of 3 teams change to 08:30; the rest are already due then.')
+  })
+
+  it('asks first, naming the day and how many teams are told, and writes nothing until yes', async () => {
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '09:15')
+    await user.click(setAll())
+    const asking = within(screen.getByRole('alertdialog', { name: 'Set every team’s call time to 09:15?' }))
+    // The day, as this device writes dates.
+    expect(asking.getByText(/Sunday.*September/)).toBeInTheDocument()
+    expect(asking.getByText(/3 teams change, and everybody on them is told the new time\./)).toBeInTheDocument()
+    expect(state.writes).toEqual([])
+    await user.click(asking.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(state.writes).toEqual([])
+  })
+
+  it('writes every team in one go, and says how many it came to', async () => {
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '09:15')
+    await user.click(setAll())
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Set for every team' }))
+    await waitFor(() => expect(state.writes).toHaveLength(1))
+    expect(state.writes[0].kind).toBe('upsert')
+    expect(state.writes[0].payload).toEqual([
+      { on_date: SUNDAY, department_id: 'media', call_time: '09:15' },
+      { on_date: SUNDAY, department_id: 'worship', call_time: '09:15' },
+      { on_date: SUNDAY, department_id: 'ushers', call_time: '09:15' },
+    ])
+    expect(await within(group()!).findByRole('status')).toHaveTextContent('3 teams are now due at 09:15.')
+  })
+
+  it('leaves alone a team already due then, so its people are told of nothing', async () => {
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '08:30')
+    await user.click(setAll())
+    const asking = within(screen.getByRole('alertdialog'))
+    expect(asking.getByText(/2 teams change.*1 team is already due then and stays as it is\./)).toBeInTheDocument()
+    await user.click(asking.getByRole('button', { name: 'Set for every team' }))
+    await waitFor(() => expect(state.writes).toHaveLength(1))
+    // Media was at 08:30 already.
+    expect((state.writes[0].payload as { department_id: string }[]).map((r) => r.department_id)).toEqual(['worship', 'ushers'])
+  })
+
+  it('has nothing to press when every team is due then already', async () => {
+    state.rows = []
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    // Nobody has set one: all three are on the usual time, which is what the box starts at.
+    await waitFor(() => expect(group()).toHaveTextContent(`Every team is already due at ${DEFAULT_CALL_TIME}.`))
+    expect(setAll()).toBeDisabled()
+  })
+
+  it('says so when the database refuses, and claims nothing', async () => {
+    state.refuse = 'new row violates row-level security policy for table "department_call_times"'
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '09:15')
+    await user.click(setAll())
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Set for every team' }))
+    await waitFor(() => expect(screen.getByText(/have permission to do that/)).toBeInTheDocument())
+    expect(within(group()!).queryByRole('status')).toBeNull()
+    expect(state.writes).toEqual([])
+  })
+
+  it('starts each team’s own box again from what is kept, once all of them have changed', async () => {
+    const user = show({ all: true, manages: ['media', 'worship', 'ushers'] })
+    await openPanel(user)
+    await screen.findByText('Media')
+    await pickTime(user, within(group()!).getByLabelText('Call time for every team'), '09:15')
+    await user.click(setAll())
+    // The database now holds what was asked for.
+    state.rows = ['media', 'worship', 'ushers'].map((id) => ({ department_id: id, on_date: SUNDAY, call_time: '09:15:00' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Set for every team' }))
+    await waitFor(() => expect(screen.getByLabelText('Call time for Ushers')).toHaveTextContent('09:15'))
+    // Nothing is left looking half-edited: no team's Save is waiting to be pressed.
+    for (const save of screen.getAllByRole('button', { name: 'Save' })) expect(save).toBeDisabled()
   })
 })

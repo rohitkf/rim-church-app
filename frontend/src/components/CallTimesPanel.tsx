@@ -9,6 +9,7 @@ import { ServiceCountdown } from './ServiceCountdown'
 import { TeamMark } from './TeamMark'
 import { TimeField } from './DateTimeFields'
 import { NudgeButton } from './NudgeButton'
+import { useConfirmAction } from './ConfirmAction'
 import { teamWash } from '../lib/teamGradient'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { useErrorText } from '../lib/useErrorText'
@@ -70,7 +71,7 @@ export function CallTimesPanel({
   /** The teams you actually serve on, which is what earns a countdown. */
   myTeamIds: Set<string>
   canManage: (departmentId: string) => boolean
-  /** May remind every team at once (svc.call_times everywhere: the Owner and Admins). */
+  /** May remind every team at once, and set every team's call time at once (svc.call_times everywhere: the Owner and Admins). */
   canManageAll?: boolean
 }) {
   const { teamStyle } = useTeamStyle()
@@ -79,6 +80,9 @@ export function CallTimesPanel({
   const [open, setOpen] = useState(false)
   const [chosen, setChosen] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // What setting every team at once came to, said under its button until the next one.
+  const [allSaid, setAllSaid] = useState<string | null>(null)
+  const { ask, dialog } = useConfirmAction()
 
   // The next day, unless somebody has picked another. Held as null rather
   // than seeded, so the panel follows the rota forward on its own once a
@@ -129,6 +133,44 @@ export function CallTimesPanel({
     onError: (err: unknown) => setError(errorText(err, 'Could not save that call time.')),
   })
 
+  /*
+   * Every team at once.
+   *
+   * On most days every team is due at the same time, and when that time is
+   * not the usual one it had to be typed into each team's box in turn:
+   * nine teams, nine saves (the Owner, November 2026: "edit all call times
+   * at once if it's the same time for everyone, instead of tediously doing
+   * it one at a time"). This is the same write the boxes make, for all of
+   * them in one go.
+   *
+   * Only the teams that would change are written. A team already due then
+   * is left alone, so its people are not told of a change that is not one:
+   * the database tells a team whenever its row is written with a new time.
+   */
+  const changing = (clock: string) =>
+    day ? teams.filter((t) => effectiveCallTime(rows, t.id, day.date).clock !== clock) : []
+  const saveAll = useMutation({
+    mutationFn: async (clock: string) => {
+      const those = changing(clock)
+      if (!day || those.length === 0) return 0
+      const { error: err } = await supabase.from('department_call_times').upsert(
+        those.map((t) => ({ on_date: day.date, department_id: t.id, call_time: clock })),
+        { onConflict: 'department_id,on_date' },
+      )
+      if (err) throw err
+      return those.length
+    },
+    onSuccess: (count, clock) => {
+      setError(null)
+      setAllSaid(count === 1 ? `1 team is now due at ${clock}.` : `${count} teams are now due at ${clock}.`)
+      queryClient.invalidateQueries({ queryKey: ['call-times', day?.date] })
+    },
+    onError: (err: unknown) => {
+      setAllSaid(null)
+      setError(errorText(err, 'Could not set every team’s call time.'))
+    },
+  })
+
   if (!day) return null
 
   const dayOptions: SelectItem[] = days.map((d) => ({
@@ -173,6 +215,8 @@ export function CallTimesPanel({
         {canManage(team.id) && (
           <>
             <CallTimeField
+              // Seeded again when the kept time changes under it: set for every team at once, or by somebody else.
+              key={isDefault ? 'usual' : clock}
               current={isDefault ? null : clock}
               busy={save.isPending}
               teamName={team.name}
@@ -205,6 +249,8 @@ export function CallTimesPanel({
         {canManage(team.id) && (
           <>
             <CallTimeField
+              // Seeded again when the kept time changes under it: set for every team at once, or by somebody else.
+              key={isDefault ? 'usual' : clock}
               current={isDefault ? null : clock}
               busy={save.isPending}
               teamName={team.name}
@@ -253,6 +299,36 @@ export function CallTimesPanel({
                 className={selectPillClasses}
               />
             </div>
+          )}
+
+          {canManageAll && teams.length > 1 && (
+            <EveryTeamField
+              // A new day starts from the usual time again.
+              key={day.date}
+              busy={saveAll.isPending || callTimes.isLoading}
+              total={teams.length}
+              changes={(clock) => changing(clock).length}
+              said={allSaid}
+              onSet={(clock) => {
+                const those = changing(clock)
+                const rest = teams.length - those.length
+                ask({
+                  title: `Set every team’s call time to ${clock}?`,
+                  body: (
+                    <>
+                      <p>For {formatServiceDay(day.date)}.</p>
+                      <p className="mt-2">
+                        {those.length === 1 ? '1 team changes' : `${those.length} teams change`}, and everybody on{' '}
+                        {those.length === 1 ? 'it' : 'them'} is told the new time.
+                        {rest > 0 && ` ${rest === 1 ? '1 team is' : `${rest} teams are`} already due then and ${rest === 1 ? 'stays' : 'stay'} as ${rest === 1 ? 'it is' : 'they are'}.`}
+                      </p>
+                    </>
+                  ),
+                  confirmLabel: 'Set for every team',
+                  onConfirm: () => saveAll.mutate(clock),
+                })
+              }}
+            />
           )}
 
           {canManageAll && (
@@ -305,7 +381,71 @@ export function CallTimesPanel({
           <div className="pb-5" />
         )}
       </Tile>
+      {dialog}
     </section>
+  )
+}
+
+/**
+ * One time for every team, for whoever may set them all (the Owner and
+ * Admins out of the box).
+ *
+ * A time and a button, and under them what pressing it would do: how many
+ * teams change, or that none would. It asks before it writes, because it
+ * tells every team that changes.
+ */
+function EveryTeamField({
+  busy,
+  total,
+  changes,
+  said,
+  onSet,
+}: {
+  busy: boolean
+  total: number
+  /** How many teams are not already due at this time. */
+  changes: (clock: string) => number
+  /** What the last one came to. */
+  said: string | null
+  onSet: (clock: string) => void
+}) {
+  const [draft, setDraft] = useState(DEFAULT_CALL_TIME)
+  const count = draft ? changes(draft) : 0
+  return (
+    <div role="group" aria-label="Every team at once" className="mt-3 rounded-[var(--radius-row)] bg-surface-lowest p-3.5 hairline">
+      <p className="font-mono text-label-sm text-on-surface-faint">Every team at once</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <TimeField
+          value={draft}
+          onChange={setDraft}
+          label="Call time for every team"
+          aria-label="Call time for every team"
+          className="inline-flex min-w-0 items-center gap-2 rounded-[var(--radius-chip)] bg-surface-lowest px-3 py-1.5 font-mono text-body-sm text-on-surface hairline focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
+        />
+        <button
+          type="button"
+          disabled={busy || draft === '' || count === 0}
+          onClick={() => onSet(draft)}
+          className="tap shrink-0 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-40"
+        >
+          Set for every team
+        </button>
+      </div>
+      <p className="mt-2 break-words text-label-sm text-on-surface-variant">
+        {draft === ''
+          ? 'Pick a time.'
+          : count === 0
+            ? `Every team is already due at ${draft}.`
+            : count === total
+              ? `All ${total} teams change to ${draft}.`
+              : `${count} of ${total} teams change to ${draft}; the rest are already due then.`}
+      </p>
+      {said && (
+        <p role="status" className="mt-1 break-words text-label-sm text-success">
+          {said}
+        </p>
+      )}
+    </div>
   )
 }
 
