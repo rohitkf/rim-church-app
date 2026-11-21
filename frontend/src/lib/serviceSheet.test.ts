@@ -207,6 +207,76 @@ describe('serviceSheetPage', () => {
     })
   })
 
+  describe('a session’s note (0316)', () => {
+    const NOTE = 'Communion follows. Elements on the table by 10:40.'
+    const noted = sheet({
+      sessions: [
+        { time: '09:30 AM', minutes: 40, name: 'Message', leads: ['Ama Serwaa'], substitutes: ['Kofi Asante'], translators: ['Ps Saju Wigan'], note: NOTE },
+        { time: '10:10 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+      ],
+    })
+
+    it('is on the sheet under a NOTE label, once, only where there is one', () => {
+      const said = words(serviceSheetPage(noted))
+      expect(said.filter((t) => t === 'NOTE')).toHaveLength(1)
+      expect(said).toContain(NOTE)
+      expect(words(serviceSheetPage(sheet()))).not.toContain('NOTE')
+      // One that is only space is no note.
+      const blank = sheet({ sessions: [{ time: '09:30 AM', minutes: 5, name: 'Welcome', leads: [], note: '   ' }] })
+      expect(words(serviceSheetPage(blank))).not.toContain('NOTE')
+    })
+
+    it('comes last in its session, and the next session starts under it', () => {
+      const page = serviceSheetPage(noted, 'content')
+      const y = (text: string) => page.texts.find((t) => t.text === text)!.y
+      expect(y('Ps Saju Wigan')).toBeLessThan(y('NOTE'))
+      expect(y('NOTE')).toBeLessThan(y(NOTE))
+      expect(y(NOTE)).toBeLessThan(y('Worship Set'))
+    })
+
+    it('wraps a long one inside its row, every word of it, and makes the row hold it', () => {
+      const long = 'The choir comes up during the last song of worship and stays on the stage through communion, so the band leaves the centre clear and the second microphone stays live for the reading that follows.'
+      const sessions = (note: string) => [
+        { time: '09:30 AM', minutes: 40, name: 'Message', leads: ['Ama Serwaa'], note },
+        { time: '10:10 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+      ]
+      const short = serviceSheetPage(sheet({ sessions: sessions('Short.') }), 'content')
+      const page = serviceSheetPage(sheet({ sessions: sessions(long) }), 'content')
+      const label = page.texts.find((t) => t.text === 'NOTE')!
+      const next = page.texts.find((t) => t.text === 'Worship Set')!
+      const lines = page.texts.filter((t) => t.y > label.y && t.y < next.y && t.x === label.x && t.size === 12.5)
+      expect(lines.length).toBeGreaterThan(1)
+      expect(lines.map((t) => t.text).join(' ')).toBe(long)
+      // Inside the session's own card, both sides and the bottom.
+      const card = page.rects.filter((r) => r.x <= label.x && label.x <= r.x + r.w && r.y <= label.y && label.y <= r.y + r.h).sort((a, b) => a.w * a.h - b.w * b.h)[0]
+      for (const line of lines) {
+        expect(line.x + textWidth(line.text, line.size, false)).toBeLessThanOrEqual(card.x + card.w - 20 + 0.01)
+        expect(line.y).toBeLessThan(card.y + card.h - 10)
+      }
+      const yOf = (p: ReturnType<typeof serviceSheetPage>) => p.texts.find((t) => t.text === 'Worship Set')!.y
+      expect(yOf(page)).toBeGreaterThan(yOf(short))
+      expect(page.height).toBeGreaterThan(short.height)
+    })
+
+    for (const theme of ['dark', 'light'] as const) {
+      it(`reads against its card, label and words, in ${theme}`, () => {
+        const page = serviceSheetPage(noted, 'content', theme)
+        const textAt = (text: string) => page.texts.find((t) => t.text === text)!
+        const under = (text: string) => {
+          const t = textAt(text)
+          return page.rects
+            .filter((r) => t.x >= r.x && t.x <= r.x + r.w && t.y >= r.y && t.y <= r.y + r.h)
+            .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+        }
+        expect(contrastRatio(textAt('NOTE').color!, under('NOTE').color!)).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(textAt(NOTE).color!, under(NOTE).color!)).toBeGreaterThanOrEqual(4.5)
+        // Its own colour: not the substitute's amber nor the translator's indigo.
+        expect(textAt('NOTE').color).not.toBe(textAt('SUBSTITUTE').color)
+        expect(textAt('NOTE').color).not.toBe(textAt('TRANSLATOR').color)
+      })
+    }
+  })
+
   it('says so plainly when nothing is planned yet', () => {
     const said = words(serviceSheetPage(sheet({ sessions: [] })))
     expect(said).toContain('No sessions planned yet.')

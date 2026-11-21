@@ -28,6 +28,7 @@ import {
   type SessionPart,
 } from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
+import { NOTE_MAX, noteOf, tidyNote } from '../lib/sessionNote'
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
@@ -201,6 +202,16 @@ export function ServicePlannerPage() {
   const [substituteOpen, setSubstituteOpen] = useState<Set<string>>(() => new Set())
   // The same for a translator's row (0315).
   const [translatorOpen, setTranslatorOpen] = useState<Set<string>>(() => new Set())
+  // Sessions whose note row was opened from the menu and has nothing in it
+  // yet (0316). One with a note always shows its row.
+  const [noteOpen, setNoteOpen] = useState<Set<string>>(() => new Set())
+  const writeNote = (sessionId: string, open: boolean) =>
+    setNoteOpen((was) => {
+      const next = new Set(was)
+      if (open) next.add(sessionId)
+      else next.delete(sessionId)
+      return next
+    })
   // Sessions whose box for a new comment is open, from the menu or from
   // "Add a comment" under the ones already there.
   const [commentOpen, setCommentOpen] = useState<Set<string>>(() => new Set())
@@ -749,6 +760,7 @@ export function ServicePlannerPage() {
         leads: namesOn(session),
         substitutes: substituteNamesOn(session),
         translators: translatorNamesOn(session),
+        note: noteOf(session),
       })),
       totalLabel: formatDuration(totalMinutes),
       windowLabel:
@@ -1569,6 +1581,19 @@ export function ServicePlannerPage() {
                         onSelect: () => setTranslatorOpen((open) => new Set(open).add(session.id)),
                       })
                     }
+                    // Add a note (0316), under those: part of the plan, so it
+                    // is for whoever plans the running order, and not one of
+                    // the buttons somebody can be given. A session that has
+                    // one shows it, to be changed where it stands.
+                    const note = noteOf(session)
+                    if (canEdit && !skipped && !note) {
+                      const removes = sessionActions.findIndex((a) => a.tone === 'danger')
+                      sessionActions.splice(removes < 0 ? sessionActions.length : removes, 0, {
+                        label: 'Add a note',
+                        hint: 'Shown to everyone, and on the exported sheet',
+                        onSelect: () => writeNote(session.id, true),
+                      })
+                    }
                     // Not a planner button: its own right (svc.comment), on
                     // every session — a skipped one and a finished service
                     // included, since "that ran long" is said afterwards.
@@ -1860,6 +1885,7 @@ export function ServicePlannerPage() {
                                   )}
                                 </div>
                               )}
+
                             </div>
 
                             <ActionMenu
@@ -1868,6 +1894,69 @@ export function ServicePlannerPage() {
                               className="mt-0.5"
                             />
                           </div>
+
+                          {/* What the session's name, time and people do not
+                              say (0316): a row of its own again, in teal, for
+                              everybody who reads the running order. Cleared,
+                              it goes. Under the row above and not inside it,
+                              so on a phone it has the whole card to wrap in:
+                              beside the handle and the menu it was a column
+                              five letters wide. */}
+                          {(note || (canEdit && noteOpen.has(session.id))) && (
+                            <div className="mt-2.5 flex items-start gap-2">
+                              {/* On a wide screen the row lines up with the
+                                  name and the rows under it, so where there is
+                                  a handle beside those it stands clear of one
+                                  the same width: the handle's own shape, unseen. */}
+                              {canDrag && (
+                                <span aria-hidden="true" className="tap-square invisible hidden h-0 !min-h-0 shrink-0 px-1.5 sm:block">
+                                  <span className="text-body-md leading-none tracking-[-0.15em]">⠿</span>
+                                </span>
+                              )}
+                              <div
+                                className="flex min-w-0 flex-1 flex-col gap-y-0.5 sm:flex-row sm:items-start sm:gap-x-3"
+                                aria-label={`Note for ${session.session_name}`}
+                                role="group"
+                              >
+                                <span className="shrink-0 font-mono text-label-sm text-accent-teal-soft sm:pt-1">
+                                  Note
+                                </span>
+                                {canEdit ? (
+                                  <GrowingField
+                                    value={note ?? ''}
+                                    label={`Note for ${session.session_name}`}
+                                    allowEmpty
+                                    autoFocus={!note}
+                                    maxLength={NOTE_MAX}
+                                    placeholder="For everyone who reads the running order"
+                                    onRest={() => {
+                                      if (!note) writeNote(session.id, false)
+                                    }}
+                                    onCommit={(value) => {
+                                      const next = tidyNote(value)
+                                      if (!next) writeNote(session.id, false)
+                                      if (next === note) return
+                                      updateField.mutate({
+                                        id: session.id,
+                                        patch: { note: next },
+                                        // Undo puts back what the note said: one cleared by a slip is a sentence somebody typed.
+                                        label: !next
+                                          ? `taking the note off ${session.session_name}`
+                                          : note
+                                            ? `changing the note on ${session.session_name}`
+                                            : `adding a note to ${session.session_name}`,
+                                      })
+                                    }}
+                                    className="min-w-0 rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-body-sm text-on-surface transition-shadow sm:flex-1 duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint hover:bg-raised focus:bg-raised focus:outline-none"
+                                  />
+                                ) : (
+                                  <p className="min-w-0 text-body-sm text-on-surface [overflow-wrap:anywhere] sm:flex-1 sm:py-1">
+                                    {note}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* What the plan is carrying that the two lines
                               above cannot say: why it was held, why it was

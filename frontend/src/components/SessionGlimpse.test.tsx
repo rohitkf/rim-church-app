@@ -111,4 +111,22 @@ describe('the glimpse of a running service', () => {
     const after = render(<SessionGlimpse sessions={plan()} endedAt={at('10:45').toISOString()} />)
     expect(after.container).toBeEmptyDOMElement()
   })
+
+  it('says the note the session on now carries, and not the next one’s', () => {
+    vi.setSystemTime(at('10:12'))
+    const noted = plan()
+    noted[0].note = 'Two songs only.'
+    noted[1].note = 'In Malayalam, translated.'
+    const first = render(<SessionGlimpse sessions={noted} />)
+    expect(screen.getByText('Note')).toBeInTheDocument()
+    expect(screen.getByText('Two songs only.')).toBeInTheDocument()
+    expect(screen.queryByText('In Malayalam, translated.')).toBeNull()
+    first.unmount()
+    // A session with none says nothing, and the one line on a shut row has no room for it.
+    const none = render(<SessionGlimpse sessions={plan()} />)
+    expect(screen.queryByText('Note')).toBeNull()
+    none.unmount()
+    render(<SessionGlimpse sessions={noted} variant="line" />)
+    expect(screen.queryByText('Two songs only.')).toBeNull()
+  })
 })

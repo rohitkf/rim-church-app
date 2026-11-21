@@ -71,7 +71,7 @@ describe('a glimpse of a running service', () => {
 
   it('says so when nobody is on the session', () => {
     const glimpse = sessionGlimpse(plan(), at('10:33'), null)
-    expect(glimpse?.current).toEqual({ name: 'Notices', people: [] })
+    expect(glimpse?.current).toEqual({ name: 'Notices', people: [], note: null })
     expect(peopleLine(glimpse!.current!.people)).toBe('Nobody on it yet')
   })
 })
@@ -82,4 +82,14 @@ describe('the people on a line', () => {
     expect(peopleLine(['Rohit K.', 'Anna M.'])).toBe('Rohit K., Anna M.')
     expect(peopleLine(['Rohit K.', 'Anna M.', 'Sam S.', 'Jo P.'])).toBe('Rohit K., Anna M. and 2 more')
   })
+
+describe('the note on the session that is on (0316)', () => {
+  it('comes with the session, tidied, and is null where there is none', () => {
+    const noted = plan()
+    noted[0].note = '  Two songs only.  '
+    expect(sessionGlimpse(noted, at('10:12'), null)?.current?.note).toBe('Two songs only.')
+    expect(sessionGlimpse(noted, at('10:33'), null)?.current?.note).toBeNull()
+    expect(sessionGlimpse(plan(), at('10:12'), null)?.current?.note).toBeNull()
+  })
+})
 })
