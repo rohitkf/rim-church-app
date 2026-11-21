@@ -19,9 +19,11 @@ export type LeadValue = PersonRef
 /**
  * The three lists a session has, and how each is told from the others:
  * its own words for nobody and for one more, and for the two that are not
- * the people taking it, a dashed pill in a colour of its own with a mark —
- * amber and Sub for whoever stands in (0182), indigo and Trans for whoever
- * translates (0315) — so neither is ever read as one more person taking it.
+ * the people taking it, a dashed pill in a colour of its own — amber for
+ * whoever stands in (0182), indigo for whoever translates (0315) — so
+ * neither is ever read as one more person taking it. A substitute also
+ * carries a Sub mark. A translator carries none: the Owner had the Trans
+ * mark taken off, the row being labelled Translator already.
  */
 const KINDS = {
   lead: { none: 'Unassigned', add: 'Add someone', mark: null, pill: 'bg-raised-strong hairline', markTone: '' },
@@ -35,7 +37,7 @@ const KINDS = {
   translator: {
     none: 'No translator',
     add: 'Add a translator',
-    mark: 'Trans',
+    mark: null,
     pill: 'border border-dashed border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent)]',
     markTone: 'bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] text-accent-indigo-soft',
   },
@@ -336,7 +338,7 @@ export function LeadPicker({
               </button>
             )}
             {/* The name and its marks, which go under it when there is no
-                room beside: a grip, a name, Trans, Guest and a way off, in
+                room beside: a grip, a name, Sub, Guest and a way off, in
                 a line, are wider than a session's card on a small phone,
                 and what ran off the edge was the way off. The name keeps
                 four rems to itself, so it narrows a word at a time and

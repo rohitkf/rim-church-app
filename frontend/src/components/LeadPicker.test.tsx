@@ -479,7 +479,7 @@ describe('a guest’s note', () => {
 })
 
 describe('choosing a translator (0315)', () => {
-  it('says No translator until one is picked, and marks each one Trans', () => {
+  it('says No translator until one is picked, and puts no mark on a name: the row is labelled already', () => {
     const { rerender } = render(
       <LeadPicker variant="translator" label="Translator for Message" options={options} values={[]} onChange={vi.fn()} />,
     )
@@ -495,8 +495,8 @@ describe('choosing a translator (0315)', () => {
       />,
     )
     const pill = screen.getByText('Tunde Alabi').parentElement
-    expect(pill).toHaveTextContent('Trans')
-    expect(pill).not.toHaveTextContent('Sub')
+    // Only the name: the Owner had the Trans mark taken off.
+    expect(pill).toHaveTextContent(/^Tunde Alabi$/)
     expect(screen.getByRole('button', { name: 'Translator for Message' })).toHaveTextContent('Add a translator')
   })
 

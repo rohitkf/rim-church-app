@@ -131,10 +131,12 @@ describe('AssigneePill', () => {
     expect(screen.getByText('GM')).toHaveAttribute('aria-hidden', 'true')
   })
 
-  it('marks a translator Trans, a substitute Sub, and somebody taking it neither', () => {
+  it('marks a substitute Sub, and neither a translator nor somebody taking it', () => {
     const { rerender } = render(<AssigneePill name="Rose Sam" initials="RS" translator />)
-    expect(screen.getByText('Trans')).toBeInTheDocument()
+    // A translator is told by the colour of the pill and the row's own label, not by a mark.
+    expect(screen.queryByText('Trans')).not.toBeInTheDocument()
     expect(screen.queryByText('Sub')).not.toBeInTheDocument()
+    expect(screen.getByText('Rose Sam').parentElement).toHaveClass('border-accent-indigo')
     rerender(<AssigneePill name="Rose Sam" initials="RS" substitute />)
     expect(screen.getByText('Sub')).toBeInTheDocument()
     expect(screen.queryByText('Trans')).not.toBeInTheDocument()
