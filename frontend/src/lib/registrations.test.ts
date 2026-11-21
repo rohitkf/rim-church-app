@@ -587,6 +587,39 @@ describe('the workbook for the accounts', () => {
     expect(summary.rows).toContainEqual(['Still to come (£)', 36, '', '', ''])
   })
 
+  it('adds a column a day, and each day’s count, for an event checked in on more than one day (0314)', () => {
+    const fri = { on_date: '2026-11-20', checked_in_at: at(2026, 11, 20, 18, 15) }
+    const sat = { on_date: '2026-11-21', checked_in_at: at(2026, 11, 21, 10, 2) }
+    const both = row({ code: 'AAAAAAAAAAAA', name: 'Both Days', quantity: 2, checked_in_at: sat.checked_in_at, check_ins: [sat, fri] })
+    const friday = row({ code: 'BBBBBBBBBBBB', name: 'Friday Only', quantity: 1, checked_in_at: fri.checked_in_at, check_ins: [fri] })
+    const never = row({ code: 'CCCCCCCCCCCC', name: 'Never Came', checked_in_at: null, check_ins: [] })
+    const [ordersSheet, , summary] = buildRegistrationWorkbook(full(), [both, friday, never])
+    const labels = ordersSheet.columns.map((c) => c.label)
+    const at0 = labels.indexOf('Checked in')
+    // Straight after the latest check-in: one column for each day, the first first.
+    expect(labels.slice(at0 + 1, at0 + 3).every((l) => l.startsWith('In: '))).toBe(true)
+    expect(labels[at0 + 3]).toBe('Registered')
+    expect(ordersSheet.rows[0].length).toBe(labels.length)
+    // Both days for one, the first alone for another, neither for the third.
+    expect(ordersSheet.rows[0].slice(at0 + 1, at0 + 3).every((v) => v !== '')).toBe(true)
+    expect(ordersSheet.rows[1][at0 + 1]).not.toBe('')
+    expect(ordersSheet.rows[1][at0 + 2]).toBe('')
+    expect(ordersSheet.rows[2].slice(at0 + 1, at0 + 3)).toEqual(['', ''])
+    const counts = summary.rows.filter((r) => String(r[0]).startsWith('Checked in: '))
+    expect(counts.map((r) => [r[1], r[2]])).toEqual([
+      [2, '3 people'],
+      [1, '2 people'],
+    ])
+  })
+
+  it('leaves the sheet as it was for an event checked in on one day', () => {
+    const fri = { on_date: '2026-11-20', checked_in_at: at(2026, 11, 20, 18, 15) }
+    const [ordersSheet, , summary] = buildRegistrationWorkbook(full(), [row({ checked_in_at: fri.checked_in_at, check_ins: [fri] })])
+    expect(ordersSheet.columns.some((c) => c.label.startsWith('In: '))).toBe(false)
+    // The one day is still counted in the sums.
+    expect(summary.rows.filter((r) => String(r[0]).startsWith('Checked in: '))).toHaveLength(1)
+  })
+
   it('says what became of each order’s email (0283)', () => {
     const sheet = (over: Parameters<typeof row>[0]) => buildRegistrationWorkbook(full(), [row(over)])[0].rows[0][3]
     expect(sheet({ email_status: 'delivered', email_sent_at: at(2026, 11, 3, 9, 0) })).toBe('Delivered')

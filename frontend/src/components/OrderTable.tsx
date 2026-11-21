@@ -1,3 +1,4 @@
+import { checkInsOf, everCheckedIn } from '../lib/checkInDays'
 import { Fragment, useState, type ReactNode } from 'react'
 import { ActionButton, Pill, TableScroll, Tile } from './Surface'
 import { ActionMenu, type MenuAction } from './ActionMenu'
@@ -143,7 +144,8 @@ export function OrderTable({
                     <td className={`${CELL} whitespace-nowrap`}>
                       <span className="flex items-center gap-1">
                         {!live ? <Pill tone="red">Cancelled</Pill> : <Pill tone={PAYMENT_TONE[order.payment_status]}>{paymentWordsOf(order)}</Pill>}
-                        {live && order.checked_in_at && <Pill tone="green">Checked in</Pill>}
+                        {/* How many days, where it was more than one (0314): the days themselves are on the card. */}
+                        {live && everCheckedIn(order) && <Pill tone="green">{checkInsOf(order).length > 1 ? `Checked in · ${checkInsOf(order).length} days` : 'Checked in'}</Pill>}
                       </span>
                     </td>
                     <td className={`${CELL} whitespace-nowrap text-on-surface-variant`}>{way && way !== 'none' ? wayWords(way, onlineName) : way === 'none' ? 'Not chosen yet' : '—'}</td>

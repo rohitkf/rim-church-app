@@ -608,6 +608,52 @@ describe('an event’s page', () => {
     expect(within(ben).getByText(/^Registered /)).toBeInTheDocument()
   })
 
+  /*
+   * An event of several days is checked in on each (0314). A registration's
+   * own checked_in_at is only the latest, so the days are read from what is
+   * kept for each.
+   */
+  describe('an event checked in on more than one day', () => {
+    const fri = { on_date: '2026-11-20', checked_in_at: '2026-11-20T18:15:00Z' }
+    const sat = { on_date: '2026-11-21', checked_in_at: '2026-11-21T10:02:00Z' }
+    const person = (id: string, name: string, over: Partial<OrderRow>) =>
+      order({ id, code: `${id.toUpperCase()}XXXXXXXXXXXX`.slice(0, 12), name, payment_status: 'received', ...over })
+
+    beforeEach(() => {
+      state.orders = [
+        person('a', 'Both Days', { checked_in_at: sat.checked_in_at, check_ins: [sat, fri] }),
+        person('b', 'Friday Only', { checked_in_at: fri.checked_in_at, check_ins: [fri] }),
+        person('c', 'Came Friday, Undone Saturday', { checked_in_at: null, check_ins: [fri] }),
+        person('d', 'Never Came', { checked_in_at: null, check_ins: [] }),
+      ]
+    })
+
+    it('counts who came each day, where it used to count one figure', async () => {
+      show()
+      await screen.findByRole('listitem', { name: 'Both Days' })
+      const heading = screen.getByRole('heading', { name: /Who has registered/ })
+      const pills = within(heading).getAllByText(/checked in$/).map((p) => p.textContent)
+      expect(pills).toHaveLength(2)
+      expect(pills[0]).toMatch(/: 3 checked in$/)
+      expect(pills[1]).toMatch(/: 1 checked in$/)
+      expect(within(heading).queryByText(/^\d+ checked in$/)).toBeNull()
+    })
+
+    it('shows each day somebody came, on their card', async () => {
+      show()
+      const both = await screen.findByRole('listitem', { name: 'Both Days' })
+      expect(within(both).getAllByText(/^Checked in /)).toHaveLength(2)
+      expect(within(await screen.findByRole('listitem', { name: 'Friday Only' })).getAllByText(/^Checked in /)).toHaveLength(1)
+    })
+
+    it('still says somebody came on the first day after the second day’s check-in was undone', async () => {
+      show()
+      const undone = await screen.findByRole('listitem', { name: 'Came Friday, Undone Saturday' })
+      expect(within(undone).getAllByText(/^Checked in /)).toHaveLength(1)
+      expect(within(await screen.findByRole('listitem', { name: 'Never Came' })).queryByText(/^Checked in /)).toBeNull()
+    })
+  })
+
   it('leads back to every event from the top', async () => {
     show()
     await screen.findByRole('listitem', { name: 'Ama Owusu' })

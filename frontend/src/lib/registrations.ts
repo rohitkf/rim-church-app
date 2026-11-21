@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { checkInCounts, checkInDayName, checkInDays, checkInsOf } from './checkInDays'
 import type { ExportSheet } from './volunteerExport'
 import { invokeEdgeFunction } from './edgeFunction'
 import { supabase } from './supabaseClient'
@@ -1585,11 +1586,13 @@ export const orderRowSchema = z.object({
   tickets: z.array(z.object({ ticket_type_id: z.string(), attendee_name: z.string().nullable(), unit_price_pence: z.number() })),
   /** Bank details for the refund have come in (0253): when. Null without the Refunds right, which cannot read them. */
   refund_details: z.object({ created_at: z.string() }).nullable().optional(),
+  /** Each day it was checked in on (0314): `checked_in_at` above is only the latest. */
+  check_ins: z.array(z.object({ on_date: z.string(), checked_in_at: z.string() })).nullable().optional(),
 })
 export type OrderRow = z.infer<typeof orderRowSchema>
 
 export const ORDER_ROW_COLUMNS =
-  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, invite_id, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, email_status, email_status_at, email_status_detail, email_changed_at, changer:profiles!registration_orders_email_changed_by_fkey(first_name, last_name), email_before, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at)'
+  'id, code, date_id, name, email, phone, quantity, subtotal_pence, discount_pence, total_pence, promo_code, invite_id, payment_status, payment_method, status, checked_in_at, notes, email_sent_at, email_status, email_status_at, email_status_detail, email_changed_at, changer:profiles!registration_orders_email_changed_by_fkey(first_name, last_name), email_before, source, proof_path, proof_reference, proof_at, received_at, received_by, receiver:profiles!registration_orders_received_by_fkey(first_name, last_name), payment_verified_at, verifier:profiles!registration_orders_payment_verified_by_fkey(first_name, last_name), refund_status, refund_at, refunder:profiles!registration_orders_refund_by_fkey(first_name, last_name), anonymised_at, created_at, tickets:registration_order_tickets(ticket_type_id, attendee_name, unit_price_pence), refund_details:registration_refund_details(created_at), check_ins:registration_check_ins(on_date, checked_in_at)'
 
 /** Every order on an event, newest first. */
 export async function fetchRegistrationOrders(eventId: string): Promise<OrderRow[]> {
@@ -1707,6 +1710,10 @@ export function buildRegistrationWorkbook(
   }
   const statusWords = (o: OrderRow) => (o.status === 'cancelled' ? 'Cancelled' : 'Registered')
   const confirmed = orders.filter((o) => o.status === 'confirmed')
+  // Who came on which day (0314): a column a day, for an event checked in on more than one.
+  const days = checkInDays(orders)
+  const dayColumns = days.length > 1 ? days : []
+  const inOn = (o: OrderRow, day: string) => stamp(checkInsOf(o).find((c) => c.on_date === day)?.checked_in_at ?? null)
 
   const ordersSheet: ExportSheet = {
     name: 'Orders',
@@ -1727,6 +1734,7 @@ export function buildRegistrationWorkbook(
       { label: 'Paid by', width: 14 },
       { label: 'Status', width: 11 },
       { label: 'Checked in', width: 20 },
+      ...dayColumns.map((day) => ({ label: `In: ${checkInDayName(day, dates)}`, width: 20 })),
       { label: 'Registered', width: 20 },
       { label: 'How', width: 10 },
       { label: 'Received at', width: 20 },
@@ -1756,6 +1764,7 @@ export function buildRegistrationWorkbook(
       o.payment_method ? METHOD_WORDS[o.payment_method] : '',
       statusWords(o),
       stamp(o.checked_in_at),
+      ...dayColumns.map((day) => inOn(o, day)),
       stamp(o.created_at),
       o.source === 'walk_in' ? 'At the door' : 'Online',
       stamp(o.received_at ?? null),
@@ -1802,6 +1811,7 @@ export function buildRegistrationWorkbook(
       ['', '', '', '', ''],
       ['Registered orders', confirmed.length, '', '', ''],
       ['Tickets', confirmed.reduce((n, o) => n + o.quantity, 0), '', '', ''],
+      ...checkInCounts(confirmed).map((c) => [`Checked in: ${checkInDayName(c.day, dates)}`, c.registrations, `${c.people} ${c.people === 1 ? 'person' : 'people'}`, '', '']),
       ['Cancelled orders', orders.length - confirmed.length, '', '', ''],
       ['Expected (£)', money(sums.expected), '', '', ''],
       ['Received (£)', money(sums.received), '', '', ''],
