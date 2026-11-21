@@ -84,6 +84,9 @@ vi.mock('../lib/supabaseClient', () => {
   }
 })
 
+// Whether the Countdown is theirs to open is another test's question (ServicePlannerReorder).
+vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => false, standing: 'church' }) }))
+
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: false, isSuperAdmin: false, isDepartmentHead: () => false }),
 }))

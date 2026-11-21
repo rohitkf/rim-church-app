@@ -161,7 +161,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/service-planner',
         target: 'page-title',
         title: 'Service Planner',
-        body: 'The running order of each service, session by session, who is taking each and who is coordinating it. Whoever plans it can drag the names on a session into order. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown. Under the title it says when availability answers close for that service; whoever manages services can give one service a deadline of its own there.',
+        body: 'The running order of each service, session by session, who is taking each and who is coordinating it. Whoever plans it can drag the names on a session into order, and whoever may open the Countdown has a button to it on the running order. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown. Under the title it says when availability answers close for that service; whoever manages services can give one service a deadline of its own there.',
       },
       {
         path: '/events',

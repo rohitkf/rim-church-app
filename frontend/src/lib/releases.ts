@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'countdown-button-on-the-running-order',
+    date: '2026-11-21',
+    title: 'A button to the Countdown on the running order',
+    lead: 'A service’s running order now has a Countdown button, for everybody who may open the Countdown.',
+    points: [
+      'It is at the top of the running order, beside the number of sessions, and opens the Countdown page.',
+      'The Countdown already has “Running order” on each service, so the two pages lead to each other.',
+      'Somebody who may not open the Countdown does not see the button.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'a-guests-note-under-their-name',
     date: '2026-11-21',
     title: 'A guest’s note shows under their name',
