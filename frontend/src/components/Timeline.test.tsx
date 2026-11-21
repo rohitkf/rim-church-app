@@ -130,6 +130,15 @@ describe('AssigneePill', () => {
     expect(screen.getByText('Grace Mensah')).toBeInTheDocument()
     expect(screen.getByText('GM')).toHaveAttribute('aria-hidden', 'true')
   })
+
+  it('says a guest’s note under their name, and nothing when there is none', () => {
+    const { rerender } = render(<AssigneePill name="Ps Saju Wigan" initials="SW" note="pastor from Harlow" />)
+    expect(screen.getByText('Note: pastor from Harlow')).toBeInTheDocument()
+    rerender(<AssigneePill name="Ps Saju Wigan" initials="SW" note={null} />)
+    expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
+    rerender(<AssigneePill name="Ps Saju Wigan" initials="SW" note="  " />)
+    expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
+  })
 })
 
 describe('RailCountdown', () => {

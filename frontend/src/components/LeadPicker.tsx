@@ -284,52 +284,68 @@ export function LeadPicker({
       {/* Who is on it, each one removable where they are shown rather than
           back inside a list that has to be opened to find them. */}
       {drawn.map((option) => (
+        // The pill, and under it what is kept about a guest. One piece,
+        // so a name that is dragged takes its note with it.
         <span
           key={`${option.kind}-${option.id}`}
           {...chipProps(keyOf(option))}
-          className={`inline-flex items-center gap-1.5 rounded-full py-1 pr-1 text-label-md text-on-surface ${
-            movable ? 'pl-1' : 'pl-3'
-          } ${
-            sub
-              ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
-              : 'bg-raised-strong hairline'
-          }`}
+          className="inline-flex max-w-full flex-col items-start gap-0.5 rounded-[1.25rem]"
         >
-          {/* The grip, and the only place a drag starts: the name beside
-              it stays text, and the page under it still scrolls. */}
-          {movable && (
+          <span
+            className={`inline-flex max-w-full items-center gap-1.5 rounded-full py-1 pr-1 text-label-md text-on-surface ${
+              movable ? 'pl-1' : 'pl-3'
+            } ${
+              sub
+                ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
+                : 'bg-raised-strong hairline'
+            }`}
+          >
+            {/* The grip, and the only place a drag starts: the name beside
+                it stays text, and the page under it still scrolls. */}
+            {movable && (
+              <button
+                type="button"
+                aria-label={`Move ${option.name}. Hold to drag, or use the arrow keys.`}
+                {...gripProps(keyOf(option))}
+                className="tap -mr-0.5 flex w-4 shrink-0 cursor-grab select-none items-center justify-center self-stretch rounded-full text-on-surface-faint hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary active:cursor-grabbing"
+              >
+                <span aria-hidden="true" className="text-body-md leading-none tracking-[-0.15em]">
+                  ⠿
+                </span>
+              </button>
+            )}
+            <span className="min-w-0 break-words">{option.name}</span>
+            {sub && (
+              <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
+                Sub
+              </span>
+            )}
+            {option.kind === 'guest' && (
+              <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-blue-soft">
+                Guest
+              </span>
+            )}
             <button
               type="button"
-              aria-label={`Move ${option.name}. Hold to drag, or use the arrow keys.`}
-              {...gripProps(keyOf(option))}
-              className="tap -mr-0.5 flex w-4 shrink-0 cursor-grab select-none items-center justify-center self-stretch rounded-full text-on-surface-faint hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary active:cursor-grabbing"
+              aria-label={`Remove ${option.name}`}
+              onClick={() => remove(option)}
+              className="tap flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-raised hover:text-on-surface"
             >
-              <span aria-hidden="true" className="text-body-md leading-none tracking-[-0.15em]">
-                ⠿
-              </span>
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
             </button>
-          )}
-          <span className="break-words">{option.name}</span>
-          {sub && (
-            <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
-              Sub
+          </span>
+          {/* What was written about a guest when they were put on the
+              roll — "pastor from Harlow" — because whoever reads the
+              running order may never have met them. Under the pill and
+              not in it: beside a badge and two buttons, on a phone, it
+              was left a column one word wide. */}
+          {option.kind === 'guest' && option.note?.trim() && (
+            <span className={`max-w-full break-words pr-3 text-label-sm text-on-surface-variant ${movable ? 'pl-6' : 'pl-3'}`}>
+              Note: {option.note.trim()}
             </span>
           )}
-          {option.kind === 'guest' && (
-            <span className="shrink-0 rounded-full bg-secondary/15 px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-blue-soft">
-              Guest
-            </span>
-          )}
-          <button
-            type="button"
-            aria-label={`Remove ${option.name}`}
-            onClick={() => remove(option)}
-            className="tap flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-raised hover:text-on-surface"
-          >
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
-          </button>
         </span>
       ))}
 

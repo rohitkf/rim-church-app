@@ -431,3 +431,48 @@ describe('putting the people on a session in order', () => {
     expect(onChange).toHaveBeenLastCalledWith([three[1], three[0]])
   })
 })
+
+/*
+ * A visiting speaker is a name most of the team has never heard. What was
+ * written about them on the guest roll is said under the name, where the
+ * running order is read.
+ */
+describe('a guest’s note', () => {
+  it('is said under their name on the session', () => {
+    render(
+      <LeadPicker
+        label="Who leads Message"
+        options={options}
+        values={[
+          { kind: 'member', id: 'u1' },
+          { kind: 'guest', id: 'g1' },
+        ]}
+        onChange={vi.fn()}
+      />,
+    )
+    // The pill and its note are one piece: a name that is dragged takes its note with it.
+    const piece = screen.getByText('Pastor Sam Varghese').parentElement?.parentElement as HTMLElement
+    expect(within(piece).getByText('Note: Guest speaker')).toBeInTheDocument()
+    // A member has none to say.
+    expect(screen.getByText('Grace Mensah').parentElement?.parentElement).not.toHaveTextContent('Note')
+  })
+
+  it('says nothing for a guest with no note, or one that is only spaces', () => {
+    const quiet: LeadOption[] = [
+      { kind: 'guest', id: 'g2', name: 'Br Joel', note: null },
+      { kind: 'guest', id: 'g3', name: 'Sis Ruth', note: '   ' },
+    ]
+    render(
+      <LeadPicker
+        label="Who leads Message"
+        options={quiet}
+        values={[
+          { kind: 'guest', id: 'g2' },
+          { kind: 'guest', id: 'g3' },
+        ]}
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
+  })
+})

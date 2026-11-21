@@ -1697,6 +1697,7 @@ export function ServicePlannerPage() {
                                         key={person.id}
                                         name={name}
                                         initials={assigneeInitials(person)}
+                                        note={person.guest?.note}
                                       />
                                     ) : null
                                   })
@@ -1768,6 +1769,7 @@ export function ServicePlannerPage() {
                                           key={person.id}
                                           name={name}
                                           initials={assigneeInitials(person)}
+                                          note={person.guest?.note}
                                           substitute
                                         />
                                       ) : null
