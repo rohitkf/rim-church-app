@@ -1,5 +1,7 @@
 import { isName } from '../lib/personName'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { inShownOrder } from '../lib/chipOrder'
+import { useChipReorder } from '../lib/useChipReorder'
 import type { PersonRef } from '../lib/sessionAssignees'
 
 export interface LeadOption {
@@ -37,6 +39,13 @@ function sameName(name: string) {
  *
  * Filtering matches anywhere in the name rather than only the start,
  * because people search by surname at least as often as by first name.
+ *
+ * And the order is theirs to set. People are listed in the order they
+ * were added, which is the order somebody happened to think of them, and
+ * it is the order every other screen prints them in. With two or more on
+ * it each name carries a grip: hold it and drag the name to its place, or
+ * focus it and use the arrow keys (lib/useChipReorder). One name has no
+ * grip, because there is nowhere for it to go.
  */
 export function LeadPicker({
   values,
@@ -97,6 +106,18 @@ export function LeadPicker({
         .filter((o): o is LeadOption => !!o),
     [values, options],
   )
+
+  // The names as they are drawn: a step ahead of `values` while one is
+  // being dragged, and until the save of a new order has come back.
+  const chosenIds = useMemo(() => chosen.map(keyOf), [chosen])
+  const { ordered, gripProps, chipProps } = useChipReorder(chosenIds, (next) =>
+    onChange(inShownOrder(values, next, keyOf)),
+  )
+  const drawn = useMemo(
+    () => ordered.map((key) => chosen.find((o) => keyOf(o) === key)).filter((o): o is LeadOption => !!o),
+    [ordered, chosen],
+  )
+  const movable = chosen.length > 1
 
   const matches = useMemo(() => {
     const needle = sameName(query)
@@ -262,15 +283,32 @@ export function LeadPicker({
     <div ref={boxRef} className="relative flex flex-wrap items-center gap-1.5">
       {/* Who is on it, each one removable where they are shown rather than
           back inside a list that has to be opened to find them. */}
-      {chosen.map((option) => (
+      {drawn.map((option) => (
         <span
           key={`${option.kind}-${option.id}`}
-          className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-3 pr-1 text-label-md text-on-surface ${
+          {...chipProps(keyOf(option))}
+          className={`inline-flex items-center gap-1.5 rounded-full py-1 pr-1 text-label-md text-on-surface ${
+            movable ? 'pl-1' : 'pl-3'
+          } ${
             sub
               ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
               : 'bg-raised-strong hairline'
           }`}
         >
+          {/* The grip, and the only place a drag starts: the name beside
+              it stays text, and the page under it still scrolls. */}
+          {movable && (
+            <button
+              type="button"
+              aria-label={`Move ${option.name}. Hold to drag, or use the arrow keys.`}
+              {...gripProps(keyOf(option))}
+              className="tap -mr-0.5 flex w-4 shrink-0 cursor-grab select-none items-center justify-center self-stretch rounded-full text-on-surface-faint hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary active:cursor-grabbing"
+            >
+              <span aria-hidden="true" className="text-body-md leading-none tracking-[-0.15em]">
+                ⠿
+              </span>
+            </button>
+          )}
           <span className="break-words">{option.name}</span>
           {sub && (
             <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
